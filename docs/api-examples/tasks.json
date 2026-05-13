@@ -1,0 +1,43 @@
+// ============================================================================
+// GET /tasks — unified task list
+// ============================================================================
+// Response 200
+{
+  "tasks": [
+    {
+      "id": "task_1",
+      "name": "Daily Backup",
+      "platform": "WINDOWS_TASK_SCHEDULER",
+      "schedule": "0 3 * * *",
+      "nextRunTime": "2025-04-16T03:00:00Z",
+      "status": "ACTIVE",
+      "quickLink": "taskschd.msc /s /query?task=Daily%20Backup",
+      "metadata": { "taskPath": "\\MyTasks\\Daily Backup" }
+    }
+  ],
+  "total": 25
+}
+
+
+// ============================================================================
+// POST /tasks/{taskId}/run — manually trigger
+// ============================================================================
+// Response 202
+{ "executionId": "exec_123", "status": "PENDING" }
+
+
+// ============================================================================
+// GET /tasks/{taskId}/logs — execution history
+// ============================================================================
+// Response 200
+{
+  "logs": [
+    {
+      "id": "exec_123",
+      "triggeredAt": "2025-04-15T14:22:00Z",
+      "status": "SUCCESS",
+      "log": "Backup completed, 2.3 GB copied.",
+      "platformRunId": "win_run_456"
+    }
+  ]
+}

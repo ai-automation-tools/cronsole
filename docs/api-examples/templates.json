@@ -1,0 +1,45 @@
+// ============================================================================
+// GET /templates — list public + user templates
+// ============================================================================
+// Response 200
+{
+  "templates": [
+    {
+      "id": "tmpl_1",
+      "name": "Daily Backup at 3 AM",
+      "description": "Run backup script every night",
+      "scheduleExpression": "0 3 * * *",
+      "command": "backup.bat",
+      "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+      "isPublic": true,
+      "upvotes": 42
+    }
+  ]
+}
+
+
+// ============================================================================
+// POST /templates/{templateId}/apply — instantiate a template
+// ============================================================================
+// Request
+{ "platformId": "plat_win_1", "taskName": "My Backup" }
+
+// Response 201
+{ "taskId": "task_42", "platformTaskId": "My Backup" }
+
+
+// ============================================================================
+// POST /templates/convert — cross-platform schedule conversion
+// ============================================================================
+// Request
+{
+  "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+  "targetPlatform": "CLAUDE_CODE",
+  "schedule": "0 3 * * *"
+}
+
+// Response 200
+{
+  "converted": "cron: 0 3 * * *",
+  "warnings": ["Claude routines only support hourly granularity"]
+}

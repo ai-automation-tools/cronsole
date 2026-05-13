@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+      "playwright": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "@playwright/mcp@latest"
+      ]
+    },
+      "nanobanana": {
+      "command": "uvx",
+      "args": [
+        "nanobanana-mcp-server@latest"
+      ],
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      }
+    },
+       "serper": {
+      "command": "uvx",
+      "args": [
+        "serper-mcp-server"
+      ]
+    },
+      "github": {
+        "type": "http",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "headers": {
+          "Authorization": "Bearer ${GITHUB_COPILOT_TOKEN}"
+        }
+      },
+          "notion": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@suekou/mcp-notion-server"
+      ],
+      "env": {
+        "NOTION_API_TOKEN": "${NOTION_API_TOKEN}"
+      }
+    },
+      "context7": {
+        "command": "npx",
+        "args": ["-y", "@upstash/context7-mcp@latest"]
+      },
+      "elevenlabs": {
+        "command": "uvx",
+        "args": ["elevenlabs-mcp"],
+        "env": {
+          "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY}"
+        }
+      }
+    }
+  }

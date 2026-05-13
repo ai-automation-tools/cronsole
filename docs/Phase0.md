@@ -95,6 +95,18 @@ A single, elegant web dashboard that gives users unified control over every sche
 
 ---
 
+## Deliverable 5: Competitive Landscape Analysis
+
+Survey of incumbent scheduled-task and workflow-automation tools, plus where TaskHub differentiates. Full table and takeaways live in [`Competition_Analysis.md`](Competition_Analysis.md).
+
+**Headline findings**
+- No incumbent unifies AI-assistant schedulers (Claude Code, ChatGPT, Jules) with OS-level schedulers (Windows Task Scheduler, cron). TaskHub's unification thesis is uncontested today.
+- Desktop competitors are either stagnant (Task Till Dawn, last update 2019) or expensive (VisualCron ~$2.3k/yr, ActiveBatch $50k+/yr).
+- Web orchestrators (Airflow, n8n, Rundeck, Jenkins) target data engineers / DevOps — wrong persona for our power-user developer.
+- **MCP integration is the unique wedge.** No surveyed competitor exposes a Model Context Protocol surface; this anchors the Phase 6 differentiator.
+
+---
+
 ## Key Activity 1: Validate Feasibility of Controlling Windows Task Scheduler
 
 **Approach**  
@@ -235,6 +247,7 @@ enum ExecutionStatus {
 - [ ] Risk register reviewed.
 - [ ] Tech stack locked.
 - [ ] MVP scope agreed and documented.
+- [x] Competitive landscape surveyed ([`Competition_Analysis.md`](Competition_Analysis.md)).
 - [ ] Windows agent feasibility proven via 2-day POC spike.
 - [ ] Initial Prisma schema committed.
 

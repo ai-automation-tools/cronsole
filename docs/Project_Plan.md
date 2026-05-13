@@ -30,6 +30,7 @@ Also: [`api-examples/`](api-examples/) — sample request/response payloads.
 - High‑level risk assessment (API limitations, platform auth, sync frequency)
 - Initial tech stack selection (React/TypeScript + Node.js + PostgreSQL + Docker)
 - MVP vs. feature‑complete roadmap
+- Competitive landscape analysis ([`Competition_Analysis.md`](Competition_Analysis.md))
 
 ### Key Activities
 - Validate feasibility of controlling Windows Task Scheduler via remote API (WinRM / custom agent)

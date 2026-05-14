@@ -20,6 +20,8 @@ Build a modern, dark-themed web application that provides a single pane of glass
 
 Also: [`api-examples/`](api-examples/) — sample request/response payloads.
 
+Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md).
+
 ---
 
 ## Phase 0: Inception & Discovery

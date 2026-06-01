@@ -4,12 +4,15 @@
 **Status:** Not started
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase4.md`](Phase4.md)
+**Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
 
 ---
 
 ## Goal
 
 Promote the staging build to production, distribute the Windows agent installer, and complete the controlled rollout from private beta → public beta → GA.
+
+> **Go-to-market positioning (per the assessment).** Lead with **"TaskHub helps you see, trigger, and trust scheduled tasks across your existing systems."** Market **"high-confidence integrations," not "supports everything"** — two deep, reliable connectors beat a long checklist of shallow ones. Pitch **MCP / AI task creation as "coming soon"** (it's Phase 6, not GA). Do not advertise platforms that are quick-links-only as if they were full integrations.
 
 ---
 
@@ -78,11 +81,12 @@ Promote the staging build to production, distribute the Windows agent installer,
 
 ### Documentation
 
-- [ ] **Getting started** — sign up, connect Claude, install Windows agent.
+- [ ] **Getting started** — sign up, connect Claude, install Windows agent (target: 2 systems in < 15 min).
 - [ ] **Agent install guide** — Windows requirements, firewall ports, troubleshooting.
-- [ ] **Template authoring** — JSON schema, validation rules, submission flow.
+- [ ] **Agent trust doc** — plain-language page on exactly what the agent can/cannot do, what data leaves the machine, least-privilege model, and how to revoke/uninstall (mitigates R8; required before public beta).
+- [ ] **Template authoring** — JSON schema, validation rules, confidence-score meaning, submission flow.
 - [ ] **API reference** — generated from OpenAPI spec.
-- [ ] **README** in the repo (use the **`github-readme`** skill).
+- [ ] **README** in the repo (use the **`github-readme`** skill) — positions TaskHub as a control plane with high-confidence integrations; MCP labelled "coming soon".
 
 ### CI/CD
 

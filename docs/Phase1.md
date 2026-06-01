@@ -4,8 +4,11 @@
 **Status:** Drafted
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase0.md`](Phase0.md)
+**Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md) — the "first features that matter most" set drives the Must-have priorities below.
 
 ---
+
+> **Requirements lens (per the assessment).** The MVP is a **reliability control plane**, so the highest-value requirements are: unified inventory + **status normalization**, **one-click run/enable/disable with confirmations**, **execution timeline + failure alerting**, **connector health diagnostics**, and schedule conversion **with explicit caveats / a confidence score**. Advanced workflow building and broad platform parity are explicitly deferred.
 
 ## Deliverable 1: Functional Requirements Document (FRD)
 
@@ -18,16 +21,21 @@
 | FR3 | User can connect Claude Code routines via API key | Must | ✅ |
 | FR4 | System discovers all scheduled tasks from connected Windows agent | Must | ✅ |
 | FR5 | System lists all routines from Claude Code API | Must | ✅ |
-| FR6 | Dashboard shows unified task list with platform icon, name, schedule, next run | Must | ✅ |
+| FR6 | Dashboard shows unified task list with platform icon, name, **normalized status**, schedule, next run | Must | ✅ |
 | FR7 | User can click a "Run now" button to manually trigger a Windows task | Must | ✅ |
 | FR8 | User can click a "Run now" button to manually trigger a Claude routine | Should | ✅ (if API allows) |
 | FR9 | User can click an "Edit in native UI" button → deep link to platform's own management page | Must | ✅ |
 | FR10 | User can view template library (predefined schedule examples) | Must | ✅ |
 | FR11 | User can apply a template to create a new task on a connected platform | Should | ✅ |
 | FR12 | User can search/filter tasks by platform, name, status | Could | ❌ (post-MVP) |
-| FR13 | System syncs task list every 5 minutes or on agent push | Must | ✅ |
+| FR13 | System syncs task list every 5 minutes or on agent push, **achieving > 95% sync reliability** | Must | ✅ |
 | FR14 | User receives visual warning if Windows agent is offline | Must | ✅ |
 | FR15 | Dark theme persists across sessions | Must | ✅ |
+| FR16 | User can **enable / disable** a task one-click from the dashboard | Must | ✅ |
+| FR17 | **Destructive or state-changing actions (run, enable, disable, delete) require a confirmation** | Must | ✅ |
+| FR18 | Every run/trigger writes an **execution-timeline entry**, and the user sees an **alert/notification on failure** | Must | ✅ |
+| FR19 | Dashboard surfaces **connector health diagnostics** per platform (agent reachable, API key valid, last successful sync, error reason) | Must | ✅ |
+| FR20 | Schedule conversion shows a **confidence score + explicit caveats/warnings** before the user applies it | Must | ✅ |
 
 ### Non-Functional Requirements
 
@@ -41,6 +49,8 @@
 | NFR6 | Web app availability | 99.5% uptime |
 | NFR7 | All API endpoints require authentication | Yes |
 | NFR8 | Secrets (API keys, tokens) encrypted at rest | AES-256 |
+| NFR9 | Sync reliability across connected tasks | > 95% |
+| NFR10 | Time to connect 2 systems (onboarding) | < 15 minutes |
 
 ---
 
@@ -65,6 +75,12 @@
 **US2.3** As a user, I want a quick link to edit a task in its native interface because my web app cannot support all advanced settings.
 - **Acceptance:** Each task has an "Edit original" button that opens Windows Task Scheduler or Claude dashboard in a new tab.
 
+**US2.4** As a user, I want to enable or disable a task in one click so that I can pause something without deleting it.
+- **Acceptance:** Each task row has an enable/disable toggle; toggling prompts a confirmation, sends the command to the platform, and the normalized status updates within 5 seconds. (FR16, FR17)
+
+**US2.5** As a user, I want a confirmation before any run/enable/disable/delete so that I don't accidentally fire a task.
+- **Acceptance:** State-changing actions open a confirmation dialog naming the task and platform; only on confirm is the command sent. (FR17)
+
 ### Epic 3: Templates & Conversion
 
 **US3.1** As a user, I want to browse a library of schedule templates (e.g., "daily backup at 3 AM") so that I don't have to write cron expressions from scratch.
@@ -80,6 +96,12 @@
 
 **US4.2** As a user, I want to see recent execution logs for triggered tasks so that I can debug failures.
 - **Acceptance:** Clicking a task shows a modal with last 5 runs (timestamp, status, output snippet).
+
+**US4.3** As a user, I want connector health diagnostics per platform so that I can trust the dashboard is showing me the real state.
+- **Acceptance:** Each platform card shows: connection state, last successful sync time, and — when unhealthy — the specific reason (agent unreachable, API key invalid/expired, rate-limited). (FR19)
+
+**US4.4** As a user, I want to be alerted when a task run fails so that I'm not relying on silent success.
+- **Acceptance:** A failed run produces a visible in-app alert and an execution-timeline entry with the failure reason. (FR18)
 
 ---
 
@@ -226,6 +248,7 @@
 // Response 200
 {
   "converted": "cron: 0 3 * * *",
+  "confidence": 0.92,                 // 0–1 semantic-fidelity score; surfaced before apply
   "warnings": ["Claude routines only support hourly granularity"]
 }
 ```
@@ -291,6 +314,14 @@ Time zone: **UTC** only.
 - Cron must be valid (via `cron-validator` library).
 - Timezone conversion: user sees local time, but stored UTC.
 - Warning if schedule uses seconds (not supported) or year (ignore).
+
+### Confidence Score (per the assessment — mitigates semantic-mismatch risk)
+Every conversion returns a **confidence score (0–1)** alongside warnings, shown in the preview **before apply**:
+- **1.0** — lossless round-trip (e.g., cron → Claude cron passthrough).
+- **0.7–0.99** — semantically equivalent but with caveats (e.g., a single cron mapped to multiple Windows triggers).
+- **< 0.7** — lossy or approximate; the apply button is gated behind an explicit "I understand" acknowledgement.
+
+The score is derived from a round-trip check (`source → target → source`) plus a penalty for each warning. Low-confidence conversions are never applied silently.
 
 ### Example Conversion
 **Input (Windows):** Daily at 9:30 AM, Mon–Fri.

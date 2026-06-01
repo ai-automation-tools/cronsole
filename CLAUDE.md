@@ -26,8 +26,8 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 
 ## 2. Current Status
 
-- **Phase:** 0 — Inception & Discovery
-- **Repo state:** Documentation only. No source code yet. Private GitHub repo created 2026-05-13.
+- **Phase:** 1 — Requirements & Specifications (Active)
+- **Repo state:** Documentation phase. Windows Agent feasibility validated 2026-06-01 via technical spike.
 - **MVP target platforms:** Windows Task Scheduler + Claude Code Routines.
 - **Out of scope for MVP:** Two-way sync, MCP creation, ChatGPT API integration, Open Claw / Hermes / Jules connectors.
 

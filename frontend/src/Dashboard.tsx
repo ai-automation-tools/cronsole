@@ -12,7 +12,6 @@ import {
   Info,
   Clock,
   ExternalLink,
-  ChevronRight,
   ArrowRight
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -219,8 +218,13 @@ const TemplatesScreen = () => {
     queryKey: ['templates'],
     queryFn: async () => {
       if (DEMO_MODE) return DEMO_TEMPLATES;
-      const response = await api.get('/templates');
-      return response.data;
+      try {
+        const response = await api.get('/templates');
+        return response.data;
+      } catch (err) {
+        console.error('Failed to fetch templates:', err);
+        return []; // Fallback to empty list so we can show the empty state
+      }
     },
     initialData: DEMO_MODE ? DEMO_TEMPLATES : undefined
   });
@@ -234,6 +238,8 @@ const TemplatesScreen = () => {
     );
   }
 
+  const hasTemplates = templates && templates.length > 0;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-end">
@@ -243,45 +249,55 @@ const TemplatesScreen = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
-        {templates?.map(template => (
-          <div key={template.id} className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-blue-500/30 group">
-            <div className="p-6 flex-1">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex gap-2">
-                   {template.targetPlatforms.map(p => (
-                     <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                       {p.split('_')[0]}
-                     </span>
-                   ))}
+      {!hasTemplates ? (
+        <div className="flex flex-col items-center justify-center h-[40vh] border-2 border-dashed border-slate-800 rounded-3xl p-10 text-center">
+          <Library size={48} className="text-slate-700 mb-4" />
+          <h3 className="text-xl font-bold text-slate-300">No templates found</h3>
+          <p className="text-slate-500 max-w-sm mt-2">
+            The template library is currently empty. If you are running locally, make sure to run <code className="bg-slate-900 px-2 py-1 rounded text-blue-400">npm run seed</code> in the backend folder.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
+          {templates.map(template => (
+            <div key={template.id} className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-blue-500/30 group">
+              <div className="p-6 flex-1">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex gap-2">
+                     {template.targetPlatforms.map(p => (
+                       <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                         {p.split('_')[0]}
+                       </span>
+                     ))}
+                  </div>
+                  <div className="flex items-center gap-1 text-blue-400 bg-blue-600/10 px-2 py-0.5 rounded-full border border-blue-500/20 text-[10px] font-bold">
+                     <Activity size={10} /> {template.upvotes}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 text-blue-400 bg-blue-600/10 px-2 py-0.5 rounded-full border border-blue-500/20 text-[10px] font-bold">
-                   <Activity size={10} /> {template.upvotes}
+
+                <h3 className="text-xl font-bold mb-2 group-hover:text-blue-400 transition-colors">{template.name}</h3>
+                <p className="text-sm text-slate-400 mb-6 leading-relaxed">{template.description}</p>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800/50">
+                     <Clock size={14} className="text-blue-500" />
+                     <code className="text-blue-300 font-mono">{template.scheduleExpression}</code>
+                     <span className="text-slate-500 italic ml-auto">UTC</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800/50">
+                     <ExternalLink size={14} className="text-purple-500" />
+                     <span className="truncate text-slate-300 italic">{template.command}</span>
+                  </div>
                 </div>
               </div>
 
-              <h3 className="text-xl font-bold mb-2 group-hover:text-blue-400 transition-colors">{template.name}</h3>
-              <p className="text-sm text-slate-400 mb-6 leading-relaxed">{template.description}</p>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800/50">
-                   <Clock size={14} className="text-blue-500" />
-                   <code className="text-blue-300 font-mono">{template.scheduleExpression}</code>
-                   <span className="text-slate-500 italic ml-auto">UTC</span>
-                </div>
-                <div className="flex items-center gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800/50">
-                   <ExternalLink size={14} className="text-purple-500" />
-                   <span className="truncate text-slate-300 italic">{template.command}</span>
-                </div>
-              </div>
+              <button className="w-full bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-slate-800 group-hover:border-blue-500/20">
+                Apply Template <ArrowRight size={16} />
+              </button>
             </div>
-
-            <button className="w-full bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-slate-800 group-hover:border-blue-500/20">
-              Apply Template <ArrowRight size={16} />
-            </button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

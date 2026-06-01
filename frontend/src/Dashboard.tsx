@@ -1,45 +1,39 @@
-import React, { useState } from 'react';
-import { 
-  Activity, 
-  LayoutDashboard, 
-  Settings, 
-  Plus, 
-  Play, 
-  FileText, 
-  ExternalLink, 
-  RefreshCw, 
-  CheckCircle2, 
-  XCircle, 
-  Clock,
-  Shield,
-  Monitor,
+import { useState } from 'react';
+import {
+  Activity,
+  LayoutDashboard,
+  Settings,
+  Play,
+  RefreshCw,
+  XCircle,
   Cpu,
   Library,
-  ArrowRightLeft,
-  Search,
-  ChevronRight,
-  Zap,
-  Copy,
   Loader2
 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 
 // --- API Client ---
+// Base origin is configurable per environment via VITE_API_URL; the `/api`
+// prefix is appended here. Falls back to the local dev backend when unset.
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api'
+  baseURL: `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/api`
 });
 
-// --- Mock Data (Fallbacks) ---
-const MOCK_PLATFORMS = [
-  { id: 'p1', name: 'Windows', type: 'WINDOWS_TASK_SCHEDULER', status: 'Online', machine: 'MIKE-DESKTOP', version: '1.0.4' },
-  { id: 'p2', name: 'Claude', type: 'CLAUDE_CODE', status: 'Connected', api_usage: '2.4k tokens' },
-  { id: 'p3', name: 'ChatGPT', type: 'CHATGPT', status: 'Quick Links Only' },
-];
+// --- Types ---
+interface Task {
+  id: string;
+  name: string;
+  platform: string;
+  status: string;
+  externalId: string;
+  updatedAt: string;
+  metadata?: unknown;
+}
 
 // --- Components ---
 
-const Sidebar = ({ activeTab, setActiveTab }) => (
+const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) => (
   <aside className="w-64 border-r border-slate-800 flex flex-col gap-2 p-4">
     <div className="mb-8 px-2 flex items-center gap-2">
       <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-600/20">T</div>
@@ -98,7 +92,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => (
   </aside>
 );
 
-const TaskModal = ({ task, onClose, onRun }) => {
+const TaskModal = ({ task, onClose, onRun }: { task: Task | null; onClose: () => void; onRun: (taskId: string) => void }) => {
   if (!task) return null;
 
   return (
@@ -154,8 +148,8 @@ const TaskModal = ({ task, onClose, onRun }) => {
   );
 };
 
-const DashboardScreen = ({ onTaskSelect, onRun }) => {
-  const { data: tasks, isLoading, refetch } = useQuery({
+const DashboardScreen = ({ onTaskSelect, onRun }: { onTaskSelect: (task: Task) => void; onRun: (taskId: string) => void }) => {
+  const { data: tasks, isLoading, refetch } = useQuery<Task[]>({
     queryKey: ['tasks'],
     queryFn: async () => {
       const response = await api.get('/tasks');
@@ -235,10 +229,10 @@ const DashboardScreen = ({ onTaskSelect, onRun }) => {
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const runMutation = useMutation({
-    mutationFn: (taskId) => api.post(`/tasks/${taskId}/run`),
+    mutationFn: (taskId: string) => api.post(`/tasks/${taskId}/run`),
     onSuccess: () => {
       alert('Task triggered successfully!');
     }

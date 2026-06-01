@@ -1,7 +1,7 @@
 # Phase 2: Architecture & Design
 
 **Duration:** 2 weeks
-**Status:** **Active**
+**Status:** **Complete (2026-06-01)**
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase1.md`](Phase1.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)

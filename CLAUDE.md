@@ -2,9 +2,10 @@
 
 > Project-scoped instructions for **TaskHub** — the Unified Scheduled Task Management System. This file overrides the parent workspace `CLAUDE.md` at `D:\AI_Agents\Repo\Mikes_Repos\CLAUDE.md` where they conflict; otherwise the parent's general standards apply.
 
-**Local path:** `D:\AI_Agents\Repo\Mikes_Repos\Other-Repos\taskhub`
+**Local path:** `D:\AI_Agents\Repo\Mikes_Repos\taskhub` *(promoted from `Other-Repos/` to a top-level workspace repo on 2026-06-01)*
 **GitHub:** [`github.com/michaelschecht/taskhub`](https://github.com/michaelschecht/taskhub) (private)
 **Working branch:** `mike_desktop` · **Deploy branch:** `main` (per workspace convention)
+**Live (frontend shell):** [`taskhub.mikesailab.com`](https://taskhub.mikesailab.com) — Vercel project `taskhub`, root dir `frontend/` (backup `taskhub-iota-seven.vercel.app`). Backend + .NET agent not yet hosted, so the live shell shows 0 tasks. Set `VITE_API_URL` in Vercel once the backend lands. Custom domain pending the Squarespace CNAME (`taskhub → cname.vercel-dns.com`).
 
 ---
 
@@ -290,7 +291,7 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 - [ ] Final hosting choice: AWS ECS vs. Render vs. self-hosted Docker. (Phase 2.)
 - [ ] Agent transport: WebSocket only, or hybrid WebSocket + long-polling for restricted networks? (Phase 0 risk R4.)
 - [ ] ChatGPT integration: full reverse-engineering effort, or stay quick-links-only forever? (Phase 6.)
-- [ ] Will this app eventually live under `*.mikesailab.com`? If yes, pick the subdomain and reflect it in `michaelschecht.github.io/index.html`.
+- [x] **Will this app live under `*.mikesailab.com`?** Resolved 2026-06-01 — yes, `taskhub.mikesailab.com`. Vercel frontend deployed + domain attached; apex landing page tile + GitHub card + ecosystem docs updated. Remaining: Mike adds the Squarespace CNAME, then host the backend (planned: Hetzner VPS) and set `VITE_API_URL`.
 
 ---
 

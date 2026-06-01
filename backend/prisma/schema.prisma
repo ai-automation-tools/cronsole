@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  platforms PlatformConnection[]
+  tasks     Task[]
+  templates Template[]
+
+  @@index([email])
+}
+
+model PlatformConnection {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  platform  PlatformType
+  
+  // Encrypted at application level (AES-256-GCM)
+  // Contains API keys, agent IDs, pairing secrets
+  config    Json
+  
+  isActive  Boolean      @default(true)
+  lastSync  DateTime?
+  
+  // Health & Diagnostics
+  healthState       HealthState @default(HEALTHY)
+  healthReason      String?
+  apiVersion        String?
+  fallbackActive    Boolean     @default(false)
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([userId, platform])
+  @@index([userId, platform])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  platform    PlatformType
+  
+  // Platform's native ID (e.g., Windows task path, Claude routine ID)
+  externalId  String
+  
+  name        String
+  schedule    String?      // Normalized 5-field cron (UTC)
+  nextRunTime DateTime?
+  status      TaskStatus   @default(ACTIVE)
+  quickLink   String?      // Deep link to native UI
+  
+  // Extra platform-specific data
+  metadata    Json?
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  executions  ExecutionLog[]
+
+  @@unique([platform, externalId])
+  @@index([userId, platform])
+  @@index([nextRunTime])
+}
+
+model ExecutionLog {
+  id            String          @id @default(cuid())
+  taskId        String
+  task          Task            @relation(fields: [taskId], references: [id])
+  triggeredAt   DateTime        @default(now())
+  status        ExecutionStatus @default(PENDING)
+  
+  // Snippet of output or error message
+  log           String?         @db.Text
+  
+  // Platform's execution instance ID
+  platformRunId String?
+
+  @@index([taskId, triggeredAt(sort: Desc)])
+}
+
+model Template {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id])
+  name              String
+  description       String?      @db.Text
+  
+  sourcePlatform    PlatformType
+  targetPlatforms   PlatformType[]
+  
+  scheduleExpression String       // The cron string
+  command            String?
+  
+  isPublic          Boolean      @default(false)
+  upvotes           Int          @default(0)
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([isPublic, upvotes(sort: Desc)])
+}
+
+enum PlatformType {
+  WINDOWS_TASK_SCHEDULER
+  CLAUDE_CODE
+  CHATGPT
+  JULES
+  OPEN_CLAW
+  HERMES
+}
+
+enum TaskStatus {
+  ACTIVE
+  DISABLED
+  UNKNOWN
+  DELETED
+}
+
+enum ExecutionStatus {
+  SUCCESS
+  FAILURE
+  TIMEOUT
+  PENDING
+}
+
+enum HealthState {
+  HEALTHY
+  DEGRADED
+  OFFLINE
+}

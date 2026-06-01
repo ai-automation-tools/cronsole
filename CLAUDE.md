@@ -26,9 +26,9 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 
 ## 2. Current Status
 
-- **Phase:** 1 — Requirements & Specifications (Active)
-- **Repo state:** Documentation phase. Windows Agent feasibility validated 2026-06-01 via technical spike.
-- **MVP target platforms:** Windows Task Scheduler + Claude Code Routines.
+- **Phase:** 3 — Development (MVP) - Active
+- **Repo state:** Functional MVP Prototype. Real-time sync between .NET Windows Agent and Node.js/Postgres backend established. Frontend wired to live data.
+- **MVP target platforms:** Windows Task Scheduler (Functional) + Claude Code Routines (Pending).
 - **Out of scope for MVP:** Two-way sync, MCP creation, ChatGPT API integration, Open Claw / Hermes / Jules connectors.
 
 ---

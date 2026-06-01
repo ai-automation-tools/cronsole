@@ -8,15 +8,22 @@ using SocketIOClient;
 // Fix ambiguity between Microsoft.Win32.TaskScheduler.Task and System.Threading.Tasks.Task
 using Task = System.Threading.Tasks.Task;
 
-Console.WriteLine("TaskHub Windows Agent Spike Starting...");
+Console.WriteLine("TaskHub Windows Agent Starting...");
 
 // Configuration
 var serverUrl = "http://localhost:3000";
 var client = new SocketIO(new Uri(serverUrl));
 
-client.OnConnected += (sender, e) =>
+client.OnConnected += async (sender, e) =>
 {
     Console.WriteLine("Connected to TaskHub server!");
+    
+    // Announce ourselves
+    await client.EmitAsync("agent:hello", new[] { new {
+        machineName = Environment.MachineName,
+        agentVersion = "1.0.0",
+        osVersion = Environment.OSVersion.ToString()
+    }});
 };
 
 client.OnDisconnected += (sender, e) =>
@@ -24,17 +31,15 @@ client.OnDisconnected += (sender, e) =>
     Console.WriteLine("Disconnected from TaskHub server.");
 };
 
-// Event: task:list
+// Event: task:list (Server requested a full sync)
 client.On("task:list", async ctx =>
 {
-    Console.WriteLine("Processing task:list request...");
+    Console.WriteLine("Server requested task:list. Syncing...");
     try
     {
         using (TaskService ts = new TaskService())
         {
-            // Limit to first 50 tasks for the spike to avoid context blowup
             var tasks = ts.AllTasks
-                .Take(50)
                 .Select(t => new
                 {
                     path = t.Path,
@@ -44,22 +49,22 @@ client.On("task:list", async ctx =>
                     nextRunTime = t.NextRunTime
                 }).ToList();
 
-            await ctx.SendAckDataAsync(new object[] { tasks });
-            Console.WriteLine($"Sent {tasks.Count} tasks to server.");
+            // Emit the full list as a named event
+            await client.EmitAsync("task:full_list", new[] { new { tasks = tasks } });
+            Console.WriteLine($"Synced {tasks.Count} tasks to server.");
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Error listing tasks: {ex.Message}");
-        await ctx.SendAckDataAsync(new object[] { new { error = ex.Message } });
+        Console.WriteLine($"Error during sync: {ex.Message}");
     }
 });
 
-// Event: task:run
+// Event: task:run (Server commanded us to run a task)
 client.On("task:run", async ctx =>
 {
     var taskPath = ctx.GetValue<string>(0);
-    Console.WriteLine($"Processing task:run request for: {taskPath}");
+    Console.WriteLine($"Server command: task:run -> {taskPath}");
 
     try
     {
@@ -69,20 +74,34 @@ client.On("task:run", async ctx =>
             if (task != null)
             {
                 task.Run();
-                await ctx.SendAckDataAsync(new object[] { new { success = true, message = "Task started successfully." } });
                 Console.WriteLine($"Task {taskPath} started.");
+                
+                // Report execution result
+                await client.EmitAsync("task:executed", new[] { new {
+                    taskExternalId = taskPath,
+                    success = true,
+                    output = "Started successfully"
+                }});
             }
             else
             {
-                await ctx.SendAckDataAsync(new object[] { new { success = false, message = "Task not found." } });
                 Console.WriteLine($"Task {taskPath} not found.");
+                await client.EmitAsync("task:executed", new[] { new {
+                    taskExternalId = taskPath,
+                    success = false,
+                    output = "Task not found"
+                }});
             }
         }
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Error running task: {ex.Message}");
-        await ctx.SendAckDataAsync(new object[] { new { success = false, message = ex.Message } });
+        await client.EmitAsync("task:executed", new[] { new {
+            taskExternalId = taskPath,
+            success = false,
+            output = ex.Message
+        }});
     }
 });
 

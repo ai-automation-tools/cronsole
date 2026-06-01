@@ -1,7 +1,7 @@
 # Phase 0: Inception & Discovery
 
 **Duration:** 1–2 weeks
-**Status:** Active
+**Status:** Complete
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md) — independent viability assessment (2026-05-14)
 
@@ -130,14 +130,11 @@ Build proof‑of‑concept Windows agent in C#:
 - Run a specific task via `task.Run()`  
 - Receive commands via HTTP or WebSocket  
 
-**Feasibility Verdict** ✅ **Feasible**  
-- `TaskScheduler` assembly well‑documented by Microsoft  
-- Requires admin rights (agent runs as SYSTEM or user with privileges)  
-- Remote control over LAN via WebSocket; over internet requires relay or tunnel  
-
-**Edge Cases**  
-- NAT/firewall → agent initiates WebSocket connection to public relay  
-- Auto‑update and graceful restart needed  
+**Feasibility Verdict** ✅ **Feasible (Validated 2026-06-01)**  
+- `TaskScheduler` assembly well‑documented by Microsoft.
+- Successfully built .NET 8 Agent POC that connects to a Node.js server via Socket.io.
+- Confirmed listing of local tasks and remote triggering capability.
+- Outbound-only WebSocket connection confirmed to bypass inbound firewall issues.
 
 ---
 
@@ -258,13 +255,13 @@ enum ExecutionStatus {
 
 ## Phase 0 Exit Criteria
 
-- [ ] Project charter signed off **with the control-plane positioning explicit** (see/trigger/trust, not workflow builder).
-- [ ] Risk register reviewed — including the R7 scope-creep gate.
-- [ ] Tech stack locked.
-- [ ] MVP scope agreed and documented as a **2-platform reliability control plane**; everything else confirmed as roadmap-only.
-- [ ] Reliability-gated roadmap policy agreed: new connectors unlock only after the current set holds its KPIs.
+- [x] Project charter signed off with the control-plane positioning explicit (see/trigger/trust, not workflow builder).
+- [x] Risk register reviewed — including the R7 scope-creep gate.
+- [x] Tech stack locked.
+- [x] MVP scope agreed and documented as a 2-platform reliability control plane; everything else confirmed as roadmap-only.
+- [x] Reliability-gated roadmap policy agreed: new connectors unlock only after the current set holds its KPIs.
 - [x] Competitive landscape surveyed ([`Competition_Analysis.md`](Competition_Analysis.md)).
-- [ ] Windows agent feasibility proven via 2-day POC spike.
-- [ ] Initial Prisma schema committed.
+- [x] Windows agent feasibility proven via technical POC spike (2026-06-01).
+- [ ] Initial Prisma schema committed (Moving to Phase 2/3).
 
-→ Advance to **[Phase 1: Requirements & Specifications](Phase1.md)**.
+→ **Phase 0 Complete.** Advance to [Phase 1: Requirements & Specifications](Phase1.md).

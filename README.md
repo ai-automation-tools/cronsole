@@ -142,7 +142,7 @@ The frontend's API origin is configurable via `VITE_API_URL` (defaults to `http:
 | Layer | Technology |
 |:---|:---|
 | **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS + TanStack Query (lucide-react icons) |
-| **Backend API** | Node.js + Express 5 + Socket.io *(JavaScript today; TS migration planned)* |
+| **Backend API** | Node.js + Express 5 + Socket.io (TypeScript) |
 | **Database** | PostgreSQL 16 + Prisma 6 ORM |
 | **Real-time** | Socket.io server ↔ agent WebSocket client |
 | **Windows agent** | .NET 8 (`TaskHub.Agent`) reading Windows Task Scheduler |

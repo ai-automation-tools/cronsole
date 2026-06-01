@@ -32,7 +32,7 @@ client.OnDisconnected += (sender, e) =>
 };
 
 // Event: task:list (Server requested a full sync)
-client.On("task:list", async ctx =>
+client.On("task:list", async response =>
 {
     Console.WriteLine("Server requested task:list. Syncing...");
     try
@@ -49,7 +49,6 @@ client.On("task:list", async ctx =>
                     nextRunTime = t.NextRunTime
                 }).ToList();
 
-            // Emit the full list as a named event
             await client.EmitAsync("task:full_list", new[] { new { tasks = tasks } });
             Console.WriteLine($"Synced {tasks.Count} tasks to server.");
         }
@@ -60,10 +59,36 @@ client.On("task:list", async ctx =>
     }
 });
 
-// Event: task:run (Server commanded us to run a task)
-client.On("task:run", async ctx =>
+// Event: task:set_status (Server commanded us to enable/disable a task)
+client.On("task:set_status", async response =>
 {
-    var taskPath = ctx.GetValue<string>(0);
+    try
+    {
+        var taskPath = response.GetValue<string>(0);
+        var enabled = response.GetValue<bool>(1);
+        
+        Console.WriteLine($"Server command: task:set_status -> {taskPath} (enabled={enabled})");
+
+        using (TaskService ts = new TaskService())
+        {
+            var task = ts.GetTask(taskPath);
+            if (task != null)
+            {
+                task.Enabled = enabled;
+                Console.WriteLine($"Task {taskPath} is now {(enabled ? "enabled" : "disabled")}.");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error setting status: {ex.Message}");
+    }
+});
+
+// Event: task:run (Server commanded us to run a task)
+client.On("task:run", async response =>
+{
+    var taskPath = response.GetValue<string>(0);
     Console.WriteLine($"Server command: task:run -> {taskPath}");
 
     try
@@ -83,25 +108,11 @@ client.On("task:run", async ctx =>
                     output = "Started successfully"
                 }});
             }
-            else
-            {
-                Console.WriteLine($"Task {taskPath} not found.");
-                await client.EmitAsync("task:executed", new[] { new {
-                    taskExternalId = taskPath,
-                    success = false,
-                    output = "Task not found"
-                }});
-            }
         }
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Error running task: {ex.Message}");
-        await client.EmitAsync("task:executed", new[] { new {
-            taskExternalId = taskPath,
-            success = false,
-            output = ex.Message
-        }});
     }
 });
 

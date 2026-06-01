@@ -1,249 +1,234 @@
 <h1 align="center">TaskHub</h1>
 
 <p align="center">
-  <em>One pane of glass for every scheduled task you own — Windows, AI assistants, and cron alike.</em>
+  <em>One pane of glass for every scheduled task you own — Windows Task Scheduler, AI assistants, and cron alike.</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Phase%200%20%C2%B7%20Planning-F59E0B?style=for-the-badge" alt="Status: Phase 0 — Planning">
-  <img src="https://img.shields.io/badge/MVP%20Target-Q4%202026-8B5CF6?style=for-the-badge" alt="MVP Target: Q4 2026">
+  <a href="https://taskhub.mikesailab.com"><img src="https://img.shields.io/badge/Live_Demo-taskhub.mikesailab.com-2ea44f?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo"></a>
+  <img src="https://img.shields.io/badge/status-MVP_Prototype-F59E0B?style=for-the-badge" alt="Status: MVP Prototype">
   <img src="https://img.shields.io/badge/visibility-private-6B7280?style=for-the-badge" alt="Visibility: Private">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React 18">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
-  <img src="https://img.shields.io/badge/Node.js-LTS-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js LTS">
-  <img src="https://img.shields.io/badge/.NET-8-512BD4?style=flat-square&logo=.net&logoColor=white" alt=".NET 8">
+  <img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite">
+  <img src="https://img.shields.io/badge/Node.js-Express_5-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js + Express 5">
+  <img src="https://img.shields.io/badge/.NET-8-512BD4?style=flat-square&logo=.net&logoColor=white" alt=".NET 8 agent">
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 16">
-  <img src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat-square&logo=prisma&logoColor=white" alt="Prisma">
+  <img src="https://img.shields.io/badge/Prisma-6-2D3748?style=flat-square&logo=prisma&logoColor=white" alt="Prisma 6">
   <img src="https://img.shields.io/badge/Socket.io-realtime-010101?style=flat-square&logo=socket.io&logoColor=white" alt="Socket.io">
-  <img src="https://img.shields.io/badge/MCP-Phase%206-FF6F00?style=flat-square" alt="MCP integration in Phase 6">
 </p>
 
 ---
 
 > [!NOTE]
-> **TaskHub is in Phase 0 — Inception & Discovery.** This repository currently contains planning documents only; no application source has been written yet. The roadmap, architecture, and competitive positioning are tracked in [`docs/`](docs/). MVP development begins in Phase 3.
+> **TaskHub is a functional MVP prototype.** Real-time sync between the .NET Windows agent and the Node/Postgres backend is working, and the React dashboard is wired to live data. The **public demo at [taskhub.mikesailab.com](https://taskhub.mikesailab.com) is the frontend only, running on sample data** — there's no public backend, by design. Run the full stack locally (below) to see and trigger *your own* scheduled tasks.
 
 ---
 
-## Overview
+## ✨ Overview
 
-**TaskHub** is a unified scheduled-task management system. It gives a single dark-themed dashboard for viewing, triggering, and managing scheduled tasks that today live in disconnected silos:
+**TaskHub** is a unified scheduled-task management system — a single dark-themed dashboard for viewing, triggering, and managing scheduled tasks that today live in disconnected silos:
 
-- **Windows Task Scheduler** — via a lightweight local agent
-- **Claude Code Routines** — via the Anthropic API
-- **ChatGPT Automations** — via quick links to the native UI
-- **Jules**, **Open Claw**, **Hermes**, and future systems
+- **Windows Task Scheduler** — via a lightweight local .NET agent
+- **Claude Code Routines** — via the Anthropic API *(planned)*
+- **ChatGPT Automations** — via quick links to the native UI *(planned)*
+- **Jules**, **Open Claw**, **Hermes**, and future systems *(planned)*
 
-Beyond unification, TaskHub includes cross-platform schedule conversion templates (cron ↔ Windows trigger ↔ Claude routine YAML) and an **MCP server** (Phase 6) so Claude / Codex / Cursor can create and run scheduled tasks via natural language.
+Beyond unification, the roadmap adds cross-platform schedule conversion templates (cron ↔ Windows trigger ↔ Claude routine YAML) and an **MCP server** so Claude / Codex / Cursor can create and run scheduled tasks via natural language.
 
-## Why this exists
+### Why it exists
 
-No incumbent unifies AI-assistant schedulers with OS-level schedulers. Desktop tools (VisualCron, Task Till Dawn) are Windows-only or stagnant. Web orchestrators (Airflow, n8n, Rundeck, Jenkins) target data engineers and DevOps — the wrong persona for someone who just wants to *manage* the schedules across the tools they already use. Full survey: [`docs/Competition_Analysis.md`](docs/Competition_Analysis.md).
+No incumbent unifies AI-assistant schedulers with OS-level schedulers. Desktop tools (VisualCron, Task Till Dawn) are Windows-only or stagnant; web orchestrators (Airflow, n8n, Rundeck, Jenkins) target data engineers and DevOps — the wrong persona for someone who just wants to *manage* the schedules across the tools they already use. Full survey in [`docs/Competition_Analysis.md`](docs/Competition_Analysis.md). The wedge: **cross-domain unification**, **mobile-first triggering** (phone-trigger a Windows task in under 30s), and **MCP-native** AI task creation.
 
-TaskHub's wedge:
+## 🚀 Live Demo
 
-1. **Cross-domain unification.** AI assistants + Windows + cron in one console.
-2. **Mobile-first triggering.** Phone-trigger any Windows task in under 30 seconds.
-3. **MCP-native.** First-class natural-language task creation, not a bolted-on chatbot.
+**[taskhub.mikesailab.com](https://taskhub.mikesailab.com)** runs the dashboard against built-in sample tasks — a stand-in for a real environment so you can explore the UI without any setup.
 
-## Architecture
+- The **frontend is hosted on Vercel**; the demo is flagged on via the `VITE_DEMO_MODE` build-time env var.
+- "Run Now" is a no-op in demo mode (it explains how to connect a real backend).
+- Set TaskHub up locally with the env var **unset**, and the same UI reads live data from your backend + Windows agent instead.
+
+## 🏗️ Architecture
 
 ```mermaid
 graph LR
-    subgraph User["User's Machine"]
+    subgraph User["Your Machine"]
         WTS[(Windows Task<br/>Scheduler)]
-        AGENT[Windows Agent<br/>.NET 8 service]
+        AGENT[".NET 8 Agent<br/>(TaskHub.Agent)"]
         WTS <--> AGENT
     end
 
-    subgraph Cloud["TaskHub Cloud"]
-        WS[Socket.io<br/>WebSocket Server]
-        API[Express API<br/>+ Prisma]
-        DB[(PostgreSQL 16)]
-        MCP[MCP Server<br/>Phase 6]
+    subgraph Backend["Backend (local today)"]
+        API["Express 5 API<br/>+ Socket.io"]
+        DB[(PostgreSQL 16<br/>via Prisma)]
         API <--> DB
-        WS <--> API
-        MCP -.-> API
     end
 
-    subgraph Client["Client Surfaces"]
-        WEB[React 18 + Vite<br/>Dark-theme dashboard]
-        MOBILE[Mobile Web<br/>≤375px viewport]
-        LLM[Claude / Codex / Cursor<br/>via MCP]
+    subgraph Client["Client"]
+        WEB["React 19 + Vite<br/>Dark-theme dashboard"]
     end
 
-    subgraph Platforms["External Platforms"]
-        CC[Claude Code<br/>Routines API]
-        GPT[ChatGPT<br/>Automations]
-        JULES[Jules / Open Claw<br/>Hermes]
-    end
+    AGENT -- "WebSocket (task:full_list / task:run)" --> API
+    WEB -- "REST /api + TanStack Query" --> API
 
-    AGENT -- WSS + HMAC --> WS
-    WEB <--> API
-    MOBILE <--> API
-    LLM -.-> MCP
-    API <--> CC
-    API -. quick links .-> GPT
-    API -. quick links .-> JULES
+    VERCEL["Vercel<br/>taskhub.mikesailab.com"] -. "frontend shell · demo data" .-> WEB
 ```
 
-The agent always initiates the WebSocket (outbound from the user's machine — never an inbound bind). Schedules are stored as **5-field cron in UTC** and translated to/from each platform's native format inside a `PlatformConnector` interface.
+**How sync works today:** the agent opens an **outbound** WebSocket to the backend (never an inbound bind), pushes the full Task Scheduler list on connect (`task:full_list`), and the backend **upserts** each task keyed on `(platform, externalId)`. Triggering a task from the dashboard emits `task:run` back down the same socket. Schedules are normalized to **5-field cron in UTC** and translated per platform inside a connector layer.
 
-## Features (planned)
+> [!IMPORTANT]
+> Only the **frontend** is currently deployed (the public demo). The backend (Express/Postgres) + .NET agent run on your machine. Hosting the backend (planned: a small VPS) and setting `VITE_API_URL` on Vercel is what would turn the public site from a demo into a real multi-platform console.
 
-| Feature | Phase | Description |
+## 📊 Features
+
+| Feature | Status | Description |
 |:---|:---:|:---|
-| **Unified task list** | 3 | Single dashboard for tasks across all connected platforms. |
-| **Manual run trigger** | 3 | Trigger Windows tasks remotely via the agent; trigger Claude routines via API. |
-| **Quick links** | 3 | One-tap deep links to each platform's native management UI. |
-| **Schedule conversion templates** | 3 | 5–10 cross-platform templates (cron ↔ Windows XML ↔ Claude YAML). |
-| **Dark theme + mobile responsive** | 3 | Dark-by-default; passes `<375px` viewport for every page. |
-| **Real-time sync** | 3 | WebSocket-driven task list updates; no polling on the client. |
-| **Run history & logs** | 3–4 | Per-task execution log aggregated from every platform. |
-| **MCP integration** | 6 | Natural-language `list_tasks`, `run_task`, `create_task`, `convert_schedule`. |
-| **Two-way sync** | 6 | Edit a schedule in TaskHub → propagate to the platform. |
-| **Public template gallery** | 6 | Community-contributed schedule templates with voting. |
+| **Unified task dashboard** | ✅ Built | Single dark-themed view of every synced task, with platform + status badges. |
+| **Live agent sync** | ✅ Built | .NET agent ↔ backend over WebSocket; tasks upserted on `(platform, externalId)`. |
+| **Manual run trigger** | ✅ Built | Trigger a Windows task remotely; the backend relays `task:run` to the agent. |
+| **Task detail modal** | ✅ Built | Per-task status, last-updated, and raw platform metadata. |
+| **Demo mode** | ✅ Built | `VITE_DEMO_MODE=true` renders sample data for the public deployment. |
+| **Docker Compose dev stack** | ✅ Built | Postgres + Redis + backend + frontend in one `docker compose up`. |
+| **Claude Code Routines** | 🔜 Planned | Sync + trigger Claude routines via the Anthropic API. |
+| **Schedule conversion templates** | 🔜 Planned | cron ↔ Windows XML ↔ Claude YAML. |
+| **Run history & logs** | 🔜 Planned | Per-task execution log (the `ExecutionLog` model already exists). |
+| **MCP integration** | 🔜 Phase 6 | NL `list_tasks` / `run_task` / `create_task` / `convert_schedule`. |
 
-## MVP Scope
+## ⚡ Quick Start
 
-<table>
-<tr>
-<td width="50%" valign="top">
+> [!TIP]
+> Easiest path is Docker Compose — it brings up Postgres, Redis, the backend, and the frontend together.
 
-### In scope (MVP, ~6 months)
+```bash
+# 1. Clone
+git clone https://github.com/michaelschecht/taskhub.git
+cd taskhub
 
-- Windows Task Scheduler (local agent)
-- Claude Code Routines (API)
-- Unified task list view
-- Quick links to each platform's native UI
-- Manual run trigger
-- Static template library
-- Dark theme, mobile responsive
+# 2. Bring up the full dev stack (Postgres + Redis + backend + frontend)
+docker compose up --build
+#    → frontend  http://localhost:5173
+#    → backend   http://localhost:3000   (GET /api/health to verify)
+```
 
-</td>
-<td width="50%" valign="top">
+<details>
+<summary><b>Run the pieces manually instead (no Docker)</b></summary>
 
-### Out of scope (post-MVP)
+```bash
+# Backend — needs a PostgreSQL 16 instance + DATABASE_URL in backend/.env
+cd backend
+npm install
+npx prisma migrate dev      # create the schema
+npm start                   # http://localhost:3000
 
-- Full two-way sync
-- Cross-platform dependency chains
-- MCP-driven AI task creation *(Phase 6)*
-- Open Claw, Hermes, Jules connectors
-- ChatGPT Automations API *(no public API exists)*
-- Mobile native apps *(web-responsive only)*
+# Frontend — in a second terminal
+cd frontend
+npm install
+npm run dev                 # http://localhost:5173  (talks to localhost:3000)
 
-</td>
-</tr>
-</table>
+# Windows agent — in a third terminal (Windows only)
+cd agent/TaskHub.Agent
+dotnet run                  # connects out to the backend, pushes Task Scheduler tasks
+```
 
-## Tech Stack
+The frontend's API origin is configurable via `VITE_API_URL` (defaults to `http://localhost:3000`). Leave `VITE_DEMO_MODE` unset locally so the dashboard reads live data instead of the demo fixtures.
+
+</details>
+
+## 🧱 Tech Stack
 
 | Layer | Technology |
 |:---|:---|
-| **Frontend** | React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui |
-| **Server state** | TanStack Query |
-| **Backend API** | Node.js (LTS) + Express + TypeScript |
-| **Database** | PostgreSQL 16 + Prisma ORM |
-| **Real-time** | Socket.io (server) + WebSocket client (agent) |
-| **Windows agent** | .NET 8 (C#) + `Microsoft.Win32.TaskScheduler` + WiX installer |
-| **Auth** | JWT (access + refresh); OAuth2 post-MVP |
-| **Cache / pub-sub** | Redis (optional MVP; required for multi-instance WS) |
-| **MCP server** | Node.js wrapper over REST API *(Phase 6)* |
-| **Dev hosting** | Docker Compose |
-| **Prod hosting** | AWS ECS Fargate or Render; static frontend on S3 + CloudFront or Vercel |
+| **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS + TanStack Query (lucide-react icons) |
+| **Backend API** | Node.js + Express 5 + Socket.io *(JavaScript today; TS migration planned)* |
+| **Database** | PostgreSQL 16 + Prisma 6 ORM |
+| **Real-time** | Socket.io server ↔ agent WebSocket client |
+| **Windows agent** | .NET 8 (`TaskHub.Agent`) reading Windows Task Scheduler |
+| **Hosting** | Frontend on Vercel (project `taskhub`, root `frontend/`); backend + agent local; dev stack via Docker Compose |
+| **Auth** | JWT (access + refresh) — *planned* |
+| **MCP server** | Node.js wrapper over the REST API — *Phase 6* |
 
-All base images are pinned; no `:latest`.
+## 🔌 API Reference
 
-## Roadmap
+Base URL: `http://localhost:3000`
 
-| Phase | Doc | Duration | Status |
-|:---:|:---|:---:|:---|
-| 0 — Inception & Discovery | [`Phase0.md`](docs/Phase0.md) | 1–2 wk | **Active** |
-| 1 — Requirements & Specs | [`Phase1.md`](docs/Phase1.md) | 2–3 wk | Drafted |
-| 2 — Architecture & Design | [`Phase2.md`](docs/Phase2.md) | 2 wk | Drafted |
-| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | 8–12 wk | Not started |
-| 4 — Testing & QA | [`Phase4.md`](docs/Phase4.md) | 2–3 wk | Not started |
-| 5 — Deployment & Rollout | [`Phase5.md`](docs/Phase5.md) | 1–2 wk | Not started |
-| 6 — Post-Launch & Iteration | [`Phase6.md`](docs/Phase6.md) | ongoing | Not started |
+| Method | Endpoint | Description |
+|:---|:---|:---|
+| `GET` | `/api/health` | Liveness check — `{ status: "ok", timestamp }`. |
+| `GET` | `/api/tasks` | List all synced tasks, newest-updated first. |
+| `POST` | `/api/tasks/:id/run` | Trigger a task (Windows tasks relay `task:run` to the agent). |
 
-Master plan and timeline live in [`docs/Project_Plan.md`](docs/Project_Plan.md).
+<details>
+<summary><b>WebSocket events (backend ↔ agent)</b></summary>
 
-## Repository Structure
+| Event | Direction | Payload | Purpose |
+|:---|:---|:---|:---|
+| `agent:hello` | agent → server | machine info | Agent announces itself on connect. |
+| `task:list` | server → agent | — | Request a full task sync. |
+| `task:full_list` | agent → server | `{ tasks: [...] }` | Agent pushes Task Scheduler entries; backend upserts on `(platform, externalId)`. |
+| `task:run` | server → agent | `externalId` | Trigger a specific task on the user's machine. |
+
+</details>
+
+## 📁 Repository Structure
 
 ```
 taskhub/
-├── CLAUDE.md                  # Project-scoped Claude Code instructions
-├── README.md                  # ← you are here
-├── docs/                      # Planning, architecture, and reference docs
-│   ├── Project_Plan.md        # Master overview + timeline
-│   ├── Phase0.md … Phase6.md  # Per-phase deep dives
-│   ├── Competition_Analysis.md
-│   └── api-examples/          # Sample REST request/response payloads
-├── backend/                   # Node.js + Express + Prisma   (created in Phase 3)
-├── frontend/                  # React 18 + Vite              (created in Phase 3)
-├── agent/                     # .NET 8 Windows service       (created in Phase 3)
-├── mcp-server/                # Node.js MCP wrapper          (created in Phase 6)
-├── src/templates/             # Starter scaffolds / inspiration archives
-└── images/                    # README + docs assets
+├── CLAUDE.md              # Project-scoped Claude Code instructions & conventions
+├── README.md             # ← you are here
+├── docker-compose.yml    # Postgres + Redis + backend + frontend dev stack
+├── frontend/             # React 19 + Vite dashboard  (deployed to Vercel as the demo)
+│   └── src/Dashboard.tsx # Main UI + demo-mode fixtures
+├── backend/              # Express 5 + Socket.io + Prisma API
+│   ├── index.js          # REST + WebSocket server
+│   └── prisma/           # schema.prisma (User, Task, ExecutionLog, Template, …)
+├── agent/
+│   ├── TaskHub.Agent/    # .NET 8 Windows agent (Program.cs)
+│   └── test-server/      # tiny Node harness for agent testing
+├── docs/                 # Planning, architecture & competitive analysis (per-phase)
+└── src/                  # Shared scaffolds / archived prototypes
 ```
 
-> [!TIP]
-> The `backend/`, `frontend/`, `agent/`, and `mcp-server/` folders are created **when their sprint starts** — not up front. This keeps the repo honest about what's actually in flight.
-
-## Documentation
+## 📖 Documentation
 
 | Doc | What's in it |
 |:---|:---|
 | [`docs/Project_Plan.md`](docs/Project_Plan.md) | Master plan: phases, timeline, risk matrix, next actions. |
-| [`docs/Phase0.md`](docs/Phase0.md) | Project charter, risk register, tech stack, MVP roadmap, feasibility checks. |
-| [`docs/Phase1.md`](docs/Phase1.md) | Functional + non-functional requirements, user stories, API contracts. |
-| [`docs/Phase2.md`](docs/Phase2.md) | System architecture, security design, ER diagram, UI mockups. |
-| [`docs/Phase3.md`](docs/Phase3.md) | Eight-sprint MVP build plan. |
-| [`docs/Phase4.md`](docs/Phase4.md) | Test plan, security audit, performance targets. |
-| [`docs/Phase5.md`](docs/Phase5.md) | Deployment, rollout, monitoring. |
-| [`docs/Phase6.md`](docs/Phase6.md) | Post-launch iteration, MCP integration, advanced features. |
+| [`docs/Phase0.md`](docs/Phase0.md) … [`Phase6.md`](docs/Phase6.md) | Per-phase deep dives (charter → post-launch + MCP). |
 | [`docs/Competition_Analysis.md`](docs/Competition_Analysis.md) | Competitive landscape and positioning. |
+| [`docs/Business_Idea_Assessment.md`](docs/Business_Idea_Assessment.md) | Market / viability assessment. |
 | [`docs/api-examples/`](docs/api-examples/) | Sample REST payloads for tasks, platforms, templates. |
-| [`CLAUDE.md`](CLAUDE.md) | Project-scoped Claude Code instructions, conventions, and tooling. |
+| [`CLAUDE.md`](CLAUDE.md) | Conventions, connector pattern, agent↔server protocol, security rules. |
 
-## Getting Started
+## 🗺️ Roadmap
 
-> [!IMPORTANT]
-> There is no runnable code yet. The instructions below are placeholders that will be filled in during Phase 3 (Sprint 1).
+| Phase | Doc | Status |
+|:---:|:---|:---|
+| 0 — Inception & Discovery | [`Phase0.md`](docs/Phase0.md) | ✅ Complete |
+| 1 — Requirements & Specs | [`Phase1.md`](docs/Phase1.md) | ✅ Drafted |
+| 2 — Architecture & Design | [`Phase2.md`](docs/Phase2.md) | ✅ Drafted |
+| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | 🚧 **Active** — functional prototype; Windows + dashboard working |
+| 4 — Testing & QA | [`Phase4.md`](docs/Phase4.md) | Not started |
+| 5 — Deployment & Rollout | [`Phase5.md`](docs/Phase5.md) | Not started |
+| 6 — Post-Launch & Iteration | [`Phase6.md`](docs/Phase6.md) | Not started |
 
-```bash
-# Phase 3 — coming soon
-git clone https://github.com/michaelschecht/taskhub.git
-cd taskhub
-docker compose up        # backend + Postgres + frontend dev
-# Windows agent installer published in Phase 5
-```
+## 📐 Domain Conventions
 
-In the meantime, the right entry points are:
+A few non-obvious rules the project lives by (full list in [`CLAUDE.md`](CLAUDE.md) §9):
 
-1. **Read [`CLAUDE.md`](CLAUDE.md)** — the source of truth for project conventions, the connector pattern, the agent ↔ server protocol, and security rules.
-2. **Read [`docs/Project_Plan.md`](docs/Project_Plan.md)** — the master plan and phase index.
-3. **Browse [`docs/Phase0.md`](docs/Phase0.md)** — the active phase doc.
-
-## Domain Conventions
-
-A few non-obvious rules that the project lives by (full list in [`CLAUDE.md`](CLAUDE.md) §9):
-
-- **All schedules stored as 5-field cron in UTC.** Conversion to/from native formats happens in the connector layer; the UI shows local time.
+- **Schedules stored as 5-field cron in UTC.** Native-format conversion happens in the connector layer; the UI shows local time.
 - **`PlatformConnection.config` is AES-256-GCM encrypted** at the application layer before Prisma writes. Decrypted values are never logged.
-- **Agent always initiates the WebSocket.** Never inbound. Never a `0.0.0.0` bind. Run commands carry a per-session HMAC to prevent replay.
-- **Dark theme is the default,** not an opt-in. Light is the toggle.
-- **Every page must pass `<375px` viewport.** Mobile is a first-class target — the core KPI is "trigger a Windows task from your phone in under 30 seconds."
+- **The agent always initiates the WebSocket** — never inbound, never a `0.0.0.0` bind. Run commands carry a per-session HMAC to prevent replay.
+- **Dark theme is the default,** not an opt-in. Every page must pass a `<375px` viewport — the core KPI is "trigger a Windows task from your phone in under 30 seconds."
 
-## Working Branches
+## 🌿 Branches
 
 | Branch | Purpose |
 |:---|:---|
-| `mike_desktop` | Active working branch (matches Mike's workspace convention). |
-| `main` | Deploy branch. Updated only when shipping. |
+| `mike_desktop` | Active working branch (workspace convention). |
+| `main` | Deploy branch — updated only when shipping. |
 
 Commit style: imperative subject + conventional-commits prefix (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`).
 
@@ -251,8 +236,8 @@ Commit style: imperative subject + conventional-commits prefix (`feat:`, `fix:`,
 
 <p align="center">
   Part of the <a href="https://mikesailab.com">mikesailab.com</a> ecosystem ·
+  <a href="https://taskhub.mikesailab.com">Live Demo</a> ·
   <a href="docs/Project_Plan.md">Project Plan</a> ·
-  <a href="docs/Phase0.md">Active Phase</a> ·
   <a href="CLAUDE.md">Claude Instructions</a>
 </p>
 

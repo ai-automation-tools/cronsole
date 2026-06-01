@@ -1,45 +1,104 @@
-import React, { useState } from 'react';
-import { 
-  Activity, 
-  LayoutDashboard, 
-  Settings, 
-  Plus, 
-  Play, 
-  FileText, 
-  ExternalLink, 
-  RefreshCw, 
-  CheckCircle2, 
-  XCircle, 
-  Clock,
-  Shield,
-  Monitor,
+import { useState } from 'react';
+import {
+  Activity,
+  LayoutDashboard,
+  Settings,
+  Play,
+  RefreshCw,
+  XCircle,
   Cpu,
   Library,
-  ArrowRightLeft,
-  Search,
-  ChevronRight,
-  Zap,
-  Copy,
-  Loader2
+  Loader2,
+  Info
 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 
 // --- API Client ---
+// Base origin is configurable per environment via VITE_API_URL; the `/api`
+// prefix is appended here. Falls back to the local dev backend when unset.
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api'
+  baseURL: `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/api`
 });
 
-// --- Mock Data (Fallbacks) ---
-const MOCK_PLATFORMS = [
-  { id: 'p1', name: 'Windows', type: 'WINDOWS_TASK_SCHEDULER', status: 'Online', machine: 'MIKE-DESKTOP', version: '1.0.4' },
-  { id: 'p2', name: 'Claude', type: 'CLAUDE_CODE', status: 'Connected', api_usage: '2.4k tokens' },
-  { id: 'p3', name: 'ChatGPT', type: 'CHATGPT', status: 'Quick Links Only' },
+// --- Types ---
+interface Task {
+  id: string;
+  name: string;
+  platform: string;
+  status: string;
+  externalId: string;
+  updatedAt: string;
+  metadata?: unknown;
+}
+
+// --- Demo Mode ---
+// When VITE_DEMO_MODE=true (set on the public Vercel deployment), the dashboard
+// renders illustrative sample tasks instead of calling the backend. Run TaskHub
+// locally with the backend + Windows agent and this var unset to see your own
+// scheduled tasks instead.
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
+const DEMO_TASKS: Task[] = [
+  {
+    id: 'demo-1',
+    name: 'Edge-Radar Daily Calibration',
+    platform: 'WINDOWS_TASK_SCHEDULER',
+    status: 'ACTIVE',
+    externalId: '\\Mikes\\EdgeRadar\\DailyCalibration',
+    updatedAt: '2026-06-01T09:00:00Z',
+    metadata: { schedule: '0 9 * * *', state: 'Ready', lastResult: 'Success (0x0)', machine: 'MIKE-DESKTOP' },
+  },
+  {
+    id: 'demo-2',
+    name: 'Nightly Postgres Backup',
+    platform: 'WINDOWS_TASK_SCHEDULER',
+    status: 'ACTIVE',
+    externalId: '\\Mikes\\Backups\\PostgresNightly',
+    updatedAt: '2026-06-01T03:00:00Z',
+    metadata: { schedule: '0 3 * * *', state: 'Ready', lastResult: 'Success (0x0)', machine: 'MIKE-DESKTOP' },
+  },
+  {
+    id: 'demo-3',
+    name: 'Morning News Digest',
+    platform: 'CLAUDE_CODE',
+    status: 'ACTIVE',
+    externalId: 'routine_news_digest_0700',
+    updatedAt: '2026-06-01T07:00:00Z',
+    metadata: { schedule: '0 7 * * *', model: 'claude-opus-4-8', lastResult: 'Completed · 2.4k tokens' },
+  },
+  {
+    id: 'demo-4',
+    name: 'Kalshi Market Scan',
+    platform: 'CLAUDE_CODE',
+    status: 'ACTIVE',
+    externalId: 'routine_kalshi_scan_15m',
+    updatedAt: '2026-06-01T12:45:00Z',
+    metadata: { schedule: '*/15 * * * *', model: 'claude-sonnet-4-6', lastResult: 'Completed · 3 edges flagged' },
+  },
+  {
+    id: 'demo-5',
+    name: 'Update-Repos Sync',
+    platform: 'WINDOWS_TASK_SCHEDULER',
+    status: 'DISABLED',
+    externalId: '\\Mikes\\Dev\\UpdateRepos',
+    updatedAt: '2026-05-30T18:30:00Z',
+    metadata: { schedule: '0 18 * * 1', state: 'Disabled', lastResult: 'Success (0x0)', machine: 'MIKE-DESKTOP' },
+  },
+  {
+    id: 'demo-6',
+    name: 'Windows Disk Cleanup',
+    platform: 'WINDOWS_TASK_SCHEDULER',
+    status: 'ACTIVE',
+    externalId: '\\Microsoft\\Windows\\DiskCleanup\\SilentCleanup',
+    updatedAt: '2026-05-31T02:00:00Z',
+    metadata: { schedule: '0 2 * * 0', state: 'Ready', lastResult: 'Success (0x0)', machine: 'MIKE-DESKTOP' },
+  },
 ];
 
 // --- Components ---
 
-const Sidebar = ({ activeTab, setActiveTab }) => (
+const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) => (
   <aside className="w-64 border-r border-slate-800 flex flex-col gap-2 p-4">
     <div className="mb-8 px-2 flex items-center gap-2">
       <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-600/20">T</div>
@@ -98,7 +157,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => (
   </aside>
 );
 
-const TaskModal = ({ task, onClose, onRun }) => {
+const TaskModal = ({ task, onClose, onRun }: { task: Task | null; onClose: () => void; onRun: (taskId: string) => void }) => {
   if (!task) return null;
 
   return (
@@ -154,13 +213,15 @@ const TaskModal = ({ task, onClose, onRun }) => {
   );
 };
 
-const DashboardScreen = ({ onTaskSelect, onRun }) => {
-  const { data: tasks, isLoading, refetch } = useQuery({
+const DashboardScreen = ({ onTaskSelect, onRun }: { onTaskSelect: (task: Task) => void; onRun: (taskId: string) => void }) => {
+  const { data: tasks, isLoading, refetch } = useQuery<Task[]>({
     queryKey: ['tasks'],
     queryFn: async () => {
+      if (DEMO_MODE) return DEMO_TASKS;
       const response = await api.get('/tasks');
       return response.data;
-    }
+    },
+    initialData: DEMO_MODE ? DEMO_TASKS : undefined
   });
 
   if (isLoading) {
@@ -174,10 +235,29 @@ const DashboardScreen = ({ onTaskSelect, onRun }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {DEMO_MODE && (
+        <div className="flex items-start gap-3 rounded-2xl border border-blue-500/30 bg-blue-600/10 p-4 text-sm">
+          <Info size={18} className="mt-0.5 flex-shrink-0 text-blue-400" />
+          <p className="text-slate-300">
+            <span className="font-semibold text-blue-300">Demo data.</span> You're viewing a live demo of TaskHub with sample tasks.{' '}
+            <a
+              href="https://github.com/michaelschecht/taskhub"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 underline underline-offset-2 hover:text-blue-300"
+            >
+              Run it locally
+            </a>{' '}
+            with the backend + Windows agent to manage your own scheduled tasks.
+          </p>
+        </div>
+      )}
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-bold mb-1">Unified Task Dashboard</h2>
-          <p className="text-slate-400">Showing {tasks?.length || 0} tasks from your environment</p>
+          <p className="text-slate-400">
+            Showing {tasks?.length || 0} {DEMO_MODE ? 'sample tasks' : 'tasks from your environment'}
+          </p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -235,12 +315,19 @@ const DashboardScreen = ({ onTaskSelect, onRun }) => {
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const runMutation = useMutation({
-    mutationFn: (taskId) => api.post(`/tasks/${taskId}/run`),
+    mutationFn: async (taskId: string) => {
+      if (DEMO_MODE) return;
+      return api.post(`/tasks/${taskId}/run`);
+    },
     onSuccess: () => {
-      alert('Task triggered successfully!');
+      alert(
+        DEMO_MODE
+          ? 'Demo mode — set up TaskHub locally with the backend + Windows agent to trigger real tasks.'
+          : 'Task triggered successfully!'
+      );
     }
   });
 

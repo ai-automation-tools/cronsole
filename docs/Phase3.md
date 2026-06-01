@@ -87,12 +87,16 @@ Ship a working MVP that lets a single user:
 **Definition of Done**
 - ✅ `npm run build` succeeds for frontend.
 
-### Sprint 7: Template Library (Next)
+### Sprint 7: Template Library
 
 **Outcomes**
 - ✅ `templates` table seeded with 4 examples.
-- [ ] Template list page build-out.
+- ✅ Template list page build-out with `DEMO_TEMPLATES` for the web demo.
 - [ ] Schedule conversion logic implementation.
+
+**Definition of Done**
+- ✅ Templates visible in both local and demo app.
+- [ ] Applying a "Daily backup at 3 AM" template to Windows creates an actual scheduled task.
 
 ### Sprint 8: Testing & Hardening (Pending)
 

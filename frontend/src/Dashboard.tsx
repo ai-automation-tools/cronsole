@@ -9,7 +9,10 @@ import {
   Cpu,
   Library,
   Loader2,
-  Info
+  Info,
+  Clock,
+  ExternalLink,
+  ArrowRight
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
@@ -28,6 +31,17 @@ interface Task {
   externalId: string;
   updatedAt: string;
   metadata?: any;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+  sourcePlatform: string;
+  targetPlatforms: string[];
+  scheduleExpression: string;
+  command: string;
+  upvotes: number;
 }
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -51,6 +65,49 @@ const DEMO_TASKS: Task[] = [
     updatedAt: '2026-06-01T07:00:00Z',
     metadata: { schedule: '0 7 * * *', model: 'claude-opus-4-8' },
   },
+];
+
+const DEMO_TEMPLATES: Template[] = [
+  {
+    id: 'tpl_daily_backup',
+    name: 'Daily Database Backup',
+    description: 'Backs up a PostgreSQL database every night at 3 AM.',
+    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
+    targetPlatforms: ['WINDOWS_TASK_SCHEDULER', 'CLAUDE_CODE'],
+    scheduleExpression: '0 3 * * *',
+    command: 'pg_dump -U postgres my_db > backup.sql',
+    upvotes: 42
+  },
+  {
+    id: 'tpl_news_digest',
+    name: 'Morning News Digest',
+    description: 'Summarizes top news stories from specified RSS feeds.',
+    sourcePlatform: 'CLAUDE_CODE',
+    targetPlatforms: ['CLAUDE_CODE', 'CHATGPT'],
+    scheduleExpression: '0 7 * * *',
+    command: 'Fetch and summarize news',
+    upvotes: 128
+  },
+  {
+    id: 'tpl_system_cleanup',
+    name: 'Weekly System Cleanup',
+    description: 'Cleans up temporary files and logs every Sunday.',
+    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
+    targetPlatforms: ['WINDOWS_TASK_SCHEDULER'],
+    scheduleExpression: '0 0 * * 0',
+    command: 'del /q /s %temp%\\*',
+    upvotes: 15
+  },
+  {
+    id: 'tpl_pr_triage',
+    name: 'GitHub PR Triage',
+    description: 'Triage new pull requests and label them based on content.',
+    sourcePlatform: 'CLAUDE_CODE',
+    targetPlatforms: ['CLAUDE_CODE'],
+    scheduleExpression: '*/30 * * * *',
+    command: 'Triage PRs',
+    upvotes: 89
+  }
 ];
 
 // --- Components ---
@@ -156,6 +213,95 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch }: { o
   );
 };
 
+const TemplatesScreen = () => {
+  const { data: templates, isLoading } = useQuery<Template[]>({
+    queryKey: ['templates'],
+    queryFn: async () => {
+      if (DEMO_MODE) return DEMO_TEMPLATES;
+      try {
+        const response = await api.get('/templates');
+        return response.data;
+      } catch (err) {
+        console.error('Failed to fetch templates:', err);
+        return []; // Fallback to empty list so we can show the empty state
+      }
+    },
+    initialData: DEMO_MODE ? DEMO_TEMPLATES : undefined
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <Loader2 className="animate-spin text-blue-500" size={48} />
+        <p className="text-slate-500 font-medium">Loading templates...</p>
+      </div>
+    );
+  }
+
+  const hasTemplates = templates && templates.length > 0;
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-bold mb-1">Schedule Template Library</h2>
+          <p className="text-slate-400">Prebuilt automation patterns for any platform.</p>
+        </div>
+      </div>
+
+      {!hasTemplates ? (
+        <div className="flex flex-col items-center justify-center h-[40vh] border-2 border-dashed border-slate-800 rounded-3xl p-10 text-center">
+          <Library size={48} className="text-slate-700 mb-4" />
+          <h3 className="text-xl font-bold text-slate-300">No templates found</h3>
+          <p className="text-slate-500 max-w-sm mt-2">
+            The template library is currently empty. If you are running locally, make sure to run <code className="bg-slate-900 px-2 py-1 rounded text-blue-400">npm run seed</code> in the backend folder.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
+          {templates.map(template => (
+            <div key={template.id} className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-blue-500/30 group">
+              <div className="p-6 flex-1">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex gap-2">
+                     {template.targetPlatforms.map(p => (
+                       <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                         {p.split('_')[0]}
+                       </span>
+                     ))}
+                  </div>
+                  <div className="flex items-center gap-1 text-blue-400 bg-blue-600/10 px-2 py-0.5 rounded-full border border-blue-500/20 text-[10px] font-bold">
+                     <Activity size={10} /> {template.upvotes}
+                  </div>
+                </div>
+
+                <h3 className="text-xl font-bold mb-2 group-hover:text-blue-400 transition-colors">{template.name}</h3>
+                <p className="text-sm text-slate-400 mb-6 leading-relaxed">{template.description}</p>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800/50">
+                     <Clock size={14} className="text-blue-500" />
+                     <code className="text-blue-300 font-mono">{template.scheduleExpression}</code>
+                     <span className="text-slate-500 italic ml-auto">UTC</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800/50">
+                     <ExternalLink size={14} className="text-purple-500" />
+                     <span className="truncate text-slate-300 italic">{template.command}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button className="w-full bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-slate-800 group-hover:border-blue-500/20">
+                Apply Template <ArrowRight size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -191,7 +337,7 @@ const Dashboard = () => {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="flex-1 p-10 overflow-y-auto">
         {activeTab === 'dashboard' && <DashboardScreen tasks={tasks} isLoading={isLoading} refetch={refetch} onTaskSelect={setSelectedTask} onRun={runMutation.mutate} />}
-        {activeTab === 'templates' && <div className="text-slate-500 italic">Template module coming next...</div>}
+        {activeTab === 'templates' && <TemplatesScreen />}
         {activeTab === 'platforms' && <div className="text-slate-500 italic">Platform management coming next...</div>}
         {activeTab === 'settings' && <div className="flex items-center justify-center h-full text-slate-500 italic animate-pulse">Settings module coming soon in Sprint 2...</div>}
       </main>

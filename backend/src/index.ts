@@ -5,6 +5,7 @@ import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { PrismaClient, PlatformType, TaskStatus } from '@prisma/client';
 import taskRoutes from './routes/tasks.js';
+import templateRoutes from './routes/templates.js';
 import { agentManager } from './ws/AgentManager.js';
 import { TaskService } from './services/TaskService.js';
 
@@ -28,6 +29,7 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
 app.use('/api/tasks', taskRoutes);
+app.use('/api/templates', templateRoutes);
 
 // --- WebSocket (Agent) ---
 

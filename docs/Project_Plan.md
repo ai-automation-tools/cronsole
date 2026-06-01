@@ -4,7 +4,16 @@
 
 ## Project Goal
 
-Build a modern, dark-themed web application that provides a single pane of glass for viewing, triggering, and managing scheduled tasks across Windows Task Scheduler, Claude Code Routines, ChatGPT Automations, Jules scheduled tasks, Open Claw, Hermes, and future systems. Includes quick links, cross-platform conversion templates, and MCP-based AI integration.
+Build a modern, dark-themed web application that provides a single pane of glass — a **control plane** — for *seeing, triggering, and trusting* scheduled tasks across Windows Task Scheduler, Claude Code Routines, ChatGPT Automations, Jules scheduled tasks, Open Claw, Hermes, and future systems. Includes quick links, cross-platform conversion templates, and MCP-based AI integration.
+
+> **Strategic direction** (from the independent viability assessment, [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md), 2026-05-14):
+> - **Position as a control plane** — visibility + triggering + reliability — **not** a universal workflow builder.
+> - **MVP is a 2-platform reliability control plane** (Windows + Claude). Every other platform is roadmap language, not an implementation expectation.
+> - **Compete on connector quality, normalized observability, and trust** — *"high-confidence integrations," not "supports everything."*
+> - **Reliability-gated roadmap:** new connectors/features unlock only after the existing set holds its reliability KPIs (sync > 95%, crash < 2%). Scope creep is the #1 execution risk.
+> - **MCP stays Phase 6**, pitched "coming soon" until production-ready.
+>
+> See each phase doc's "Informed by" header for how these recommendations were folded in.
 
 ## Phase Index
 
@@ -81,11 +90,13 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
 
 ### Deliverables
 - Working MVP with:
-  - Add/manage platform credentials (OAuth, local agent pairing)
-  - Discover/display scheduled tasks from ≥2 platforms (Windows + Claude)
+  - Add/manage platform credentials (OAuth, local agent pairing) — connect 2 systems in < 15 min
+  - Discover/display scheduled tasks from ≥2 platforms (Windows + Claude) with **normalized status**
+  - **Connector health diagnostics** per platform
   - Quick links to native UIs
-  - Manual run trigger (via agent/API)
-  - Template library (5–10 cross‑platform examples)
+  - Manual run trigger + **one-click enable/disable, each with a confirmation** (via agent/API)
+  - **Execution timeline + failure alerting** (clear logs for every run)
+  - Template library (5–10 cross‑platform examples) with **conversion confidence score**
   - Dark theme dashboard
 
 ### Sprint Breakdown
@@ -168,8 +179,11 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
 | Platform API changes (e.g., ChatGPT deprecates schedule endpoint) | Medium | High | Abstract connector layer; fallback to quick links |
 | Windows agent blocked by corporate firewalls | High | Medium | Support local polling (no WebSocket) or hybrid mode |
 | User confusion over “run” vs “edit” (native UI vs web trigger) | Medium | Low | Clear UI labels + tooltips + tutorial |
-| Schedule conversion inaccuracies (cron → ChatGPT) | High | Medium | Provide preview + validation before saving |
-| MCP integration scope creep | Medium | Medium | Treat as Phase 6; MVP uses static templates only |
+| Schedule conversion inaccuracies (cron → ChatGPT) | High | Medium | Provide preview + validation + **confidence score** before saving |
+| MCP integration scope creep | Medium | Medium | Treat as Phase 6; MVP uses static templates only; market "coming soon" |
+| **Platform-breadth scope creep ahead of reliability** (becoming a connector-maintenance project, not a product) | High | High | **Hard roadmap gates tied to reliability metrics, not connector count.** New connectors unlock only after the existing set holds sync-reliability + crash-rate KPIs. |
+| **Connector/API surface volatility** (Anthropic/OpenAI/Google change endpoints) | Medium | High | Strict connector abstraction + **version pinning** + **fast fallback to quick links** so a broken API degrades gracefully. |
+| **Local-agent trust/security concerns** | Medium | High | Auditable least-privilege agent, explicit permission scopes, public trust docs. |
 
 ---
 

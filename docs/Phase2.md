@@ -4,8 +4,11 @@
 **Status:** Drafted
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase1.md`](Phase1.md)
+**Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
 
 ---
+
+> **Design priorities (per the assessment).** Reliability is the product. The architecture must make the connector layer a **hard abstraction boundary** with **version pinning** and **fast fallback to quick-links** when an upstream API drifts; surface **connector health diagnostics** as first-class data; carry a **conversion confidence score** through the schedule converter; and treat the local agent as an **auditable, least-privilege** component with public trust docs. No platform-specific logic leaks outside the connector layer — that discipline is what keeps the reliability KPIs holding as connectors are added later.
 
 ## Deliverable 1: System Architecture Diagram (Text Description)
 
@@ -123,9 +126,14 @@ External APIs (called by backend):
 
 ### Windows Agent Security Considerations
 
-- Agent runs as a Windows service with least privilege (e.g., `NT AUTHORITY\SYSTEM` is powerful; consider a dedicated service account with permissions only to Task Scheduler).  
+The assessment flags the local-agent model as a **medium-likelihood / high-impact** trust risk (R8). The mitigation is an **auditable, least-privilege, transparently-documented** agent:
+
+- Agent runs as a Windows service with least privilege. **Avoid `NT AUTHORITY\SYSTEM`**; use a dedicated service account scoped to Task Scheduler only.  
+- **Explicit permission scopes**: the agent declares the exact operations it can perform (list, run, enable/disable, create) — nothing broader.  
 - Agent stores only a device ID and WebSocket token; no user credentials.  
-- Commands from backend are signed with a per-session HMAC to prevent replay.
+- Commands from backend are signed with a per-session HMAC to prevent replay.  
+- **Auditability**: every command the agent executes is written to a local, tamper-evident audit log that the user can inspect.  
+- **Public trust docs** (shipped in Phase 5): a plain-language page stating exactly what the agent can and cannot do, what data leaves the machine, and how to revoke/uninstall it.
 
 ---
 
@@ -298,6 +306,16 @@ model ExecutionLog {
   }
 }
 
+// Server commands agent to enable/disable a task (FR16)
+{
+  "type": "task:set_enabled",
+  "payload": {
+    "taskExternalId": "MyTask",
+    "enabled": false,
+    "commandId": "exec_124"
+  }
+}
+
 // Server heartbeat response
 {
   "type": "agent:pong",
@@ -324,25 +342,42 @@ export interface Task {
   metadata: Record<string, any>;
 }
 
+export interface ConnectorHealth {
+  state: 'HEALTHY' | 'DEGRADED' | 'OFFLINE';
+  lastSuccessfulSync: Date | null;
+  reason?: string;            // human-readable when not HEALTHY (e.g., "API key expired", "agent unreachable", "rate-limited")
+  apiVersion?: string;        // pinned upstream API/contract version this connector targets
+  fallbackActive: boolean;    // true when the connector has degraded to quick-links-only behavior
+}
+
 export interface PlatformConnector {
   // Authentication / setup
   connect(config: any): Promise<void>;
   disconnect(): Promise<void>;
-  
+
   // Task operations
   listTasks(): Promise<Task[]>;
   runTask(externalId: string): Promise<{ runId: string }>;
+  setEnabled(externalId: string, enabled: boolean): Promise<void>; // FR16: one-click enable/disable
   createTask?(name: string, schedule: string, command: string): Promise<Task>;
   deleteTask?(externalId: string): Promise<void>;
-  
-  // Health
+
+  // Health & resilience (per the assessment — observability + fast fallback)
   isConnected(): boolean;
   getPlatformType(): string;
+  getHealth(): Promise<ConnectorHealth>;  // powers connector-health diagnostics (FR19)
+  getApiVersion(): string;                // pinned contract version; mismatch triggers fallback
 }
 
 // Example implementation: WindowsAgentConnector (communicates via WebSocket)
 // Example implementation: ClaudeConnector (calls Anthropic API)
 ```
+
+### Resilience Contract (connector abstraction)
+
+- **Version pinning.** Each connector declares the upstream API/contract version it targets (`getApiVersion()`). A detected mismatch or repeated schema-validation failure flips the connector to a **degraded** state rather than throwing into the request path.
+- **Fast fallback.** When a connector is `OFFLINE`/`DEGRADED`, it falls back to **quick-links-only** behavior (the task still shows with a native deep link) so a broken upstream API never blanks the dashboard. `fallbackActive` is surfaced in the UI.
+- **No leakage.** Fallback, retry, and version logic all live inside the connector — routes, services, and UI only ever read `ConnectorHealth`. This is the boundary that keeps reliability KPIs holding as connectors multiply.
 
 ### Connector Registry
 
@@ -416,6 +451,16 @@ public class TaskSchedulerWrapper
             var task = ts.GetTask(taskName);
             if (task == null) throw new Exception($"Task {taskName} not found");
             task.Run();
+        }
+    }
+
+    public void SetEnabled(string taskName, bool enabled)   // FR16: one-click enable/disable
+    {
+        using (TaskService ts = new TaskService())
+        {
+            var task = ts.GetTask(taskName);
+            if (task == null) throw new Exception($"Task {taskName} not found");
+            task.Enabled = enabled;
         }
     }
 }

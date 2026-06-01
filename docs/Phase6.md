@@ -4,12 +4,17 @@
 **Status:** Not started
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase5.md`](Phase5.md)
+**Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
 
 ---
 
+> **Expansion discipline (per the assessment).** The #1 execution threat is becoming a connector-maintenance project instead of a product. Therefore expansion is governed by **hard roadmap gates tied to reliability metrics, not connector count**:
+>
+> **Gate:** a new connector / major feature ships only when the *existing* set holds its KPIs — **sync reliability > 95%**, **agent crash rate < 2% (7-day)**, and **zero open P0/P1**. If a quarter's reliability slips below target, connector work pauses and reliability work takes priority. MCP stays pitched as "coming soon" until it is genuinely production-ready, not GA-day vaporware.
+
 ## Goal
 
-Operate, improve, and expand TaskHub after GA. The headline post-MVP capability is **MCP-based AI task creation** — letting Claude / Codex / Cursor list, run, and create scheduled tasks via natural language. Beyond that, add platform connectors, advanced visualization, and community features.
+Operate, improve, and expand TaskHub after GA. The headline post-MVP capability is **MCP-based AI task creation** — letting Claude / Codex / Cursor list, run, and create scheduled tasks via natural language. Beyond that, add platform connectors, advanced visualization, and community features — **each subject to the reliability gate above.**
 
 ---
 
@@ -52,7 +57,7 @@ Build an MCP server that wraps the existing REST API so AI assistants can drive 
 
 ### 2. Additional Platform Connectors
 
-Each new connector follows the same pattern as Windows + Claude in Phase 3.
+Each new connector follows the same pattern as Windows + Claude in Phase 3 — and **ships only through the reliability gate** (existing connectors must hold their KPIs first). Prefer **fewer, deeper, high-confidence connectors** over a broad shallow checklist; a connector that can't be made reliable stays quick-links-only rather than shipping as a half-integration.
 
 | Connector | Difficulty | Notes |
 |---|---|---|
@@ -125,7 +130,8 @@ Where the platform supports it (Windows agent always; Claude via API), edits in 
 ## Risk Watch
 
 - **API churn** — Anthropic / OpenAI / Google may change schedule endpoints. The connector abstraction shields the rest of the app; budget engineering time each quarter for connector maintenance.
-- **MCP scope creep** — Phase 0 listed this as `Medium / Medium`. Stay disciplined: ship the seven tools above before adding anything more exotic.
+- **MCP scope creep** — Phase 0 listed this as `Medium / Medium`. Stay disciplined: ship the seven tools above before adding anything more exotic. Keep it "coming soon" externally until it's production-ready.
+- **Scope creep / connector sprawl (R7)** — the assessment's top execution risk. The reliability gate above is the control: connector count never leads reliability. Track it explicitly in the quarterly retro.
 - **Agent EOL** — Windows agent depends on `Microsoft.Win32.TaskScheduler` and .NET 8. Track .NET LTS roadmap; plan a `.NET 10` upgrade well before .NET 8 EOL.
 
 ---
@@ -145,5 +151,5 @@ Phase 6 is intentionally open-ended — there is no exit criteria. The phase is 
 
 - Monthly releases ship on schedule.
 - Critical bug median time-to-fix < 7 days.
-- KPI dashboard meets or exceeds Phase 0 targets.
-- New platform connectors are added without destabilizing existing ones.
+- KPI dashboard meets or exceeds Phase 0 targets (sync reliability > 95%, crash rate < 2%, connect-2-systems < 15 min).
+- New platform connectors are added **only through the reliability gate** — without destabilizing existing ones or dropping below KPI.

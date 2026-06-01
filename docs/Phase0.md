@@ -3,32 +3,44 @@
 **Duration:** 1–2 weeks
 **Status:** Active
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
+**Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md) — independent viability assessment (2026-05-14)
+
+---
+
+> **Strategic direction (per the independent assessment).** TaskHub is positioned as a **control plane** — *see, trigger, and trust* scheduled tasks across existing systems — **not** a universal workflow builder. The wedge is a unification + reliability layer across disconnected schedulers (OS + AI-native surfaces). Defensibility comes from **connector quality, normalized observability, and trust/reliability**, not from connector count. The MVP is deliberately a **2-platform reliability control plane** (Windows + one cloud/AI platform). Every other platform is *roadmap language*, not an implementation expectation. Market it as **"high-confidence integrations," not "supports everything."**
 
 ---
 
 ## Deliverable 1: Project Charter
 
 **Vision**  
-A single, elegant web dashboard that gives users unified control over every scheduled task across their entire digital workspace—whether running on Windows, AI assistants, or automation tools—reducing context switching and enabling cross-platform orchestration.
+A single, elegant **control plane** that lets users *see, trigger, and trust* every scheduled task across their digital workspace—Windows, AI assistants, and automation tools—reducing context switching and giving them confidence that what's scheduled is actually running. Visibility + triggering + reliability first; cross-platform orchestration is a later-stage ambition, not the MVP promise.
 
-**Scope (MVP)**  
-- Support Windows Task Scheduler (via local agent) + Claude Code Routines (via API)  
-- View all tasks from both platforms in one list  
+**Scope (MVP)** — explicitly a **2-platform reliability control plane**  
+- Support Windows Task Scheduler (via local agent) + Claude Code Routines (via API) — **depth over breadth; each integration must be deep and reliable, not a shallow connector that drifts**  
+- Unified task inventory across both platforms with **normalized status**  
+- One-click **run / enable / disable** with confirmations  
 - Quick links to native management UIs  
 - Manually trigger a Windows task from the web/mobile  
-- Basic template library (5–10 cross‑platform schedule conversions)  
+- **Execution timeline + clear logs for every run/trigger action**  
+- **Connector health diagnostics** (is the agent/API actually healthy?)  
+- Basic template library (5–10 cross‑platform schedule conversions) **with explicit conversion caveats / confidence score**  
 - Dark theme, responsive design
 
-**Out of Scope (MVP)**  
+**Out of Scope (MVP)** — *delayed per the assessment to protect the reliability baseline*  
+- **Advanced workflow building** (TaskHub is a control plane, not a workflow builder)  
+- **Broad multi-platform parity** — more shallow connectors weaken trust more than they add value  
 - Full two‑way sync (e.g., editing a schedule in ChatGPT updates the web app automatically)  
 - Cross‑platform dependency chains  
-- MCP AI task creation (post‑MVP)  
+- **Heavy AI/MCP authoring workflows before the reliability baseline is met** — MCP stays Phase 6, pitched as "coming soon"  
 - Support for Open Claw, Hermes, Jules (post‑MVP)
 
-**Success Metrics (KPI)**  
-- User can discover and trigger a Windows task from phone in < 30 seconds  
-- 90% of scheduled tasks from connected platforms appear correctly in dashboard  
-- Cross‑platform conversion template success rate > 85% (user‑rated)  
+**Success Metrics (KPI)** — first-90-day targets from the assessment  
+- A user can connect **2 systems in under 15 minutes**  
+- User can discover and trigger a Windows task from phone in **< 30 seconds**  
+- **> 95% successful sync reliability** across connected tasks *(raised from the original 90% "appear correctly" bar — reliability is the product, so the threshold is higher)*  
+- **Clear execution logs for every run/trigger action** (no silent successes or failures)  
+- Cross‑platform conversion template success rate > 85% (user‑rated), each conversion carrying a **confidence score**  
 - < 2% crash rate for Windows agent over 7 days
 
 **Stakeholders**  
@@ -47,7 +59,10 @@ A single, elegant web dashboard that gives users unified control over every sche
 | R3 | ChatGPT schedules API not publicly documented | Medium | High | Reverse‑engineer / use browser automation; otherwise limit to quick links. |
 | R4 | Sync frequency causes high CPU/battery on Windows (polling) | Low | Medium | Event‑based sync with configurable polling (default 5 min). |
 | R5 | User forgets to install agent → "why can't I control Windows tasks?" | High | Low | Clear onboarding wizard, in‑dashboard status indicator, one‑click download. |
-| R6 | Cross‑platform schedule conversion produces wrong times (timezone, DST) | Medium | Medium | Store schedules in UTC; require user preview; DST warnings. |
+| R6 | Cross‑platform schedule conversion produces wrong times (timezone, DST) | Medium | Medium | Store schedules in UTC; **require user preview + validation + a confidence score before apply**; DST warnings. |
+| R7 | **Scope creep — platform breadth chased ahead of reliability** (the assessment's #1 execution threat: becoming a connector-maintenance project, not a product) | High | High | **Hard roadmap gates tied to reliability metrics, not connector count.** A new connector ships only after the existing set holds its sync-reliability and crash-rate KPIs. |
+| R8 | **Security/compliance concerns with the local-agent model** | Medium | High | Auditable agent design, least-privilege service account, explicit permission scopes, and clear public **trust docs** explaining exactly what the agent can and cannot do. |
+| R9 | **Connector/API surface volatility** (Anthropic/OpenAI/Google change endpoints) | Medium | High | Strict connector abstraction, **version pinning**, and **fast fallback to quick-links** behavior so a broken API degrades gracefully instead of breaking the dashboard. |
 
 ---
 
@@ -243,10 +258,11 @@ enum ExecutionStatus {
 
 ## Phase 0 Exit Criteria
 
-- [ ] Project charter signed off.
-- [ ] Risk register reviewed.
+- [ ] Project charter signed off **with the control-plane positioning explicit** (see/trigger/trust, not workflow builder).
+- [ ] Risk register reviewed — including the R7 scope-creep gate.
 - [ ] Tech stack locked.
-- [ ] MVP scope agreed and documented.
+- [ ] MVP scope agreed and documented as a **2-platform reliability control plane**; everything else confirmed as roadmap-only.
+- [ ] Reliability-gated roadmap policy agreed: new connectors unlock only after the current set holds its KPIs.
 - [x] Competitive landscape surveyed ([`Competition_Analysis.md`](Competition_Analysis.md)).
 - [ ] Windows agent feasibility proven via 2-day POC spike.
 - [ ] Initial Prisma schema committed.

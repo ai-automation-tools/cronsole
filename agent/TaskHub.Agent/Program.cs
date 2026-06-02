@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.Win32.TaskScheduler;
 using SocketIOClient;
 
@@ -17,7 +18,7 @@ var client = new SocketIO(new Uri(serverUrl));
 client.OnConnected += async (sender, e) =>
 {
     Console.WriteLine("Connected to TaskHub server!");
-    
+
     // Announce ourselves
     await client.EmitAsync("agent:hello", new[] { new {
         machineName = Environment.MachineName,
@@ -66,7 +67,7 @@ client.On("task:set_status", async response =>
     {
         var taskPath = response.GetValue<string>(0);
         var enabled = response.GetValue<bool>(1);
-        
+
         Console.WriteLine($"Server command: task:set_status -> {taskPath} (enabled={enabled})");
 
         using (TaskService ts = new TaskService())
@@ -100,7 +101,7 @@ client.On("task:run", async response =>
             {
                 task.Run();
                 Console.WriteLine($"Task {taskPath} started.");
-                
+
                 // Report execution result
                 await client.EmitAsync("task:executed", new[] { new {
                     taskExternalId = taskPath,
@@ -113,6 +114,59 @@ client.On("task:run", async response =>
     catch (Exception ex)
     {
         Console.WriteLine($"Error running task: {ex.Message}");
+    }
+});
+
+// Event: task:create (Server commanded us to create a new task)
+client.On("task:create", async response =>
+{
+    try
+    {
+        var data = response.GetValue<JsonElement>(0);
+        string name = data.GetProperty("name").GetString() ?? "Unnamed Task";
+        string schedule = data.GetProperty("schedule").GetString() ?? "0 3 * * *";
+        string command = data.GetProperty("command").GetString() ?? "echo Hello";
+
+        Console.WriteLine($"Server command: task:create -> {name} (schedule={schedule})");
+
+        using (TaskService ts = new TaskService())
+        {
+            TaskDefinition td = ts.NewTask();
+            td.RegistrationInfo.Description = "Created via TaskHub";
+
+            // Basic schedule parsing for MVP
+            if (schedule == "0 3 * * *") {
+                td.Triggers.Add(new DailyTrigger { StartBoundary = DateTime.Today.AddHours(3) });
+            } else if (schedule == "0 * * * *") {
+                var tt = new TimeTrigger { StartBoundary = DateTime.Now };
+                tt.Repetition.Interval = TimeSpan.FromHours(1);
+                td.Triggers.Add(tt);
+            } else {
+                // Default fallback: Daily at current time + 1 hour
+                td.Triggers.Add(new DailyTrigger { StartBoundary = DateTime.Now.AddHours(1) });
+            }
+
+            td.Actions.Add(new ExecAction("cmd.exe", $"/c {command}", null));
+
+            var task = ts.RootFolder.RegisterTaskDefinition(name, td);
+            Console.WriteLine($"Task {name} created successfully at {task.Path}.");
+
+            await client.EmitAsync("task:created", new[] { new {
+                success = true,
+                path = task.Path,
+                name = name,
+                message = "Task created successfully"
+            }});
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error creating task: {ex.Message}");
+        await client.EmitAsync("task:created", new[] { new {
+            success = false,
+            name = "unknown",
+            message = ex.Message
+        }});
     }
 });
 

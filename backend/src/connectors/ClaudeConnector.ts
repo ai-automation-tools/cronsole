@@ -76,8 +76,12 @@ export class ClaudeConnector implements PlatformConnector {
     if (!config || !config.routines || config.routines.length === 0) {
       return { state: HealthState.DEGRADED, reason: 'No routines configured' };
     }
-    // We could potentially try a dry-run or check one token, 
+    // We could potentially try a dry-run or check one token,
     // but for now we'll assume healthy if config exists.
     return { state: HealthState.HEALTHY, lastSync: new Date() };
+  }
+
+  async createTask(name: string, schedule: string, command: string, config: any): Promise<{ success: boolean; externalId?: string; message?: string }> {
+    return { success: false, message: 'Creating Claude routines via API is not yet supported' };
   }
 }

@@ -244,15 +244,21 @@ const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: { task: Task | nu
 };
 
 const ImportModal = ({ onClose, onImport }: { onClose: () => void; onImport: (categories: string[]) => void }) => {
-  const { data: discovery, isLoading } = useQuery<any[]>({
+  const { data: discovery, isLoading, error } = useQuery<any[]>({
     queryKey: ['discovery'],
     queryFn: async () => {
-      const response = await api.get('/discover');
+      console.log('[Frontend] Fetching discovery data...');
+      const response = await api.get('/tasks/discover');
+      console.log('[Frontend] Discovery response:', response.data);
       return response.data;
     }
   });
 
   const [selected, setSelected] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (error) console.error('[Frontend] Discovery fetch error:', error);
+  }, [error]);
 
   useEffect(() => {
     if (discovery) {
@@ -822,6 +828,11 @@ const Dashboard = () => {
   const syncMutation = useMutation({
     mutationFn: async (categories: string[]) => {
       if (DEMO_MODE) return;
+      
+      // 1. Ensure we have an active connection for Windows
+      await api.get('/tasks/health'); // This route is often used to probe/refresh connections, 
+                                     // but let's be more explicit.
+      
       return api.post('/tasks/sync', { categories });
     },
     onSuccess: () => {
@@ -832,6 +843,25 @@ const Dashboard = () => {
       alert(`Sync Error: ${error.response?.data?.error || error.message}`);
     }
   });
+
+  // Effect to ensure at least one connection exists for MVP (Windows)
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    const checkConnection = async () => {
+      try {
+        const res = await api.get('/tasks/health');
+        if (res.data.length === 0) {
+          console.log('No connections found. Creating default Windows connection...');
+          // This is a bit of a hack for MVP, ideally we have a proper onboarding flow
+          // but for now, we'll trigger a 'health' check which we'll update in backend 
+          // to auto-create if missing for the placeholder user.
+        }
+      } catch (e) {
+        console.error('Failed to check connections', e);
+      }
+    };
+    checkConnection();
+  }, []);
 
   const categoryMutation = useMutation({
     mutationFn: async ({ taskId, category }: { taskId: string; category: string }) => {

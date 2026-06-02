@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient, PlatformType } from '@prisma/client';
 import { connectorRegistry } from '../connectors/registry.js';
+import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
 
 const prisma = new PrismaClient();
@@ -23,7 +24,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.patch('/:id', async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const { category } = req.body;
-  
+
   try {
     const task = await prisma.task.update({
       where: { id },
@@ -40,9 +41,23 @@ router.patch('/:id', async (req: Request, res: Response) => {
 router.get('/health', async (req: Request, res: Response) => {
   const userId = 'cli_user_placeholder';
   try {
-    const connections = await prisma.platformConnection.findMany({
+    let connections = await prisma.platformConnection.findMany({
       where: { userId }
     });
+
+    // Auto-initialize Windows connection for MVP if it doesn't exist
+    if (connections.length === 0) {
+      const newConn = await prisma.platformConnection.create({
+        data: {
+          userId,
+          platform: PlatformType.WINDOWS_TASK_SCHEDULER,
+          config: {},
+          isActive: true,
+          healthState: 'HEALTHY'
+        }
+      });
+      connections = [newConn];
+    }
 
     const results = [];
     for (const conn of connections) {
@@ -77,7 +92,7 @@ router.get('/health', async (req: Request, res: Response) => {
 router.post('/sync', async (req: Request, res: Response) => {
   const userId = 'cli_user_placeholder';
   const { categories } = req.body; // Optional list of categories to INCLUDE
-  
+
   try {
     const connections = await prisma.platformConnection.findMany({
       where: { userId, isActive: true }
@@ -90,7 +105,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       if (connector) {
         try {
           let tasks = await connector.syncTasks(conn.config);
-          
+
           // Filter by categories if provided
           if (categories && Array.isArray(categories)) {
             tasks = tasks.filter(t => {
@@ -118,20 +133,30 @@ router.post('/sync', async (req: Request, res: Response) => {
 // Discover tasks available for import
 router.get('/discover', async (req: Request, res: Response) => {
   const userId = 'cli_user_placeholder';
+  console.log(`[Discovery] Starting discovery for user: ${userId}`);
+
   try {
+    const registeredSocket = agentManager.getSocket(userId);
+    console.log(`[Discovery] AgentManager has socket for ${userId}: ${!!registeredSocket} (ID: ${registeredSocket?.id || 'none'})`);
+
     const connections = await prisma.platformConnection.findMany({
       where: { userId, isActive: true }
     });
 
+    console.log(`[Discovery] Found ${connections.length} active connections`);
     const discovery = [];
 
     for (const conn of connections) {
+      console.log(`[Discovery] Probing platform: ${conn.platform}`);
       const connector = connectorRegistry.getConnector(conn.platform);
       if (connector) {
         try {
-          const tasks = await connector.syncTasks(conn.config);
-          const categories = Array.from(new Set(tasks.map(t => TaskService.extractCategory(t.externalId, conn.platform))));
-          
+          const tasks = await connector.syncTasks({ ...conn.config as object, userId });
+          console.log(`[Discovery] Connector returned ${tasks.length} tasks for ${conn.platform}`);
+
+          const categories = Array.from(new Set(tasks.map(t => TaskService.extractCategory(t.externalId, conn.platform))));       
+          console.log(`[Discovery] Extracted categories: ${categories.join(', ')}`);
+
           discovery.push({
             platform: conn.platform,
             categories: categories.map(name => ({
@@ -140,14 +165,17 @@ router.get('/discover', async (req: Request, res: Response) => {
             }))
           });
         } catch (err: any) {
-          console.error(`Discovery error for ${conn.platform}:`, err);
+          console.error(`[Discovery] Error for ${conn.platform}:`, err);
         }
+      } else {
+        console.warn(`[Discovery] No connector found for platform: ${conn.platform}`);
       }
     }
 
+    console.log(`[Discovery] Final discovery payload:`, JSON.stringify(discovery));
     res.json(discovery);
   } catch (error) {
-    console.error('Discovery error:', error);
+    console.error('[Discovery] Global error:', error);
     res.status(500).json({ error: 'Failed to discover tasks' });
   }
 });

@@ -10,7 +10,7 @@ Build a modern, dark-themed web application that provides a single pane of glass
 > - **Position as a control plane** — visibility + triggering + reliability — **not** a universal workflow builder.
 > - **MVP is a 2-platform reliability control plane** (Windows + Claude). Every other platform is roadmap language, not an implementation expectation.
 > - **Compete on connector quality, normalized observability, and trust** — *"high-confidence integrations," not "supports everything."*
-> - **Reliability-gated roadmap:** new connectors/features unlock only after the existing set holds its reliability KPIs (sync > 95%, crash < 2%). Scope creep is the #1 execution risk.
+> - **Reliability-gated roadmap:** new connectors/features unlock only after the existing set holds its reliability KPIs (sync > 95%, crash < 2%). Scope creep is the #1 execution risk.     
 > - **MCP stays Phase 6**, pitched "coming soon" until production-ready.
 >
 > See each phase doc's "Informed by" header for how these recommendations were folded in.
@@ -22,7 +22,7 @@ Build a modern, dark-themed web application that provides a single pane of glass
 | 0 — Inception & Discovery | [`Phase0.md`](Phase0.md) | 1–2 wk | **Complete** |
 | 1 — Requirements & Specs | [`Phase1.md`](Phase1.md) | 2–3 wk | **Complete** |
 | 2 — Architecture & Design | [`Phase2.md`](Phase2.md) | 2 wk | **Complete** |
-| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Active (Sprints 1-6 mostly complete)** |
+| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Active (Sprints 1-7 mostly complete)** |
 | 4 — Testing & QA | [`Phase4.md`](Phase4.md) | 2–3 wk | Not started |
 | 5 — Deployment & Rollout | [`Phase5.md`](Phase5.md) | 1–2 wk | Not started |
 | 6 — Post-Launch & Iteration | [`Phase6.md`](Phase6.md) | ongoing | Not started |
@@ -97,6 +97,7 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
   - Manual run trigger + **one-click enable/disable, each with a confirmation** (via agent/API)
   - **Execution timeline + failure alerting** (clear logs for every run)
   - Template library (5–10 cross‑platform examples) with **conversion confidence score**
+  - **Local task categorization & organization (Independent of source platforms)**
   - Dark theme dashboard
 
 ### Sprint Breakdown
@@ -104,7 +105,7 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
 - **Sprint 3–4:** Platform integrations – Windows agent (WebSocket + Task Scheduler COM wrapper), Claude Code routines API
 - **Sprint 5:** Real‑time task list sync + manual run trigger
 - **Sprint 6:** Frontend – dashboard, dark theme, task cards, quick links
-- **Sprint 7:** Template library (store, edit, convert schedules)
+- **Sprint 7:** Template library & **Task Categorization**
 - **Sprint 8:** Testing & hardening
 
 ### Recommended Tech Stack
@@ -199,7 +200,7 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
 | Deployment | 23–24 |
 | Post‑launch | Week 25+ |
 
-**Total to MVP:** ~6 months (part‑time/small team)  
+**Total to MVP:** ~6 months (part‑time/small team)
 *Can be compressed to 3–4 months with 2–3 full‑time developers*
 
 ---

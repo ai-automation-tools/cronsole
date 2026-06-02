@@ -1,7 +1,7 @@
 # Phase 3: Development (MVP)
 
 **Duration:** 8–12 weeks
-**Status:** **Active (Sprints 1-6 mostly complete)**
+**Status:** **Active (Sprints 1-7 complete)**
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase2.md`](Phase2.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
@@ -19,18 +19,20 @@ Ship a working MVP that lets a single user:
 3. Manually trigger a Windows task from a phone in under 30 seconds, **with a confirmation and a logged execution-timeline entry**.
 4. Enable/disable any task one-click (with confirmation).
 5. Apply one of 5–10 prebuilt schedule templates to create a task on either platform, **seeing a conversion confidence score before applying**.
+6. **Organize tasks into local categories (folders) that are independent of the source platform's structure.**
 
 ---
 
 ## Deliverables
 
 - ✅ Functional MVP web app with Dashboard.
-- ✅ .NET 8 Windows agent with status management support.
+- ✅ .NET 8 Windows agent with status management and task creation support.
 - ✅ Backend refactored to TypeScript with Connector Registry.
 - ✅ **ClaudeConnector** implemented for routines.
-- ✅ **WindowsAgentConnector** implemented with WebSocket.
-- ✅ **One-click run / enable / disable, each behind a confirmation dialog (WIP for enable/disable).**
+- ✅ **WindowsAgentConnector** implemented with WebSocket and task creation.
+- ✅ **One-click run / enable / disable, each behind a confirmation dialog.**
 - ✅ **Task normalization** via TaskService.
+- ✅ **Local Task Categorization** via Dashboard and API.
 - ✅ Template library seed data prepared.
 - ✅ Manual run trigger (Windows + Claude).
 - ✅ Dark theme dashboard wired to live data.
@@ -69,8 +71,8 @@ Ship a working MVP that lets a single user:
 
 **Outcomes**
 - ✅ Server pushes `task:run` and `task:set_status` over WebSocket.
-- [ ] `ExecutionLog` rows written for every trigger attempt. (WIP in routes).
-- [ ] **Connector health diagnostics** endpoint.
+- ✅ `ExecutionLog` rows written for every trigger attempt.
+- ✅ **Connector health diagnostics** endpoint.
 - ✅ Backend rebroadcasts updates to subscribed frontend clients via Socket.io.
 
 **Definition of Done**
@@ -87,16 +89,20 @@ Ship a working MVP that lets a single user:
 **Definition of Done**
 - ✅ `npm run build` succeeds for frontend.
 
-### Sprint 7: Template Library
+### Sprint 7: Template Library & Categorization
 
 **Outcomes**
 - ✅ `templates` table seeded with 4 examples.
 - ✅ Template list page build-out with `DEMO_TEMPLATES` for the web demo.
-- [ ] Schedule conversion logic implementation.
+- ✅ **Schedule conversion logic implementation (Basic).**
+- ✅ **Task Categorization UI and Backend PATCH endpoint.**
+- ✅ **Automatic initial categorization based on platform folders.**
 
 **Definition of Done**
 - ✅ Templates visible in both local and demo app.
-- [ ] Applying a "Daily backup at 3 AM" template to Windows creates an actual scheduled task.
+- ✅ **Applying a "Daily backup at 3 AM" template to Windows creates an actual scheduled task.**
+- ✅ **Tasks can be moved between local categories and filtered via tabs.**
+- ✅ **Native folder structures are imported as initial categories during first sync.**
 
 ### Sprint 8: Testing & Hardening (Pending)
 

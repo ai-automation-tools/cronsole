@@ -90,4 +90,34 @@ export class WindowsAgentConnector implements PlatformConnector {
 
     return { state: HealthState.HEALTHY, lastSync: new Date() };
   }
+
+  async createTask(name: string, schedule: string, command: string, config: any): Promise<{ success: boolean; externalId?: string; message?: string }> {
+    const userId = config.userId;
+    const socket = agentManager.getSocket(userId);
+
+    if (!socket) {
+      return { success: false, message: 'Agent offline' };
+    }
+
+    return new Promise((resolve) => {
+      const handler = (payload: any) => {
+        if (payload.name === name) {
+          socket.off('task:created', handler);
+          resolve({
+            success: payload.success,
+            externalId: payload.path,
+            message: payload.message
+          });
+        }
+      };
+
+      socket.on('task:created', handler);
+      socket.emit('task:create', { name, schedule, command });
+
+      setTimeout(() => {
+        socket.off('task:created', handler);
+        resolve({ success: false, message: 'Agent creation timeout' });
+      }, 15000);
+    });
+  }
 }

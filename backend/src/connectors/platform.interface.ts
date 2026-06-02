@@ -15,7 +15,7 @@ export interface TaskInfo {
 
 export interface PlatformConnector {
   platform: PlatformType;
-  
+
   /**
    * Sync tasks from the platform.
    * Returns a list of normalized task information.
@@ -36,4 +36,9 @@ export interface PlatformConnector {
    * Check health of the connection.
    */
   getHealth(config: any): Promise<ConnectorHealth>;
+
+  /**
+   * Create a new task on the platform.
+   */
+  createTask(name: string, schedule: string, command: string, config: any): Promise<{ success: boolean; externalId?: string; message?: string }>;
 }

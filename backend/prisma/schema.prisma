@@ -29,14 +29,14 @@ model PlatformConnection {
   userId    String
   user      User         @relation(fields: [userId], references: [id])
   platform  PlatformType
-  
+
   // Encrypted at application level (AES-256-GCM)
   // Contains API keys, agent IDs, pairing secrets
   config    Json
-  
+
   isActive  Boolean      @default(true)
   lastSync  DateTime?
-  
+
   // Health & Diagnostics
   healthState       HealthState @default(HEALTHY)
   healthReason      String?
@@ -55,19 +55,20 @@ model Task {
   userId      String
   user        User         @relation(fields: [userId], references: [id])
   platform    PlatformType
-  
+
   // Platform's native ID (e.g., Windows task path, Claude routine ID)
   externalId  String
-  
+
   name        String
+  category    String       @default("Uncategorized")
   schedule    String?      // Normalized 5-field cron (UTC)
   nextRunTime DateTime?
   status      TaskStatus   @default(ACTIVE)
   quickLink   String?      // Deep link to native UI
-  
+
   // Extra platform-specific data
   metadata    Json?
-  
+
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -76,6 +77,7 @@ model Task {
   @@unique([platform, externalId])
   @@index([userId, platform])
   @@index([nextRunTime])
+  @@index([category])
 }
 
 model ExecutionLog {
@@ -84,10 +86,10 @@ model ExecutionLog {
   task          Task            @relation(fields: [taskId], references: [id])
   triggeredAt   DateTime        @default(now())
   status        ExecutionStatus @default(PENDING)
-  
+
   // Snippet of output or error message
   log           String?         @db.Text
-  
+
   // Platform's execution instance ID
   platformRunId String?
 
@@ -100,16 +102,16 @@ model Template {
   user              User         @relation(fields: [userId], references: [id])
   name              String
   description       String?      @db.Text
-  
+
   sourcePlatform    PlatformType
   targetPlatforms   PlatformType[]
-  
+
   scheduleExpression String       // The cron string
   command            String?
-  
+
   isPublic          Boolean      @default(false)
   upvotes           Int          @default(0)
-  
+
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 

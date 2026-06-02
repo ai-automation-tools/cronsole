@@ -19,6 +19,60 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Update a task (e.g., category)
+router.patch('/:id', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const { category } = req.body;
+  
+  try {
+    const task = await prisma.task.update({
+      where: { id },
+      data: { category }
+    });
+    res.json(task);
+  } catch (error) {
+    console.error('Error updating task:', error);
+    res.status(500).json({ error: 'Failed to update task' });
+  }
+});
+
+// Get health for all connectors
+router.get('/health', async (req: Request, res: Response) => {
+  const userId = 'cli_user_placeholder';
+  try {
+    const connections = await prisma.platformConnection.findMany({
+      where: { userId }
+    });
+
+    const results = [];
+    for (const conn of connections) {
+      const connector = connectorRegistry.getConnector(conn.platform);
+      if (connector) {
+        const health = await connector.getHealth({ ...(conn.config as object), userId });
+        results.push({
+          platform: conn.platform,
+          ...health
+        });
+
+        // Update health in DB
+        await prisma.platformConnection.update({
+          where: { id: conn.id },
+          data: {
+            healthState: health.state,
+            healthReason: health.reason,
+            lastSync: health.lastSync
+          }
+        });
+      }
+    }
+
+    res.json(results);
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({ error: 'Failed to check connector health' });
+  }
+});
+
 // Sync tasks from all platforms
 router.post('/sync', async (req: Request, res: Response) => {
   const userId = 'cli_user_placeholder'; // MVP placeholder
@@ -71,9 +125,9 @@ router.post('/:id/run', async (req: Request, res: Response) => {
     });
 
     // In a real system, we'd decrypt the config here
-    const config = { 
+    const config = {
       ...(connection?.config as any || {}),
-      userId: task.userId 
+      userId: task.userId
     };
 
     const result = await connector.runTask(task.externalId, config);
@@ -82,13 +136,20 @@ router.post('/:id/run', async (req: Request, res: Response) => {
       await prisma.executionLog.create({
         data: {
           taskId: id,
-          status: 'PENDING',
+          status: 'SUCCESS', // Started successfully
           log: result.message || 'Triggered from web dashboard',
           platformRunId: result.platformRunId
         }
       });
       res.json({ message: 'Task run command sent', ...result });
     } else {
+      await prisma.executionLog.create({
+        data: {
+          taskId: id,
+          status: 'FAILURE',
+          log: result.message || 'Failed to trigger'
+        }
+      });
       res.status(500).json({ error: result.message || 'Failed to trigger task' });
     }
   } catch (error) {

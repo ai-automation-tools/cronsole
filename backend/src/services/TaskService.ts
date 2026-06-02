@@ -44,7 +44,7 @@ export class TaskService {
     return results;
   }
 
-  private static extractCategory(externalId: string, platform: PlatformType): string {
+  public static extractCategory(externalId: string, platform: PlatformType): string {
     if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
       // Windows paths: \Folder\Subfolder\TaskName or \TaskName
       // Use regex to split by both backslash and forward slash to handle different environments

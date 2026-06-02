@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Activity,
   LayoutDashboard,
@@ -23,7 +23,9 @@ import {
   Globe,
   Trash2,
   Link as LinkIcon,
-  Search
+  Search,
+  Check,
+  ChevronRight
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -241,6 +243,92 @@ const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: { task: Task | nu
   );
 };
 
+const ImportModal = ({ onClose, onImport }: { onClose: () => void; onImport: (categories: string[]) => void }) => {
+  const { data: discovery, isLoading } = useQuery<any[]>({
+    queryKey: ['discovery'],
+    queryFn: async () => {
+      const response = await api.get('/discover');
+      return response.data;
+    }
+  });
+
+  const [selected, setSelected] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (discovery) {
+      const all = discovery.flatMap(p => p.categories.map((c: any) => c.name));
+      setSelected(all.filter(c => c !== 'Microsoft' && c !== 'Uncategorized'));
+    }
+  }, [discovery]);
+
+  const toggle = (cat: string) => {
+    setSelected(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+  };
+
+  if (isLoading) return (
+     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div className="text-center space-y-4">
+           <Loader2 className="animate-spin text-blue-500 mx-auto" size={48} />
+           <p className="text-slate-400 font-medium">Scanning platforms for tasks...</p>
+        </div>
+     </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col">
+        <header className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+          <div>
+            <h2 className="text-xl font-bold">Import & Sync</h2>
+            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Select categories to pull into dashboard</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-500 transition-colors"><XCircle size={20} /></button>
+        </header>
+        <div className="p-6 space-y-4">
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+            {discovery?.map(platform => (
+               <div key={platform.platform} className="space-y-2 mb-6 last:mb-0">
+                  <h3 className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">{platform.platform.replace(/_/g, ' ')}</h3>
+                  <div className="grid gap-2">
+                    {platform.categories.map((cat: any) => (
+                      <label key={cat.name} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer group ${selected.includes(cat.name) ? 'bg-blue-600/5 border-blue-500/30' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${selected.includes(cat.name) ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-700 bg-slate-900 text-transparent group-hover:border-slate-500'}`}>
+                            <Check size={12} strokeWidth={4} />
+                          </div>
+                          <div>
+                            <span className={`text-sm font-bold transition-colors ${selected.includes(cat.name) ? 'text-slate-100' : 'text-slate-400'}`}>{cat.name}</span>
+                            {(cat.name === 'Microsoft' || cat.name === 'Uncategorized') && !selected.includes(cat.name) && (
+                               <span className="ml-2 text-[9px] text-slate-600 font-medium italic">(Excluded by default)</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-colors ${selected.includes(cat.name) ? 'bg-blue-600/20 border-blue-500/20 text-blue-400' : 'bg-slate-900 border-slate-800 text-slate-600'}`}>{cat.count} tasks</span>
+                        </div>
+                        <input type="checkbox" className="hidden" checked={selected.includes(cat.name)} onChange={() => toggle(cat.name)} />
+                      </label>
+                    ))}
+                  </div>
+               </div>
+            ))}
+          </div>
+        </div>
+        <footer className="p-6 bg-slate-950 border-t border-slate-800 flex gap-4">
+          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors">Discard</button>
+          <button 
+            onClick={() => onImport(selected)} 
+            disabled={selected.length === 0}
+            className="flex-[2] bg-blue-600 hover:bg-blue-500 py-3 rounded-2xl font-bold shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm"
+          >
+            Sync {selected.length} Categories
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
 const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate }: { task: Task; onSelect: (task: Task) => void; onRun: (task: Task) => void; onCategoryUpdate: (taskId: string, category: string) => void }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
@@ -323,6 +411,8 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
     );
   }
 
+  const isEmpty = !tasks || tasks.length === 0;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {DEMO_MODE && (
@@ -338,70 +428,92 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
           <p className="text-slate-400">Manage {tasks?.length || 0} tasks across your ecosystem.</p>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={() => setShowDisabled(!showDisabled)} 
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border ${
-              showDisabled 
-                ? 'bg-blue-600/10 border-blue-500/50 text-blue-400' 
-                : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
-            }`}
-          >
-            {showDisabled ? <Eye size={16} /> : <EyeOff size={16} />}
-            {showDisabled ? 'Showing All' : 'Active Only'}
-          </button>
-          <button onClick={() => refetch()} className="bg-slate-900 border border-slate-800 hover:border-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-xl active:scale-95">
-            <RefreshCw size={16} /> Sync All
+          {!isEmpty && (
+            <button 
+              onClick={() => setShowDisabled(!showDisabled)} 
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border ${
+                showDisabled 
+                  ? 'bg-blue-600/10 border-blue-500/50 text-blue-400' 
+                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              {showDisabled ? <Eye size={16} /> : <EyeOff size={16} />}
+              {showDisabled ? 'Showing All' : 'Active Only'}
+            </button>
+          )}
+          <button onClick={() => refetch()} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
+            <RefreshCw size={16} /> {isEmpty ? 'Import Tasks' : 'Sync / Import'}
           </button>
         </div>
       </div>
 
-      {/* Category Tabs - Now with flex-wrap and better spacing */}
-      <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-slate-900">
-        {categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedTaskCategory(cat)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-              selectedCategory === cat 
-                ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' 
-                : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
-            }`}
-          >
-            {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
-            {cat}
-            <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
-              {cat === 'All' ? tasks?.length : tasks?.filter(t => (t.category || 'Uncategorized') === cat).length}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
-        {filteredTasks.length === 0 ? (
-          <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
-             <Tag size={48} className="mb-4 opacity-20" />
-             <p className="font-bold">No tasks found</p>
-             {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
-               <button 
-                 onClick={() => setShowDisabled(true)}
-                 className="mt-4 text-blue-400 hover:text-blue-300 text-sm font-bold underline underline-offset-4"
-               >
-                 Show disabled tasks in this category
-               </button>
-             )}
+      {isEmpty ? (
+        <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-slate-800 rounded-[2.5rem] bg-slate-900/10">
+           <div className="bg-slate-900 p-6 rounded-3xl mb-6 shadow-2xl">
+              <RefreshCw size={48} className="text-blue-500 opacity-50" />
+           </div>
+           <h3 className="text-2xl font-bold text-slate-200 mb-2">No tasks imported yet</h3>
+           <p className="text-slate-500 max-w-sm text-center mb-8 leading-relaxed font-medium">
+              Connect your platforms and import your scheduled tasks to get started with TaskHub.
+           </p>
+           <button 
+              onClick={() => refetch()}
+              className="bg-slate-50 text-slate-950 px-8 py-3 rounded-2xl font-bold flex items-center gap-3 hover:bg-white transition-all shadow-xl active:scale-95"
+           >
+              Run Initial Sync <ChevronRight size={18} />
+           </button>
+        </div>
+      ) : (
+        <>
+          {/* Category Tabs */}
+          <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-slate-900">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedTaskCategory(cat)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                  selectedCategory === cat 
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' 
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
+                {cat}
+                <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                  {cat === 'All' ? tasks?.length : tasks?.filter(t => (t.category || 'Uncategorized') === cat).length}
+                </span>
+              </button>
+            ))}
           </div>
-        ) : (
-          filteredTasks.map(task => (
-            <TaskCard 
-              key={task.id} 
-              task={task} 
-              onSelect={onTaskSelect} 
-              onRun={onRun} 
-              onCategoryUpdate={onCategoryUpdate} 
-            />
-          ))
-        )}
-      </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
+            {filteredTasks.length === 0 ? (
+              <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
+                 <Tag size={48} className="mb-4 opacity-20" />
+                 <p className="font-bold">No tasks found</p>
+                 {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
+                   <button 
+                     onClick={() => setShowDisabled(true)}
+                     className="mt-4 text-blue-400 hover:text-blue-300 text-sm font-bold underline underline-offset-4"
+                   >
+                     Show disabled tasks in this category
+                   </button>
+                 )}
+              </div>
+            ) : (
+              filteredTasks.map(task => (
+                <TaskCard 
+                  key={task.id} 
+                  task={task} 
+                  onSelect={onTaskSelect} 
+                  onRun={onRun} 
+                  onCategoryUpdate={onCategoryUpdate} 
+                />
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 };
@@ -678,6 +790,7 @@ const PlatformRow = ({ link, onDelete }: { link: PlatformLink; onDelete: (id: st
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showImport, setShowImport] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: tasks, isLoading, refetch } = useQuery<Task[]>({
@@ -706,6 +819,20 @@ const Dashboard = () => {
     }
   });
 
+  const syncMutation = useMutation({
+    mutationFn: async (categories: string[]) => {
+      if (DEMO_MODE) return;
+      return api.post('/tasks/sync', { categories });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      setShowImport(false);
+    },
+    onError: (error: any) => {
+      alert(`Sync Error: ${error.response?.data?.error || error.message}`);
+    }
+  });
+
   const categoryMutation = useMutation({
     mutationFn: async ({ taskId, category }: { taskId: string; category: string }) => {
       if (DEMO_MODE) {
@@ -727,14 +854,14 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-blue-500/30 overflow-hidden">
+    <div className="flex h-screen bg-slate-950 text-slate-50 font-sans selection:bg-blue-500/30 overflow-hidden">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="flex-1 p-10 overflow-y-auto">
         {activeTab === 'dashboard' && (
           <DashboardScreen 
             tasks={tasks} 
             isLoading={isLoading} 
-            refetch={refetch} 
+            refetch={() => setShowImport(true)} 
             onTaskSelect={setSelectedTask} 
             onRun={runMutation.mutate}
             onCategoryUpdate={handleCategoryUpdate}
@@ -750,6 +877,12 @@ const Dashboard = () => {
         onRun={runMutation.mutate} 
         onCategoryUpdate={handleCategoryUpdate}
       />
+      {showImport && (
+        <ImportModal 
+          onClose={() => setShowImport(false)} 
+          onImport={syncMutation.mutate} 
+        />
+      )}
     </div>
   );
 };

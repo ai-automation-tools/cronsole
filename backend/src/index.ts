@@ -42,25 +42,8 @@ io.on('connection', (socket: Socket) => {
   // For MVP, we auto-register all agents to the placeholder user
   agentManager.registerAgent('cli_user_placeholder', socket);
 
-  socket.emit('task:list');
-
-  socket.on('task:full_list', async (payload: { tasks: any[] }) => {
-    const { tasks } = payload;
-    console.log(`Received ${tasks?.length} tasks from agent.`);
-    if (!tasks) return;
-
-    try {
-      const normalizedTasks = tasks.map(t => ({
-        externalId: t.path,
-        name: t.name,
-        status: (t.state === 'Ready' || t.state === 'Running') ? 'ACTIVE' as const : 'DISABLED' as const,
-        metadata: t
-      }));
-      await TaskService.upsertTasks('cli_user_placeholder', PlatformType.WINDOWS_TASK_SCHEDULER, normalizedTasks);
-    } catch (error) {
-      console.error('Error syncing tasks:', error);
-    }
-  });
+  // We no longer emit 'task:list' here to prevent auto-sync on startup/connection.
+  // Sync is now explicitly triggered by the user via the frontend.
 
   socket.on('disconnect', () => {
     console.log('Agent disconnected');

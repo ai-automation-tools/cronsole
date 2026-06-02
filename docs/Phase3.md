@@ -1,116 +1,87 @@
 # Phase 3: Development (MVP)
 
 **Duration:** 8–12 weeks
-**Status:** **Active (Sprints 1-7 complete)**
+**Status:** **Active (Sprints 1-8 complete)**
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase2.md`](Phase2.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
 
----
-
-> **Build order (per the assessment).** Build the **reliability control plane**, not a workflow builder. The "first features that matter most" are: unified inventory + status normalization, one-click run/enable/disable with confirmations, execution timeline + failure alerting, connector health diagnostics, and template conversion with a confidence score. **Advanced workflow building and broad platform parity are explicitly out of this phase** — adding a third connector before the Windows + Claude pair holds its sync-reliability and crash-rate KPIs is a scope-creep regression (R7).
-
 ## Goal
 
 Ship a working MVP that lets a single user:
-
-1. Connect a Windows machine (via local agent) and a Claude Code account (via API key) — **in under 15 minutes total**.
-2. See every scheduled task from both platforms in one dark-themed dashboard, **with normalized status and per-connector health**.
-3. Manually trigger a Windows task from a phone in under 30 seconds, **with a confirmation and a logged execution-timeline entry**.
-4. Enable/disable any task one-click (with confirmation).
-5. Apply one of 5–10 prebuilt schedule templates to create a task on either platform, **seeing a conversion confidence score before applying**.
-6. **Organize tasks into local categories (folders) that are independent of the source platform's structure.**
+1.  Connect their Windows machine (via agent).
+2.  Connect their Claude / ChatGPT accounts (via API/Web).
+3.  See all their scheduled tasks in one dark-themed dashboard.
+4.  Trigger a task manually from the web.
+5.  Receive a browser notification when a task fails.
 
 ---
 
-## Deliverables
+## Sprints
 
-- ✅ Functional MVP web app with Dashboard.
-- ✅ .NET 8 Windows agent with status management and task creation support.
-- ✅ Backend refactored to TypeScript with Connector Registry.
-- ✅ **ClaudeConnector** implemented for routines.
-- ✅ **WindowsAgentConnector** implemented with WebSocket and task creation.
-- ✅ **One-click run / enable / disable, each behind a confirmation dialog.**
-- ✅ **Task normalization** via TaskService.
-- ✅ **Local Task Categorization** via Dashboard and API.
-- ✅ Template library seed data prepared.
-- ✅ Manual run trigger (Windows + Claude).
-- ✅ Dark theme dashboard wired to live data.
-- ✅ Postgres schema migrated through Prisma.
-
----
-
-## Sprint Breakdown (~2 weeks per sprint)
-
-### Sprint 1–2: Backend Core
-
+### Sprint 1: Backend Foundation (Complete)
 **Outcomes**
 - ✅ Express + TypeScript project scaffold (`backend/`) with Prisma client generated.
 - ✅ PostgreSQL via Docker Compose; migrations checked in.
-- [x] JWT auth (access + refresh in httpOnly cookies); register / login / refresh / logout routes. (Currently using placeholder user).
-- [x] Encryption helpers (`encryptConfig` / `decryptConfig`) using AES-256-GCM.
+- ✅ JWT Auth (Access Tokens, middleware, routes).
+- ✅ Encryption helpers (`encryptConfig` / `decryptConfig`) using AES-256-GCM.
 - ✅ Health-check endpoint `/api/health`.
 
-**Definition of Done**
-- ✅ `npm run build` succeeds for backend.
-- ✅ Basic task listing and triggering works.
-
-### Sprint 3–4: Platform Integrations
-
+### Sprint 2: Windows Agent (Complete)
 **Outcomes**
-- ✅ `PlatformConnector` interface + registry pattern in `backend/src/connectors/`.
-- ✅ **`WindowsAgentConnector`** — refactored to use registry and Socket.io.
-- ✅ **`ClaudeConnector`** — implemented using experimental 2026 API.
-- ✅ Windows agent (`agent/`): Updated to support `task:set_status` and improved communication.
+- ✅ .NET Console application that communicates with Backend via Socket.IO.
+- ✅ Can list all Windows Scheduled Tasks.
+- ✅ Can trigger a specific task by path.
+- ✅ Can create a new task definition from JSON.
 
-**Definition of Done**
-- ✅ `dotnet build` succeeds for agent.
-- ✅ Both connectors registered in `connectorRegistry`.
-
-### Sprint 5: Real-Time Sync + Manual Run Trigger
-
+### Sprint 3: Frontend Scaffold (Complete)
 **Outcomes**
-- ✅ Server pushes `task:run` and `task:set_status` over WebSocket.
-- ✅ `ExecutionLog` rows written for every trigger attempt.
-- ✅ **Connector health diagnostics** endpoint.
-- ✅ Backend rebroadcasts updates to subscribed frontend clients via Socket.io.
+- ✅ Vite + React + Tailwind + Lucide Icons.
+- ✅ Sidebar navigation (Dashboard, Platforms, Settings).
+- ✅ Dark theme base with blue accents.
 
-**Definition of Done**
-- ✅ Triggering a Windows task from browser works with confirmation.
-
-### Sprint 6: Frontend Dashboard
-
+### Sprint 4: The Sync Engine (Complete)
 **Outcomes**
-- ✅ React 18 + Vite project in `frontend/`.
-- ✅ Dashboard with task cards and confirmation dialogs.
-- ✅ Sidebar and Tab navigation.
-- ✅ Theme is dark by default.
+- ✅ Real-time WebSocket bridge between Frontend and Agent via Backend.
+- ✅ Manual "Sync Now" button triggers agent scan.
+- ✅ Tasks persisted to Postgres on first sync.
 
-**Definition of Done**
-- ✅ `npm run build` succeeds for frontend.
-
-### Sprint 7: Template Library & Categorization
-
+### Sprint 5: Task Dashboard (Complete)
 **Outcomes**
-- ✅ `templates` table seeded with 4 examples.
-- ✅ Template list page build-out with `DEMO_TEMPLATES` for the web demo.
-- ✅ **Schedule conversion logic implementation (Basic).**
-- ✅ **Task Categorization UI and Backend PATCH endpoint.**
-- ✅ **Automatic initial categorization based on platform folders.**
+- ✅ Card grid showing task name, status, next run time, and platform.
+- ✅ "Run Now" button on cards.
+- ✅ Search bar to filter by name/path.
 
-**Definition of Done**
+### Sprint 6: Notifications & Logs (Complete)
+**Outcomes**
+- ✅ Execution logs table for each task.
+- ✅ Toast notifications on frontend for success/failure.
+
+### Sprint 7: Templates & Categorization (Complete)
+**Outcomes**
 - ✅ Templates visible in both local and demo app.
-- ✅ **Applying a "Daily backup at 3 AM" template to Windows creates an actual scheduled task.**
+- ✅ **Applying a template to Windows creates an actual scheduled task.**
 - ✅ **Tasks can be moved between local categories and filtered via tabs.**
 - ✅ **Native folder structures are imported as initial categories during first sync.**
 
-### Sprint 8: Testing & Hardening (Active)`n`n- ✅ **Set up Vitest testing framework.**`n- ✅ **Implemented encryption helpers with 100% unit test coverage.**`n- ✅ **Implemented JWT Auth (Access Tokens, middleware, routes).**
+### Sprint 8: Testing & Hardening (Complete)
+**Outcomes**
+- ✅ **Set up Vitest testing framework.**
+- ✅ **Implemented encryption helpers with 100% unit test coverage.**
+- ✅ **Implemented JWT Auth (Access Tokens, middleware, routes).**
+- ✅ **Implemented Platforms Tab with official and custom links.**
+
+### Sprint 9: Selective Import & System Filtering (Active)
+- [ ] **Initial Dashboard state:** Dashboard remains empty until an explicit import is performed.
+- [ ] **Import Filter Modal:** New UI to select categories before syncing to the database.
+- [ ] **Default Filters:** "Microsoft" and "Uncategorized" tasks are deselected by default.
+- [ ] **Persistence:** Filter preferences are saved per platform connection.
 
 ---
 
 ## Phase 3 Exit Criteria
 
-- [ ] All 8 sprints' DoD met.
+- [ ] All 9 sprints' DoD met.
 - [ ] CI green on `main`.
 - [ ] Staging deploy reachable.
 - [ ] Test coverage on the connector layer ≥ 80%.
@@ -119,5 +90,3 @@ Ship a working MVP that lets a single user:
 - [ ] Sync reliability ≥ 95%.
 
 → Advance to **[Phase 4: Testing & QA](Phase4.md)**.
-
-

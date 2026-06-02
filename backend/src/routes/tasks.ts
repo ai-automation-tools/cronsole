@@ -73,9 +73,11 @@ router.get('/health', async (req: Request, res: Response) => {
   }
 });
 
-// Sync tasks from all platforms
+// Sync tasks from all platforms (Legacy - now selective)
 router.post('/sync', async (req: Request, res: Response) => {
-  const userId = 'cli_user_placeholder'; // MVP placeholder
+  const userId = 'cli_user_placeholder';
+  const { categories } = req.body; // Optional list of categories to INCLUDE
+  
   try {
     const connections = await prisma.platformConnection.findMany({
       where: { userId, isActive: true }
@@ -87,7 +89,17 @@ router.post('/sync', async (req: Request, res: Response) => {
       const connector = connectorRegistry.getConnector(conn.platform);
       if (connector) {
         try {
-          const tasks = await connector.syncTasks(conn.config);
+          let tasks = await connector.syncTasks(conn.config);
+          
+          // Filter by categories if provided
+          if (categories && Array.isArray(categories)) {
+            tasks = tasks.filter(t => {
+              // Use the same logic as TaskService.extractCategory to check if it should be included
+              const cat = TaskService.extractCategory(t.externalId, conn.platform);
+              return categories.includes(cat);
+            });
+          }
+
           await TaskService.upsertTasks(userId, conn.platform, tasks);
           results.push({ platform: conn.platform, count: tasks.length });
         } catch (err: any) {
@@ -100,6 +112,43 @@ router.post('/sync', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Sync error:', error);
     res.status(500).json({ error: 'Failed to sync tasks' });
+  }
+});
+
+// Discover tasks available for import
+router.get('/discover', async (req: Request, res: Response) => {
+  const userId = 'cli_user_placeholder';
+  try {
+    const connections = await prisma.platformConnection.findMany({
+      where: { userId, isActive: true }
+    });
+
+    const discovery = [];
+
+    for (const conn of connections) {
+      const connector = connectorRegistry.getConnector(conn.platform);
+      if (connector) {
+        try {
+          const tasks = await connector.syncTasks(conn.config);
+          const categories = Array.from(new Set(tasks.map(t => TaskService.extractCategory(t.externalId, conn.platform))));
+          
+          discovery.push({
+            platform: conn.platform,
+            categories: categories.map(name => ({
+              name,
+              count: tasks.filter(t => TaskService.extractCategory(t.externalId, conn.platform) === name).length
+            }))
+          });
+        } catch (err: any) {
+          console.error(`Discovery error for ${conn.platform}:`, err);
+        }
+      }
+    }
+
+    res.json(discovery);
+  } catch (error) {
+    console.error('Discovery error:', error);
+    res.status(500).json({ error: 'Failed to discover tasks' });
   }
 });
 

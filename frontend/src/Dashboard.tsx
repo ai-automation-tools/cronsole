@@ -15,7 +15,9 @@ import {
   ArrowRight,
   Folder,
   Tag,
-  Plus
+  Plus,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -76,10 +78,10 @@ const DEMO_TASKS: Task[] = [
     name: 'System Cleanup',
     category: 'Maintenance',
     platform: 'WINDOWS_TASK_SCHEDULER',
-    status: 'ACTIVE',
+    status: 'DISABLED',
     externalId: '\\Mikes\\Cleanup',
     updatedAt: '2026-06-01T00:00:00Z',
-    metadata: { schedule: '0 0 * * 0', state: 'Ready' },
+    metadata: { schedule: '0 0 * * 0', state: 'Disabled' },
   },
 ];
 
@@ -284,6 +286,7 @@ const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate }: { task: Task; onS
 
 const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCategoryUpdate }: { onTaskSelect: (task: Task) => void; onRun: (task: Task) => void, tasks: Task[] | undefined, isLoading: boolean, refetch: () => void, onCategoryUpdate: (taskId: string, category: string) => void }) => {
   const [selectedCategory, setSelectedTaskCategory] = useState<string>('All');
+  const [showDisabled, setShowDisabled] = useState(false);
 
   const categories = useMemo(() => {
     if (!tasks) return ['All'];
@@ -293,9 +296,17 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
 
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
-    if (selectedCategory === 'All') return tasks;
-    return tasks.filter(t => (t.category || 'Uncategorized') === selectedCategory);
-  }, [tasks, selectedCategory]);
+    
+    // First apply the active/disabled filter
+    let result = showDisabled ? tasks : tasks.filter(t => t.status === 'ACTIVE');
+    
+    // Then apply category filter
+    if (selectedCategory !== 'All') {
+      result = result.filter(t => (t.category || 'Uncategorized') === selectedCategory);
+    }
+    
+    return result;
+  }, [tasks, selectedCategory, showDisabled]);
 
   if (isLoading) {
     return (
@@ -321,19 +332,30 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
           <p className="text-slate-400">Manage {tasks?.length || 0} tasks across your ecosystem.</p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={() => setShowDisabled(!showDisabled)} 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border ${
+              showDisabled 
+                ? 'bg-blue-600/10 border-blue-500/50 text-blue-400' 
+                : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+            }`}
+          >
+            {showDisabled ? <Eye size={16} /> : <EyeOff size={16} />}
+            {showDisabled ? 'Showing All' : 'Active Only'}
+          </button>
           <button onClick={() => refetch()} className="bg-slate-900 border border-slate-800 hover:border-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-xl active:scale-95">
             <RefreshCw size={16} /> Sync All
           </button>
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide border-b border-slate-900">
+      {/* Category Tabs - Now with flex-wrap and better spacing */}
+      <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-slate-900">
         {categories.map(cat => (
           <button
             key={cat}
             onClick={() => setSelectedTaskCategory(cat)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
               selectedCategory === cat 
                 ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' 
                 : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
@@ -352,7 +374,15 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
         {filteredTasks.length === 0 ? (
           <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
              <Tag size={48} className="mb-4 opacity-20" />
-             <p className="font-bold">No tasks found in this category</p>
+             <p className="font-bold">No tasks found</p>
+             {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
+               <button 
+                 onClick={() => setShowDisabled(true)}
+                 className="mt-4 text-blue-400 hover:text-blue-300 text-sm font-bold underline underline-offset-4"
+               >
+                 Show disabled tasks in this category
+               </button>
+             )}
           </div>
         ) : (
           filteredTasks.map(task => (
@@ -374,7 +404,7 @@ const TemplatesScreen = () => {
   const { data: templates, isLoading } = useQuery<Template[]>({
     queryKey: ['templates'],
     queryFn: async () => {
-      if (DEMO_MODE) return DEMO_TEMPLATES;
+      if (DEMO_MODE) return DEMO_TASKS as any; // Fallback for type safety
       try {
         const response = await api.get('/templates');
         return response.data;

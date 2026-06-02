@@ -47,13 +47,13 @@ export class TaskService {
   private static extractCategory(externalId: string, platform: PlatformType): string {
     if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
       // Windows paths: \Folder\Subfolder\TaskName or \TaskName
-      // Remove leading backslash if it exists to make splitting cleaner
-      const cleanPath = externalId.startsWith('\\') ? externalId.substring(1) : externalId;
-      const parts = cleanPath.split('\\');
+      // Use regex to split by both backslash and forward slash to handle different environments
+      const parts = externalId.split(/[\\\/]/).filter(p => p.length > 0);
       
+      // If parts.length > 1, the task is in a folder. 
+      // The first part of the filtered list is the ROOT folder.
       if (parts.length > 1) {
-        // The last part is the task name, everything before is the "folder"
-        return parts.slice(0, -1).join('\\');
+        return parts[0];
       }
     }
     return 'Uncategorized';

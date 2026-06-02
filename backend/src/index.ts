@@ -6,6 +6,8 @@ import cors from 'cors';
 import { PrismaClient, PlatformType, TaskStatus } from '@prisma/client';
 import taskRoutes from './routes/tasks.js';
 import templateRoutes from './routes/templates.js';
+import authRoutes from './routes/auth.js';
+import { authenticateToken } from './auth/auth.js';
 import { agentManager } from './ws/AgentManager.js';
 import { TaskService } from './services/TaskService.js';
 
@@ -28,8 +30,9 @@ app.use(express.json());
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
-app.use('/api/tasks', taskRoutes);
-app.use('/api/templates', templateRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/tasks', authenticateToken, taskRoutes);
+app.use('/api/templates', authenticateToken, templateRoutes);
 
 // --- WebSocket (Agent) ---
 
@@ -68,13 +71,14 @@ io.on('connection', (socket: Socket) => {
 // --- Initialization ---
 
 async function main() {
+  // MVP Placeholder User
   await prisma.user.upsert({
     where: { email: 'mike@example.com' },
     update: {},
     create: {
-      id: 'cli_user_placeholder',
-      email: 'mike@example.com',
-      name: 'Mike'
+      id: 'cli_user_placeholder', email: 'mike@example.com',
+      name: 'Mike',
+      password: '' // No password for placeholder
     }
   });
 

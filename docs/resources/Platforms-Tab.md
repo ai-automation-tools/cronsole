@@ -1,12 +1,23 @@
 # Platforms Tab
 
-## Task schedulers to add
+**Status:** Implemented (Sprint 8)
 
-<https://claude.ai/code/routines>
-<https://chatgpt.com/schedules>
-<https://gemini.google.com/scheduled>
+## Overview
+A centralized hub for quick access to 3rd party task schedulers and custom automation interfaces.
 
 ## Features
+- **Official Schedulers:** Dedicated, full-width rows for:
+    - [Claude Routines](https://claude.ai/code/routines)
+    - [ChatGPT Schedules](https://chatgpt.com/schedules)
+    - [Gemini Scheduled](https://gemini.google.com/scheduled)
+- **Custom Links:** 
+    - Users can manually add custom links (e.g., N8N, OpenClaw, Hermes).
+    - Custom links appear in a separate "User Defined" section.
+    - Delete functionality for custom entries via hover action.
+- **Persistence:** All custom links are persisted locally via `localStorage`.
+- **UI Design:** Clean, dark-themed rectangular boxes with lead icons (Bot, Sparkles, Globe, etc.).
 
-- User can manually add links to the Platforms tab. (IE - openclaw, hermes, custom links, etc)
-- User can delete links from the Platforms tab.
+## Future Enhancements
+- Server-side persistence for platform links.
+- Integration with platform-specific APIs for health monitoring.
+- Drag-and-drop reordering.

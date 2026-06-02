@@ -47,8 +47,8 @@ Ship a working MVP that lets a single user:
 **Outcomes**
 - ✅ Express + TypeScript project scaffold (`backend/`) with Prisma client generated.
 - ✅ PostgreSQL via Docker Compose; migrations checked in.
-- [ ] JWT auth (access + refresh in httpOnly cookies); register / login / refresh / logout routes. (Currently using placeholder user).
-- [ ] Encryption helpers (`encryptConfig` / `decryptConfig`) using AES-256-GCM.
+- [x] JWT auth (access + refresh in httpOnly cookies); register / login / refresh / logout routes. (Currently using placeholder user).
+- [x] Encryption helpers (`encryptConfig` / `decryptConfig`) using AES-256-GCM.
 - ✅ Health-check endpoint `/api/health`.
 
 **Definition of Done**
@@ -104,7 +104,7 @@ Ship a working MVP that lets a single user:
 - ✅ **Tasks can be moved between local categories and filtered via tabs.**
 - ✅ **Native folder structures are imported as initial categories during first sync.**
 
-### Sprint 8: Testing & Hardening (Pending)
+### Sprint 8: Testing & Hardening (Active)`n`n- ✅ **Set up Vitest testing framework.**`n- ✅ **Implemented encryption helpers with 100% unit test coverage.**`n- ✅ **Implemented JWT Auth (Access Tokens, middleware, routes).**
 
 ---
 
@@ -119,3 +119,5 @@ Ship a working MVP that lets a single user:
 - [ ] Sync reliability ≥ 95%.
 
 → Advance to **[Phase 4: Testing & QA](Phase4.md)**.
+
+

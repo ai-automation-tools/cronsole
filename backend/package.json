@@ -8,27 +8,33 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node src/seed.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
+    "@vitest/coverage-v8": "^4.1.8",
     "prisma": "6.19.3",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
     "axios": "^1.16.1",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "socket.io": "^4.8.3"
   }
 }

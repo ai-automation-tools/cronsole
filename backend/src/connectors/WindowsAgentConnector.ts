@@ -8,6 +8,7 @@ export class WindowsAgentConnector implements PlatformConnector {
   async syncTasks(config: any): Promise<TaskInfo[]> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
+    console.log(`[WindowsAgentConnector] syncTasks called with userId: ${userId}, socket exists: ${!!socket}`);
 
     if (!socket) {
       throw new Error('Agent offline');

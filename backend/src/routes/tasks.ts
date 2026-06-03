@@ -104,7 +104,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       const connector = connectorRegistry.getConnector(conn.platform);
       if (connector) {
         try {
-          let tasks = await connector.syncTasks(conn.config);
+          let tasks = await connector.syncTasks({ ...conn.config as object, userId });
 
           // Filter by categories if provided
           if (categories && Array.isArray(categories)) {

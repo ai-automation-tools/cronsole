@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import axios from 'axios';
-import { ClaudeConnector } from './ClaudeConnector.js';
+import { ClaudeConnector } from '../ClaudeConnector.js';
 import { HealthState } from '@prisma/client';
 
 vi.mock('axios');
@@ -75,5 +75,39 @@ describe('ClaudeConnector', () => {
 
     const emptyHealth = await connector.getHealth({});
     expect(emptyHealth.state).toBe(HealthState.DEGRADED);
+  });
+
+  it('should return empty array if config is empty or routines undefined in syncTasks', async () => {
+    const tasks = await connector.syncTasks({});
+    expect(tasks).toEqual([]);
+  });
+
+  it('should return error message if routine token not found in config during runTask', async () => {
+    const result = await connector.runTask('trig_1', { routines: [] });
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Routine token not found in config');
+  });
+
+  it('should return error message on runTask failure with no explicit message', async () => {
+    const config = {
+      routines: [{ id: 'trig_1', token: 'sk-1', name: 'Task 1' }]
+    };
+
+    (axios.post as any).mockRejectedValue(new Error('Network error'));
+
+    const result = await connector.runTask('trig_1', config);
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Network error');
+  });
+
+  it('should return false for setTaskStatus as it is not supported', async () => {
+    const result = await connector.setTaskStatus('trig_1', false, {});
+    expect(result.success).toBe(false);
+  });
+
+  it('should return false for createTask as it is not supported', async () => {
+    const result = await connector.createTask('test', '1', 'echo', {});
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Creating Claude routines via API is not yet supported');
   });
 });

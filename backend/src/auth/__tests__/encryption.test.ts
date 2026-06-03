@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { encrypt, decrypt, encryptConfig, decryptConfig } from './encryption.js';
+import { encrypt, decrypt, encryptConfig, decryptConfig } from '../encryption.js';
 
 describe('Encryption Helpers', () => {
   const testConfig = { apiKey: 'sk-12345', secret: 'abcde' };

@@ -1,7 +1,7 @@
 # Phase 3: Development (MVP)
 
 **Duration:** 8–12 weeks
-**Status:** **Active (Sprints 1-8 complete)**
+**Status:** **Active (Sprints 1-9 complete)**
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase2.md`](Phase2.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
@@ -71,11 +71,12 @@ Ship a working MVP that lets a single user:
 - ✅ **Implemented JWT Auth (Access Tokens, middleware, routes).**
 - ✅ **Implemented Platforms Tab with official and custom links.**
 
-### Sprint 9: Selective Import & System Filtering (Active)
-- [ ] **Initial Dashboard state:** Dashboard remains empty until an explicit import is performed.
-- [ ] **Import Filter Modal:** New UI to select categories before syncing to the database.
-- [ ] **Default Filters:** "Microsoft" and "Uncategorized" tasks are deselected by default.
-- [ ] **Persistence:** Filter preferences are saved per platform connection.
+### Sprint 9: Selective Import & System Filtering (Complete)
+**Outcomes**
+- ✅ **Initial Dashboard state:** Dashboard remains empty until an explicit import is performed.
+- ✅ **Import Filter Modal:** New UI to select categories before syncing to the database.
+- ✅ **Default Filters:** "Microsoft" and "Uncategorized" tasks are deselected by default.
+- ✅ **Persistence:** Filter preferences and categories dynamically populate via the `/discover` endpoint.
 
 ---
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TaskService } from './TaskService.js';
+import { TaskService } from '../TaskService.js';
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {

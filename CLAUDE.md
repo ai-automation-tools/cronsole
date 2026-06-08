@@ -1,8 +1,8 @@
 # TaskHub
 
-> Project-scoped instructions for **TaskHub** — the Unified Scheduled Task Management System. This file overrides the parent workspace `CLAUDE.md` at `D:\AI_Agents\Repo\Mikes_Repos\CLAUDE.md` where they conflict; otherwise the parent's general standards apply.
+> Project-scoped instructions for **TaskHub** — the Unified Scheduled Task Management System. This file overrides the parent workspace `CLAUDE.md` at `D:\AI_Agents\Projects\Mikes_AI_Lab\Agents\Claude\CLAUDE.md` where they conflict; otherwise the parent's general standards apply.
 
-**Local path:** `D:\AI_Agents\Repo\Mikes_Repos\taskhub` *(promoted from `Other-Repos/` to a top-level workspace repo on 2026-06-01)*
+**Local path:** `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub` *(promoted from `Other-Repos/` to a top-level workspace repo on 2026-06-01)*
 **GitHub:** [`github.com/michaelschecht/taskhub`](https://github.com/michaelschecht/taskhub) (private)
 **Working branch:** `mike_desktop` · **Deploy branch:** `main` (per workspace convention)
 **Live (frontend shell):** [`taskhub.mikesailab.com`](https://taskhub.mikesailab.com) — Vercel project `taskhub`, root dir `frontend/` (backup `taskhub-iota-seven.vercel.app`). Backend + .NET agent not yet hosted, so the live shell shows 0 tasks. Set `VITE_API_URL` in Vercel once the backend lands. Custom domain pending the Squarespace CNAME (`taskhub → cname.vercel-dns.com`).

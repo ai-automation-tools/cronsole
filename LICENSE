@@ -1,0 +1,60 @@
+TaskHub Proprietary Rights Notice
+Copyright (c) 2026 Michael Schecht
+All rights reserved.
+
+This repository and all source code, documentation, assets, configuration,
+and related materials in it (the "Work") are proprietary and unpublished.
+Access to this repository does not grant any right to use, copy, modify,
+merge, publish, distribute, sublicense, sell, disclose, or create derivative
+works from the Work, except as expressly authorized in writing by the
+copyright holder.
+
+Permitted access for authorized collaborators
+--------------------------------------------
+If you have been given access to this private repository by or on behalf of
+Michael Schecht, you may view and modify the Work solely for the purpose of
+reviewing, developing, testing, or operating TaskHub on behalf of the
+copyright holder, subject to any separate written agreement, contractor terms,
+or repository instructions that apply to your access.
+
+Unless separately authorized in writing, you may not:
+- redistribute any portion of the Work outside the authorized collaboration
+  context;
+- publish the Work or any substantial portion of it;
+- reuse the Work in another project, product, or service;
+- remove or alter copyright, attribution, or proprietary notices;
+- use the Work to train or improve a public or third-party model or dataset.
+
+No open source license
+----------------------
+No open source license is granted for this repository. Do not assume this
+repository is available under MIT, Apache-2.0, GPL, or any other public
+license unless a separate file explicitly says so for a specific component.
+
+Third-party components
+----------------------
+This repository may depend on third-party packages, tools, fonts, icons, or
+other components that are licensed separately by their respective owners.
+Their licenses remain in effect for those components, and this notice does not
+supersede or replace those third-party license terms.
+
+Feedback
+--------
+Unless otherwise agreed in writing, any feedback, suggestions, or proposed
+changes you submit regarding the Work may be used by the copyright holder
+without restriction or compensation, while ownership of the Work remains with
+the copyright holder except to the extent a separate written agreement says
+otherwise.
+
+Warranty and liability
+----------------------
+The Work is provided "as is", without warranties or conditions of any kind,
+express or implied, to the maximum extent permitted by applicable law. In no
+event shall the copyright holder be liable for any claim, damages, or other
+liability arising from or in connection with the Work or its use.
+
+Questions
+---------
+For licensing, reuse, or commercial permission requests, contact the copyright
+holder directly before using any part of the Work outside the scope of your
+authorized access.

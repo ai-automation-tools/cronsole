@@ -7,6 +7,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- Proprietary `LICENSE` / rights notice for the private repository.
 - Contributor guide in `CONTRIBUTING.md`.
 - Repository contracts document in `docs/CONTRACTS.md`.
 - Explicit roadmap and phase-status sync across the planning docs.

@@ -5,7 +5,7 @@
 **Local path:** `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub` *(promoted from `Other-Repos/` to a top-level workspace repo on 2026-06-01)*
 **GitHub:** [`github.com/michaelschecht/taskhub`](https://github.com/michaelschecht/taskhub) (private)
 **Working branch:** `mike_desktop` · **Deploy branch:** `main` (per workspace convention)
-**Live (frontend shell):** [`taskhub.mikesailab.com`](https://taskhub.mikesailab.com) — Vercel project `taskhub`, root dir `frontend/` (backup `taskhub-iota-seven.vercel.app`). Backend + .NET agent not yet hosted, so the live shell shows 0 tasks. Set `VITE_API_URL` in Vercel once the backend lands. Custom domain pending the Squarespace CNAME (`taskhub → cname.vercel-dns.com`).
+**Live (frontend demo):** [`taskhub.mikesailab.com`](https://taskhub.mikesailab.com) — Vercel project `taskhub`, root dir `frontend/` (backup `taskhub-iota-seven.vercel.app`). The public deployment is a frontend-only demo backed by sample data via `VITE_DEMO_MODE`; backend + .NET agent are still local-only. Hosting the backend and setting `VITE_API_URL` is the next step toward a real hosted control plane.
 
 ---
 
@@ -28,8 +28,8 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 ## 2. Current Status
 
 - **Phase:** 3 — Development (MVP) - Active
-- **Repo state:** Functional MVP Prototype. Real-time sync between .NET Windows Agent and Node.js/Postgres backend established. Frontend wired to live data.
-- **MVP target platforms:** Windows Task Scheduler (Functional) + Claude Code Routines (Pending).
+- **Repo state:** Functional MVP prototype. Real-time sync between the .NET Windows Agent and the Node.js/Postgres backend is established, templates can create Windows tasks, and the frontend supports selective import plus local categorization.
+- **MVP target platforms:** Windows Task Scheduler (Functional) + Claude Code Routines (Experimental connector scaffold; not yet production-ready).
 - **Out of scope for MVP:** Two-way sync, MCP creation, ChatGPT API integration, Open Claw / Hermes / Jules connectors.
 
 ---
@@ -38,7 +38,7 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui |
+| **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS |
 | **Server state** | TanStack Query |
 | **Backend API** | Node.js + Express (TypeScript) |
 | **Database** | PostgreSQL 16 + Prisma ORM |
@@ -101,10 +101,10 @@ taskhub/
 
 | Phase | Doc | Duration | Status |
 |---|---|---|---|
-| 0 — Inception & Discovery | [`docs/Phase0.md`](docs/Phase0.md) | 1–2 wk | Active |
-| 1 — Requirements & Specs | [`docs/Phase1.md`](docs/Phase1.md) | 2–3 wk | Drafted |
-| 2 — Architecture & Design | [`docs/Phase2.md`](docs/Phase2.md) | 2 wk | Drafted |
-| 3 — Development (MVP) | [`docs/Phase3.md`](docs/Phase3.md) | 8–12 wk | Not started |
+| 0 — Inception & Discovery | [`docs/Phase0.md`](docs/Phase0.md) | 1–2 wk | Complete |
+| 1 — Requirements & Specs | [`docs/Phase1.md`](docs/Phase1.md) | 2–3 wk | Complete |
+| 2 — Architecture & Design | [`docs/Phase2.md`](docs/Phase2.md) | 2 wk | Complete |
+| 3 — Development (MVP) | [`docs/Phase3.md`](docs/Phase3.md) | 8–12 wk | Active (Sprints 1–9 complete) |
 | 4 — Testing & QA | [`docs/Phase4.md`](docs/Phase4.md) | 2–3 wk | Not started |
 | 5 — Deployment & Rollout | [`docs/Phase5.md`](docs/Phase5.md) | 1–2 wk | Not started |
 | 6 — Post-Launch & Iteration | [`docs/Phase6.md`](docs/Phase6.md) | ongoing | Not started |
@@ -295,4 +295,4 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 
 ---
 
-*Last updated: 2026-05-13.*
+*Last updated: 2026-06-09.*

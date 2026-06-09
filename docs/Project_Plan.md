@@ -22,7 +22,7 @@ Build a modern, dark-themed web application that provides a single pane of glass
 | 0 — Inception & Discovery | [`Phase0.md`](Phase0.md) | 1–2 wk | **Complete** |
 | 1 — Requirements & Specs | [`Phase1.md`](Phase1.md) | 2–3 wk | **Complete** |
 | 2 — Architecture & Design | [`Phase2.md`](Phase2.md) | 2 wk | **Complete** |
-| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Active (Sprints 1-9 complete)** |
+| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Active (Sprints 1-9 complete; exit criteria still open)** |
 | 4 — Testing & QA | [`Phase4.md`](Phase4.md) | 2–3 wk | Not started |
 | 5 — Deployment & Rollout | [`Phase5.md`](Phase5.md) | 1–2 wk | Not started |
 | 6 — Post-Launch & Iteration | [`Phase6.md`](Phase6.md) | ongoing | Not started |
@@ -207,11 +207,11 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
 
 ## Next Steps (Immediate Action Items)
 
-1. **Decide on MVP platforms** – Suggested start: Windows Task Scheduler + Claude Code routines.
-2. **Validate Windows remote control** – Build local agent vs. WinRM + PowerShell remoting.
-3. **Create initial database schema** – SQL/Prisma draft.
-4. **Draft a sample template** – e.g., “Run backup script every Monday at 3 AM” in cron, Windows Task XML, and Claude routine YAML.
-5. **Setup project repository** with README, LICENSE, and basic CI.
+1. **Finish Phase 3 exit criteria** – add basic CI, verify `main` is green, and document the gating checklist status.
+2. **Start Phase 4: Testing & QA** – write the test plan and map existing coverage to the Phase 4 deliverables.
+3. **Measure and harden reliability** – validate sync reliability, connector health behavior, and agent reconnection under failure modes.
+4. **Stand up staging infrastructure** – host the backend, wire `VITE_API_URL`, and verify the non-demo frontend against a real backend.
+5. **Complete release blockers** – improve connector-layer coverage, run Lighthouse, and package/sign the Windows agent installer.
 
 ---
 

@@ -37,9 +37,9 @@ Promote the staging build to production, distribute the Windows agent installer,
 | Cache / pub-sub | AWS ElastiCache Redis (or Render Redis) |
 | Secrets | AWS Secrets Manager (or 1Password / Vault) |
 | TLS | ACM cert on ALB; HSTS enforced |
-| Domain | TBD — candidate: `taskhub.mikesailab.com` |
+| Domain | `taskhub.mikesailab.com` for the frontend; backend host still to be finalized |
 
-> If the project lands on `*.mikesailab.com`, also update `michaelschecht.github.io/index.html` per the workspace CLAUDE.md rules.
+> The frontend already lives on `taskhub.mikesailab.com`; Phase 5 is about adding the hosted backend, production observability, and agent distribution around that shell.
 
 ---
 

@@ -18,24 +18,24 @@
 |----|-------------|----------|-----|
 | FR1 | User can register/login with email/password (JWT) | Must | ✅ |
 | FR2 | User can connect a Windows machine via local agent (pairing code) | Must | ✅ |
-| FR3 | User can connect Claude Code routines via API key | Must | ✅ |
+| FR3 | User can connect Claude Code routines via API key | Must | 🚧 Experimental connector scaffold |
 | FR4 | System discovers all scheduled tasks from connected Windows agent | Must | ✅ |
-| FR5 | System lists all routines from Claude Code API | Must | ✅ |
+| FR5 | System lists all routines from Claude Code API | Must | 🚧 Config-backed scaffold only |
 | FR6 | Dashboard shows unified task list with platform icon, name, **normalized status**, schedule, next run | Must | ✅ |
 | FR7 | User can click a "Run now" button to manually trigger a Windows task | Must | ✅ |
-| FR8 | User can click a "Run now" button to manually trigger a Claude routine | Should | ✅ (if API allows) |
+| FR8 | User can click a "Run now" button to manually trigger a Claude routine | Should | 🚧 Experimental |
 | FR9 | User can click an "Edit in native UI" button → deep link to platform's own management page | Must | ✅ |
 | FR10 | User can view template library (predefined schedule examples) | Must | ✅ |
 | FR11 | User can apply a template to create a new task on a connected platform | Should | ✅ |
 | FR12 | User can search/filter tasks by platform, name, status | Could | ❌ (post-MVP) |
-| FR13 | System syncs task list every 5 minutes or on agent push, **achieving > 95% sync reliability** | Must | ✅ |
+| FR13 | System syncs task list every 5 minutes or on agent push, **achieving > 95% sync reliability** | Must | 🚧 Target defined; QA validation pending |
 | FR14 | User receives visual warning if Windows agent is offline | Must | ✅ |
 | FR15 | Dark theme persists across sessions | Must | ✅ |
-| FR16 | User can **enable / disable** a task one-click from the dashboard | Must | ✅ |
-| FR17 | **Destructive or state-changing actions (run, enable, disable, delete) require a confirmation** | Must | ✅ |
-| FR18 | Every run/trigger writes an **execution-timeline entry**, and the user sees an **alert/notification on failure** | Must | ✅ |
-| FR19 | Dashboard surfaces **connector health diagnostics** per platform (agent reachable, API key valid, last successful sync, error reason) | Must | ✅ |
-| FR20 | Schedule conversion shows a **confidence score + explicit caveats/warnings** before the user applies it | Must | ✅ |
+| FR16 | User can **enable / disable** a task one-click from the dashboard | Must | ❌ Not implemented end-to-end yet |
+| FR17 | **Destructive or state-changing actions (run, enable, disable, delete) require a confirmation** | Must | ❌ Not implemented end-to-end yet |
+| FR18 | Every run/trigger writes an **execution-timeline entry**, and the user sees an **alert/notification on failure** | Must | 🚧 Partial |
+| FR19 | Dashboard surfaces **connector health diagnostics** per platform (agent reachable, API key valid, last successful sync, error reason) | Must | 🚧 Partial |
+| FR20 | Schedule conversion shows a **confidence score + explicit caveats/warnings** before the user applies it | Must | ❌ Planned |
 
 ### Non-Functional Requirements
 

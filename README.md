@@ -92,9 +92,10 @@ graph LR
 | **Task detail modal** | ✅ Built | Per-task status, last-updated, and raw platform metadata. |
 | **Demo mode** | ✅ Built | `VITE_DEMO_MODE=true` renders sample data for the public deployment. |
 | **Docker Compose dev stack** | ✅ Built | Postgres + Redis + backend + frontend in one `docker compose up`. |
-| **Claude Code Routines** | 🔜 Planned | Sync + trigger Claude routines via the Anthropic API. |
-| **Schedule conversion templates** | 🔜 Planned | cron ↔ Windows XML ↔ Claude YAML. |
-| **Run history & logs** | 🔜 Planned | Per-task execution log (the `ExecutionLog` model already exists). |
+| **Claude Code connector** | 🚧 Experimental | Backend connector scaffold exists, but it is not yet production-ready. |
+| **Selective import & categorization** | ✅ Built | Import categories explicitly, exclude noisy defaults, and preserve local category overrides. |
+| **Run history & logs** | ✅ Partial | Backend execution logs exist and the MVP writes trigger outcomes; broader timeline/alerting hardening remains. |
+| **Schedule conversion templates** | 🔜 Planned | cron ↔ Windows XML ↔ Claude YAML, with confidence scoring still planned. |
 | **MCP integration** | 🔜 Phase 6 | NL `list_tasks` / `run_task` / `create_task` / `convert_schedule`. |
 
 ## ⚡ Quick Start
@@ -195,7 +196,10 @@ taskhub/
 
 | Doc | What's in it |
 |:---|:---|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Local setup, validation commands, PR expectations, and doc-update rules. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release-note-ready summary of current repo changes and known gaps. |
 | [`docs/Project_Plan.md`](docs/Project_Plan.md) | Master plan: phases, timeline, risk matrix, next actions. |
+| [`docs/CONTRACTS.md`](docs/CONTRACTS.md) | Current implementation contracts: task identity, connector layer, agent transport, demo/live split. |
 | [`docs/Phase0.md`](docs/Phase0.md) … [`Phase6.md`](docs/Phase6.md) | Per-phase deep dives (charter → post-launch + MCP). |
 | [`docs/Competition_Analysis.md`](docs/Competition_Analysis.md) | Competitive landscape and positioning. |
 | [`docs/Business_Idea_Assessment.md`](docs/Business_Idea_Assessment.md) | Market / viability assessment. |
@@ -207,9 +211,9 @@ taskhub/
 | Phase | Doc | Status |
 |:---:|:---|:---|
 | 0 — Inception & Discovery | [`Phase0.md`](docs/Phase0.md) | ✅ Complete |
-| 1 — Requirements & Specs | [`Phase1.md`](docs/Phase1.md) | ✅ Drafted |
-| 2 — Architecture & Design | [`Phase2.md`](docs/Phase2.md) | ✅ Drafted |
-| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | 🚧 **Active** — functional prototype; Windows + dashboard working |
+| 1 — Requirements & Specs | [`Phase1.md`](docs/Phase1.md) | ✅ Complete |
+| 2 — Architecture & Design | [`Phase2.md`](docs/Phase2.md) | ✅ Complete |
+| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | 🚧 **Active** — sprints 1–9 complete; exit criteria still open |
 | 4 — Testing & QA | [`Phase4.md`](docs/Phase4.md) | Not started |
 | 5 — Deployment & Rollout | [`Phase5.md`](docs/Phase5.md) | Not started |
 | 6 — Post-Launch & Iteration | [`Phase6.md`](docs/Phase6.md) | Not started |

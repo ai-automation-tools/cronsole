@@ -108,7 +108,16 @@ model Template {
   targetPlatforms   PlatformType[]
 
   scheduleExpression String       // The cron string
-  command            String?
+  command            String?      // Resolved, ready-to-run command (placeholders substituted)
+
+  // --- Template catalog metadata (see docs/resources/Templates.md) ---
+  scriptType        ScriptType       @default(AI_PROMPT)      // runtime this template targets
+  os                OsTarget         @default(CROSS_PLATFORM) // OS the script runs on
+  category          TemplateCategory @default(OTHER)         // for UI grouping/filtering
+  commandTemplate   String?          @db.Text                // command with {{placeholders}}
+  parameters        Json?            // [{ key, label, type, default, required, help }]
+  isStarter         Boolean          @default(false)         // true = Tier A curated starter
+  icon              String?          // lucide icon name for the card
 
   isPublic          Boolean      @default(false)
   upvotes           Int          @default(0)
@@ -117,15 +126,51 @@ model Template {
   updatedAt         DateTime     @updatedAt
 
   @@index([isPublic, upvotes(sort: Desc)])
+  @@index([isStarter, os])
 }
 
 enum PlatformType {
   WINDOWS_TASK_SCHEDULER
+  MACOS_LAUNCHD          // future macOS agent (launchd/cron) — catalog-only until built
   CLAUDE_CODE
   CHATGPT
   JULES
   OPEN_CLAW
   HERMES
+}
+
+enum ScriptType {
+  POWERSHELL    // .ps1   — Windows (and PS Core on macOS/Linux)
+  BATCH         // .bat/.cmd — Windows only
+  BASH          // .sh    — macOS/Linux
+  ZSH           // .sh    — macOS default shell
+  PYTHON        // python / python3
+  NODE          // node
+  APPLESCRIPT   // osascript — macOS only
+  VBSCRIPT      // cscript — Windows legacy
+  EXECUTABLE    // run an .exe / binary directly
+  HTTP          // curl / Invoke-WebRequest — a scheduled webhook call
+  AI_PROMPT     // Claude Code routine / ChatGPT automation (natural-language)
+}
+
+enum OsTarget {
+  WINDOWS
+  MACOS
+  LINUX
+  CROSS_PLATFORM
+}
+
+enum TemplateCategory {
+  BACKUP
+  CLEANUP
+  MONITORING
+  DEV_WORKFLOW
+  DATA_SYNC
+  AI_AGENT
+  NOTIFICATION
+  MEDIA
+  SYSTEM
+  OTHER
 }
 
 enum TaskStatus {

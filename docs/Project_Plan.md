@@ -22,7 +22,7 @@ Build a modern, dark-themed web application that provides a single pane of glass
 | 0 — Inception & Discovery | [`Phase0.md`](Phase0.md) | 1–2 wk | **Complete** |
 | 1 — Requirements & Specs | [`Phase1.md`](Phase1.md) | 2–3 wk | **Complete** |
 | 2 — Architecture & Design | [`Phase2.md`](Phase2.md) | 2 wk | **Complete** |
-| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Active (Sprints 1-9 complete; exit criteria still open)** |
+| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Active (Sprints 1-10 complete; exit criteria still open)** |
 | 4 — Testing & QA | [`Phase4.md`](Phase4.md) | 2–3 wk | Not started |
 | 5 — Deployment & Rollout | [`Phase5.md`](Phase5.md) | 1–2 wk | Not started |
 | 6 — Post-Launch & Iteration | [`Phase6.md`](Phase6.md) | ongoing | Not started |
@@ -96,7 +96,7 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
   - Quick links to native UIs
   - Manual run trigger + **one-click enable/disable, each with a confirmation** (via agent/API)
   - **Execution timeline + failure alerting** (clear logs for every run)
-  - Template library (5–10 cross‑platform examples) with **conversion confidence score**
+  - Template library (5–10 cross‑platform examples) with **conversion confidence score** — full catalog & schema in [`resources/Templates.md`](resources/Templates.md)
   - **Local task categorization & organization (Independent of source platforms)**
   - Dark theme dashboard
 

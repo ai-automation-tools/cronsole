@@ -54,6 +54,16 @@ interface Task {
   metadata?: any;
 }
 
+interface TemplateParameter {
+  key: string;
+  label: string;
+  type: string; // text | path | url | number | select
+  default?: string;
+  required?: boolean;
+  help?: string;
+  options?: string[];
+}
+
 interface Template {
   id: string;
   name: string;
@@ -63,7 +73,32 @@ interface Template {
   scheduleExpression: string;
   command: string;
   upvotes: number;
+  // Catalog metadata (see docs/resources/Templates.md). Optional so demo data still type-checks.
+  scriptType?: string;
+  os?: string;
+  category?: string;
+  commandTemplate?: string | null;
+  parameters?: TemplateParameter[] | null;
+  isStarter?: boolean;
+  icon?: string | null;
 }
+
+// Substitute {{key}} placeholders. Known params resolve to their value (empty for blank
+// optional fields, which simply vanish); unknown placeholders are left visible so the
+// preview — and the backend guard — can flag a mis-authored template.
+const resolveCommand = (tpl: string, values: Record<string, string>) =>
+  tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in values ? values[k] : `{{${k}}}`));
+
+const platformLabel = (p: string) =>
+  ({
+    WINDOWS_TASK_SCHEDULER: 'Windows',
+    MACOS_LAUNCHD: 'macOS',
+    CLAUDE_CODE: 'Claude',
+    CHATGPT: 'ChatGPT',
+    JULES: 'Jules',
+    OPEN_CLAW: 'Open Claw',
+    HERMES: 'Hermes'
+  }[p] ?? p.split('_')[0]);
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -100,7 +135,10 @@ const DEMO_TASKS: Task[] = [
   },
 ];
 
+// Mirrors the seeded catalog (backend/src/seed.ts) so the demo showcases the same
+// Tier B patterns + Tier A starters — including parameterized starters that drive the Apply modal.
 const DEMO_TEMPLATES: Template[] = [
+  // --- Tier B: use-case patterns ---
   {
     id: 'tpl_daily_backup',
     name: 'Daily Database Backup',
@@ -109,6 +147,10 @@ const DEMO_TEMPLATES: Template[] = [
     targetPlatforms: ['WINDOWS_TASK_SCHEDULER', 'CLAUDE_CODE'],
     scheduleExpression: '0 3 * * *',
     command: 'pg_dump -U postgres my_db > backup.sql',
+    scriptType: 'EXECUTABLE',
+    os: 'WINDOWS',
+    category: 'BACKUP',
+    icon: 'Database',
     upvotes: 42
   },
   {
@@ -119,6 +161,10 @@ const DEMO_TEMPLATES: Template[] = [
     targetPlatforms: ['CLAUDE_CODE', 'CHATGPT'],
     scheduleExpression: '0 7 * * *',
     command: 'Fetch and summarize news',
+    scriptType: 'AI_PROMPT',
+    os: 'CROSS_PLATFORM',
+    category: 'AI_AGENT',
+    icon: 'Newspaper',
     upvotes: 128
   },
   {
@@ -129,6 +175,10 @@ const DEMO_TEMPLATES: Template[] = [
     targetPlatforms: ['WINDOWS_TASK_SCHEDULER'],
     scheduleExpression: '0 0 * * 0',
     command: 'del /q /s %temp%\\*',
+    scriptType: 'BATCH',
+    os: 'WINDOWS',
+    category: 'CLEANUP',
+    icon: 'Trash2',
     upvotes: 15
   },
   {
@@ -139,7 +189,91 @@ const DEMO_TEMPLATES: Template[] = [
     targetPlatforms: ['CLAUDE_CODE'],
     scheduleExpression: '*/30 * * * *',
     command: 'Triage PRs',
+    scriptType: 'AI_PROMPT',
+    os: 'CROSS_PLATFORM',
+    category: 'DEV_WORKFLOW',
+    icon: 'GitPullRequest',
     upvotes: 89
+  },
+  // --- Tier A: script starters (parameterized — drive the Apply modal) ---
+  {
+    id: 'tpl_starter_powershell_script',
+    name: 'PowerShell Script',
+    description: 'Run a .ps1 PowerShell script file on a schedule.',
+    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
+    targetPlatforms: ['WINDOWS_TASK_SCHEDULER'],
+    scheduleExpression: '0 9 * * *',
+    command: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{{scriptPath}}"',
+    commandTemplate: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{{scriptPath}}"',
+    parameters: [
+      { key: 'scriptPath', label: 'Script file path', type: 'path', default: '', required: true, help: 'Absolute path to the script on the target machine.' }
+    ],
+    scriptType: 'POWERSHELL',
+    os: 'WINDOWS',
+    category: 'OTHER',
+    icon: 'Terminal',
+    isStarter: true,
+    upvotes: 0
+  },
+  {
+    id: 'tpl_starter_python_cross',
+    name: 'Python Script (cross-platform)',
+    description: 'Run a Python script on Windows or macOS.',
+    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
+    targetPlatforms: ['WINDOWS_TASK_SCHEDULER', 'MACOS_LAUNCHD'],
+    scheduleExpression: '0 8 * * *',
+    command: 'python "{{scriptPath}}" {{args}}',
+    commandTemplate: 'python "{{scriptPath}}" {{args}}',
+    parameters: [
+      { key: 'scriptPath', label: 'Script file path', type: 'path', default: '', required: true, help: 'Absolute path to the script on the target machine.' },
+      { key: 'args', label: 'Arguments', type: 'text', default: '', required: false, help: 'Optional command-line arguments.' }
+    ],
+    scriptType: 'PYTHON',
+    os: 'CROSS_PLATFORM',
+    category: 'OTHER',
+    icon: 'FileCode',
+    isStarter: true,
+    upvotes: 0
+  },
+  {
+    id: 'tpl_starter_zsh_script',
+    name: 'Shell Script (zsh)',
+    description: 'Run a shell script with zsh, the macOS default shell.',
+    sourcePlatform: 'MACOS_LAUNCHD',
+    targetPlatforms: ['MACOS_LAUNCHD'],
+    scheduleExpression: '0 9 * * *',
+    command: '/bin/zsh "{{scriptPath}}" {{args}}',
+    commandTemplate: '/bin/zsh "{{scriptPath}}" {{args}}',
+    parameters: [
+      { key: 'scriptPath', label: 'Script file path', type: 'path', default: '', required: true, help: 'Absolute path to the script on the target machine.' },
+      { key: 'args', label: 'Arguments', type: 'text', default: '', required: false, help: 'Optional command-line arguments.' }
+    ],
+    scriptType: 'ZSH',
+    os: 'MACOS',
+    category: 'OTHER',
+    icon: 'Terminal',
+    isStarter: true,
+    upvotes: 0
+  },
+  {
+    id: 'tpl_starter_webhook_windows',
+    name: 'Webhook / HTTP Ping (Windows)',
+    description: 'Call a URL on a schedule using Invoke-WebRequest.',
+    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
+    targetPlatforms: ['WINDOWS_TASK_SCHEDULER'],
+    scheduleExpression: '*/15 * * * *',
+    command: 'powershell.exe -Command "Invoke-WebRequest -Uri \'{{url}}\' -Method {{method}}"',
+    commandTemplate: 'powershell.exe -Command "Invoke-WebRequest -Uri \'{{url}}\' -Method {{method}}"',
+    parameters: [
+      { key: 'url', label: 'URL', type: 'url', default: '', required: true, help: 'The endpoint to call.' },
+      { key: 'method', label: 'HTTP method', type: 'select', options: ['GET', 'POST'], default: 'GET', required: true, help: 'HTTP verb for the request.' }
+    ],
+    scriptType: 'HTTP',
+    os: 'WINDOWS',
+    category: 'MONITORING',
+    icon: 'Globe',
+    isStarter: true,
+    upvotes: 0
   }
 ];
 
@@ -531,11 +665,128 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
   );
 };
 
+const ApplyTemplateModal = ({ template, onClose }: { template: Template; onClose: () => void }) => {
+  const queryClient = useQueryClient();
+  const params = template.parameters ?? [];
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(params.map(p => [p.key, p.default ?? '']))
+  );
+  const [platform, setPlatform] = useState(template.targetPlatforms[0] ?? '');
+  const [schedule, setSchedule] = useState(template.scheduleExpression);
+
+  const baseCommand = template.commandTemplate ?? template.command ?? '';
+  const resolved = resolveCommand(baseCommand, values).trim();
+  const missing = params.filter(p => p.required && !values[p.key]?.trim());
+  const incomplete = missing.length > 0 || resolved.includes('{{');
+
+  const applyMutation = useMutation({
+    mutationFn: async () => {
+      if (DEMO_MODE) return;
+      return api.post(`/templates/${template.id}/apply`, {
+        platform,
+        command: resolved,
+        scheduleExpression: schedule,
+        name: template.name
+      });
+    },
+    onSuccess: () => {
+      if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      alert(
+        DEMO_MODE
+          ? `Demo mode — "${template.name}" would be created on ${platformLabel(platform)}.`
+          : `Task created on ${platformLabel(platform)} from "${template.name}".`
+      );
+      onClose();
+    },
+    onError: (error: any) => {
+      alert(`Apply failed: ${error.response?.data?.error || error.message}`);
+    }
+  });
+
+  const canApply =
+    !!platform && !!schedule.trim() && !incomplete && !applyMutation.isPending;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <header className="p-6 border-b border-slate-800 flex justify-between items-start bg-slate-900/50">
+          <div>
+            <p className="text-[10px] text-blue-500 uppercase font-black tracking-widest mb-1">Apply Template</p>
+            <h2 className="text-xl font-bold">{template.name}</h2>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{template.description}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-500 transition-colors shrink-0"><XCircle size={20} /></button>
+        </header>
+
+        <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Target platform</label>
+            <div className="flex flex-wrap gap-2">
+              {template.targetPlatforms.map(p => (
+                <button key={p} onClick={() => setPlatform(p)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${platform === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'}`}>
+                  {platformLabel(p)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Clock size={11} /> Schedule (cron · UTC)</label>
+            <input value={schedule} onChange={e => setSchedule(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-mono text-blue-300 outline-none focus:border-blue-500 transition-colors" />
+          </div>
+
+          {params.map(p => (
+            <div key={p.key} className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                {p.label}{p.required && <span className="text-red-400 ml-1">*</span>}
+              </label>
+              {p.type === 'select' ? (
+                <select value={values[p.key] ?? ''} onChange={e => setValues(v => ({ ...v, [p.key]: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500 transition-colors">
+                  {(p.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input value={values[p.key] ?? ''} onChange={e => setValues(v => ({ ...v, [p.key]: e.target.value }))}
+                  placeholder={p.type === 'path' ? 'C:\\path\\to\\file' : p.type === 'url' ? 'https://…' : ''}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500 transition-colors font-mono" />
+              )}
+              {p.help && <p className="text-[10px] text-slate-600 italic">{p.help}</p>}
+            </div>
+          ))}
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Resolved command</label>
+            <pre className={`bg-slate-950 border rounded-xl px-3 py-2.5 text-xs font-mono whitespace-pre-wrap break-all ${incomplete ? 'border-amber-500/40 text-amber-300' : 'border-slate-800 text-green-300'}`}>{resolved || '—'}</pre>
+            {incomplete && <p className="text-[10px] text-amber-500 italic">Fill the required fields above before applying.</p>}
+          </div>
+
+          {DEMO_MODE && (
+            <div className="text-[11px] text-slate-500 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 flex items-center gap-2">
+              <Info size={13} className="text-blue-500 shrink-0" /> Demo mode — applying is simulated; no task is created.
+            </div>
+          )}
+        </div>
+
+        <footer className="p-6 bg-slate-950 border-t border-slate-800 flex gap-4">
+          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors">Cancel</button>
+          <button onClick={() => applyMutation.mutate()} disabled={!canApply}
+            className="flex-[2] bg-blue-600 hover:bg-blue-500 py-3 rounded-2xl font-bold shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm flex items-center justify-center gap-2">
+            {applyMutation.isPending ? <><Loader2 size={16} className="animate-spin" /> Applying…</> : <>Create Task <ArrowRight size={16} /></>}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
 const TemplatesScreen = () => {
+  const [applyTarget, setApplyTarget] = useState<Template | null>(null);
   const { data: templates, isLoading } = useQuery<Template[]>({
     queryKey: ['templates'],
     queryFn: async () => {
-      if (DEMO_MODE) return DEMO_TASKS as any; // Fallback for type safety
+      if (DEMO_MODE) return DEMO_TEMPLATES as any; // Fallback for type safety
       try {
         const response = await api.get('/templates');
         return response.data;
@@ -581,14 +832,19 @@ const TemplatesScreen = () => {
             <div key={template.id} className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-blue-500/30 group">
               <div className="p-6 flex-1">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                      {template.targetPlatforms.map(p => (
                        <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                         {p.split('_')[0]}
+                         {platformLabel(p)}
                        </span>
                      ))}
+                     {template.scriptType && (
+                       <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                         {template.scriptType.replace(/_/g, ' ')}
+                       </span>
+                     )}
                   </div>
-                  <div className="flex items-center gap-1 text-blue-400 bg-blue-600/10 px-2 py-0.5 rounded-full border border-blue-500/20 text-[10px] font-bold">
+                  <div className="flex items-center gap-1 text-blue-400 bg-blue-600/10 px-2 py-0.5 rounded-full border border-blue-500/20 text-[10px] font-bold shrink-0">
                      <Activity size={10} /> {template.upvotes}
                   </div>
                 </div>
@@ -609,12 +865,16 @@ const TemplatesScreen = () => {
                 </div>
               </div>
 
-              <button className="w-full bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-slate-800 group-hover:border-blue-500/20">
+              <button onClick={() => setApplyTarget(template)} className="w-full bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-slate-800 group-hover:border-blue-500/20">
                 Apply Template <ArrowRight size={16} />
               </button>
             </div>
           ))}
         </div>
+      )}
+
+      {applyTarget && (
+        <ApplyTemplateModal template={applyTarget} onClose={() => setApplyTarget(null)} />
       )}
     </div>
   );

@@ -21,7 +21,7 @@ router.get('/', async (req: Request, res: Response) => {
 // Apply a template to a platform
 router.post('/:id/apply', async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { platform } = req.body;
+  const { platform, command, scheduleExpression, name } = req.body;
   const userId = 'cli_user_placeholder'; // For MVP
 
   try {
@@ -31,6 +31,27 @@ router.post('/:id/apply', async (req: Request, res: Response) => {
 
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
+    }
+
+    // Resolve the task to create. The client may send overrides produced by the
+    // Apply modal (placeholders substituted, schedule confirmed); fall back to the
+    // stored template otherwise.
+    const finalName =
+      typeof name === 'string' && name.trim() ? name.trim() : template.name;
+    const finalSchedule =
+      typeof scheduleExpression === 'string' && scheduleExpression.trim()
+        ? scheduleExpression.trim()
+        : template.scheduleExpression;
+    const finalCommand =
+      typeof command === 'string' && command.trim()
+        ? command.trim()
+        : template.command || '';
+
+    // Never register a task with unfilled {{placeholders}} (see Templates.md §5).
+    if (finalCommand.includes('{{')) {
+      return res
+        .status(400)
+        .json({ error: 'Command still contains unfilled placeholders' });
     }
 
     const connection = await prisma.platformConnection.findUnique({
@@ -48,9 +69,9 @@ router.post('/:id/apply', async (req: Request, res: Response) => {
 
     // Call createTask on the connector
     const result = await connector.createTask(
-      template.name,
-      template.scheduleExpression,
-      template.command || '',
+      finalName,
+      finalSchedule,
+      finalCommand,
       { ...(connection.config as object), userId }
     );
 

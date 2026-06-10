@@ -94,6 +94,7 @@ graph LR
 | **Docker Compose dev stack** | ✅ Built | Postgres + Redis + backend + frontend in one `docker compose up`. |
 | **Claude Code connector** | 🚧 Experimental | Backend connector scaffold exists, but it is not yet production-ready. |
 | **Selective import & categorization** | ✅ Built | Import categories explicitly, exclude noisy defaults, and preserve local category overrides. |
+| **Template library & Apply flow** | ✅ Built | Two-tier catalog — 20 curated script starters (PowerShell, Python, Bash/zsh, Node, …) + use-case patterns. Apply modal fills `{{placeholder}}` params and creates a real task. Spec: [`docs/resources/Templates.md`](docs/resources/Templates.md). |
 | **Run history & logs** | ✅ Partial | Backend execution logs exist and the MVP writes trigger outcomes; broader timeline/alerting hardening remains. |
 | **Schedule conversion templates** | 🔜 Planned | cron ↔ Windows XML ↔ Claude YAML, with confidence scoring still planned. |
 | **MCP integration** | 🔜 Phase 6 | NL `list_tasks` / `run_task` / `create_task` / `convert_schedule`. |
@@ -160,6 +161,8 @@ Base URL: `http://localhost:3000`
 | `GET` | `/api/health` | Liveness check — `{ status: "ok", timestamp }`. |
 | `GET` | `/api/tasks` | List all synced tasks, newest-updated first. |
 | `POST` | `/api/tasks/:id/run` | Trigger a task (Windows tasks relay `task:run` to the agent). |
+| `GET` | `/api/templates` | List templates (script starters + use-case patterns), upvotes-first. |
+| `POST` | `/api/templates/:id/apply` | Create a task from a template; body carries the resolved command, schedule, and target platform. |
 
 <details>
 <summary><b>WebSocket events (backend ↔ agent)</b></summary>
@@ -213,7 +216,7 @@ taskhub/
 | 0 — Inception & Discovery | [`Phase0.md`](docs/Phase0.md) | ✅ Complete |
 | 1 — Requirements & Specs | [`Phase1.md`](docs/Phase1.md) | ✅ Complete |
 | 2 — Architecture & Design | [`Phase2.md`](docs/Phase2.md) | ✅ Complete |
-| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | 🚧 **Active** — sprints 1–9 complete; exit criteria still open |
+| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | 🚧 **Active** — sprints 1–10 complete; exit criteria still open |
 | 4 — Testing & QA | [`Phase4.md`](docs/Phase4.md) | Not started |
 | 5 — Deployment & Rollout | [`Phase5.md`](docs/Phase5.md) | Not started |
 | 6 — Post-Launch & Iteration | [`Phase6.md`](docs/Phase6.md) | Not started |

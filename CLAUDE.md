@@ -28,7 +28,7 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 ## 2. Current Status
 
 - **Phase:** 3 — Development (MVP) - Active
-- **Repo state:** Functional MVP prototype. Real-time sync between the .NET Windows Agent and the Node.js/Postgres backend is established, templates can create Windows tasks, and the frontend supports selective import plus local categorization.
+- **Repo state:** Functional MVP prototype. Real-time sync between the .NET Windows Agent and the Node.js/Postgres backend is established, the frontend supports selective import plus local categorization, and the **template library** now ships a two-tier catalog (20 curated script starters + use-case patterns) with a working Apply modal that creates Windows tasks from parameterized `{{placeholder}}` commands. Catalog spec: [`docs/resources/Templates.md`](docs/resources/Templates.md).
 - **MVP target platforms:** Windows Task Scheduler (Functional) + Claude Code Routines (Experimental connector scaffold; not yet production-ready).
 - **Out of scope for MVP:** Two-way sync, MCP creation, ChatGPT API integration, Open Claw / Hermes / Jules connectors.
 
@@ -104,7 +104,7 @@ taskhub/
 | 0 — Inception & Discovery | [`docs/Phase0.md`](docs/Phase0.md) | 1–2 wk | Complete |
 | 1 — Requirements & Specs | [`docs/Phase1.md`](docs/Phase1.md) | 2–3 wk | Complete |
 | 2 — Architecture & Design | [`docs/Phase2.md`](docs/Phase2.md) | 2 wk | Complete |
-| 3 — Development (MVP) | [`docs/Phase3.md`](docs/Phase3.md) | 8–12 wk | Active (Sprints 1–9 complete) |
+| 3 — Development (MVP) | [`docs/Phase3.md`](docs/Phase3.md) | 8–12 wk | Active (Sprints 1–10 complete) |
 | 4 — Testing & QA | [`docs/Phase4.md`](docs/Phase4.md) | 2–3 wk | Not started |
 | 5 — Deployment & Rollout | [`docs/Phase5.md`](docs/Phase5.md) | 1–2 wk | Not started |
 | 6 — Post-Launch & Iteration | [`docs/Phase6.md`](docs/Phase6.md) | ongoing | Not started |
@@ -295,4 +295,4 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 
 ---
 
-*Last updated: 2026-06-09.*
+*Last updated: 2026-06-10.*

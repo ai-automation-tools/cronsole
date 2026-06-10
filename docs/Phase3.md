@@ -78,6 +78,14 @@ Ship a working MVP that lets a single user:
 - ✅ **Default Filters:** "Microsoft" and "Uncategorized" tasks are deselected by default.
 - ✅ **Persistence:** Filter preferences and categories dynamically populate via the `/discover` endpoint.
 
+### Sprint 10: Template Catalog Expansion (Complete)
+**Outcomes**
+- ✅ **Two-tier template catalog** — curated *script starters* (Tier A) alongside *use-case patterns* (Tier B). Full spec in [`resources/Templates.md`](resources/Templates.md).
+- ✅ **20 script starters seeded** across Windows, macOS, and cross-platform runtimes (PowerShell, Batch, Python, Node, Bash/zsh, AppleScript, VBScript, HTTP, executable, Claude/ChatGPT).
+- ✅ **`Template` schema extended** — `scriptType`, `os`, `category`, `commandTemplate`, `parameters` (JSON), `isStarter`, `icon`; new `ScriptType` / `OsTarget` / `TemplateCategory` enums and `MACOS_LAUNCHD` platform (migration `20260610000000_add_template_catalog_fields`).
+- ✅ **Functional Apply modal** — pick target platform, confirm cron schedule, fill `{{placeholder}}` parameters with a live resolved-command preview; `POST /templates/:id/apply` accepts the resolved command/schedule/name and rejects unfilled placeholders.
+- ⏭️ **Deferred:** macOS starters are catalog-only until a macOS agent ships; card filter chips / OS badges and cron↔trigger confidence scoring remain.
+
 ---
 
 ## Phase 3 Exit Criteria

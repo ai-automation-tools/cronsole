@@ -96,7 +96,7 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
   - Quick links to native UIs
   - Manual run trigger + **one-click enable/disable, each with a confirmation** (via agent/API)
   - **Execution timeline + failure alerting** (clear logs for every run)
-  - Template library (5–10 cross‑platform examples) with **conversion confidence score**
+  - Template library (5–10 cross‑platform examples) with **conversion confidence score** — full catalog & schema in [`resources/Templates.md`](resources/Templates.md)
   - **Local task categorization & organization (Independent of source platforms)**
   - Dark theme dashboard
 

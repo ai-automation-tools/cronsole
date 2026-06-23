@@ -42,5 +42,12 @@ if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
 Register-ScheduledTask -TaskName $TaskName -Trigger $Trigger -Action $Action -Settings $Settings -Principal $Principal -Description $Description
 
 Write-Host "Startup task registered successfully!" -ForegroundColor Green
+Write-Host "Starting TaskHub Agent task in the background..." -ForegroundColor Cyan
+Start-ScheduledTask -TaskName $TaskName
+
 Write-Host "The TaskHub agent will now launch automatically in the background whenever you log into Windows." -ForegroundColor Green
-Write-Host "You can also launch it manually right now or find it in the Windows Task Scheduler under the name: $TaskName" -ForegroundColor Cyan
+Write-Host "Startup complete! Closing this terminal window in 3 seconds..." -ForegroundColor Yellow
+
+Start-Sleep -Seconds 3
+Stop-Process -Id $PID
+

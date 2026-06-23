@@ -22,6 +22,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Reframed Claude Code support as experimental rather than production-ready.
 - Updated immediate action items to focus on Phase 3 exit criteria and Phase 4 QA.
 
+### Fixed
+- GitHub Actions CI checks by:
+  - Switching from `npm ci` to `npm install` in frontend and backend jobs to resolve cross-platform native package installation issues.
+  - Adding `npx prisma generate` in backend pipeline to build the Prisma Client before testing/compiling.
+  - Quoting the numeric `ENCRYPTION_KEY` environment variable in the workflow YAML to prevent scientific notation conversion.
+  - Adding a `TaskHub.Agent.slnx` solution file inside the `agent/` folder to allow root-level `.NET` CLI commands to execute successfully.
+
 ### Known gaps
 - Phase 4 QA has not formally started.
 - Claude connector behavior is still scaffold-level.

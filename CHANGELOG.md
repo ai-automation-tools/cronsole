@@ -12,6 +12,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Repository contracts document in `docs/CONTRACTS.md`.
 - Explicit roadmap and phase-status sync across the planning docs.
 - Basic GitHub Actions CI workflow in `.github/workflows/ci.yml`.
+- Windows Agent automated startup registration script `setup-agent-startup.ps1` to compile and register the agent inside a dedicated `\Task-Hub\` Task Scheduler folder.
+- Headless daemon configuration (`WinExe` output type) for the C# Agent to run silently on logon.
+- Setup and troubleshooting manual in `docs/user-guides/Agent_Setup_Guide.md`.
 
 ### Changed
 - Aligned `README.md`, `CLAUDE.md`, and planning docs with the current implementation state.

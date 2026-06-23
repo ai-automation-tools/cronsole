@@ -115,6 +115,15 @@ docker compose up --build
 #    → backend   http://localhost:3000   (GET /api/health to verify)
 ```
 
+> [!IMPORTANT]
+> The **Windows Agent must run directly on the host machine** (not in Docker) to access the local Windows Task Scheduler COM interfaces.
+> - **Automated Startup Setup (Recommended)**: Open PowerShell as Administrator, navigate to `agent/`, and run:
+>   ```powershell
+   Set-ExecutionPolicy Bypass -Scope Process -Force; .\setup-agent-startup.ps1
+   ```
+>   This automatically compiles the agent in Release mode as a headless background app (`WinExe`), registers it inside the `\Task-Hub\` Task Scheduler folder to run automatically on logon, and starts the background task.
+> - For full details, see the [Windows Agent Setup Guide](docs/user-guides/Agent_Setup_Guide.md).
+
 <details>
 <summary><b>Run the pieces manually instead (no Docker)</b></summary>
 
@@ -207,6 +216,8 @@ taskhub/
 | [`docs/Competition_Analysis.md`](docs/Competition_Analysis.md) | Competitive landscape and positioning. |
 | [`docs/Business_Idea_Assessment.md`](docs/Business_Idea_Assessment.md) | Market / viability assessment. |
 | [`docs/api-examples/`](docs/api-examples/) | Sample REST payloads for tasks, platforms, templates. |
+| [`docs/user-guides/Agent_Setup_Guide.md`](docs/user-guides/Agent_Setup_Guide.md) | Setup guide for the C# Windows agent (headless execution, Task Scheduler directory registration, and troubleshooting). |
+| [`docs/user-guides/UI_User_Guide.md`](docs/user-guides/UI_User_Guide.md) | User guide for dashboard navigation, task categorization/overrides, and template application. |
 | [`CLAUDE.md`](CLAUDE.md) | Conventions, connector pattern, agent↔server protocol, security rules. |
 
 ## 🗺️ Roadmap

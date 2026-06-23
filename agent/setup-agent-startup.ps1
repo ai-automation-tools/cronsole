@@ -19,6 +19,7 @@ Write-Host "Agent successfully built at: $ExePath" -ForegroundColor Green
 Write-Host "2. Registering Windows Task Scheduler startup task..." -ForegroundColor Cyan
 
 $TaskName = "TaskHubAgent"
+$TaskPath = "\Task-Hub\"
 $Description = "TaskHub Local Control Plane Agent - Handles WebSocket communication with TaskHub backend."
 
 # Create trigger (At Logon)
@@ -34,16 +35,17 @@ $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 $Principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
 
 # Unregister existing task if it exists
-if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
-    Write-Host "Removing existing TaskHubAgent task..." -ForegroundColor Yellow
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+$ExistingTasks = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+foreach ($Task in $ExistingTasks) {
+    Write-Host "Removing existing TaskHubAgent task from path $($Task.TaskPath)..." -ForegroundColor Yellow
+    Unregister-ScheduledTask -TaskName $Task.TaskName -TaskPath $Task.TaskPath -Confirm:$false
 }
 
-Register-ScheduledTask -TaskName $TaskName -Trigger $Trigger -Action $Action -Settings $Settings -Principal $Principal -Description $Description
+Register-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath -Trigger $Trigger -Action $Action -Settings $Settings -Principal $Principal -Description $Description
 
 Write-Host "Startup task registered successfully!" -ForegroundColor Green
 Write-Host "Starting TaskHub Agent task in the background..." -ForegroundColor Cyan
-Start-ScheduledTask -TaskName $TaskName
+Start-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath
 
 Write-Host "The TaskHub agent will now launch automatically in the background whenever you log into Windows." -ForegroundColor Green
 Write-Host "Startup complete! Closing this terminal window in 3 seconds..." -ForegroundColor Yellow

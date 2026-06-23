@@ -22,8 +22,6 @@ import {
   Sparkles,
   Globe,
   Trash2,
-  Link as LinkIcon,
-  Search,
   Check,
   ChevronRight
 } from 'lucide-react';
@@ -51,7 +49,7 @@ interface Task {
   status: string;
   externalId: string;
   updatedAt: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 interface TemplateParameter {
@@ -384,8 +382,18 @@ const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: { task: Task | nu
   );
 };
 
+interface DiscoveredCategory {
+  name: string;
+  count: number;
+}
+
+interface DiscoveredPlatform {
+  platform: string;
+  categories: DiscoveredCategory[];
+}
+
 const ImportModal = ({ onClose, onImport }: { onClose: () => void; onImport: (categories: string[]) => void }) => {
-  const { data: discovery, isLoading, error } = useQuery<any[]>({
+  const { data: discovery, isLoading, error } = useQuery<DiscoveredPlatform[]>({
     queryKey: ['discovery'],
     queryFn: async () => {
       console.log('[Frontend] Fetching discovery data...');
@@ -403,7 +411,8 @@ const ImportModal = ({ onClose, onImport }: { onClose: () => void; onImport: (ca
 
   useEffect(() => {
     if (discovery) {
-      const all = discovery.flatMap(p => p.categories.map((c: any) => c.name));
+      const all = discovery.flatMap(p => p.categories.map((c) => c.name));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelected(all.filter(c => c !== 'Microsoft' && c !== 'Uncategorized'));
     }
   }, [discovery]);
@@ -437,7 +446,7 @@ const ImportModal = ({ onClose, onImport }: { onClose: () => void; onImport: (ca
                <div key={platform.platform} className="space-y-2 mb-6 last:mb-0">
                   <h3 className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">{platform.platform.replace(/_/g, ' ')}</h3>
                   <div className="grid gap-2">
-                    {platform.categories.map((cat: any) => (
+                    {platform.categories.map((cat) => (
                       <label key={cat.name} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer group ${selected.includes(cat.name) ? 'bg-blue-600/5 border-blue-500/30' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'}`}>
                         <div className="flex items-center gap-3">
                           <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${selected.includes(cat.name) ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-700 bg-slate-900 text-transparent group-hover:border-slate-500'}`}>
@@ -698,8 +707,9 @@ const ApplyTemplateModal = ({ template, onClose }: { template: Template; onClose
       );
       onClose();
     },
-    onError: (error: any) => {
-      alert(`Apply failed: ${error.response?.data?.error || error.message}`);
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      alert(`Apply failed: ${err.response?.data?.error || err.message}`);
     }
   });
 
@@ -786,7 +796,7 @@ const TemplatesScreen = () => {
   const { data: templates, isLoading } = useQuery<Template[]>({
     queryKey: ['templates'],
     queryFn: async () => {
-      if (DEMO_MODE) return DEMO_TEMPLATES as any; // Fallback for type safety
+      if (DEMO_MODE) return DEMO_TEMPLATES;
       try {
         const response = await api.get('/templates');
         return response.data;
@@ -925,15 +935,6 @@ const PlatformsScreen = () => {
     saveLinks(links.filter(l => l.id !== id));
   };
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'claude': return <Bot size={20} />;
-      case 'chatgpt': return <Cpu size={20} />;
-      case 'gemini': return <Sparkles size={20} />;
-      default: return <Globe size={20} />;
-    }
-  };
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex justify-between items-end">
@@ -1066,7 +1067,7 @@ const Dashboard = () => {
   const [showImport, setShowImport] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: tasks, isLoading, refetch } = useQuery<Task[]>({
+  const { data: tasks, isLoading } = useQuery<Task[]>({
     queryKey: ['tasks'],
     queryFn: async () => {
       if (DEMO_MODE) return DEMO_TASKS;
@@ -1087,8 +1088,9 @@ const Dashboard = () => {
     onSuccess: () => {
       alert(DEMO_MODE ? 'Demo mode — Triggered!' : 'Task triggered successfully!');
     },
-    onError: (error: any) => {
-      if (error.message !== 'Cancelled') alert(`Error: ${error.response?.data?.error || error.message}`);
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      if (err.message !== 'Cancelled') alert(`Error: ${err.response?.data?.error || err.message}`);
     }
   });
 
@@ -1106,8 +1108,9 @@ const Dashboard = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setShowImport(false);
     },
-    onError: (error: any) => {
-      alert(`Sync Error: ${error.response?.data?.error || error.message}`);
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      alert(`Sync Error: ${err.response?.data?.error || err.message}`);
     }
   });
 

@@ -2,10 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Activity,
   LayoutDashboard,
-  Settings,
-  Play,
   RefreshCw,
-  XCircle,
   Cpu,
   Library,
   Loader2,
@@ -21,71 +18,16 @@ import {
   Bot,
   Sparkles,
   Globe,
-  Trash2,
-  Check,
-  ChevronRight
+  Trash2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
-
-// --- API Client ---
-const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/api`
-});
-
-// Auto-inject MVP dev token for testing Sprint 8 auth
-api.interceptors.request.use(config => {
-  const devToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNsaV91c2VyX3BsYWNlaG9sZGVyIiwiZW1haWwiOiJtaWtlQGV4YW1wbGUuY29tIiwiaWF0IjoxNzgwNDk3NDYxLCJleHAiOjIwOTYwNzM0NjF9.2kXRHDUd4KVO3rkoedP1c6rHwH-nuF2IKnxvpHd_4_M';
-  config.headers.Authorization = `Bearer ${devToken}`;
-  return config;
-});
-
-// --- Types ---
-interface Task {
-  id: string;
-  name: string;
-  category: string;
-  platform: string;
-  status: string;
-  externalId: string;
-  updatedAt: string;
-  metadata?: Record<string, unknown>;
-}
-
-interface TemplateParameter {
-  key: string;
-  label: string;
-  type: string; // text | path | url | number | select
-  default?: string;
-  required?: boolean;
-  help?: string;
-  options?: string[];
-}
-
-interface Template {
-  id: string;
-  name: string;
-  description: string;
-  sourcePlatform: string;
-  targetPlatforms: string[];
-  scheduleExpression: string;
-  command: string;
-  upvotes: number;
-  // Catalog metadata (see docs/resources/Templates.md). Optional so demo data still type-checks.
-  scriptType?: string;
-  os?: string;
-  category?: string;
-  commandTemplate?: string | null;
-  parameters?: TemplateParameter[] | null;
-  isStarter?: boolean;
-  icon?: string | null;
-}
-
-// Substitute {{key}} placeholders. Known params resolve to their value (empty for blank
-// optional fields, which simply vanish); unknown placeholders are left visible so the
-// preview — and the backend guard — can flag a mis-authored template.
-const resolveCommand = (tpl: string, values: Record<string, string>) =>
-  tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in values ? values[k] : `{{${k}}}`));
+import { api } from './api';
+import type { Task, Template, PlatformLink } from './types';
+import { Sidebar } from './components/Sidebar';
+import { TaskModal } from './components/TaskModal';
+import { ImportModal } from './components/ImportModal';
+import { TaskCard } from './components/TaskCard';
+import { ApplyTemplateModal } from './components/ApplyTemplateModal';
 
 const platformLabel = (p: string) =>
   ({
@@ -275,265 +217,6 @@ const DEMO_TEMPLATES: Template[] = [
   }
 ];
 
-// --- Components ---
-
-const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) => (
-  <aside className="w-64 border-r border-slate-800 flex flex-col gap-2 p-4">
-    <div className="mb-8 px-2 flex items-center gap-2">
-      <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-600/20">T</div>
-      <h1 className="text-xl font-bold tracking-tight">TaskHub</h1>
-    </div>
-
-    <nav className="space-y-1">
-      <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}><LayoutDashboard size={18} /><span className="font-semibold text-sm">Dashboard</span></button>
-      <button onClick={() => setActiveTab('templates')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${activeTab === 'templates' ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}><Library size={18} /><span className="font-semibold text-sm">Templates</span></button>
-      <button onClick={() => setActiveTab('platforms')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${activeTab === 'platforms' ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}><Cpu size={18} /><span className="font-semibold text-sm">Platforms</span></button>
-      <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-blue-600/10 text-blue-400' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}><Settings size={18} /><span className="font-semibold text-sm">Settings</span></button>
-    </nav>
-
-    <div className="mt-auto p-4 bg-slate-900/40 rounded-2xl border border-slate-800/50">
-      <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-slate-500 mb-3"><Activity size={10} className="text-green-500" /> System Status</div>
-      <div className="space-y-3">
-        <div className="flex justify-between items-center text-xs"><span className="text-slate-400 italic">Windows Agent</span><span className="text-green-500 font-bold">Online</span></div>
-        <div className="flex justify-between items-center text-xs"><span className="text-slate-400 italic">Claude API</span><span className="text-green-500 font-bold">Healthy</span></div>
-      </div>
-    </div>
-  </aside>
-);
-
-const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: { task: Task | null; onClose: () => void; onRun: (task: Task) => void; onCategoryUpdate: (taskId: string, category: string) => void }) => {
-  const [isEditingCategory, setIsEditingCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState(task?.category || '');
-
-  if (!task) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        <header className="p-6 border-b border-slate-800 flex justify-between items-start">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30">{task.platform}</span>
-              <h2 className="text-2xl font-bold">{task.name}</h2>
-            </div>
-            <code className="text-xs text-slate-500 bg-slate-950 px-2 py-1 rounded">{task.externalId}</code>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors"><XCircle size={24} /></button>
-        </header>
-        <div className="p-6 overflow-y-auto space-y-8 flex-1 text-slate-300">
-           <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800"><span className="text-xs text-slate-500 block mb-1">Status</span><span className="font-semibold text-blue-400 uppercase tracking-tighter text-sm">{task.status}</span></div>
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800"><span className="text-xs text-slate-500 block mb-1">Last Updated</span><span className="font-semibold text-sm">{new Date(task.updatedAt).toLocaleString()}</span></div>
-           </div>
-
-           <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-              <span className="text-xs text-slate-500 block mb-2 uppercase font-bold tracking-widest">Local Category</span>
-              {isEditingCategory ? (
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    autoFocus
-                    value={newCategory} 
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (onCategoryUpdate(task.id, newCategory), setIsEditingCategory(false))}
-                    className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-sm flex-1 outline-none focus:border-blue-500"
-                    placeholder="Enter category name..."
-                  />
-                  <button 
-                    onClick={() => { onCategoryUpdate(task.id, newCategory); setIsEditingCategory(false); }}
-                    className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-lg text-xs font-bold"
-                  >
-                    Save
-                  </button>
-                  <button 
-                    onClick={() => setIsEditingCategory(false)}
-                    className="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-xs font-bold"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Folder size={14} className="text-blue-400" />
-                    <span className="text-sm font-semibold">{task.category || 'Uncategorized'}</span>
-                  </div>
-                  <button 
-                    onClick={() => { setNewCategory(task.category); setIsEditingCategory(true); }}
-                    className="text-xs text-blue-400 hover:text-blue-300 font-bold"
-                  >
-                    Change
-                  </button>
-                </div>
-              )}
-           </div>
-
-           <div className="space-y-2">
-              <h3 className="text-xs font-bold text-slate-500 uppercase">Platform Metadata</h3>
-              <pre className="text-[10px] bg-slate-950 p-4 rounded-xl border border-slate-800 overflow-x-auto font-mono text-blue-400/80">{JSON.stringify(task.metadata, null, 2)}</pre>
-           </div>
-        </div>
-        <footer className="p-6 bg-slate-950 border-t border-slate-800 flex gap-4">
-          <button className="flex-1 bg-slate-800 hover:bg-slate-700 py-3 rounded-xl font-bold transition-all border border-slate-700 active:scale-95 text-sm">Edit Schedule</button>
-          <button onClick={() => { onRun(task); onClose(); }} className="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 text-sm"><Play size={16} fill="currentColor" /> Run Now</button>
-        </footer>
-      </div>
-    </div>
-  );
-};
-
-interface DiscoveredCategory {
-  name: string;
-  count: number;
-}
-
-interface DiscoveredPlatform {
-  platform: string;
-  categories: DiscoveredCategory[];
-}
-
-const ImportModal = ({ onClose, onImport }: { onClose: () => void; onImport: (categories: string[]) => void }) => {
-  const { data: discovery, isLoading, error } = useQuery<DiscoveredPlatform[]>({
-    queryKey: ['discovery'],
-    queryFn: async () => {
-      console.log('[Frontend] Fetching discovery data...');
-      const response = await api.get('/tasks/discover');
-      console.log('[Frontend] Discovery response:', response.data);
-      return response.data;
-    }
-  });
-
-  const [selected, setSelected] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (error) console.error('[Frontend] Discovery fetch error:', error);
-  }, [error]);
-
-  useEffect(() => {
-    if (discovery) {
-      const all = discovery.flatMap(p => p.categories.map((c) => c.name));
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelected(all.filter(c => c !== 'Microsoft' && c !== 'Uncategorized'));
-    }
-  }, [discovery]);
-
-  const toggle = (cat: string) => {
-    setSelected(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
-  };
-
-  if (isLoading) return (
-     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-        <div className="text-center space-y-4">
-           <Loader2 className="animate-spin text-blue-500 mx-auto" size={48} />
-           <p className="text-slate-400 font-medium">Scanning platforms for tasks...</p>
-        </div>
-     </div>
-  );
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col">
-        <header className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-          <div>
-            <h2 className="text-xl font-bold">Import & Sync</h2>
-            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Select categories to pull into dashboard</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-500 transition-colors"><XCircle size={20} /></button>
-        </header>
-        <div className="p-6 space-y-4">
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
-            {discovery?.map(platform => (
-               <div key={platform.platform} className="space-y-2 mb-6 last:mb-0">
-                  <h3 className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">{platform.platform.replace(/_/g, ' ')}</h3>
-                  <div className="grid gap-2">
-                    {platform.categories.map((cat) => (
-                      <label key={cat.name} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer group ${selected.includes(cat.name) ? 'bg-blue-600/5 border-blue-500/30' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'}`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${selected.includes(cat.name) ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-700 bg-slate-900 text-transparent group-hover:border-slate-500'}`}>
-                            <Check size={12} strokeWidth={4} />
-                          </div>
-                          <div>
-                            <span className={`text-sm font-bold transition-colors ${selected.includes(cat.name) ? 'text-slate-100' : 'text-slate-400'}`}>{cat.name}</span>
-                            {(cat.name === 'Microsoft' || cat.name === 'Uncategorized') && !selected.includes(cat.name) && (
-                               <span className="ml-2 text-[9px] text-slate-600 font-medium italic">(Excluded by default)</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-colors ${selected.includes(cat.name) ? 'bg-blue-600/20 border-blue-500/20 text-blue-400' : 'bg-slate-900 border-slate-800 text-slate-600'}`}>{cat.count} tasks</span>
-                        </div>
-                        <input type="checkbox" className="hidden" checked={selected.includes(cat.name)} onChange={() => toggle(cat.name)} />
-                      </label>
-                    ))}
-                  </div>
-               </div>
-            ))}
-          </div>
-        </div>
-        <footer className="p-6 bg-slate-950 border-t border-slate-800 flex gap-4">
-          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors">Discard</button>
-          <button 
-            onClick={() => onImport(selected)} 
-            disabled={selected.length === 0}
-            className="flex-[2] bg-blue-600 hover:bg-blue-500 py-3 rounded-2xl font-bold shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm"
-          >
-            Sync {selected.length} Categories
-          </button>
-        </footer>
-      </div>
-    </div>
-  );
-};
-
-const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate }: { task: Task; onSelect: (task: Task) => void; onRun: (task: Task) => void; onCategoryUpdate: (taskId: string, category: string) => void }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
-
-  return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-blue-500/50 cursor-pointer transition-all shadow-xl group hover:-translate-y-1 active:scale-[0.98]" onClick={() => !isEditing && onSelect(task)}>
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex flex-col gap-1">
-          <span className={`text-[10px] w-fit uppercase font-black px-2.5 py-1 rounded-lg border ${task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>{task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}</span>
-          
-          {isEditing ? (
-            <div className="flex items-center gap-1 mt-1" onClick={e => e.stopPropagation()}>
-              <input 
-                autoFocus
-                className="bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-[10px] text-white w-24 outline-none focus:border-blue-500"
-                value={tempCat}
-                onChange={e => setTempCat(e.target.value)}
-                onBlur={() => setIsEditing(false)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    onCategoryUpdate(task.id, tempCat);
-                    setIsEditing(false);
-                  }
-                  if (e.key === 'Escape') setIsEditing(false);
-                }}
-              />
-            </div>
-          ) : (
-            <div 
-              className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 ml-1 hover:text-blue-400 transition-colors"
-              onClick={e => { e.stopPropagation(); setIsEditing(true); }}
-            >
-              <Folder size={10} /> {task.category || 'Uncategorized'}
-              <Plus size={8} className="opacity-0 group-hover:opacity-100" />
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800"><div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-slate-600'}`}></div><span className="text-[10px] font-bold text-slate-400">{task.status}</span></div>
-      </div>
-      <h3 className="font-bold text-lg mb-1 truncate">{task.name}</h3>
-      <p className="text-xs text-slate-500 mb-6 italic truncate">{task.externalId}</p>
-      <div className="flex items-center justify-between border-t border-slate-800 pt-4">
-        <div className="text-[10px] text-slate-400">Last updated: <span className="text-slate-200">{new Date(task.updatedAt).toLocaleTimeString()}</span></div>
-        <div className="flex gap-2"><button onClick={(e) => { e.stopPropagation(); onRun(task); }} className="bg-blue-600 hover:bg-blue-500 p-2 rounded-lg text-white shadow-lg shadow-blue-600/20 transition-all active:scale-90"><Play size={18} fill="currentColor" /></button></div>
-      </div>
-    </div>
-  );
-};
-
 const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCategoryUpdate }: { onTaskSelect: (task: Task) => void; onRun: (task: Task) => void, tasks: Task[] | undefined, isLoading: boolean, refetch: () => void, onCategoryUpdate: (taskId: string, category: string) => void }) => {
   const [selectedCategory, setSelectedTaskCategory] = useState<string>('All');
   const [showDisabled, setShowDisabled] = useState(false);
@@ -598,25 +281,23 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
             </button>
           )}
           <button onClick={() => refetch()} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
-            <RefreshCw size={16} /> {isEmpty ? 'Import Tasks' : 'Sync / Import'}
+            <RefreshCw size={16} /> Sync Now
           </button>
         </div>
       </div>
 
       {isEmpty ? (
-        <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-slate-800 rounded-[2.5rem] bg-slate-900/10">
-           <div className="bg-slate-900 p-6 rounded-3xl mb-6 shadow-2xl">
-              <RefreshCw size={48} className="text-blue-500 opacity-50" />
-           </div>
-           <h3 className="text-2xl font-bold text-slate-200 mb-2">No tasks imported yet</h3>
-           <p className="text-slate-500 max-w-sm text-center mb-8 leading-relaxed font-medium">
-              Connect your platforms and import your scheduled tasks to get started with TaskHub.
+        <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-slate-800 rounded-3xl p-10 text-center">
+           <Activity size={48} className="text-slate-700 mb-4 animate-pulse" />
+           <h3 className="text-xl font-bold text-slate-300">Dashboard is empty</h3>
+           <p className="text-slate-500 max-w-sm mt-2 mb-6">
+              Connect systems and perform your first sync to discover and monitor scheduled tasks.
            </p>
            <button 
-              onClick={() => refetch()}
-              className="bg-slate-50 text-slate-950 px-8 py-3 rounded-2xl font-bold flex items-center gap-3 hover:bg-white transition-all shadow-xl active:scale-95"
+             onClick={() => refetch()}
+             className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
            >
-              Run Initial Sync <ChevronRight size={18} />
+             Sync Tasks Now
            </button>
         </div>
       ) : (
@@ -670,123 +351,6 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
           </div>
         </>
       )}
-    </div>
-  );
-};
-
-const ApplyTemplateModal = ({ template, onClose }: { template: Template; onClose: () => void }) => {
-  const queryClient = useQueryClient();
-  const params = template.parameters ?? [];
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(params.map(p => [p.key, p.default ?? '']))
-  );
-  const [platform, setPlatform] = useState(template.targetPlatforms[0] ?? '');
-  const [schedule, setSchedule] = useState(template.scheduleExpression);
-
-  const baseCommand = template.commandTemplate ?? template.command ?? '';
-  const resolved = resolveCommand(baseCommand, values).trim();
-  const missing = params.filter(p => p.required && !values[p.key]?.trim());
-  const incomplete = missing.length > 0 || resolved.includes('{{');
-
-  const applyMutation = useMutation({
-    mutationFn: async () => {
-      if (DEMO_MODE) return;
-      return api.post(`/templates/${template.id}/apply`, {
-        platform,
-        command: resolved,
-        scheduleExpression: schedule,
-        name: template.name
-      });
-    },
-    onSuccess: () => {
-      if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      alert(
-        DEMO_MODE
-          ? `Demo mode — "${template.name}" would be created on ${platformLabel(platform)}.`
-          : `Task created on ${platformLabel(platform)} from "${template.name}".`
-      );
-      onClose();
-    },
-    onError: (error: unknown) => {
-      const err = error as Error & { response?: { data?: { error?: string } } };
-      alert(`Apply failed: ${err.response?.data?.error || err.message}`);
-    }
-  });
-
-  const canApply =
-    !!platform && !!schedule.trim() && !incomplete && !applyMutation.isPending;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        <header className="p-6 border-b border-slate-800 flex justify-between items-start bg-slate-900/50">
-          <div>
-            <p className="text-[10px] text-blue-500 uppercase font-black tracking-widest mb-1">Apply Template</p>
-            <h2 className="text-xl font-bold">{template.name}</h2>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{template.description}</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-500 transition-colors shrink-0"><XCircle size={20} /></button>
-        </header>
-
-        <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Target platform</label>
-            <div className="flex flex-wrap gap-2">
-              {template.targetPlatforms.map(p => (
-                <button key={p} onClick={() => setPlatform(p)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${platform === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'}`}>
-                  {platformLabel(p)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Clock size={11} /> Schedule (cron · UTC)</label>
-            <input value={schedule} onChange={e => setSchedule(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-mono text-blue-300 outline-none focus:border-blue-500 transition-colors" />
-          </div>
-
-          {params.map(p => (
-            <div key={p.key} className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                {p.label}{p.required && <span className="text-red-400 ml-1">*</span>}
-              </label>
-              {p.type === 'select' ? (
-                <select value={values[p.key] ?? ''} onChange={e => setValues(v => ({ ...v, [p.key]: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500 transition-colors">
-                  {(p.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : (
-                <input value={values[p.key] ?? ''} onChange={e => setValues(v => ({ ...v, [p.key]: e.target.value }))}
-                  placeholder={p.type === 'path' ? 'C:\\path\\to\\file' : p.type === 'url' ? 'https://…' : ''}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500 transition-colors font-mono" />
-              )}
-              {p.help && <p className="text-[10px] text-slate-600 italic">{p.help}</p>}
-            </div>
-          ))}
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Resolved command</label>
-            <pre className={`bg-slate-950 border rounded-xl px-3 py-2.5 text-xs font-mono whitespace-pre-wrap break-all ${incomplete ? 'border-amber-500/40 text-amber-300' : 'border-slate-800 text-green-300'}`}>{resolved || '—'}</pre>
-            {incomplete && <p className="text-[10px] text-amber-500 italic">Fill the required fields above before applying.</p>}
-          </div>
-
-          {DEMO_MODE && (
-            <div className="text-[11px] text-slate-500 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 flex items-center gap-2">
-              <Info size={13} className="text-blue-500 shrink-0" /> Demo mode — applying is simulated; no task is created.
-            </div>
-          )}
-        </div>
-
-        <footer className="p-6 bg-slate-950 border-t border-slate-800 flex gap-4">
-          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors">Cancel</button>
-          <button onClick={() => applyMutation.mutate()} disabled={!canApply}
-            className="flex-[2] bg-blue-600 hover:bg-blue-500 py-3 rounded-2xl font-bold shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm flex items-center justify-center gap-2">
-            {applyMutation.isPending ? <><Loader2 size={16} className="animate-spin" /> Applying…</> : <>Create Task <ArrowRight size={16} /></>}
-          </button>
-        </footer>
-      </div>
     </div>
   );
 };
@@ -889,13 +453,6 @@ const TemplatesScreen = () => {
     </div>
   );
 };
-
-interface PlatformLink {
-  id: string;
-  name: string;
-  url: string;
-  iconType: 'claude' | 'chatgpt' | 'gemini' | 'custom';
-}
 
 const PlatformsScreen = () => {
   const [links, setLinks] = useState<PlatformLink[]>(() => {

@@ -23,7 +23,7 @@ Build a modern, dark-themed web application that provides a single pane of glass
 | 1 — Requirements & Specs | [`Phase1.md`](Phase1.md) | 2–3 wk | **Complete** |
 | 2 — Architecture & Design | [`Phase2.md`](Phase2.md) | 2 wk | **Complete** |
 | Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Active (Sprints 1-10 complete; exit criteria still open)** |
-| 4 — Testing & QA | [`Phase4.md`](Phase4.md) | 2–3 wk | Not started |
+| 4 — Testing & QA | [`Phase4.md`](Phase4.md) | 2–3 wk | **Active (Test plan drafted)** |
 | 5 — Deployment & Rollout | [`Phase5.md`](Phase5.md) | 1–2 wk | Not started |
 | 6 — Post-Launch & Iteration | [`Phase6.md`](Phase6.md) | ongoing | Not started |
 

@@ -1,7 +1,7 @@
 # Phase 4: Testing & QA
 
 **Duration:** 2–3 weeks
-**Status:** Not started
+**Status:** Active (Test plan drafted)
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase3.md`](Phase3.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
@@ -18,7 +18,7 @@ Validate that the MVP meets every functional and non-functional requirement from
 
 ## Deliverables
 
-- Test plan covering unit, integration, E2E, and cross-platform scenarios.
+- [Test Plan](Test_Plan.md) covering unit, integration, E2E, and cross-platform scenarios.
 - Security audit report (API keys, token storage, agent auth, encryption).
 - Performance report (sync latency, mobile response times, agent resource usage).
 - Beta-tester feedback summary (10–20 users).

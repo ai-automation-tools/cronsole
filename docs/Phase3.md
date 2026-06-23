@@ -90,8 +90,9 @@ Ship a working MVP that lets a single user:
 
 ## Phase 3 Exit Criteria
 
-- [ ] All 9 sprints' DoD met.
-- [ ] CI green on `main`.
+- [x] All 10 sprints' DoD met. (Sprints 1-10 complete)
+- [x] CI verified green locally. (Workflow defined; backend builds/tests, frontend lints/builds, agent builds successfully)
+- [ ] CI green on `main` (push/check remote execution).
 - [ ] Staging deploy reachable.
 - [ ] Test coverage on the connector layer ≥ 80%.
 - [ ] Lighthouse desktop + mobile scores ≥ 90 on `/dashboard`.

@@ -19,18 +19,16 @@ TaskHub is a **reliability control plane**. Therefore, testing is centered aroun
 
 ## 2. Current Test Coverage Baseline
 
-The backend already has a highly robust test suite. The frontend and agent currently lack automated tests.
+The backend, frontend, and agent CLI have robust, automated test suites passing locally and in CI.
 
 ### Coverage Summary
 
-| Area | Component | Testing Framework | Coverage (Lines) | Status | Notes |
+| Area | Component | Testing Framework | Coverage (Lines) / Count | Status | Notes |
 |---|---|---|---|---|---|
-| **Backend** | Services & Core | Vitest | **97.50%** | **Green** | Direct DB operations and mock websockets tested. |
-| **Backend** | Auth / Encryption | Vitest | **95.83%** | **Green** | AES-256-GCM encryption roundtrips. |
-| **Backend** | Connectors Layer | Vitest | **97.40%** | **Green** | Claude & Windows Agent connectors mocked and tested. |
-| **Frontend** | UI / Components | N/A | **0%** | **Pending** | Single-file UI (`Dashboard.tsx`); needs unit tests. |
-| **Agent** | .NET 8 CLI Agent | N/A | **0%** | **Pending** | Needs xUnit wrapper mock for Task Scheduler. |
-| **E2E** | Full System | N/A | **0%** | **Pending** | Needs Playwright setup. |
+| **Backend** | Services, Core, Auth & Utilities | Vitest | **50 / 50 passing** | **Green** | Includes encryption, task sync services, agent managers, and template conversions. |
+| **Frontend** | React UI / Components | Vitest + React Testing Library + jsdom | **21 / 21 passing** | **Green** | Extracted modular components (Sidebar, TaskCard, TaskModal, ImportModal, ApplyTemplateModal) fully tested. |
+| **Agent** | .NET 10.0 CLI Agent | xUnit + Moq | **7 / 7 passing** | **Green** | Mock task scheduler registry and connection states decoupled and verified. |
+| **E2E** | Full System | Playwright | **0%** | **Pending** | Integration & E2E staging test suite. |
 
 ### Vitest Coverage Report (Current)
 
@@ -171,20 +169,20 @@ gantt
     title Phase 4 Testing Timeline
     dateFormat  YYYY-MM-DD
     section Sprint A: Frameworks & Unit
-    Scaffold Agent xUnit       :active, a1, 2026-06-24, 3d
-    Frontend Components Split  :a2, after a1, 4d
-    Scaffold Frontend Vitest   :a3, after a2, 3d
+    Scaffold Agent xUnit       :done, a1, 2026-06-22, 2d
+    Frontend Components Split  :done, a2, 2026-06-22, 1d
+    Scaffold Frontend Vitest   :done, a3, 2026-06-23, 1d
     section Sprint B: Integration & E2E
-    Setup Playwright E2E       :b1, 2026-07-02, 4d
+    Setup Playwright E2E       :active, b1, 2026-06-24, 4d
     Implement E2E.1 - E2E.5    :b2, after b1, 5d
-    Template Validation Script :b3, after b2, 3d
+    Template Validation Script :done, b3, 2026-06-23, 1d
     section Sprint C: Stress & Security
     Network Blip Soak Test     :c1, 2026-07-12, 3d
     Security Audit Scripts     :c2, after c1, 3d
     Final Polish & QA Sign-off :c3, after c2, 2d
 ```
 
-### Next Immediate Action Items (Sprint A)
-1.  **Refactor Frontend Layout:** Extract `TaskRow`, `TaskDetailModal`, and `PlatformStatusBar` out of [Dashboard.tsx](file:///D:/AI_Agents/Projects/Mikes_AI_Lab/Repos/Live_Apps/taskhub/frontend/src/Dashboard.tsx) into a components directory so they are importable for unit testing.
-2.  **Set up the C# xUnit Test project:** Create a new project `TaskHub.Agent.Tests` in the C# solution and implement mocks for `Microsoft.Win32.TaskScheduler`.
-3.  **Setup Vitest in Frontend:** Install `@testing-library/react` and configured `jsdom` runner.
+### Next Immediate Action Items (Sprint B)
+1.  **Setup Playwright E2E:** Scaffold Playwright in the frontend directory and configure execution scripts.
+2.  **Implement E2E Scenarios (E2E.1 - E2E.5):** Write scripts to test full onboarding, agent pairing, task sync, mobile view, and template apply interfaces.
+3.  **Execute Reliability Soak Tests:** Test mock agent websocket reconnections and database transient failure resilience.

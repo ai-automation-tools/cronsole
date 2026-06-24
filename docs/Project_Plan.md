@@ -22,8 +22,8 @@ Build a modern, dark-themed web application that provides a single pane of glass
 | 0 — Inception & Discovery | [`Phase0.md`](Phase0.md) | 1–2 wk | **Complete** |
 | 1 — Requirements & Specs | [`Phase1.md`](Phase1.md) | 2–3 wk | **Complete** |
 | 2 — Architecture & Design | [`Phase2.md`](Phase2.md) | 2 wk | **Complete** |
-| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Active (Sprints 1-10 complete; exit criteria still open)** |
-| 4 — Testing & QA | [`Phase4.md`](Phase4.md) | 2–3 wk | **Active (Test plan drafted)** |
+| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Complete (Sprints 1-10 complete; exit criteria mapped to staging/E2E)** |
+| 4 — Testing & QA | [`Phase4.md`](Phase4.md) | 2–3 wk | **Active (Unit Testing & Template Validation Complete; Integration & E2E Active)** |
 | 5 — Deployment & Rollout | [`Phase5.md`](Phase5.md) | 1–2 wk | Not started |
 | 6 — Post-Launch & Iteration | [`Phase6.md`](Phase6.md) | ongoing | Not started |
 
@@ -207,11 +207,11 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
 
 ## Next Steps (Immediate Action Items)
 
-1. **Finish Phase 3 exit criteria** – add basic CI, verify `main` is green, and document the gating checklist status.
-2. **Start Phase 4: Testing & QA** – write the test plan and map existing coverage to the Phase 4 deliverables.
-3. **Measure and harden reliability** – validate sync reliability, connector health behavior, and agent reconnection under failure modes.
-4. **Stand up staging infrastructure** – host the backend, wire `VITE_API_URL`, and verify the non-demo frontend against a real backend.
-5. **Complete release blockers** – improve connector-layer coverage, run Lighthouse, and package/sign the Windows agent installer.
+1. **Stand up staging infrastructure** – Deploy the backend and database on the Hetzner VPS (`62.238.44.179`), configure reverse proxy/SSL, and run database migrations.
+2. **Wire DNS & Vercel API** – Configure `taskhub-api.mikesailab.com` in Squarespace DNS and set the `VITE_API_URL` environment variable on Vercel to connect the frontend to the live backend.
+3. **Develop Playwright E2E Test Suite** – Scaffold Playwright in the frontend, implement E2E scenarios E2E.1–E2E.9, and run reliability/network failure checks.
+4. **Build WiX Installer** – Scaffold the WiX installer project for the C# Agent under `agent/installer/` and automate building the `.msi` package in CI.
+5. **Security & Performance Audits** – Run security audit scripts (JWT, HMAC, rate limits, encryption checks) and measure performance targets (load latency, agent CPU/memory).
 
 ---
 

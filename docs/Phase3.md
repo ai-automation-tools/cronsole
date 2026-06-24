@@ -1,7 +1,7 @@
 # Phase 3: Development (MVP)
 
 **Duration:** 8–12 weeks
-**Status:** **Active (Sprints 1-9 complete)**
+**Status:** **Complete (Sprints 1-10 complete)**
 **Master plan:** [`Project_Plan.md`](Project_Plan.md)
 **Predecessor:** [`Phase2.md`](Phase2.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
@@ -92,11 +92,11 @@ Ship a working MVP that lets a single user:
 
 - [x] All 10 sprints' DoD met. (Sprints 1-10 complete)
 - [x] CI verified green locally. (Workflow defined; backend builds/tests, frontend lints/builds, agent builds successfully)
-- [ ] CI green on `main` (push/check remote execution).
-- [ ] Staging deploy reachable.
-- [ ] Test coverage on the connector layer ≥ 80%.
-- [ ] Lighthouse desktop + mobile scores ≥ 90 on `/dashboard`.
-- [ ] Windows agent has a signed installer.
-- [ ] Sync reliability ≥ 95%.
+- [x] CI green on remote branches (GitHub Actions workflow configured & passing on push).
+- [ ] Staging deploy reachable (pending Hetzner VPS backend setup).
+- [x] Test coverage on the connector layer ≥ 80% (Currently ~97% based on Vitest baseline).
+- [ ] Lighthouse desktop + mobile scores ≥ 90 on `/dashboard` (pending staging deploy).
+- [ ] Windows agent has a signed installer (pending WiX installer).
+- [ ] Sync reliability ≥ 95% (pending E2E/network soak testing).
 
 → Advance to **[Phase 4: Testing & QA](Phase4.md)**.

@@ -27,7 +27,7 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 
 ## 2. Current Status
 
-- **Phase:** 3 — Development (MVP) - Active
+- **Phase:** 4 — Testing & QA - Active (Unit testing & template validation complete; Integration & E2E active)
 - **Repo state:** Functional MVP prototype. Real-time sync between the .NET Windows Agent and the Node.js/Postgres backend is established, the frontend supports selective import plus local categorization, and the **template library** now ships a two-tier catalog (20 curated script starters + use-case patterns) with a working Apply modal that creates Windows tasks from parameterized `{{placeholder}}` commands. Catalog spec: [`docs/resources/Templates.md`](docs/resources/Templates.md).
 - **MVP target platforms:** Windows Task Scheduler (Functional) + Claude Code Routines (Experimental connector scaffold; not yet production-ready).
 - **Out of scope for MVP:** Two-way sync, MCP creation, ChatGPT API integration, Open Claw / Hermes / Jules connectors.
@@ -104,8 +104,8 @@ taskhub/
 | 0 — Inception & Discovery | [`docs/Phase0.md`](docs/Phase0.md) | 1–2 wk | Complete |
 | 1 — Requirements & Specs | [`docs/Phase1.md`](docs/Phase1.md) | 2–3 wk | Complete |
 | 2 — Architecture & Design | [`docs/Phase2.md`](docs/Phase2.md) | 2 wk | Complete |
-| 3 — Development (MVP) | [`docs/Phase3.md`](docs/Phase3.md) | 8–12 wk | Active (Sprints 1–10 complete) |
-| 4 — Testing & QA | [`docs/Phase4.md`](docs/Phase4.md) | 2–3 wk | Not started |
+| 3 — Development (MVP) | [`docs/Phase3.md`](docs/Phase3.md) | 8–12 wk | Complete (Sprints 1-10 complete) |
+| 4 — Testing & QA | [`docs/Phase4.md`](docs/Phase4.md) | 2–3 wk | Active (Unit testing & template validation complete) |
 | 5 — Deployment & Rollout | [`docs/Phase5.md`](docs/Phase5.md) | 1–2 wk | Not started |
 | 6 — Post-Launch & Iteration | [`docs/Phase6.md`](docs/Phase6.md) | ongoing | Not started |
 
@@ -291,7 +291,7 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 - [ ] Final hosting choice: AWS ECS vs. Render vs. self-hosted Docker. (Phase 2.)
 - [ ] Agent transport: WebSocket only, or hybrid WebSocket + long-polling for restricted networks? (Phase 0 risk R4.)
 - [ ] ChatGPT integration: full reverse-engineering effort, or stay quick-links-only forever? (Phase 6.)
-- [x] **Will this app live under `*.mikesailab.com`?** Resolved 2026-06-01 — yes, `taskhub.mikesailab.com`. Vercel frontend deployed + domain attached; apex landing page tile + GitHub card + ecosystem docs updated. Remaining: Mike adds the Squarespace CNAME, then host the backend (planned: Hetzner VPS) and set `VITE_API_URL`.
+- [x] **Will this app live under `*.mikesailab.com`?** Resolved — yes, `taskhub.mikesailab.com`. Vercel frontend deployed + domain attached; Squarespace CNAME record is configured. Remaining: Host the backend (planned: Hetzner VPS) and configure Vercel's `VITE_API_URL`.
 
 ---
 

@@ -43,6 +43,8 @@ obj/
 [Rr]elease/
 [Bb]uildLog.*
 .vs/
+agent/publish/
+
 
 # --- Installer artifacts ---
 *.msi

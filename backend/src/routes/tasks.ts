@@ -37,6 +37,71 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Create a new task (can be used for cloning or custom creation)
+router.post('/', async (req: Request, res: Response) => {
+  const { name, platform, category, schedule, command } = req.body;
+  const userId = 'cli_user_placeholder'; // For MVP
+
+  try {
+    if (!name || !schedule || !command || !platform) {
+      return res.status(400).json({ error: 'Missing required fields: name, schedule, command, platform' });
+    }
+
+    // Verify if platform is a valid PlatformType
+    if (!Object.values(PlatformType).includes(platform as PlatformType)) {
+      return res.status(400).json({ error: `Invalid platform type: ${platform}` });
+    }
+
+    const connection = await prisma.platformConnection.findUnique({
+      where: { userId_platform: { userId, platform: platform as PlatformType } }
+    });
+
+    if (!connection) {
+      return res.status(400).json({ error: `No connection found for platform ${platform}` });
+    }
+
+    const connector = connectorRegistry.getConnector(platform as PlatformType);
+    if (!connector) {
+      return res.status(400).json({ error: `No connector registered for platform ${platform}` });
+    }
+
+    const result = await connector.createTask(
+      name,
+      schedule,
+      command,
+      { ...(connection.config as object), userId }
+    );
+
+    if (result.success) {
+      // In TaskService.upsertTasks, it is called when syncing, but let's upsert the created task right away so the frontend shows it immediately!
+      const externalId = result.externalId || `\\${name}`; // fallback if not returned
+      const newTasks = [{
+        externalId,
+        name,
+        status: 'ACTIVE' as const,
+        metadata: { schedule, command, state: 'Ready' }
+      }];
+      const upserted = await TaskService.upsertTasks(userId, platform as PlatformType, newTasks);
+      
+      // Let's also update the category if specified!
+      if (category && upserted.length > 0) {
+        await prisma.task.update({
+          where: { id: upserted[0].id },
+          data: { category }
+        });
+        upserted[0].category = category;
+      }
+
+      res.json({ message: 'Task created successfully', task: upserted[0] });
+    } else {
+      res.status(500).json({ error: result.message || 'Failed to create task' });
+    }
+  } catch (error: any) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get health for all connectors
 router.get('/health', async (req: Request, res: Response) => {
   const userId = 'cli_user_placeholder';

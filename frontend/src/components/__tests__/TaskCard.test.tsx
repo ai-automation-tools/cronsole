@@ -19,6 +19,7 @@ describe('TaskCard Component', () => {
     const onSelect = vi.fn();
     const onRun = vi.fn();
     const onCategoryUpdate = vi.fn();
+    const onClone = vi.fn();
 
     render(
       <TaskCard 
@@ -26,6 +27,7 @@ describe('TaskCard Component', () => {
         onSelect={onSelect} 
         onRun={onRun} 
         onCategoryUpdate={onCategoryUpdate} 
+        onClone={onClone}
       />
     );
 
@@ -40,6 +42,7 @@ describe('TaskCard Component', () => {
     const onSelect = vi.fn();
     const onRun = vi.fn();
     const onCategoryUpdate = vi.fn();
+    const onClone = vi.fn();
 
     render(
       <TaskCard 
@@ -47,6 +50,7 @@ describe('TaskCard Component', () => {
         onSelect={onSelect} 
         onRun={onRun} 
         onCategoryUpdate={onCategoryUpdate} 
+        onClone={onClone}
       />
     );
 
@@ -58,30 +62,7 @@ describe('TaskCard Component', () => {
     const onSelect = vi.fn();
     const onRun = vi.fn();
     const onCategoryUpdate = vi.fn();
-
-    const { container } = render(
-      <TaskCard 
-        task={mockTask} 
-        onSelect={onSelect} 
-        onRun={onRun} 
-        onCategoryUpdate={onCategoryUpdate} 
-      />
-    );
-
-    const playButton = container.querySelector('button');
-    expect(playButton).toBeInTheDocument();
-    if (playButton) {
-      fireEvent.click(playButton);
-    }
-
-    expect(onRun).toHaveBeenCalledWith(mockTask);
-    expect(onSelect).not.toHaveBeenCalled();
-  });
-
-  it('allows category editing and triggers onCategoryUpdate on Enter key', () => {
-    const onSelect = vi.fn();
-    const onRun = vi.fn();
-    const onCategoryUpdate = vi.fn();
+    const onClone = vi.fn();
 
     render(
       <TaskCard 
@@ -89,6 +70,55 @@ describe('TaskCard Component', () => {
         onSelect={onSelect} 
         onRun={onRun} 
         onCategoryUpdate={onCategoryUpdate} 
+        onClone={onClone}
+      />
+    );
+
+    const playButton = screen.getByTitle('Run Task');
+    expect(playButton).toBeInTheDocument();
+    fireEvent.click(playButton);
+
+    expect(onRun).toHaveBeenCalledWith(mockTask);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('triggers onClone when the clone button is clicked', () => {
+    const onSelect = vi.fn();
+    const onRun = vi.fn();
+    const onCategoryUpdate = vi.fn();
+    const onClone = vi.fn();
+
+    render(
+      <TaskCard 
+        task={mockTask} 
+        onSelect={onSelect} 
+        onRun={onRun} 
+        onCategoryUpdate={onCategoryUpdate} 
+        onClone={onClone}
+      />
+    );
+
+    const cloneButton = screen.getByTitle('Clone Task');
+    expect(cloneButton).toBeInTheDocument();
+    fireEvent.click(cloneButton);
+
+    expect(onClone).toHaveBeenCalledWith(mockTask);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('allows category editing and triggers onCategoryUpdate on Enter key', () => {
+    const onSelect = vi.fn();
+    const onRun = vi.fn();
+    const onCategoryUpdate = vi.fn();
+    const onClone = vi.fn();
+
+    render(
+      <TaskCard 
+        task={mockTask} 
+        onSelect={onSelect} 
+        onRun={onRun} 
+        onCategoryUpdate={onCategoryUpdate} 
+        onClone={onClone}
       />
     );
 
@@ -111,6 +141,7 @@ describe('TaskCard Component', () => {
     const onSelect = vi.fn();
     const onRun = vi.fn();
     const onCategoryUpdate = vi.fn();
+    const onClone = vi.fn();
 
     render(
       <TaskCard 
@@ -118,6 +149,7 @@ describe('TaskCard Component', () => {
         onSelect={onSelect} 
         onRun={onRun} 
         onCategoryUpdate={onCategoryUpdate} 
+        onClone={onClone}
       />
     );
 

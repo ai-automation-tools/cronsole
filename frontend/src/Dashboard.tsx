@@ -18,8 +18,17 @@ import {
   Bot,
   Sparkles,
   Globe,
-  Trash2
+  Trash2,
+  Grid,
+  List,
+  Columns,
+  Calendar,
+  HelpCircle,
+  CopyPlus,
+  Play
 } from 'lucide-react';
+import { CloneTaskModal } from './components/CloneTaskModal';
+import { HelpModal } from './components/HelpModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type { Task, Template, PlatformLink } from './types';
@@ -217,9 +226,28 @@ const DEMO_TEMPLATES: Template[] = [
   }
 ];
 
-const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCategoryUpdate }: { onTaskSelect: (task: Task) => void; onRun: (task: Task) => void, tasks: Task[] | undefined, isLoading: boolean, refetch: () => void, onCategoryUpdate: (taskId: string, category: string) => void }) => {
+const DashboardScreen = ({ 
+  onTaskSelect, 
+  onRun, 
+  tasks, 
+  isLoading, 
+  refetch, 
+  onCategoryUpdate,
+  onClone,
+  onShowHelp
+}: { 
+  onTaskSelect: (task: Task) => void; 
+  onRun: (task: Task) => void; 
+  tasks: Task[] | undefined; 
+  isLoading: boolean; 
+  refetch: () => void; 
+  onCategoryUpdate: (taskId: string, category: string) => void;
+  onClone: (task: Task) => void;
+  onShowHelp: () => void;
+}) => {
   const [selectedCategory, setSelectedTaskCategory] = useState<string>('All');
   const [showDisabled, setShowDisabled] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>('grid');
 
   const categories = useMemo(() => {
     if (!tasks) return ['All'];
@@ -230,8 +258,11 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
     
-    // First apply the active/disabled filter
-    let result = showDisabled ? tasks : tasks.filter(t => t.status === 'ACTIVE');
+    // First apply the active/disabled filter (except for kanban view where we show both columns)
+    let result = tasks;
+    if (viewMode !== 'kanban') {
+      result = showDisabled ? tasks : tasks.filter(t => t.status === 'ACTIVE');
+    }
     
     // Then apply category filter
     if (selectedCategory !== 'All') {
@@ -239,7 +270,15 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
     }
     
     return result;
-  }, [tasks, selectedCategory, showDisabled]);
+  }, [tasks, selectedCategory, showDisabled, viewMode]);
+
+  const scheduledTasks = useMemo(() => {
+    return [...filteredTasks].sort((a, b) => {
+      const aTime = (a.metadata as any)?.nextRunTime || (a.metadata as any)?.nextRun || a.updatedAt;
+      const bTime = (b.metadata as any)?.nextRunTime || (b.metadata as any)?.nextRun || b.updatedAt;
+      return new Date(aTime).getTime() - new Date(bTime).getTime();
+    });
+  }, [filteredTasks]);
 
   if (isLoading) {
     return (
@@ -261,13 +300,20 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
         </div>
       )}
       
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1">Unified Task Dashboard</h2>
           <p className="text-slate-400">Manage {tasks?.length || 0} tasks across your ecosystem.</p>
         </div>
-        <div className="flex gap-3">
-          {!isEmpty && (
+        <div className="flex flex-wrap gap-2.5">
+          <button 
+            onClick={onShowHelp}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-900 border border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white transition-all flex items-center gap-2 active:scale-95 shadow-md font-bold"
+          >
+            <HelpCircle size={16} /> Help Center
+          </button>
+          
+          {!isEmpty && viewMode !== 'kanban' && (
             <button 
               onClick={() => setShowDisabled(!showDisabled)} 
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border ${
@@ -280,6 +326,7 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
               {showDisabled ? 'Showing All' : 'Active Only'}
             </button>
           )}
+          
           <button onClick={() => refetch()} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
             <RefreshCw size={16} /> Sync Now
           </button>
@@ -302,53 +349,361 @@ const DashboardScreen = ({ onTaskSelect, onRun, tasks, isLoading, refetch, onCat
         </div>
       ) : (
         <>
-          {/* Category Tabs */}
-          <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-slate-900">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedTaskCategory(cat)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                  selectedCategory === cat 
-                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' 
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
-                }`}
+          {/* Category Tabs & Views */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-900">
+            <div className="flex flex-wrap items-center gap-2">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedTaskCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                    selectedCategory === cat 
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' 
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
+                  {cat}
+                  <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                    {cat === 'All' ? tasks?.length : tasks?.filter(t => (t.category || 'Uncategorized') === cat).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl items-center self-start sm:self-auto shadow-md shrink-0">
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
               >
-                {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
-                {cat}
-                <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                  {cat === 'All' ? tasks?.length : tasks?.filter(t => (t.category || 'Uncategorized') === cat).length}
-                </span>
+                <Grid size={12} /> Grid
               </button>
-            ))}
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <List size={12} /> List
+              </button>
+              <button 
+                onClick={() => setViewMode('kanban')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'kanban' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <Columns size={12} /> Kanban
+              </button>
+              <button 
+                onClick={() => setViewMode('schedule')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'schedule' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <Calendar size={12} /> Schedule
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
-            {filteredTasks.length === 0 ? (
-              <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
-                 <Tag size={48} className="mb-4 opacity-20" />
-                 <p className="font-bold">No tasks found</p>
-                 {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
-                   <button 
-                     onClick={() => setShowDisabled(true)}
-                     className="mt-4 text-blue-400 hover:text-blue-300 text-sm font-bold underline underline-offset-4"
-                   >
-                     Show disabled tasks in this category
-                   </button>
-                 )}
+          {/* Grid View */}
+          {viewMode === 'grid' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
+              {filteredTasks.length === 0 ? (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
+                   <Tag size={48} className="mb-4 opacity-20" />
+                   <p className="font-bold">No tasks found</p>
+                   {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
+                     <button 
+                       onClick={() => setShowDisabled(true)}
+                       className="mt-4 text-blue-400 hover:text-blue-300 text-sm font-bold underline underline-offset-4"
+                     >
+                       Show disabled tasks in this category
+                     </button>
+                   )}
+                </div>
+              ) : (
+                filteredTasks.map(task => (
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    onSelect={onTaskSelect} 
+                    onRun={onRun} 
+                    onCategoryUpdate={onCategoryUpdate} 
+                    onClone={onClone}
+                  />
+                ))
+              )}
+            </div>
+          )}
+
+          {/* List View */}
+          {viewMode === 'list' && (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl pb-4">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800/80 text-[10px] uppercase font-black text-slate-500 tracking-wider bg-slate-950/20">
+                      <th className="py-4 px-6">Name</th>
+                      <th className="py-4 px-4">Platform</th>
+                      <th className="py-4 px-4">Category</th>
+                      <th className="py-4 px-4">Status</th>
+                      <th className="py-4 px-4">Last Sync</th>
+                      <th className="py-4 px-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50 text-sm">
+                    {filteredTasks.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-12 text-slate-500 font-medium italic">
+                          No tasks match the active filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredTasks.map(task => (
+                        <tr 
+                          key={task.id} 
+                          className="hover:bg-slate-900/50 transition-colors group cursor-pointer"
+                          onClick={() => onTaskSelect(task)}
+                        >
+                          <td className="py-4 px-6 font-bold text-slate-200 group-hover:text-blue-400 transition-colors">
+                            <div>
+                              <span className="block truncate max-w-[240px]">{task.name}</span>
+                              <span className="block text-[10px] text-slate-500 font-mono font-normal truncate max-w-[240px] mt-0.5">{task.externalId}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className={`text-[9px] uppercase font-black px-2.5 py-1 rounded-lg border ${task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>
+                              {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                              <Folder size={12} className="text-slate-500" /> {task.category || 'Uncategorized'}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="inline-flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-[10px] font-bold text-slate-400">
+                              <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-slate-600'}`}></span>
+                              {task.status}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-xs text-slate-400 font-mono">
+                            {new Date(task.updatedAt).toLocaleTimeString()}
+                          </td>
+                          <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => onClone(task)} 
+                                className="bg-slate-855 hover:bg-slate-800 hover:text-blue-400 p-2 rounded-lg text-slate-450 border border-slate-800 transition-all active:scale-90"
+                                title="Clone Task"
+                              >
+                                <CopyPlus size={16} />
+                              </button>
+                              <button 
+                                onClick={() => onRun(task)} 
+                                className="bg-blue-600 hover:bg-blue-500 p-2 rounded-lg text-white shadow-lg shadow-blue-600/20 transition-all active:scale-90"
+                                title="Run Task"
+                              >
+                                <Play size={16} fill="currentColor" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            ) : (
-              filteredTasks.map(task => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
-                  onSelect={onTaskSelect} 
-                  onRun={onRun} 
-                  onCategoryUpdate={onCategoryUpdate} 
-                />
-              ))
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Kanban Board View */}
+          {viewMode === 'kanban' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
+              {/* Active Column */}
+              <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-5 flex flex-col space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                    <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase">Active Tasks</h3>
+                  </div>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded-md border border-slate-850 text-xs font-bold text-slate-400">
+                    {filteredTasks.filter(t => t.status === 'ACTIVE').length}
+                  </span>
+                </div>
+                
+                <div className="flex-1 space-y-3 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1">
+                  {filteredTasks.filter(t => t.status === 'ACTIVE').length === 0 ? (
+                    <p className="text-xs text-slate-500 italic text-center py-10">No active tasks in this category.</p>
+                  ) : (
+                    filteredTasks.filter(t => t.status === 'ACTIVE').map(task => (
+                      <div 
+                        key={task.id} 
+                        onClick={() => onTaskSelect(task)}
+                        className="bg-slate-955 border border-slate-850 hover:border-blue-500/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg"
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
+                            <Folder size={10} /> {task.category || 'Uncategorized'}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-slate-200 text-sm truncate">{task.name}</h4>
+                        <div className="flex items-center justify-between border-t border-slate-900 pt-2 mt-1">
+                          <span className="text-[9px] text-slate-500 font-mono">
+                            {new Date(task.updatedAt).toLocaleTimeString()}
+                          </span>
+                          <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                            <button 
+                              onClick={() => onClone(task)} 
+                              className="p-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all"
+                              title="Clone Task"
+                            >
+                              <CopyPlus size={12} />
+                            </button>
+                            <button 
+                              onClick={() => onRun(task)} 
+                              className="p-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-600/10"
+                              title="Run Task"
+                            >
+                              <Play size={12} fill="currentColor" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Disabled Column */}
+              <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-5 flex flex-col space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-slate-500"></div>
+                    <h3 className="font-bold text-sm tracking-wide text-slate-400 uppercase">Disabled Tasks</h3>
+                  </div>
+                  <span className="bg-slate-950 px-2 py-0.5 rounded-md border border-slate-850 text-xs font-bold text-slate-450">
+                    {filteredTasks.filter(t => t.status !== 'ACTIVE').length}
+                  </span>
+                </div>
+                
+                <div className="flex-1 space-y-3 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1">
+                  {filteredTasks.filter(t => t.status !== 'ACTIVE').length === 0 ? (
+                    <p className="text-xs text-slate-500 italic text-center py-10">No disabled tasks in this category.</p>
+                  ) : (
+                    filteredTasks.filter(t => t.status !== 'ACTIVE').map(task => (
+                      <div 
+                        key={task.id} 
+                        onClick={() => onTaskSelect(task)}
+                        className="bg-slate-955 border border-slate-850 hover:border-blue-500/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg opacity-60 hover:opacity-100"
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                            {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
+                            <Folder size={10} /> {task.category || 'Uncategorized'}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-slate-350 text-sm truncate">{task.name}</h4>
+                        <div className="flex items-center justify-between border-t border-slate-900 pt-2 mt-1">
+                          <span className="text-[9px] text-slate-500 font-mono">
+                            {new Date(task.updatedAt).toLocaleTimeString()}
+                          </span>
+                          <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                            <button 
+                              onClick={() => onClone(task)} 
+                              className="p-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all"
+                              title="Clone Task"
+                            >
+                              <CopyPlus size={12} />
+                            </button>
+                            <button 
+                              onClick={() => onRun(task)} 
+                              className="p-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-600/10"
+                              title="Run Task"
+                            >
+                              <Play size={12} fill="currentColor" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Schedule View */}
+          {viewMode === 'schedule' && (
+            <div className="space-y-4 pb-20">
+              <div className="bg-slate-900/30 border border-slate-800 p-4 rounded-2xl text-xs text-slate-400 flex items-center gap-2 max-w-xl">
+                <Info size={16} className="text-blue-400 shrink-0" />
+                This view orders tasks chronologically based on their next scheduled run or last update time.
+              </div>
+              
+              <div className="relative border-l border-slate-800 ml-4 pl-6 space-y-6">
+                {scheduledTasks.length === 0 ? (
+                  <p className="text-sm text-slate-500 italic">No scheduled tasks found in this category.</p>
+                ) : (
+                  scheduledTasks.map(task => {
+                    const nextRun = (task.metadata as any)?.nextRunTime || (task.metadata as any)?.nextRun || null;
+                    const scheduleStr = task.schedule || (task.metadata as any)?.schedule || 'No direct schedule';
+                    return (
+                      <div key={task.id} className="relative group">
+                        {/* Timeline node */}
+                        <div className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-slate-850 border-2 border-slate-950 group-hover:bg-blue-500 transition-colors"></div>
+                        
+                        <div 
+                          onClick={() => onTaskSelect(task)}
+                          className="bg-slate-900 border border-slate-800 hover:border-blue-500/30 p-5 rounded-2xl max-w-3xl cursor-pointer shadow-xl transition-all hover:bg-slate-900/80"
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-slate-200 text-base">{task.name}</h4>
+                                <span className="text-[8px] uppercase font-black px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                  {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                                <span className="flex items-center gap-1"><Folder size={12} /> {task.category || 'Uncategorized'}</span>
+                                <span className="flex items-center gap-1 font-mono text-blue-400/80"><Clock size={12} /> {scheduleStr}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4 shrink-0 justify-between md:justify-end border-t md:border-t-0 border-slate-800/50 pt-2 md:pt-0">
+                              <div className="text-right">
+                                <span className="text-[10px] text-slate-500 block uppercase font-bold tracking-wider">Next Run Time</span>
+                                <span className="text-xs text-blue-400 font-mono font-bold">
+                                  {nextRun ? new Date(nextRun).toLocaleString() : 'Not set / Manual'}
+                                </span>
+                              </div>
+                              <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                                <button 
+                                  onClick={() => onClone(task)} 
+                                  className="p-2 rounded bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all active:scale-95"
+                                  title="Clone Task"
+                                >
+                                  <CopyPlus size={14} />
+                                </button>
+                                <button 
+                                  onClick={() => onRun(task)} 
+                                  className="p-2 rounded bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-600/10 active:scale-95"
+                                  title="Run Task"
+                                >
+                                  <Play size={14} fill="currentColor" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -621,6 +976,8 @@ const PlatformRow = ({ link, onDelete }: { link: PlatformLink; onDelete: (id: st
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [cloningTask, setCloningTask] = useState<Task | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const queryClient = useQueryClient();
 
@@ -722,6 +1079,8 @@ const Dashboard = () => {
             onTaskSelect={setSelectedTask} 
             onRun={runMutation.mutate}
             onCategoryUpdate={handleCategoryUpdate}
+            onClone={setCloningTask}
+            onShowHelp={() => setShowHelp(true)}
           />
         )}
         {activeTab === 'templates' && <TemplatesScreen />}
@@ -734,6 +1093,17 @@ const Dashboard = () => {
         onRun={runMutation.mutate} 
         onCategoryUpdate={handleCategoryUpdate}
       />
+      {cloningTask && (
+        <CloneTaskModal 
+          task={cloningTask} 
+          onClose={() => setCloningTask(null)} 
+        />
+      )}
+      {showHelp && (
+        <HelpModal 
+          onClose={() => setShowHelp(false)} 
+        />
+      )}
       {showImport && (
         <ImportModal 
           onClose={() => setShowImport(false)} 

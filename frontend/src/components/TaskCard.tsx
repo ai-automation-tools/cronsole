@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Folder, Plus, Play } from 'lucide-react';
+import { Folder, Plus, Play, CopyPlus } from 'lucide-react';
 import type { Task } from '../types';
 
 interface TaskCardProps {
@@ -7,9 +7,10 @@ interface TaskCardProps {
   onSelect: (task: Task) => void;
   onRun: (task: Task) => void;
   onCategoryUpdate: (taskId: string, category: string) => void;
+  onClone: (task: Task) => void;
 }
 
-export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate }: TaskCardProps) => {
+export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone }: TaskCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
 
@@ -64,8 +65,16 @@ export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate }: TaskCardPr
         </div>
         <div className="flex gap-2">
           <button 
+            onClick={(e) => { e.stopPropagation(); onClone(task); }} 
+            className="bg-slate-800 hover:bg-slate-700 hover:text-blue-400 p-2 rounded-lg text-slate-400 shadow-md transition-all active:scale-90"
+            title="Clone Task"
+          >
+            <CopyPlus size={18} />
+          </button>
+          <button 
             onClick={(e) => { e.stopPropagation(); onRun(task); }} 
             className="bg-blue-600 hover:bg-blue-500 p-2 rounded-lg text-white shadow-lg shadow-blue-600/20 transition-all active:scale-90"
+            title="Run Task"
           >
             <Play size={18} fill="currentColor" />
           </button>

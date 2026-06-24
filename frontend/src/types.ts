@@ -6,6 +6,7 @@ export interface Task {
   status: string;
   externalId: string;
   updatedAt: string;
+  schedule?: string;
   metadata?: Record<string, unknown>;
 }
 

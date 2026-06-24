@@ -6,7 +6,7 @@
 
 Build a modern, dark-themed web application that provides a single pane of glass — a **control plane** — for *seeing, triggering, and trusting* scheduled tasks across Windows Task Scheduler, Claude Code Routines, ChatGPT Automations, Jules scheduled tasks, Open Claw, Hermes, and future systems. Includes quick links, cross-platform conversion templates, and MCP-based AI integration.
 
-> **Strategic direction** (from the independent viability assessment, [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md), 2026-05-14):
+> **Strategic direction** (from the independent viability assessment, [`research/Business_Idea_Assessment.md`](research/Business_Idea_Assessment.md), 2026-05-14):
 > - **Position as a control plane** — visibility + triggering + reliability — **not** a universal workflow builder.
 > - **MVP is a 2-platform reliability control plane** (Windows + Claude). Every other platform is roadmap language, not an implementation expectation.
 > - **Compete on connector quality, normalized observability, and trust** — *"high-confidence integrations," not "supports everything."*
@@ -19,17 +19,17 @@ Build a modern, dark-themed web application that provides a single pane of glass
 
 | Phase | Doc | Duration | Status |
 |---|---|---|---|
-| 0 — Inception & Discovery | [`Phase0.md`](Phase0.md) | 1–2 wk | **Complete** |
-| 1 — Requirements & Specs | [`Phase1.md`](Phase1.md) | 2–3 wk | **Complete** |
-| 2 — Architecture & Design | [`Phase2.md`](Phase2.md) | 2 wk | **Complete** |
-| Phase 3 — Development (MVP) | [`Phase3.md`](Phase3.md) | 8–12 wk | **Complete (Sprints 1-10 complete; exit criteria mapped to staging/E2E)** |
-| 4 — Testing & QA | [`Phase4.md`](Phase4.md) | 2–3 wk | **Active (Unit Testing & Template Validation Complete; Integration & E2E Active)** |
-| 5 — Deployment & Rollout | [`Phase5.md`](Phase5.md) | 1–2 wk | Not started |
-| 6 — Post-Launch & Iteration | [`Phase6.md`](Phase6.md) | ongoing | Not started |
+| 0 — Inception & Discovery | [`phases/Phase0.md`](phases/Phase0.md) | 1–2 wk | **Complete** |
+| 1 — Requirements & Specs | [`phases/Phase1.md`](phases/Phase1.md) | 2–3 wk | **Complete** |
+| 2 — Architecture & Design | [`phases/Phase2.md`](phases/Phase2.md) | 2 wk | **Complete** |
+| Phase 3 — Development (MVP) | [`phases/Phase3.md`](phases/Phase3.md) | 8–12 wk | **Complete (Sprints 1-10 complete; exit criteria mapped to staging/E2E)** |
+| 4 — Testing & QA | [`phases/Phase4.md`](phases/Phase4.md) | 2–3 wk | **Active (Unit Testing & Template Validation Complete; Integration & E2E Active)** |
+| 5 — Deployment & Rollout | [`phases/Phase5.md`](phases/Phase5.md) | 1–2 wk | Not started |
+| 6 — Post-Launch & Iteration | [`phases/Phase6.md`](phases/Phase6.md) | ongoing | Not started |
 
 Also: [`api-examples/`](api-examples/) — sample request/response payloads.
 
-Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md).
+Strategic assessment: [`research/Business_Idea_Assessment.md`](research/Business_Idea_Assessment.md).
 
 ---
 
@@ -41,7 +41,7 @@ Strategic assessment: [`Business_Idea_Assessment.md`](Business_Idea_Assessment.m
 - High‑level risk assessment (API limitations, platform auth, sync frequency)
 - Initial tech stack selection (React/TypeScript + Node.js + PostgreSQL + Docker)
 - MVP vs. feature‑complete roadmap
-- Competitive landscape analysis ([`Competition_Analysis.md`](Competition_Analysis.md))
+- Competitive landscape analysis ([`research/Competition_Analysis.md`](research/Competition_Analysis.md))
 
 ### Key Activities
 - Validate feasibility of controlling Windows Task Scheduler via remote API (WinRM / custom agent)

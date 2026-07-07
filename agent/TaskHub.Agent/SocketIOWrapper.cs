@@ -13,11 +13,17 @@ namespace TaskHub.Agent
 
         public SocketIOWrapper(string serverUrl)
         {
+            // ReconnectionAttempts defaults to 10, so the client gives up after a
+            // longer server outage — the Program watchdog re-calls ConnectAsync to
+            // cover that. Don't raise the attempts to int.MaxValue: the library's
+            // internal delay math overflows and every connect throws.
             _client = new SocketIO(new Uri(serverUrl));
 
             _client.OnConnected += (sender, e) => OnConnected?.Invoke();
             _client.OnDisconnected += (sender, e) => OnDisconnected?.Invoke();
         }
+
+        public bool Connected => _client.Connected;
 
         public void On(string eventName, Action<ISocketResponse> callback)
         {

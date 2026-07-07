@@ -24,6 +24,17 @@
 >   (Webhook/notification alerts remain open.)
 > - ✅ **Delete for native tasks** (`DELETE /api/tasks/:id`, native-only guard + modal button).
 > - ✅ Shared `frontend/src/platform.ts` — fixed §3.13 (every non-Windows platform labeled "Claude").
+> - ✅ **Stale-task cleanup on sync** — `TaskService.removeStaleTasks` deletes DB rows (and their
+>   execution logs) for tasks removed natively from the platform; wired into `POST /tasks/sync`
+>   using the connector's full pre-filter list. Verified live: 22 deleted Windows tasks purged.
+> - ✅ **Agent reconnect resilience** — root cause of "agent shows offline": SocketIOClient's
+>   `ReconnectionAttempts` defaults to 10, so a backend restart longer than ~10 quick retries made
+>   the agent give up forever. Added a `Connected` property + 30s watchdog loop in `Program.cs`
+>   that re-calls `ConnectAsync` whenever disconnected (also covers agent-starts-before-backend at
+>   boot). Note: do NOT set `ReconnectionAttempts = int.MaxValue` — the library's delay math
+>   overflows and every connect throws `millisecondsDelay` out-of-range.
+> - ✅ Import modal now shows an honest empty state ("agent may be offline") instead of a blank
+>   body when discovery returns nothing — this was why "Sync Now" appeared to do nothing.
 > - Item statuses below are annotated: ✅ done · 🟡 partial · ⬜ open.
 
 ---

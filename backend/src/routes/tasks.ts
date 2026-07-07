@@ -237,6 +237,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       if (connector) {
         try {
           let tasks = await connector.syncTasks({ ...conn.config as object, userId });
+          const allExternalIds = tasks.map(t => t.externalId);
 
           // Filter by categories if provided
           if (categories && Array.isArray(categories)) {
@@ -248,7 +249,16 @@ router.post('/sync', async (req: Request, res: Response) => {
           }
 
           await TaskService.upsertTasks(userId, conn.platform, tasks);
-          results.push({ platform: conn.platform, count: tasks.length });
+
+          // Remove tasks deleted natively on the platform. Skip TASKHUB_NATIVE
+          // (its connector returns [] — the DB itself is the source of truth)
+          // and skip empty lists as a safety net against wiping a platform.
+          let removed = 0;
+          if (conn.platform !== 'TASKHUB_NATIVE' && allExternalIds.length > 0) {
+            removed = await TaskService.removeStaleTasks(userId, conn.platform, allExternalIds);
+          }
+
+          results.push({ platform: conn.platform, count: tasks.length, removed });
         } catch (err: any) {
           results.push({ platform: conn.platform, error: err.message });
         }

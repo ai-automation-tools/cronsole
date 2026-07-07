@@ -6,6 +6,12 @@ $ProjectDir = Join-Path $ScriptDir "TaskHub.Agent"
 $PublishDir = Join-Path $ScriptDir "publish"
 
 Write-Host "1. Building TaskHub C# Agent in Release mode..." -ForegroundColor Cyan
+
+# Stop any running agent first — publish fails if TaskHub.Agent.exe is locked.
+Stop-ScheduledTask -TaskPath "\Task-Hub\" -TaskName "TaskHubAgent" -ErrorAction SilentlyContinue
+Stop-Process -Name "TaskHub.Agent" -Force -Confirm:$false -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+
 dotnet publish $ProjectDir -c Release -r win-x64 --self-contained false -o $PublishDir
 
 if ($LASTEXITCODE -ne 0) {
@@ -29,7 +35,10 @@ $Trigger = New-ScheduledTaskTrigger -AtLogon
 $Action = New-ScheduledTaskAction -Execute $ExePath -WorkingDirectory $PublishDir
 
 # Settings (Run in background, restart if failed, don't stop if idle, allow start on batteries)
-$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+# ExecutionTimeLimit 0 = no limit. Without it, Task Scheduler defaults to PT72H and
+# silently kills the long-running agent after 3 days (restart-on-failure does NOT
+# apply to time-limit kills), leaving TaskHub offline until the next logon.
+$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Seconds 0)
 
 # Register the task (Run with highest privileges under the current user context)
 $Principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest

@@ -84,6 +84,7 @@ Current registered connectors:
 
 - `WINDOWS_TASK_SCHEDULER`
 - `CLAUDE_CODE`
+- `TASKHUB_NATIVE`
 
 Connector methods currently expected by the backend:
 
@@ -91,7 +92,9 @@ Connector methods currently expected by the backend:
 - `runTask(externalId, config)`
 - `setTaskStatus(externalId, enabled, config)`
 - `getHealth(config)`
-- `createTask(name, schedule, command, config)`
+- `createTask(name, schedule, command, config, options?)` — `options.trigger`
+  carries the structured cron→platform trigger conversion (Windows); creation
+  routes must convert before calling, never pass a raw cron alone for Windows
 
 If this interface changes, update:
 

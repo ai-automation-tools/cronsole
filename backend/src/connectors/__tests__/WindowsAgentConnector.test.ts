@@ -153,11 +153,39 @@ describe('WindowsAgentConnector', () => {
     });
 
     const result = await connector.createTask('NewTask', '0 3 * * *', 'echo hello', { userId: 'test_user' });
-    
-    expect(mockSocket.emit).toHaveBeenCalledWith('task:create', { name: 'NewTask', schedule: '0 3 * * *', command: 'echo hello' });
+
+    expect(mockSocket.emit).toHaveBeenCalledWith('task:create', { name: 'NewTask', schedule: '0 3 * * *', command: 'echo hello', trigger: null });
     expect(result.success).toBe(true);
     expect(result.externalId).toBe('\\NewTask');
     expect(result.message).toBe('Success');
+  });
+
+  it('should pass the structured trigger through the task:create payload', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:created') {
+        setTimeout(() => {
+          handler({ name: 'NewTask', success: true, path: '\\NewTask', message: 'Success' });
+        }, 10);
+      }
+    });
+
+    const trigger = {
+      type: 'Daily' as const,
+      startBoundary: '08:00',
+      daysInterval: 1
+    };
+
+    const result = await connector.createTask('NewTask', '0 8 * * *', 'echo hello', { userId: 'test_user' }, { trigger });
+
+    expect(mockSocket.emit).toHaveBeenCalledWith('task:create', {
+      name: 'NewTask',
+      schedule: '0 8 * * *',
+      command: 'echo hello',
+      trigger
+    });
+    expect(result.success).toBe(true);
   });
 
   it('should fail to create a task if agent offline', async () => {

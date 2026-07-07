@@ -2,6 +2,7 @@ import { PlatformType } from '@prisma/client';
 import { PlatformConnector } from './platform.interface.js';
 import { ClaudeConnector } from './ClaudeConnector.js';
 import { WindowsAgentConnector } from './WindowsAgentConnector.js';
+import { TaskHubNativeConnector } from './TaskHubNativeConnector.js';
 
 class ConnectorRegistry {
   private connectors: Map<PlatformType, PlatformConnector> = new Map();
@@ -9,6 +10,7 @@ class ConnectorRegistry {
   constructor() {
     this.register(new ClaudeConnector());
     this.register(new WindowsAgentConnector());
+    this.register(new TaskHubNativeConnector());
   }
 
   register(connector: PlatformConnector) {

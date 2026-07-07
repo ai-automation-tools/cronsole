@@ -1,23 +1,13 @@
-import { useState } from 'react';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, ArrowRight, Info } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
+import { XCircle, Clock, Loader2, ArrowRight, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { Template } from '../types';
 import { api } from '../api';
+import { platformLabel } from '../platform';
 
 // Substitute {{key}} placeholders.
 const resolveCommand = (tpl: string, values: Record<string, string>) =>
   tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in values ? values[k] : `{{${k}}}`));
-
-const platformLabel = (p: string) =>
-  ({
-    WINDOWS_TASK_SCHEDULER: 'Windows',
-    MACOS_LAUNCHD: 'macOS',
-    CLAUDE_CODE: 'Claude',
-    CHATGPT: 'ChatGPT',
-    JULES: 'Jules',
-    OPEN_CLAW: 'Open Claw',
-    HERMES: 'Hermes'
-  }[p] ?? p.split('_')[0]);
 
 interface ApplyTemplateModalProps {
   template: Template;
@@ -39,6 +29,32 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const incomplete = missing.length > 0 || resolved.includes('{{');
 
   const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
+  // Debounce the schedule so the preview doesn't fire per keystroke.
+  const [debouncedSchedule, setDebouncedSchedule] = useState(schedule);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSchedule(schedule), 400);
+    return () => clearTimeout(t);
+  }, [schedule]);
+
+  interface SchedulePreview {
+    score: number;
+    warnings: string[];
+  }
+
+  const { data: preview } = useQuery<SchedulePreview | null>({
+    queryKey: ['template-preview', template.id, platform, debouncedSchedule],
+    queryFn: async () => {
+      const res = await api.post(`/templates/${template.id}/preview`, {
+        platform,
+        schedule: debouncedSchedule
+      });
+      return res.data;
+    },
+    enabled: !DEMO_MODE && !!platform && !!debouncedSchedule.trim(),
+    staleTime: 60_000,
+    retry: false
+  });
 
   const applyMutation = useMutation({
     mutationFn: async () => {
@@ -102,11 +118,25 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <Clock size={11} /> Schedule (cron · UTC)
             </label>
-            <input 
-              value={schedule} 
+            <input
+              value={schedule}
               onChange={e => setSchedule(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-mono text-blue-300 outline-none focus:border-blue-500 transition-colors" 
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-mono text-blue-300 outline-none focus:border-blue-500 transition-colors"
             />
+            {preview && preview.score >= 1 && (
+              <p className="text-[10px] text-green-500 flex items-center gap-1.5">
+                <CheckCircle2 size={11} className="shrink-0" /> Schedule converts cleanly to a native trigger.
+              </p>
+            )}
+            {preview && preview.score < 1 && (
+              <div className="text-[11px] text-amber-400 bg-amber-500/5 border border-amber-500/30 rounded-xl px-3 py-2 space-y-1">
+                {preview.warnings.map((w, i) => (
+                  <p key={i} className="flex items-start gap-1.5">
+                    <AlertTriangle size={11} className="shrink-0 mt-0.5" /> {w}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
 
           {params.map(p => (

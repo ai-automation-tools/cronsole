@@ -1,4 +1,14 @@
 import { PlatformType, HealthState } from '@prisma/client';
+import { WindowsTrigger } from '../utils/scheduler-conversion.js';
+
+export interface CreateTaskOptions {
+  /**
+   * Structured trigger produced by convertCronToWindowsTrigger. Platform
+   * connectors that register native triggers (e.g. Windows Task Scheduler)
+   * should prefer this over re-parsing the raw cron string.
+   */
+  trigger?: WindowsTrigger | null;
+}
 
 export interface ConnectorHealth {
   state: HealthState;
@@ -38,7 +48,9 @@ export interface PlatformConnector {
   getHealth(config: any): Promise<ConnectorHealth>;
 
   /**
-   * Create a new task on the platform.
+   * Create a new task on the platform. `schedule` is the normalized 5-field
+   * cron (UTC); `options.trigger` carries the platform-native trigger when
+   * the server was able to convert the cron.
    */
-  createTask(name: string, schedule: string, command: string, config: any): Promise<{ success: boolean; externalId?: string; message?: string }>;
+  createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }>;
 }

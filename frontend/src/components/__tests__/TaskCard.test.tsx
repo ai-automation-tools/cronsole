@@ -38,6 +38,32 @@ describe('TaskCard Component', () => {
     expect(screen.getByText('ACTIVE')).toBeInTheDocument();
   });
 
+  it('shows a red indicator when the last run failed', () => {
+    render(
+      <TaskCard
+        task={{ ...mockTask, lastRunStatus: 'FAILURE', lastRunAt: '2026-07-07T16:00:00Z' }}
+        onSelect={vi.fn()}
+        onRun={vi.fn()}
+        onCategoryUpdate={vi.fn()}
+        onClone={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Run failed')).toBeInTheDocument();
+  });
+
+  it('shows no failure indicator when the last run succeeded', () => {
+    render(
+      <TaskCard
+        task={{ ...mockTask, lastRunStatus: 'SUCCESS' }}
+        onSelect={vi.fn()}
+        onRun={vi.fn()}
+        onCategoryUpdate={vi.fn()}
+        onClone={vi.fn()}
+      />
+    );
+    expect(screen.queryByText('Run failed')).not.toBeInTheDocument();
+  });
+
   it('triggers onSelect when the card is clicked', () => {
     const onSelect = vi.fn();
     const onRun = vi.fn();

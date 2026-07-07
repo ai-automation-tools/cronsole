@@ -3,17 +3,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { XCircle, Clock, Loader2, CopyPlus, Info } from 'lucide-react';
 import type { Task } from '../types';
 import { api } from '../api';
-
-const platformLabel = (p: string) =>
-  ({
-    WINDOWS_TASK_SCHEDULER: 'Windows',
-    MACOS_LAUNCHD: 'macOS',
-    CLAUDE_CODE: 'Claude',
-    CHATGPT: 'ChatGPT',
-    JULES: 'Jules',
-    OPEN_CLAW: 'Open Claw',
-    HERMES: 'Hermes'
-  }[p] ?? p.split('_')[0]);
+import { platformLabel } from '../platform';
 
 interface CloneTaskModalProps {
   task: Task;

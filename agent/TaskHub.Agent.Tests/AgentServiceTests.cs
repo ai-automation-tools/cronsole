@@ -151,15 +151,65 @@ namespace TaskHub.Agent.Tests
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(element);
 
-            _mockScheduler.Setup(s => s.CreateTask("MyTestTask", "0 * * * *", "dir"))
+            _mockScheduler.Setup(s => s.CreateTask("MyTestTask", "0 * * * *", "dir", null))
                 .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });
 
             // Act
             _socketHandlers["task:create"].Invoke(mockResponse.Object);
 
             // Assert
-            _mockScheduler.Verify(s => s.CreateTask("MyTestTask", "0 * * * *", "dir"), Times.Once);
+            _mockScheduler.Verify(s => s.CreateTask("MyTestTask", "0 * * * *", "dir", null), Times.Once);
             _mockSocket.Verify(s => s.EmitAsync("task:created", It.Is<object>(obj => obj != null)), Times.Once);
+        }
+
+        [Fact]
+        public void TaskCreate_Event_ParsesStructuredTrigger()
+        {
+            // Arrange — payload as emitted by WindowsAgentConnector.createTask
+            var dataJson = "{\"name\":\"MyTestTask\",\"schedule\":\"0 8 * * 1\",\"command\":\"dir\"," +
+                "\"trigger\":{\"type\":\"Weekly\",\"startBoundary\":\"08:00\",\"daysOfWeek\":[\"Monday\"]}}";
+            var element = JsonDocument.Parse(dataJson).RootElement;
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(element);
+
+            _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TriggerSpec?>()))
+                .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });
+
+            // Act
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            // Assert — camelCase JSON must map onto TriggerSpec properties
+            _mockScheduler.Verify(s => s.CreateTask(
+                "MyTestTask",
+                "0 8 * * 1",
+                "dir",
+                It.Is<TriggerSpec>(t =>
+                    t.Type == "Weekly" &&
+                    t.StartBoundary == "08:00" &&
+                    t.DaysOfWeek != null &&
+                    t.DaysOfWeek.Count == 1 &&
+                    t.DaysOfWeek[0] == "Monday")), Times.Once);
+        }
+
+        [Fact]
+        public void TaskCreate_Event_NullTrigger_PassedAsNull()
+        {
+            // Arrange — server sends trigger: null when no conversion applies
+            var dataJson = "{\"name\":\"MyTestTask\",\"schedule\":\"0 * * * *\",\"command\":\"dir\",\"trigger\":null}";
+            var element = JsonDocument.Parse(dataJson).RootElement;
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(element);
+
+            _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TriggerSpec?>()))
+                .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });
+
+            // Act
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockScheduler.Verify(s => s.CreateTask("MyTestTask", "0 * * * *", "dir", null), Times.Once);
         }
     }
 }

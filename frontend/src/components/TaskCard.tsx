@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Folder, Plus, Play, CopyPlus } from 'lucide-react';
+import { Folder, Plus, Play, CopyPlus, XOctagon } from 'lucide-react';
 import type { Task } from '../types';
+import { platformLabel, platformBadgeClass } from '../platform';
 
 interface TaskCardProps {
   task: Task;
@@ -21,8 +22,8 @@ export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone }: T
     >
       <div className="flex justify-between items-start mb-4">
         <div className="flex flex-col gap-1">
-          <span className={`text-[10px] w-fit uppercase font-black px-2.5 py-1 rounded-lg border ${task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>
-            {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+          <span className={`text-[10px] w-fit uppercase font-black px-2.5 py-1 rounded-lg border ${platformBadgeClass(task.platform)}`}>
+            {platformLabel(task.platform)}
           </span>
           
           {isEditing ? (
@@ -52,9 +53,17 @@ export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone }: T
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-          <div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-slate-600'}`}></div>
-          <span className="text-[10px] font-bold text-slate-400">{task.status}</span>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+            <div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-slate-600'}`}></div>
+            <span className="text-[10px] font-bold text-slate-400">{task.status}</span>
+          </div>
+          {task.lastRunStatus === 'FAILURE' && (
+            <div className="flex items-center gap-1 bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/30" title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}>
+              <XOctagon size={10} className="text-red-400" />
+              <span className="text-[9px] font-black text-red-400 uppercase">Run failed</span>
+            </div>
+          )}
         </div>
       </div>
       <h3 className="font-bold text-lg mb-1 truncate">{task.name}</h3>

@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import { authenticateToken } from './auth/auth.js';
 import { agentManager } from './ws/AgentManager.js';
 import { TaskService } from './services/TaskService.js';
+import { nativeScheduler } from './services/NativeScheduler.js';
 
 const prisma = new PrismaClient();
 const app = express();
@@ -64,6 +65,27 @@ async function main() {
       password: '' // No password for placeholder
     }
   });
+
+  // The native platform needs no external config; auto-provision its connection
+  // so run/health flows resolve it like any other platform.
+  await prisma.platformConnection.upsert({
+    where: {
+      userId_platform: {
+        userId: 'cli_user_placeholder',
+        platform: PlatformType.TASKHUB_NATIVE
+      }
+    },
+    update: {},
+    create: {
+      userId: 'cli_user_placeholder',
+      platform: PlatformType.TASKHUB_NATIVE,
+      config: {},
+      isActive: true,
+      healthState: 'HEALTHY'
+    }
+  });
+
+  await nativeScheduler.start();
 
   server.listen(PORT, () => {
     console.log(`TaskHub Backend running on http://localhost:${PORT}`);

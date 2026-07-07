@@ -33,7 +33,8 @@
 **TaskHub** is a unified scheduled-task management system — a single dark-themed dashboard for viewing, triggering, and managing scheduled tasks that today live in disconnected silos:
 
 - **Windows Task Scheduler** — via a lightweight local .NET agent
-- **Claude Code Routines** — via the Anthropic API *(planned)*
+- **TaskHub-native tasks** — scheduled and executed by the backend itself (HTTP webhooks, health checks) with no OS entry ([design](docs/resources/Native_Tasks.md))
+- **Claude Code Routines** — via the Anthropic API *(experimental)*
 - **ChatGPT Automations** — via quick links to the native UI *(planned)*
 - **Jules**, **Open Claw**, **Hermes**, and future systems *(planned)*
 
@@ -95,8 +96,9 @@ graph LR
 | **Claude Code connector** | 🚧 Experimental | Backend connector scaffold exists, but it is not yet production-ready. |
 | **Selective import & categorization** | ✅ Built | Import categories explicitly, exclude noisy defaults, and preserve local category overrides. |
 | **Template library & Apply flow** | ✅ Built | Two-tier catalog — 20 curated script starters (PowerShell, Python, Bash/zsh, Node, …) + use-case patterns. Apply modal fills `{{placeholder}}` params and creates a real task. Spec: [`docs/resources/Templates.md`](docs/resources/Templates.md). |
-| **Run history & logs** | ✅ Partial | Backend execution logs exist and the MVP writes trigger outcomes; broader timeline/alerting hardening remains. |
-| **Schedule conversion templates** | 🔜 Planned | cron ↔ Windows XML ↔ Claude YAML, with confidence scoring still planned. |
+| **cron → Windows trigger conversion** | ✅ Built | Applying a template converts the cron to a real structured trigger (daily/weekly/interval, UTC→local) with a live confidence preview in the Apply modal. Reverse (Windows→cron on sync) still planned. |
+| **TaskHub-native tasks** | ✅ Built | Tasks that exist only in TaskHub — backend scheduler (30s tick) runs HTTP jobs (webhooks, health checks) on cron. Create/delete from the UI; violet badge + platform filter isolate them from synced tasks. [`docs/resources/Native_Tasks.md`](docs/resources/Native_Tasks.md). |
+| **Run history & failure surfacing** | ✅ Built | Run History tab per task (status, timestamp, duration, log snippet); tasks whose last run failed show a red indicator on the dashboard. Notifications/alerting still planned. |
 | **MCP integration** | 🔜 Phase 6 | NL `list_tasks` / `run_task` / `create_task` / `convert_schedule`. |
 
 ## ⚡ Quick Start
@@ -168,10 +170,14 @@ Base URL: `http://localhost:3000`
 | Method | Endpoint | Description |
 |:---|:---|:---|
 | `GET` | `/api/health` | Liveness check — `{ status: "ok", timestamp }`. |
-| `GET` | `/api/tasks` | List all synced tasks, newest-updated first. |
-| `POST` | `/api/tasks/:id/run` | Trigger a task (Windows tasks relay `task:run` to the agent). |
+| `GET` | `/api/tasks` | List all tasks (newest-updated first) with a flattened last-run summary (`lastRunStatus`, `lastRunAt`, `lastRunDurationMs`). |
+| `POST` | `/api/tasks/:id/run` | Trigger a task (Windows tasks relay `task:run` to the agent; native tasks execute immediately). |
+| `GET` | `/api/tasks/:id/executions` | Last 20 execution-log entries for a task (status, log, duration). |
+| `POST` | `/api/tasks/native` | Create a TaskHub-native task — `{ name, category?, schedule, job }`. |
+| `DELETE` | `/api/tasks/:id` | Delete a task (TaskHub-native only; synced tasks are rejected). |
 | `GET` | `/api/templates` | List templates (script starters + use-case patterns), upvotes-first. |
-| `POST` | `/api/templates/:id/apply` | Create a task from a template; body carries the resolved command, schedule, and target platform. |
+| `POST` | `/api/templates/:id/apply` | Create a task from a template; converts the cron to a native trigger and relays it to the platform. |
+| `POST` | `/api/templates/:id/preview` | Conversion/compatibility preview — `{ score, warnings, trigger }` for a platform + schedule. |
 
 <details>
 <summary><b>WebSocket events (backend ↔ agent)</b></summary>
@@ -182,6 +188,9 @@ Base URL: `http://localhost:3000`
 | `task:list` | server → agent | — | Request a full task sync. |
 | `task:full_list` | agent → server | `{ tasks: [...] }` | Agent pushes Task Scheduler entries; backend upserts on `(platform, externalId)`. |
 | `task:run` | server → agent | `externalId` | Trigger a specific task on the user's machine. |
+| `task:create` | server → agent | `{ name, schedule, command, trigger }` | Register a new Task Scheduler entry; `trigger` is the structured cron conversion. |
+| `task:created` | agent → server | `{ success, path, name, message }` | Creation result. |
+| `task:set_status` | server → agent | `externalId, enabled` | Enable/disable a task. |
 
 </details>
 
@@ -227,8 +236,8 @@ taskhub/
 | 0 — Inception & Discovery | [`Phase0.md`](docs/Phase0.md) | ✅ Complete |
 | 1 — Requirements & Specs | [`Phase1.md`](docs/Phase1.md) | ✅ Complete |
 | 2 — Architecture & Design | [`Phase2.md`](docs/Phase2.md) | ✅ Complete |
-| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | 🚧 **Active** — sprints 1–10 complete; exit criteria still open |
-| 4 — Testing & QA | [`Phase4.md`](docs/Phase4.md) | Not started |
+| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | ✅ Complete (sprints 1–10) |
+| 4 — Testing & QA | [`Phase4.md`](docs/Phase4.md) | 🚧 **Active** — unit testing & template validation complete; integration & E2E active |
 | 5 — Deployment & Rollout | [`Phase5.md`](docs/Phase5.md) | Not started |
 | 6 — Post-Launch & Iteration | [`Phase6.md`](docs/Phase6.md) | Not started |
 

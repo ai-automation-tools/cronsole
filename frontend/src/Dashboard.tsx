@@ -25,7 +25,8 @@ import {
   Calendar,
   HelpCircle,
   CopyPlus,
-  Play
+  Play,
+  Zap
 } from 'lucide-react';
 import { CloneTaskModal } from './components/CloneTaskModal';
 import { HelpModal } from './components/HelpModal';
@@ -37,17 +38,8 @@ import { TaskModal } from './components/TaskModal';
 import { ImportModal } from './components/ImportModal';
 import { TaskCard } from './components/TaskCard';
 import { ApplyTemplateModal } from './components/ApplyTemplateModal';
-
-const platformLabel = (p: string) =>
-  ({
-    WINDOWS_TASK_SCHEDULER: 'Windows',
-    MACOS_LAUNCHD: 'macOS',
-    CLAUDE_CODE: 'Claude',
-    CHATGPT: 'ChatGPT',
-    JULES: 'Jules',
-    OPEN_CLAW: 'Open Claw',
-    HERMES: 'Hermes'
-  }[p] ?? p.split('_')[0]);
+import { CreateNativeTaskModal } from './components/CreateNativeTaskModal';
+import { platformLabel, platformBadgeClass } from './platform';
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -81,6 +73,17 @@ const DEMO_TASKS: Task[] = [
     externalId: '\\Mikes\\Cleanup',
     updatedAt: '2026-06-01T00:00:00Z',
     metadata: { schedule: '0 0 * * 0', state: 'Disabled' },
+  },
+  {
+    id: 'demo-4',
+    name: 'Uptime Webhook Ping',
+    category: 'TaskHub',
+    platform: 'TASKHUB_NATIVE',
+    status: 'ACTIVE',
+    externalId: 'native_demo1',
+    updatedAt: '2026-06-01T08:00:00Z',
+    schedule: '*/15 * * * *',
+    metadata: { job: { jobType: 'HTTP', url: 'https://hc-ping.com/demo', method: 'GET' } },
   },
 ];
 
@@ -234,18 +237,21 @@ const DashboardScreen = ({
   refetch, 
   onCategoryUpdate,
   onClone,
-  onShowHelp
-}: { 
-  onTaskSelect: (task: Task) => void; 
-  onRun: (task: Task) => void; 
-  tasks: Task[] | undefined; 
-  isLoading: boolean; 
-  refetch: () => void; 
+  onShowHelp,
+  onNewTask
+}: {
+  onTaskSelect: (task: Task) => void;
+  onRun: (task: Task) => void;
+  tasks: Task[] | undefined;
+  isLoading: boolean;
+  refetch: () => void;
   onCategoryUpdate: (taskId: string, category: string) => void;
   onClone: (task: Task) => void;
   onShowHelp: () => void;
+  onNewTask: () => void;
 }) => {
   const [selectedCategory, setSelectedTaskCategory] = useState<string>('All');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('All');
   const [showDisabled, setShowDisabled] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>('grid');
 
@@ -255,22 +261,32 @@ const DashboardScreen = ({
     return ['All', ...unique.sort()];
   }, [tasks]);
 
+  const platforms = useMemo(() => {
+    if (!tasks) return [];
+    return Array.from(new Set(tasks.map(t => t.platform))).sort();
+  }, [tasks]);
+
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
-    
+
     // First apply the active/disabled filter (except for kanban view where we show both columns)
     let result = tasks;
     if (viewMode !== 'kanban') {
       result = showDisabled ? tasks : tasks.filter(t => t.status === 'ACTIVE');
     }
-    
+
+    // Platform isolation (e.g. only TaskHub-native, only Windows)
+    if (selectedPlatform !== 'All') {
+      result = result.filter(t => t.platform === selectedPlatform);
+    }
+
     // Then apply category filter
     if (selectedCategory !== 'All') {
       result = result.filter(t => (t.category || 'Uncategorized') === selectedCategory);
     }
-    
+
     return result;
-  }, [tasks, selectedCategory, showDisabled, viewMode]);
+  }, [tasks, selectedCategory, selectedPlatform, showDisabled, viewMode]);
 
   const scheduledTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
@@ -327,6 +343,14 @@ const DashboardScreen = ({
             </button>
           )}
           
+          <button
+            onClick={onNewTask}
+            className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-violet-600/20 active:scale-95"
+            title="Create a task that runs on TaskHub itself — no Windows entry"
+          >
+            <Zap size={16} /> New Task
+          </button>
+
           <button onClick={() => refetch()} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
             <RefreshCw size={16} /> Sync Now
           </button>
@@ -371,8 +395,38 @@ const DashboardScreen = ({
               ))}
             </div>
             
+            <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
+            {/* Platform Isolation Filter */}
+            {platforms.length > 1 && (
+              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl items-center shadow-md">
+                <button
+                  onClick={() => setSelectedPlatform('All')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPlatform === 'All' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  All
+                </button>
+                {platforms.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setSelectedPlatform(p)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      selectedPlatform === p
+                        ? p === 'TASKHUB_NATIVE' ? 'bg-violet-600 text-white' : 'bg-blue-600 text-white'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {p === 'TASKHUB_NATIVE' && <Zap size={11} />}
+                    {platformLabel(p)}
+                    <span className={`px-1 py-0.5 rounded text-[9px] ${selectedPlatform === p ? 'bg-black/20' : 'bg-slate-800 text-slate-500'}`}>
+                      {tasks?.filter(t => t.platform === p).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* View Mode Toggle */}
-            <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl items-center self-start sm:self-auto shadow-md shrink-0">
+            <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl items-center shadow-md shrink-0">
               <button 
                 onClick={() => setViewMode('grid')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
@@ -391,12 +445,13 @@ const DashboardScreen = ({
               >
                 <Columns size={12} /> Kanban
               </button>
-              <button 
+              <button
                 onClick={() => setViewMode('schedule')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'schedule' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <Calendar size={12} /> Schedule
               </button>
+            </div>
             </div>
           </div>
 
@@ -467,8 +522,8 @@ const DashboardScreen = ({
                             </div>
                           </td>
                           <td className="py-4 px-4">
-                            <span className={`text-[9px] uppercase font-black px-2.5 py-1 rounded-lg border ${task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>
-                              {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+                            <span className={`text-[9px] uppercase font-black px-2.5 py-1 rounded-lg border ${platformBadgeClass(task.platform)}`}>
+                              {platformLabel(task.platform)}
                             </span>
                           </td>
                           <td className="py-4 px-4">
@@ -477,10 +532,17 @@ const DashboardScreen = ({
                             </span>
                           </td>
                           <td className="py-4 px-4">
-                            <span className="inline-flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-[10px] font-bold text-slate-400">
-                              <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-slate-600'}`}></span>
-                              {task.status}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-[10px] font-bold text-slate-400">
+                                <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-slate-600'}`}></span>
+                                {task.status}
+                              </span>
+                              {task.lastRunStatus === 'FAILURE' && (
+                                <span className="inline-flex items-center bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/30 text-[9px] font-black text-red-400 uppercase" title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}>
+                                  Run failed
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-4 px-4 text-xs text-slate-400 font-mono">
                             {new Date(task.updatedAt).toLocaleTimeString()}
@@ -538,8 +600,8 @@ const DashboardScreen = ({
                         className="bg-slate-955 border border-slate-850 hover:border-blue-500/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg"
                       >
                         <div className="flex justify-between items-start">
-                          <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                            {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+                          <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
+                            {platformLabel(task.platform)}
                           </span>
                           <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
                             <Folder size={10} /> {task.category || 'Uncategorized'}
@@ -596,8 +658,8 @@ const DashboardScreen = ({
                         className="bg-slate-955 border border-slate-850 hover:border-blue-500/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg opacity-60 hover:opacity-100"
                       >
                         <div className="flex justify-between items-start">
-                          <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                            {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+                          <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
+                            {platformLabel(task.platform)}
                           </span>
                           <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
                             <Folder size={10} /> {task.category || 'Uncategorized'}
@@ -661,8 +723,8 @@ const DashboardScreen = ({
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <h4 className="font-bold text-slate-200 text-base">{task.name}</h4>
-                                <span className="text-[8px] uppercase font-black px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                  {task.platform === 'WINDOWS_TASK_SCHEDULER' ? 'Windows' : 'Claude'}
+                                <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
+                                  {platformLabel(task.platform)}
                                 </span>
                               </div>
                               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
@@ -979,6 +1041,7 @@ const Dashboard = () => {
   const [cloningTask, setCloningTask] = useState<Task | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showCreateNative, setShowCreateNative] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: tasks, isLoading } = useQuery<Task[]>({
@@ -1081,6 +1144,7 @@ const Dashboard = () => {
             onCategoryUpdate={handleCategoryUpdate}
             onClone={setCloningTask}
             onShowHelp={() => setShowHelp(true)}
+            onNewTask={() => setShowCreateNative(true)}
           />
         )}
         {activeTab === 'templates' && <TemplatesScreen />}
@@ -1105,9 +1169,14 @@ const Dashboard = () => {
         />
       )}
       {showImport && (
-        <ImportModal 
-          onClose={() => setShowImport(false)} 
-          onImport={syncMutation.mutate} 
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onImport={syncMutation.mutate}
+        />
+      )}
+      {showCreateNative && (
+        <CreateNativeTaskModal
+          onClose={() => setShowCreateNative(false)}
         />
       )}
     </div>

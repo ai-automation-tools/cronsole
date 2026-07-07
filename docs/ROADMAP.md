@@ -10,7 +10,7 @@
 **Update rule:** when a task ships, move it to Completed with a date; when a material
 decision changes scope, edit the item here first, then implement.
 
-*Last updated: 2026-07-07.*
+*Last updated: 2026-07-07 (added: task search, user resources/onboarding, installer packages).*
 
 ---
 
@@ -58,6 +58,8 @@ Nothing below ships to a public host until these are done (analysis §4):
 
 - [ ] **Failure notifications**: push on failed runs via ntfy/Discord webhook/email — the core "did my stuff run last night?" pain.
 - [ ] **Agent `task:delete`**: the one CRUD op fully missing (also needed because agent-created tasks require elevation to delete by hand).
+- [ ] **Task search**: search tasks by name/command/category from the dashboard (complements the existing category and platform filters — at 60+ tasks, chips alone don't scale).
+- [ ] **User resources & onboarding**: surface help content where users need it — link the existing guides ([`user-guides/UI_User_Guide.md`](user-guides/UI_User_Guide.md), [`user-guides/Agent_Setup_Guide.md`](user-guides/Agent_Setup_Guide.md)) and the template catalog spec ([`resources/Templates.md`](resources/Templates.md)) from the in-app Help Center; add a "getting started" walkthrough covering importing, categorizing, and managing tasks, and where to find/contribute templates.
 - [ ] **Apply modal upgrades**: task-name field (avoid duplicate-name collisions), cron preset chips, human-readable + local-time schedule preview.
 - [ ] **Template library UI**: category/OS filter chips, search, starter-vs-pattern grouping; parameterize the 4 Tier-B patterns; real (or removed) upvotes.
 - [ ] **Developer Pack templates** (analysis §7): git hygiene, build/test, dev-environment maintenance, monitoring glue — flagship: **Claude Code Headless Run**.
@@ -71,7 +73,7 @@ Nothing below ships to a public host until these are done (analysis §4):
 - [ ] **MCP server**: `list_tasks` / `run_task` / `create_task_from_template` / `convert_schedule` — highest-leverage Phase-6 item; thin wrapper over existing routes. Sequenced before the installer.
 - [ ] **Frontend refactor**: split `Dashboard.tsx` (1,100+ lines), add a router (deep links to `/tasks/:id`, `/templates/:id`), toasts instead of `alert()`, modal a11y (Escape/focus trap), mobile sidebar drawer (<375px requirement).
 - [ ] **macOS agent** (launchd) — 7 catalog templates already wait on it; `ITaskScheduler` abstraction ports cleanly.
-- [ ] **WiX installer** (signed `.msi`) — matters once there are users beyond Mike.
+- [ ] **Installer packages**: standard signed Windows Installer (`.msi` via WiX) for the agent, replacing the PowerShell setup script; matching packages for other OSes as their agents land (macOS `.pkg`/Homebrew once the launchd agent exists). Matters once there are users beyond Mike.
 - [ ] Claude Code connector: promote from experimental scaffold to production-ready.
 - [ ] ChatGPT stays quick-links-only unless a public automations API appears.
 

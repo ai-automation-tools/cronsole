@@ -23,11 +23,6 @@
 
 ---
 
-> [!NOTE]
-> **TaskHub is a functional MVP prototype.** Real-time sync between the .NET Windows agent and the Node/Postgres backend is working, and the React dashboard is wired to live data. The **public demo at [taskhub.mikesailab.com](https://taskhub.mikesailab.com) is the frontend only, running on sample data** — there's no public backend, by design. Run the full stack locally (below) to see and trigger *your own* scheduled tasks.
-
----
-
 ## ✨ Overview
 
 **TaskHub** is a unified scheduled-task management system — a single dark-themed dashboard for viewing, triggering, and managing scheduled tasks that today live in disconnected silos:

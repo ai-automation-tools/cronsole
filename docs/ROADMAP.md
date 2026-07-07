@@ -32,6 +32,7 @@ decision changes scope, edit the item here first, then implement.
 - **Stale-task pruning on sync**: tasks deleted natively no longer linger in TaskHub. *(2026-07-07)*
 - **Agent reconnect resilience**: 30s watchdog survives backend restarts and boot-order races; startup task registered with no 72h execution limit and safe re-publish. *(2026-07-07)*
 - **Platform selector in New Task modal**: create TaskHub-native *or* Windows tasks ad-hoc; Windows tasks land under the `\TaskHub\` scheduler folder; clone-flow trigger conversion fixed. *(2026-07-07)*
+- **Task search on the dashboard**: free-text search across name/category/path/command/schedule with multi-term narrowing, match counter, `/` shortcut, Esc-to-clear; composes with the category/platform/active filters and all four views. *(2026-07-07)*
 - Docs restructure: post-reorg links fixed, .NET 10 alignment, contracts kept in sync with implementation.
 
 ---
@@ -58,7 +59,6 @@ Nothing below ships to a public host until these are done (analysis §4):
 
 - [ ] **Failure notifications**: push on failed runs via ntfy/Discord webhook/email — the core "did my stuff run last night?" pain.
 - [ ] **Agent `task:delete`**: the one CRUD op fully missing (also needed because agent-created tasks require elevation to delete by hand).
-- [ ] **Task search**: search tasks by name/command/category from the dashboard (complements the existing category and platform filters — at 60+ tasks, chips alone don't scale).
 - [ ] **User resources & onboarding**: surface help content where users need it — link the existing guides ([`user-guides/UI_User_Guide.md`](user-guides/UI_User_Guide.md), [`user-guides/Agent_Setup_Guide.md`](user-guides/Agent_Setup_Guide.md)) and the template catalog spec ([`resources/Templates.md`](resources/Templates.md)) from the in-app Help Center; add a "getting started" walkthrough covering importing, categorizing, and managing tasks, and where to find/contribute templates.
 - [ ] **Apply modal upgrades**: task-name field (avoid duplicate-name collisions), cron preset chips, human-readable + local-time schedule preview.
 - [ ] **Template library UI**: category/OS filter chips, search, starter-vs-pattern grouping; parameterize the 4 Tier-B patterns; real (or removed) upvotes.

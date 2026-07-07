@@ -7,6 +7,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Task search on the dashboard**: free-text search box beside the category chips, matching name, category, platform path, command, and schedule (multi-term queries narrow). Includes a live match counter, clear button, `/` to focus, Esc to clear, and a "Clear search" action in the empty state. Composes with the category/platform/active filters across all four views. Matching logic in `frontend/src/utils/taskSearch.ts` with unit tests.
 - **Platform selector in the New Task modal** (`CreateTaskModal`, replacing the native-only `CreateNativeTaskModal`): choose TaskHub-native (HTTP job) or **Windows** (command). The Windows path creates a real Task Scheduler task via the agent with the cron converted to a structured trigger, shows live conversion warnings (debounced `POST /api/tasks/preview`), stores the cron on the task row, and surfaces a clear error when the agent is offline.
 - **`\TaskHub\` scheduler folder for created tasks**: the agent now registers all TaskHub-created Windows tasks under `\TaskHub\` (auto-created), so they're identifiable, category-extract as "TaskHub" on sync, and are cleanly removable.
 - `POST /api/tasks/preview` — cron→trigger conversion preview for a platform (mirrors the template preview endpoint).

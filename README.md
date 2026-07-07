@@ -119,6 +119,7 @@ docker compose up --build
    Set-ExecutionPolicy Bypass -Scope Process -Force; .\setup-agent-startup.ps1
    ```
 >   This automatically compiles the agent in Release mode as a headless background app (`WinExe`), registers it inside the `\Task-Hub\` Task Scheduler folder to run automatically on logon, and starts the background task.
+> - **Auto-start the *whole* stack on logon** (data services + backend + frontend + agent), not just the agent: see [`scripts/startup-task/`](scripts/startup-task/README.md).
 > - For full details, see the [Windows Agent Setup Guide](docs/user-guides/Agent_Setup_Guide.md).
 
 <details>
@@ -223,6 +224,7 @@ taskhub/
 | [`docs/research/Business_Idea_Assessment.md`](docs/research/Business_Idea_Assessment.md) | Market / viability assessment. |
 | [`docs/api-examples/`](docs/api-examples/) | Sample REST payloads for tasks, platforms, templates. |
 | [`docs/user-guides/Agent_Setup_Guide.md`](docs/user-guides/Agent_Setup_Guide.md) | Setup guide for the C# Windows agent (headless execution, Task Scheduler directory registration, and troubleshooting). |
+| [`scripts/startup-task/README.md`](scripts/startup-task/README.md) | The logon launcher that auto-starts the full local stack (Docker db+redis, backend, frontend, agent) via the `\Task-Hub\TaskHubAgent` scheduled task — how to run, update, and revert it. |
 | [`docs/user-guides/UI_User_Guide.md`](docs/user-guides/UI_User_Guide.md) | User guide for dashboard navigation, task categorization/overrides, and template application. |
 | [`CLAUDE.md`](CLAUDE.md) | Conventions, connector pattern, agent↔server protocol, security rules. |
 

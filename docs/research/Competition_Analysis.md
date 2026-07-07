@@ -2,7 +2,7 @@
 
 > Phase 0 deliverable. Snapshot of the competitive landscape for scheduled-task and workflow-automation tools, and where TaskHub differentiates.
 >
-> **Phase:** [Phase 0 — Inception & Discovery](Phase0.md) · **Master plan:** [`Project_Plan.md`](Project_Plan.md)
+> **Phase:** [Phase 0 — Inception & Discovery](../archive/phases/Phase0.md) · **Master plan:** [`Project_Plan.md`](../archive/Project_Plan.md)
 
 ---
 

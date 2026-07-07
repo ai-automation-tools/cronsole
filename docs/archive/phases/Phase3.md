@@ -2,7 +2,7 @@
 
 **Duration:** 8–12 weeks
 **Status:** **Complete (Sprints 1-10 complete)**
-**Master plan:** [`Project_Plan.md`](Project_Plan.md)
+**Master plan:** [`Project_Plan.md`](../Project_Plan.md)
 **Predecessor:** [`Phase2.md`](Phase2.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
 

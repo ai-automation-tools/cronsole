@@ -2,7 +2,7 @@
 
 **Duration:** 1–2 weeks
 **Status:** Complete
-**Master plan:** [`Project_Plan.md`](Project_Plan.md)
+**Master plan:** [`Project_Plan.md`](../Project_Plan.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md) — independent viability assessment (2026-05-14)
 
 ---

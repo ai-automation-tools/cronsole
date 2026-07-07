@@ -2,7 +2,7 @@
 
 **Duration:** 1–2 weeks
 **Status:** Not started
-**Master plan:** [`Project_Plan.md`](Project_Plan.md)
+**Master plan:** [`Project_Plan.md`](../Project_Plan.md)
 **Predecessor:** [`Phase4.md`](Phase4.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
 

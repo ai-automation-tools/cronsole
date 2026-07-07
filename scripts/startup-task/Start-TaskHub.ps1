@@ -24,7 +24,15 @@ param()
 $ErrorActionPreference = 'Continue'
 
 # --- Paths -------------------------------------------------------------------
-$RepoRoot    = Split-Path -Parent $PSScriptRoot
+# Resolve the repo root by walking up from this script until docker-compose.yml
+# is found. Robust to where under the repo this script lives (currently
+# scripts\startup-task\), so moving it doesn't break path resolution.
+$RepoRoot = $PSScriptRoot
+while ($RepoRoot -and -not (Test-Path (Join-Path $RepoRoot 'docker-compose.yml'))) {
+    $parent = Split-Path -Parent $RepoRoot
+    if ($parent -eq $RepoRoot) { break }   # reached filesystem root
+    $RepoRoot = $parent
+}
 $BackendDir  = Join-Path $RepoRoot 'backend'
 $FrontendDir = Join-Path $RepoRoot 'frontend'
 $AgentExe    = Join-Path $RepoRoot 'agent\publish\TaskHub.Agent.exe'

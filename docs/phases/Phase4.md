@@ -63,7 +63,7 @@ Validate that the MVP meets every functional and non-functional requirement from
 
 - Simulate agent network blips with `tc qdisc` (Linux) or Clumsy (Windows).
 - Disconnect Postgres mid-request → backend returns 503, not 500.
-- Kill backend pod mid-WebSocket → agent reconnects within 30s.
+- Kill backend pod mid-WebSocket → agent reconnects within 30s. *(✅ Validated in the wild 2026-07-07: a backend restart exposed exactly this failure — SocketIOClient gives up after 10 attempts — fixed with a 30s reconnect watchdog in the agent; re-test passed live.)*
 - 24-hour soak test: 1 agent + 50 fake tasks, count reconnect events, target ≤ 3.
 
 ### Security Audit

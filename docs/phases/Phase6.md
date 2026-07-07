@@ -132,7 +132,7 @@ Where the platform supports it (Windows agent always; Claude via API), edits in 
 - **API churn** — Anthropic / OpenAI / Google may change schedule endpoints. The connector abstraction shields the rest of the app; budget engineering time each quarter for connector maintenance.
 - **MCP scope creep** — Phase 0 listed this as `Medium / Medium`. Stay disciplined: ship the seven tools above before adding anything more exotic. Keep it "coming soon" externally until it's production-ready.
 - **Scope creep / connector sprawl (R7)** — the assessment's top execution risk. The reliability gate above is the control: connector count never leads reliability. Track it explicitly in the quarterly retro.
-- **Agent EOL** — Windows agent depends on `Microsoft.Win32.TaskScheduler` and .NET 8. Track .NET LTS roadmap; plan a `.NET 10` upgrade well before .NET 8 EOL.
+- **Agent EOL** — Windows agent depends on `Microsoft.Win32.TaskScheduler` and .NET. The agent already targets `.NET 10` (LTS, support through Nov 2028); track the .NET LTS roadmap and plan the next LTS upgrade well before EOL.
 
 ---
 

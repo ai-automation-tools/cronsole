@@ -82,7 +82,13 @@ namespace TaskHub.Agent
 
                 td.Actions.Add(new ExecAction("cmd.exe", $"/c {command}", null));
 
-                var task = ts.RootFolder.RegisterTaskDefinition(name, td);
+                // TaskHub-created tasks live under \TaskHub\ so they're identifiable
+                // and cleanly removable (and category-extract as "TaskHub" on sync).
+                TaskFolder? folder = null;
+                try { folder = ts.GetFolder("TaskHub"); } catch { /* not found */ }
+                folder ??= ts.RootFolder.CreateFolder("TaskHub");
+
+                var task = folder.RegisterTaskDefinition(name, td);
 
                 return new AgentTaskResult
                 {

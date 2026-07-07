@@ -6,6 +6,7 @@ import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { computeNextRun } from '../utils/cron-next.js';
+import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-conversion.js';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -52,7 +53,35 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Create a new task (can be used for cloning or custom creation)
+const isValidCron = (cron: string) => cron.trim().split(/\s+/).length === 5;
+
+// Preview how a cron converts for a platform (used by the New Task modal for
+// live warnings before creating; mirrors POST /templates/:id/preview).
+router.post('/preview', async (req: Request, res: Response) => {
+  const { platform, schedule } = req.body;
+
+  if (!platform || !Object.values(PlatformType).includes(platform)) {
+    return res.status(400).json({ error: `Invalid platform: ${platform}` });
+  }
+  if (typeof schedule !== 'string' || !isValidCron(schedule)) {
+    return res.json({
+      score: 0,
+      warnings: ['Schedule must be a 5-field cron expression (min hour dom month dow).'],
+      trigger: null
+    });
+  }
+  if (platform !== PlatformType.WINDOWS_TASK_SCHEDULER) {
+    return res.json({ score: 1, warnings: [], trigger: null });
+  }
+  const conversion = convertCronToWindowsTrigger(schedule.trim());
+  res.json({
+    score: conversion.confidence,
+    warnings: conversion.warnings,
+    trigger: conversion.trigger
+  });
+});
+
+// Create a new task (New Task modal Windows path, cloning, custom creation)
 router.post('/', async (req: Request, res: Response) => {
   const { name, platform, category, schedule, command } = req.body;
   const userId = 'cli_user_placeholder'; // For MVP
@@ -65,6 +94,28 @@ router.post('/', async (req: Request, res: Response) => {
     // Verify if platform is a valid PlatformType
     if (!Object.values(PlatformType).includes(platform as PlatformType)) {
       return res.status(400).json({ error: `Invalid platform type: ${platform}` });
+    }
+
+    if (!isValidCron(schedule)) {
+      return res.status(400).json({
+        error: 'Schedule must be a 5-field cron expression (min hour dom month dow).'
+      });
+    }
+
+    // Windows registers a real structured trigger, not the raw cron — same
+    // conversion path as the template apply route (Templates.md §6).
+    let trigger: WindowsTrigger | null = null;
+    let conversionWarnings: string[] = [];
+    if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+      const conversion = convertCronToWindowsTrigger(schedule.trim());
+      if (!conversion.trigger) {
+        return res.status(400).json({
+          error: 'Schedule cannot be converted to a Windows trigger.',
+          warnings: conversion.warnings
+        });
+      }
+      trigger = conversion.trigger;
+      conversionWarnings = conversion.warnings;
     }
 
     const connection = await prisma.platformConnection.findUnique({
@@ -84,7 +135,8 @@ router.post('/', async (req: Request, res: Response) => {
       name,
       schedule,
       command,
-      { ...(connection.config as object), userId }
+      { ...(connection.config as object), userId },
+      { trigger }
     );
 
     if (result.success) {
@@ -97,17 +149,25 @@ router.post('/', async (req: Request, res: Response) => {
         metadata: { schedule, command, state: 'Ready' }
       }];
       const upserted = await TaskService.upsertTasks(userId, platform as PlatformType, newTasks);
-      
-      // Let's also update the category if specified!
-      if (category && upserted.length > 0) {
-        await prisma.task.update({
+
+      // We know the cron for TaskHub-created tasks — store it (synced tasks
+      // still lack schedule normalization; see analysis P1 #5).
+      if (upserted.length > 0) {
+        const updated = await prisma.task.update({
           where: { id: upserted[0].id },
-          data: { category }
+          data: {
+            schedule: schedule.trim(),
+            ...(category ? { category } : {})
+          }
         });
-        upserted[0].category = category;
+        upserted[0] = updated;
       }
 
-      res.json({ message: 'Task created successfully', task: upserted[0] });
+      res.json({
+        message: 'Task created successfully',
+        task: upserted[0],
+        conversion: { warnings: conversionWarnings }
+      });
     } else {
       res.status(500).json({ error: result.message || 'Failed to create task' });
     }

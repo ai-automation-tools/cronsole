@@ -18,21 +18,23 @@ export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
   // Extract schedule and command from metadata or set defaults
   const [schedule, setSchedule] = useState(() => {
     if (task.schedule) return task.schedule;
-    const meta = task.metadata as Record<string, any>;
-    if (meta && meta.schedule) return meta.schedule;
-    if (meta && meta.Triggers && typeof meta.Triggers === 'string') return meta.Triggers;
+    const meta = (task.metadata ?? {}) as Record<string, unknown>;
+    if (typeof meta.schedule === 'string') return meta.schedule;
+    if (typeof meta.Triggers === 'string') return meta.Triggers;
     return '0 3 * * *'; // fallback default
   });
 
   const [command, setCommand] = useState(() => {
-    const meta = task.metadata as Record<string, any>;
-    if (meta && meta.command) return meta.command;
-    if (meta && meta.action) return meta.action;
-    if (meta && meta.Actions && typeof meta.Actions === 'string') return meta.Actions;
+    const meta = (task.metadata ?? {}) as Record<string, unknown>;
+    if (typeof meta.command === 'string') return meta.command;
+    if (typeof meta.action === 'string') return meta.action;
+    if (typeof meta.Actions === 'string') return meta.Actions;
     // Check if task contains an ExecAction in metadata structure
-    if (meta && meta.Actions && Array.isArray(meta.Actions) && meta.Actions.length > 0) {
-      const act = meta.Actions[0];
-      return `${act.Path || act.path || ''} ${act.Arguments || act.arguments || ''}`.trim();
+    if (Array.isArray(meta.Actions) && meta.Actions.length > 0) {
+      const act = meta.Actions[0] as Record<string, unknown>;
+      const path = typeof act.Path === 'string' ? act.Path : typeof act.path === 'string' ? act.path : '';
+      const args = typeof act.Arguments === 'string' ? act.Arguments : typeof act.arguments === 'string' ? act.arguments : '';
+      return `${path} ${args}`.trim();
     }
     return 'echo Hello from Cloned Task'; // fallback default
   });

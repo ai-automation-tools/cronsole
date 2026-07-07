@@ -52,16 +52,20 @@ namespace TaskHub.Agent
             }
         }
 
-        public AgentTaskResult CreateTask(string name, string schedule, string command)
+        public AgentTaskResult CreateTask(string name, string schedule, string command, TriggerSpec? trigger = null)
         {
             using (TaskService ts = new TaskService())
             {
                 TaskDefinition td = ts.NewTask();
                 td.RegistrationInfo.Description = "Created via TaskHub";
 
-                // Basic schedule parsing for MVP (same as original Program.cs)
-                if (schedule == "0 3 * * *")
+                if (trigger != null)
                 {
+                    td.Triggers.Add(TriggerBuilder.Build(trigger));
+                }
+                else if (schedule == "0 3 * * *")
+                {
+                    // Legacy fallback for servers that don't send a structured trigger.
                     td.Triggers.Add(new DailyTrigger { StartBoundary = DateTime.Today.AddHours(3) });
                 }
                 else if (schedule == "0 * * * *")
@@ -72,7 +76,7 @@ namespace TaskHub.Agent
                 }
                 else
                 {
-                    // Default fallback: Daily at current time + 1 hour
+                    Console.WriteLine($"Warning: no trigger spec for schedule '{schedule}'; falling back to daily at now+1h.");
                     td.Triggers.Add(new DailyTrigger { StartBoundary = DateTime.Now.AddHours(1) });
                 }
 

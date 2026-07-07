@@ -8,6 +8,20 @@ export interface Task {
   updatedAt: string;
   schedule?: string;
   metadata?: Record<string, unknown>;
+  // Flattened last-execution summary from GET /api/tasks
+  lastRunStatus?: string | null;
+  lastRunAt?: string | null;
+  lastRunDurationMs?: number | null;
+}
+
+export interface ExecutionLogEntry {
+  id: string;
+  taskId: string;
+  triggeredAt: string;
+  status: string; // SUCCESS | FAILURE | TIMEOUT | PENDING
+  log?: string | null;
+  durationMs?: number | null;
+  platformRunId?: string | null;
 }
 
 export interface TemplateParameter {

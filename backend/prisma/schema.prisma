@@ -91,6 +91,9 @@ model ExecutionLog {
   // Snippet of output or error message
   log           String?         @db.Text
 
+  // Wall-clock execution time (null for legacy rows / fire-and-forget runs)
+  durationMs    Int?
+
   // Platform's execution instance ID
   platformRunId String?
 
@@ -137,6 +140,7 @@ enum PlatformType {
   JULES
   OPEN_CLAW
   HERMES
+  TASKHUB_NATIVE         // scheduled + executed by the TaskHub backend itself (docs/resources/Native_Tasks.md)
 }
 
 enum ScriptType {

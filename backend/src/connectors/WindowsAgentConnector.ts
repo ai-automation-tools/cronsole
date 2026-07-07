@@ -1,5 +1,5 @@
 import { PlatformType, HealthState } from '@prisma/client';
-import { PlatformConnector, TaskInfo, ConnectorHealth } from './platform.interface.js';
+import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
 
 export class WindowsAgentConnector implements PlatformConnector {
@@ -92,7 +92,7 @@ export class WindowsAgentConnector implements PlatformConnector {
     return { state: HealthState.HEALTHY, lastSync: new Date() };
   }
 
-  async createTask(name: string, schedule: string, command: string, config: any): Promise<{ success: boolean; externalId?: string; message?: string }> {
+  async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
 
@@ -113,7 +113,7 @@ export class WindowsAgentConnector implements PlatformConnector {
       };
 
       socket.on('task:created', handler);
-      socket.emit('task:create', { name, schedule, command });
+      socket.emit('task:create', { name, schedule, command, trigger: options?.trigger ?? null });
 
       setTimeout(() => {
         socket.off('task:created', handler);

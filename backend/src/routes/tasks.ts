@@ -1,19 +1,34 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient, PlatformType } from '@prisma/client';
+import { randomBytes } from 'crypto';
+import { Prisma, PrismaClient, PlatformType, TaskStatus } from '@prisma/client';
 import { connectorRegistry } from '../connectors/registry.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
+import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
+import { computeNextRun } from '../utils/cron-next.js';
 
 const prisma = new PrismaClient();
 const router = Router();
 
-// List all tasks
+// List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const tasks = await prisma.task.findMany({
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        executions: {
+          orderBy: { triggeredAt: 'desc' },
+          take: 1,
+          select: { status: true, triggeredAt: true, durationMs: true }
+        }
+      }
     });
-    res.json(tasks);
+    res.json(tasks.map(({ executions, ...task }) => ({
+      ...task,
+      lastRunStatus: executions[0]?.status ?? null,
+      lastRunAt: executions[0]?.triggeredAt ?? null,
+      lastRunDurationMs: executions[0]?.durationMs ?? null
+    })));
   } catch (error) {
     console.error('Error fetching tasks:', error);
     res.status(500).json({ error: 'Failed to fetch tasks' });
@@ -99,6 +114,58 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error creating task:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Create a TaskHub-native task (scheduled + executed by the backend itself —
+// docs/resources/Native_Tasks.md). Richer than the connector createTask path
+// because it takes a full job spec instead of a command string.
+router.post('/native', async (req: Request, res: Response) => {
+  const { name, category, schedule, job } = req.body;
+  const userId = 'cli_user_placeholder'; // For MVP
+
+  try {
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Missing required field: name' });
+    }
+    if (!schedule || typeof schedule !== 'string') {
+      return res.status(400).json({ error: 'Missing required field: schedule' });
+    }
+    const nextRunTime = computeNextRun(schedule.trim());
+    if (!nextRunTime) {
+      return res.status(400).json({ error: 'Schedule must be a valid 5-field cron expression (UTC).' });
+    }
+    const jobError = validateJob(job);
+    if (jobError) {
+      return res.status(400).json({ error: jobError });
+    }
+
+    const nativeJob: NativeJob = {
+      jobType: 'HTTP',
+      url: job.url.trim(),
+      method: (job.method || 'GET').toUpperCase(),
+      headers: job.headers || undefined,
+      body: job.body || undefined
+    };
+
+    const task = await prisma.task.create({
+      data: {
+        userId,
+        platform: PlatformType.TASKHUB_NATIVE,
+        externalId: `native_${randomBytes(8).toString('hex')}`,
+        name: name.trim(),
+        category: typeof category === 'string' && category.trim() ? category.trim() : 'TaskHub',
+        schedule: schedule.trim(),
+        nextRunTime,
+        status: TaskStatus.ACTIVE,
+        metadata: { job: nativeJob } as unknown as Prisma.InputJsonValue
+      }
+    });
+
+    res.json({ message: 'Native task created', task });
+  } catch (error: any) {
+    console.error('Error creating native task:', error);
+    res.status(500).json({ error: 'Failed to create native task' });
   }
 });
 
@@ -245,6 +312,50 @@ router.get('/discover', async (req: Request, res: Response) => {
   }
 });
 
+// Delete a task. Only TaskHub-native tasks for now — deleting a synced task
+// would need the platform connector to remove the real entry (agent task:delete
+// is still on the roadmap).
+router.delete('/:id', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  try {
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    if (task.platform !== PlatformType.TASKHUB_NATIVE) {
+      return res.status(400).json({
+        error: 'Only TaskHub-native tasks can be deleted. Synced tasks must be removed on their own platform.'
+      });
+    }
+
+    await prisma.$transaction([
+      prisma.executionLog.deleteMany({ where: { taskId: id } }),
+      prisma.task.delete({ where: { id } })
+    ]);
+
+    res.json({ message: 'Task deleted' });
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ error: 'Failed to delete task' });
+  }
+});
+
+// Recent execution history for a task (manual runs + native scheduler fires)
+router.get('/:id/executions', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  try {
+    const executions = await prisma.executionLog.findMany({
+      where: { taskId: id },
+      orderBy: { triggeredAt: 'desc' },
+      take: 20
+    });
+    res.json(executions);
+  } catch (error) {
+    console.error('Error fetching executions:', error);
+    res.status(500).json({ error: 'Failed to fetch execution history' });
+  }
+});
+
 // Trigger a task
 router.post('/:id/run', async (req: Request, res: Response) => {
   const id = req.params.id as string;
@@ -272,7 +383,9 @@ router.post('/:id/run', async (req: Request, res: Response) => {
       userId: task.userId
     };
 
+    const runStartedAt = Date.now();
     const result = await connector.runTask(task.externalId, config);
+    const durationMs = Date.now() - runStartedAt;
 
     if (result.success) {
       await prisma.executionLog.create({
@@ -280,7 +393,8 @@ router.post('/:id/run', async (req: Request, res: Response) => {
           taskId: id,
           status: 'SUCCESS', // Started successfully
           log: result.message || 'Triggered from web dashboard',
-          platformRunId: result.platformRunId
+          platformRunId: result.platformRunId,
+          durationMs
         }
       });
       res.json({ message: 'Task run command sent', ...result });
@@ -289,7 +403,8 @@ router.post('/:id/run', async (req: Request, res: Response) => {
         data: {
           taskId: id,
           status: 'FAILURE',
-          log: result.message || 'Failed to trigger'
+          log: result.message || 'Failed to trigger',
+          durationMs
         }
       });
       res.status(500).json({ error: result.message || 'Failed to trigger task' });

@@ -227,7 +227,16 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
    on success. Demo mode simulates the apply.
 4. **Card UI** — `scriptType` badge is shown; still to add: `os` badge, `category` filter chips,
    and grouping starters vs patterns. Reuse the existing dark card style.
-5. **Cron ↔ Windows trigger conversion** with confidence score (server-side; surfaced in modal).
+5. ~~**Cron ↔ Windows trigger conversion** with confidence score~~ ✅ *Done (2026-07-07)* —
+   `POST /templates/:id/apply` now converts the cron via `convertCronToWindowsTrigger` and sends a
+   structured `trigger` object in the `task:create` payload; the agent's `TriggerBuilder` registers
+   real Daily/Weekly/interval triggers (UTC→local) instead of the old two-case cron parser.
+   A new `POST /templates/:id/preview` endpoint returns `{ score, warnings, trigger }`
+   (`getTemplateConfidence` + conversion), and the Apply modal shows the warnings live
+   (debounced) under the schedule field. Interval schedules are registered as daily triggers
+   with repetition so they recur past the first 24h window. The apply route also now accepts
+   the modal's `schedule` body key (previously only `scheduleExpression`, so user edits to the
+   cron were silently ignored) and rejects non-5-field crons.
 6. **macOS agent** — unblocks templates #9–15 as real tasks (currently catalog-only).
 7. **Community submission** — UI to save a configured task back as an `isPublic` Tier B template.
 

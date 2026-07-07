@@ -142,9 +142,18 @@ namespace TaskHub.Agent
                     string schedule = data.GetProperty("schedule").GetString() ?? "0 3 * * *";
                     string command = data.GetProperty("command").GetString() ?? "echo Hello";
 
-                    Console.WriteLine($"Server command: task:create -> {name} (schedule={schedule})");
+                    TriggerSpec? trigger = null;
+                    if (data.TryGetProperty("trigger", out var triggerElement) &&
+                        triggerElement.ValueKind == JsonValueKind.Object)
+                    {
+                        trigger = JsonSerializer.Deserialize<TriggerSpec>(
+                            triggerElement.GetRawText(),
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    }
 
-                    var result = _scheduler.CreateTask(name, schedule, command);
+                    Console.WriteLine($"Server command: task:create -> {name} (schedule={schedule}, trigger={(trigger?.Type ?? "none")})");
+
+                    var result = _scheduler.CreateTask(name, schedule, command, trigger);
 
                     if (result.Success)
                     {

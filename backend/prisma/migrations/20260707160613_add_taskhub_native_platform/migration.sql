@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PlatformType" ADD VALUE 'TASKHUB_NATIVE';

@@ -8,7 +8,7 @@ namespace TaskHub.Agent
         List<AgentTaskInfo> ListTasks();
         bool SetTaskStatus(string path, bool enabled);
         bool RunTask(string path);
-        AgentTaskResult CreateTask(string name, string schedule, string command);
+        AgentTaskResult CreateTask(string name, string schedule, string command, TriggerSpec? trigger = null);
     }
 
     public class AgentTaskInfo

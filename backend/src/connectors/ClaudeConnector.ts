@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { PlatformType, HealthState } from '@prisma/client';
-import { PlatformConnector, TaskInfo, ConnectorHealth } from './platform.interface.js';
+import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
 
 /**
  * Claude Code Routines Connector
@@ -81,7 +81,7 @@ export class ClaudeConnector implements PlatformConnector {
     return { state: HealthState.HEALTHY, lastSync: new Date() };
   }
 
-  async createTask(name: string, schedule: string, command: string, config: any): Promise<{ success: boolean; externalId?: string; message?: string }> {
+  async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }> {
     return { success: false, message: 'Creating Claude routines via API is not yet supported' };
   }
 }

@@ -207,11 +207,21 @@ Strategic assessment: [`research/Business_Idea_Assessment.md`](research/Business
 
 ## Next Steps (Immediate Action Items)
 
-1. **Stand up staging infrastructure** – Deploy the backend and database on the Hetzner VPS (`62.238.44.179`), configure reverse proxy/SSL, and run database migrations.
-2. **Wire DNS & Vercel API** – Configure `taskhub-api.mikesailab.com` in Squarespace DNS and set the `VITE_API_URL` environment variable on Vercel to connect the frontend to the live backend.
-3. **Develop Playwright E2E Test Suite** – Scaffold Playwright in the frontend, implement E2E scenarios E2E.1–E2E.9, and run reliability/network failure checks.
-4. **Build WiX Installer** – Scaffold the WiX installer project for the C# Agent under `agent/installer/` and automate building the `.msi` package in CI.
-5. **Security & Performance Audits** – Run security audit scripts (JWT, HMAC, rate limits, encryption checks) and measure performance targets (load latency, agent CPU/memory).
+> **Update 2026-07-07:** Shipped since the last plan revision — (a) real **cron→Windows-trigger
+> conversion** in the template apply pipeline with a confidence preview in the Apply modal
+> (closes the "conversion confidence score" release blocker for the apply path);
+> (b) **TaskHub-native tasks** — a third connector where the backend itself schedules and
+> executes HTTP jobs ([`docs/resources/Native_Tasks.md`](resources/Native_Tasks.md)), with a
+> dashboard platform filter, create/delete UI, **Run History tab**, run durations, and red
+> last-run-failed indicators. A full project analysis with prioritized findings lives at
+> `.claude/temp/TaskHub_Analysis_2026-07-07.md` (security items below now reference it).
+
+1. **Security hardening before hosting** – Implement agent WebSocket auth (pairing secret + HMAC), wire the existing AES-256-GCM helpers into `PlatformConnection.config` reads/writes, scope routes to the authenticated user, remove the committed dev JWT. (Blocker for item 2 — see analysis §4.)
+2. **Stand up staging infrastructure** – Deploy the backend and database on the Hetzner VPS (`62.238.44.179`), configure reverse proxy/SSL, and run database migrations.
+3. **Wire DNS & Vercel API** – Configure `taskhub-api.mikesailab.com` in Squarespace DNS and set the `VITE_API_URL` environment variable on Vercel to connect the frontend to the live backend.
+4. **Develop Playwright E2E Test Suite** – Scaffold Playwright in the frontend, implement E2E scenarios E2E.1–E2E.9, and run reliability/network failure checks.
+5. **Build WiX Installer** – Scaffold the WiX installer project for the C# Agent under `agent/installer/` and automate building the `.msi` package in CI.
+6. **Security & Performance Audits** – Run security audit scripts (JWT, HMAC, rate limits, encryption checks) and measure performance targets (load latency, agent CPU/memory).
 
 ---
 

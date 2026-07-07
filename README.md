@@ -78,7 +78,7 @@ graph LR
     VERCEL["Vercel<br/>taskhub.mikesailab.com"] -. "frontend shell · demo data" .-> WEB
 ```
 
-**How sync works today:** the agent opens an **outbound** WebSocket to the backend (never an inbound bind), pushes the full Task Scheduler list on connect (`task:full_list`), and the backend **upserts** each task keyed on `(platform, externalId)`. Triggering a task from the dashboard emits `task:run` back down the same socket. Schedules are normalized to **5-field cron in UTC** and translated per platform inside a connector layer.
+**How sync works today:** the agent opens an **outbound** WebSocket to the backend (never an inbound bind), pushes the full Task Scheduler list on sync (`task:full_list`), and the backend **upserts** each task keyed on `(platform, externalId)` and **prunes** tasks that no longer exist on the platform. The agent self-heals its connection (30s watchdog), so backend restarts and boot-order races don't strand it offline. Triggering a task from the dashboard emits `task:run` back down the same socket. Schedules are normalized to **5-field cron in UTC** and translated per platform inside a connector layer.
 
 > [!IMPORTANT]
 > Only the **frontend** is currently deployed (the public demo). The backend (Express/Postgres) + .NET agent run on your machine. Hosting the backend (planned: a small VPS) and setting `VITE_API_URL` on Vercel is what would turn the public site from a demo into a real multi-platform console.
@@ -88,7 +88,7 @@ graph LR
 | Feature | Status | Description |
 |:---|:---:|:---|
 | **Unified task dashboard** | ✅ Built | Single dark-themed view of every synced task, with platform + status badges. |
-| **Live agent sync** | ✅ Built | .NET agent ↔ backend over WebSocket; tasks upserted on `(platform, externalId)`. |
+| **Live agent sync** | ✅ Built | .NET agent ↔ backend over WebSocket; tasks upserted on `(platform, externalId)`, natively-deleted tasks pruned on sync, auto-reconnect watchdog. |
 | **Manual run trigger** | ✅ Built | Trigger a Windows task remotely; the backend relays `task:run` to the agent. |
 | **Task detail modal** | ✅ Built | Per-task status, last-updated, and raw platform metadata. |
 | **Demo mode** | ✅ Built | `VITE_DEMO_MODE=true` renders sample data for the public deployment. |

@@ -39,6 +39,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Updated immediate action items to focus on Phase 3 exit criteria and Phase 4 QA.
 
 ### Fixed
+- **Tasks deleted natively no longer linger in TaskHub**: `POST /api/tasks/sync` now prunes DB tasks (and their execution logs) that are missing from the connector's full task list via `TaskService.removeStaleTasks`. Pruning is based on the pre-filter list, so category selections in the Import modal don't affect it; `TASKHUB_NATIVE` and empty connector lists are guarded. Verified live: 22 stale Windows tasks purged.
+- **Agent permanently disconnected after a backend outage**: SocketIOClient gives up after its default 10 reconnect attempts, so any backend restart longer than ~1 minute left the agent silently offline until manually restarted. The agent now exposes `ISocketClient.Connected` and runs a 30s watchdog loop that re-calls `ConnectAsync` whenever disconnected — this also covers the agent starting before the backend at boot. (Do **not** "fix" this with `ReconnectionAttempts = int.MaxValue`: the library's internal delay math overflows and every connect throws.)
+- **Startup task killed the agent after 3 days**: `setup-agent-startup.ps1` previously registered `TaskHubAgent` with Task Scheduler's default 72-hour execution time limit, which force-stops the long-running agent (restart-on-failure does not apply to time-limit kills). The task is now registered with no execution time limit.
+- **Setup script failed on re-run while the agent was running**: the script now stops the scheduled task and kills any running `TaskHub.Agent` process before publishing, so the locked `.exe` no longer breaks rebuilds.
+- **Import modal rendered a blank body when discovery returned nothing** (e.g. agent offline), making "Sync Now" look like a no-op. It now shows an explicit empty state pointing at the likely cause.
 - Template apply route ignored the Apply modal's edited cron: the modal sends `schedule` but the route only read `scheduleExpression`. Both keys are now accepted, and non-5-field crons are rejected with a 400.
 - GitHub Actions CI checks by:
   - Switching from `npm ci` to `npm install` in frontend and backend jobs to resolve cross-platform native package installation issues.

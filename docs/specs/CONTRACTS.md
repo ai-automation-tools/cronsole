@@ -36,6 +36,8 @@ This identity is enforced by Prisma with a unique constraint on `(platform, exte
 Implications:
 
 - sync operations must upsert by `(platform, externalId)`
+- sync also **prunes**: after upserting, tasks absent from the connector's **full** (pre-category-filter) list are deleted along with their execution logs (`TaskService.removeStaleTasks`) — a task missing from the platform was deleted natively, regardless of which categories the user imports
+- pruning is skipped for `TASKHUB_NATIVE` (its connector returns `[]`; the DB is the source of truth) and for empty connector lists (safety net against wiping a platform)
 - a task rename must not silently change identity semantics
 - connector authors must map native platform identifiers into a stable `externalId`
 
@@ -127,6 +129,7 @@ Important current behavior:
 - task sync is now **explicitly user-triggered**, not automatic on connect
 - task discovery/import relies on a live registered agent socket
 - agent disconnect means Windows health is offline and sync/run calls fail
+- the agent **self-heals its connection**: SocketIOClient's built-in reconnection covers short drops (default 10 attempts), and a 30s watchdog loop in `Program.cs` re-calls `ConnectAsync` whenever disconnected — covering longer backend outages and the agent starting before the backend at boot. `ReconnectionAttempts = int.MaxValue` must not be used (the library's delay math overflows and every connect throws)
 
 ## 7. Auth/runtime contract
 

@@ -114,7 +114,7 @@ Strategic assessment: [`research/Business_Idea_Assessment.md`](research/Business
 | Frontend | React + Tailwind CSS + TanStack Query |
 | Backend | Node.js + Express (or Fastify) + PostgreSQL + Prisma |
 | Real‑time | Socket.io (agent ↔ server) |
-| Windows Agent | .NET 8 (C#) + Task Scheduler Managed Wrapper |
+| Windows Agent | .NET 10 (C#) + Task Scheduler Managed Wrapper |
 | Hosting | Docker + cloud (Render, AWS ECS, or self‑hosted) |
 
 ---

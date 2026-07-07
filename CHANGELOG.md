@@ -25,7 +25,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Tests: `TriggerBuilder` unit tests, agent `task:create` trigger-parsing tests, connector trigger-payload passthrough test.
 - Proprietary `LICENSE` / rights notice for the private repository.
 - Contributor guide in `CONTRIBUTING.md`.
-- Repository contracts document in `docs/CONTRACTS.md`.
+- Repository contracts document in `docs/specs/CONTRACTS.md`.
 - Explicit roadmap and phase-status sync across the planning docs.
 - Basic GitHub Actions CI workflow in `.github/workflows/ci.yml`.
 - Windows Agent automated startup registration script `setup-agent-startup.ps1` to compile and register the agent inside a dedicated `\Task-Hub\` Task Scheduler folder.

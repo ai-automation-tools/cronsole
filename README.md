@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite">
   <img src="https://img.shields.io/badge/Node.js-Express_5-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js + Express 5">
-  <img src="https://img.shields.io/badge/.NET-8-512BD4?style=flat-square&logo=.net&logoColor=white" alt=".NET 8 agent">
+  <img src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=.net&logoColor=white" alt=".NET 10 agent">
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/Prisma-6-2D3748?style=flat-square&logo=prisma&logoColor=white" alt="Prisma 6">
   <img src="https://img.shields.io/badge/Socket.io-realtime-010101?style=flat-square&logo=socket.io&logoColor=white" alt="Socket.io">
@@ -42,7 +42,7 @@ Beyond unification, the roadmap adds cross-platform schedule conversion template
 
 ### Why it exists
 
-No incumbent unifies AI-assistant schedulers with OS-level schedulers. Desktop tools (VisualCron, Task Till Dawn) are Windows-only or stagnant; web orchestrators (Airflow, n8n, Rundeck, Jenkins) target data engineers and DevOps — the wrong persona for someone who just wants to *manage* the schedules across the tools they already use. Full survey in [`docs/Competition_Analysis.md`](docs/Competition_Analysis.md). The wedge: **cross-domain unification**, **mobile-first triggering** (phone-trigger a Windows task in under 30s), and **MCP-native** AI task creation.
+No incumbent unifies AI-assistant schedulers with OS-level schedulers. Desktop tools (VisualCron, Task Till Dawn) are Windows-only or stagnant; web orchestrators (Airflow, n8n, Rundeck, Jenkins) target data engineers and DevOps — the wrong persona for someone who just wants to *manage* the schedules across the tools they already use. Full survey in [`docs/research/Competition_Analysis.md`](docs/research/Competition_Analysis.md). The wedge: **cross-domain unification**, **mobile-first triggering** (phone-trigger a Windows task in under 30s), and **MCP-native** AI task creation.
 
 ## 🚀 Live Demo
 
@@ -58,7 +58,7 @@ No incumbent unifies AI-assistant schedulers with OS-level schedulers. Desktop t
 graph LR
     subgraph User["Your Machine"]
         WTS[(Windows Task<br/>Scheduler)]
-        AGENT[".NET 8 Agent<br/>(TaskHub.Agent)"]
+        AGENT[".NET 10 Agent<br/>(TaskHub.Agent)"]
         WTS <--> AGENT
     end
 
@@ -158,7 +158,7 @@ The frontend's API origin is configurable via `VITE_API_URL` (defaults to `http:
 | **Backend API** | Node.js + Express 5 + Socket.io (TypeScript) |
 | **Database** | PostgreSQL 16 + Prisma 6 ORM |
 | **Real-time** | Socket.io server ↔ agent WebSocket client |
-| **Windows agent** | .NET 8 (`TaskHub.Agent`) reading Windows Task Scheduler |
+| **Windows agent** | .NET 10 (`TaskHub.Agent`) reading Windows Task Scheduler |
 | **Hosting** | Frontend on Vercel (project `taskhub`, root `frontend/`); backend + agent local; dev stack via Docker Compose |
 | **Auth** | JWT (access + refresh) — *planned* |
 | **MCP server** | Node.js wrapper over the REST API — *Phase 6* |
@@ -204,10 +204,10 @@ taskhub/
 ├── frontend/             # React 19 + Vite dashboard  (deployed to Vercel as the demo)
 │   └── src/Dashboard.tsx # Main UI + demo-mode fixtures
 ├── backend/              # Express 5 + Socket.io + Prisma API
-│   ├── index.js          # REST + WebSocket server
+│   ├── src/              # REST + WebSocket server (index.ts, routes, connectors, ws)
 │   └── prisma/           # schema.prisma (User, Task, ExecutionLog, Template, …)
 ├── agent/
-│   ├── TaskHub.Agent/    # .NET 8 Windows agent (Program.cs)
+│   ├── TaskHub.Agent/    # .NET 10 Windows agent (Program.cs)
 │   └── test-server/      # tiny Node harness for agent testing
 ├── docs/                 # Planning, architecture & competitive analysis (per-phase)
 └── src/                  # Shared scaffolds / archived prototypes
@@ -220,10 +220,10 @@ taskhub/
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Local setup, validation commands, PR expectations, and doc-update rules. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release-note-ready summary of current repo changes and known gaps. |
 | [`docs/Project_Plan.md`](docs/Project_Plan.md) | Master plan: phases, timeline, risk matrix, next actions. |
-| [`docs/CONTRACTS.md`](docs/CONTRACTS.md) | Current implementation contracts: task identity, connector layer, agent transport, demo/live split. |
-| [`docs/Phase0.md`](docs/Phase0.md) … [`Phase6.md`](docs/Phase6.md) | Per-phase deep dives (charter → post-launch + MCP). |
-| [`docs/Competition_Analysis.md`](docs/Competition_Analysis.md) | Competitive landscape and positioning. |
-| [`docs/Business_Idea_Assessment.md`](docs/Business_Idea_Assessment.md) | Market / viability assessment. |
+| [`docs/specs/CONTRACTS.md`](docs/specs/CONTRACTS.md) | Current implementation contracts: task identity, connector layer, agent transport, demo/live split. |
+| [`docs/phases/Phase0.md`](docs/phases/Phase0.md) … [`Phase6.md`](docs/phases/Phase6.md) | Per-phase deep dives (charter → post-launch + MCP). |
+| [`docs/research/Competition_Analysis.md`](docs/research/Competition_Analysis.md) | Competitive landscape and positioning. |
+| [`docs/research/Business_Idea_Assessment.md`](docs/research/Business_Idea_Assessment.md) | Market / viability assessment. |
 | [`docs/api-examples/`](docs/api-examples/) | Sample REST payloads for tasks, platforms, templates. |
 | [`docs/user-guides/Agent_Setup_Guide.md`](docs/user-guides/Agent_Setup_Guide.md) | Setup guide for the C# Windows agent (headless execution, Task Scheduler directory registration, and troubleshooting). |
 | [`docs/user-guides/UI_User_Guide.md`](docs/user-guides/UI_User_Guide.md) | User guide for dashboard navigation, task categorization/overrides, and template application. |
@@ -233,13 +233,13 @@ taskhub/
 
 | Phase | Doc | Status |
 |:---:|:---|:---|
-| 0 — Inception & Discovery | [`Phase0.md`](docs/Phase0.md) | ✅ Complete |
-| 1 — Requirements & Specs | [`Phase1.md`](docs/Phase1.md) | ✅ Complete |
-| 2 — Architecture & Design | [`Phase2.md`](docs/Phase2.md) | ✅ Complete |
-| 3 — Development (MVP) | [`Phase3.md`](docs/Phase3.md) | ✅ Complete (sprints 1–10) |
-| 4 — Testing & QA | [`Phase4.md`](docs/Phase4.md) | 🚧 **Active** — unit testing & template validation complete; integration & E2E active |
-| 5 — Deployment & Rollout | [`Phase5.md`](docs/Phase5.md) | Not started |
-| 6 — Post-Launch & Iteration | [`Phase6.md`](docs/Phase6.md) | Not started |
+| 0 — Inception & Discovery | [`Phase0.md`](docs/phases/Phase0.md) | ✅ Complete |
+| 1 — Requirements & Specs | [`Phase1.md`](docs/phases/Phase1.md) | ✅ Complete |
+| 2 — Architecture & Design | [`Phase2.md`](docs/phases/Phase2.md) | ✅ Complete |
+| 3 — Development (MVP) | [`Phase3.md`](docs/phases/Phase3.md) | ✅ Complete (sprints 1–10) |
+| 4 — Testing & QA | [`Phase4.md`](docs/phases/Phase4.md) | 🚧 **Active** — unit testing & template validation complete; integration & E2E active |
+| 5 — Deployment & Rollout | [`Phase5.md`](docs/phases/Phase5.md) | Not started |
+| 6 — Post-Launch & Iteration | [`Phase6.md`](docs/phases/Phase6.md) | Not started |
 
 ## 📐 Domain Conventions
 

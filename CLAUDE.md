@@ -43,14 +43,14 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 | **Backend API** | Node.js + Express (TypeScript) |
 | **Database** | PostgreSQL 16 + Prisma ORM |
 | **Real-time** | Socket.io (server) + WebSocket client (agent) |
-| **Windows agent** | .NET 8 (C#) + `Microsoft.Win32.TaskScheduler` + WiX installer |
+| **Windows agent** | .NET 10 (C#) + `Microsoft.Win32.TaskScheduler` + WiX installer |
 | **Auth** | JWT (access + refresh); OAuth2 post-MVP |
 | **Hosting (dev)** | Docker Compose |
 | **Hosting (prod)** | AWS ECS Fargate or Render; static frontend on S3 + CloudFront or Vercel |
 | **Cache / pub-sub** | Redis (optional for MVP; required for multi-instance WebSocket) |
 | **MCP server** (Phase 6) | Node.js wrapper over REST API |
 
-> Pin all base images; never `:latest`. PostgreSQL 16, Node LTS, .NET 8.
+> Pin all base images; never `:latest`. PostgreSQL 16, Node LTS, .NET 10 (LTS).
 
 ---
 
@@ -59,15 +59,13 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 ```
 taskhub/
 ├── CLAUDE.md                  # this file
-├── docs/                      # planning & design docs (one per phase)
+├── docs/                      # planning & design docs (index: docs/README.md)
 │   ├── Project_Plan.md        # master overview
-│   ├── Phase0.md              # Inception & Discovery
-│   ├── Phase1.md              # Requirements & Specifications
-│   ├── Phase2.md              # Architecture & Design
-│   ├── Phase3.md              # Development (MVP)
-│   ├── Phase4.md              # Testing & QA
-│   ├── Phase5.md              # Deployment & Rollout
-│   ├── Phase6.md              # Post-Launch & Iteration
+│   ├── phases/                # Phase0.md … Phase6.md lifecycle deep-dives
+│   ├── specs/                 # CONTRACTS.md, Test_Plan.md
+│   ├── research/              # business / competition / desirability analyses
+│   ├── resources/             # Templates.md, Native_Tasks.md, Platforms-Tab.md
+│   ├── user-guides/           # Agent_Setup_Guide.md, UI_User_Guide.md
 │   └── api-examples/          # raw JSON request/response samples
 ├── backend/                   # Node.js + Express + Prisma (Phase 3)
 │   ├── prisma/
@@ -83,7 +81,7 @@ taskhub/
 │   │   ├── pages/             # dashboard, templates, settings, task detail
 │   │   └── hooks/
 │   └── package.json
-├── agent/                     # Windows agent — .NET 8 (Phase 3)
+├── agent/                     # Windows agent — .NET 10 (Phase 3)
 │   ├── src/
 │   │   ├── AgentService.cs
 │   │   ├── TaskSchedulerWrapper.cs
@@ -101,13 +99,13 @@ taskhub/
 
 | Phase | Doc | Duration | Status |
 |---|---|---|---|
-| 0 — Inception & Discovery | [`docs/Phase0.md`](docs/Phase0.md) | 1–2 wk | Complete |
-| 1 — Requirements & Specs | [`docs/Phase1.md`](docs/Phase1.md) | 2–3 wk | Complete |
-| 2 — Architecture & Design | [`docs/Phase2.md`](docs/Phase2.md) | 2 wk | Complete |
-| 3 — Development (MVP) | [`docs/Phase3.md`](docs/Phase3.md) | 8–12 wk | Complete (Sprints 1-10 complete) |
-| 4 — Testing & QA | [`docs/Phase4.md`](docs/Phase4.md) | 2–3 wk | Active (Unit testing & template validation complete) |
-| 5 — Deployment & Rollout | [`docs/Phase5.md`](docs/Phase5.md) | 1–2 wk | Not started |
-| 6 — Post-Launch & Iteration | [`docs/Phase6.md`](docs/Phase6.md) | ongoing | Not started |
+| 0 — Inception & Discovery | [`docs/phases/Phase0.md`](docs/phases/Phase0.md) | 1–2 wk | Complete |
+| 1 — Requirements & Specs | [`docs/phases/Phase1.md`](docs/phases/Phase1.md) | 2–3 wk | Complete |
+| 2 — Architecture & Design | [`docs/phases/Phase2.md`](docs/phases/Phase2.md) | 2 wk | Complete |
+| 3 — Development (MVP) | [`docs/phases/Phase3.md`](docs/phases/Phase3.md) | 8–12 wk | Complete (Sprints 1-10 complete) |
+| 4 — Testing & QA | [`docs/phases/Phase4.md`](docs/phases/Phase4.md) | 2–3 wk | Active (Unit testing & template validation complete) |
+| 5 — Deployment & Rollout | [`docs/phases/Phase5.md`](docs/phases/Phase5.md) | 1–2 wk | Not started |
+| 6 — Post-Launch & Iteration | [`docs/phases/Phase6.md`](docs/phases/Phase6.md) | ongoing | Not started |
 
 **When making material decisions** (e.g., choosing a connector pattern, redesigning the schema, changing the agent protocol), update the relevant phase doc — the docs are the spec, not an artifact.
 

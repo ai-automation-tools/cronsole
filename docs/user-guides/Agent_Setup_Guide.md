@@ -9,7 +9,7 @@ The agent runs as a headless (windowless) background process that connects to th
 ## 🛠️ Requirements
 
 - **Windows 10 or 11**
-- **.NET 8 SDK** (to build the C# project)
+- **.NET 10 SDK** (to build the C# project — the agent targets `net10.0`)
 - **Administrator Privileges** (required to register tasks with high privileges in Windows Task Scheduler)
 
 ---

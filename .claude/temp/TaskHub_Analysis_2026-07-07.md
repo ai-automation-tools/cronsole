@@ -113,7 +113,7 @@ Ranked. Items 1–4 are **Phase 5 blockers**.
 - **Add `task:delete`** (interface + impl + server route). Delete is the one CRUD op fully missing.
 - **App-level heartbeat** (30s per spec) so the server's `getHealth` means something and the frontend status panel can be real.
 - **Reconnect with backoff** — currently relies on SocketIOClient defaults with no `OnReconnected` handling.
-- **Target `net8.0` or update the docs** — csproj targets `net10.0` while every doc says .NET 8.
+- ✅ **Target `net8.0` or update the docs** — csproj targets `net10.0` while every doc says .NET 8. *(Resolved 2026-07-07: living docs updated to .NET 10; historical phase/research docs left as written. Stale post-reorg doc links in README/CLAUDE/CONTRIBUTING also fixed in the same pass.)*
 
 ### Frontend
 - **Split `Dashboard.tsx` (1,117 lines)** into `screens/` + `views/` + `demo/` fixtures. Extract shared `platformLabel` and the mutation-error pattern.

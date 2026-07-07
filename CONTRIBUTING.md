@@ -11,8 +11,8 @@ Read these first:
 1. [`README.md`](README.md)
 2. [`CLAUDE.md`](CLAUDE.md)
 3. [`docs/Project_Plan.md`](docs/Project_Plan.md)
-4. The relevant phase doc under [`docs/`](docs/)
-5. [`docs/CONTRACTS.md`](docs/CONTRACTS.md)
+4. The relevant phase doc under [`docs/phases/`](docs/phases/)
+5. [`docs/specs/CONTRACTS.md`](docs/specs/CONTRACTS.md)
 
 If your change affects runtime behavior, docs, or roadmap status, update the matching docs in the same PR.
 
@@ -23,7 +23,7 @@ If your change affects runtime behavior, docs, or roadmap status, update the mat
 - Match the existing stack and patterns:
   - frontend: React + TypeScript + Vite
   - backend: Node.js + Express + Prisma
-  - agent: .NET 8
+  - agent: .NET 10
 - Do not add new infrastructure, frameworks, or dependencies without a clear reason.
 - Do not market planned features as shipped features in docs or UI copy.
 - Treat the repo as a **control plane MVP**, not a general workflow builder.
@@ -129,8 +129,8 @@ At minimum, review whether these need edits:
 
 - `README.md`
 - `docs/Project_Plan.md`
-- relevant `docs/Phase*.md`
-- `docs/CONTRACTS.md`
+- relevant `docs/phases/Phase*.md`
+- `docs/specs/CONTRACTS.md`
 - `CHANGELOG.md`
 
 ## Current implementation caveats
@@ -198,7 +198,7 @@ Before requesting review, confirm:
 - Never commit `.env` files or real secrets.
 - Never log decrypted platform credentials.
 - Do not paste real API tokens into fixtures, screenshots, or docs.
-- If you change auth, encryption, or agent trust boundaries, update `docs/CONTRACTS.md` and the phase docs.
+- If you change auth, encryption, or agent trust boundaries, update `docs/specs/CONTRACTS.md` and the phase docs.
 
 ## When in doubt
 

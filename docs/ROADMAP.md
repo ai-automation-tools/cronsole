@@ -10,7 +10,7 @@
 **Update rule:** when a task ships, move it to Completed with a date; when a material
 decision changes scope, edit the item here first, then implement.
 
-*Last updated: 2026-07-07 (added: task search, user resources/onboarding, installer packages).*
+*Last updated: 2026-07-07 (added: go-public checklist — public repo + advertisable product).*
 
 ---
 
@@ -77,12 +77,36 @@ Nothing below ships to a public host until these are done (analysis §4):
 - [ ] Claude Code connector: promote from experimental scaffold to production-ready.
 - [ ] ChatGPT stays quick-links-only unless a public automations API appears.
 
+## 🚀 Go-public checklist — public repo + advertisable product
+
+Everything required before the repo flips public and TaskHub is promoted beyond personal use. All of **P0 is a hard prerequisite**; P1 correctness and the P2 onboarding/resources item are strongly recommended first.
+
+### Repo goes public
+
+- [ ] **License decision** — the current `LICENSE` is proprietary/all-rights-reserved. Choose: open source (MIT/Apache-2.0), source-available (BSL/fair-source), or public product with private code. Blocks everything below.
+- [ ] **Secret & history audit**: scan full git history (gitleaks/trufflehog) — the dev JWT was committed and must be rotated regardless; scrub personal machine paths, real task names, and account identifiers from docs, seeds, fixtures, and screenshots. If history can't be cleaned confidently, squash to a fresh public root.
+- [ ] **Repo hygiene for outsiders**: remove committed artifacts (`coverage/`, stray `src/`, `Gemini_Agent/`, `fix_connection.sql`); add `.env.example` for backend and frontend; make `main` the clean default branch with branch protection.
+- [ ] **Community scaffolding**: `SECURITY.md` (vulnerability disclosure policy — non-negotiable for a tool that executes commands), issue/PR templates, `CODE_OF_CONDUCT.md`, GitHub Discussions or a support contact; CI status badges on the README.
+- [ ] **Final README/docs pass for a stranger audience** (github-readme skill): quick-start that works on a machine that isn't Mike's, screenshots/GIF of the dashboard, honest feature-status table.
+- [ ] **Name check**: verify "TaskHub" is defensible for advertising (existing products/repos share the name); decide whether to rebrand before the first public link, not after.
+
+### Application goes public
+
+- [ ] **Real account system**: registration/login UI, password reset, JWT refresh flow end-to-end, session management; full multi-tenant isolation (extends P0 route scoping) with a per-user **agent pairing flow** (pairing code UI ↔ agent config).
+- [ ] **Production operations**: error tracking (e.g. Sentry), structured logs, uptime monitoring + status page, automated Postgres backups with a tested restore, rate limiting on auth and API, staging environment + deploy pipeline (CI → staging → prod).
+- [ ] **Agent distribution & trust**: signed installer (see Installer packages above), code-signing certificate to clear SmartScreen, versioned releases with an update channel, and a documented "what the agent can do / how to remove it" trust page — critical for a tool that runs with elevated privileges.
+- [ ] **Legal minimum**: privacy policy + terms of service, account deletion (and data export) that actually purges tasks/logs, cookie handling on the hosted site.
+- [ ] **Launch surface**: landing page at `taskhub.mikesailab.com` (marketing content + demo + agent download + docs), getting-started guide (builds on the P2 onboarding item), and a support/feedback channel.
+- [ ] **Versioning & releases**: semver + tagged releases + changelog discipline (already started) so advertised versions are reproducible.
+
 ---
 
 ## Open decisions
 
 - [ ] Final hosting choice: Hetzner VPS (leading) vs. Render vs. AWS ECS.
 - [ ] Agent transport: WebSocket only, or hybrid with long-polling for restricted networks?
+- [ ] **License model** for the public repo (open source vs. source-available vs. closed) — see Go-public checklist.
+- [ ] **Keep the "TaskHub" name** or rebrand before the first public announcement?
 
 ## Strategy guardrails (from the 2026-07-07 analysis)
 

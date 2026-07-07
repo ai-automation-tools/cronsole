@@ -68,6 +68,16 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
         </header>
         <div className="p-6 space-y-4">
           <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+            {(error || !discovery || discovery.every(p => p.categories.length === 0)) && (
+              <div className="text-center py-8 px-4 space-y-2">
+                <p className="text-sm font-bold text-slate-300">No tasks discovered</p>
+                <p className="text-xs text-slate-500">
+                  {error
+                    ? 'Discovery failed — is the backend running?'
+                    : 'No platform returned any tasks. The Windows agent may be offline — check that the TaskHubAgent scheduled task is running, then try again.'}
+                </p>
+              </div>
+            )}
             {discovery?.map(platform => (
                <div key={platform.platform} className="space-y-2 mb-6 last:mb-0">
                   <h3 className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">{platform.platform.replace(/_/g, ' ')}</h3>

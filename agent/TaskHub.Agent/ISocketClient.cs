@@ -7,6 +7,7 @@ namespace TaskHub.Agent
     {
         event Action OnConnected;
         event Action OnDisconnected;
+        bool Connected { get; }
         void On(string eventName, Action<ISocketResponse> callback);
         Task EmitAsync(string eventName, object? data = null);
         Task ConnectAsync();

@@ -44,6 +44,27 @@ export class TaskService {
     return results;
   }
 
+  /**
+   * Delete DB tasks that no longer exist on the platform. `currentExternalIds`
+   * must be the connector's FULL task list (pre category-filtering) — a task
+   * absent from it was deleted natively, regardless of which categories the
+   * user chose to import.
+   */
+  static async removeStaleTasks(userId: string, platform: PlatformType, currentExternalIds: string[]) {
+    const stale = await prisma.task.findMany({
+      where: { userId, platform, externalId: { notIn: currentExternalIds } },
+      select: { id: true }
+    });
+    if (stale.length === 0) return 0;
+
+    const ids = stale.map(s => s.id);
+    await prisma.$transaction([
+      prisma.executionLog.deleteMany({ where: { taskId: { in: ids } } }),
+      prisma.task.deleteMany({ where: { id: { in: ids } } })
+    ]);
+    return ids.length;
+  }
+
   public static extractCategory(externalId: string, platform: PlatformType): string {
     if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
       // Windows paths: \Folder\Subfolder\TaskName or \TaskName

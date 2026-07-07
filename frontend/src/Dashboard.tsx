@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Activity,
   LayoutDashboard,
@@ -26,7 +26,9 @@ import {
   HelpCircle,
   CopyPlus,
   Play,
-  Zap
+  Zap,
+  Search,
+  X
 } from 'lucide-react';
 import { CloneTaskModal } from './components/CloneTaskModal';
 import { HelpModal } from './components/HelpModal';
@@ -40,6 +42,7 @@ import { TaskCard } from './components/TaskCard';
 import { ApplyTemplateModal } from './components/ApplyTemplateModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { platformLabel, platformBadgeClass } from './platform';
+import { matchesTaskSearch } from './utils/taskSearch';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
@@ -257,6 +260,26 @@ const DashboardScreen = ({
   const [selectedPlatform, setSelectedPlatform] = useState<string>('All');
   const [showDisabled, setShowDisabled] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // "/" focuses search (unless already typing somewhere); Escape clears it.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+      if (e.key === '/' && !typing) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === 'Escape' && target === searchInputRef.current) {
+        setSearchQuery('');
+        searchInputRef.current?.blur();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const categories = useMemo(() => {
     if (!tasks) return ['All'];
@@ -288,8 +311,13 @@ const DashboardScreen = ({
       result = result.filter(t => (t.category || 'Uncategorized') === selectedCategory);
     }
 
+    // Finally, free-text search (name / category / path / command / schedule)
+    if (searchQuery.trim()) {
+      result = result.filter(t => matchesTaskSearch(t, searchQuery));
+    }
+
     return result;
-  }, [tasks, selectedCategory, selectedPlatform, showDisabled, viewMode]);
+  }, [tasks, selectedCategory, selectedPlatform, showDisabled, viewMode, searchQuery]);
 
   const scheduledTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
@@ -379,6 +407,30 @@ const DashboardScreen = ({
           {/* Category Tabs & Views */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-900">
             <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search tasks…  /"
+                  className="w-44 focus:w-60 bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-7 py-1.5 text-xs font-medium text-slate-200 placeholder:text-slate-600 outline-none focus:border-blue-500 transition-all shadow-md"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors"
+                    title="Clear search (Esc)"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+              {searchQuery.trim() && (
+                <span className="text-[10px] font-bold text-slate-500 px-1">
+                  {filteredTasks.length} match{filteredTasks.length === 1 ? '' : 'es'}
+                </span>
+              )}
               {categories.map(cat => (
                 <button
                   key={cat}
@@ -465,6 +517,14 @@ const DashboardScreen = ({
                 <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
                    <Tag size={48} className="mb-4 opacity-20" />
                    <p className="font-bold">No tasks found</p>
+                   {searchQuery.trim() && (
+                     <button
+                       onClick={() => setSearchQuery('')}
+                       className="mt-4 text-blue-400 hover:text-blue-300 text-sm font-bold underline underline-offset-4"
+                     >
+                       Clear search "{searchQuery.trim()}"
+                     </button>
+                   )}
                    {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
                      <button 
                        onClick={() => setShowDisabled(true)}

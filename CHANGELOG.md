@@ -36,6 +36,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Setup and troubleshooting manual in `docs/user-guides/Agent_Setup_Guide.md`.
 
 ### Changed
+- **Planning docs restructured to a single living roadmap**: the phase lifecycle (0–6) is complete, so `docs/Project_Plan.md` and `docs/phases/` moved to `docs/archive/` (frozen), replaced by `docs/ROADMAP.md` — completed work plus prioritized open items (P0 security → P3 expansion) drawn from the 2026-07-07 project analysis. All doc links updated (`README`, `CLAUDE.md`, `CONTRIBUTING`, `docs/README.md`, `CONTRACTS`).
 - Aligned `README.md`, `CLAUDE.md`, and planning docs with the current implementation state.
 - Clarified that the public deployment is a frontend demo backed by sample data.
 - Reframed Claude Code support as experimental rather than production-ready.

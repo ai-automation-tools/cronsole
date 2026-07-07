@@ -194,8 +194,7 @@ When behavior changes, at minimum review whether these files also need changes:
 
 - `README.md`
 - `CLAUDE.md`
-- `docs/Project_Plan.md`
-- relevant `docs/phases/Phase*.md`
+- `docs/ROADMAP.md`
 - `CHANGELOG.md`
 - this file
 

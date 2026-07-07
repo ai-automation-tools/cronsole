@@ -221,9 +221,9 @@ taskhub/
 |:---|:---|
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Local setup, validation commands, PR expectations, and doc-update rules. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release-note-ready summary of current repo changes and known gaps. |
-| [`docs/Project_Plan.md`](docs/Project_Plan.md) | Master plan: phases, timeline, risk matrix, next actions. |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | **The living plan**: completed work + prioritized open items (P0 security → P3 expansion). |
 | [`docs/specs/CONTRACTS.md`](docs/specs/CONTRACTS.md) | Current implementation contracts: task identity, connector layer, agent transport, demo/live split. |
-| [`docs/phases/Phase0.md`](docs/phases/Phase0.md) … [`Phase6.md`](docs/phases/Phase6.md) | Per-phase deep dives (charter → post-launch + MCP). |
+| [`docs/archive/`](docs/archive/) | Historical: the original `Project_Plan.md` + per-phase deep dives (`Phase0–6.md`) from the MVP build. |
 | [`docs/research/Competition_Analysis.md`](docs/research/Competition_Analysis.md) | Competitive landscape and positioning. |
 | [`docs/research/Business_Idea_Assessment.md`](docs/research/Business_Idea_Assessment.md) | Market / viability assessment. |
 | [`docs/api-examples/`](docs/api-examples/) | Sample REST payloads for tasks, platforms, templates. |
@@ -233,15 +233,15 @@ taskhub/
 
 ## 🗺️ Roadmap
 
-| Phase | Doc | Status |
-|:---:|:---|:---|
-| 0 — Inception & Discovery | [`Phase0.md`](docs/phases/Phase0.md) | ✅ Complete |
-| 1 — Requirements & Specs | [`Phase1.md`](docs/phases/Phase1.md) | ✅ Complete |
-| 2 — Architecture & Design | [`Phase2.md`](docs/phases/Phase2.md) | ✅ Complete |
-| 3 — Development (MVP) | [`Phase3.md`](docs/phases/Phase3.md) | ✅ Complete (sprints 1–10) |
-| 4 — Testing & QA | [`Phase4.md`](docs/phases/Phase4.md) | 🚧 **Active** — unit testing & template validation complete; integration & E2E active |
-| 5 — Deployment & Rollout | [`Phase5.md`](docs/phases/Phase5.md) | Not started |
-| 6 — Post-Launch & Iteration | [`Phase6.md`](docs/phases/Phase6.md) | Not started |
+The MVP build-out (phases 0–6) is complete and archived; planning now lives in **[`docs/ROADMAP.md`](docs/ROADMAP.md)**. Headlines:
+
+| Priority | Focus |
+|:---:|:---|
+| ✅ Done | MVP end-to-end (agent sync, dashboard, templates), native tasks, run history, real trigger conversion, reliability fixes |
+| 🔴 P0 | Security hardening — WebSocket auth, config encryption, route scoping (blockers before hosting the backend) |
+| 🟠 P1 | Correctness & honesty — schedule normalization, real status panel, live browser updates, remaining QA |
+| 🟡 P2 | Product value — failure notifications, agent `task:delete`, template UX, Developer Pack |
+| 🟢 P3 | Expansion — hosted backend, MCP server, frontend refactor, macOS agent, installer |
 
 ## 📐 Domain Conventions
 
@@ -266,7 +266,7 @@ Commit style: imperative subject + conventional-commits prefix (`feat:`, `fix:`,
 <p align="center">
   Part of the <a href="https://mikesailab.com">mikesailab.com</a> ecosystem ·
   <a href="https://taskhub.mikesailab.com">Live Demo</a> ·
-  <a href="docs/Project_Plan.md">Project Plan</a> ·
+  <a href="docs/ROADMAP.md">Roadmap</a> ·
   <a href="CLAUDE.md">Claude Instructions</a>
 </p>
 

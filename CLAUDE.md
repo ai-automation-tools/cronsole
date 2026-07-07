@@ -21,13 +21,13 @@ Build a modern, dark-themed web application that provides a **single pane of gla
 
 Includes quick links to native UIs, cross-platform schedule conversion templates (cron ↔ Windows trigger ↔ Claude routine), and **MCP-based AI integration** (Phase 6) so Claude / Codex / Cursor can create and run tasks via natural language.
 
-**Source of truth for the plan:** [`docs/Project_Plan.md`](docs/Project_Plan.md). Each phase has its own deep-dive doc under `docs/` (see §5).
+**Source of truth for the plan:** [`docs/ROADMAP.md`](docs/ROADMAP.md) — completed work plus prioritized open items (P0 security → P3 expansion). The original phase-based planning docs are archived under [`docs/archive/`](docs/archive/) for historical reference.
 
 ---
 
 ## 2. Current Status
 
-- **Phase:** 4 — Testing & QA - Active (Unit testing & template validation complete; Integration & E2E active)
+- **Plan management:** roadmap-driven (phases complete & archived). Open work is tracked in [`docs/ROADMAP.md`](docs/ROADMAP.md); the near-term focus is P0 security hardening and P1 correctness, with remaining QA (integration/E2E) folded into P1.
 - **Repo state:** Functional MVP prototype. Real-time sync between the .NET Windows Agent and the Node.js/Postgres backend is established, the frontend supports selective import plus local categorization, and the **template library** now ships a two-tier catalog (20 curated script starters + use-case patterns) with a working Apply modal that creates Windows tasks from parameterized `{{placeholder}}` commands. Catalog spec: [`docs/resources/Templates.md`](docs/resources/Templates.md).
 - **MVP target platforms:** Windows Task Scheduler (Functional) + Claude Code Routines (Experimental connector scaffold; not yet production-ready).
 - **Out of scope for MVP:** Two-way sync, MCP creation, ChatGPT API integration, Open Claw / Hermes / Jules connectors.
@@ -60,8 +60,8 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 taskhub/
 ├── CLAUDE.md                  # this file
 ├── docs/                      # planning & design docs (index: docs/README.md)
-│   ├── Project_Plan.md        # master overview
-│   ├── phases/                # Phase0.md … Phase6.md lifecycle deep-dives
+│   ├── ROADMAP.md             # the living plan: completed + prioritized open work
+│   ├── archive/               # historical: Project_Plan.md + phases/Phase0–6.md
 │   ├── specs/                 # CONTRACTS.md, Test_Plan.md
 │   ├── research/              # business / competition / desirability analyses
 │   ├── resources/             # Templates.md, Native_Tasks.md, Platforms-Tab.md
@@ -95,19 +95,14 @@ taskhub/
 
 ---
 
-## 5. Phase Documents
+## 5. Planning Docs
 
-| Phase | Doc | Duration | Status |
-|---|---|---|---|
-| 0 — Inception & Discovery | [`docs/phases/Phase0.md`](docs/phases/Phase0.md) | 1–2 wk | Complete |
-| 1 — Requirements & Specs | [`docs/phases/Phase1.md`](docs/phases/Phase1.md) | 2–3 wk | Complete |
-| 2 — Architecture & Design | [`docs/phases/Phase2.md`](docs/phases/Phase2.md) | 2 wk | Complete |
-| 3 — Development (MVP) | [`docs/phases/Phase3.md`](docs/phases/Phase3.md) | 8–12 wk | Complete (Sprints 1-10 complete) |
-| 4 — Testing & QA | [`docs/phases/Phase4.md`](docs/phases/Phase4.md) | 2–3 wk | Active (Unit testing & template validation complete) |
-| 5 — Deployment & Rollout | [`docs/phases/Phase5.md`](docs/phases/Phase5.md) | 1–2 wk | Not started |
-| 6 — Post-Launch & Iteration | [`docs/phases/Phase6.md`](docs/phases/Phase6.md) | ongoing | Not started |
+The phase lifecycle (0–6) is complete and archived. Planning now runs through a single living document:
 
-**When making material decisions** (e.g., choosing a connector pattern, redesigning the schema, changing the agent protocol), update the relevant phase doc — the docs are the spec, not an artifact.
+- **[`docs/ROADMAP.md`](docs/ROADMAP.md)** — completed work (dated) + open items in priority order: P0 security → P1 correctness → P2 product value → P3 expansion, plus open decisions and strategy guardrails.
+- **[`docs/archive/`](docs/archive/)** — the original `Project_Plan.md` and `phases/Phase0–6.md`, kept as the historical record of the MVP build. Don't update these; they're frozen.
+
+**When making material decisions** (e.g., choosing a connector pattern, redesigning the schema, changing the agent protocol), update `docs/ROADMAP.md` and the relevant spec doc (`docs/specs/`, `docs/resources/`) — the docs are the spec, not an artifact.
 
 ---
 
@@ -273,24 +268,19 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 
 ## 11. Working Workflow
 
-1. **Start of a session:** read this file + the active phase doc.
+1. **Start of a session:** read this file + [`docs/ROADMAP.md`](docs/ROADMAP.md).
 2. **Non-trivial change:** create a `TaskCreate` list, mark items `in_progress` / `completed` as you go.
-3. **Material design decision:** update the phase doc *first*, then implement.
+3. **Material design decision:** update `docs/ROADMAP.md` and the relevant spec doc *first*, then implement.
 4. **External library question:** `context7` before writing.
 5. **PR / large diff:** invoke the **`code-reviewer`** skill before declaring done.
-6. **End of session:** if the phase advanced or any deliverable shifted, update `docs/Project_Plan.md` Status column.
+6. **End of session:** if any deliverable shipped or scope shifted, move/update the item in `docs/ROADMAP.md` (dated).
 
 ---
 
 ## 12. Open Questions / Decisions Needed
 
-(Move resolved items to the relevant phase doc.)
-
-- [ ] Final hosting choice: AWS ECS vs. Render vs. self-hosted Docker. (Phase 2.)
-- [ ] Agent transport: WebSocket only, or hybrid WebSocket + long-polling for restricted networks? (Phase 0 risk R4.)
-- [ ] ChatGPT integration: full reverse-engineering effort, or stay quick-links-only forever? (Phase 6.)
-- [x] **Will this app live under `*.mikesailab.com`?** Resolved — yes, `taskhub.mikesailab.com`. Vercel frontend deployed + domain attached; Squarespace CNAME record is configured. Remaining: Host the backend (planned: Hetzner VPS) and configure Vercel's `VITE_API_URL`.
+Tracked in the **Open decisions** section of [`docs/ROADMAP.md`](docs/ROADMAP.md) — keep them there, not here. (Resolved 2026: the app lives at `taskhub.mikesailab.com`; frontend on Vercel, backend hosting still pending P0 security.)
 
 ---
 
-*Last updated: 2026-06-10.*
+*Last updated: 2026-07-07.*

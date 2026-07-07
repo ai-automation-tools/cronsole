@@ -11,15 +11,10 @@ Welcome to the **TaskHub** documentation repository. This directory houses the s
 
 ## 🗺️ Documentation Directory Layout
 
-*   📄 [Project_Plan.md](./Project_Plan.md) — Master overview & timeline index
-*   📂 [phases/](./phases/) — Project lifecycle phase documents
-    *   📄 [Phase0.md](./phases/Phase0.md) — Inception & Discovery
-    *   📄 [Phase1.md](./phases/Phase1.md) — Requirements & Specifications
-    *   📄 [Phase2.md](./phases/Phase2.md) — Architecture & Design
-    *   📄 [Phase3.md](./phases/Phase3.md) — Development (MVP)
-    *   📄 [Phase4.md](./phases/Phase4.md) — Testing & QA
-    *   📄 [Phase5.md](./phases/Phase5.md) — Deployment & Rollout
-    *   📄 [Phase6.md](./phases/Phase6.md) — Post-Launch & Iteration
+*   📄 [ROADMAP.md](./ROADMAP.md) — **The living plan**: completed work + prioritized open items (P0–P3)
+*   📂 [archive/](./archive/) — Historical planning docs from the MVP build (frozen)
+    *   📄 [Project_Plan.md](./archive/Project_Plan.md) — Original master overview & timeline
+    *   📂 [phases/](./archive/phases/) — Phase 0–6 lifecycle deep-dives
 *   📂 [research/](./research/) — Business assessments & competition audits
     *   📄 [Business_Idea_Assessment.md](./research/Business_Idea_Assessment.md) — Market viability analysis
     *   📄 [Competition_Analysis.md](./research/Competition_Analysis.md) — Competitive landscape audit
@@ -34,34 +29,29 @@ Welcome to the **TaskHub** documentation repository. This directory houses the s
 
 ---
 
-## 🏗️ Project Lifecycle Flow
+## 🏗️ How Planning Works Now
+
+The phase lifecycle (0–6) that guided the MVP build is **complete and archived**. Planning runs through a single living document:
 
 ```mermaid
 graph TD
-    P0[Phase 0: Inception] --> P1[Phase 1: Specs & Requirements]
-    P1 --> P2[Phase 2: Architecture & Design]
-    P2 --> P3[Phase 3: MVP Development]
-    P3 --> P4[Phase 4: Testing & E2E QA]
-    P4 --> P5[Phase 5: Deployment & Rollout]
-    P5 --> P6[Phase 6: Post-Launch & AI-MCP]
+    DONE[✅ Completed — MVP + reliability sprint] --> P0R[🔴 P0: Security hardening]
+    P0R --> P1R[🟠 P1: Correctness & honesty]
+    P1R --> P2R[🟡 P2: Product value]
+    P2R --> P3R[🟢 P3: Expansion — hosting, MCP, macOS]
 
-    style P3 fill:#2ea44f,stroke:#fff,stroke-width:2px,color:#fff
-    style P4 fill:#8B5CF6,stroke:#fff,stroke-width:2px,color:#fff
+    style DONE fill:#2ea44f,stroke:#fff,stroke-width:2px,color:#fff
+    style P0R fill:#DC2626,stroke:#fff,stroke-width:2px,color:#fff
 ```
+
+See **[ROADMAP.md](./ROADMAP.md)** for the full item list, open decisions, and strategy guardrails.
 
 ---
 
 ## 📖 Subdirectory Details
 
-### 📂 [phases/](./phases/) — Lifecycle Stages
-Contains the blueprint documentation for each phase of the project:
-*   [Phase 0: Inception](./phases/Phase0.md): Discovery, initial risk assessment, and core feasibility checks.
-*   [Phase 1: Specs](./phases/Phase1.md): Functional and non-functional requirements.
-*   [Phase 2: Architecture](./phases/Phase2.md): System diagrams, database schemas, and local Windows Agent WebSocket design.
-*   [Phase 3: Development](./phases/Phase3.md): Agile sprint breakdown (Sprints 1–10) covering database setup, agent websocket handshakes, templates, and dashboard modules.
-*   [Phase 4: Testing](./phases/Phase4.md): Staging setups, test suites execution, and reliability criteria.
-*   [Phase 5: Rollout](./phases/Phase5.md): Hosting guides, binary signing, and installer updates.
-*   [Phase 6: Iteration](./phases/Phase6.md): Future expansion plans for Model Context Protocol (MCP) integrations.
+### 📂 [archive/](./archive/) — Historical Planning (frozen)
+The blueprint documentation from the MVP build, kept for reference — the original [Project_Plan.md](./archive/Project_Plan.md) and per-phase deep-dives ([Phase 0](./archive/phases/Phase0.md) inception → [Phase 6](./archive/phases/Phase6.md) post-launch/MCP plans). Don't update these; new work goes on the [roadmap](./ROADMAP.md).
 
 ### 🔍 [research/](./research/) — Strategy & Audits
 Investigates viability, competition, and product positioning:
@@ -76,5 +66,5 @@ Outlines system contracts and quality validation rules:
 
 ---
 <p align="center">
-  Built with React & Node.js · <a href="./Project_Plan.md">Master Plan</a> · <a href="../README.md">Repository Root</a>
+  Built with React & Node.js · <a href="./ROADMAP.md">Roadmap</a> · <a href="../README.md">Repository Root</a>
 </p>

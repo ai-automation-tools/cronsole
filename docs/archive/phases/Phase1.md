@@ -2,7 +2,7 @@
 
 **Duration:** 2–3 weeks
 **Status:** Drafted
-**Master plan:** [`Project_Plan.md`](Project_Plan.md)
+**Master plan:** [`Project_Plan.md`](../Project_Plan.md)
 **Predecessor:** [`Phase0.md`](Phase0.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md) — the "first features that matter most" set drives the Must-have priorities below.
 

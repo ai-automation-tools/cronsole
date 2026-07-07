@@ -2,7 +2,7 @@
 
 **Duration:** 2 weeks
 **Status:** **Complete (2026-06-01)**
-**Master plan:** [`Project_Plan.md`](Project_Plan.md)
+**Master plan:** [`Project_Plan.md`](../Project_Plan.md)
 **Predecessor:** [`Phase1.md`](Phase1.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
 

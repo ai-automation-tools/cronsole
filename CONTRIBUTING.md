@@ -10,9 +10,8 @@ Read these first:
 
 1. [`README.md`](README.md)
 2. [`CLAUDE.md`](CLAUDE.md)
-3. [`docs/Project_Plan.md`](docs/Project_Plan.md)
-4. The relevant phase doc under [`docs/phases/`](docs/phases/)
-5. [`docs/specs/CONTRACTS.md`](docs/specs/CONTRACTS.md)
+3. [`docs/ROADMAP.md`](docs/ROADMAP.md) — the living plan (the phase docs it replaced are archived under [`docs/archive/`](docs/archive/))
+4. [`docs/specs/CONTRACTS.md`](docs/specs/CONTRACTS.md)
 
 If your change affects runtime behavior, docs, or roadmap status, update the matching docs in the same PR.
 
@@ -128,8 +127,7 @@ Update docs when you change:
 At minimum, review whether these need edits:
 
 - `README.md`
-- `docs/Project_Plan.md`
-- relevant `docs/phases/Phase*.md`
+- `docs/ROADMAP.md`
 - `docs/specs/CONTRACTS.md`
 - `CHANGELOG.md`
 

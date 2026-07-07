@@ -2,7 +2,7 @@
 
 **Duration:** 2–3 weeks
 **Status:** Active (Unit Testing & Template Conversions Complete; Integration & E2E Active)
-**Master plan:** [`Project_Plan.md`](Project_Plan.md)
+**Master plan:** [`Project_Plan.md`](../Project_Plan.md)
 **Predecessor:** [`Phase3.md`](Phase3.md)
 **Informed by:** [`Business_Idea_Assessment.md`](Business_Idea_Assessment.md)
 

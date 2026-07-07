@@ -256,13 +256,14 @@ Nothing is slow today at 77 tasks, but before scale:
 
 **P2 — product value (1–2 sprints)**
 8. 🟡 Execution history + failure status + (webhook) notifications. *(Run History tab ✅, durations ✅, red "Run failed" indicators ✅ — notifications still open. Note: Windows tasks only log runs triggered through TaskHub; agent-side result reporting for natively-scheduled Windows runs is still open.)*
-9. 🟡 Apply modal upgrades: name field ⬜, cron presets ✅ *(in the native New Task modal; not yet in Apply)*, human-readable/local-time preview ⬜, `\TaskHub\` folder targeting ⬜.
+9. 🟡 Apply modal upgrades: name field ⬜, cron presets ✅ *(in the New Task modal; not yet in Apply)*, human-readable/local-time preview ⬜, `\TaskHub\` folder targeting ✅ *(2026-07-07: agent registers all created tasks under `\TaskHub\`; applies to templates and the New Task modal alike)*.
 10. ⬜ Template library UI: category/OS filters, search, starter-vs-pattern grouping; parameterize the 4 Tier-B patterns.
 11. ⬜ Ship the **Developer Pack** templates (§7), flagship: Claude Code Headless Run.
 12. ⬜ Save-task-as-template.
 
 **New since analysis (not in original plan)**
 - ✅ **TaskHub-native tasks (Flavor B)** — backend scheduler + HTTP jobs + connector + create/delete + platform filter UI. See `docs/resources/Native_Tasks.md`. Follow-ups: `CLAUDE_PROMPT` job type, edit schedule for natives, Redis lock before multi-instance.
+- ✅ **Platform selector in New Task modal** (2026-07-07) — `CreateTaskModal` creates TaskHub-native *or* Windows tasks; Windows path uses real trigger conversion + live preview warnings and lands under `\TaskHub\`. Also fixed: `POST /api/tasks` (clone path) previously skipped trigger conversion → cloned Windows tasks ran at the wrong time. Found during E2E: agent-created tasks can't be deleted from a non-elevated shell (agent runs elevated) — one more reason to prioritize agent `task:delete` (§5-Agent).
 
 **P3 — expansion**
 13. ⬜ MCP server (list/run/create/convert). 14. 🟡 Settings page ⬜ + edit schedule ⬜ + delete task ✅ *(native tasks only)*. 15. ⬜ Frontend refactor (split Dashboard.tsx, router, toasts, modal a11y, mobile drawer). 16. ⬜ macOS agent. 17. ⬜ WiX installer.

@@ -38,8 +38,11 @@ import { TaskModal } from './components/TaskModal';
 import { ImportModal } from './components/ImportModal';
 import { TaskCard } from './components/TaskCard';
 import { ApplyTemplateModal } from './components/ApplyTemplateModal';
-import { CreateNativeTaskModal } from './components/CreateNativeTaskModal';
+import { CreateTaskModal } from './components/CreateTaskModal';
 import { platformLabel, platformBadgeClass } from './platform';
+
+// Loose shape for the untyped platform-metadata JSON blob on tasks.
+type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -290,8 +293,8 @@ const DashboardScreen = ({
 
   const scheduledTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
-      const aTime = (a.metadata as any)?.nextRunTime || (a.metadata as any)?.nextRun || a.updatedAt;
-      const bTime = (b.metadata as any)?.nextRunTime || (b.metadata as any)?.nextRun || b.updatedAt;
+      const aTime = (a.metadata as TaskMeta)?.nextRunTime || (a.metadata as TaskMeta)?.nextRun || a.updatedAt;
+      const bTime = (b.metadata as TaskMeta)?.nextRunTime || (b.metadata as TaskMeta)?.nextRun || b.updatedAt;
       return new Date(aTime).getTime() - new Date(bTime).getTime();
     });
   }, [filteredTasks]);
@@ -708,8 +711,8 @@ const DashboardScreen = ({
                   <p className="text-sm text-slate-500 italic">No scheduled tasks found in this category.</p>
                 ) : (
                   scheduledTasks.map(task => {
-                    const nextRun = (task.metadata as any)?.nextRunTime || (task.metadata as any)?.nextRun || null;
-                    const scheduleStr = task.schedule || (task.metadata as any)?.schedule || 'No direct schedule';
+                    const nextRun = (task.metadata as TaskMeta)?.nextRunTime || (task.metadata as TaskMeta)?.nextRun || null;
+                    const scheduleStr = task.schedule || (task.metadata as TaskMeta)?.schedule || 'No direct schedule';
                     return (
                       <div key={task.id} className="relative group">
                         {/* Timeline node */}
@@ -1175,7 +1178,7 @@ const Dashboard = () => {
         />
       )}
       {showCreateNative && (
-        <CreateNativeTaskModal
+        <CreateTaskModal
           onClose={() => setShowCreateNative(false)}
         />
       )}

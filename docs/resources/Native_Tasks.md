@@ -60,8 +60,12 @@ TaskHub is down, and re-implementing that reliability is out of scope (see analy
 - Native tasks carry a distinct violet **TASKHUB** badge (Windows stays blue).
 - The dashboard has a platform filter (All / per-platform chips) so native and Windows
   tasks can be isolated in one click; it composes with the category filter.
-- "New Task" button on the dashboard opens the native-task creation modal
-  (`CreateNativeTaskModal`): name, category, cron schedule, URL, method, optional body.
+- "New Task" button on the dashboard opens `CreateTaskModal` with a **platform
+  selector** (TaskHub / Windows). The TaskHub form takes name, category, cron
+  schedule, URL, method, optional body. The Windows form takes a command instead
+  and creates a real Task Scheduler task via the agent (cron converted to a
+  structured trigger with live warnings via `POST /api/tasks/preview`), registered
+  under the `\TaskHub\` scheduler folder so TaskHub-made tasks stay identifiable.
 - The task modal has a **Run History** tab (status pill, timestamp, duration, log snippet
   per run) and, for native tasks, a **Delete** button with confirmation.
 - Tasks whose most recent run failed show a red **"Run failed"** indicator on grid cards

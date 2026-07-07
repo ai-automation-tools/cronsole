@@ -173,6 +173,8 @@ Base URL: `http://localhost:3000`
 | `GET` | `/api/tasks` | List all tasks (newest-updated first) with a flattened last-run summary (`lastRunStatus`, `lastRunAt`, `lastRunDurationMs`). |
 | `POST` | `/api/tasks/:id/run` | Trigger a task (Windows tasks relay `task:run` to the agent; native tasks execute immediately). |
 | `GET` | `/api/tasks/:id/executions` | Last 20 execution-log entries for a task (status, log, duration). |
+| `POST` | `/api/tasks` | Create a task on a platform — `{ name, platform, category?, schedule, command }` (Windows: cron converted to a real trigger, registered under `\TaskHub\`). |
+| `POST` | `/api/tasks/preview` | Cron→trigger conversion preview — `{ score, warnings, trigger }` for a platform + schedule. |
 | `POST` | `/api/tasks/native` | Create a TaskHub-native task — `{ name, category?, schedule, job }`. |
 | `DELETE` | `/api/tasks/:id` | Delete a task (TaskHub-native only; synced tasks are rejected). |
 | `GET` | `/api/templates` | List templates (script starters + use-case patterns), upvotes-first. |

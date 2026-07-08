@@ -1,35 +1,87 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: `.dark` (or any element inside it) opts into dark tokens. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Neutral, brand-neutral theme tokens (no blue tint). The palette is monochrome:
+ * `primary` is near-white in dark / near-black in light, so filled accents invert
+ * cleanly between themes. Values are `H S% L%` triplets consumed via hsl().
+ */
+
+/* Default = dark, so the first paint before hydration matches TaskHub's default. */
 :root {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215.2 16.3% 46.9%;
-
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
-
+  --background: 0 0% 4%;
+  --surface: 0 0% 7%;
+  --muted: 0 0% 14%;
+  --border: 0 0% 17%;
+  --foreground: 0 0% 96%;
+  --muted-foreground: 0 0% 64%;
+  --subtle-foreground: 0 0% 45%;
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 262 84% 67%;
+  --success: 160 84% 39%;
+  --success-foreground: 0 0% 100%;
+  --success-hover: 158 74% 45%;
+  --ring: 262 83% 62%;
   --radius: 0.5rem;
+}
+
+.dark {
+  --background: 0 0% 4%;
+  --surface: 0 0% 7%;
+  --muted: 0 0% 14%;
+  --border: 0 0% 17%;
+  --foreground: 0 0% 96%;
+  --muted-foreground: 0 0% 64%;
+  --subtle-foreground: 0 0% 45%;
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 262 84% 67%;
+  --success: 160 84% 39%;
+  --success-foreground: 0 0% 100%;
+  --success-hover: 158 74% 45%;
+  --ring: 262 83% 62%;
+}
+
+.light {
+  --background: 0 0% 100%;
+  --surface: 0 0% 95%;
+  --muted: 0 0% 89%;
+  --border: 0 0% 85%;
+  --foreground: 0 0% 9%;
+  --muted-foreground: 0 0% 40%;
+  --subtle-foreground: 0 0% 52%;
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 262 72% 48%;
+  --success: 160 84% 34%;
+  --success-foreground: 0 0% 100%;
+  --success-hover: 161 84% 28%;
+  --ring: 262 83% 58%;
+}
+
+/*
+ * Expose tokens to Tailwind's utility generator (bg-*, text-*, border-*, ...).
+ * `inline` keeps the var() reference inside each utility so `.light` / `.dark`
+ * overrides take effect at runtime, and `/opacity` modifiers resolve via color-mix.
+ */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-surface: hsl(var(--surface));
+  --color-muted: hsl(var(--muted));
+  --color-border: hsl(var(--border));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-subtle-foreground: hsl(var(--subtle-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-hover: hsl(var(--primary-hover));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-success-hover: hsl(var(--success-hover));
+  --color-ring: hsl(var(--ring));
 }
 
 body {

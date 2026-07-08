@@ -41,12 +41,12 @@ describe('Sidebar Component', () => {
     const { rerender } = render(<Sidebar activeTab="dashboard" setActiveTab={setActiveTab} />);
 
     const dashboardBtn = screen.getByText('Dashboard').closest('button');
-    expect(dashboardBtn).toHaveClass('bg-blue-600/10');
+    expect(dashboardBtn).toHaveClass('bg-primary/10');
 
     rerender(<Sidebar activeTab="settings" setActiveTab={setActiveTab} />);
     const newDashboardBtn = screen.getByText('Dashboard').closest('button');
     const settingsBtn = screen.getByText('Settings').closest('button');
-    expect(newDashboardBtn).not.toHaveClass('bg-blue-600/10');
-    expect(settingsBtn).toHaveClass('bg-blue-600/10');
+    expect(newDashboardBtn).not.toHaveClass('bg-primary/10');
+    expect(settingsBtn).toHaveClass('bg-primary/10');
   });
 });

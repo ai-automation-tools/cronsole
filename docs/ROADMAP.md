@@ -10,7 +10,7 @@
 **Update rule:** when a task ships, move it to Completed with a date; when a material
 decision changes scope, edit the item here first, then implement.
 
-*Last updated: 2026-07-07 (added: go-public checklist — public repo + advertisable product).*
+*Last updated: 2026-07-07 (added: standard dark/light/system theme system; go-public checklist — public repo + advertisable product).*
 
 ---
 
@@ -33,6 +33,7 @@ decision changes scope, edit the item here first, then implement.
 - **Agent reconnect resilience**: 30s watchdog survives backend restarts and boot-order races; startup task registered with no 72h execution limit and safe re-publish. *(2026-07-07)*
 - **Platform selector in New Task modal**: create TaskHub-native *or* Windows tasks ad-hoc; Windows tasks land under the `\TaskHub\` scheduler folder; clone-flow trigger conversion fixed. *(2026-07-07)*
 - **Task search on the dashboard**: free-text search across name/category/path/command/schedule with multi-term narrowing, match counter, `/` shortcut, Esc-to-clear; composes with the category/platform/active filters and all four views. *(2026-07-07)*
+- **Standard dark/light/system theme system**: replaced the hardcoded blue-tinted palette with a neutral-surface semantic token set wired into Tailwind v4 (`@theme inline` + `.light`/`.dark` CSS-variable overrides). Added a `useTheme` hook (persists to `localStorage` `taskhub.theme`, follows the OS in *system* mode), a `ThemeToggle` (Light/Dark/System) in the sidebar, and a FOUC-preventing bootstrap in `index.html`. ~210 hardcoded `slate-*`/`blue-*`/`text-white` utility classes across 13 files migrated to `background`/`surface`/`muted`/`border`/`foreground`/`primary` tokens. Accent scheme: **violet** `primary` for primary actions (New Task, Sync Now, active tabs/chips) and **emerald** `success` for Run/execute buttons; native-task violet identity + red/green status colors retained. Neutral surfaces flip between light and dark; dark remains the default. *(2026-07-07)*
 - Docs restructure: post-reorg links fixed, .NET 10 alignment, contracts kept in sync with implementation.
 
 ---

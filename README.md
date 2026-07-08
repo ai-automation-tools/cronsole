@@ -1,13 +1,31 @@
-<h1 align="center">TaskHub</h1>
+<a id="readme-top"></a>
 
 <p align="center">
-  <em>One pane of glass for every scheduled task you own — Windows Task Scheduler, AI assistants, and cron alike.</em>
+  <a href="https://taskhub.mikesailab.com">
+    <img src="images/TaskHub-Images/logos/dark/landscape-01-command-grid.svg" alt="TaskHub — one control plane for scheduled tasks" width="720">
+  </a>
+</p>
+
+<p align="center">
+  <em>A single pane of glass for every scheduled task you own —<br>Windows Task Scheduler, AI assistants, and cron alike.</em>
+</p>
+
+<p align="center">
+  <a href="docs/README.md"><strong>Explore the docs »</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://taskhub.mikesailab.com">View Demo</a>
+  ·
+  <a href="https://github.com/michaelschecht/taskhub/issues">Report Bug</a>
+  ·
+  <a href="https://github.com/michaelschecht/taskhub/issues">Request Feature</a>
 </p>
 
 <p align="center">
   <a href="https://taskhub.mikesailab.com"><img src="https://img.shields.io/badge/Live_Demo-taskhub.mikesailab.com-2ea44f?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo"></a>
   <img src="https://img.shields.io/badge/status-MVP_Prototype-F59E0B?style=for-the-badge" alt="Status: MVP Prototype">
-  <a href="docs/"><img src="https://img.shields.io/badge/Docs-read_the_guides-8B5CF6?style=for-the-badge&logo=readthedocs&logoColor=white" alt="Documentation"></a>
+  <a href="docs/ROADMAP.md"><img src="https://img.shields.io/badge/plan-ROADMAP-8B5CF6?style=for-the-badge" alt="Roadmap"></a>
 </p>
 
 <p align="center">
@@ -21,7 +39,11 @@
 
 ---
 
-## ✨ What is TaskHub?
+<p align="center">
+  <img src="images/screenshots/dashboard.png" alt="TaskHub unified dashboard — dark theme with platform filters, categories, and grid/list/kanban/schedule views" width="900">
+</p>
+
+## 📌 About
 
 **TaskHub** is a unified scheduled-task manager — one dark-themed dashboard for viewing,
 triggering, and managing all the scheduled jobs that today live in disconnected silos.
@@ -32,61 +54,74 @@ with a click — including **from your phone**.
 TaskHub connects to:
 
 - **Windows Task Scheduler** — through a lightweight local agent that runs on your machine.
-- **TaskHub-native tasks** — HTTP jobs (webhooks, health checks) scheduled and run by
-  TaskHub itself, no OS entry required.
+- **TaskHub-native tasks** — HTTP jobs (webhooks, health checks) scheduled and run by TaskHub itself, no OS entry required.
 - **Claude Code Routines** — through the Anthropic API *(experimental)*.
 - **ChatGPT, Gemini, Jules, and others** — quick links to their native scheduling screens.
 
 > [!NOTE]
 > TaskHub is an early **MVP prototype**. The public site is a self-contained demo; the full
 > experience (live Windows sync, real triggering) runs locally today. See
-> [Live Demo](#-live-demo) and [Quick Start](#-quick-start) for the difference.
+> [Quick Start](#-quick-start) for the difference.
 
-### Why it exists
+**Why it exists:** no existing tool unifies AI-assistant schedulers with your operating
+system's scheduler. Desktop utilities are Windows-only or abandoned; heavyweight
+orchestrators (Airflow, n8n, Jenkins) are built for data engineers. TaskHub's angle is
+cross-domain unification, **mobile-first triggering**, and AI-native task creation.
 
-No existing tool unifies AI-assistant schedulers with your operating system's scheduler.
-Desktop utilities are Windows-only or abandoned; heavyweight orchestrators (Airflow, n8n,
-Jenkins) are built for data engineers, not for someone who just wants to **manage the
-schedules across the tools they already use**. TaskHub's angle is cross-domain
-unification, **mobile-first triggering** (phone-trigger a Windows task in under 30 seconds),
-and AI-native task creation.
-
-## 🚀 Live Demo
-
-**[taskhub.mikesailab.com](https://taskhub.mikesailab.com)** runs the full dashboard against
-built-in sample tasks, so you can explore the interface with zero setup.
-
-- It's a **frontend-only demo** — a stand-in for a real environment.
-- **"Run Now" is a no-op** in demo mode (it explains how to connect a real backend).
-- To use TaskHub for real, [set it up locally](docs/install/README.md) — the same UI then
-  reads live data from your own backend and Windows agent.
-
-## 📊 What you can do
+## 📊 Features
 
 | Capability | What it gives you |
 |:---|:---|
-| **Unified dashboard** | Every synced task in one dark-themed view, with platform and status badges, across grid / list / kanban / schedule layouts. |
-| **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or your phone — the request relays down to the agent on your machine. |
+| **Unified dashboard** | Every synced task in one view, with platform and status badges, across grid / list / kanban / schedule layouts. |
+| **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. |
 | **Live sync** | The local agent keeps TaskHub in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
 | **TaskHub-native tasks** | Create HTTP jobs (webhooks, health checks) that TaskHub schedules and runs itself — no OS task needed. |
-| **Template library** | A catalog of ready-to-use script starters and use-case patterns; fill in the blanks and TaskHub creates a real scheduled task for you. |
+| **Template library** | Ready-to-use script starters and use-case patterns; fill in the blanks and TaskHub creates a real scheduled task. |
 | **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
-| **Search & organize** | Free-text search plus categories to keep a big task list navigable. |
-| **Works on your phone** | Every screen is built to pass a `<375px` viewport — trigger a task in seconds from mobile. |
+| **Search & organize** | Free-text search plus local categories to keep a big task list navigable. |
+| **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
 
-### How it works
+<details>
+<summary><b>📸 More screenshots</b></summary>
+
+<br>
+
+**Template library** — parameterized script starters with cron schedules, applied straight to Windows Task Scheduler:
+
+<p align="center">
+  <img src="images/screenshots/templates.png" alt="TaskHub template library" width="850">
+</p>
+
+**Task detail** — status, category, platform metadata, run history, and one-click Run Now:
+
+<p align="center">
+  <img src="images/screenshots/task-detail.png" alt="TaskHub task detail modal" width="850">
+</p>
+
+**Light theme** — the same dashboard with the light variant toggled:
+
+<p align="center">
+  <img src="images/screenshots/dashboard-light.png" alt="TaskHub dashboard in light theme" width="850">
+</p>
+
+</details>
+
+## 🔍 How It Works
 
 TaskHub has three pieces. A small **agent** runs on your Windows machine and opens an
 outbound connection to the **backend** (it never accepts incoming connections). The agent
-pushes your Task Scheduler list up to the backend, which stores it and keeps a **web
+pushes your Task Scheduler list up to the backend, which stores it and keeps the **web
 dashboard** in sync. When you click **Run Now**, the dashboard tells the backend, and the
 backend relays the command back down to the agent — which runs the task locally. Schedules
 are normalized to standard cron internally and translated to each platform's native format,
 so what you see is consistent no matter where a task actually lives.
 
 > [!IMPORTANT]
-> Only the **frontend** is currently hosted (the public demo). The backend and Windows
-> agent run on **your** machine. Full setup lives in the [Installation guide](docs/install/README.md).
+> Only the **frontend** is currently hosted (the public demo, where "Run Now" is a no-op).
+> The backend and Windows agent run on **your** machine — full setup is in the
+> [Installation guide](docs/install/README.md).
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## ⚡ Quick Start
 
@@ -94,27 +129,34 @@ so what you see is consistent no matter where a task actually lives.
 > The fastest path is Docker Compose — it brings up the database, backend, and frontend
 > together. The Windows agent runs directly on your machine (see step 3).
 
-```bash
-# 1. Clone
-git clone https://github.com/michaelschecht/taskhub.git
-cd taskhub
+1. Clone the repo:
 
-# 2. Bring up the dev stack (Postgres + Redis + backend + frontend)
-docker compose up --build
-#    → frontend  http://localhost:5173
-#    → backend   http://localhost:3000   (GET /api/health to verify)
-```
+   ```bash
+   git clone https://github.com/michaelschecht/taskhub.git
+   cd taskhub
+   ```
 
-**3. Start the Windows agent** so your real Task Scheduler tasks appear. The agent must run
-on the Windows host (not in Docker) to reach the Task Scheduler. The one-command setup and
-the full-stack auto-start launcher are covered in the guides below:
+2. Bring up the dev stack (Postgres + Redis + backend + frontend):
 
-- 📖 **[Installation guide](docs/install/README.md)** — Windows, macOS, and clone-the-repo paths.
-- ⚙️ **[Setup & configuration](docs/setup/README.md)** — environment variables and options.
-- 🤖 **[Windows Agent Setup](docs/user-guides/Agent_Setup_Guide.md)** — install, register, run, troubleshoot.
+   ```bash
+   docker compose up --build
+   #   → frontend  http://localhost:5173
+   #   → backend   http://localhost:3000   (GET /api/health to verify)
+   ```
+
+3. Start the Windows agent so your real Task Scheduler tasks appear (PowerShell **as Administrator**; must run on the Windows host, not in Docker):
+
+   ```powershell
+   cd agent
+   Set-ExecutionPolicy Bypass -Scope Process -Force; .\setup-agent-startup.ps1
+   ```
+
+4. Open [localhost:5173](http://localhost:5173) — the **Windows Agent** status in the sidebar should read **Online** with your tasks imported.
 
 <details>
 <summary><b>Prefer to run each piece manually (no Docker)?</b></summary>
+
+<br>
 
 ```bash
 # Backend — needs a PostgreSQL 16 instance + DATABASE_URL in backend/.env
@@ -138,7 +180,9 @@ fixtures. See [Setup & configuration](docs/setup/README.md) for every option.
 
 </details>
 
-## 🧱 Tech Stack
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🧱 Built With
 
 | Layer | Technology |
 |:---|:---|
@@ -166,6 +210,8 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The most useful start
 TaskHub is a private MVP-stage repository. If you're working on it, start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CLAUDE.md`](CLAUDE.md), and track work on the
 [Roadmap](docs/ROADMAP.md). Recent changes are logged in [`CHANGELOG.md`](CHANGELOG.md).
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 

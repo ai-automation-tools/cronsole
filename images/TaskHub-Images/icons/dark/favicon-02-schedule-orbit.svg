@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">TaskHub Schedule Orbit favicon concept</title>
+  <desc id="desc">A square TaskHub icon with a scheduler clock, orbiting automation node, and central hub mark.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="72%">
+      <stop offset="0" stop-color="#1f2937"/>
+      <stop offset="0.54" stop-color="#0b0b0f"/>
+      <stop offset="1" stop-color="#050505"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="52" y1="42" x2="206" y2="216" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="0.58" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="url(#bg)"/>
+  <circle cx="128" cy="128" r="77" fill="#09090b" stroke="url(#ring)" stroke-width="12"/>
+  <path d="M128 73v22M128 161v22M73 128h22M161 128h22" stroke="#52525b" stroke-width="9" stroke-linecap="round"/>
+  <path d="M128 93v41l31 19" fill="none" stroke="#f4f4f5" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M65 85c28-35 80-48 122-24" fill="none" stroke="#10b981" stroke-width="10" stroke-linecap="round"/>
+  <path d="M190 173c-28 34-80 47-122 23" fill="none" stroke="#8b5cf6" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="190" cy="73" r="21" fill="#10b981"/>
+  <path d="M184 73l7 7 13-17" fill="none" stroke="#052e1a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="66" cy="183" r="17" fill="#8b5cf6"/>
+</svg>

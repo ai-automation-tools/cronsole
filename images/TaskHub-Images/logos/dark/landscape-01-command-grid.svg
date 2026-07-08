@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">TaskHub Command Grid landscape logo concept</title>
+  <desc id="desc">A wide TaskHub wordmark with a connected task grid icon for GitHub and website headers.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f0f12"/>
+      <stop offset="1" stop-color="#050505"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="78" y1="70" x2="286" y2="282" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" rx="40" fill="url(#bg)"/>
+  <rect x="72" y="72" width="216" height="216" rx="46" fill="#09090b" stroke="url(#accent)" stroke-width="8"/>
+  <path d="M128 132h104M128 180h104M128 228h104" stroke="#27272a" stroke-width="16" stroke-linecap="round"/>
+  <path d="M128 132h54M128 180h82M128 228h42" stroke="#8b5cf6" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="128" cy="132" r="18" fill="#10b981"/>
+  <circle cx="182" cy="132" r="15" fill="#a78bfa"/>
+  <circle cx="128" cy="180" r="18" fill="#10b981"/>
+  <circle cx="210" cy="180" r="15" fill="#a78bfa"/>
+  <circle cx="128" cy="228" r="18" fill="#10b981"/>
+  <circle cx="170" cy="228" r="15" fill="#a78bfa"/>
+  <path d="M200 238l22 22 43-58" fill="none" stroke="#ecfeff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="344" y="177" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">TaskHub</text>
+  <text x="350" y="232" fill="#a1a1aa" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">One control plane for scheduled tasks</text>
+  <g transform="translate(938 124)">
+    <rect x="0" y="0" width="172" height="112" rx="24" fill="#111113" stroke="#27272a" stroke-width="3"/>
+    <circle cx="42" cy="42" r="11" fill="#10b981"/>
+    <circle cx="86" cy="42" r="11" fill="#8b5cf6"/>
+    <circle cx="130" cy="42" r="11" fill="#71717a"/>
+    <path d="M36 76h100" stroke="#3f3f46" stroke-width="10" stroke-linecap="round"/>
+    <path d="M36 76h62" stroke="#10b981" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>

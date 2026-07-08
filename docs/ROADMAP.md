@@ -1,9 +1,9 @@
 # TaskHub Roadmap
 
 > The living plan for TaskHub — what's shipped and what's next, in priority order.
-> This replaces the phase-based planning docs, which are preserved in
-> [`archive/`](archive/) ([`Project_Plan.md`](archive/Project_Plan.md) +
-> [`phases/`](archive/phases/)) as the historical record of how the MVP was built.
+> This replaces the phase-based planning docs (the original `Project_Plan.md` and the
+> per-phase deep-dives), which are kept locally under `docs/archive/` as the historical
+> record of how the MVP was built — that folder is **not tracked in git**.
 > Detailed findings behind many open items live in the 2026-07-07 project analysis
 > (`.claude/temp/TaskHub_Analysis_2026-07-07.md`).
 
@@ -18,7 +18,7 @@ decision changes scope, edit the item here first, then implement.
 
 ### Foundation — MVP build-out (Phases 0–3, Jan–Jun 2026, archived)
 
-- Discovery, requirements, architecture, and competitive research ([`archive/phases/`](archive/phases/), [`research/`](research/)).
+- Discovery, requirements, architecture, and competitive research (archived locally under `docs/archive/`).
 - **Windows Task Scheduler end-to-end**: .NET agent ↔ Socket.io backend ↔ Prisma/Postgres ↔ React dashboard; manual run trigger; enable/disable.
 - **Dashboard UX**: dark theme, 4 view modes (grid/list/kanban/schedule), category chips with counts, selective import with local category overrides, task cloning, Help Center.
 - **Template library**: two-tier catalog (20 script starters + use-case patterns), Apply modal with `{{placeholder}}` parameters and client+server validation.
@@ -27,7 +27,7 @@ decision changes scope, edit the item here first, then implement.
 ### Reliability & product sprint (July 2026)
 
 - **Real cron→Windows-trigger conversion** wired end-to-end (apply route → structured `trigger` → agent `TriggerBuilder`), with preview endpoints and live confidence warnings. *(2026-07-07)*
-- **TaskHub-native tasks**: backend scheduler (30s tick, missed-run grace), HTTP job executor, connector, create/delete, violet identity + dashboard platform filter ([`resources/Native_Tasks.md`](resources/Native_Tasks.md)). *(2026-07-07)*
+- **TaskHub-native tasks**: backend scheduler (30s tick, missed-run grace), HTTP job executor, connector, create/delete, violet identity + dashboard platform filter (design doc archived locally under `docs/archive/specs/`). *(2026-07-07)*
 - **Run history & failure surfacing**: Run History tab (status, timestamp, duration, log snippet); red "Run failed" indicators on cards/list. *(2026-07-07)*
 - **Stale-task pruning on sync**: tasks deleted natively no longer linger in TaskHub. *(2026-07-07)*
 - **Agent reconnect resilience**: 30s watchdog survives backend restarts and boot-order races; startup task registered with no 72h execution limit and safe re-publish. *(2026-07-07)*
@@ -60,7 +60,7 @@ Nothing below ships to a public host until these are done (analysis §4):
 
 - [ ] **Failure notifications**: push on failed runs via ntfy/Discord webhook/email — the core "did my stuff run last night?" pain.
 - [ ] **Agent `task:delete`**: the one CRUD op fully missing (also needed because agent-created tasks require elevation to delete by hand).
-- [ ] **User resources & onboarding**: surface help content where users need it — link the existing guides ([`user-guides/UI_User_Guide.md`](user-guides/UI_User_Guide.md), [`user-guides/Agent_Setup_Guide.md`](user-guides/Agent_Setup_Guide.md)) and the template catalog spec ([`resources/Templates.md`](resources/Templates.md)) from the in-app Help Center; add a "getting started" walkthrough covering importing, categorizing, and managing tasks, and where to find/contribute templates.
+- [ ] **User resources & onboarding**: surface help content where users need it — link the existing guides ([`user-guides/UI_User_Guide.md`](user-guides/UI_User_Guide.md), [`user-guides/Agent_Setup_Guide.md`](user-guides/Agent_Setup_Guide.md)) and the template catalog spec ([`reports/templates/Templates.md`](reports/templates/Templates.md)) from the in-app Help Center; add a "getting started" walkthrough covering importing, categorizing, and managing tasks, and where to find/contribute templates.
 - [ ] **Apply modal upgrades**: task-name field (avoid duplicate-name collisions), cron preset chips, human-readable + local-time schedule preview.
 - [ ] **Template library UI**: category/OS filter chips, search, starter-vs-pattern grouping; parameterize the 4 Tier-B patterns; real (or removed) upvotes.
 - [ ] **Developer Pack templates** (analysis §7): git hygiene, build/test, dev-environment maintenance, monitoring glue — flagship: **Claude Code Headless Run**.

@@ -21,14 +21,14 @@ Build a modern, dark-themed web application that provides a **single pane of gla
 
 Includes quick links to native UIs, cross-platform schedule conversion templates (cron ↔ Windows trigger ↔ Claude routine), and **MCP-based AI integration** (Phase 6) so Claude / Codex / Cursor can create and run tasks via natural language.
 
-**Source of truth for the plan:** [`docs/ROADMAP.md`](docs/ROADMAP.md) — completed work plus prioritized open items (P0 security → P3 expansion). The original phase-based planning docs are archived under [`docs/archive/`](docs/archive/) for historical reference.
+**Source of truth for the plan:** [`docs/ROADMAP.md`](docs/ROADMAP.md) — completed work plus prioritized open items (P0 security → P3 expansion). The original phase-based planning docs, the engineering specs, and the research analyses are kept locally under `docs/archive/` (not tracked in git) for historical reference.
 
 ---
 
 ## 2. Current Status
 
 - **Plan management:** roadmap-driven (phases complete & archived). Open work is tracked in [`docs/ROADMAP.md`](docs/ROADMAP.md); the near-term focus is P0 security hardening and P1 correctness, with remaining QA (integration/E2E) folded into P1.
-- **Repo state:** Functional MVP prototype. Real-time sync between the .NET Windows Agent and the Node.js/Postgres backend is established, the frontend supports selective import plus local categorization, and the **template library** now ships a two-tier catalog (20 curated script starters + use-case patterns) with a working Apply modal that creates Windows tasks from parameterized `{{placeholder}}` commands. Catalog spec: [`docs/resources/Templates.md`](docs/resources/Templates.md).
+- **Repo state:** Functional MVP prototype. Real-time sync between the .NET Windows Agent and the Node.js/Postgres backend is established, the frontend supports selective import plus local categorization, and the **template library** now ships a two-tier catalog (20 curated script starters + use-case patterns) with a working Apply modal that creates Windows tasks from parameterized `{{placeholder}}` commands. Catalog spec: [`docs/reports/templates/Templates.md`](docs/reports/templates/Templates.md).
 - **MVP target platforms:** Windows Task Scheduler (Functional) + Claude Code Routines (Experimental connector scaffold; not yet production-ready).
 - **Out of scope for MVP:** Two-way sync, MCP creation, ChatGPT API integration, Open Claw / Hermes / Jules connectors.
 
@@ -59,14 +59,15 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 ```
 taskhub/
 ├── CLAUDE.md                  # this file
-├── docs/                      # planning & design docs (index: docs/README.md)
+├── docs/                      # all documentation (hub + folder READMEs; index: docs/README.md)
 │   ├── ROADMAP.md             # the living plan: completed + prioritized open work
-│   ├── archive/               # historical: Project_Plan.md + phases/Phase0–6.md
-│   ├── specs/                 # CONTRACTS.md, Test_Plan.md
-│   ├── research/              # business / competition / desirability analyses
-│   ├── resources/             # Templates.md, Native_Tasks.md, Platforms-Tab.md
+│   ├── install/               # Windows / macOS / clone-repo install paths
+│   ├── setup/                 # env vars & configuration (VITE_*, DATABASE_URL, pairing)
 │   ├── user-guides/           # Agent_Setup_Guide.md, UI_User_Guide.md
-│   └── api-examples/          # raw JSON request/response samples
+│   ├── agent-tools/           # dev tooling docs: mcp/, clis/, agents/
+│   ├── resources/             # curated external links: repos/, websites/
+│   ├── reports/               # templates/ (catalog spec) + examples/ (JSON payloads)
+│   └── archive/               # LOCAL-ONLY (gitignored): specs/, research/, phases/, Project_Plan.md
 ├── backend/                   # Node.js + Express + Prisma (Phase 3)
 │   ├── prisma/
 │   ├── src/
@@ -100,9 +101,9 @@ taskhub/
 The phase lifecycle (0–6) is complete and archived. Planning now runs through a single living document:
 
 - **[`docs/ROADMAP.md`](docs/ROADMAP.md)** — completed work (dated) + open items in priority order: P0 security → P1 correctness → P2 product value → P3 expansion, plus open decisions and strategy guardrails.
-- **[`docs/archive/`](docs/archive/)** — the original `Project_Plan.md` and `phases/Phase0–6.md`, kept as the historical record of the MVP build. Don't update these; they're frozen.
+- **`docs/archive/`** (local-only, not tracked in git) — the original `Project_Plan.md`, `phases/Phase0–6.md`, the engineering specs (`specs/CONTRACTS.md`, `Test_Plan.md`, `Native_Tasks.md`, `Platforms-Tab.md`), and the `research/` analyses, kept as the historical record of the MVP build. Don't update these; they're frozen.
 
-**When making material decisions** (e.g., choosing a connector pattern, redesigning the schema, changing the agent protocol), update `docs/ROADMAP.md` and the relevant spec doc (`docs/specs/`, `docs/resources/`) — the docs are the spec, not an artifact.
+**When making material decisions** (e.g., choosing a connector pattern, redesigning the schema, changing the agent protocol), update `docs/ROADMAP.md` — it's the spec of record. The detailed contracts in `docs/archive/specs/` are kept locally for reference.
 
 ---
 

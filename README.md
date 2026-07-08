@@ -39,9 +39,23 @@
 
 ---
 
+<details>
+<summary><b>📸 Screenshots</b> — dashboard, templates, modals, views, and themes</summary>
+
+<br>
+
 <p align="center">
   <img src="images/screenshots/dashboard.png" alt="TaskHub unified dashboard — dark theme with platform filters, categories, and grid/list/kanban/schedule views" width="900">
 </p>
+
+| | |
+|:---:|:---:|
+| <img src="images/screenshots/templates.png" alt="TaskHub template library"><br><sub><b>Template library</b> — parameterized script starters</sub> | <img src="images/screenshots/apply-template-modal.png" alt="Apply Template modal"><br><sub><b>Apply Template</b> — fill in the blanks, get a real task</sub> |
+| <img src="images/screenshots/task-detail.png" alt="TaskHub task detail modal"><br><sub><b>Task detail</b> — metadata, run history, Run Now</sub> | <img src="images/screenshots/new-task-modal.png" alt="New Task modal"><br><sub><b>New Task</b> — TaskHub-native or Windows, with cron presets</sub> |
+| <img src="images/screenshots/list-view.png" alt="TaskHub list view"><br><sub><b>List view</b> — sortable columns and quick actions</sub> | <img src="images/screenshots/kanban-view.png" alt="TaskHub kanban view"><br><sub><b>Kanban view</b> — tasks grouped by status</sub> |
+| <img src="images/screenshots/schedule-view.png" alt="TaskHub schedule view"><br><sub><b>Schedule view</b> — chronological by next run</sub> | <img src="images/screenshots/dashboard-light.png" alt="TaskHub dashboard in light theme"><br><sub><b>Light theme</b> — the same dashboard, light variant</sub> |
+
+</details>
 
 ## 📌 About
 
@@ -80,20 +94,6 @@ cross-domain unification, **mobile-first triggering**, and AI-native task creati
 | **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
 | **Search & organize** | Free-text search plus local categories to keep a big task list navigable. |
 | **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
-
-<details>
-<summary><b>📸 More screenshots</b> — templates, modals, views, and themes</summary>
-
-<br>
-
-| | |
-|:---:|:---:|
-| <img src="images/screenshots/templates.png" alt="TaskHub template library"><br><sub><b>Template library</b> — parameterized script starters</sub> | <img src="images/screenshots/apply-template-modal.png" alt="Apply Template modal"><br><sub><b>Apply Template</b> — fill in the blanks, get a real task</sub> |
-| <img src="images/screenshots/task-detail.png" alt="TaskHub task detail modal"><br><sub><b>Task detail</b> — metadata, run history, Run Now</sub> | <img src="images/screenshots/new-task-modal.png" alt="New Task modal"><br><sub><b>New Task</b> — TaskHub-native or Windows, with cron presets</sub> |
-| <img src="images/screenshots/list-view.png" alt="TaskHub list view"><br><sub><b>List view</b> — sortable columns and quick actions</sub> | <img src="images/screenshots/kanban-view.png" alt="TaskHub kanban view"><br><sub><b>Kanban view</b> — tasks grouped by status</sub> |
-| <img src="images/screenshots/schedule-view.png" alt="TaskHub schedule view"><br><sub><b>Schedule view</b> — chronological by next run</sub> | <img src="images/screenshots/dashboard-light.png" alt="TaskHub dashboard in light theme"><br><sub><b>Light theme</b> — the same dashboard, light variant</sub> |
-
-</details>
 
 ## 🔍 How It Works
 

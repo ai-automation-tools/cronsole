@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Dashboard from './Dashboard.tsx'
 import BackendStatusBanner from './components/BackendStatusBanner.tsx'
-import { ToastProvider } from './hooks/useToast.tsx'
+import { ToastProvider } from './hooks/ToastProvider.tsx'
 import './index.css'
 
 const queryClient = new QueryClient()

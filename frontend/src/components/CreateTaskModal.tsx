@@ -43,7 +43,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   // Full class names so Tailwind's compiler sees them (no template interpolation).
-  const focusAccent = isWindows ? 'focus:border-blue-500' : 'focus:border-violet-500';
+  const focusAccent = isWindows ? 'focus:border-primary' : 'focus:border-violet-500';
 
   const selectPlatform = (p: CreatePlatform) => {
     setPlatform(p);
@@ -115,7 +115,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
     <button
       onClick={() => selectPlatform(p)}
       className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold border transition-all ${
-        platform === p ? active : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'
+        platform === p ? active : 'bg-background border-border text-subtle-foreground hover:border-foreground/30'
       }`}
     >
       <Icon size={15} /> {label}
@@ -124,62 +124,62 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        <header className="p-6 border-b border-slate-800 flex justify-between items-start bg-slate-900/50">
+      <div className="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
-            <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-blue-400' : 'text-violet-400'}`}>
+            <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : 'text-violet-400'}`}>
               {isWindows ? <Monitor size={11} /> : <Zap size={11} />}
               {isWindows ? 'Windows Task Scheduler' : 'TaskHub-native task'}
             </p>
             <h2 className="text-xl font-bold">New Task</h2>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+            <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               {isWindows
                 ? 'Registered as a real Windows scheduled task via the local agent — survives reboots, runs even when TaskHub is down.'
                 : 'Scheduled and executed by TaskHub itself — nothing is created in Windows Task Scheduler.'}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-500 transition-colors shrink-0">
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
             <XCircle size={20} />
           </button>
         </header>
 
         <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Platform</label>
+            <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Platform</label>
             <div className="flex gap-2">
               {platformButton('TASKHUB_NATIVE', 'TaskHub', Zap, 'bg-violet-600/10 border-violet-500/40 text-violet-300')}
-              {platformButton('WINDOWS_TASK_SCHEDULER', 'Windows', Monitor, 'bg-blue-600/10 border-blue-500/40 text-blue-300')}
+              {platformButton('WINDOWS_TASK_SCHEDULER', 'Windows', Monitor, 'bg-primary/10 border-primary/40 text-foreground')}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Name <span className="text-red-400">*</span></label>
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Name <span className="text-red-400">*</span></label>
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder={isWindows ? 'Nightly repo backup' : 'Ping n8n webhook'}
-                className={`w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none transition-colors ${focusAccent}`}
+                className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors ${focusAccent}`}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Category</label>
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Category</label>
               <input
                 value={category}
                 onChange={e => setCategory(e.target.value)}
-                className={`w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none transition-colors ${focusAccent}`}
+                className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors ${focusAccent}`}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Clock size={11} /> Schedule (cron · UTC) <span className="text-red-400">*</span>
             </label>
             <input
               value={schedule}
               onChange={e => setSchedule(e.target.value)}
-              className={`w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-mono outline-none transition-colors ${isWindows ? 'text-blue-300 focus:border-blue-500' : 'text-violet-300 focus:border-violet-500'}`}
+              className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono outline-none transition-colors ${isWindows ? 'text-foreground focus:border-primary' : 'text-violet-300 focus:border-violet-500'}`}
             />
             <div className="flex flex-wrap gap-1.5">
               {CRON_PRESETS.map(p => (
@@ -189,9 +189,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                   className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
                     schedule === p.cron
                       ? isWindows
-                        ? 'bg-blue-600 border-blue-500 text-white'
+                        ? 'bg-primary border-primary text-primary-foreground'
                         : 'bg-violet-600 border-violet-500 text-white'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'
+                      : 'bg-background border-border text-muted-foreground hover:border-foreground/30'
                   }`}
                 >
                   {p.label}
@@ -215,7 +215,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
           {isWindows ? (
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Terminal size={11} /> Command <span className="text-red-400">*</span>
               </label>
               <textarea
@@ -223,19 +223,19 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                 onChange={e => setCommand(e.target.value)}
                 rows={2}
                 placeholder='powershell -File "D:\scripts\backup.ps1"'
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono text-slate-200 outline-none focus:border-blue-500 transition-colors resize-y"
+                className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-primary transition-colors resize-y"
               />
-              <p className="text-[10px] text-slate-600 italic">Runs via <span className="font-mono">cmd.exe /c</span> as your user with highest privileges.</p>
+              <p className="text-[10px] text-subtle-foreground italic">Runs via <span className="font-mono">cmd.exe /c</span> as your user with highest privileges.</p>
             </div>
           ) : (
             <>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">HTTP request <span className="text-red-400">*</span></label>
+                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">HTTP request <span className="text-red-400">*</span></label>
                 <div className="flex gap-2">
                   <select
                     value={method}
                     onChange={e => setMethod(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-violet-500 transition-colors"
+                    className="bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-violet-500 transition-colors"
                   >
                     {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
@@ -243,7 +243,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                     value={url}
                     onChange={e => setUrl(e.target.value)}
                     placeholder="https://…"
-                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-mono text-slate-200 outline-none focus:border-violet-500 transition-colors"
+                    className="flex-1 bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-violet-500 transition-colors"
                   />
                 </div>
                 {url.trim() && !validUrl && (
@@ -253,21 +253,21 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
               {method !== 'GET' && method !== 'HEAD' && (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Request body (optional)</label>
+                  <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Request body (optional)</label>
                   <textarea
                     value={body}
                     onChange={e => setBody(e.target.value)}
                     rows={3}
                     placeholder='{"message": "hello"}'
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono text-slate-200 outline-none focus:border-violet-500 transition-colors resize-y"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-violet-500 transition-colors resize-y"
                   />
                 </div>
               )}
             </>
           )}
 
-          <div className="text-[11px] text-slate-500 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 flex items-start gap-2">
-            <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-blue-400' : 'text-violet-400'}`} />
+          <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-start gap-2">
+            <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : 'text-violet-400'}`} />
             <span>
               {isWindows
                 ? 'Created under the \\TaskHub\\ folder in Task Scheduler, so TaskHub-made tasks stay identifiable. Requires the Windows agent to be online.'
@@ -276,20 +276,20 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           </div>
 
           {DEMO_MODE && (
-            <div className="text-[11px] text-slate-500 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 flex items-center gap-2">
-              <Info size={13} className="text-blue-500 shrink-0" /> Demo mode — creation is simulated.
+            <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-center gap-2">
+              <Info size={13} className="text-foreground shrink-0" /> Demo mode — creation is simulated.
             </div>
           )}
         </div>
 
-        <footer className="p-6 bg-slate-950 border-t border-slate-800 flex gap-4">
-          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors">Cancel</button>
+        <footer className="p-6 bg-background border-t border-border flex gap-4">
+          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-subtle-foreground hover:text-foreground transition-colors">Cancel</button>
           <button
             onClick={() => createMutation.mutate()}
             disabled={!canCreate}
             className={`flex-[2] py-3 rounded-2xl font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
               isWindows
-                ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20'
+                ? 'bg-primary hover:bg-primary-hover shadow-primary/20'
                 : 'bg-violet-600 hover:bg-violet-500 shadow-violet-600/20'
             }`}
           >

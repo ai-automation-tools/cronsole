@@ -330,8 +330,8 @@ const DashboardScreen = ({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <Loader2 className="animate-spin text-blue-500" size={48} />
-        <p className="text-slate-500 font-medium animate-pulse">Fetching live tasks from agent...</p>
+        <Loader2 className="animate-spin text-foreground" size={48} />
+        <p className="text-subtle-foreground font-medium animate-pulse">Fetching live tasks from agent...</p>
       </div>
     );
   }
@@ -341,21 +341,21 @@ const DashboardScreen = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {DEMO_MODE && (
-        <div className="flex items-start gap-3 rounded-2xl border border-blue-500/30 bg-blue-600/10 p-4 text-sm">
-          <Info size={18} className="mt-0.5 flex-shrink-0 text-blue-400" />
-          <p className="text-slate-300"><span className="font-semibold text-blue-300">Demo data.</span> You're viewing a live demo. <a href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline underline-offset-2 hover:text-blue-300">Run it locally</a> with the backend.</p>
+        <div className="flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">
+          <Info size={18} className="mt-0.5 flex-shrink-0 text-foreground" />
+          <p className="text-foreground"><span className="font-semibold text-foreground">Demo data.</span> You're viewing a live demo. <a href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2 hover:text-foreground">Run it locally</a> with the backend.</p>
         </div>
       )}
       
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1">Unified Task Dashboard</h2>
-          <p className="text-slate-400">Manage {tasks?.length || 0} tasks across your ecosystem.</p>
+          <p className="text-muted-foreground">Manage {tasks?.length || 0} tasks across your ecosystem.</p>
         </div>
         <div className="flex flex-wrap gap-2.5">
           <button 
             onClick={onShowHelp}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-900 border border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white transition-all flex items-center gap-2 active:scale-95 shadow-md font-bold"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-surface border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all flex items-center gap-2 active:scale-95 shadow-md font-bold"
           >
             <HelpCircle size={16} /> Help Center
           </button>
@@ -365,8 +365,8 @@ const DashboardScreen = ({
               onClick={() => setShowDisabled(!showDisabled)} 
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border ${
                 showDisabled 
-                  ? 'bg-blue-600/10 border-blue-500/50 text-blue-400' 
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                  ? 'bg-primary/10 border-primary/50 text-foreground' 
+                  : 'bg-surface border-border text-muted-foreground hover:border-foreground/20'
               }`}
             >
               {showDisabled ? <Eye size={16} /> : <EyeOff size={16} />}
@@ -382,22 +382,22 @@ const DashboardScreen = ({
             <Zap size={16} /> New Task
           </button>
 
-          <button onClick={() => refetch()} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
+          <button onClick={() => refetch()} className="bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-primary/20 active:scale-95">
             <RefreshCw size={16} /> Sync Now
           </button>
         </div>
       </div>
 
       {isEmpty ? (
-        <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-slate-800 rounded-3xl p-10 text-center">
-           <Activity size={48} className="text-slate-700 mb-4 animate-pulse" />
-           <h3 className="text-xl font-bold text-slate-300">Dashboard is empty</h3>
-           <p className="text-slate-500 max-w-sm mt-2 mb-6">
+        <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
+           <Activity size={48} className="text-subtle-foreground mb-4 animate-pulse" />
+           <h3 className="text-xl font-bold text-foreground">Dashboard is empty</h3>
+           <p className="text-subtle-foreground max-w-sm mt-2 mb-6">
               Connect systems and perform your first sync to discover and monitor scheduled tasks.
            </p>
            <button 
              onClick={() => refetch()}
-             className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+             className="bg-primary hover:bg-primary-hover px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 transition-all active:scale-95"
            >
              Sync Tasks Now
            </button>
@@ -405,21 +405,21 @@ const DashboardScreen = ({
       ) : (
         <>
           {/* Category Tabs & Views */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-900">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground pointer-events-none" />
                 <input
                   ref={searchInputRef}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search tasks…  /"
-                  className="w-44 focus:w-60 bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-7 py-1.5 text-xs font-medium text-slate-200 placeholder:text-slate-600 outline-none focus:border-blue-500 transition-all shadow-md"
+                  className="w-44 focus:w-60 bg-surface border border-border rounded-xl pl-8 pr-7 py-1.5 text-xs font-medium text-foreground placeholder:text-subtle-foreground outline-none focus:border-primary transition-all shadow-md"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-subtle-foreground hover:text-foreground transition-colors"
                     title="Clear search (Esc)"
                   >
                     <X size={13} />
@@ -427,7 +427,7 @@ const DashboardScreen = ({
                 )}
               </div>
               {searchQuery.trim() && (
-                <span className="text-[10px] font-bold text-slate-500 px-1">
+                <span className="text-[10px] font-bold text-subtle-foreground px-1">
                   {filteredTasks.length} match{filteredTasks.length === 1 ? '' : 'es'}
                 </span>
               )}
@@ -437,13 +437,13 @@ const DashboardScreen = ({
                   onClick={() => setSelectedTaskCategory(cat)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
                     selectedCategory === cat 
-                      ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' 
-                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                      ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20' 
+                      : 'bg-surface border-border text-muted-foreground hover:border-foreground/20'
                   }`}
                 >
                   {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
                   {cat}
-                  <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                  <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>
                     {cat === 'All' ? tasks?.length : tasks?.filter(t => (t.category || 'Uncategorized') === cat).length}
                   </span>
                 </button>
@@ -453,10 +453,10 @@ const DashboardScreen = ({
             <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
             {/* Platform Isolation Filter */}
             {platforms.length > 1 && (
-              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl items-center shadow-md">
+              <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md">
                 <button
                   onClick={() => setSelectedPlatform('All')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPlatform === 'All' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPlatform === 'All' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   All
                 </button>
@@ -466,13 +466,13 @@ const DashboardScreen = ({
                     onClick={() => setSelectedPlatform(p)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                       selectedPlatform === p
-                        ? p === 'TASKHUB_NATIVE' ? 'bg-violet-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? p === 'TASKHUB_NATIVE' ? 'bg-violet-600 text-white' : 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {p === 'TASKHUB_NATIVE' && <Zap size={11} />}
                     {platformLabel(p)}
-                    <span className={`px-1 py-0.5 rounded text-[9px] ${selectedPlatform === p ? 'bg-black/20' : 'bg-slate-800 text-slate-500'}`}>
+                    <span className={`px-1 py-0.5 rounded text-[9px] ${selectedPlatform === p ? 'bg-black/20' : 'bg-muted text-subtle-foreground'}`}>
                       {tasks?.filter(t => t.platform === p).length}
                     </span>
                   </button>
@@ -481,28 +481,28 @@ const DashboardScreen = ({
             )}
 
             {/* View Mode Toggle */}
-            <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl items-center shadow-md shrink-0">
+            <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md shrink-0">
               <button 
                 onClick={() => setViewMode('grid')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <Grid size={12} /> Grid
               </button>
               <button 
                 onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <List size={12} /> List
               </button>
               <button 
                 onClick={() => setViewMode('kanban')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'kanban' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <Columns size={12} /> Kanban
               </button>
               <button
                 onClick={() => setViewMode('schedule')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'schedule' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'schedule' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <Calendar size={12} /> Schedule
               </button>
@@ -514,13 +514,13 @@ const DashboardScreen = ({
           {viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
               {filteredTasks.length === 0 ? (
-                <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-slate-500">
+                <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-3xl text-subtle-foreground">
                    <Tag size={48} className="mb-4 opacity-20" />
                    <p className="font-bold">No tasks found</p>
                    {searchQuery.trim() && (
                      <button
                        onClick={() => setSearchQuery('')}
-                       className="mt-4 text-blue-400 hover:text-blue-300 text-sm font-bold underline underline-offset-4"
+                       className="mt-4 text-foreground hover:text-foreground text-sm font-bold underline underline-offset-4"
                      >
                        Clear search "{searchQuery.trim()}"
                      </button>
@@ -528,7 +528,7 @@ const DashboardScreen = ({
                    {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
                      <button 
                        onClick={() => setShowDisabled(true)}
-                       className="mt-4 text-blue-400 hover:text-blue-300 text-sm font-bold underline underline-offset-4"
+                       className="mt-4 text-foreground hover:text-foreground text-sm font-bold underline underline-offset-4"
                      >
                        Show disabled tasks in this category
                      </button>
@@ -551,11 +551,11 @@ const DashboardScreen = ({
 
           {/* List View */}
           {viewMode === 'list' && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl pb-4">
+            <div className="bg-surface border border-border rounded-3xl overflow-hidden shadow-2xl pb-4">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-800/80 text-[10px] uppercase font-black text-slate-500 tracking-wider bg-slate-950/20">
+                    <tr className="border-b border-border/80 text-[10px] uppercase font-black text-subtle-foreground tracking-wider bg-background/20">
                       <th className="py-4 px-6">Name</th>
                       <th className="py-4 px-4">Platform</th>
                       <th className="py-4 px-4">Category</th>
@@ -564,10 +564,10 @@ const DashboardScreen = ({
                       <th className="py-4 px-4">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/50 text-sm">
+                  <tbody className="divide-y divide-border/50 text-sm">
                     {filteredTasks.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-slate-500 font-medium italic">
+                        <td colSpan={6} className="text-center py-12 text-subtle-foreground font-medium italic">
                           No tasks match the active filters.
                         </td>
                       </tr>
@@ -575,13 +575,13 @@ const DashboardScreen = ({
                       filteredTasks.map(task => (
                         <tr 
                           key={task.id} 
-                          className="hover:bg-slate-900/50 transition-colors group cursor-pointer"
+                          className="hover:bg-surface/50 transition-colors group cursor-pointer"
                           onClick={() => onTaskSelect(task)}
                         >
-                          <td className="py-4 px-6 font-bold text-slate-200 group-hover:text-blue-400 transition-colors">
+                          <td className="py-4 px-6 font-bold text-foreground group-hover:text-foreground transition-colors">
                             <div>
                               <span className="block truncate max-w-[240px]">{task.name}</span>
-                              <span className="block text-[10px] text-slate-500 font-mono font-normal truncate max-w-[240px] mt-0.5">{task.externalId}</span>
+                              <span className="block text-[10px] text-subtle-foreground font-mono font-normal truncate max-w-[240px] mt-0.5">{task.externalId}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
@@ -590,14 +590,14 @@ const DashboardScreen = ({
                             </span>
                           </td>
                           <td className="py-4 px-4">
-                            <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-                              <Folder size={12} className="text-slate-500" /> {task.category || 'Uncategorized'}
+                            <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                              <Folder size={12} className="text-subtle-foreground" /> {task.category || 'Uncategorized'}
                             </span>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-[10px] font-bold text-slate-400">
-                                <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-slate-600'}`}></span>
+                              <span className="inline-flex items-center gap-1.5 bg-background px-2 py-1 rounded-lg border border-border text-[10px] font-bold text-muted-foreground">
+                                <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-muted'}`}></span>
                                 {task.status}
                               </span>
                               {task.lastRunStatus === 'FAILURE' && (
@@ -607,21 +607,21 @@ const DashboardScreen = ({
                               )}
                             </div>
                           </td>
-                          <td className="py-4 px-4 text-xs text-slate-400 font-mono">
+                          <td className="py-4 px-4 text-xs text-muted-foreground font-mono">
                             {new Date(task.updatedAt).toLocaleTimeString()}
                           </td>
                           <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
                             <div className="flex gap-2">
                               <button 
                                 onClick={() => onClone(task)} 
-                                className="bg-slate-855 hover:bg-slate-800 hover:text-blue-400 p-2 rounded-lg text-slate-450 border border-slate-800 transition-all active:scale-90"
+                                className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground border border-border transition-all active:scale-90"
                                 title="Clone Task"
                               >
                                 <CopyPlus size={16} />
                               </button>
                               <button 
                                 onClick={() => onRun(task)} 
-                                className="bg-blue-600 hover:bg-blue-500 p-2 rounded-lg text-white shadow-lg shadow-blue-600/20 transition-all active:scale-90"
+                                className="bg-success hover:bg-success-hover p-2 rounded-lg text-success-foreground shadow-lg shadow-success/20 transition-all active:scale-90"
                                 title="Run Task"
                               >
                                 <Play size={16} fill="currentColor" />
@@ -641,51 +641,51 @@ const DashboardScreen = ({
           {viewMode === 'kanban' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
               {/* Active Column */}
-              <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-5 flex flex-col space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-850 pb-3">
+              <div className="bg-surface/40 border border-border/80 rounded-3xl p-5 flex flex-col space-y-4">
+                <div className="flex items-center justify-between border-b border-border pb-3">
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                    <h3 className="font-bold text-sm tracking-wide text-slate-200 uppercase">Active Tasks</h3>
+                    <h3 className="font-bold text-sm tracking-wide text-foreground uppercase">Active Tasks</h3>
                   </div>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded-md border border-slate-850 text-xs font-bold text-slate-400">
+                  <span className="bg-background px-2 py-0.5 rounded-md border border-border text-xs font-bold text-muted-foreground">
                     {filteredTasks.filter(t => t.status === 'ACTIVE').length}
                   </span>
                 </div>
                 
                 <div className="flex-1 space-y-3 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1">
                   {filteredTasks.filter(t => t.status === 'ACTIVE').length === 0 ? (
-                    <p className="text-xs text-slate-500 italic text-center py-10">No active tasks in this category.</p>
+                    <p className="text-xs text-subtle-foreground italic text-center py-10">No active tasks in this category.</p>
                   ) : (
                     filteredTasks.filter(t => t.status === 'ACTIVE').map(task => (
                       <div 
                         key={task.id} 
                         onClick={() => onTaskSelect(task)}
-                        className="bg-slate-955 border border-slate-850 hover:border-blue-500/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg"
+                        className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg"
                       >
                         <div className="flex justify-between items-start">
                           <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                             {platformLabel(task.platform)}
                           </span>
-                          <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
+                          <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
                             <Folder size={10} /> {task.category || 'Uncategorized'}
                           </span>
                         </div>
-                        <h4 className="font-bold text-slate-200 text-sm truncate">{task.name}</h4>
-                        <div className="flex items-center justify-between border-t border-slate-900 pt-2 mt-1">
-                          <span className="text-[9px] text-slate-500 font-mono">
+                        <h4 className="font-bold text-foreground text-sm truncate">{task.name}</h4>
+                        <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
+                          <span className="text-[9px] text-subtle-foreground font-mono">
                             {new Date(task.updatedAt).toLocaleTimeString()}
                           </span>
                           <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
                             <button 
                               onClick={() => onClone(task)} 
-                              className="p-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all"
+                              className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
                               title="Clone Task"
                             >
                               <CopyPlus size={12} />
                             </button>
                             <button 
                               onClick={() => onRun(task)} 
-                              className="p-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-600/10"
+                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10"
                               title="Run Task"
                             >
                               <Play size={12} fill="currentColor" />
@@ -699,51 +699,51 @@ const DashboardScreen = ({
               </div>
 
               {/* Disabled Column */}
-              <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-5 flex flex-col space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-850 pb-3">
+              <div className="bg-surface/40 border border-border/80 rounded-3xl p-5 flex flex-col space-y-4">
+                <div className="flex items-center justify-between border-b border-border pb-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-slate-500"></div>
-                    <h3 className="font-bold text-sm tracking-wide text-slate-400 uppercase">Disabled Tasks</h3>
+                    <div className="h-2 w-2 rounded-full bg-muted"></div>
+                    <h3 className="font-bold text-sm tracking-wide text-muted-foreground uppercase">Disabled Tasks</h3>
                   </div>
-                  <span className="bg-slate-950 px-2 py-0.5 rounded-md border border-slate-850 text-xs font-bold text-slate-450">
+                  <span className="bg-background px-2 py-0.5 rounded-md border border-border text-xs font-bold text-muted-foreground">
                     {filteredTasks.filter(t => t.status !== 'ACTIVE').length}
                   </span>
                 </div>
                 
                 <div className="flex-1 space-y-3 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1">
                   {filteredTasks.filter(t => t.status !== 'ACTIVE').length === 0 ? (
-                    <p className="text-xs text-slate-500 italic text-center py-10">No disabled tasks in this category.</p>
+                    <p className="text-xs text-subtle-foreground italic text-center py-10">No disabled tasks in this category.</p>
                   ) : (
                     filteredTasks.filter(t => t.status !== 'ACTIVE').map(task => (
                       <div 
                         key={task.id} 
                         onClick={() => onTaskSelect(task)}
-                        className="bg-slate-955 border border-slate-850 hover:border-blue-500/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg opacity-60 hover:opacity-100"
+                        className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg opacity-60 hover:opacity-100"
                       >
                         <div className="flex justify-between items-start">
                           <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                             {platformLabel(task.platform)}
                           </span>
-                          <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
+                          <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
                             <Folder size={10} /> {task.category || 'Uncategorized'}
                           </span>
                         </div>
-                        <h4 className="font-bold text-slate-350 text-sm truncate">{task.name}</h4>
-                        <div className="flex items-center justify-between border-t border-slate-900 pt-2 mt-1">
-                          <span className="text-[9px] text-slate-500 font-mono">
+                        <h4 className="font-bold text-muted-foreground text-sm truncate">{task.name}</h4>
+                        <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
+                          <span className="text-[9px] text-subtle-foreground font-mono">
                             {new Date(task.updatedAt).toLocaleTimeString()}
                           </span>
                           <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
                             <button 
                               onClick={() => onClone(task)} 
-                              className="p-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all"
+                              className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
                               title="Clone Task"
                             >
                               <CopyPlus size={12} />
                             </button>
                             <button 
                               onClick={() => onRun(task)} 
-                              className="p-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-600/10"
+                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10"
                               title="Run Task"
                             >
                               <Play size={12} fill="currentColor" />
@@ -761,14 +761,14 @@ const DashboardScreen = ({
           {/* Schedule View */}
           {viewMode === 'schedule' && (
             <div className="space-y-4 pb-20">
-              <div className="bg-slate-900/30 border border-slate-800 p-4 rounded-2xl text-xs text-slate-400 flex items-center gap-2 max-w-xl">
-                <Info size={16} className="text-blue-400 shrink-0" />
+              <div className="bg-surface/30 border border-border p-4 rounded-2xl text-xs text-muted-foreground flex items-center gap-2 max-w-xl">
+                <Info size={16} className="text-foreground shrink-0" />
                 This view orders tasks chronologically based on their next scheduled run or last update time.
               </div>
               
-              <div className="relative border-l border-slate-800 ml-4 pl-6 space-y-6">
+              <div className="relative border-l border-border ml-4 pl-6 space-y-6">
                 {scheduledTasks.length === 0 ? (
-                  <p className="text-sm text-slate-500 italic">No scheduled tasks found in this category.</p>
+                  <p className="text-sm text-subtle-foreground italic">No scheduled tasks found in this category.</p>
                 ) : (
                   scheduledTasks.map(task => {
                     const nextRun = (task.metadata as TaskMeta)?.nextRunTime || (task.metadata as TaskMeta)?.nextRun || null;
@@ -776,44 +776,44 @@ const DashboardScreen = ({
                     return (
                       <div key={task.id} className="relative group">
                         {/* Timeline node */}
-                        <div className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-slate-850 border-2 border-slate-950 group-hover:bg-blue-500 transition-colors"></div>
+                        <div className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-muted border-2 border-border group-hover:bg-primary-hover transition-colors"></div>
                         
                         <div 
                           onClick={() => onTaskSelect(task)}
-                          className="bg-slate-900 border border-slate-800 hover:border-blue-500/30 p-5 rounded-2xl max-w-3xl cursor-pointer shadow-xl transition-all hover:bg-slate-900/80"
+                          className="bg-surface border border-border hover:border-primary/30 p-5 rounded-2xl max-w-3xl cursor-pointer shadow-xl transition-all hover:bg-surface/80"
                         >
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-slate-200 text-base">{task.name}</h4>
+                                <h4 className="font-bold text-foreground text-base">{task.name}</h4>
                                 <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                                   {platformLabel(task.platform)}
                                 </span>
                               </div>
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-subtle-foreground">
                                 <span className="flex items-center gap-1"><Folder size={12} /> {task.category || 'Uncategorized'}</span>
-                                <span className="flex items-center gap-1 font-mono text-blue-400/80"><Clock size={12} /> {scheduleStr}</span>
+                                <span className="flex items-center gap-1 font-mono text-foreground/80"><Clock size={12} /> {scheduleStr}</span>
                               </div>
                             </div>
                             
-                            <div className="flex items-center gap-4 shrink-0 justify-between md:justify-end border-t md:border-t-0 border-slate-800/50 pt-2 md:pt-0">
+                            <div className="flex items-center gap-4 shrink-0 justify-between md:justify-end border-t md:border-t-0 border-border/50 pt-2 md:pt-0">
                               <div className="text-right">
-                                <span className="text-[10px] text-slate-500 block uppercase font-bold tracking-wider">Next Run Time</span>
-                                <span className="text-xs text-blue-400 font-mono font-bold">
+                                <span className="text-[10px] text-subtle-foreground block uppercase font-bold tracking-wider">Next Run Time</span>
+                                <span className="text-xs text-foreground font-mono font-bold">
                                   {nextRun ? new Date(nextRun).toLocaleString() : 'Not set / Manual'}
                                 </span>
                               </div>
                               <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
                                 <button 
                                   onClick={() => onClone(task)} 
-                                  className="p-2 rounded bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all active:scale-95"
+                                  className="p-2 rounded bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all active:scale-95"
                                   title="Clone Task"
                                 >
                                   <CopyPlus size={14} />
                                 </button>
                                 <button 
                                   onClick={() => onRun(task)} 
-                                  className="p-2 rounded bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-600/10 active:scale-95"
+                                  className="p-2 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 active:scale-95"
                                   title="Run Task"
                                 >
                                   <Play size={14} fill="currentColor" />
@@ -855,8 +855,8 @@ const TemplatesScreen = () => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <Loader2 className="animate-spin text-blue-500" size={48} />
-        <p className="text-slate-500 font-medium">Loading templates...</p>
+        <Loader2 className="animate-spin text-foreground" size={48} />
+        <p className="text-subtle-foreground font-medium">Loading templates...</p>
       </div>
     );
   }
@@ -868,27 +868,27 @@ const TemplatesScreen = () => {
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-bold mb-1">Schedule Template Library</h2>
-          <p className="text-slate-400">Prebuilt automation patterns for any platform.</p>
+          <p className="text-muted-foreground">Prebuilt automation patterns for any platform.</p>
         </div>
       </div>
 
       {!hasTemplates ? (
-        <div className="flex flex-col items-center justify-center h-[40vh] border-2 border-dashed border-slate-800 rounded-3xl p-10 text-center">
-          <Library size={48} className="text-slate-700 mb-4" />
-          <h3 className="text-xl font-bold text-slate-300">No templates found</h3>
-          <p className="text-slate-500 max-w-sm mt-2">
-            The template library is currently empty. Run <code className="bg-slate-900 px-2 py-1 rounded text-blue-400">npm run seed</code> in backend.
+        <div className="flex flex-col items-center justify-center h-[40vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
+          <Library size={48} className="text-subtle-foreground mb-4" />
+          <h3 className="text-xl font-bold text-foreground">No templates found</h3>
+          <p className="text-subtle-foreground max-w-sm mt-2">
+            The template library is currently empty. Run <code className="bg-surface px-2 py-1 rounded text-foreground">npm run seed</code> in backend.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
           {templates.map(template => (
-            <div key={template.id} className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-blue-500/30 group">
+            <div key={template.id} className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
               <div className="p-6 flex-1">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex flex-wrap gap-2">
                      {template.targetPlatforms.map(p => (
-                       <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                       <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
                          {platformLabel(p)}
                        </span>
                      ))}
@@ -898,28 +898,28 @@ const TemplatesScreen = () => {
                        </span>
                      )}
                   </div>
-                  <div className="flex items-center gap-1 text-blue-400 bg-blue-600/10 px-2 py-0.5 rounded-full border border-blue-500/20 text-[10px] font-bold shrink-0">
+                  <div className="flex items-center gap-1 text-foreground bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 text-[10px] font-bold shrink-0">
                      <Activity size={10} /> {template.upvotes}
                   </div>
                 </div>
 
-                <h3 className="text-xl font-bold mb-2 group-hover:text-blue-400 transition-colors">{template.name}</h3>
-                <p className="text-sm text-slate-400 mb-6 leading-relaxed">{template.description}</p>
+                <h3 className="text-xl font-bold mb-2 group-hover:text-foreground transition-colors">{template.name}</h3>
+                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{template.description}</p>
 
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800/50">
-                     <Clock size={14} className="text-blue-500" />
-                     <code className="text-blue-300 font-mono">{template.scheduleExpression}</code>
-                     <span className="text-slate-500 italic ml-auto">UTC</span>
+                  <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
+                     <Clock size={14} className="text-foreground" />
+                     <code className="text-foreground font-mono">{template.scheduleExpression}</code>
+                     <span className="text-subtle-foreground italic ml-auto">UTC</span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs bg-slate-950 p-3 rounded-2xl border border-slate-800/50">
+                  <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
                      <ExternalLink size={14} className="text-purple-500" />
-                     <span className="truncate text-slate-300 italic">{template.command}</span>
+                     <span className="truncate text-foreground italic">{template.command}</span>
                   </div>
                 </div>
               </div>
 
-              <button onClick={() => setApplyTarget(template)} className="w-full bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-slate-800 group-hover:border-blue-500/20">
+              <button onClick={() => setApplyTarget(template)} className="w-full bg-muted hover:bg-primary-hover text-foreground hover:text-primary-foreground py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-border group-hover:border-primary/20">
                 Apply Template <ArrowRight size={16} />
               </button>
             </div>
@@ -977,44 +977,44 @@ const PlatformsScreen = () => {
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-bold mb-1">Platform Schedulers</h2>
-          <p className="text-slate-400">Quick access to 3rd party task management interfaces.</p>
+          <p className="text-muted-foreground">Quick access to 3rd party task management interfaces.</p>
         </div>
         <button 
           onClick={() => setShowAdd(!showAdd)}
-          className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+          className="bg-primary hover:bg-primary-hover px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all active:scale-95"
         >
           <Plus size={16} /> Add Custom Link
         </button>
       </div>
 
       {showAdd && (
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 animate-in slide-in-from-top-2 max-w-4xl">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500">New Platform Link</h3>
+        <div className="bg-surface border border-border p-6 rounded-2xl space-y-4 animate-in slide-in-from-top-2 max-w-4xl">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-subtle-foreground">New Platform Link</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 ml-1">PLATFORM NAME</label>
+              <label className="text-[10px] font-bold text-subtle-foreground ml-1">PLATFORM NAME</label>
               <input 
                 type="text" 
                 placeholder="e.g. N8N, OpenClaw"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500"
+                className="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 ml-1">URL</label>
+              <label className="text-[10px] font-bold text-subtle-foreground ml-1">URL</label>
               <input 
                 type="text" 
                 placeholder="https://..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500"
+                className="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary"
                 value={newUrl}
                 onChange={e => setNewUrl(e.target.value)}
               />
             </div>
           </div>
           <div className="flex justify-end gap-3">
-            <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm font-bold text-slate-400 hover:text-slate-200">Cancel</button>
-            <button onClick={addLink} className="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20">Save Platform</button>
+            <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground">Cancel</button>
+            <button onClick={addLink} className="bg-primary hover:bg-primary-hover px-6 py-2 rounded-xl text-sm font-bold shadow-lg shadow-primary/20">Save Platform</button>
           </div>
         </div>
       )}
@@ -1022,7 +1022,7 @@ const PlatformsScreen = () => {
       <div className="space-y-10">
         {/* Default Platforms Section */}
         <section className="space-y-4">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Official Schedulers</h3>
+          <h3 className="text-[10px] font-black text-subtle-foreground uppercase tracking-[0.2em] ml-1">Official Schedulers</h3>
           <div className="flex flex-col gap-3 max-w-4xl">
             {links.filter(l => l.iconType !== 'custom').map(link => (
               <PlatformRow key={link.id} link={link} onDelete={deleteLink} />
@@ -1033,7 +1033,7 @@ const PlatformsScreen = () => {
         {/* Custom Links Section */}
         {links.some(l => l.iconType === 'custom') && (
           <section className="space-y-4">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">User Defined</h3>
+            <h3 className="text-[10px] font-black text-subtle-foreground uppercase tracking-[0.2em] ml-1">User Defined</h3>
             <div className="flex flex-col gap-3 max-w-4xl">
               {links.filter(l => l.iconType === 'custom').map(link => (
                 <PlatformRow key={link.id} link={link} onDelete={deleteLink} />
@@ -1062,24 +1062,24 @@ const PlatformRow = ({ link, onDelete }: { link: PlatformLink; onDelete: (id: st
         href={link.url} 
         target="_blank" 
         rel="noopener noreferrer"
-        className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center gap-6 hover:border-blue-500/50 hover:bg-slate-900/50 transition-all shadow-xl group/card"
+        className="bg-surface border border-border p-4 rounded-2xl flex items-center gap-6 hover:border-primary/50 hover:bg-surface/50 transition-all shadow-xl group/card"
       >
         <div className={`p-3 rounded-xl flex-shrink-0 ${
           link.iconType === 'claude' ? 'bg-purple-500/10 text-purple-400' : 
           link.iconType === 'chatgpt' ? 'bg-green-500/10 text-green-400' :
-          link.iconType === 'gemini' ? 'bg-blue-500/10 text-blue-400' :
-          'bg-slate-500/10 text-slate-400'
+          link.iconType === 'gemini' ? 'bg-primary/10 text-foreground' :
+          'bg-muted/10 text-muted-foreground'
         }`}>
           {getIcon(link.iconType)}
         </div>
         
         <div className="flex-1 flex items-center justify-between min-w-0">
           <div className="min-w-0">
-            <h3 className="font-bold text-lg text-slate-100 truncate group-hover/card:text-blue-400 transition-colors">{link.name}</h3>
-            <p className="text-xs text-slate-500 truncate font-mono mt-0.5">{link.url}</p>
+            <h3 className="font-bold text-lg text-foreground truncate group-hover/card:text-foreground transition-colors">{link.name}</h3>
+            <p className="text-xs text-subtle-foreground truncate font-mono mt-0.5">{link.url}</p>
           </div>
           
-          <div className="flex items-center gap-4 text-slate-600 group-hover/card:text-blue-500 transition-all">
+          <div className="flex items-center gap-4 text-subtle-foreground group-hover/card:text-foreground transition-all">
             <span className="text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover/card:opacity-100 transition-opacity">Open Dashboard</span>
             <ExternalLink size={18} />
           </div>
@@ -1089,7 +1089,7 @@ const PlatformRow = ({ link, onDelete }: { link: PlatformLink; onDelete: (id: st
       {link.iconType === 'custom' && (
         <button 
           onClick={(e) => { e.preventDefault(); onDelete(link.id); }}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 p-2 bg-slate-950 border border-slate-800 rounded-full text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shadow-lg z-10"
+          className="absolute -right-3 top-1/2 -translate-y-1/2 p-2 bg-background border border-border rounded-full text-subtle-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shadow-lg z-10"
         >
           <Trash2 size={14} />
         </button>
@@ -1194,7 +1194,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-50 font-sans selection:bg-blue-500/30 overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground font-sans selection:bg-primary/30 overflow-hidden">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="flex-1 p-10 overflow-y-auto">
         {activeTab === 'dashboard' && (
@@ -1212,7 +1212,7 @@ const Dashboard = () => {
         )}
         {activeTab === 'templates' && <TemplatesScreen />}
         {activeTab === 'platforms' && <PlatformsScreen />}
-        {activeTab === 'settings' && <div className="flex items-center justify-center h-full text-slate-500 italic animate-pulse">Settings module coming soon in Sprint 2...</div>}
+        {activeTab === 'settings' && <div className="flex items-center justify-center h-full text-subtle-foreground italic animate-pulse">Settings module coming soon in Sprint 2...</div>}
       </main>
       <TaskModal 
         task={selectedTask} 

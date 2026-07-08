@@ -6,6 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="TaskHub — a single pane of glass for viewing, triggering, and managing scheduled tasks across Windows Task Scheduler, Claude routines, and more." />
     <title>TaskHub</title>
+    <script>
+      // Apply the persisted theme before first paint to avoid a flash of the
+      // wrong theme. Defaults to dark (TaskHub's default) when unset or on error.
+      (function () {
+        try {
+          var mode = localStorage.getItem('taskhub.theme') || 'system';
+          var dark =
+            mode === 'dark' ||
+            (mode === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.add(dark ? 'dark' : 'light');
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

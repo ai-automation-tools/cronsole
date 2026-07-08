@@ -16,10 +16,10 @@ export const platformLabel = (p: string) =>
 
 export const platformBadgeClass = (p: string) =>
   ({
-    WINDOWS_TASK_SCHEDULER: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    WINDOWS_TASK_SCHEDULER: 'bg-primary/10 text-foreground border-primary/20',
     TASKHUB_NATIVE: 'bg-violet-500/10 text-violet-300 border-violet-500/30',
     CLAUDE_CODE: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
     CHATGPT: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-  }[p] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20');
+  }[p] ?? 'bg-muted/10 text-muted-foreground border-border/20');
 
 export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';

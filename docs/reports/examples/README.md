@@ -27,7 +27,7 @@ request/response shapes the TaskHub API uses. Keep them in sync as the API evolv
 | Resource | Why you'd go there |
 |:---|:---|
 | [**🧩 Templates**](../templates/README.md) | The template catalog behind `templates.json`. |
-| [**🖥️ UI User Guide**](../../user-guides/UI_User_Guide.md) | Using these endpoints from the dashboard. |
+| [**🖥️ UI User Guide**](../../user-guides/guides/UI_User_Guide.md) | Using these endpoints from the dashboard. |
 
 ---
 

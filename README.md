@@ -82,27 +82,16 @@ cross-domain unification, **mobile-first triggering**, and AI-native task creati
 | **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
 
 <details>
-<summary><b>📸 More screenshots</b></summary>
+<summary><b>📸 More screenshots</b> — templates, modals, views, and themes</summary>
 
 <br>
 
-**Template library** — parameterized script starters with cron schedules, applied straight to Windows Task Scheduler:
-
-<p align="center">
-  <img src="images/screenshots/templates.png" alt="TaskHub template library" width="850">
-</p>
-
-**Task detail** — status, category, platform metadata, run history, and one-click Run Now:
-
-<p align="center">
-  <img src="images/screenshots/task-detail.png" alt="TaskHub task detail modal" width="850">
-</p>
-
-**Light theme** — the same dashboard with the light variant toggled:
-
-<p align="center">
-  <img src="images/screenshots/dashboard-light.png" alt="TaskHub dashboard in light theme" width="850">
-</p>
+| | |
+|:---:|:---:|
+| <img src="images/screenshots/templates.png" alt="TaskHub template library"><br><sub><b>Template library</b> — parameterized script starters</sub> | <img src="images/screenshots/apply-template-modal.png" alt="Apply Template modal"><br><sub><b>Apply Template</b> — fill in the blanks, get a real task</sub> |
+| <img src="images/screenshots/task-detail.png" alt="TaskHub task detail modal"><br><sub><b>Task detail</b> — metadata, run history, Run Now</sub> | <img src="images/screenshots/new-task-modal.png" alt="New Task modal"><br><sub><b>New Task</b> — TaskHub-native or Windows, with cron presets</sub> |
+| <img src="images/screenshots/list-view.png" alt="TaskHub list view"><br><sub><b>List view</b> — sortable columns and quick actions</sub> | <img src="images/screenshots/kanban-view.png" alt="TaskHub kanban view"><br><sub><b>Kanban view</b> — tasks grouped by status</sub> |
+| <img src="images/screenshots/schedule-view.png" alt="TaskHub schedule view"><br><sub><b>Schedule view</b> — chronological by next run</sub> | <img src="images/screenshots/dashboard-light.png" alt="TaskHub dashboard in light theme"><br><sub><b>Light theme</b> — the same dashboard, light variant</sub> |
 
 </details>
 
@@ -194,16 +183,25 @@ fixtures. See [Setup & configuration](docs/setup/README.md) for every option.
 
 ## 📖 Documentation
 
-Full documentation lives in **[`docs/`](docs/README.md)**. The most useful starting points:
+Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 
-| Guide | What's inside |
+| Section | What's inside |
 |:---|:---|
 | [**📚 Documentation home**](docs/README.md) | The map to every guide, reference, and design doc. |
 | [**⬇️ Installation**](docs/install/README.md) | Install TaskHub on Windows or macOS, or clone the repo. |
 | [**⚙️ Setup & Configuration**](docs/setup/README.md) | Environment variables, Docker vs. manual, agent pairing. |
-| [**🖥️ UI User Guide**](docs/user-guides/UI_User_Guide.md) | Navigating the dashboard, categorizing tasks, applying templates. |
-| [**🤖 Windows Agent Setup**](docs/user-guides/Agent_Setup_Guide.md) | Installing and running the local agent. |
+| [**🖥️ User Guides**](docs/user-guides/README.md) | Day-to-day guides for using TaskHub once it's running. |
 | [**🗺️ Roadmap**](docs/ROADMAP.md) | What's shipped and what's next, in priority order. |
+
+And the key guides, one click away:
+
+| Guide | Takes you through |
+|:---|:---|
+| [**📦 Clone the Repo**](docs/install/guides/Clone_Repo_Guide.md) | The first step for every install path, plus common prerequisites. |
+| [**🪟 Windows Install**](docs/install/guides/Windows_Install_Guide.md) | The full experience — stack, agent, and auto-start at logon. |
+| [**🍎 macOS Install**](docs/install/guides/macOS_Install_Guide.md) | Dashboard + backend on macOS (no Windows agent yet). |
+| [**🖥️ UI User Guide**](docs/user-guides/guides/UI_User_Guide.md) | Navigating the dashboard, categorizing tasks, applying templates. |
+| [**🤖 Windows Agent Setup**](docs/user-guides/guides/Agent_Setup_Guide.md) | Installing, verifying, and troubleshooting the local agent. |
 
 ## 🤝 Contributing
 

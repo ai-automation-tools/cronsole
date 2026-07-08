@@ -24,7 +24,7 @@ out to, and reference sites and repositories worth knowing about.
 
 | Resource | Why you'd go there |
 |:---|:---|
-| [**🖥️ UI User Guide**](../user-guides/UI_User_Guide.md) | Using the Platforms tab and links from the dashboard. |
+| [**🖥️ UI User Guide**](../user-guides/guides/UI_User_Guide.md) | Using the Platforms tab and links from the dashboard. |
 | [**🗺️ Roadmap**](../ROADMAP.md) | Which platforms are connected, experimental, or planned. |
 
 ---

@@ -29,7 +29,7 @@ the full details.
 | Resource | Why you'd go there |
 |:---|:---|
 | [**⬇️ Installation**](../docs/install/README.md) | Where the auto-start launcher fits into full setup. |
-| [**🤖 Windows Agent Setup**](../docs/user-guides/Agent_Setup_Guide.md) | Registering just the agent (without the full-stack launcher). |
+| [**🤖 Windows Agent Setup**](../docs/user-guides/guides/Agent_Setup_Guide.md) | Registering just the agent (without the full-stack launcher). |
 | [**⌨️ CLIs**](../docs/agent-tools/clis/README.md) | The command-line tools these scripts wrap. |
 
 ---

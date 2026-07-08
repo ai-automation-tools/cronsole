@@ -10,8 +10,8 @@ Read these first:
 
 1. [`README.md`](README.md)
 2. [`CLAUDE.md`](CLAUDE.md)
-3. [`docs/ROADMAP.md`](docs/ROADMAP.md) — the living plan (the phase docs it replaced are archived under [`docs/archive/`](docs/archive/))
-4. [`docs/specs/CONTRACTS.md`](docs/specs/CONTRACTS.md)
+3. [`docs/ROADMAP.md`](docs/ROADMAP.md) — the living plan (the phase docs, specs, and research it replaced are kept locally under `docs/archive/`, not tracked in git)
+4. [`docs/README.md`](docs/README.md) — the documentation map
 
 If your change affects runtime behavior, docs, or roadmap status, update the matching docs in the same PR.
 

@@ -80,3 +80,6 @@ logs/
 # --- Gemini Agent ---
 
 /Gemini_Agent/
+
+# --- Local-only docs (historical plans, engineering specs, research) ---
+docs/archive/

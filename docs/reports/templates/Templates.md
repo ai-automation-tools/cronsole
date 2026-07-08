@@ -208,7 +208,7 @@ task and hands it to the matching `PlatformConnector.createTask()`:
 
 **Cron → trigger conversion** is the bridge layer: the stored 5-field UTC cron is translated to
 a Windows Task Scheduler trigger on apply, and rendered back to cron for display. This is the
-"conversion confidence score" item in [`Project_Plan.md`](../archive/Project_Plan.md).
+"conversion confidence score" item from the original project plan (archived locally under `docs/archive/`).
 
 ---
 
@@ -247,6 +247,6 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
 
 ---
 
-*Cross-references: [`Project_Plan.md`](../archive/Project_Plan.md) · [`Phase3.md`](../archive/phases/Phase3.md) ·
+*Cross-references: `Project_Plan.md` and `Phase3.md` (archived locally under `docs/archive/`) ·
 schema at `backend/prisma/schema.prisma` · seed at `backend/src/seed.ts` ·
 UI at `frontend/src/Dashboard.tsx` (`TemplatesScreen`).*

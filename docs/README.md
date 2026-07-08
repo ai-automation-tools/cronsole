@@ -1,3 +1,5 @@
+<a id="docs-top"></a>
+
 <h1 align="center">📚 TaskHub Documentation</h1>
 
 <p align="center">
@@ -13,10 +15,20 @@
 ---
 
 This is the home for all TaskHub documentation. Every folder below has its own `README.md`
-that explains what's inside and links to the individual documents. Start with **Install**
-if you're setting TaskHub up, or **User Guides** if you already have it running.
+that explains what's inside and links to the individual documents.
 
-## 🚀 Get started
+## 🧭 Start here
+
+New to TaskHub? Follow this path in order:
+
+1. [**⬇️ Install**](install/README.md) — get the stack running (Windows, macOS, or clone-the-repo).
+2. [**⚙️ Configure**](setup/README.md) — environment variables, demo vs. live mode, agent connection.
+3. [**🖥️ Use the dashboard**](user-guides/UI_User_Guide.md) — views, categories, templates, Run Now.
+4. [**🤖 Run the Windows agent**](user-guides/Agent_Setup_Guide.md) — install, register, verify, troubleshoot.
+
+Just browsing? The [**live demo**](https://taskhub.mikesailab.com) needs zero setup.
+
+## 🚀 Guides
 
 | Folder | What's inside |
 |:---|:---|
@@ -28,13 +40,13 @@ if you're setting TaskHub up, or **User Guides** if you already have it running.
 
 | Folder | What's inside |
 |:---|:---|
+| [**📄 reports/**](reports/README.md) | Task templates (the two-tier catalog) and worked API examples. |
 | [**🛠️ agent-tools/**](agent-tools/README.md) | The AI tooling TaskHub is built with — MCP servers, CLIs, and subagents. |
 | [**🌐 resources/**](resources/README.md) | Curated external links — native scheduler UIs and reference repos/sites. |
-| [**📄 reports/**](reports/README.md) | Task templates and worked API examples. |
 
-## 🧭 Planning
+## 🗺️ Planning
 
-| Folder / doc | What's inside |
+| Doc | What's inside |
 |:---|:---|
 | [**🗺️ ROADMAP.md**](ROADMAP.md) | The living plan — what's shipped and what's next (P0 → P3), plus open decisions. |
 
@@ -50,6 +62,8 @@ if you're setting TaskHub up, or **User Guides** if you already have it running.
 | [**📋 CONTRIBUTING.md**](../CONTRIBUTING.md) | Local setup, validation commands, and PR expectations. |
 | [**📝 CHANGELOG.md**](../CHANGELOG.md) | Notable changes to the repository. |
 | [**🤖 CLAUDE.md**](../CLAUDE.md) | Project conventions and instructions for Claude Code. |
+
+<p align="right">(<a href="#docs-top">back to top</a>)</p>
 
 ---
 

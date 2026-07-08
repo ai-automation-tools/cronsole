@@ -83,3 +83,7 @@ logs/
 
 # --- Local-only docs (historical plans, engineering specs, research) ---
 docs/archive/
+
+# --- Local scratch / tooling artifacts ---
+temp/
+.playwright-mcp/

@@ -58,3 +58,13 @@ export interface PlatformLink {
   url: string;
   iconType: string;
 }
+
+export type HealthState = 'HEALTHY' | 'DEGRADED' | 'OFFLINE';
+
+/** One row from GET /api/tasks/health — live status of a platform connection. */
+export interface ConnectionHealth {
+  platform: string;
+  state: HealthState;
+  reason?: string | null;
+  lastSync?: string | null;
+}

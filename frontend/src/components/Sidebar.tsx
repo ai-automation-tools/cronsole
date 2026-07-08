@@ -6,13 +6,18 @@ import {
   Library
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+import { useConnections, healthMeta } from '../hooks/useConnections';
+import { platformLabel } from '../platform';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }
 
-export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => (
+export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
+  const { data: connections, isLoading } = useConnections();
+
+  return (
   <aside className="w-64 border-r border-border flex flex-col gap-2 p-4">
     <div className="mb-8 px-2 flex items-center gap-2">
       <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center font-bold text-primary-foreground shadow-lg shadow-primary/20">T</div>
@@ -61,16 +66,27 @@ export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => (
         <Activity size={10} className="text-green-500" /> System Status
       </div>
       <div className="space-y-3">
-        <div className="flex justify-between items-center text-xs">
-          <span className="text-muted-foreground italic">Windows Agent</span>
-          <span className="text-green-500 font-bold">Online</span>
-        </div>
-        <div className="flex justify-between items-center text-xs">
-          <span className="text-muted-foreground italic">Claude API</span>
-          <span className="text-green-500 font-bold">Healthy</span>
-        </div>
+        {isLoading ? (
+          <div className="text-xs text-subtle-foreground italic">Checking…</div>
+        ) : !connections || connections.length === 0 ? (
+          <div className="text-xs text-subtle-foreground italic">No connections</div>
+        ) : (
+          connections.map(conn => {
+            const meta = healthMeta(conn.state);
+            return (
+              <div key={conn.platform} className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground italic">{platformLabel(conn.platform)}</span>
+                <span className={`font-bold flex items-center gap-1.5 ${meta.text}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                  {meta.label}
+                </span>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
     </div>
   </aside>
-);
+  );
+};

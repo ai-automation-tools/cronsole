@@ -18,10 +18,16 @@ import {
   BookOpen,
   Globe,
   Activity,
+  Plug,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useSettings, DEFAULT_SETTINGS, type Settings, type DashboardView } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
+import { useConnections, healthMeta } from '../hooks/useConnections';
+import { platformLabel } from '../platform';
+import { formatDateTime } from '../utils/datetime';
 import { API_ORIGIN, subscribeBackendStatus, type BackendStatus } from '../api';
 import type { Task } from '../types';
 
@@ -158,6 +164,80 @@ const Select = ({
   </select>
 );
 
+// ---- Connections (live health from GET /api/tasks/health) ------------------
+
+const ConnectionsSection = ({ timezone }: { timezone: Settings['timezone'] }) => {
+  const { data: connections, isLoading, isFetching, refetch } = useConnections();
+  const { toast } = useToast();
+
+  const checkNow = async () => {
+    const result = await refetch();
+    if (result.error) {
+      toast('Could not reach the backend to check connections.', 'error');
+    } else {
+      toast('Connection status refreshed.', 'success');
+    }
+  };
+
+  return (
+    <section className="bg-surface border border-border rounded-3xl shadow-xl overflow-hidden">
+      <div className="flex items-start gap-3 p-6 border-b border-border/70">
+        <div className="p-2.5 rounded-xl bg-primary/10 text-foreground shrink-0">
+          <Plug size={18} />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-bold text-base text-foreground">Connections</h3>
+          <p className="text-xs text-subtle-foreground mt-0.5">Live health of your platform connections.</p>
+        </div>
+        <button
+          onClick={checkNow}
+          disabled={isFetching}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95 disabled:opacity-60"
+        >
+          <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+          {isFetching ? 'Checking…' : 'Check now'}
+        </button>
+      </div>
+
+      <div className="divide-y divide-border/50">
+        {isLoading ? (
+          <div className="flex items-center gap-2 px-6 py-8 text-sm text-subtle-foreground">
+            <Loader2 size={16} className="animate-spin" /> Checking connections…
+          </div>
+        ) : !connections || connections.length === 0 ? (
+          <div className="px-6 py-8 text-sm text-subtle-foreground italic">
+            No platform connections found. Sync a platform to establish one.
+          </div>
+        ) : (
+          connections.map(conn => {
+            const meta = healthMeta(conn.state);
+            return (
+              <div key={conn.platform} className="flex items-center justify-between gap-3 px-6 py-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">{platformLabel(conn.platform)}</span>
+                    <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold ${meta.text}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                      {meta.label}
+                    </span>
+                  </div>
+                  {conn.reason && <div className="text-xs text-subtle-foreground mt-0.5 truncate">{conn.reason}</div>}
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-subtle-foreground">Last sync</div>
+                  <div className="text-xs font-mono text-muted-foreground">
+                    {conn.lastSync ? formatDateTime(conn.lastSync, timezone) : 'Never'}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+};
+
 // ---- Screen ----------------------------------------------------------------
 
 export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
@@ -243,6 +323,9 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
           </p>
         </div>
       )}
+
+      {/* Connections */}
+      <ConnectionsSection timezone={settings.timezone} />
 
       {/* Appearance */}
       <Section icon={Palette} title="Appearance" subtitle="How TaskHub looks on this device.">

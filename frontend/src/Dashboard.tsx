@@ -43,6 +43,10 @@ import { ApplyTemplateModal } from './components/ApplyTemplateModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { platformLabel, platformBadgeClass } from './platform';
 import { matchesTaskSearch } from './utils/taskSearch';
+import { SettingsScreen } from './components/SettingsScreen';
+import { useSettings, type Settings } from './hooks/useSettings';
+import { useToast } from './hooks/useToast';
+import { formatDateTime, formatTime } from './utils/datetime';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
@@ -244,7 +248,8 @@ const DashboardScreen = ({
   onCategoryUpdate,
   onClone,
   onShowHelp,
-  onNewTask
+  onNewTask,
+  settings
 }: {
   onTaskSelect: (task: Task) => void;
   onRun: (task: Task) => void;
@@ -255,11 +260,13 @@ const DashboardScreen = ({
   onClone: (task: Task) => void;
   onShowHelp: () => void;
   onNewTask: () => void;
+  settings: Settings;
 }) => {
-  const [selectedCategory, setSelectedTaskCategory] = useState<string>('All');
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('All');
-  const [showDisabled, setShowDisabled] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>('grid');
+  // Initialize view/filter state from the user's saved dashboard defaults.
+  const [selectedCategory, setSelectedTaskCategory] = useState<string>(settings.defaultCategory);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>(settings.defaultPlatform);
+  const [showDisabled, setShowDisabled] = useState(settings.defaultShowDisabled);
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>(settings.defaultView);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -608,7 +615,7 @@ const DashboardScreen = ({
                             </div>
                           </td>
                           <td className="py-4 px-4 text-xs text-muted-foreground font-mono">
-                            {new Date(task.updatedAt).toLocaleTimeString()}
+                            {formatTime(task.updatedAt, settings.timezone)}
                           </td>
                           <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
                             <div className="flex gap-2">
@@ -673,7 +680,7 @@ const DashboardScreen = ({
                         <h4 className="font-bold text-foreground text-sm truncate">{task.name}</h4>
                         <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
                           <span className="text-[9px] text-subtle-foreground font-mono">
-                            {new Date(task.updatedAt).toLocaleTimeString()}
+                            {formatTime(task.updatedAt, settings.timezone)}
                           </span>
                           <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
                             <button 
@@ -731,7 +738,7 @@ const DashboardScreen = ({
                         <h4 className="font-bold text-muted-foreground text-sm truncate">{task.name}</h4>
                         <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
                           <span className="text-[9px] text-subtle-foreground font-mono">
-                            {new Date(task.updatedAt).toLocaleTimeString()}
+                            {formatTime(task.updatedAt, settings.timezone)}
                           </span>
                           <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
                             <button 
@@ -800,7 +807,7 @@ const DashboardScreen = ({
                               <div className="text-right">
                                 <span className="text-[10px] text-subtle-foreground block uppercase font-bold tracking-wider">Next Run Time</span>
                                 <span className="text-xs text-foreground font-mono font-bold">
-                                  {nextRun ? new Date(nextRun).toLocaleString() : 'Not set / Manual'}
+                                  {nextRun ? formatDateTime(nextRun, settings.timezone) : 'Not set / Manual'}
                                 </span>
                               </div>
                               <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
@@ -1106,6 +1113,15 @@ const Dashboard = () => {
   const [showImport, setShowImport] = useState(false);
   const [showCreateNative, setShowCreateNative] = useState(false);
   const queryClient = useQueryClient();
+  const { settings } = useSettings();
+  const { toast } = useToast();
+
+  // Raise an OS notification for a task failure when the user has opted in.
+  const notifyFailure = (title: string, body: string) => {
+    if (settings.desktopNotifyOnFailure && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body });
+    }
+  };
 
   const { data: tasks, isLoading } = useQuery<Task[]>({
     queryKey: ['tasks'],
@@ -1119,18 +1135,24 @@ const Dashboard = () => {
 
   const runMutation = useMutation({
     mutationFn: async (task: Task) => {
-      if (DEMO_MODE) return;
-      if (!confirm(`Are you sure you want to run task "${task.name}"?`)) {
+      if (settings.confirmBeforeRun && !confirm(`Are you sure you want to run task "${task.name}"?`)) {
         throw new Error('Cancelled');
       }
-      return api.post(`/tasks/${task.id}/run`);
+      if (DEMO_MODE) return { task };
+      await api.post(`/tasks/${task.id}/run`);
+      return { task };
     },
-    onSuccess: () => {
-      alert(DEMO_MODE ? 'Demo mode — Triggered!' : 'Task triggered successfully!');
+    onSuccess: ({ task }) => {
+      if (settings.toastOnSuccess) {
+        toast(DEMO_MODE ? `Demo mode — "${task.name}" triggered.` : `"${task.name}" triggered successfully.`, 'success');
+      }
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, task) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
-      if (err.message !== 'Cancelled') alert(`Error: ${err.response?.data?.error || err.message}`);
+      if (err.message === 'Cancelled') return;
+      const detail = err.response?.data?.error || err.message;
+      if (settings.toastOnFailure) toast(`Failed to run "${task.name}": ${detail}`, 'error');
+      notifyFailure('TaskHub — run failed', `${task.name}: ${detail}`);
     }
   });
 
@@ -1147,10 +1169,13 @@ const Dashboard = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setShowImport(false);
+      if (settings.toastOnSuccess) toast('Tasks synced.', 'success');
     },
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
-      alert(`Sync Error: ${err.response?.data?.error || err.message}`);
+      const detail = err.response?.data?.error || err.message;
+      if (settings.toastOnFailure) toast(`Sync error: ${detail}`, 'error');
+      notifyFailure('TaskHub — sync failed', detail);
     }
   });
 
@@ -1208,11 +1233,12 @@ const Dashboard = () => {
             onClone={setCloningTask}
             onShowHelp={() => setShowHelp(true)}
             onNewTask={() => setShowCreateNative(true)}
+            settings={settings}
           />
         )}
         {activeTab === 'templates' && <TemplatesScreen />}
         {activeTab === 'platforms' && <PlatformsScreen />}
-        {activeTab === 'settings' && <div className="flex items-center justify-center h-full text-subtle-foreground italic animate-pulse">Settings module coming soon in Sprint 2...</div>}
+        {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
       </main>
       <TaskModal 
         task={selectedTask} 

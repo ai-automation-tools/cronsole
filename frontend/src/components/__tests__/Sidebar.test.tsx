@@ -1,6 +1,20 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Sidebar } from '../Sidebar';
 import { vi, describe, it, expect } from 'vitest';
+
+// Sidebar reads live connection health via useConnections (TanStack Query).
+// Mock it so these unit tests don't need a QueryClientProvider or network.
+vi.mock('../../hooks/useConnections', () => ({
+  useConnections: () => ({
+    data: [
+      { platform: 'WINDOWS_TASK_SCHEDULER', state: 'HEALTHY' },
+      { platform: 'CLAUDE_CODE', state: 'DEGRADED' },
+    ],
+    isLoading: false,
+  }),
+  healthMeta: (state: string) => ({ label: state, dot: '', text: '' }),
+}));
+
+import { Sidebar } from '../Sidebar';
 
 describe('Sidebar Component', () => {
   it('renders branding and all navigation tabs', () => {
@@ -13,8 +27,9 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('Platforms')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
     expect(screen.getByText('System Status')).toBeInTheDocument();
-    expect(screen.getByText('Windows Agent')).toBeInTheDocument();
-    expect(screen.getByText('Claude API')).toBeInTheDocument();
+    // Live connection rows (labels from platformLabel).
+    expect(screen.getByText('Windows')).toBeInTheDocument();
+    expect(screen.getByText('Claude')).toBeInTheDocument();
   });
 
   it('calls setActiveTab when a navigation button is clicked', () => {

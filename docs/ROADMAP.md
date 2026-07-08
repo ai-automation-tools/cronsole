@@ -10,7 +10,7 @@
 **Update rule:** when a task ships, move it to Completed with a date; when a material
 decision changes scope, edit the item here first, then implement.
 
-*Last updated: 2026-07-08 (added: README visual overhaul with banner logo + live screenshots; docs hub "Start here" path).*
+*Last updated: 2026-07-08 (added: Settings page + non-blocking toasts + live connection-health panel; README visual overhaul with banner logo + live screenshots; docs hub "Start here" path).*
 
 ---
 
@@ -34,6 +34,7 @@ decision changes scope, edit the item here first, then implement.
 - **Platform selector in New Task modal**: create TaskHub-native *or* Windows tasks ad-hoc; Windows tasks land under the `\TaskHub\` scheduler folder; clone-flow trigger conversion fixed. *(2026-07-07)*
 - **Task search on the dashboard**: free-text search across name/category/path/command/schedule with multi-term narrowing, match counter, `/` shortcut, Esc-to-clear; composes with the category/platform/active filters and all four views. *(2026-07-07)*
 - **Standard dark/light/system theme system**: replaced the hardcoded blue-tinted palette with a neutral-surface semantic token set wired into Tailwind v4 (`@theme inline` + `.light`/`.dark` CSS-variable overrides). Added a `useTheme` hook (persists to `localStorage` `taskhub.theme`, follows the OS in *system* mode), a `ThemeToggle` (Light/Dark/System) in the sidebar, and a FOUC-preventing bootstrap in `index.html`. ~210 hardcoded `slate-*`/`blue-*`/`text-white` utility classes across 13 files migrated to `background`/`surface`/`muted`/`border`/`foreground`/`primary` tokens. Accent scheme: **violet** `primary` for primary actions (New Task, Sync Now, active tabs/chips) and **emerald** `success` for Run/execute buttons; native-task violet identity + red/green status colors retained. Neutral surfaces flip between light and dark; dark remains the default. *(2026-07-07)*
+- **Settings page + non-blocking toasts + live connection health**: shipped a functional client-side **Settings** tab (was a placeholder) — Appearance (theme), Dashboard defaults (view / category+platform filters / active-only), Behavior (confirm-before-run, Local↔UTC schedule-time display), Notifications (success/failure toasts, desktop-notify-on-failure), Data (export/import/reset preferences, reset platform links), About (version, backend status, API origin, links) — all persisted via a `useSettings` hook (`localStorage` `taskhub.settings`). Replaced blocking `alert()`/`confirm()` on the run/sync paths with a lightweight `ToastProvider`/`useToast`. Added a **Connections** section + reactive sidebar status wired to live `GET /api/tasks/health` (per-platform state / reason / last-sync, "Check now" refresh), replacing the previously hardcoded "Agent Online / Claude Healthy" rows. Deleted the unused Vite-scaffold `App.tsx`/`App.css` (`main.tsx` is the real entry point). Deferred (need new backend + P0): real agent pairing and login/profile — see P0/Go-public. *(2026-07-08)*
 - Docs restructure: post-reorg links fixed, .NET 10 alignment, contracts kept in sync with implementation.
 - **README visual overhaul**: Command Grid banner logo wired into the hero (`images/TaskHub-Images/`), real app screenshots captured from the current build (`images/screenshots/` — dashboard, templates, task detail, light theme), quick-nav link row (docs / demo / issues), numbered Quick Start with back-to-top links, collapsible screenshots section; docs hub gained a numbered "Start here" path. Follow-up: 5 more screenshots (list/kanban/schedule views, New Task + Apply Template modals) in a collapsed 2-column gallery, install paths split into standalone guides (`docs/install/guides/` — Windows / macOS / clone), user guides relocated to `docs/user-guides/guides/`, and a key-guides table on the root README. *(2026-07-08)*
 
@@ -52,7 +53,7 @@ Nothing below ships to a public host until these are done (analysis §4):
 ## 🟠 P1 — Correctness & honesty
 
 - [ ] **Normalize synced Windows schedules to cron** (fixes "No direct schedule" in Schedule view) and map `DateTime.MinValue` → null (fixes "1/1/1" dates).
-- [ ] **Real system-status panel** driven by `/api/health` or a browser socket (sidebar "Agent Online" is currently hardcoded), plus a "last synced N ago" chip; make "Sync Now" semantics honest (today it opens the Import modal).
+- [ ] **System-status honesty** *(partial — shipped 2026-07-08)*: the sidebar + Settings > Connections now show live per-platform health from `GET /api/tasks/health` (no longer hardcoded), polled every 45s. Remaining: a "last synced N ago" chip, honest "Sync Now" semantics (today it opens the Import modal), and optionally driving status from a browser Socket.io connection for instant (push) updates instead of polling.
 - [ ] **Browser live updates**: connect the frontend to Socket.io and invalidate `['tasks']` on `task:updated` (per CLAUDE.md §9 convention).
 - [ ] Backend hygiene: Zod validation at boundaries + one error middleware, shared Prisma singleton, batched sync upserts.
 - [ ] **Remaining QA** (from archived Phase 4): integration suite against real Postgres, Playwright E2E flows, resilience/soak tests, security audit + performance report.
@@ -66,14 +67,14 @@ Nothing below ships to a public host until these are done (analysis §4):
 - [ ] **Template library UI**: category/OS filter chips, search, starter-vs-pattern grouping; parameterize the 4 Tier-B patterns; real (or removed) upvotes.
 - [ ] **Developer Pack templates** (analysis §7): git hygiene, build/test, dev-environment maintenance, monitoring glue — flagship: **Claude Code Headless Run**.
 - [ ] **Save task as template** — grow the catalog from real tasks.
-- [ ] **Edit schedule** (button exists, is a no-op) and a real **Settings page** (backend URL, timezone display, agent pairing).
+- [ ] **Edit schedule** (button exists, is a no-op). *(The Settings page itself shipped 2026-07-08 — see Completed. Remaining Settings work: a **runtime backend-URL override** — the API origin is env-only (`VITE_API_URL`) and shown read-only in About today — plus the **agent-pairing** panel, which is gated on the P0 WebSocket-auth handshake and the Go-public account system.)*
 - [ ] Native tasks follow-ups: `CLAUDE_PROMPT` job type, edit schedule, Redis lock before multi-instance.
 
 ## 🟢 P3 — Expansion
 
 - [ ] **Host the backend** (planned: Hetzner VPS) + set Vercel `VITE_API_URL` → turn the public demo into a real control plane. *(After P0.)*
 - [ ] **MCP server**: `list_tasks` / `run_task` / `create_task_from_template` / `convert_schedule` — highest-leverage Phase-6 item; thin wrapper over existing routes. Sequenced before the installer.
-- [ ] **Frontend refactor**: split `Dashboard.tsx` (1,100+ lines), add a router (deep links to `/tasks/:id`, `/templates/:id`), toasts instead of `alert()`, modal a11y (Escape/focus trap), mobile sidebar drawer (<375px requirement).
+- [ ] **Frontend refactor**: split `Dashboard.tsx` (1,200+ lines), add a router (deep links to `/tasks/:id`, `/templates/:id`), finish migrating the remaining `alert()`/`confirm()` calls to the shipped toast system (run/sync already migrated; `CreateTaskModal`, `CloneTaskModal`, `ApplyTemplateModal`, and `TaskModal` delete still use `alert()`/`confirm()`), modal a11y (Escape/focus trap), mobile sidebar drawer (<375px requirement).
 - [ ] **macOS agent** (launchd) — 7 catalog templates already wait on it; `ITaskScheduler` abstraction ports cleanly.
 - [ ] **Installer packages**: standard signed Windows Installer (`.msi` via WiX) for the agent, replacing the PowerShell setup script; matching packages for other OSes as their agents land (macOS `.pkg`/Homebrew once the launchd agent exists). Matters once there are users beyond Mike.
 - [ ] Claude Code connector: promote from experimental scaffold to production-ready.

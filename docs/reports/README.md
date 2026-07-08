@@ -25,7 +25,7 @@ The building blocks you reuse: **templates** for spinning up new scheduled tasks
 
 | Resource | Why you'd go there |
 |:---|:---|
-| [**🖥️ UI User Guide**](../user-guides/UI_User_Guide.md) | Applying a template from the dashboard. |
+| [**🖥️ UI User Guide**](../user-guides/guides/UI_User_Guide.md) | Applying a template from the dashboard. |
 | [**🗺️ Roadmap**](../ROADMAP.md) | Where the template and API surface is heading next. |
 
 ---

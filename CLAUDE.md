@@ -61,9 +61,9 @@ taskhub/
 ├── CLAUDE.md                  # this file
 ├── docs/                      # all documentation (hub + folder READMEs; index: docs/README.md)
 │   ├── ROADMAP.md             # the living plan: completed + prioritized open work
-│   ├── install/               # Windows / macOS / clone-repo install paths
+│   ├── install/               # index + guides/ (Windows / macOS / clone-repo install guides)
 │   ├── setup/                 # env vars & configuration (VITE_*, DATABASE_URL, pairing)
-│   ├── user-guides/           # Agent_Setup_Guide.md, UI_User_Guide.md
+│   ├── user-guides/           # index + guides/ (Agent_Setup_Guide.md, UI_User_Guide.md)
 │   ├── agent-tools/           # dev tooling docs: mcp/, clis/, agents/
 │   ├── resources/             # curated external links: repos/, websites/
 │   ├── reports/               # templates/ (catalog spec) + examples/ (JSON payloads)

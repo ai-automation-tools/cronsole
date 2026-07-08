@@ -16,7 +16,7 @@ The agent runs as a headless (windowless) background process that connects to th
 
 ## ⚡ Quick Setup (Automated)
 
-The repository provides an automation script, [setup-agent-startup.ps1](../../agent/setup-agent-startup.ps1), that compiles the agent and registers it in Windows Task Scheduler under a dedicated folder.
+The repository provides an automation script, [setup-agent-startup.ps1](../../../agent/setup-agent-startup.ps1), that compiles the agent and registers it in Windows Task Scheduler under a dedicated folder.
 
 1. Open **PowerShell** as **Administrator**.
 2. Navigate to the agent directory:

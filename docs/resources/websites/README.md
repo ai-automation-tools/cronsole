@@ -38,7 +38,7 @@ they're saved locally and grouped under a **User Defined** section.
 | Resource | Why you'd go there |
 |:---|:---|
 | [**📦 Repos**](../repos/README.md) | Reference repositories and related projects. |
-| [**🖥️ UI User Guide**](../../user-guides/UI_User_Guide.md) | Using the Platforms tab in the dashboard. |
+| [**🖥️ UI User Guide**](../../user-guides/guides/UI_User_Guide.md) | Using the Platforms tab in the dashboard. |
 
 ---
 

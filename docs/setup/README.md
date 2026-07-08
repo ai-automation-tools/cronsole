@@ -64,7 +64,7 @@ URL (with WSS) and a per-user **pairing flow** are tracked on the
 [Roadmap](../ROADMAP.md) (**P0 — Security hardening** and the go-public checklist).
 
 For installing, registering, verifying, and troubleshooting the agent itself, see the
-[**🤖 Windows Agent Setup Guide**](../user-guides/Agent_Setup_Guide.md).
+[**🤖 Windows Agent Setup Guide**](../user-guides/guides/Agent_Setup_Guide.md).
 
 ## ✅ Verify your configuration
 

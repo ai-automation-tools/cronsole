@@ -30,7 +30,7 @@ converting the cron to the platform's native trigger for you.
 | Resource | Why you'd go there |
 |:---|:---|
 | [**🧪 Examples**](../examples/README.md) | Sample `GET /templates` and `POST /templates/{id}/apply` payloads. |
-| [**🖥️ UI User Guide**](../../user-guides/UI_User_Guide.md) | Applying a template from the dashboard. |
+| [**🖥️ UI User Guide**](../../user-guides/guides/UI_User_Guide.md) | Applying a template from the dashboard. |
 
 ---
 

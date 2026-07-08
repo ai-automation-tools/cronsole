@@ -18,8 +18,8 @@ Windows agent. If you haven't set TaskHub up yet, start with
 
 | Guide | What it covers |
 |:---|:---|
-| [**🖥️ UI User Guide**](UI_User_Guide.md) | Navigating the dashboard, task cards and views, categorization and overrides, and applying templates. |
-| [**🤖 Windows Agent Setup Guide**](Agent_Setup_Guide.md) | Installing, registering, running, verifying, and troubleshooting the local .NET agent. |
+| [**🖥️ UI User Guide**](guides/UI_User_Guide.md) | Navigating the dashboard, task cards and views, categorization and overrides, and applying templates. |
+| [**🤖 Windows Agent Setup Guide**](guides/Agent_Setup_Guide.md) | Installing, registering, running, verifying, and troubleshooting the local .NET agent. |
 
 ## 🔗 Related
 

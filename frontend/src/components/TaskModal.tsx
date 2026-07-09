@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
+import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
 
 interface TaskModalProps {
@@ -66,10 +67,10 @@ const humanizeIso = (iso: string): string => {
   return parts.length ? parts.join(', ') : iso;
 };
 
-function scheduleInfo(task: Task): { cron: string | null; human: string | null; rows: DetailRow[] } {
+function scheduleInfo(task: Task, tz: TimezoneMode): { cron: string | null; human: string | null; rows: DetailRow[] } {
   const meta = (task.metadata ?? {}) as Meta;
   const cron = asText(task.schedule) ?? asText(meta.schedule) ?? asText(meta.cron) ?? null;
-  const human = describeCron(cron);
+  const human = describeCron(cron, tz);
   const rows: DetailRow[] = [];
   const trig = meta.trigger as Meta | undefined;
   if (trig && typeof trig === 'object') {
@@ -108,12 +109,15 @@ function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
   }
 
   if (Array.isArray(meta.actions) && meta.actions.length) {
-    meta.actions.forEach((raw, i) => {
+    // Bind to a local so the array type survives inside the forEach closure
+    // (property narrowing on meta.actions is lost across the callback boundary).
+    const acts = meta.actions;
+    acts.forEach((raw, i) => {
       const act = (raw ?? {}) as Meta;
       const exe = asText(act.path) ?? asText(act.executable);
       const args = asText(act.arguments);
       const cwd = asText(act.workingDirectory);
-      if (exe) rows.push({ label: meta.actions!.length > 1 ? `Action ${i + 1}` : 'Runs', value: args ? `${exe} ${args}` : exe, mono: true });
+      if (exe) rows.push({ label: acts.length > 1 ? `Action ${i + 1}` : 'Runs', value: args ? `${exe} ${args}` : exe, mono: true });
       if (cwd) rows.push({ label: 'Working dir', value: cwd, mono: true });
     });
     return { rows, reported: rows.length > 0 };
@@ -187,6 +191,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { settings: prefs } = useSettings();
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -217,7 +222,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   if (!task) return null;
 
   const meta = (task.metadata ?? {}) as Meta;
-  const sched = scheduleInfo(task);
+  const sched = scheduleInfo(task, prefs.timezone);
   const actions = actionInfo(task);
   const settings = settingsRows(task);
   const nextRun = asText(meta.nextRunTime);

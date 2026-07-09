@@ -49,6 +49,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Reframed Claude Code support as experimental rather than production-ready.
 - Updated immediate action items to focus on Phase 3 exit criteria and Phase 4 QA.
 
+### Changed
+- **Task detail view shows recurring schedule times in your local timezone** (P1): the Schedule panel described recurring times in UTC ("Daily at 9:00 AM UTC"). `describeCron` now honors the Settings Local/UTC mode — in local mode (the default) it converts the recurring clock time to the viewer's zone and rolls the day-of-week across midnight (e.g. `0 2 * * 1` reads "Weekly on Sunday at 9:00 PM" in US Eastern). Anchored on the current date so it respects DST; interval schedules (every-N, hourly) are unchanged. Also fixed a latent `tsc -b` type-narrowing error in `TaskModal.actionInfo`.
+
 ### Fixed
 - **Weekly schedules crossing midnight in UTC showed the wrong day** (found by the live schedule-normalization smoke test): the agent's `TriggerReader` converted a weekly trigger's start *time* to UTC but read its *day-of-week* without the same roll, so a late-evening local trigger reported the prior day (e.g. `Weekly-Analysis`, Sunday 23:45 PDT = Monday 06:45 UTC, normalized to `45 6 * * 0` instead of `45 6 * * 1` — and contradicted its own Monday next-run time). `TriggerReader` now rolls the day-of-week by the local→UTC day shift (matching the already-correct `TriggerBuilder` create path), via a unit-tested `ShiftDayName` helper. Re-verified end-to-end against a real 282-task sync. Agent tests +6 (52 total).
 - **`POST /api/tasks` (clone / custom creation) skipped cron→trigger conversion**: Windows tasks created through it (e.g. the Clone modal) fell into the agent's legacy fallback and ran "daily at now+1h" instead of the requested schedule. The route now validates the cron, converts it like the template-apply path, and rejects unconvertible schedules with a 400.

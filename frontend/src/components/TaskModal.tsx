@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2 } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
+import { useToast } from '../hooks/useToast';
 
 interface TaskModalProps {
   task: Task | null;
@@ -41,6 +42,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   }, [task]);
 
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -49,11 +51,12 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
     },
     onSuccess: () => {
       if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast(DEMO_MODE ? `Demo mode — "${task!.name}" would be deleted.` : `Task "${task!.name}" deleted.`, 'success');
       onClose();
     },
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
-      alert(`Delete failed: ${err.response?.data?.error || err.message}`);
+      toast(`Delete failed: ${err.response?.data?.error || err.message}`, 'error');
     }
   });
 

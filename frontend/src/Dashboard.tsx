@@ -28,7 +28,8 @@ import {
   Play,
   Zap,
   Search,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { CloneTaskModal } from './components/CloneTaskModal';
 import { HelpModal } from './components/HelpModal';
@@ -46,7 +47,8 @@ import { matchesTaskSearch } from './utils/taskSearch';
 import { SettingsScreen } from './components/SettingsScreen';
 import { useSettings, type Settings } from './hooks/useSettings';
 import { useToast } from './hooks/useToast';
-import { formatDateTime, formatTime } from './utils/datetime';
+import { useConnections } from './hooks/useConnections';
+import { formatDateTime, formatTime, timeAgo } from './utils/datetime';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
@@ -239,12 +241,14 @@ const DEMO_TEMPLATES: Template[] = [
   }
 ];
 
-const DashboardScreen = ({ 
-  onTaskSelect, 
-  onRun, 
-  tasks, 
-  isLoading, 
-  refetch, 
+const DashboardScreen = ({
+  onTaskSelect,
+  onRun,
+  tasks,
+  isLoading,
+  onImport,
+  onSyncNow,
+  isSyncing,
   onCategoryUpdate,
   onClone,
   onShowHelp,
@@ -255,13 +259,24 @@ const DashboardScreen = ({
   onRun: (task: Task) => void;
   tasks: Task[] | undefined;
   isLoading: boolean;
-  refetch: () => void;
+  onImport: () => void;
+  onSyncNow: () => void;
+  isSyncing: boolean;
   onCategoryUpdate: (taskId: string, category: string) => void;
   onClone: (task: Task) => void;
   onShowHelp: () => void;
   onNewTask: () => void;
   settings: Settings;
 }) => {
+  const { data: connections } = useConnections();
+  // "Last synced" = the most recent per-connection sync timestamp.
+  const lastSync = useMemo(() => {
+    const stamps = (connections ?? [])
+      .map(c => c.lastSync)
+      .filter((s): s is string => !!s)
+      .sort();
+    return stamps.length ? stamps[stamps.length - 1] : null;
+  }, [connections]);
   // Initialize view/filter state from the user's saved dashboard defaults.
   const [selectedCategory, setSelectedTaskCategory] = useState<string>(settings.defaultCategory);
   const [selectedPlatform, setSelectedPlatform] = useState<string>(settings.defaultPlatform);
@@ -357,16 +372,23 @@ const DashboardScreen = ({
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1">Unified Task Dashboard</h2>
-          <p className="text-muted-foreground">Manage {tasks?.length || 0} tasks across your ecosystem.</p>
+          <p className="text-muted-foreground">
+            Manage {tasks?.length || 0} tasks across your ecosystem.
+            {lastSync && (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs text-subtle-foreground">
+                <RefreshCw size={11} /> synced {timeAgo(lastSync)}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
-          <button 
+          <button
             onClick={onShowHelp}
             className="px-4 py-2 rounded-lg text-sm font-medium bg-surface border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all flex items-center gap-2 active:scale-95 shadow-md font-bold"
           >
             <HelpCircle size={16} /> Help Center
           </button>
-          
+
           {!isEmpty && viewMode !== 'kanban' && (
             <button 
               onClick={() => setShowDisabled(!showDisabled)} 
@@ -389,8 +411,21 @@ const DashboardScreen = ({
             <Zap size={16} /> New Task
           </button>
 
-          <button onClick={() => refetch()} className="bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-primary/20 active:scale-95">
-            <RefreshCw size={16} /> Sync Now
+          <button
+            onClick={onImport}
+            className="px-4 py-2 rounded-lg text-sm font-bold bg-surface border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all flex items-center gap-2 active:scale-95 shadow-md"
+            title="Discover and import tasks from your connected platforms"
+          >
+            <Download size={16} /> Import
+          </button>
+
+          <button
+            onClick={onSyncNow}
+            disabled={isSyncing}
+            className="bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+            title="Re-pull status and schedules for the tasks you already track"
+          >
+            <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} /> {isSyncing ? 'Syncing…' : 'Sync Now'}
           </button>
         </div>
       </div>
@@ -402,11 +437,11 @@ const DashboardScreen = ({
            <p className="text-subtle-foreground max-w-sm mt-2 mb-6">
               Connect systems and perform your first sync to discover and monitor scheduled tasks.
            </p>
-           <button 
-             onClick={() => refetch()}
-             className="bg-primary hover:bg-primary-hover px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 transition-all active:scale-95"
+           <button
+             onClick={onImport}
+             className="bg-primary hover:bg-primary-hover px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2"
            >
-             Sync Tasks Now
+             <Download size={16} /> Import Tasks
            </button>
         </div>
       ) : (
@@ -1168,8 +1203,9 @@ const Dashboard = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
       setShowImport(false);
-      if (settings.toastOnSuccess) toast('Tasks synced.', 'success');
+      if (settings.toastOnSuccess) toast(DEMO_MODE ? 'Demo mode — sync simulated.' : 'Tasks synced.', 'success');
     },
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
@@ -1223,11 +1259,16 @@ const Dashboard = () => {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="flex-1 p-10 overflow-y-auto">
         {activeTab === 'dashboard' && (
-          <DashboardScreen 
-            tasks={tasks} 
-            isLoading={isLoading} 
-            refetch={() => setShowImport(true)} 
-            onTaskSelect={setSelectedTask} 
+          <DashboardScreen
+            tasks={tasks}
+            isLoading={isLoading}
+            onImport={() => setShowImport(true)}
+            onSyncNow={() => {
+              const cats = Array.from(new Set((tasks ?? []).map(t => t.category || 'Uncategorized')));
+              syncMutation.mutate(cats);
+            }}
+            isSyncing={syncMutation.isPending}
+            onTaskSelect={setSelectedTask}
             onRun={runMutation.mutate}
             onCategoryUpdate={handleCategoryUpdate}
             onClone={setCloningTask}

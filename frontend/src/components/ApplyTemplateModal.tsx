@@ -4,6 +4,7 @@ import { XCircle, Clock, Loader2, ArrowRight, Info, AlertTriangle, CheckCircle2 
 import type { Template } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
+import { useToast } from '../hooks/useToast';
 
 // Substitute {{key}} placeholders.
 const resolveCommand = (tpl: string, values: Record<string, string>) =>
@@ -16,6 +17,7 @@ interface ApplyTemplateModalProps {
 
 export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProps) => {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const params = template.parameters ?? [];
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(params.map(p => [p.key, p.default ?? '']))
@@ -68,16 +70,17 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
     },
     onSuccess: () => {
       if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      alert(
+      toast(
         DEMO_MODE
           ? `Demo mode — "${template.name}" would be created on ${platformLabel(platform)}.`
-          : `Task created on ${platformLabel(platform)} from "${template.name}".`
+          : `Task created on ${platformLabel(platform)} from "${template.name}".`,
+        'success'
       );
       onClose();
     },
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
-      alert(`Apply failed: ${err.response?.data?.error || err.message}`);
+      toast(`Apply failed: ${err.response?.data?.error || err.message}`, 'error');
     }
   });
 

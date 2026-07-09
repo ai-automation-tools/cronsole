@@ -3,6 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: taskhub
       POSTGRES_PASSWORD: password
@@ -14,6 +15,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
 
@@ -21,6 +23,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
     command: npm run dev
     volumes:
       - ./backend:/app
@@ -39,6 +42,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev_encryption_key_32_chars_1234}
       AGENT_PAIRING_SECRET: ${AGENT_PAIRING_SECRET:-dev-pairing-secret-change-me}
+      # Frontend origin(s) allowed to open the browser live-update socket.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173}
     depends_on:
       - db
       - redis
@@ -47,6 +52,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    restart: unless-stopped
     volumes:
       - ./frontend:/app
       - /app/node_modules

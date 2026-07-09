@@ -49,6 +49,7 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { useSettings, type Settings } from './hooks/useSettings';
 import { useToast } from './hooks/useToast';
 import { useConnections } from './hooks/useConnections';
+import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { formatDateTime, formatTime, timeAgo } from './utils/datetime';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
@@ -1411,6 +1412,10 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const { settings } = useSettings();
   const { toast } = useToast();
+
+  // Push-based live updates: refresh the task list when the backend signals a
+  // change (agent sync, scheduled run, another tab), instead of only polling.
+  useLiveTaskUpdates();
 
   // Raise an OS notification for a task failure when the user has opted in.
   const notifyFailure = (title: string, body: string) => {

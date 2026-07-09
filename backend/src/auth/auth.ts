@@ -44,6 +44,18 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
 };
 
 /**
+ * Verify a JWT and return its payload, or null if invalid/expired. Used by the
+ * Socket.IO UI channel, which authenticates on the handshake instead of a header.
+ */
+export function verifyToken(token: string): { id: string; email: string } | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as { id: string; email: string };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Generate JWT token
  */
 export const generateToken = (user: { id: string; email: string }) => {

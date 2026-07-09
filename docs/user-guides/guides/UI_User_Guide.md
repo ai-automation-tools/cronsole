@@ -10,7 +10,7 @@ The Dashboard is your "one pane of glass" for monitoring every scheduled task in
 
 ### Task Cards
 Each task is represented by a card showing:
-- **Platform Badge:** Identifies where the task lives (e.g., Windows or Claude).
+- **Platform Badge:** Identifies where the task lives (e.g., Windows, Claude, or TaskHub-native).
 *   **Status Indicator:** A green dot for `ACTIVE` tasks and a gray dot for `DISABLED` tasks.
 *   **Local Category:** A folder icon showing the TaskHub-specific category.
 *   **External ID:** The native path or ID used by the source platform.
@@ -18,11 +18,37 @@ Each task is represented by a card showing:
 
 ### Quick Actions
 - **Run Now (Play Icon):** Manually triggers the task immediately. This requires a confirmation dialog to prevent accidental triggers.
-- **View Details:** Clicking anywhere on the card (except the Play icon) opens the **Task Modal** for deeper metadata inspection.
+- **Clone (Copy Icon):** Duplicates a task as a starting point for a new one.
+- **View Details:** Clicking anywhere on the card (except the action icons) opens the **Task Details** modal (see §2).
+
+### Views, Search & Filters
+- **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right.
+- **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
+- **Active Only:** Toggle to hide disabled tasks.
+- **Category & platform chips:** Filter to a single category or platform. These chips are **faceted** — they only show categories/platforms that actually have tasks *under the current filters* (with a live count), so turning on **Active Only** or a platform filter drops any now-empty tags instead of showing zero-count noise.
 
 ---
 
-## 2. Task Categorization & Organization
+## 2. Task Details
+
+Clicking a task card opens the **Task Details** modal, which has two tabs.
+
+### Overview
+Instead of raw data, the Overview parses the task's synced configuration into readable panels:
+- **Summary:** Status, last result (success/failure), next run, and last run.
+- **Schedule:** A human-readable description (e.g. *"Daily at 9:00 AM UTC"*) alongside the underlying cron expression. Schedules are stored in UTC. If TaskHub can't express the trigger as cron (boot, logon, event, or on-demand tasks), it says so honestly rather than guessing.
+- **Action:** What the task actually runs — an HTTP request for TaskHub-native tasks, or the executable/arguments/working directory for Windows tasks. If your agent build doesn't yet report a task's action, the panel says so rather than showing a blank.
+- **Settings:** Scheduler state, whether the task is enabled, the account it runs as, run level, logon type, author, and description — shown when the agent reports them.
+- **Raw platform metadata:** The full untouched sync payload is still available under a collapsible section at the bottom.
+
+### Run History
+The second tab lists recorded runs with their status, timestamp, duration, and a log snippet — so you can answer "did it actually run, and did it work?"
+
+> **Note on schedule times:** the recurring clock time in the Schedule panel is shown in **UTC** today. Absolute timestamps (next/last run) are shown in your local time.
+
+---
+
+## 3. Task Categorization & Organization
 
 TaskHub allows you to organize tasks into local folders (categories).
 
@@ -37,9 +63,9 @@ Your categorization in TaskHub is **local and persistent**.
 - TaskHub will not overwrite your manual categorization with the source platform's folder structure once the task is imported.
 
 ### Viewing Categories
-At the top of the Dashboard, you'll see a horizontal tab bar:
-- **"All":** Shows every task from every platform.
-- **Dynamic Tabs:** Each unique category (imported or custom) will automatically appear as a filterable tab.
+At the top of the Dashboard, you'll see a horizontal chip bar:
+- **"All":** Shows every task (within the current Active Only / platform filters).
+- **Dynamic chips:** Each category that has matching tasks appears as a filterable chip with a count. Categories with no tasks under the current filters are hidden.
 
 ### Re-categorizing a Task (Two Ways)
 1. **Directly on the Card:**
@@ -53,21 +79,29 @@ At the top of the Dashboard, you'll see a horizontal tab bar:
 
 ---
 
-## 3. Applying Templates
+## 4. Templates
 
-The **Templates** tab contains prebuilt automation patterns (e.g., "Daily Database Backup").
+The **Templates** tab is a library of prebuilt automation patterns, organized into two groups:
+- **Starters:** Parameterized building blocks (PowerShell / Python / shell script, HTTP ping, …). You fill in the blanks (script path, URL, arguments) when applying.
+- **Use-case patterns:** Ready-made automations for common jobs (e.g., *Daily Database Backup*, *Morning News Digest*).
 
-- **Browsing:** Each template shows its target platforms, intended schedule, and the command it will execute.
-- **Applying:** Click **"Apply Template"** to open the creation flow. TaskHub will attempt to register this new task on your machine via the local agent or API.
+### Finding a template
+- **Search:** Free-text search across name, description, command, category, and script type.
+- **Type toggle:** Show **All**, only **Starters**, or only **Patterns**.
+- **OS & Tags filters:** Faceted chips (with counts) narrow by operating system and category tag. Like the Dashboard chips, they only show combinations that actually have templates, and collapse when a single choice remains. Use **Clear** to reset everything.
+
+### Applying a template
+- Each card shows its target platforms, script type, intended schedule (UTC), and the command it will run.
+- Click **"Apply Template"** to open the creation flow. For starters, you'll fill in the required parameters (validated as you go). TaskHub then registers the new task on your machine via the local agent (Windows) or the relevant API.
 
 ---
 
-## 4. System Status
+## 5. System Status & Connections
 
-The **Sidebar** provides a live summary of your infrastructure health:
-- **Windows Agent:** Shows "Online" if your local machine is currently connected via WebSocket.
-- **Claude API:** Shows "Healthy" if your API credentials are valid and responding.
+- **Sidebar:** Shows a live per-platform health summary (Online / Degraded / Offline) driven by real connection checks, plus a "synced N ago" indicator.
+- **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand.
+- **Sync vs. Import:** **Sync Now** re-pulls status and schedules for categories you already track; **Import** opens the discovery picker to add new tasks.
 
 ---
 
-*Last Updated: June 2, 2026*
+*Last Updated: July 8, 2026*

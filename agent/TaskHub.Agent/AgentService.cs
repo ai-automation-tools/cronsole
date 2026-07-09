@@ -82,9 +82,22 @@ namespace TaskHub.Agent
                             path = t.Path,
                             name = t.Name,
                             state = t.State,
+                            enabled = t.Enabled,
                             lastRunTime = t.LastRunTime,
                             nextRunTime = t.NextRunTime,
-                            trigger = SerializeTrigger(t.Trigger)
+                            description = t.Description,
+                            author = t.Author,
+                            userId = t.UserId,
+                            runLevel = t.RunLevel,
+                            logonType = t.LogonType,
+                            trigger = SerializeTrigger(t.Trigger),
+                            actions = t.Actions?.Select(a => new
+                            {
+                                type = a.Type,
+                                path = a.Path,
+                                arguments = a.Arguments,
+                                workingDirectory = a.WorkingDirectory
+                            })
                         }).ToList();
 
                     await _socket.EmitAsync("task:full_list", new[] { new { tasks = tasks } });

@@ -31,6 +31,7 @@ import {
   X,
   Download
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { CloneTaskModal } from './components/CloneTaskModal';
 import { HelpModal } from './components/HelpModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -303,16 +304,51 @@ const DashboardScreen = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const categories = useMemo(() => {
-    if (!tasks) return ['All'];
-    const unique = Array.from(new Set(tasks.map(t => t.category || 'Uncategorized')));
-    return ['All', ...unique.sort()];
-  }, [tasks]);
+  // Apply the active/disabled filter the same way the task grid does (kanban
+  // shows both columns, so it never hides disabled tasks).
+  const applyActiveFilter = (list: Task[]) =>
+    viewMode !== 'kanban' && !showDisabled ? list.filter(t => t.status === 'ACTIVE') : list;
 
-  const platforms = useMemo(() => {
-    if (!tasks) return [];
-    return Array.from(new Set(tasks.map(t => t.platform))).sort();
-  }, [tasks]);
+  // Category chips are faceted: they reflect the active/disabled + platform
+  // filters so an empty category (e.g. no *active* tasks in it) drops out
+  // instead of showing a 0-count tag. The currently-selected category stays
+  // pinned even if it empties, so the view doesn't jump out from under you.
+  const { categories, categoryCounts } = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (tasks) {
+      let base = applyActiveFilter(tasks);
+      if (selectedPlatform !== 'All') base = base.filter(t => t.platform === selectedPlatform);
+      for (const t of base) {
+        const c = t.category || 'Uncategorized';
+        counts.set(c, (counts.get(c) ?? 0) + 1);
+      }
+      if (selectedCategory !== 'All' && !counts.has(selectedCategory)) counts.set(selectedCategory, 0);
+    }
+    return { categories: ['All', ...Array.from(counts.keys()).sort()], categoryCounts: counts };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, viewMode, showDisabled, selectedPlatform, selectedCategory]);
+
+  // The "All" chip counts every task visible under the current active/platform
+  // constraints — i.e. the sum of the per-category counts.
+  const totalVisibleCount = useMemo(
+    () => Array.from(categoryCounts.values()).reduce((sum, n) => sum + n, 0),
+    [categoryCounts]
+  );
+
+  // Platform chips are faceted the same way (active/disabled + selected
+  // category), but never filtered by the platform selection itself — you must
+  // still be able to switch platforms. Keep the selected platform pinned.
+  const { platforms, platformCounts } = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (tasks) {
+      let base = applyActiveFilter(tasks);
+      if (selectedCategory !== 'All') base = base.filter(t => (t.category || 'Uncategorized') === selectedCategory);
+      for (const t of base) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
+      if (selectedPlatform !== 'All' && !counts.has(selectedPlatform)) counts.set(selectedPlatform, 0);
+    }
+    return { platforms: Array.from(counts.keys()).sort(), platformCounts: counts };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, viewMode, showDisabled, selectedCategory, selectedPlatform]);
 
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
@@ -486,7 +522,7 @@ const DashboardScreen = ({
                   {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
                   {cat}
                   <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>
-                    {cat === 'All' ? tasks?.length : tasks?.filter(t => (t.category || 'Uncategorized') === cat).length}
+                    {cat === 'All' ? totalVisibleCount : categoryCounts.get(cat) ?? 0}
                   </span>
                 </button>
               ))}
@@ -515,7 +551,7 @@ const DashboardScreen = ({
                     {p === 'TASKHUB_NATIVE' && <Zap size={11} />}
                     {platformLabel(p)}
                     <span className={`px-1 py-0.5 rounded text-[9px] ${selectedPlatform === p ? 'bg-black/20' : 'bg-muted text-subtle-foreground'}`}>
-                      {tasks?.filter(t => t.platform === p).length}
+                      {platformCounts.get(p) ?? 0}
                     </span>
                   </button>
                 ))}
@@ -877,8 +913,150 @@ const DashboardScreen = ({
   );
 };
 
+// Human labels for the enum-ish template facets (see backend/src/seed.ts).
+const TEMPLATE_OS_LABELS: Record<string, string> = {
+  WINDOWS: 'Windows',
+  MACOS: 'macOS',
+  LINUX: 'Linux',
+  CROSS_PLATFORM: 'Cross-platform'
+};
+const TEMPLATE_CATEGORY_LABELS: Record<string, string> = {
+  BACKUP: 'Backup',
+  AI_AGENT: 'AI Agent',
+  CLEANUP: 'Cleanup',
+  DEV_WORKFLOW: 'Dev Workflow',
+  MONITORING: 'Monitoring',
+  REPORTING: 'Reporting',
+  MAINTENANCE: 'Maintenance',
+  OTHER: 'Other'
+};
+const titleCaseEnum = (raw: string) =>
+  raw.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+const templateOsLabel = (os: string) => TEMPLATE_OS_LABELS[os] ?? titleCaseEnum(os);
+const templateCategoryLabel = (c: string) => TEMPLATE_CATEGORY_LABELS[c] ?? titleCaseEnum(c);
+
+type TemplateKind = 'all' | 'starters' | 'patterns';
+
+const templateHaystack = (t: Template) =>
+  [t.name, t.description, t.command, t.category, t.scriptType, t.os, ...(t.targetPlatforms ?? [])]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+const matchesTemplateSearch = (t: Template, query: string) => {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  const hay = templateHaystack(t);
+  return terms.every(term => hay.includes(term));
+};
+
+const byTemplatePopularity = (a: Template, b: Template) =>
+  (b.upvotes ?? 0) - (a.upvotes ?? 0) || a.name.localeCompare(b.name);
+
+// Count occurrences of a facet value across a list, pinning the selected value
+// so it stays visible (as a 0-count chip) even after it's filtered everything out.
+const buildTemplateFacet = (list: Template[], key: (t: Template) => string | undefined, pin: string) => {
+  const counts = new Map<string, number>();
+  for (const t of list) {
+    const k = key(t);
+    if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  if (pin !== 'All' && !counts.has(pin)) counts.set(pin, 0);
+  return counts;
+};
+
+const TemplateChip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+  <button
+    onClick={onClick}
+    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+      active
+        ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20'
+        : 'bg-surface border-border text-muted-foreground hover:border-foreground/20'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const TemplateCard = ({ template, onApply }: { template: Template; onApply: (t: Template) => void }) => (
+  <div className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
+    <div className="p-6 flex-1">
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex flex-wrap gap-2">
+          {template.isStarter && (
+            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
+              <Sparkles size={9} /> Starter
+            </span>
+          )}
+          {template.targetPlatforms.map(p => (
+            <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+              {platformLabel(p)}
+            </span>
+          ))}
+          {template.scriptType && (
+            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              {template.scriptType.replace(/_/g, ' ')}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 text-foreground bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 text-[10px] font-bold shrink-0">
+          <Activity size={10} /> {template.upvotes}
+        </div>
+      </div>
+
+      <h3 className="text-xl font-bold mb-2 group-hover:text-foreground transition-colors">{template.name}</h3>
+      <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{template.description}</p>
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
+          <Clock size={14} className="text-foreground" />
+          <code className="text-foreground font-mono">{template.scheduleExpression}</code>
+          <span className="text-subtle-foreground italic ml-auto">UTC</span>
+        </div>
+        <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
+          <ExternalLink size={14} className="text-purple-500" />
+          <span className="truncate text-foreground italic">{template.command}</span>
+        </div>
+      </div>
+    </div>
+
+    <button onClick={() => onApply(template)} className="w-full bg-muted hover:bg-primary-hover text-foreground hover:text-primary-foreground py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-border group-hover:border-primary/20">
+      Apply Template <ArrowRight size={16} />
+    </button>
+  </div>
+);
+
+const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply }: {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  templates: Template[];
+  onApply: (t: Template) => void;
+}) => {
+  if (templates.length === 0) return null;
+  return (
+    <div className="space-y-4">
+      <div className="flex items-baseline gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground uppercase tracking-wider">
+          <Icon size={15} /> {title}
+          <span className="text-xs font-bold text-subtle-foreground bg-muted px-2 py-0.5 rounded-full">{templates.length}</span>
+        </h3>
+        <span className="text-xs text-subtle-foreground">{subtitle}</span>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {templates.map(t => <TemplateCard key={t.id} template={t} onApply={onApply} />)}
+      </div>
+    </div>
+  );
+};
+
 const TemplatesScreen = () => {
   const [applyTarget, setApplyTarget] = useState<Template | null>(null);
+  const [search, setSearch] = useState('');
+  const [kind, setKind] = useState<TemplateKind>('all');
+  const [selectedOs, setSelectedOs] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+
   const { data: templates, isLoading } = useQuery<Template[]>({
     queryKey: ['templates'],
     queryFn: async () => {
@@ -894,6 +1072,50 @@ const TemplatesScreen = () => {
     initialData: DEMO_MODE ? DEMO_TEMPLATES : undefined
   });
 
+  const all = useMemo(() => templates ?? [], [templates]);
+
+  // Narrow by the "kind" toggle + search first; the OS/category facets and the
+  // final grid all build off this so counts reflect the current constraints.
+  const searchKindFiltered = useMemo(() => {
+    let list = all;
+    if (kind === 'starters') list = list.filter(t => t.isStarter);
+    else if (kind === 'patterns') list = list.filter(t => !t.isStarter);
+    if (search.trim()) list = list.filter(t => matchesTemplateSearch(t, search));
+    return list;
+  }, [all, kind, search]);
+
+  // Faceted OS / category chips: each reflects the other's current selection so
+  // an empty combination drops out instead of showing a 0-count tag.
+  const osFacets = useMemo(
+    () => buildTemplateFacet(
+      selectedCategory === 'All' ? searchKindFiltered : searchKindFiltered.filter(t => t.category === selectedCategory),
+      t => t.os,
+      selectedOs
+    ),
+    [searchKindFiltered, selectedCategory, selectedOs]
+  );
+  const categoryFacets = useMemo(
+    () => buildTemplateFacet(
+      selectedOs === 'All' ? searchKindFiltered : searchKindFiltered.filter(t => t.os === selectedOs),
+      t => t.category,
+      selectedCategory
+    ),
+    [searchKindFiltered, selectedOs, selectedCategory]
+  );
+
+  const filtered = useMemo(() => {
+    let list = searchKindFiltered;
+    if (selectedOs !== 'All') list = list.filter(t => (t.os ?? '') === selectedOs);
+    if (selectedCategory !== 'All') list = list.filter(t => (t.category ?? '') === selectedCategory);
+    return list;
+  }, [searchKindFiltered, selectedOs, selectedCategory]);
+
+  const starters = useMemo(() => filtered.filter(t => t.isStarter).sort(byTemplatePopularity), [filtered]);
+  const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byTemplatePopularity), [filtered]);
+
+  const osValues = useMemo(() => Array.from(osFacets.keys()).sort((a, b) => templateOsLabel(a).localeCompare(templateOsLabel(b))), [osFacets]);
+  const categoryValues = useMemo(() => Array.from(categoryFacets.keys()).sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b))), [categoryFacets]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
@@ -903,7 +1125,9 @@ const TemplatesScreen = () => {
     );
   }
 
-  const hasTemplates = templates && templates.length > 0;
+  const hasTemplates = all.length > 0;
+  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedCategory !== 'All' || !!search.trim();
+  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedCategory('All'); };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -923,50 +1147,87 @@ const TemplatesScreen = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
-          {templates.map(template => (
-            <div key={template.id} className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
-              <div className="p-6 flex-1">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex flex-wrap gap-2">
-                     {template.targetPlatforms.map(p => (
-                       <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-                         {platformLabel(p)}
-                       </span>
-                     ))}
-                     {template.scriptType && (
-                       <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                         {template.scriptType.replace(/_/g, ' ')}
-                       </span>
-                     )}
-                  </div>
-                  <div className="flex items-center gap-1 text-foreground bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 text-[10px] font-bold shrink-0">
-                     <Activity size={10} /> {template.upvotes}
-                  </div>
-                </div>
-
-                <h3 className="text-xl font-bold mb-2 group-hover:text-foreground transition-colors">{template.name}</h3>
-                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{template.description}</p>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
-                     <Clock size={14} className="text-foreground" />
-                     <code className="text-foreground font-mono">{template.scheduleExpression}</code>
-                     <span className="text-subtle-foreground italic ml-auto">UTC</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
-                     <ExternalLink size={14} className="text-purple-500" />
-                     <span className="truncate text-foreground italic">{template.command}</span>
-                  </div>
-                </div>
+        <>
+          {/* Filter bar: search + Type / OS / Category facets */}
+          <div className="bg-surface border border-border rounded-2xl p-4 space-y-4 shadow-md">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="relative flex-1">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle-foreground" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Escape' && setSearch('')}
+                  placeholder="Search templates by name, command, category…"
+                  className="w-full bg-background border border-border rounded-xl pl-9 pr-9 py-2 text-sm outline-none focus:border-primary transition-colors"
+                />
+                {search && (
+                  <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle-foreground hover:text-foreground" title="Clear search">
+                    <X size={15} />
+                  </button>
+                )}
               </div>
+              <div className="flex items-center gap-1.5 bg-background border border-border p-1 rounded-xl shrink-0">
+                {(['all', 'starters', 'patterns'] as const).map(k => (
+                  <button
+                    key={k}
+                    onClick={() => setKind(k)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${kind === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+              {hasActiveFilters && (
+                <button onClick={clearFilters} className="text-xs font-bold text-subtle-foreground hover:text-foreground flex items-center gap-1 shrink-0" title="Clear all filters">
+                  <X size={13} /> Clear
+                </button>
+              )}
+            </div>
 
-              <button onClick={() => setApplyTarget(template)} className="w-full bg-muted hover:bg-primary-hover text-foreground hover:text-primary-foreground py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-border group-hover:border-primary/20">
-                Apply Template <ArrowRight size={16} />
+            {osValues.length > 1 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0">OS</span>
+                <TemplateChip active={selectedOs === 'All'} onClick={() => setSelectedOs('All')}>All</TemplateChip>
+                {osValues.map(os => (
+                  <TemplateChip key={os} active={selectedOs === os} onClick={() => setSelectedOs(os)}>
+                    {templateOsLabel(os)}
+                    <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedOs === os ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{osFacets.get(os) ?? 0}</span>
+                  </TemplateChip>
+                ))}
+              </div>
+            )}
+
+            {categoryValues.length > 1 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0 flex items-center gap-1"><Tag size={10} /> Tags</span>
+                <TemplateChip active={selectedCategory === 'All'} onClick={() => setSelectedCategory('All')}>All</TemplateChip>
+                {categoryValues.map(cat => (
+                  <TemplateChip key={cat} active={selectedCategory === cat} onClick={() => setSelectedCategory(cat)}>
+                    {templateCategoryLabel(cat)}
+                    <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{categoryFacets.get(cat) ?? 0}</span>
+                  </TemplateChip>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[30vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
+              <Search size={40} className="text-subtle-foreground mb-4" />
+              <h3 className="text-lg font-bold text-foreground">No templates match your filters</h3>
+              <p className="text-subtle-foreground max-w-sm mt-2 mb-4">Try a different search or clear the filters to see all {all.length} templates.</p>
+              <button onClick={clearFilters} className="text-sm font-bold text-primary hover:text-primary-hover flex items-center gap-1.5">
+                <X size={15} /> Clear filters
               </button>
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="space-y-10 pb-20">
+              <TemplateGroup icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={setApplyTarget} />
+              <TemplateGroup icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={setApplyTarget} />
+            </div>
+          )}
+        </>
       )}
 
       {applyTarget && (

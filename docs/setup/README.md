@@ -23,6 +23,11 @@ yet, start with [**⬇️ Installation**](../install/README.md).
 | **`VITE_API_URL`** | frontend | Origin the dashboard calls for the API. Defaults to `http://localhost:3000`. Set this if the backend runs elsewhere. |
 | **`DATABASE_URL`** | backend | PostgreSQL 16 connection string. Required when running the backend outside Docker Compose. |
 | **`JWT_SECRET`** | backend | Signing secret for auth tokens. |
+| **`AGENT_PAIRING_SECRET`** | backend + agent | Shared secret for the agent's WebSocket handshake. The backend **fails to start** without it; the agent must set the same value as `TASKHUB_PAIRING_SECRET`. Use a long random string (`openssl rand -hex 24`). |
+| **`ALLOWED_ORIGINS`** | backend | Comma-separated browser origins allowed to open a Socket.IO connection. Empty by default (only the non-browser agent connects today). |
+| **`TASKHUB_SERVER_URL`** | agent | Backend URL the agent connects to (WSS-capable, e.g. `wss://taskhub.example.com`). Defaults to `http://localhost:3000`. Overrides `serverUrl` in appsettings.json. |
+| **`TASKHUB_PAIRING_SECRET`** | agent | Must equal the backend's `AGENT_PAIRING_SECRET`. Required **unless** set via `appsettings.json` — the agent exits if neither provides it. Overrides the file. |
+| **`TASKHUB_AGENT_ID`** | agent | Stable identifier for this agent. Defaults to the machine name. Overrides `agentId` in appsettings.json. |
 
 > [!IMPORTANT]
 > Secrets never belong in committed code. Use `backend/.env` / `.env.local` for local
@@ -59,9 +64,22 @@ dotnet run                  # connects out to the backend
 ## 🤝 Agent connection & pairing
 
 The Windows agent opens an **outbound** WebSocket to the backend — it never accepts
-incoming connections. Today it connects to `http://localhost:3000`; a configurable server
-URL (with WSS) and a per-user **pairing flow** are tracked on the
-[Roadmap](../ROADMAP.md) (**P0 — Security hardening** and the go-public checklist).
+incoming connections. The connection is **authenticated**: the agent proves it holds the
+shared pairing secret via an HMAC handshake (the backend rejects any socket that can't), and
+the backend signs every task command so the agent only executes commands it can verify.
+
+Configure the agent one of two ways (env vars **override** the file, so a deployment can set
+them without editing anything):
+- **`agent/TaskHub.Agent/appsettings.json`** (recommended for local dev) — copy
+  `appsettings.example.json` to `appsettings.json` and set `pairingSecret` (and optionally
+  `serverUrl`/`agentId`). This file is gitignored so the secret isn't committed, and you
+  don't have to re-export anything each run.
+- **Environment variables** — `TASKHUB_SERVER_URL` (WSS-capable), `TASKHUB_PAIRING_SECRET`,
+  `TASKHUB_AGENT_ID`.
+
+Either way the secret must match the backend's `AGENT_PAIRING_SECRET`. A per-user **pairing-code flow**
+(vs. today's single shared secret) is tracked on the [Roadmap](../ROADMAP.md) go-public
+checklist.
 
 For installing, registering, verifying, and troubleshooting the agent itself, see the
 [**🤖 Windows Agent Setup Guide**](../user-guides/guides/Agent_Setup_Guide.md).

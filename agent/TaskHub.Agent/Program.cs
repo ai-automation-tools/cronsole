@@ -12,11 +12,37 @@ namespace TaskHub.Agent
         {
             Console.WriteLine("TaskHub Windows Agent Starting...");
 
-            // Configuration
-            var serverUrl = "http://localhost:3000";
-            var socket = new SocketIOWrapper(serverUrl);
+            // Configuration: env vars override appsettings.json, which overrides
+            // defaults (see AgentConfig). WSS-capable via the URL scheme.
+            var config = AgentConfig.Load();
+
+            if (string.IsNullOrWhiteSpace(config.PairingSecret))
+            {
+                Console.Error.WriteLine(
+                    "FATAL: no pairing secret configured. The agent cannot authenticate to " +
+                    "the backend without it. Set TASKHUB_PAIRING_SECRET in the environment, or " +
+                    "add \"pairingSecret\" to appsettings.json (copy appsettings.example.json). " +
+                    "It must match the backend's AGENT_PAIRING_SECRET.");
+                Environment.Exit(1);
+                return;
+            }
+
+            AgentAuthenticator authenticator;
+            try
+            {
+                authenticator = new AgentAuthenticator(config.PairingSecret, config.AgentId);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine($"FATAL: {ex.Message}");
+                Environment.Exit(1);
+                return;
+            }
+
+            Console.WriteLine($"Connecting as agent '{config.AgentId}' to {config.ServerUrl}");
+            var socket = new SocketIOWrapper(config.ServerUrl, authenticator);
             var scheduler = new Win32TaskScheduler();
-            var agent = new AgentService(socket, scheduler);
+            var agent = new AgentService(socket, scheduler, authenticator);
 
             await agent.StartAsync();
 

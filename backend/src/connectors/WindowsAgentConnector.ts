@@ -1,6 +1,7 @@
 import { PlatformType, HealthState } from '@prisma/client';
 import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
+import { emitSignedCommand } from '../ws/agentAuth.js';
 import { convertWindowsTriggerToCron, WindowsTrigger } from '../utils/scheduler-conversion.js';
 
 /**
@@ -83,7 +84,7 @@ export class WindowsAgentConnector implements PlatformConnector {
       };
 
       socket.on('task:executed', handler);
-      socket.emit('task:run', externalId);
+      emitSignedCommand(socket, { event: 'task:run', taskPath: externalId });
 
       setTimeout(() => {
         socket.off('task:executed', handler);
@@ -99,7 +100,7 @@ export class WindowsAgentConnector implements PlatformConnector {
     if (!socket) return { success: false };
 
     // Status update is currently fire-and-forget in agent for simplicity
-    socket.emit('task:set_status', externalId, enabled);
+    emitSignedCommand(socket, { event: 'task:set_status', taskPath: externalId, enabled });
     return { success: true };
   }
 
@@ -135,7 +136,14 @@ export class WindowsAgentConnector implements PlatformConnector {
       };
 
       socket.on('task:created', handler);
-      socket.emit('task:create', { name, schedule, command, trigger: options?.trigger ?? null });
+      // `trigger` rides along unsigned (server-derived structured data). The
+      // signature covers name/schedule/command; trigger integrity relies on WSS
+      // in transit (see the note on commandMessage in agentAuth.ts).
+      emitSignedCommand(
+        socket,
+        { event: 'task:create', name, schedule, command },
+        { trigger: options?.trigger ?? null }
+      );
 
       setTimeout(() => {
         socket.off('task:created', handler);

@@ -22,6 +22,7 @@ namespace TaskHub.Agent
     public class SocketIOWrapper : ISocketClient, IDisposable
     {
         private readonly string _serverUrl;
+        private readonly AgentAuthenticator _auth;
         private readonly object _lock = new();
         private readonly List<(string EventName, Action<ISocketResponse> Callback)> _handlers = new();
         private SocketIO? _client;
@@ -29,9 +30,10 @@ namespace TaskHub.Agent
         public event Action? OnConnected;
         public event Action? OnDisconnected;
 
-        public SocketIOWrapper(string serverUrl)
+        public SocketIOWrapper(string serverUrl, AgentAuthenticator auth)
         {
             _serverUrl = serverUrl;
+            _auth = auth ?? throw new ArgumentNullException(nameof(auth));
         }
 
         // Null until the first ConnectAsync(): callers register handlers (via On) at
@@ -104,9 +106,15 @@ namespace TaskHub.Agent
         {
             // Reconnection disabled: the watchdog owns reconnection so it never races
             // the library's internal loop (which would open duplicate sockets).
+            //
+            // Auth carries the pairing-secret handshake (agentId, nonce, ts, hmac).
+            // A fresh nonce per connect => a fresh per-session key, so a reconnect
+            // rekeys the command channel. Serialized into socket.handshake.auth
+            // server-side, where agentAuthMiddleware verifies it.
             var client = new SocketIO(new Uri(_serverUrl), new SocketIOOptions
             {
-                Reconnection = false
+                Reconnection = false,
+                Auth = _auth.CreateHandshakeAuth()
             });
 
             client.OnConnected += (_, _) => OnConnected?.Invoke();

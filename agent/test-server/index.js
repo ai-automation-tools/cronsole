@@ -1,40 +1,75 @@
 const { Server } = require("socket.io");
 const http = require("http");
+const crypto = require("crypto");
+
+// Dev stub of the backend for manually exercising the .NET agent. It mirrors the
+// real handshake + per-command signing (backend/src/ws/agentAuth.ts) so the agent
+// accepts its commands. Set AGENT_PAIRING_SECRET to match the agent's
+// TASKHUB_PAIRING_SECRET (defaults to the local dev value in backend/.env).
+const PAIRING_SECRET =
+  process.env.AGENT_PAIRING_SECRET ||
+  "48ea0bf89b69253fc6695949f777097e16a64bce8cbef51f";
+
+const hmac = (key, msg) =>
+  crypto.createHmac("sha256", key).update(msg, "utf8").digest("hex");
 
 const httpServer = http.createServer((req, res) => {
   res.writeHead(200, { "Content-Type": "text/html" });
   res.end(`
     <h1>TaskHub Test Server</h1>
     <p>Status: <strong>Running</strong></p>
-    <p>Socket.io is listening for agent connections.</p>
+    <p>Socket.io is listening for authenticated agent connections.</p>
     <hr>
     <p>Check the CLI console for task lists and trigger logs.</p>
   `);
 });
 
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-  }
-});
+const io = new Server(httpServer, { cors: { origin: false } });
 
 console.log("TaskHub Test Server starting on port 3000...");
 
+// Authenticate the handshake exactly like agentAuthMiddleware.
+io.use((socket, next) => {
+  try {
+    const { agentId, nonce, ts, hmac: mac } = socket.handshake.auth || {};
+    if (!agentId || !nonce || !mac) throw new Error("malformed auth");
+    if (Math.abs(Math.floor(Date.now() / 1000) - Number(ts)) > 120)
+      throw new Error("stale handshake");
+    if (hmac(PAIRING_SECRET, `${agentId}|${nonce}|${ts}`) !== mac)
+      throw new Error("bad signature");
+    socket.data.sessionKey = hmac(PAIRING_SECRET, `session:${nonce}`);
+    socket.data.agentId = agentId;
+    next();
+  } catch (err) {
+    console.warn(`Rejected socket ${socket.id}: ${err.message}`);
+    next(new Error("unauthorized"));
+  }
+});
+
+// Sign and emit a command the same way emitSignedCommand does. `message` is the
+// canonical string minus the trailing |ts (added here).
+function emitSigned(socket, event, fields, message) {
+  const ts = Math.floor(Date.now() / 1000);
+  const sig = hmac(socket.data.sessionKey, `${message}|${ts}`);
+  socket.emit(event, { ...fields, ts, sig });
+}
+
 io.on("connection", (socket) => {
-  console.log("Agent connected:", socket.id);
+  console.log(`Agent connected: ${socket.id} (${socket.data.agentId})`);
 
-  socket.emit("task:list", (tasks) => {
-    if (tasks.error) {
-      console.error("Agent reported error:", tasks.error);
-      return;
-    }
+  // Request a sync (task:list is an unsigned read request).
+  socket.emit("task:list");
+
+  socket.on("task:full_list", (payload) => {
+    const tasks = payload?.tasks ?? [];
     console.log(`Received ${tasks.length} tasks from agent.`);
-    tasks.slice(0, 5).forEach(t => console.log(` - ${t.name} (${t.state}) [${t.path}]`));
+    tasks.slice(0, 5).forEach((t) => console.log(` - ${t.name} (${t.state}) [${t.path}]`));
   });
 
-  socket.on("disconnect", () => {
-    console.log("Agent disconnected.");
-  });
+  // Example: uncomment to drive a signed run.
+  // emitSigned(socket, "task:run", { taskPath: "\\SomeTask" }, "task:run|\\SomeTask");
+
+  socket.on("disconnect", () => console.log("Agent disconnected."));
 });
 
 httpServer.listen(3000, () => {

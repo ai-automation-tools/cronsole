@@ -11,6 +11,12 @@ vi.mock('../../api', () => ({
   }
 }));
 
+// ApplyTemplateModal calls useToast; expose a shared spy so tests can assert on it.
+const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
+vi.mock('../../hooks/useToast', () => ({
+  useToast: () => ({ toast: toastMock })
+}));
+
 const mockTemplate: Template = {
   id: 'template-cron-backup',
   name: 'Daily Cron Backup',
@@ -30,7 +36,6 @@ const mockTemplate: Template = {
 
 describe('ApplyTemplateModal Component', () => {
   let queryClient: QueryClient;
-  let alertSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -41,7 +46,6 @@ describe('ApplyTemplateModal Component', () => {
       },
     });
     vi.clearAllMocks();
-    alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
   it('renders template information, input fields, and pre-populates defaults', () => {
@@ -99,7 +103,7 @@ describe('ApplyTemplateModal Component', () => {
       });
     });
 
-    expect(alertSpy).toHaveBeenCalledWith('Task created on Claude from "Daily Cron Backup".');
+    expect(toastMock).toHaveBeenCalledWith('Task created on Claude from "Daily Cron Backup".', 'success');
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -123,7 +127,7 @@ describe('ApplyTemplateModal Component', () => {
       expect(api.post).not.toHaveBeenCalled();
     });
 
-    expect(alertSpy).toHaveBeenCalledWith('Demo mode — "Daily Cron Backup" would be created on Windows.');
+    expect(toastMock).toHaveBeenCalledWith('Demo mode — "Daily Cron Backup" would be created on Windows.', 'success');
     expect(onClose).toHaveBeenCalled();
 
     import.meta.env.VITE_DEMO_MODE = undefined;

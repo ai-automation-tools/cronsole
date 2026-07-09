@@ -6,6 +6,10 @@ export interface NormalizedTask {
   externalId: string;
   name: string;
   status: 'ACTIVE' | 'DISABLED';
+  /** Normalized 5-field cron (UTC) derived from the platform trigger, if any. */
+  schedule?: string | null;
+  /** Next scheduled run reported by the platform, or null if unset. */
+  nextRunTime?: Date | null;
   metadata?: any;
 }
 
@@ -26,7 +30,13 @@ export class TaskService {
         update: {
           name: t.name,
           status: t.status === 'ACTIVE' ? TaskStatus.ACTIVE : TaskStatus.DISABLED,
-          metadata: t.metadata
+          metadata: t.metadata,
+          // Refresh the platform-derived schedule only when we have a good cron —
+          // never wipe an accurate value with a failed conversion.
+          ...(t.schedule ? { schedule: t.schedule } : {}),
+          // nextRunTime is a live value; update it whenever the caller supplied
+          // one (including an explicit null), but don't clobber it when omitted.
+          ...(t.nextRunTime !== undefined ? { nextRunTime: t.nextRunTime } : {})
           // Note: We DO NOT update category here to preserve user overrides
         },
         create: {
@@ -36,6 +46,8 @@ export class TaskService {
           name: t.name,
           category: initialCategory, // Only set on initial import
           status: t.status === 'ACTIVE' ? TaskStatus.ACTIVE : TaskStatus.DISABLED,
+          schedule: t.schedule ?? null,
+          nextRunTime: t.nextRunTime ?? null,
           metadata: t.metadata
         }
       });

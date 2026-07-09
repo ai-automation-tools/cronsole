@@ -4,6 +4,7 @@ import { XCircle, Clock, Loader2, CopyPlus, Info } from 'lucide-react';
 import type { Task } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
+import { useToast } from '../hooks/useToast';
 
 interface CloneTaskModalProps {
   task: Task;
@@ -12,6 +13,7 @@ interface CloneTaskModalProps {
 
 export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [name, setName] = useState(`${task.name} (Copy)`);
   const [category, setCategory] = useState(task.category || 'Uncategorized');
   
@@ -80,16 +82,17 @@ export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
       if (!DEMO_MODE) {
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
       }
-      alert(
+      toast(
         DEMO_MODE
           ? `Demo Mode — Cloned "${task.name}" as "${name}" locally.`
-          : `Task "${name}" successfully cloned on ${platformLabel(task.platform)}!`
+          : `Task "${name}" successfully cloned on ${platformLabel(task.platform)}!`,
+        'success'
       );
       onClose();
     },
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
-      alert(`Clone failed: ${err.response?.data?.error || err.message}`);
+      toast(`Clone failed: ${err.response?.data?.error || err.message}`, 'error');
     }
   });
 

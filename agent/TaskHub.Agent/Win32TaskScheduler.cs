@@ -18,10 +18,35 @@ namespace TaskHub.Agent
                         Path = t.Path,
                         Name = t.Name,
                         State = t.State.ToString(),
-                        LastRunTime = t.LastRunTime,
-                        NextRunTime = t.NextRunTime
+                        LastRunTime = NullIfUnset(t.LastRunTime),
+                        NextRunTime = NullIfUnset(t.NextRunTime),
+                        Trigger = ReadFirstTrigger(t)
                     }).ToList();
             }
+        }
+
+        // Task Scheduler reports unset run times as DateTime.MinValue (0001) or a
+        // 1899/1999 sentinel; surface those as null rather than a bogus date.
+        private static DateTime? NullIfUnset(DateTime dt) =>
+            dt < new DateTime(2000, 1, 1) ? (DateTime?)null : dt;
+
+        // First trigger we can express as a 5-field cron; some tasks throw on
+        // Definition access (access denied), so read defensively.
+        private static TriggerSpec? ReadFirstTrigger(Microsoft.Win32.TaskScheduler.Task task)
+        {
+            try
+            {
+                foreach (Trigger trig in task.Definition.Triggers)
+                {
+                    var spec = TriggerReader.Read(trig);
+                    if (spec != null) return spec;
+                }
+            }
+            catch
+            {
+                // Unreadable definition — leave the task scheduleless (honest).
+            }
+            return null;
         }
 
         public bool SetTaskStatus(string path, bool enabled)

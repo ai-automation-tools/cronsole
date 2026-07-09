@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal } from 'lucide-react';
 import { api } from '../api';
+import { useToast } from '../hooks/useToast';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
@@ -28,6 +29,7 @@ interface CreateTaskModalProps {
  */
 export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [platform, setPlatform] = useState<CreatePlatform>('TASKHUB_NATIVE');
   const [name, setName] = useState('');
   const [category, setCategory] = useState('TaskHub');
@@ -86,22 +88,24 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
     },
     onSuccess: () => {
       if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      alert(
+      toast(
         DEMO_MODE
           ? `Demo mode — "${name}" would be created as a ${isWindows ? 'Windows' : 'TaskHub-native'} task.`
           : isWindows
             ? `Windows task "${name}" created under the \\TaskHub\\ scheduler folder.`
-            : `TaskHub task "${name}" created. It runs on the backend scheduler — no Windows entry.`
+            : `TaskHub task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
+        'success'
       );
       onClose();
     },
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
       const message = err.response?.data?.error || err.message;
-      alert(
+      toast(
         message === 'Agent offline'
           ? 'Create failed: the Windows agent is not connected. Check that the TaskHubAgent scheduled task is running.'
-          : `Create failed: ${message}`
+          : `Create failed: ${message}`,
+        'error'
       );
     }
   });

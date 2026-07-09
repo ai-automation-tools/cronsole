@@ -14,6 +14,11 @@ vi.mock('../../api', () => ({
   }
 }));
 
+// TaskModal calls useToast; provide a no-op so tests don't need a ToastProvider.
+vi.mock('../../hooks/useToast', () => ({
+  useToast: () => ({ toast: vi.fn() })
+}));
+
 const mockTask: Task = {
   id: 'task-123',
   name: 'Test Modal Task',

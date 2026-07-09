@@ -65,6 +65,37 @@ describe('TaskService', () => {
     }));
   });
 
+  it('should store derived schedule and nextRunTime on create and update', async () => {
+    const next = new Date('2026-07-09T03:00:00Z');
+    const tasks = [
+      { externalId: '\\TaskHub\\Nightly', name: 'Nightly', status: 'ACTIVE' as const, schedule: '0 3 * * *', nextRunTime: next }
+    ];
+
+    mockPrisma.task.upsert.mockResolvedValue({ id: '1' });
+
+    await TaskService.upsertTasks('user-1', 'WINDOWS_TASK_SCHEDULER' as any, tasks);
+
+    expect(mockPrisma.task.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ schedule: '0 3 * * *', nextRunTime: next }),
+      update: expect.objectContaining({ schedule: '0 3 * * *', nextRunTime: next })
+    }));
+  });
+
+  it('should not overwrite an existing schedule with a null conversion on update', async () => {
+    const tasks = [
+      { externalId: '\\Complex', name: 'Complex', status: 'ACTIVE' as const, schedule: null, nextRunTime: null }
+    ];
+
+    mockPrisma.task.upsert.mockResolvedValue({ id: '1' });
+
+    await TaskService.upsertTasks('user-1', 'WINDOWS_TASK_SCHEDULER' as any, tasks);
+
+    const call = mockPrisma.task.upsert.mock.calls[0][0];
+    expect(call.update).not.toHaveProperty('schedule'); // preserved
+    expect(call.update.nextRunTime).toBeNull();          // live value still refreshed
+    expect(call.create.schedule).toBeNull();
+  });
+
   it('should delete tasks missing from the current platform list', async () => {
     mockPrisma.task.findMany.mockResolvedValue([{ id: 'stale-1' }, { id: 'stale-2' }]);
 

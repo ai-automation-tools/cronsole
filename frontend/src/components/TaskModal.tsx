@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2 } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
+import { describeCron } from '../utils/schedule';
 
 interface TaskModalProps {
   task: Task | null;
@@ -24,6 +26,148 @@ const StatusIcon = ({ status }: { status: string }) => {
   if (status === 'FAILURE') return <XOctagon size={12} />;
   return <Clock size={12} />;
 };
+
+// ---------------------------------------------------------------------------
+// Metadata parsing — turn the platform's raw sync payload into readable rows.
+// Windows tasks store the agent's AgentTaskInfo ({ path, name, state,
+// lastRunTime, nextRunTime, trigger, and — from newer agents — actions/settings
+// fields }); native tasks store { job }; imported/created tasks may store a
+// plain { command } string. We render whatever is present and stay honest about
+// what the agent didn't report rather than inventing values.
+// ---------------------------------------------------------------------------
+type Meta = Record<string, unknown>;
+
+interface DetailRow {
+  label: string;
+  value: string;
+  mono?: boolean;
+}
+
+const asText = (v: unknown): string | undefined =>
+  typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : undefined;
+
+const asBool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
+
+const localTime = (iso: string): string => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+};
+
+/** Turn an ISO-8601 duration (PT30M, PT1H, P1D) into words; falls back to raw. */
+const humanizeIso = (iso: string): string => {
+  const m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(iso);
+  if (!m) return iso;
+  const [, d, h, min, s] = m;
+  const parts: string[] = [];
+  if (d) parts.push(`${d} day${d === '1' ? '' : 's'}`);
+  if (h) parts.push(`${h} hour${h === '1' ? '' : 's'}`);
+  if (min) parts.push(`${min} minute${min === '1' ? '' : 's'}`);
+  if (s) parts.push(`${s} second${s === '1' ? '' : 's'}`);
+  return parts.length ? parts.join(', ') : iso;
+};
+
+function scheduleInfo(task: Task): { cron: string | null; human: string | null; rows: DetailRow[] } {
+  const meta = (task.metadata ?? {}) as Meta;
+  const cron = asText(task.schedule) ?? asText(meta.schedule) ?? asText(meta.cron) ?? null;
+  const human = describeCron(cron);
+  const rows: DetailRow[] = [];
+  const trig = meta.trigger as Meta | undefined;
+  if (trig && typeof trig === 'object') {
+    const type = asText(trig.type);
+    if (type) rows.push({ label: 'Trigger', value: type });
+    const start = asText(trig.startBoundary);
+    if (start) rows.push({ label: 'Start time', value: `${start} UTC` });
+    if (Array.isArray(trig.daysOfWeek) && trig.daysOfWeek.length) {
+      rows.push({ label: 'Days', value: trig.daysOfWeek.join(', ') });
+    }
+    if (typeof trig.daysInterval === 'number' && trig.daysInterval > 1) {
+      rows.push({ label: 'Repeats every', value: `${trig.daysInterval} days` });
+    }
+    const rep = trig.repetition as Meta | undefined;
+    if (rep && typeof rep === 'object') {
+      const interval = asText(rep.interval);
+      if (interval) rows.push({ label: 'Repeat interval', value: humanizeIso(interval) });
+      const duration = asText(rep.duration);
+      if (duration) rows.push({ label: 'Repeat for', value: humanizeIso(duration) });
+    }
+  }
+  return { cron, human, rows };
+}
+
+function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
+  const meta = (task.metadata ?? {}) as Meta;
+  const rows: DetailRow[] = [];
+
+  const job = meta.job as Meta | undefined;
+  if (job && typeof job === 'object') {
+    const url = asText(job.url);
+    if (url) rows.push({ label: 'HTTP request', value: `${(asText(job.method) ?? 'GET').toUpperCase()} ${url}`, mono: true });
+    const body = asText(job.body);
+    if (body) rows.push({ label: 'Body', value: body, mono: true });
+    return { rows, reported: rows.length > 0 };
+  }
+
+  if (Array.isArray(meta.actions) && meta.actions.length) {
+    meta.actions.forEach((raw, i) => {
+      const act = (raw ?? {}) as Meta;
+      const exe = asText(act.path) ?? asText(act.executable);
+      const args = asText(act.arguments);
+      const cwd = asText(act.workingDirectory);
+      if (exe) rows.push({ label: meta.actions!.length > 1 ? `Action ${i + 1}` : 'Runs', value: args ? `${exe} ${args}` : exe, mono: true });
+      if (cwd) rows.push({ label: 'Working dir', value: cwd, mono: true });
+    });
+    return { rows, reported: rows.length > 0 };
+  }
+
+  const command = asText(meta.command);
+  if (command) {
+    rows.push({ label: 'Command', value: command, mono: true });
+    return { rows, reported: true };
+  }
+
+  return { rows, reported: false };
+}
+
+/** Extra settings a newer agent reports; empty for older syncs (section hides). */
+function settingsRows(task: Task): DetailRow[] {
+  const meta = (task.metadata ?? {}) as Meta;
+  const rows: DetailRow[] = [];
+  const state = asText(meta.state);
+  if (state) rows.push({ label: 'Scheduler state', value: state });
+  const enabled = asBool(meta.enabled);
+  if (enabled !== undefined) rows.push({ label: 'Enabled', value: enabled ? 'Yes' : 'No' });
+  const user = asText(meta.userId) ?? asText(meta.runAs);
+  if (user) rows.push({ label: 'Run as', value: user });
+  const runLevel = asText(meta.runLevel);
+  if (runLevel) rows.push({ label: 'Run level', value: runLevel });
+  const logon = asText(meta.logonType);
+  if (logon) rows.push({ label: 'Logon type', value: logon });
+  const author = asText(meta.author);
+  if (author) rows.push({ label: 'Author', value: author });
+  const description = asText(meta.description);
+  if (description) rows.push({ label: 'Description', value: description });
+  return rows;
+}
+
+const DetailSection = ({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) => (
+  <div className="space-y-3">
+    <h3 className="flex items-center gap-2 text-xs font-bold text-subtle-foreground uppercase tracking-widest">
+      <Icon size={13} /> {title}
+    </h3>
+    {children}
+  </div>
+);
+
+const RowList = ({ rows }: { rows: DetailRow[] }) => (
+  <div className="bg-background rounded-xl border border-border divide-y divide-border">
+    {rows.map((r, i) => (
+      <div key={i} className="flex items-start justify-between gap-4 px-4 py-2.5">
+        <span className="text-xs text-subtle-foreground shrink-0 pt-0.5">{r.label}</span>
+        <span className={`text-right break-all text-foreground ${r.mono ? 'font-mono text-xs' : 'text-sm font-medium'}`}>{r.value}</span>
+      </div>
+    ))}
+  </div>
+);
 
 export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalProps) => {
   const [isEditingCategory, setIsEditingCategory] = useState(false);
@@ -71,6 +215,13 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   });
 
   if (!task) return null;
+
+  const meta = (task.metadata ?? {}) as Meta;
+  const sched = scheduleInfo(task);
+  const actions = actionInfo(task);
+  const settings = settingsRows(task);
+  const nextRun = asText(meta.nextRunTime);
+  const lastRun = task.lastRunAt ?? asText(meta.lastRunTime) ?? null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -157,10 +308,60 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               <span className="font-semibold text-foreground uppercase tracking-tighter text-sm">{task.status}</span>
             </div>
             <div className="bg-background p-4 rounded-xl border border-border">
-              <span className="text-xs text-subtle-foreground block mb-1">Last Updated</span>
-              <span className="font-semibold text-sm">{new Date(task.updatedAt).toLocaleString()}</span>
+              <span className="text-xs text-subtle-foreground block mb-1">Last Result</span>
+              {task.lastRunStatus ? (
+                <span className={`inline-flex items-center gap-1.5 text-xs uppercase font-black px-2 py-0.5 rounded-full border ${statusStyle(task.lastRunStatus)}`}>
+                  <StatusIcon status={task.lastRunStatus} /> {task.lastRunStatus}
+                </span>
+              ) : (
+                <span className="font-semibold text-sm text-subtle-foreground">No runs recorded</span>
+              )}
+            </div>
+            <div className="bg-background p-4 rounded-xl border border-border">
+              <span className="text-xs text-subtle-foreground block mb-1">Next Run</span>
+              <span className="font-semibold text-sm">{nextRun ? localTime(nextRun) : '—'}</span>
+            </div>
+            <div className="bg-background p-4 rounded-xl border border-border">
+              <span className="text-xs text-subtle-foreground block mb-1">Last Run</span>
+              <span className="font-semibold text-sm">{lastRun ? localTime(lastRun) : '—'}</span>
             </div>
           </div>
+
+          {/* Schedule / Triggers */}
+          <DetailSection icon={CalendarClock} title="Schedule">
+            {sched.cron ? (
+              <div className="bg-background rounded-xl border border-border p-4 space-y-2">
+                {sched.human && <p className="text-sm font-semibold text-foreground">{sched.human}</p>}
+                <code className="text-xs text-foreground/80 bg-surface px-2 py-1 rounded font-mono inline-block">{sched.cron}</code>
+                <p className="text-[11px] text-subtle-foreground">Stored as UTC cron · displayed in the schedule view in your local time.</p>
+              </div>
+            ) : (
+              <div className="text-xs text-subtle-foreground bg-background border border-border rounded-xl px-4 py-3 flex items-start gap-2">
+                <Info size={14} className="shrink-0 mt-0.5" />
+                No direct schedule — this task runs on a trigger TaskHub can't express as cron (boot, logon, event, or on-demand only).
+              </div>
+            )}
+            {sched.rows.length > 0 && <RowList rows={sched.rows} />}
+          </DetailSection>
+
+          {/* Actions */}
+          <DetailSection icon={Terminal} title="Action">
+            {actions.reported ? (
+              <RowList rows={actions.rows} />
+            ) : (
+              <div className="text-xs text-subtle-foreground bg-background border border-border rounded-xl px-4 py-3 flex items-start gap-2">
+                <Info size={14} className="shrink-0 mt-0.5" />
+                The agent didn't report this task's action. Update the Windows agent to surface the command it runs.
+              </div>
+            )}
+          </DetailSection>
+
+          {/* Settings (only when the agent reports them) */}
+          {settings.length > 0 && (
+            <DetailSection icon={SlidersHorizontal} title="Settings">
+              <RowList rows={settings} />
+            </DetailSection>
+          )}
 
           <div className="bg-background p-4 rounded-xl border border-border">
             <span className="text-xs text-subtle-foreground block mb-2 uppercase font-bold tracking-widest">Local Category</span>
@@ -204,12 +405,14 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
             )}
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold text-subtle-foreground uppercase">Platform Metadata</h3>
-            <pre className="text-[10px] bg-background p-4 rounded-xl border border-border overflow-x-auto font-mono text-foreground/80">
+          <details className="group">
+            <summary className="text-xs font-bold text-subtle-foreground uppercase cursor-pointer select-none hover:text-foreground transition-colors list-none flex items-center gap-2">
+              <span className="transition-transform group-open:rotate-90">▸</span> Raw platform metadata
+            </summary>
+            <pre className="mt-2 text-[10px] bg-background p-4 rounded-xl border border-border overflow-x-auto font-mono text-foreground/80">
               {JSON.stringify(task.metadata, null, 2)}
             </pre>
-          </div>
+          </details>
         </div>
         )}
         <footer className="p-6 bg-background border-t border-border flex gap-4">

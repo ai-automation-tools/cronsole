@@ -12,16 +12,41 @@ namespace TaskHub.Agent
         {
             using (TaskService ts = new TaskService())
             {
-                return ts.AllTasks
-                    .Select(t => new AgentTaskInfo
+                var results = new List<AgentTaskInfo>();
+                foreach (var t in ts.AllTasks)
+                {
+                    var info = new AgentTaskInfo
                     {
                         Path = t.Path,
                         Name = t.Name,
                         State = t.State.ToString(),
+                        Enabled = t.Enabled,
                         LastRunTime = NullIfUnset(t.LastRunTime),
-                        NextRunTime = NullIfUnset(t.NextRunTime),
-                        Trigger = ReadFirstTrigger(t)
-                    }).ToList();
+                        NextRunTime = NullIfUnset(t.NextRunTime)
+                    };
+
+                    // Definition access can throw (access denied) for some system
+                    // tasks — read every definition-derived field under one guard so
+                    // a locked-down task still surfaces its basic status honestly.
+                    try
+                    {
+                        var def = t.Definition;
+                        info.Trigger = ReadFirstTrigger(def);
+                        info.Actions = ReadActions(def);
+                        info.Description = NullIfEmpty(def.RegistrationInfo.Description);
+                        info.Author = NullIfEmpty(def.RegistrationInfo.Author);
+                        info.UserId = NullIfEmpty(def.Principal.UserId);
+                        info.RunLevel = def.Principal.RunLevel.ToString();
+                        info.LogonType = def.Principal.LogonType.ToString();
+                    }
+                    catch
+                    {
+                        // Unreadable definition — enriched fields stay null (honest).
+                    }
+
+                    results.Add(info);
+                }
+                return results;
             }
         }
 
@@ -30,23 +55,42 @@ namespace TaskHub.Agent
         private static DateTime? NullIfUnset(DateTime dt) =>
             dt < new DateTime(2000, 1, 1) ? (DateTime?)null : dt;
 
-        // First trigger we can express as a 5-field cron; some tasks throw on
-        // Definition access (access denied), so read defensively.
-        private static TriggerSpec? ReadFirstTrigger(Microsoft.Win32.TaskScheduler.Task task)
+        private static string? NullIfEmpty(string? s) =>
+            string.IsNullOrWhiteSpace(s) ? null : s;
+
+        // First trigger we can express as a 5-field cron; null for boot/logon/event.
+        private static TriggerSpec? ReadFirstTrigger(TaskDefinition def)
         {
-            try
+            foreach (Trigger trig in def.Triggers)
             {
-                foreach (Trigger trig in task.Definition.Triggers)
-                {
-                    var spec = TriggerReader.Read(trig);
-                    if (spec != null) return spec;
-                }
-            }
-            catch
-            {
-                // Unreadable definition — leave the task scheduleless (honest).
+                var spec = TriggerReader.Read(trig);
+                if (spec != null) return spec;
             }
             return null;
+        }
+
+        // Every action the task runs; exec actions carry executable/args/working dir.
+        private static List<AgentActionInfo> ReadActions(TaskDefinition def)
+        {
+            var list = new List<AgentActionInfo>();
+            foreach (Microsoft.Win32.TaskScheduler.Action action in def.Actions)
+            {
+                if (action is ExecAction exec)
+                {
+                    list.Add(new AgentActionInfo
+                    {
+                        Type = "Exec",
+                        Path = exec.Path,
+                        Arguments = NullIfEmpty(exec.Arguments),
+                        WorkingDirectory = NullIfEmpty(exec.WorkingDirectory)
+                    });
+                }
+                else
+                {
+                    list.Add(new AgentActionInfo { Type = action.ActionType.ToString() });
+                }
+            }
+            return list;
         }
 
         public bool SetTaskStatus(string path, bool enabled)

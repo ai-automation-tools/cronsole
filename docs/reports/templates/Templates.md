@@ -4,11 +4,13 @@
 > task by clicking a button instead of hand-writing a command + cron + trigger. This doc is the
 > source of truth for *which* templates we ship and *what shape* a template has.
 >
-> **Status:** Catalog drafted + schema migrated + starters seeded (2026-06-10).
+> **Status:** Catalog drafted + schema migrated + starters seeded (2026-06-10); Apply modal + library UI shipped.
 > The new `Template` fields (§2) shipped in migration `20260610000000_add_template_catalog_fields`,
 > and all 20 Tier A starters + 4 backfilled patterns are in `backend/src/seed.ts` (24 rows total,
-> verified seeded). Still to build: the Apply modal that substitutes `{{placeholders}}` (§7 step 3).
-> The existing `GET /api/templates` + `POST /api/templates/:id/apply` already serve them.
+> verified seeded). The **Apply modal** that substitutes `{{placeholders}}` (§7 step 3) shipped, backed by
+> `GET /api/templates` + `POST /api/templates/:id/apply`. The **library UI** (2026-07-08) adds search,
+> faceted OS + Tags(category) filters, a Starter/Pattern type toggle, and starter-vs-pattern grouping.
+> Still open (see `docs/ROADMAP.md`): parameterize the 4 Tier-B patterns; real-vs-removed upvotes; template import/export.
 
 ---
 

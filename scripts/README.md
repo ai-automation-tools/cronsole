@@ -17,7 +17,30 @@ the full details.
 
 | Script | What it does |
 |:---|:---|
-| [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack (Docker db + redis, backend, frontend, agent) automatically at Windows logon via the `\Task-Hub\TaskHubAgent` scheduled task. Includes the launcher script and the scheduled-task definitions (applied + rollback). |
+| **`taskhub.ps1`** | **Single control surface** for the whole local stack — one command to bring it up, take it down, restart it, or see one combined status. Use this instead of hunting for which service is down. |
+| [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Task-Hub\TaskHubAgent` scheduled task (re-runs every 10 min as a self-heal). It now delegates to `taskhub.ps1 up`, so boot and manual control share one code path. |
+
+## 🎛️ Controlling the stack (`taskhub.ps1`)
+
+The local stack is five pieces: **Postgres + Redis** (Docker, auto-restart), the
+**backend** and **frontend** dev servers (host Node), and the **Windows agent**
+(host `.exe` — it needs Task Scheduler access, so it can't be containerized).
+`taskhub.ps1` controls and reports all of them at once:
+
+```powershell
+# from anywhere
+pwsh scripts\taskhub.ps1 status     # one table: every service + an API health check
+pwsh scripts\taskhub.ps1 up         # start whatever's down (idempotent — safe to re-run)
+pwsh scripts\taskhub.ps1 restart    # stop the app tier, then bring it back
+pwsh scripts\taskhub.ps1 down       # stop backend + frontend + agent (leaves db/redis up)
+pwsh scripts\taskhub.ps1 down -All  # ...also stop the Docker db/redis containers
+pwsh scripts\taskhub.ps1 logs       # tail the backend/frontend logs
+```
+
+`status` prints **ALL UP**, **PARTIAL (n/5)**, or **DOWN** so you can tell at a
+glance. Docker db/redis carry `restart: unless-stopped`, so they recover from a
+crash or reboot on their own; the backend/frontend recover on the next auto-start
+self-heal (or immediately with `taskhub up`).
 
 > [!IMPORTANT]
 > Paths in these scripts are **machine-specific** — `Start-TaskHub.ps1` and the task XMLs

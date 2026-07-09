@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import { authenticateToken } from './auth/auth.js';
 import { agentManager } from './ws/AgentManager.js';
 import { agentAuthMiddleware, assertAgentAuthConfig } from './ws/agentAuth.js';
+import { registerUiChannel } from './ws/uiChannel.js';
 import { serializeConfig } from './auth/connectionConfig.js';
 import { TaskService } from './services/TaskService.js';
 import { nativeScheduler } from './services/NativeScheduler.js';
@@ -37,8 +38,11 @@ export const io = new Server(server, {
   }
 });
 
-// Authenticate the agent handshake before any connection is accepted.
+// Authenticate the agent handshake before any connection is accepted (default
+// namespace = agents). Browser dashboards connect to the separate JWT-authed
+// `/ui` namespace for receive-only live task updates.
 io.use(agentAuthMiddleware);
+registerUiChannel(io);
 
 const PORT = process.env.PORT || 3000;
 

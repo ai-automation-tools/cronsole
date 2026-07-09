@@ -1,6 +1,7 @@
 import { PrismaClient, PlatformType, TaskStatus } from '@prisma/client';
 import { computeNextRun } from '../utils/cron-next.js';
 import { executeJob, NativeJob } from './NativeTaskExecutor.js';
+import { notifyTasksChanged } from '../ws/uiChannel.js';
 
 const prisma = new PrismaClient();
 
@@ -54,12 +55,17 @@ export class NativeScheduler {
         }
       });
 
+      // Collect users whose tasks changed this tick, so open dashboards get one
+      // live push per user instead of one per task.
+      const changedUsers = new Set<string>();
+
       for (const task of due) {
         const next = task.schedule ? computeNextRun(task.schedule, now) : null;
         const missedBy = now.getTime() - (task.nextRunTime?.getTime() ?? now.getTime());
 
         // Advance the schedule first so a crash mid-run can't double-fire.
         await prisma.task.update({ where: { id: task.id }, data: { nextRunTime: next } });
+        changedUsers.add(task.userId);
 
         if (missedBy > MISSED_RUN_GRACE_MS) {
           console.log(`[NativeScheduler] skipping missed run for "${task.name}" (late by ${Math.round(missedBy / 1000)}s)`);
@@ -81,6 +87,9 @@ export class NativeScheduler {
         });
         console.log(`[NativeScheduler] ran "${task.name}": ${result.success ? 'SUCCESS' : 'FAILURE'}`);
       }
+
+      // Push one live update per affected user's open dashboards.
+      for (const userId of changedUsers) notifyTasksChanged(userId);
     } catch (error) {
       console.error('[NativeScheduler] tick error:', error);
     } finally {

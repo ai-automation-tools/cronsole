@@ -3,6 +3,7 @@ import { PlatformType, PrismaClient } from '@prisma/client';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
 import { deserializeConfig } from '../auth/connectionConfig.js';
+import { notifyTasksChanged } from '../ws/uiChannel.js';
 import {
   convertCronToWindowsTrigger,
   getTemplateConfidence,
@@ -161,6 +162,7 @@ router.post('/:id/apply', async (req: Request, res: Response) => {
     );
 
     if (result.success) {
+      notifyTasksChanged(userId);
       res.json({
         message: 'Template applied successfully',
         externalId: result.externalId,

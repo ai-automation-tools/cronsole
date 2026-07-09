@@ -26,7 +26,7 @@ yet, start with [**⬇️ Installation**](../install/README.md).
 | **`JWT_SECRET`** | backend | Signing secret for user auth tokens. Must be **≥ 16 chars**; the backend **fails to start** on a missing or weak secret. Generate: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. |
 | **`ENCRYPTION_KEY`** | backend | AES-256-GCM key that encrypts `PlatformConnection.config` (API keys, agent IDs, pairing secrets) **at rest**. Must be **exactly 32 characters**; the backend **fails to start** otherwise. |
 | **`AGENT_PAIRING_SECRET`** | backend + agent | Shared secret for the agent's WebSocket handshake. The backend **fails to start** without it; the agent must set the same value as `TASKHUB_PAIRING_SECRET`. Use a long random string (`openssl rand -hex 24`). |
-| **`ALLOWED_ORIGINS`** | backend | Comma-separated browser origins allowed to open a Socket.IO connection. Empty by default (only the non-browser agent connects today). |
+| **`ALLOWED_ORIGINS`** | backend | Comma-separated browser origins allowed to open a Socket.IO connection. Set this to the frontend origin (e.g. `http://localhost:5173`) to enable **browser live updates** — the dashboard's push channel that refreshes the task list on agent syncs / scheduled runs instead of polling. Empty = agent-only. |
 | **`TASKHUB_SERVER_URL`** | agent | Backend URL the agent connects to (WSS-capable, e.g. `wss://taskhub.example.com`). Defaults to `http://localhost:3000`. Overrides `serverUrl` in appsettings.json. |
 | **`TASKHUB_PAIRING_SECRET`** | agent | Must equal the backend's `AGENT_PAIRING_SECRET`. Required **unless** set via `appsettings.json` — the agent exits if neither provides it. Overrides the file. |
 | **`TASKHUB_AGENT_ID`** | agent | Stable identifier for this agent. Defaults to the machine name. Overrides `agentId` in appsettings.json. |
@@ -63,6 +63,23 @@ npm run dev                 # http://localhost:5173  (uses VITE_API_URL, default
 cd agent/TaskHub.Agent
 dotnet run                  # connects out to the backend
 ```
+
+## 🎛️ Controlling the stack (one command)
+
+The local stack is five pieces — Postgres + Redis (Docker), the backend and
+frontend dev servers (host), and the Windows agent (host `.exe`). Rather than
+starting/checking each one, use the single control script:
+
+```powershell
+pwsh scripts\taskhub.ps1 status   # one table: every service + API health, ALL UP / PARTIAL / DOWN
+pwsh scripts\taskhub.ps1 up       # start whatever's down (idempotent)
+pwsh scripts\taskhub.ps1 restart  # bounce the app tier
+pwsh scripts\taskhub.ps1 down     # stop backend + frontend + agent
+```
+
+Postgres/Redis carry `restart: unless-stopped`, so they self-heal after a crash
+or reboot; the auto-start scheduled task re-runs `taskhub up` every 10 minutes to
+recover the rest. See [`scripts/README.md`](../../scripts/README.md) for details.
 
 ## 🤝 Agent connection & pairing
 

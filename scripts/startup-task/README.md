@@ -12,9 +12,29 @@ frontend talks to was never started).
 
 | File | Purpose |
 |---|---|
-| `Start-TaskHub.ps1` | The launcher. Brings up every component in order; idempotent. |
+| `Start-TaskHub.ps1` | The launcher. Brings up every component in order; idempotent. Now delegates to `..\taskhub.ps1 up`. |
+| `Register-TaskHubStack.ps1` | Registers the **`\Task-Hub\TaskHubStack`** self-heal watchdog (runs `taskhub.ps1 up` at logon + every 5 min). Run once, **as Administrator**. |
+| `Set-TaskHubRepetition.ps1` | Adds/updates the repeating trigger on `TaskHubAgent`. Run **as Administrator**. |
 | `TaskHubAgent.updated.xml` | The **applied** Scheduled Task definition (points at the launcher). |
 | `TaskHubAgent.backup.xml` | The **original** task definition (agent-only), kept for rollback. |
+
+## `\Task-Hub\TaskHubStack` — the self-heal watchdog
+
+A lighter, clearly-named companion to `TaskHubAgent`. It runs the idempotent
+`scripts\taskhub.ps1 up` at logon and every 5 minutes, so if the backend or
+frontend dies mid-session it's back within minutes (vs. the launcher's 10). Both
+tasks call the same `up`, so they never fight or spawn duplicates.
+
+Creating a task under `\Task-Hub\` needs elevation, so register it once from an
+**Administrator** PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\startup-task\Register-TaskHubStack.ps1
+# then, optionally, run it immediately:
+Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubStack'
+```
+
+To remove it: `Unregister-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubStack' -Confirm:$false` (elevated).
 
 ## What the launcher starts
 

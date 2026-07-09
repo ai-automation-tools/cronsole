@@ -103,37 +103,19 @@ function Wait-Docker {
 }
 
 if (Wait-Docker) {
-    Write-Log 'Bringing up data services (db, redis)...'
-    $dockerLog = Join-Path $LogDir 'docker.log'
-    & $DockerExe compose -f (Join-Path $RepoRoot 'docker-compose.yml') up -d db redis *> $dockerLog
-    if ($LASTEXITCODE -eq 0) { Write-Log 'db + redis are up.' }
-    else { Write-Log 'docker compose up for db/redis returned a non-zero exit code.' 'WARN' }
+    # Delegate the actual service startup to the single control script, so the
+    # boot path and a manual `taskhub up` share exactly one implementation. It's
+    # idempotent (starts only what's down), which is what the 10-min self-heal
+    # re-run relies on.
+    $TaskHubScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'taskhub.ps1'
+    if (Test-Path $TaskHubScript) {
+        Write-Log "Bringing the stack up via $TaskHubScript"
+        & $TaskHubScript up *>> $MainLog
+    } else {
+        Write-Log "Control script not found at $TaskHubScript" 'ERROR'
+    }
 } else {
-    Write-Log 'Skipping db/redis start - Docker engine unavailable. Backend will fail to reach Postgres.' 'ERROR'
-}
-
-# --- 2. Backend (:3000) ------------------------------------------------------
-if (Test-Listening -Port 3000) {
-    Write-Log 'Backend already listening on :3000 - skipping.'
-} else {
-    Start-HostProcess -Name 'backend' -WorkDir $BackendDir -NpmArgs @('run', 'dev')
-}
-
-# --- 3. Frontend (:5173) -----------------------------------------------------
-if (Test-Listening -Port 5173) {
-    Write-Log 'Frontend already listening on :5173 - skipping.'
-} else {
-    Start-HostProcess -Name 'frontend' -WorkDir $FrontendDir -NpmArgs @('run', 'dev')
-}
-
-# --- 4. Agent ----------------------------------------------------------------
-if (Get-Process -Name 'TaskHub.Agent' -ErrorAction SilentlyContinue) {
-    Write-Log 'Agent (TaskHub.Agent) already running - skipping.'
-} elseif (Test-Path $AgentExe) {
-    Start-Process -FilePath $AgentExe -WorkingDirectory (Split-Path -Parent $AgentExe) -WindowStyle Hidden | Out-Null
-    Write-Log "Started agent: $AgentExe"
-} else {
-    Write-Log "Agent exe not found at $AgentExe" 'ERROR'
+    Write-Log 'Docker engine unavailable - cannot start the stack. Backend would fail to reach Postgres.' 'ERROR'
 }
 
 Write-Log "===== TaskHub launcher finished ====="

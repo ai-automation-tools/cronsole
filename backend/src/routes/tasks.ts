@@ -4,6 +4,7 @@ import { Prisma, PrismaClient, PlatformType, TaskStatus } from '@prisma/client';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
 import { serializeConfig, deserializeConfig } from '../auth/connectionConfig.js';
+import { notifyTasksChanged } from '../ws/uiChannel.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
@@ -56,6 +57,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       where: { id },
       data: { category }
     });
+    notifyTasksChanged(userId);
     res.json(task);
   } catch (error) {
     console.error('Error updating task:', error);
@@ -173,6 +175,7 @@ router.post('/', async (req: Request, res: Response) => {
         upserted[0] = updated;
       }
 
+      notifyTasksChanged(userId);
       res.json({
         message: 'Task created successfully',
         task: upserted[0],
@@ -232,6 +235,7 @@ router.post('/native', async (req: Request, res: Response) => {
       }
     });
 
+    notifyTasksChanged(userId);
     res.json({ message: 'Native task created', task });
   } catch (error: any) {
     console.error('Error creating native task:', error);
@@ -335,6 +339,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       }
     }
 
+    notifyTasksChanged(userId);
     res.json({ message: 'Sync complete', results });
   } catch (error) {
     console.error('Sync error:', error);
@@ -414,6 +419,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       prisma.task.delete({ where: { id } })
     ]);
 
+    notifyTasksChanged(userId);
     res.json({ message: 'Task deleted' });
   } catch (error) {
     console.error('Error deleting task:', error);
@@ -487,6 +493,7 @@ router.post('/:id/run', async (req: Request, res: Response) => {
           durationMs
         }
       });
+      notifyTasksChanged(userId);
       res.json({ message: 'Task run command sent', ...result });
     } else {
       await prisma.executionLog.create({
@@ -497,6 +504,7 @@ router.post('/:id/run', async (req: Request, res: Response) => {
           durationMs
         }
       });
+      notifyTasksChanged(userId);
       res.status(500).json({ error: result.message || 'Failed to trigger task' });
     }
   } catch (error) {

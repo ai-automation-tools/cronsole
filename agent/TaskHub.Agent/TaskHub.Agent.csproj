@@ -12,4 +12,11 @@
     <PackageReference Include="TaskScheduler" Version="2.12.2" />
   </ItemGroup>
 
+  <!-- Copy config beside the exe so AppContext.BaseDirectory lookup works for a
+       published/installed agent too, not just `dotnet run` from the project dir. -->
+  <ItemGroup>
+    <None Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.json')" />
+    <None Include="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.Local.json')" />
+  </ItemGroup>
+
 </Project>

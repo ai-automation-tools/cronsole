@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WindowsAgentConnector } from '../WindowsAgentConnector.js';
 import { agentManager } from '../../ws/AgentManager.js';
+import { signCommand, type SignableCommand } from '../../ws/agentAuth.js';
 
 // Mock AgentManager
 vi.mock('../../ws/AgentManager.js', () => ({
@@ -8,6 +9,24 @@ vi.mock('../../ws/AgentManager.js', () => ({
     getSocket: vi.fn()
   }
 }));
+
+const SESSION_KEY = 'test-session-key-1234567890';
+
+/** Find the args a mock socket was emitted with for a given event. */
+function emitArgs(socket: any, event: string): any[] | undefined {
+  const call = socket.emit.mock.calls.find((c: any[]) => c[0] === event);
+  return call?.slice(1);
+}
+
+/** Assert the emitted command carries a valid signature for `cmd`. */
+function expectSignedCommand(socket: any, event: string, cmd: SignableCommand, extra: Record<string, unknown> = {}) {
+  const [payload] = emitArgs(socket, event) ?? [];
+  expect(payload).toBeDefined();
+  expect(typeof payload.ts).toBe('number');
+  const { sig } = signCommand(SESSION_KEY, cmd, payload.ts);
+  const { event: _e, ...fields } = cmd;
+  expect(payload).toEqual({ ...fields, ...extra, ts: payload.ts, sig });
+}
 
 describe('WindowsAgentConnector', () => {
   let connector: WindowsAgentConnector;
@@ -18,7 +37,8 @@ describe('WindowsAgentConnector', () => {
     mockSocket = {
       emit: vi.fn(),
       on: vi.fn(),
-      off: vi.fn()
+      off: vi.fn(),
+      data: { sessionKey: SESSION_KEY }
     };
   });
 
@@ -104,8 +124,8 @@ describe('WindowsAgentConnector', () => {
     });
 
     const result = await connector.runTask('\\Task1', { userId: 'test_user' });
-    
-    expect(mockSocket.emit).toHaveBeenCalledWith('task:run', '\\Task1');
+
+    expectSignedCommand(mockSocket, 'task:run', { event: 'task:run', taskPath: '\\Task1' });
     expect(result.success).toBe(true);
     expect(result.message).toBe('Success');
   });
@@ -158,7 +178,7 @@ describe('WindowsAgentConnector', () => {
   it('should set task status successfully', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
     const result = await connector.setTaskStatus('\\Task1', true, { userId: 'test_user' });
-    expect(mockSocket.emit).toHaveBeenCalledWith('task:set_status', '\\Task1', true);
+    expectSignedCommand(mockSocket, 'task:set_status', { event: 'task:set_status', taskPath: '\\Task1', enabled: true });
     expect(result.success).toBe(true);
   });
 
@@ -186,7 +206,12 @@ describe('WindowsAgentConnector', () => {
 
     const result = await connector.createTask('NewTask', '0 3 * * *', 'echo hello', { userId: 'test_user' });
 
-    expect(mockSocket.emit).toHaveBeenCalledWith('task:create', { name: 'NewTask', schedule: '0 3 * * *', command: 'echo hello', trigger: null });
+    expectSignedCommand(
+      mockSocket,
+      'task:create',
+      { event: 'task:create', name: 'NewTask', schedule: '0 3 * * *', command: 'echo hello' },
+      { trigger: null }
+    );
     expect(result.success).toBe(true);
     expect(result.externalId).toBe('\\NewTask');
     expect(result.message).toBe('Success');
@@ -211,12 +236,12 @@ describe('WindowsAgentConnector', () => {
 
     const result = await connector.createTask('NewTask', '0 8 * * *', 'echo hello', { userId: 'test_user' }, { trigger });
 
-    expect(mockSocket.emit).toHaveBeenCalledWith('task:create', {
-      name: 'NewTask',
-      schedule: '0 8 * * *',
-      command: 'echo hello',
-      trigger
-    });
+    expectSignedCommand(
+      mockSocket,
+      'task:create',
+      { event: 'task:create', name: 'NewTask', schedule: '0 8 * * *', command: 'echo hello' },
+      { trigger }
+    );
     expect(result.success).toBe(true);
   });
 

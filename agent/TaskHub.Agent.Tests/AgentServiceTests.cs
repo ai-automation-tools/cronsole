@@ -14,6 +14,7 @@ namespace TaskHub.Agent.Tests
     {
         private readonly Mock<ISocketClient> _mockSocket;
         private readonly Mock<ITaskScheduler> _mockScheduler;
+        private readonly AgentAuthenticator _auth;
         private readonly AgentService _agentService;
 
         // Captured events from SetupSocketEvents
@@ -26,10 +27,15 @@ namespace TaskHub.Agent.Tests
             _mockSocket = new Mock<ISocketClient>();
             _mockScheduler = new Mock<ITaskScheduler>();
 
+            // A real authenticator with an established session key — commands are
+            // signed with it below so verification passes like a live connection.
+            _auth = new AgentAuthenticator("test-pairing-secret-value", "test-agent");
+            _auth.CreateHandshakeAuth();
+
             // Capture the handlers registered by the service
             _mockSocket.SetupAdd(s => s.OnConnected += It.IsAny<Action>())
                 .Callback<Action>(handler => _onConnectedHandler = handler);
-            
+
             _mockSocket.SetupAdd(s => s.OnDisconnected += It.IsAny<Action>())
                 .Callback<Action>(handler => _onDisconnectedHandler = handler);
 
@@ -39,8 +45,15 @@ namespace TaskHub.Agent.Tests
                     _socketHandlers[eventName] = callback;
                 });
 
-            _agentService = new AgentService(_mockSocket.Object, _mockScheduler.Object);
+            _agentService = new AgentService(_mockSocket.Object, _mockScheduler.Object, _auth);
         }
+
+        private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        // Build a JsonElement command payload from an anonymous object, exactly as
+        // it arrives over the wire from the backend.
+        private static JsonElement Payload(object obj) =>
+            JsonDocument.Parse(JsonSerializer.Serialize(obj)).RootElement;
 
         [Fact]
         public void Constructor_RegistersEventsAndHandlers()
@@ -107,10 +120,12 @@ namespace TaskHub.Agent.Tests
             // Arrange
             var taskPath = "\\Mikes\\Backup";
             var enabled = false;
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
-            mockResponse.Setup(r => r.GetValue<string>(0)).Returns(taskPath);
-            mockResponse.Setup(r => r.GetValue<bool>(1)).Returns(enabled);
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, enabled, ts, sig }));
 
             _mockScheduler.Setup(s => s.SetTaskStatus(taskPath, enabled)).Returns(true);
 
@@ -126,9 +141,12 @@ namespace TaskHub.Agent.Tests
         {
             // Arrange
             var taskPath = "\\Mikes\\CleanTemp";
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
-            mockResponse.Setup(r => r.GetValue<string>(0)).Returns(taskPath);
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig }));
 
             _mockScheduler.Setup(s => s.RunTask(taskPath)).Returns(true);
 
@@ -141,15 +159,49 @@ namespace TaskHub.Agent.Tests
         }
 
         [Fact]
+        public void TaskRun_Event_RejectsInvalidSignature()
+        {
+            // Arrange — a forged/tampered command must never execute.
+            var taskPath = "\\Mikes\\CleanTemp";
+            var ts = Now();
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig = "deadbeef" }));
+
+            // Act
+            _socketHandlers["task:run"].Invoke(mockResponse.Object);
+
+            // Assert — scheduler untouched, no result emitted.
+            _mockScheduler.Verify(s => s.RunTask(It.IsAny<string>()), Times.Never);
+            _mockSocket.Verify(s => s.EmitAsync("task:executed", It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public void TaskCreate_Event_RejectsInvalidSignature()
+        {
+            // Arrange — RCE-relevant path: an unsigned create must be dropped.
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { name = "Evil", schedule = "0 * * * *", command = "calc.exe", ts = Now(), sig = "bad" }));
+
+            // Act
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockScheduler.Verify(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TriggerSpec?>()), Times.Never);
+        }
+
+        [Fact]
         public void TaskCreate_Event_CreatesTaskAndEmitsResult()
         {
             // Arrange
-            var dataJson = "{\"name\":\"MyTestTask\",\"schedule\":\"0 * * * *\",\"command\":\"dir\"}";
-            var jsonDocument = JsonDocument.Parse(dataJson);
-            var element = jsonDocument.RootElement;
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", ts));
 
             var mockResponse = new Mock<ISocketResponse>();
-            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(element);
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { name = "MyTestTask", schedule = "0 * * * *", command = "dir", ts, sig }));
 
             _mockScheduler.Setup(s => s.CreateTask("MyTestTask", "0 * * * *", "dir", null))
                 .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });
@@ -166,12 +218,20 @@ namespace TaskHub.Agent.Tests
         public void TaskCreate_Event_ParsesStructuredTrigger()
         {
             // Arrange — payload as emitted by WindowsAgentConnector.createTask
-            var dataJson = "{\"name\":\"MyTestTask\",\"schedule\":\"0 8 * * 1\",\"command\":\"dir\"," +
-                "\"trigger\":{\"type\":\"Weekly\",\"startBoundary\":\"08:00\",\"daysOfWeek\":[\"Monday\"]}}";
-            var element = JsonDocument.Parse(dataJson).RootElement;
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", ts));
 
             var mockResponse = new Mock<ISocketResponse>();
-            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(element);
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    name = "MyTestTask",
+                    schedule = "0 8 * * 1",
+                    command = "dir",
+                    trigger = new { type = "Weekly", startBoundary = "08:00", daysOfWeek = new[] { "Monday" } },
+                    ts,
+                    sig
+                }));
 
             _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TriggerSpec?>()))
                 .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });
@@ -196,11 +256,12 @@ namespace TaskHub.Agent.Tests
         public void TaskCreate_Event_NullTrigger_PassedAsNull()
         {
             // Arrange — server sends trigger: null when no conversion applies
-            var dataJson = "{\"name\":\"MyTestTask\",\"schedule\":\"0 * * * *\",\"command\":\"dir\",\"trigger\":null}";
-            var element = JsonDocument.Parse(dataJson).RootElement;
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", ts));
 
             var mockResponse = new Mock<ISocketResponse>();
-            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(element);
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { name = "MyTestTask", schedule = "0 * * * *", command = "dir", trigger = (object?)null, ts, sig }));
 
             _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TriggerSpec?>()))
                 .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });

@@ -45,6 +45,10 @@ obj/
 .vs/
 agent/publish/
 
+# Agent config holds the pairing secret — keep it local (commit the example).
+agent/TaskHub.Agent/appsettings.json
+agent/TaskHub.Agent/appsettings.Local.json
+
 
 # --- Installer artifacts ---
 *.msi

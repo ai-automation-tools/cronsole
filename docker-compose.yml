@@ -31,6 +31,14 @@ services:
       DATABASE_URL: postgresql://taskhub:password@db:5432/taskhub
       REDIS_URL: redis://redis:6379
       PORT: 3000
+      # The backend fail-fasts without these. Values below are DEV-ONLY defaults so
+      # `docker compose up` boots out of the box; override them (host env or a root
+      # .env) for anything real. JWT_SECRET must be >= 16 chars, ENCRYPTION_KEY
+      # EXACTLY 32, AGENT_PAIRING_SECRET >= 16 and matched by the agent's
+      # TASKHUB_PAIRING_SECRET (see docs/setup/README.md).
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev_encryption_key_32_chars_1234}
+      AGENT_PAIRING_SECRET: ${AGENT_PAIRING_SECRET:-dev-pairing-secret-change-me}
     depends_on:
       - db
       - redis

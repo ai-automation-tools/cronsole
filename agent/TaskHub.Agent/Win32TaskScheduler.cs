@@ -121,7 +121,7 @@ namespace TaskHub.Agent
             }
         }
 
-        public AgentTaskResult CreateTask(string name, string schedule, string command, TriggerSpec? trigger = null)
+        public AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null)
         {
             using (TaskService ts = new TaskService())
             {
@@ -149,7 +149,15 @@ namespace TaskHub.Agent
                     td.Triggers.Add(new DailyTrigger { StartBoundary = DateTime.Now.AddHours(1) });
                 }
 
-                td.Actions.Add(new ExecAction("cmd.exe", $"/c {command}", null));
+                // Register a DIRECT ExecAction from the structured action - never a
+                // `cmd.exe /c` shell wrapper. Args are quoted per Windows rules so a
+                // value with spaces/quotes stays one argument; no value can inject a
+                // second command because no shell parses the line.
+                string argString = ArgumentQuoting.Join(action.Args);
+                td.Actions.Add(new ExecAction(
+                    action.Executable,
+                    string.IsNullOrEmpty(argString) ? null : argString,
+                    string.IsNullOrWhiteSpace(action.WorkingDirectory) ? null : action.WorkingDirectory));
 
                 // TaskHub-created tasks live under \TaskHub\ so they're identifiable
                 // and cleanly removable (and category-extract as "TaskHub" on sync).

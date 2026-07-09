@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import { Prisma, PrismaClient, PlatformType, TaskStatus } from '@prisma/client';
 import { connectorRegistry } from '../connectors/registry.js';
+import { AuthRequest } from '../auth/auth.js';
+import { serializeConfig, deserializeConfig } from '../auth/connectionConfig.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
@@ -13,8 +15,10 @@ const router = Router();
 
 // List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
   try {
     const tasks = await prisma.task.findMany({
+      where: { userId },
       orderBy: { updatedAt: 'desc' },
       include: {
         executions: {
@@ -39,9 +43,15 @@ router.get('/', async (req: Request, res: Response) => {
 // Update a task (e.g., category)
 router.patch('/:id', async (req: Request, res: Response) => {
   const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
   const { category } = req.body;
 
   try {
+    // Scope by userId so one user can't mutate another's task (IDOR).
+    const owned = await prisma.task.findFirst({ where: { id, userId } });
+    if (!owned) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
     const task = await prisma.task.update({
       where: { id },
       data: { category }
@@ -84,7 +94,7 @@ router.post('/preview', async (req: Request, res: Response) => {
 // Create a new task (New Task modal Windows path, cloning, custom creation)
 router.post('/', async (req: Request, res: Response) => {
   const { name, platform, category, schedule, command } = req.body;
-  const userId = 'cli_user_placeholder'; // For MVP
+  const userId = (req as AuthRequest).user!.id;
 
   try {
     if (!name || !schedule || !command || !platform) {
@@ -135,7 +145,7 @@ router.post('/', async (req: Request, res: Response) => {
       name,
       schedule,
       command,
-      { ...(connection.config as object), userId },
+      { ...deserializeConfig(connection.config), userId },
       { trigger }
     );
 
@@ -182,7 +192,7 @@ router.post('/', async (req: Request, res: Response) => {
 // because it takes a full job spec instead of a command string.
 router.post('/native', async (req: Request, res: Response) => {
   const { name, category, schedule, job } = req.body;
-  const userId = 'cli_user_placeholder'; // For MVP
+  const userId = (req as AuthRequest).user!.id;
 
   try {
     if (!name || typeof name !== 'string' || !name.trim()) {
@@ -231,7 +241,7 @@ router.post('/native', async (req: Request, res: Response) => {
 
 // Get health for all connectors
 router.get('/health', async (req: Request, res: Response) => {
-  const userId = 'cli_user_placeholder';
+  const userId = (req as AuthRequest).user!.id;
   try {
     let connections = await prisma.platformConnection.findMany({
       where: { userId }
@@ -243,7 +253,7 @@ router.get('/health', async (req: Request, res: Response) => {
         data: {
           userId,
           platform: PlatformType.WINDOWS_TASK_SCHEDULER,
-          config: {},
+          config: serializeConfig({}),
           isActive: true,
           healthState: 'HEALTHY'
         }
@@ -255,7 +265,7 @@ router.get('/health', async (req: Request, res: Response) => {
     for (const conn of connections) {
       const connector = connectorRegistry.getConnector(conn.platform);
       if (connector) {
-        const health = await connector.getHealth({ ...(conn.config as object), userId });
+        const health = await connector.getHealth({ ...deserializeConfig(conn.config), userId });
         results.push({
           platform: conn.platform,
           ...health
@@ -282,7 +292,7 @@ router.get('/health', async (req: Request, res: Response) => {
 
 // Sync tasks from all platforms (Legacy - now selective)
 router.post('/sync', async (req: Request, res: Response) => {
-  const userId = 'cli_user_placeholder';
+  const userId = (req as AuthRequest).user!.id;
   const { categories } = req.body; // Optional list of categories to INCLUDE
 
   try {
@@ -296,7 +306,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       const connector = connectorRegistry.getConnector(conn.platform);
       if (connector) {
         try {
-          let tasks = await connector.syncTasks({ ...conn.config as object, userId });
+          let tasks = await connector.syncTasks({ ...deserializeConfig(conn.config), userId });
           const allExternalIds = tasks.map(t => t.externalId);
 
           // Filter by categories if provided
@@ -334,7 +344,7 @@ router.post('/sync', async (req: Request, res: Response) => {
 
 // Discover tasks available for import
 router.get('/discover', async (req: Request, res: Response) => {
-  const userId = 'cli_user_placeholder';
+  const userId = (req as AuthRequest).user!.id;
   console.log(`[Discovery] Starting discovery for user: ${userId}`);
 
   try {
@@ -353,7 +363,7 @@ router.get('/discover', async (req: Request, res: Response) => {
       const connector = connectorRegistry.getConnector(conn.platform);
       if (connector) {
         try {
-          const tasks = await connector.syncTasks({ ...conn.config as object, userId });
+          const tasks = await connector.syncTasks({ ...deserializeConfig(conn.config), userId });
           console.log(`[Discovery] Connector returned ${tasks.length} tasks for ${conn.platform}`);
 
           const categories = Array.from(new Set(tasks.map(t => TaskService.extractCategory(t.externalId, conn.platform))));       
@@ -387,8 +397,9 @@ router.get('/discover', async (req: Request, res: Response) => {
 // is still on the roadmap).
 router.delete('/:id', async (req: Request, res: Response) => {
   const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
   try {
-    const task = await prisma.task.findUnique({ where: { id } });
+    const task = await prisma.task.findFirst({ where: { id, userId } });
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
     }
@@ -413,7 +424,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // Recent execution history for a task (manual runs + native scheduler fires)
 router.get('/:id/executions', async (req: Request, res: Response) => {
   const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
   try {
+    // Confirm the task is the caller's before exposing its run history (IDOR).
+    const owned = await prisma.task.findFirst({ where: { id, userId }, select: { id: true } });
+    if (!owned) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
     const executions = await prisma.executionLog.findMany({
       where: { taskId: id },
       orderBy: { triggeredAt: 'desc' },
@@ -429,8 +446,11 @@ router.get('/:id/executions', async (req: Request, res: Response) => {
 // Trigger a task
 router.post('/:id/run', async (req: Request, res: Response) => {
   const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
   try {
-    const task = await prisma.task.findUnique({ where: { id } });
+    // Scope by userId so a user can only run their own tasks (IDOR → remote
+    // command execution on someone else's agent otherwise).
+    const task = await prisma.task.findFirst({ where: { id, userId } });
     if (!task) {
       res.status(404).json({ error: 'Task not found' });
       return;
@@ -447,9 +467,9 @@ router.post('/:id/run', async (req: Request, res: Response) => {
       where: { userId_platform: { userId: task.userId, platform: task.platform } }
     });
 
-    // In a real system, we'd decrypt the config here
+    // Config is encrypted at rest (AES-256-GCM); decrypt before use.
     const config = {
-      ...(connection?.config as any || {}),
+      ...deserializeConfig(connection?.config),
       userId: task.userId
     };
 

@@ -127,8 +127,8 @@ Update docs when you change:
 At minimum, review whether these need edits:
 
 - `README.md`
-- `docs/ROADMAP.md`
-- `docs/specs/CONTRACTS.md`
+- `docs/ROADMAP.md` (the spec of record)
+- `docs/setup/README.md` (if env vars / config changed)
 - `CHANGELOG.md`
 
 ## Current implementation caveats
@@ -196,7 +196,7 @@ Before requesting review, confirm:
 - Never commit `.env` files or real secrets.
 - Never log decrypted platform credentials.
 - Do not paste real API tokens into fixtures, screenshots, or docs.
-- If you change auth, encryption, or agent trust boundaries, update `docs/specs/CONTRACTS.md` and the phase docs.
+- If you change auth, encryption, or agent trust boundaries, update [`docs/ROADMAP.md`](docs/ROADMAP.md) (the spec of record) and `CHANGELOG.md`. (The original `docs/specs/CONTRACTS.md` and per-phase docs are frozen under the local-only `docs/archive/`.)
 
 ## When in doubt
 

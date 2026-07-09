@@ -2,6 +2,7 @@ import { PlatformType, HealthState } from '@prisma/client';
 import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { emitSignedCommand } from '../ws/agentAuth.js';
+import { toStructuredAction } from '../utils/commandParser.js';
 import { convertWindowsTriggerToCron, WindowsTrigger } from '../utils/scheduler-conversion.js';
 
 /**
@@ -135,13 +136,16 @@ export class WindowsAgentConnector implements PlatformConnector {
         }
       };
 
+      // Structure the command into { executable, args[] } so the agent registers
+      // a direct ExecAction with no shell (closes the cmd.exe injection sink).
+      // The action is covered by the command signature; `trigger` still rides
+      // along unsigned (see the note on commandMessage in agentAuth.ts).
+      const action = toStructuredAction(command);
+
       socket.on('task:created', handler);
-      // `trigger` rides along unsigned (server-derived structured data). The
-      // signature covers name/schedule/command; trigger integrity relies on WSS
-      // in transit (see the note on commandMessage in agentAuth.ts).
       emitSignedCommand(
         socket,
-        { event: 'task:create', name, schedule, command },
+        { event: 'task:create', name, schedule, command, action },
         { trigger: options?.trigger ?? null }
       );
 

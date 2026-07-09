@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -81,8 +82,18 @@ namespace TaskHub.Agent
         public static string SetStatusMessage(string taskPath, bool enabled, long ts) =>
             $"task:set_status|{taskPath}|{(enabled ? 1 : 0)}|{ts}";
 
-        public static string CreateMessage(string name, string schedule, string command, long ts) =>
-            $"task:create|{name}|{schedule}|{command}|{ts}";
+        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, long ts) =>
+            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{ts}";
+
+        // Canonical action string the create signature covers. MUST match the
+        // backend's canonicalizeAction (utils/commandParser.ts): the executable and
+        // each argument joined by the ASCII unit separator (0x1F).
+        public static string CanonicalizeAction(string executable, IEnumerable<string> args)
+        {
+            var parts = new List<string> { executable };
+            parts.AddRange(args);
+            return string.Join('\u001f', parts);
+        }
 
         public static string Hmac(string key, string message)
         {

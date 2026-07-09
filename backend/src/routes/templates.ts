@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { PlatformType, PrismaClient } from '@prisma/client';
 import { connectorRegistry } from '../connectors/registry.js';
+import { AuthRequest } from '../auth/auth.js';
+import { deserializeConfig } from '../auth/connectionConfig.js';
 import {
   convertCronToWindowsTrigger,
   getTemplateConfidence,
@@ -88,7 +90,7 @@ router.post('/:id/preview', async (req: Request, res: Response) => {
 router.post('/:id/apply', async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const { platform, command, schedule, scheduleExpression, name } = req.body;
-  const userId = 'cli_user_placeholder'; // For MVP
+  const userId = (req as AuthRequest).user!.id;
 
   try {
     const template = await prisma.template.findUnique({
@@ -154,7 +156,7 @@ router.post('/:id/apply', async (req: Request, res: Response) => {
       finalName,
       finalSchedule,
       finalCommand,
-      { ...(connection.config as object), userId },
+      { ...deserializeConfig(connection.config), userId },
       { trigger: conversion.trigger }
     );
 

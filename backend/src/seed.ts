@@ -91,7 +91,9 @@ const patterns: SeedTemplate[] = [
     sourcePlatform: PlatformType.WINDOWS_TASK_SCHEDULER,
     targetPlatforms: [PlatformType.WINDOWS_TASK_SCHEDULER, PlatformType.CLAUDE_CODE],
     scheduleExpression: '0 3 * * *',
-    command: 'pg_dump -U postgres my_db > backup.sql',
+    // Redirection needs a shell, so name it explicitly (the agent no longer wraps
+    // commands in an implicit cmd.exe /c — see utils/commandParser.ts).
+    command: 'cmd.exe /c "pg_dump -U postgres my_db > backup.sql"',
     scriptType: ScriptType.EXECUTABLE,
     os: OsTarget.WINDOWS,
     category: TemplateCategory.BACKUP,
@@ -119,7 +121,9 @@ const patterns: SeedTemplate[] = [
     sourcePlatform: PlatformType.WINDOWS_TASK_SCHEDULER,
     targetPlatforms: [PlatformType.WINDOWS_TASK_SCHEDULER],
     scheduleExpression: '0 0 * * 0',
-    command: 'del /q /s %temp%\\*',
+    // `del` is a cmd builtin and %temp% needs cmd expansion, so invoke cmd
+    // explicitly rather than relying on an implicit shell wrapper.
+    command: 'cmd.exe /c "del /q /s %temp%\\*"',
     scriptType: ScriptType.BATCH,
     os: OsTarget.WINDOWS,
     category: TemplateCategory.CLEANUP,

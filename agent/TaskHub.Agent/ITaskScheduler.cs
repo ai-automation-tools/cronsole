@@ -8,7 +8,17 @@ namespace TaskHub.Agent
         List<AgentTaskInfo> ListTasks();
         bool SetTaskStatus(string path, bool enabled);
         bool RunTask(string path);
-        AgentTaskResult CreateTask(string name, string schedule, string command, TriggerSpec? trigger = null);
+        AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null);
+    }
+
+    // Structured action the agent registers as the task's ExecAction. The server
+    // splits the resolved command into an executable + discrete argument strings
+    // so no shell (cmd.exe) is ever invoked - see backend utils/commandParser.ts.
+    public class AgentExecAction
+    {
+        public string Executable { get; set; } = string.Empty;
+        public List<string> Args { get; set; } = new List<string>();
+        public string? WorkingDirectory { get; set; }
     }
 
     public class AgentTaskInfo

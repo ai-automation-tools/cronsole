@@ -34,7 +34,10 @@ namespace TaskHub.Agent
                     {
                         Type = "Weekly",
                         StartBoundary = ToUtcHhmm(weekly.StartBoundary),
-                        DaysOfWeek = ToDayNames(weekly.DaysOfWeek),
+                        // Roll the day by the same local->UTC shift as the time, so a
+                        // late-evening trigger that crosses midnight in UTC reports the
+                        // correct UTC day (e.g. Sun 23:45 PDT = Mon 06:45 UTC).
+                        DaysOfWeek = ToDayNames(weekly.DaysOfWeek, UtcDayShift(weekly.StartBoundary)),
                         Repetition = ReadRepetition(weekly.Repetition)
                     };
 
@@ -73,14 +76,39 @@ namespace TaskHub.Agent
             };
         }
 
-        private static List<string> ToDayNames(DaysOfTheWeek days)
+        /// <summary>
+        /// Days a local start boundary moves when converted to UTC: -1, 0, or +1.
+        /// The weekly day-of-week must roll by this same amount to stay aligned with
+        /// the UTC time reported in StartBoundary.
+        /// </summary>
+        private static int UtcDayShift(DateTime startBoundary)
+        {
+            var kinded = startBoundary.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(startBoundary, DateTimeKind.Local)
+                : startBoundary;
+            return (int)(kinded.ToUniversalTime().Date - kinded.Date).TotalDays;
+        }
+
+        private static List<string> ToDayNames(DaysOfTheWeek days, int dayShift)
         {
             var result = new List<string>();
             foreach (var (flag, name) in SingleDays)
             {
-                if ((days & flag) == flag) result.Add(name);
+                if ((days & flag) == flag) result.Add(ShiftDayName(name, dayShift));
             }
             return result;
+        }
+
+        /// <summary>
+        /// Roll a weekday name by <paramref name="dayShift"/> days, wrapping around
+        /// the week. Unknown names are returned unchanged.
+        /// </summary>
+        public static string ShiftDayName(string name, int dayShift)
+        {
+            int idx = Array.FindIndex(SingleDays, d => d.Name == name);
+            if (idx < 0) return name;
+            int rolled = ((idx + dayShift) % 7 + 7) % 7;
+            return SingleDays[rolled].Name;
         }
 
         private static readonly (DaysOfTheWeek Flag, string Name)[] SingleDays =

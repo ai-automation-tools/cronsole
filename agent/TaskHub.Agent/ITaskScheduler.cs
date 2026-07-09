@@ -16,8 +16,12 @@ namespace TaskHub.Agent
         public string Path { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string State { get; set; } = string.Empty;
-        public DateTime LastRunTime { get; set; }
-        public DateTime NextRunTime { get; set; }
+        // Nullable so unset run times (Task Scheduler's DateTime.MinValue / 1899
+        // sentinels) are sent as null instead of "0001-01-01" — see TriggerReader.
+        public DateTime? LastRunTime { get; set; }
+        public DateTime? NextRunTime { get; set; }
+        // First cron-expressible trigger, if any; null for boot/logon/event tasks.
+        public TriggerSpec? Trigger { get; set; }
     }
 
     public class AgentTaskResult

@@ -1,6 +1,26 @@
 import { PlatformType, HealthState } from '@prisma/client';
 import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
+import { convertWindowsTriggerToCron, WindowsTrigger } from '../utils/scheduler-conversion.js';
+
+/**
+ * Convert an agent-supplied Windows trigger to a 5-field cron string. Only
+ * high-confidence conversions are kept; anything ambiguous stays null so the UI
+ * honestly shows "No direct schedule" rather than a wrong cron.
+ */
+function deriveCron(trigger: unknown): string | null {
+  if (!trigger || typeof trigger !== 'object') return null;
+  const result = convertWindowsTriggerToCron(trigger as WindowsTrigger);
+  return result.confidence >= 1 ? result.cron : null;
+}
+
+/** Parse an agent-supplied timestamp, rejecting nulls and pre-2000 sentinels. */
+function parseNextRun(value: unknown): Date | null {
+  if (!value || (typeof value !== 'string' && typeof value !== 'number')) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime()) || d.getUTCFullYear() < 2000) return null;
+  return d;
+}
 
 export class WindowsAgentConnector implements PlatformConnector {
   platform = PlatformType.WINDOWS_TASK_SCHEDULER;
@@ -23,6 +43,8 @@ export class WindowsAgentConnector implements PlatformConnector {
             externalId: t.path,
             name: t.name,
             status: (t.state === 'Ready' || t.state === 'Running') ? 'ACTIVE' : 'DISABLED',
+            schedule: deriveCron(t.trigger),
+            nextRunTime: parseNextRun(t.nextRunTime),
             metadata: t
           })));
         } else {

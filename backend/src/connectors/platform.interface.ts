@@ -20,6 +20,10 @@ export interface TaskInfo {
   externalId: string;
   name: string;
   status: 'ACTIVE' | 'DISABLED';
+  /** Normalized 5-field cron (UTC) derived from the platform's trigger, if expressible. */
+  schedule?: string | null;
+  /** Next scheduled run reported by the platform, or null if unset. */
+  nextRunTime?: Date | null;
   metadata?: any;
 }
 

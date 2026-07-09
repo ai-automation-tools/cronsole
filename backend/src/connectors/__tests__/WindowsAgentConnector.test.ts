@@ -56,6 +56,38 @@ describe('WindowsAgentConnector', () => {
     expect(tasks[1].status).toBe('DISABLED');
   });
 
+  it('should derive cron + nextRunTime from a trigger and null out sentinels', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:full_list') {
+        setTimeout(() => {
+          handler({
+            tasks: [
+              {
+                path: '\\TaskHub\\Nightly', name: 'Nightly', state: 'Ready',
+                nextRunTime: '2026-07-09T03:00:00Z',
+                trigger: { type: 'Daily', startBoundary: '03:00', daysInterval: 1 }
+              },
+              {
+                // No expressible trigger + unset (sentinel) next run.
+                path: '\\Boot', name: 'Boot', state: 'Ready',
+                nextRunTime: '0001-01-01T00:00:00', trigger: null
+              }
+            ]
+          });
+        }, 10);
+      }
+    });
+
+    const tasks = await connector.syncTasks({ userId: 'test_user' });
+
+    expect(tasks[0].schedule).toBe('0 3 * * *');
+    expect(tasks[0].nextRunTime).toEqual(new Date('2026-07-09T03:00:00Z'));
+    expect(tasks[1].schedule).toBeNull();
+    expect(tasks[1].nextRunTime).toBeNull();
+  });
+
   it('should run a task successfully', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
 

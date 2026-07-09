@@ -31,6 +31,26 @@ namespace TaskHub.Agent
             }
         }
 
+        // Emit the trigger with camelCase keys matching the backend's
+        // WindowsTrigger shape (convertWindowsTriggerToCron). The wire serializer
+        // preserves member names, so we can't hand it the PascalCase TriggerSpec.
+        private static object? SerializeTrigger(TriggerSpec? spec)
+        {
+            if (spec == null) return null;
+            return new
+            {
+                type = spec.Type,
+                startBoundary = spec.StartBoundary,
+                daysInterval = spec.DaysInterval,
+                daysOfWeek = spec.DaysOfWeek,
+                repetition = spec.Repetition == null ? null : (object)new
+                {
+                    interval = spec.Repetition.Interval,
+                    duration = spec.Repetition.Duration
+                }
+            };
+        }
+
         private void SetupSocketEvents()
         {
             _socket.OnConnected += async () =>
@@ -63,7 +83,8 @@ namespace TaskHub.Agent
                             name = t.Name,
                             state = t.State,
                             lastRunTime = t.LastRunTime,
-                            nextRunTime = t.NextRunTime
+                            nextRunTime = t.NextRunTime,
+                            trigger = SerializeTrigger(t.Trigger)
                         }).ToList();
 
                     await _socket.EmitAsync("task:full_list", new[] { new { tasks = tasks } });

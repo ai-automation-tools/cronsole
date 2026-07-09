@@ -18,7 +18,9 @@ namespace TaskHub.Agent.Tests
         private const string ExpectedSessionKey = "67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14";
         private const string ExpectedRunSig = "e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48";
         private const string ExpectedStatusSig = "9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133";
-        private const string ExpectedCreateSig = "39a370b5efc02f6ca0b854e96bce9413ce56b14f13e96ece0ce19592bec315fc";
+        // task:create now signs the structured action too; golden action is
+        // { executable: "dir", args: [] } -> canonical "dir".
+        private const string ExpectedCreateSig = "0a39b0a5317f5710621e0a5748402fa2baec4496eb2177e1adeb98a31eb14da2";
 
         [Fact]
         public void Hmac_MatchesGoldenVector_HandshakeAndSession()
@@ -34,7 +36,8 @@ namespace TaskHub.Agent.Tests
                 .Should().Be(ExpectedRunSig);
             AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.SetStatusMessage("MyTask", false, Ts))
                 .Should().Be(ExpectedStatusSig);
-            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", Ts))
+            var actionCanonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, Ts))
                 .Should().Be(ExpectedCreateSig);
         }
 

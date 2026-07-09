@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import { authenticateToken } from './auth/auth.js';
 import { agentManager } from './ws/AgentManager.js';
 import { agentAuthMiddleware, assertAgentAuthConfig } from './ws/agentAuth.js';
+import { serializeConfig } from './auth/connectionConfig.js';
 import { TaskService } from './services/TaskService.js';
 import { nativeScheduler } from './services/NativeScheduler.js';
 
@@ -102,7 +103,7 @@ async function main() {
     create: {
       userId: 'cli_user_placeholder',
       platform: PlatformType.TASKHUB_NATIVE,
-      config: {},
+      config: serializeConfig({}),
       isActive: true,
       healthState: 'HEALTHY'
     }

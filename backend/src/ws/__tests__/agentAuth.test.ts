@@ -30,7 +30,9 @@ const VEC = {
   sessionKey: '67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14',
   runSig: 'e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48',
   statusSig: '9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133',
-  createSig: '39a370b5efc02f6ca0b854e96bce9413ce56b14f13e96ece0ce19592bec315fc',
+  // task:create now signs the structured action (executable + args) too. Golden
+  // case: command 'dir', action { executable: 'dir', args: [] } -> canonical 'dir'.
+  createSig: '0a39b0a5317f5710621e0a5748402fa2baec4496eb2177e1adeb98a31eb14da2',
 };
 
 /** Build a valid, fresh handshake auth payload for the given nonce. */
@@ -48,7 +50,16 @@ describe('agentAuth cross-language vector', () => {
     const cases: Array<[SignableCommand, string]> = [
       [{ event: 'task:run', taskPath: 'MyTask' }, VEC.runSig],
       [{ event: 'task:set_status', taskPath: 'MyTask', enabled: false }, VEC.statusSig],
-      [{ event: 'task:create', name: 'Job', schedule: '0 3 * * *', command: 'dir' }, VEC.createSig],
+      [
+        {
+          event: 'task:create',
+          name: 'Job',
+          schedule: '0 3 * * *',
+          command: 'dir',
+          action: { executable: 'dir', args: [] },
+        },
+        VEC.createSig,
+      ],
     ];
     for (const [cmd, expected] of cases) {
       expect(signCommand(VEC.sessionKey, cmd, VEC.ts).sig).toBe(expected);

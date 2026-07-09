@@ -21,8 +21,10 @@ yet, start with [**⬇️ Installation**](../install/README.md).
 |:---|:---|:---|
 | **`VITE_DEMO_MODE`** | frontend | When `true`, the dashboard renders built-in sample tasks and **Run Now** is a no-op (this drives the public demo). Leave it **unset** locally to read live data. |
 | **`VITE_API_URL`** | frontend | Origin the dashboard calls for the API. Defaults to `http://localhost:3000`. Set this if the backend runs elsewhere. |
+| **`VITE_DEV_TOKEN`** | frontend | Dev/MVP auth token the dashboard sends as `Authorization: Bearer` for **live** mode (there is no committed default — a real login flow replaces this pre-launch). Sign one with the backend's `JWT_SECRET` for the placeholder user; see `frontend/.env.example`. Not needed in demo mode (which never calls the backend). |
 | **`DATABASE_URL`** | backend | PostgreSQL 16 connection string. Required when running the backend outside Docker Compose. |
-| **`JWT_SECRET`** | backend | Signing secret for auth tokens. |
+| **`JWT_SECRET`** | backend | Signing secret for user auth tokens. Must be **≥ 16 chars**; the backend **fails to start** on a missing or weak secret. Generate: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. |
+| **`ENCRYPTION_KEY`** | backend | AES-256-GCM key that encrypts `PlatformConnection.config` (API keys, agent IDs, pairing secrets) **at rest**. Must be **exactly 32 characters**; the backend **fails to start** otherwise. |
 | **`AGENT_PAIRING_SECRET`** | backend + agent | Shared secret for the agent's WebSocket handshake. The backend **fails to start** without it; the agent must set the same value as `TASKHUB_PAIRING_SECRET`. Use a long random string (`openssl rand -hex 24`). |
 | **`ALLOWED_ORIGINS`** | backend | Comma-separated browser origins allowed to open a Socket.IO connection. Empty by default (only the non-browser agent connects today). |
 | **`TASKHUB_SERVER_URL`** | agent | Backend URL the agent connects to (WSS-capable, e.g. `wss://taskhub.example.com`). Defaults to `http://localhost:3000`. Overrides `serverUrl` in appsettings.json. |
@@ -30,9 +32,10 @@ yet, start with [**⬇️ Installation**](../install/README.md).
 | **`TASKHUB_AGENT_ID`** | agent | Stable identifier for this agent. Defaults to the machine name. Overrides `agentId` in appsettings.json. |
 
 > [!IMPORTANT]
-> Secrets never belong in committed code. Use `backend/.env` / `.env.local` for local
-> development. See the security conventions in [`CLAUDE.md`](../../CLAUDE.md) (§9) for how
-> config is handled and encrypted at rest.
+> Secrets never belong in committed code. Copy `backend/.env.example` → `backend/.env` and
+> `frontend/.env.example` → `frontend/.env.local` and fill in real values (both are gitignored).
+> See the security conventions in [`CLAUDE.md`](../../CLAUDE.md) (§9) for how config is handled
+> and encrypted at rest.
 
 ## 🐳 Docker vs. manual
 

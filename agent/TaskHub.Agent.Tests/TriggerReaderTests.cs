@@ -65,6 +65,32 @@ namespace TaskHub.Agent.Tests
             TriggerReader.Read(new BootTrigger()).Should().BeNull();
         }
 
+        [Theory]
+        // +1: a trigger whose UTC time crossed midnight forward (e.g. Sun 23:45
+        // PDT -> Mon 06:45 UTC) must report the next day.
+        [InlineData("Sunday", 1, "Monday")]
+        [InlineData("Saturday", 1, "Sunday")]   // wraps around the week
+        // -1: an early-morning trigger in a UTC+ zone falls on the previous UTC day.
+        [InlineData("Monday", -1, "Sunday")]
+        [InlineData("Sunday", -1, "Saturday")]  // wraps the other way
+        [InlineData("Wednesday", 0, "Wednesday")]
+        public void ShiftDayName_RollsWithWraparound(string input, int shift, string expected)
+        {
+            TriggerReader.ShiftDayName(input, shift).Should().Be(expected);
+        }
+
+        [Fact]
+        public void Weekly_UtcKindBoundary_KeepsDayOfWeek()
+        {
+            // A UTC-kind boundary converts as identity, so no day roll happens.
+            var spec = TriggerReader.Read(new WeeklyTrigger
+            {
+                StartBoundary = Utc(6, 45),
+                DaysOfWeek = DaysOfTheWeek.Sunday
+            });
+            spec!.DaysOfWeek.Should().Equal("Sunday");
+        }
+
         [Fact]
         public void RoundTrips_ThroughTriggerBuilder()
         {

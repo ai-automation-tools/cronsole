@@ -183,13 +183,21 @@ namespace TaskHub.Agent.Tests
             // Arrange — RCE-relevant path: an unsigned create must be dropped.
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { name = "Evil", schedule = "0 * * * *", command = "calc.exe", ts = Now(), sig = "bad" }));
+                .Returns(Payload(new
+                {
+                    name = "Evil",
+                    schedule = "0 * * * *",
+                    command = "calc.exe",
+                    action = new { executable = "calc.exe", args = new string[0] },
+                    ts = Now(),
+                    sig = "bad"
+                }));
 
             // Act
             _socketHandlers["task:create"].Invoke(mockResponse.Object);
 
             // Assert
-            _mockScheduler.Verify(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TriggerSpec?>()), Times.Never);
+            _mockScheduler.Verify(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentExecAction>(), It.IsAny<TriggerSpec?>()), Times.Never);
         }
 
         [Fact]
@@ -197,20 +205,32 @@ namespace TaskHub.Agent.Tests
         {
             // Arrange
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", ts));
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { name = "MyTestTask", schedule = "0 * * * *", command = "dir", ts, sig }));
+                .Returns(Payload(new
+                {
+                    name = "MyTestTask",
+                    schedule = "0 * * * *",
+                    command = "dir",
+                    action = new { executable = "dir", args = new string[0] },
+                    ts,
+                    sig
+                }));
 
-            _mockScheduler.Setup(s => s.CreateTask("MyTestTask", "0 * * * *", "dir", null))
+            _mockScheduler.Setup(s => s.CreateTask("MyTestTask", "0 * * * *", It.IsAny<AgentExecAction>(), null))
                 .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });
 
             // Act
             _socketHandlers["task:create"].Invoke(mockResponse.Object);
 
-            // Assert
-            _mockScheduler.Verify(s => s.CreateTask("MyTestTask", "0 * * * *", "dir", null), Times.Once);
+            // Assert — the structured action (not a cmd.exe string) reaches the scheduler.
+            _mockScheduler.Verify(s => s.CreateTask(
+                "MyTestTask", "0 * * * *",
+                It.Is<AgentExecAction>(a => a.Executable == "dir" && a.Args.Count == 0),
+                null), Times.Once);
             _mockSocket.Verify(s => s.EmitAsync("task:created", It.Is<object>(obj => obj != null)), Times.Once);
         }
 
@@ -219,7 +239,8 @@ namespace TaskHub.Agent.Tests
         {
             // Arrange — payload as emitted by WindowsAgentConnector.createTask
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", ts));
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", canonical, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -228,12 +249,13 @@ namespace TaskHub.Agent.Tests
                     name = "MyTestTask",
                     schedule = "0 8 * * 1",
                     command = "dir",
+                    action = new { executable = "dir", args = new string[0] },
                     trigger = new { type = "Weekly", startBoundary = "08:00", daysOfWeek = new[] { "Monday" } },
                     ts,
                     sig
                 }));
 
-            _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TriggerSpec?>()))
+            _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentExecAction>(), It.IsAny<TriggerSpec?>()))
                 .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });
 
             // Act
@@ -243,7 +265,7 @@ namespace TaskHub.Agent.Tests
             _mockScheduler.Verify(s => s.CreateTask(
                 "MyTestTask",
                 "0 8 * * 1",
-                "dir",
+                It.IsAny<AgentExecAction>(),
                 It.Is<TriggerSpec>(t =>
                     t.Type == "Weekly" &&
                     t.StartBoundary == "08:00" &&
@@ -257,20 +279,30 @@ namespace TaskHub.Agent.Tests
         {
             // Arrange — server sends trigger: null when no conversion applies
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", ts));
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { name = "MyTestTask", schedule = "0 * * * *", command = "dir", trigger = (object?)null, ts, sig }));
+                .Returns(Payload(new
+                {
+                    name = "MyTestTask",
+                    schedule = "0 * * * *",
+                    command = "dir",
+                    action = new { executable = "dir", args = new string[0] },
+                    trigger = (object?)null,
+                    ts,
+                    sig
+                }));
 
-            _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TriggerSpec?>()))
+            _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentExecAction>(), It.IsAny<TriggerSpec?>()))
                 .Returns(new AgentTaskResult { Success = true, Path = "\\MyTestTask", Name = "MyTestTask" });
 
             // Act
             _socketHandlers["task:create"].Invoke(mockResponse.Object);
 
             // Assert
-            _mockScheduler.Verify(s => s.CreateTask("MyTestTask", "0 * * * *", "dir", null), Times.Once);
+            _mockScheduler.Verify(s => s.CreateTask("MyTestTask", "0 * * * *", It.IsAny<AgentExecAction>(), null), Times.Once);
         }
     }
 }

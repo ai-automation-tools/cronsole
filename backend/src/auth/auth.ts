@@ -4,7 +4,17 @@ import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
+
+// Fail fast on a missing/weak JWT secret. A signing key is what stands between
+// an anonymous request and a forged identity — booting with a hardcoded fallback
+// would let anyone mint a valid token, so refuse to start without a real one.
+const secret = process.env.JWT_SECRET;
+if (!secret || secret.length < 16) {
+  throw new Error(
+    'JWT_SECRET must be set to a strong value (>= 16 chars). Refusing to start with a missing or weak secret.'
+  );
+}
+const JWT_SECRET: string = secret;
 
 export interface AuthRequest extends Request {
   user?: {

@@ -20,7 +20,7 @@ jobs:
         working-directory: backend
     env:
       ENCRYPTION_KEY: '12345678901234567890123456789012'
-      JWT_SECRET: ci-jwt-secret
+      JWT_SECRET: 'ci-jwt-secret-not-for-production-use'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

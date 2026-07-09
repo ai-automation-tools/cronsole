@@ -148,14 +148,18 @@ so what you see is consistent no matter where a task actually lives.
 <br>
 
 ```bash
-# Backend — needs a PostgreSQL 16 instance + DATABASE_URL in backend/.env
+# Backend — needs a PostgreSQL 16 instance
 cd backend
+cp .env.example .env        # then set DATABASE_URL + secrets (JWT_SECRET,
+                            # ENCRYPTION_KEY, AGENT_PAIRING_SECRET) — the backend
+                            # fail-fasts without them; see docs/setup/README.md
 npm install
 npx prisma migrate dev      # create the schema
 npm start                   # http://localhost:3000
 
 # Frontend — in a second terminal
 cd frontend
+cp .env.example .env.local  # set VITE_DEV_TOKEN for live mode (not needed for demo)
 npm install
 npm run dev                 # http://localhost:5173
 

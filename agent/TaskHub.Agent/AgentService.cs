@@ -34,6 +34,27 @@ namespace TaskHub.Agent
             return sig.Length > 0;
         }
 
+        // Read the structured { executable, args[], workingDirectory? } action from
+        // a task:create payload. Missing/ill-typed fields degrade to empty rather
+        // than throwing (the signature check is what actually gates execution).
+        private static AgentExecAction ReadAction(JsonElement data)
+        {
+            var action = new AgentExecAction();
+            if (data.TryGetProperty("action", out var el) && el.ValueKind == JsonValueKind.Object)
+            {
+                if (el.TryGetProperty("executable", out var exe) && exe.ValueKind == JsonValueKind.String)
+                    action.Executable = exe.GetString() ?? string.Empty;
+                if (el.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var a in args.EnumerateArray())
+                        action.Args.Add(a.ValueKind == JsonValueKind.String ? a.GetString() ?? string.Empty : string.Empty);
+                }
+                if (el.TryGetProperty("workingDirectory", out var wd) && wd.ValueKind == JsonValueKind.String)
+                    action.WorkingDirectory = wd.GetString();
+            }
+            return action;
+        }
+
         public async Task StartAsync()
         {
             Console.WriteLine("Connecting to server...");
@@ -211,8 +232,13 @@ namespace TaskHub.Agent
                     string schedule = data.GetProperty("schedule").GetString() ?? "0 3 * * *";
                     string command = data.GetProperty("command").GetString() ?? "echo Hello";
 
+                    // The structured action (executable + args) is what we actually
+                    // register as the ExecAction, and it's covered by the signature.
+                    AgentExecAction action = ReadAction(data);
+                    string actionCanonical = AgentAuthenticator.CanonicalizeAction(action.Executable, action.Args);
+
                     if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, ts), ts, sig))
+                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:create for {name}");
                         return;
@@ -227,9 +253,9 @@ namespace TaskHub.Agent
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     }
 
-                    Console.WriteLine($"Server command: task:create -> {name} (schedule={schedule}, trigger={(trigger?.Type ?? "none")})");
+                    Console.WriteLine($"Server command: task:create -> {name} (exe={action.Executable}, args={action.Args.Count}, trigger={(trigger?.Type ?? "none")})");
 
-                    var result = _scheduler.CreateTask(name, schedule, command, trigger);
+                    var result = _scheduler.CreateTask(name, schedule, action, trigger);
 
                     if (result.Success)
                     {

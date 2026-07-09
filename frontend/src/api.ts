@@ -8,10 +8,16 @@ export const api = axios.create({
   baseURL: `${API_ORIGIN}/api`
 });
 
-// Auto-inject MVP dev token for testing Sprint 8 auth
+// Dev/MVP auth token, injected from the environment (see frontend/.env.example).
+// There is intentionally NO committed fallback: a hardcoded token is a leaked
+// credential, and it's invalid anyway once JWT_SECRET is rotated. A real
+// login/account flow replaces this before the app is hosted (ROADMAP Go-public
+// › "Real account system"). Demo mode never calls the backend, so it needs none.
+const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
 api.interceptors.request.use(config => {
-  const devToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNsaV91c2VyX3BsYWNlaG9sZGVyIiwiZW1haWwiOiJtaWtlQGV4YW1wbGUuY29tIiwiaWF0IjoxNzgwNDk3NDYxLCJleHAiOjIwOTYwNzM0NjF9.2kXRHDUd4KVO3rkoedP1c6rHwH-nuF2IKnxvpHd_4_M';
-  config.headers.Authorization = `Bearer ${devToken}`;
+  if (DEV_TOKEN) {
+    config.headers.Authorization = `Bearer ${DEV_TOKEN}`;
+  }
   return config;
 });
 

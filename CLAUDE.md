@@ -27,7 +27,7 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 
 ## 2. Current Status
 
-- **Plan management:** roadmap-driven (phases complete & archived). Open work is tracked in [`docs/ROADMAP.md`](docs/ROADMAP.md); the near-term focus is P0 security hardening and P1 correctness, with remaining QA (integration/E2E) folded into P1.
+- **Plan management:** roadmap-driven (phases complete & archived). Open work is tracked in [`docs/ROADMAP.md`](docs/ROADMAP.md). **P0 security hardening is complete** (2026-07-09: agent WebSocket auth, config encryption at rest, multi-tenancy route scoping + JWT rotation, structured command handling — no more `cmd.exe /c`); the near-term focus is now P1 correctness, with remaining QA (integration/E2E) folded into P1.
 - **Repo state:** Functional MVP prototype. Real-time sync between the .NET Windows Agent and the Node.js/Postgres backend is established, the frontend supports selective import plus local categorization, and the **template library** now ships a two-tier catalog (20 curated script starters + use-case patterns) with a working Apply modal that creates Windows tasks from parameterized `{{placeholder}}` commands. Catalog spec: [`docs/reports/templates/Templates.md`](docs/reports/templates/Templates.md).
 - **MVP target platforms:** Windows Task Scheduler (Functional) + Claude Code Routines (Experimental connector scaffold; not yet production-ready).
 - **Out of scope for MVP:** Two-way sync, MCP creation, ChatGPT API integration, Open Claw / Hermes / Jules connectors.
@@ -280,8 +280,8 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 
 ## 12. Open Questions / Decisions Needed
 
-Tracked in the **Open decisions** section of [`docs/ROADMAP.md`](docs/ROADMAP.md) — keep them there, not here. (Resolved 2026: the app lives at `taskhub.mikesailab.com`; frontend on Vercel, backend hosting still pending P0 security.)
+Tracked in the **Open decisions** section of [`docs/ROADMAP.md`](docs/ROADMAP.md) — keep them there, not here. (Resolved 2026: the app lives at `taskhub.mikesailab.com`; frontend on Vercel. P0 security is now complete — backend hosting is unblocked for a single-user host; a multi-user launch still depends on the Go-public account/operations items.)
 
 ---
 
-*Last updated: 2026-07-07.*
+*Last updated: 2026-07-09 (P0 security hardening complete; see `docs/ROADMAP.md`).*

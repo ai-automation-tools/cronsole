@@ -209,7 +209,13 @@ describe('WindowsAgentConnector', () => {
     expectSignedCommand(
       mockSocket,
       'task:create',
-      { event: 'task:create', name: 'NewTask', schedule: '0 3 * * *', command: 'echo hello' },
+      {
+        event: 'task:create',
+        name: 'NewTask',
+        schedule: '0 3 * * *',
+        command: 'echo hello',
+        action: { executable: 'echo', args: ['hello'] }
+      },
       { trigger: null }
     );
     expect(result.success).toBe(true);
@@ -239,7 +245,13 @@ describe('WindowsAgentConnector', () => {
     expectSignedCommand(
       mockSocket,
       'task:create',
-      { event: 'task:create', name: 'NewTask', schedule: '0 8 * * *', command: 'echo hello' },
+      {
+        event: 'task:create',
+        name: 'NewTask',
+        schedule: '0 8 * * *',
+        command: 'echo hello',
+        action: { executable: 'echo', args: ['hello'] }
+      },
       { trigger }
     );
     expect(result.success).toBe(true);

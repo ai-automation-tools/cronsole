@@ -190,7 +190,11 @@ modal renders one input per entry; the resolved string becomes the task's `comma
 
 Rules:
 - Substitution is literal `{{key}}` → value. Unfilled **required** params block Apply.
-- Values are shell-escaped per target OS at apply-time (never string-concatenated raw).
+- On Windows, the resolved command is **structured into `{executable, args[]}` server-side and
+  registered as a direct ExecAction — no `cmd.exe /c` shell wrapper** (2026-07-09 P0 hardening).
+  Each argument is quoted per Windows rules, so a parameter value stays a single argument to the
+  intended program and can't inject a second command. Templates that genuinely need shell
+  features (pipes, redirection, cmd builtins) name the shell explicitly, e.g. `cmd.exe /c "…"`.
 - `scriptPath` / `exePath` / `repoPath` refer to paths **on the user's machine**, validated by
   the agent before the task is registered.
 

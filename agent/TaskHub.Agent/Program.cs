@@ -22,9 +22,12 @@ namespace TaskHub.Agent
 
             Console.WriteLine("Agent is running. Press Ctrl+C to stop.");
 
-            // Watchdog: the socket client auto-reconnects on drops, but a failed
-            // *initial* connect (e.g. agent starts at boot before the backend)
-            // never retries on its own. Re-attempt whenever we're disconnected.
+            // Watchdog: the sole owner of (re)connection. The library's internal
+            // reconnect is disabled (see SocketIOWrapper) because it doesn't fire on
+            // a server-initiated disconnect and can't reuse an aborted WebSocket.
+            // Every 30s while disconnected we ConnectAsync(), which rebuilds a fresh
+            // client — covering a failed initial connect (agent boots before the
+            // backend) and any later drop (e.g. a backend restart) alike.
             while (true)
             {
                 await Task.Delay(TimeSpan.FromSeconds(30));

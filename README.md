@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <em>A single pane of glass for every scheduled task you own —<br>Windows Task Scheduler, AI assistants, and cron alike.</em>
+  <em>The ultimate unified dashboard to view, trigger, and manage every scheduled job you own —<br>Windows Task Scheduler, AI assistants, and cron, all in one place.</em>
 </p>
 
 <p align="center">
@@ -36,8 +36,51 @@
 
 ---
 
+
+## 💡 Why it exists
+
+No existing tool unifies AI-assistant schedulers with your operating system's scheduler.
+Desktop utilities are Windows-only or abandoned; heavyweight orchestrators (Airflow, n8n,
+Jenkins) are built for data engineers. TaskHub's angle is cross-domain unification,
+**mobile-first triggering**, and AI-native task creation.
+
+## 🔌 What it connects to
+
+| Platform | How it connects | Status |
+|:---|:---|:---|
+| **🪟 Windows Task Scheduler** | A lightweight local agent on your machine — outbound-only, never accepts incoming connections. | ✅ Functional |
+| **⚡ TaskHub-native** | HTTP jobs (webhooks, health checks) that TaskHub schedules and runs itself — no OS task needed. | ✅ Functional |
+| **🤖 Claude Code Routines** | Natural-language routines through the Anthropic API. | 🧪 Experimental |
+| **💬 ChatGPT · Gemini · Jules** | Quick links straight to their native scheduling screens. | 🔗 Quick links |
+
+## 🔍 How It Works
+
+TaskHub has three pieces. A small **agent** runs on your Windows machine and opens an
+outbound connection to the **backend** (it never accepts incoming connections). The agent
+pushes your Task Scheduler list up to the backend, which stores it and keeps the **web
+dashboard** in sync. When you click **Run Now**, the dashboard tells the backend, and the
+backend relays the command back down to the agent — which runs the task locally. Schedules
+are normalized to standard cron internally and translated to each platform's native format,
+so what you see is consistent no matter where a task actually lives.
+
+## 📊 Features
+
+| Capability | What it gives you |
+|:---|:---|
+| **Unified dashboard** | Every synced task in one view, with platform and status badges, across grid / list / kanban / schedule layouts. |
+| **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. |
+| **Live sync** | The local agent keeps TaskHub in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
+| **TaskHub-native tasks** | Create HTTP jobs (webhooks, health checks) that TaskHub schedules and runs itself — no OS task needed. |
+| **Template library** | Ready-to-use script starters and use-case patterns; fill in the blanks and TaskHub creates a real scheduled task. |
+| **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
+| **Search & organize** | Free-text search plus local categories to keep a big task list navigable. |
+| **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
+
+
+## 🎨 Screenshots
+
 <details>
-<summary><b>📸 Screenshots</b> — dashboard, templates, modals, views, and themes</summary>
+<summary><b>📸 Dashboard, Templates, Settings, Views, and Themes</b> </summary>
 
 <br>
 
@@ -53,60 +96,6 @@
 | <img src="images/screenshots/schedule-view.png" alt="TaskHub schedule view"><br><sub><b>Schedule view</b> — chronological by next run</sub> | <img src="images/screenshots/dashboard-light.png" alt="TaskHub dashboard in light theme"><br><sub><b>Light theme</b> — the same dashboard, light variant</sub> |
 
 </details>
-
-## 📌 About
-
-**TaskHub** is a unified scheduled-task manager — one dark-themed dashboard for viewing,
-triggering, and managing all the scheduled jobs that today live in disconnected silos.
-Instead of jumping between the Windows Task Scheduler MMC, your AI assistant's automation
-screens, and a handful of cron files, you see everything in one place and run any of it
-with a click — including **from your phone**.
-
-TaskHub connects to:
-
-- **Windows Task Scheduler** — through a lightweight local agent that runs on your machine.
-- **TaskHub-native tasks** — HTTP jobs (webhooks, health checks) scheduled and run by TaskHub itself, no OS entry required.
-- **Claude Code Routines** — through the Anthropic API *(experimental)*.
-- **ChatGPT, Gemini, Jules, and others** — quick links to their native scheduling screens.
-
-> [!NOTE]
-> TaskHub is an early **MVP prototype**. It runs locally today — the dashboard, backend, and
-> Windows agent all run on your own machine (live Windows sync, real triggering). See
-> [Quick Start](#-quick-start) to get it running.
-
-**Why it exists:** no existing tool unifies AI-assistant schedulers with your operating
-system's scheduler. Desktop utilities are Windows-only or abandoned; heavyweight
-orchestrators (Airflow, n8n, Jenkins) are built for data engineers. TaskHub's angle is
-cross-domain unification, **mobile-first triggering**, and AI-native task creation.
-
-## 📊 Features
-
-| Capability | What it gives you |
-|:---|:---|
-| **Unified dashboard** | Every synced task in one view, with platform and status badges, across grid / list / kanban / schedule layouts. |
-| **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. |
-| **Live sync** | The local agent keeps TaskHub in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
-| **TaskHub-native tasks** | Create HTTP jobs (webhooks, health checks) that TaskHub schedules and runs itself — no OS task needed. |
-| **Template library** | Ready-to-use script starters and use-case patterns; fill in the blanks and TaskHub creates a real scheduled task. |
-| **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
-| **Search & organize** | Free-text search plus local categories to keep a big task list navigable. |
-| **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
-
-## 🔍 How It Works
-
-TaskHub has three pieces. A small **agent** runs on your Windows machine and opens an
-outbound connection to the **backend** (it never accepts incoming connections). The agent
-pushes your Task Scheduler list up to the backend, which stores it and keeps the **web
-dashboard** in sync. When you click **Run Now**, the dashboard tells the backend, and the
-backend relays the command back down to the agent — which runs the task locally. Schedules
-are normalized to standard cron internally and translated to each platform's native format,
-so what you see is consistent no matter where a task actually lives.
-
-> [!IMPORTANT]
-> TaskHub is not hosted yet — the dashboard, backend, and Windows agent all run on **your**
-> machine. Full setup is in the [Installation guide](docs/install/README.md).
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## ⚡ Quick Start
 

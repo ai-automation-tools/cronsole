@@ -35,6 +35,17 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const res = await fetch(`${backendOrigin()}/api${path}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${devToken()}` }
+  });
+  if (!res.ok) {
+    throw new Error(`DELETE ${path} failed with ${res.status}: ${await res.text()}`);
+  }
+  return (await res.json()) as T;
+}
+
 export function windowsTasksAsAgentTasks(tasks: ApiTask[]) {
   return tasks
     .filter((task) => task.platform === 'WINDOWS_TASK_SCHEDULER')

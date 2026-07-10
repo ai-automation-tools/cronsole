@@ -52,6 +52,7 @@ function authPayload(agentId: string, secret: string) {
 export class MockTaskHubAgent {
   readonly runs: MockRunCommand[] = [];
   readonly creates: MockCreateCommand[] = [];
+  readonly deletes: MockRunCommand[] = [];
   private socket: Socket | null = null;
 
   constructor(
@@ -77,6 +78,18 @@ export class MockTaskHubAgent {
         taskExternalId: payload.taskPath,
         success: true,
         output: `Mock agent ran ${payload.taskPath}`
+      });
+    });
+
+    socket.on('task:delete', (payload: MockRunCommand) => {
+      this.deletes.push(payload);
+      const existed = this.tasks.some((t) => t.path === payload.taskPath);
+      this.tasks = this.tasks.filter((t) => t.path !== payload.taskPath);
+      // Mirrors the real agent: deleting an already-gone task is a success.
+      socket.emit('task:deleted', {
+        taskExternalId: payload.taskPath,
+        success: true,
+        message: existed ? 'Task deleted' : 'Task not found (already removed)'
       });
     });
 

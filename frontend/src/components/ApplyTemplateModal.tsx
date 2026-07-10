@@ -5,6 +5,9 @@ import type { Template } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
 import { useToast } from '../hooks/useToast';
+import { useSettings } from '../hooks/useSettings';
+import { describeCron } from '../utils/schedule';
+import { CRON_PRESETS } from '../utils/cronPresets';
 
 // Substitute {{key}} placeholders — preview only. The apply request sends the
 // raw parameter values; the backend owns the real substitution per-token, so a
@@ -25,7 +28,13 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
     Object.fromEntries(params.map(p => [p.key, p.default ?? '']))
   );
   const [platform, setPlatform] = useState(template.targetPlatforms[0] ?? '');
+  const [name, setName] = useState(template.name);
   const [schedule, setSchedule] = useState(template.scheduleExpression);
+  const { settings: prefs } = useSettings();
+
+  // Honest human reading of the cron (null when we can't describe it); local
+  // vs UTC follows the Settings timezone mode, like the task detail view.
+  const humanSchedule = describeCron(schedule, prefs.timezone);
 
   const baseCommand = template.commandTemplate ?? template.command ?? '';
   const resolved = resolveCommand(baseCommand, values).trim();
@@ -63,7 +72,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
       return api.post(`/templates/${template.id}/apply`, {
         platform,
         schedule,
-        name: template.name,
+        name: name.trim(),
         parameters: values
       });
     },
@@ -82,7 +91,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   });
 
   const canApply =
-    !!platform && !!schedule.trim() && !incomplete && !applyMutation.isPending;
+    !!platform && !!name.trim() && !!schedule.trim() && !incomplete && !applyMutation.isPending;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -115,6 +124,20 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
           </div>
 
           <div className="space-y-2">
+            <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+              Task name <span className="text-red-400">*</span>
+            </label>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+            />
+            <p className="text-[10px] text-subtle-foreground italic">
+              Reusing a template? Give each task its own name — a duplicate name is rejected instead of overwriting the existing task.
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Clock size={11} /> Schedule (cron · UTC)
             </label>
@@ -123,6 +146,26 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
               onChange={e => setSchedule(e.target.value)}
               className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-primary transition-colors"
             />
+            <div className="flex flex-wrap gap-1.5">
+              {CRON_PRESETS.map(p => (
+                <button
+                  key={p.cron}
+                  onClick={() => setSchedule(p.cron)}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                    schedule === p.cron
+                      ? 'bg-primary border-primary text-primary-foreground'
+                      : 'bg-background border-border text-muted-foreground hover:border-foreground/30'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {humanSchedule && (
+              <p className="text-[10px] text-subtle-foreground flex items-center gap-1.5">
+                <Clock size={10} className="shrink-0" /> Runs {humanSchedule.charAt(0).toLowerCase() + humanSchedule.slice(1)}{prefs.timezone === 'local' ? ' (your local time)' : ''}
+              </p>
+            )}
             {preview && preview.score >= 1 && (
               <p className="text-[10px] text-green-500 flex items-center gap-1.5">
                 <CheckCircle2 size={11} className="shrink-0" /> Schedule converts cleanly to a native trigger.

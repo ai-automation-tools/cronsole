@@ -19,6 +19,8 @@ import {
 } from '../utils/templateCommand.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
+import { assertWindowsTaskNameAvailable } from '../utils/windowsTaskName.js';
+import { TaskService } from '../services/TaskService.js';
 
 const router = Router();
 
@@ -127,6 +129,14 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   // and `scheduleExpression` (the template field name).
   const finalName =
     typeof name === 'string' && name.trim() ? name.trim() : template.name;
+
+  // Windows: reject invalid names (400) and names that collide with a task
+  // TaskHub already tracks under \TaskHub\ (409) — RegisterTaskDefinition
+  // would otherwise silently overwrite the existing task.
+  if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+    await assertWindowsTaskNameAvailable(userId, finalName);
+  }
+
   const finalSchedule =
     [schedule, scheduleExpression].find(s => typeof s === 'string' && s.trim())?.trim() ||
     template.scheduleExpression;
@@ -199,6 +209,29 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
 
   if (!result.success) {
     return res.status(500).json({ error: result.message || 'Failed to apply template' });
+  }
+
+  // Track a Windows task right away (mirrors POST /tasks): the dashboard
+  // shows it without waiting for a sync, and the duplicate-name guard above
+  // sees it immediately — so a back-to-back re-apply with the same name 409s
+  // instead of silently overwriting the task that was just created.
+  // Windows ONLY: TaskHubNativeConnector.createTask writes its own row (with
+  // metadata.job — an upsert here would wipe it and break the task), and no
+  // other connector can succeed today.
+  if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+    const externalId = result.externalId || `\\TaskHub\\${finalName}`;
+    const upserted = await TaskService.upsertTasks(userId, platform, [{
+      externalId,
+      name: finalName,
+      status: 'ACTIVE' as const,
+      metadata: { schedule: finalSchedule, command: finalCommand, state: 'Ready' }
+    }]);
+    if (upserted.length > 0) {
+      await prisma.task.update({
+        where: { id: upserted[0].id },
+        data: { schedule: finalSchedule }
+      });
+    }
   }
 
   notifyTasksChanged(userId);

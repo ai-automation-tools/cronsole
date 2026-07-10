@@ -44,7 +44,13 @@ Instead of raw data, the Overview parses the task's synced configuration into re
 ### Run History
 The second tab lists recorded runs with their status, timestamp, duration, and a log snippet — so you can answer "did it actually run, and did it work?"
 
-> **Note on schedule times:** the recurring clock time in the Schedule panel is shown in **UTC** today. Absolute timestamps (next/last run) are shown in your local time.
+### Deleting a task
+The modal footer has a **Delete** button for TaskHub-native and Windows tasks:
+- **TaskHub-native:** removes the task and its run history from TaskHub (nothing exists outside TaskHub).
+- **Windows:** removes the real Task Scheduler entry via the local agent first, then the TaskHub record — TaskHub never claims a task is gone while it still exists on your machine. If the agent is offline, the delete is refused and the task stays.
+- Some Windows tasks were registered by an elevated process and carry admin-only permissions; TaskHub will tell you when a task can only be deleted from an elevated Task Scheduler (or by running the agent elevated).
+
+> **Note on schedule times:** the recurring clock time in the Schedule panel follows your **Settings → Behavior → schedule-time display** choice — your local time by default, or UTC. Absolute timestamps (next/last run) are always shown in your local time.
 
 ---
 
@@ -93,6 +99,9 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 ### Applying a template
 - Each card shows its target platforms, script type, intended schedule (UTC), and the command it will run.
 - Click **"Apply Template"** to open the creation flow. For starters, you'll fill in the required parameters (validated as you go). TaskHub then registers the new task on your machine via the local agent (Windows) or the relevant API.
+- **Task name:** prefilled with the template's name but yours to edit — give each applied task its own name if you reuse a template. A name that matches a task TaskHub already created is **rejected** (instead of Windows silently overwriting the existing task), and names with characters Windows forbids (`\ / : * ? " < > |`, trailing dots) are refused with a clear message.
+- **Schedule:** quick preset chips fill common crons, and a plain-language preview under the field ("Runs daily at 8:00 AM UTC" — or your local time, per Settings) confirms what the cron means before you create anything. Conversion warnings appear when a cron can't map cleanly onto a native Windows trigger.
+- The created task appears on the Dashboard immediately — no need to wait for a sync.
 
 ---
 
@@ -104,4 +113,4 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 ---
 
-*Last Updated: July 8, 2026*
+*Last Updated: July 10, 2026*

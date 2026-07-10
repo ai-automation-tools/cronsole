@@ -10,6 +10,11 @@
 > verified seeded). The **Apply modal** (§7 step 3) shipped, backed by
 > `GET /api/templates` + `POST /api/templates/:id/apply`; since 2026-07-10 the modal sends **raw
 > parameter values** and the **backend owns `{{placeholder}}` substitution per-token** (§5).
+> Also 2026-07-10: the modal gained an editable **task-name field** backed by a server-side
+> Windows name guard (invalid name → 400; name colliding with a tracked `\TaskHub\` task → 409
+> instead of Task Scheduler silently overwriting it), **cron preset chips**, and a
+> **human-readable schedule preview** (local/UTC per Settings); applied Windows tasks are
+> **tracked immediately** rather than waiting for the next sync.
 > The **library UI** (2026-07-08) adds search,
 > faceted OS + Tags(category) filters, a Starter/Pattern type toggle, and starter-vs-pattern grouping.
 > Still open (see `docs/ROADMAP.md`): parameterize the 4 Tier-B patterns; real-vs-removed upvotes; template import/export.
@@ -245,7 +250,13 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
    and `POST`s `{ platform, parameters, schedule, name }` to `/templates/:id/apply` — the
    backend substitutes the raw values per-token and rejects unfilled/invalid parameters (§5;
    a legacy pre-substituted `command` field is still accepted, deprecated). Invalidates
-   `tasks` on success.
+   `tasks` on success. *(2026-07-10)* The modal's **task-name field** is editable (prefilled
+   with the template name); the backend validates it (`utils/windowsTaskName.ts` — Windows
+   filename rules, 400) and refuses a name that collides with a tracked `\TaskHub\` task
+   (409) so `RegisterTaskDefinition` never silently overwrites an existing task. Cron
+   **preset chips** (shared `utils/cronPresets.ts`) and a **human-readable schedule preview**
+   (`describeCron`, local/UTC per Settings) sit under the schedule field, and applied Windows
+   tasks are upserted immediately so they appear on the dashboard without a sync.
 4. **Card UI** — `scriptType` badge is shown; still to add: `os` badge, `category` filter chips,
    and grouping starters vs patterns. Reuse the existing dark card style.
 5. ~~**Cron ↔ Windows trigger conversion** with confidence score~~ ✅ *Done (2026-07-07)* —

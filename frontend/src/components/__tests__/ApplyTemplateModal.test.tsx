@@ -111,4 +111,48 @@ describe('ApplyTemplateModal Component', () => {
     expect(toastMock).toHaveBeenCalledWith('Task created on Claude from "Daily Cron Backup".', 'success');
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('prefills the task name, sends an edited name, and blocks an empty one', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    // Prefilled with the template name.
+    const nameInput = screen.getByDisplayValue('Daily Cron Backup');
+
+    // Fill the one missing required param so name is the only gate left.
+    const destInput = screen.getAllByPlaceholderText('C:\\path\\to\\file')[1];
+    fireEvent.change(destInput, { target: { value: 'D:\\backup' } });
+
+    // Empty name disables apply.
+    fireEvent.change(nameInput, { target: { value: '   ' } });
+    expect(screen.getByRole('button', { name: /Create Task/ })).toBeDisabled();
+
+    // A custom name is what gets sent.
+    fireEvent.change(nameInput, { target: { value: 'My Backup Copy 2' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create Task/ }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/templates/template-cron-backup/apply',
+        expect.objectContaining({ name: 'My Backup Copy 2' })
+      );
+    });
+  });
+
+  it('cron preset chips update the schedule field', () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByDisplayValue('0 0 * * *')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Hourly' }));
+    expect(screen.getByDisplayValue('0 * * * *')).toBeInTheDocument();
+  });
 });

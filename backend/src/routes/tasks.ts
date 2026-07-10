@@ -14,6 +14,7 @@ import { queueFailureNotification } from '../services/FailureNotificationService
 import { computeNextRun } from '../utils/cron-next.js';
 import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-conversion.js';
 import { HttpError } from '../middleware/errorHandler.js';
+import { assertWindowsTaskNameAvailable } from '../utils/windowsTaskName.js';
 import { validateBody } from '../middleware/validate.js';
 
 const router = Router();
@@ -122,6 +123,10 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
   let trigger: WindowsTrigger | null = null;
   let conversionWarnings: string[] = [];
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+    // Invalid name → 400; name colliding with a tracked \TaskHub\ task → 409
+    // (RegisterTaskDefinition would silently overwrite the existing task).
+    await assertWindowsTaskNameAvailable(userId, name);
+
     const conversion = convertCronToWindowsTrigger(schedule);
     if (!conversion.trigger) {
       throw new HttpError(400, 'Schedule cannot be converted to a Windows trigger.', {
@@ -158,7 +163,9 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
 
   // Upsert the created task right away so the frontend shows it immediately
   // (sync would pick it up later otherwise).
-  const externalId = result.externalId || `\\${name}`; // fallback if not returned
+  // Fallback must match where the agent actually registers (\TaskHub\<name>) —
+  // a wrong guess here would also blind the duplicate-name guard to this row.
+  const externalId = result.externalId || `\\TaskHub\\${name}`;
   const upserted = await TaskService.upsertTasks(userId, platform, [{
     externalId,
     name,

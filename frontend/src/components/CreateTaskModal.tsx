@@ -3,16 +3,9 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
+import { CRON_PRESETS } from '../utils/cronPresets';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
-
-const CRON_PRESETS = [
-  { label: 'Every 15 min', cron: '*/15 * * * *' },
-  { label: 'Hourly', cron: '0 * * * *' },
-  { label: 'Daily 8am', cron: '0 8 * * *' },
-  { label: 'Weekdays 9am', cron: '0 9 * * 1-5' },
-  { label: 'Sunday night', cron: '0 22 * * 0' }
-];
 
 type CreatePlatform = 'TASKHUB_NATIVE' | 'WINDOWS_TASK_SCHEDULER';
 
@@ -225,7 +218,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                 placeholder='powershell -File "D:\scripts\backup.ps1"'
                 className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-primary transition-colors resize-y"
               />
-              <p className="text-[10px] text-subtle-foreground italic">Runs via <span className="font-mono">cmd.exe /c</span> as your user with highest privileges.</p>
+              <p className="text-[10px] text-subtle-foreground italic">Runs the program directly as your user — no hidden shell wrapper. Name <span className="font-mono">cmd.exe /c</span> explicitly if you need shell features like redirection.</p>
             </div>
           ) : (
             <>

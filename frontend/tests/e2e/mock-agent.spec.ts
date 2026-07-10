@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { apiGet, apiPost, type ApiTask, windowsTasksAsAgentTasks } from './helpers/api';
+import { apiDelete, apiGet, apiPost, type ApiTask, windowsTasksAsAgentTasks } from './helpers/api';
 import { e2eAgentTask, MockTaskHubAgent } from './helpers/mockAgent';
 
 test.describe.serial('mock Windows agent flows', () => {
@@ -64,6 +64,13 @@ test.describe.serial('mock Windows agent flows', () => {
 
     const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Apply Template' });
     await expect(modal.getByText('Apply Template')).toBeVisible();
+    // Task name is prefilled with the template name; give this task its own
+    // (also dodges the duplicate-name 409 if a PowerShell Script task is tracked).
+    await modal
+      .locator('label', { hasText: 'Task name' })
+      .locator('..')
+      .locator('input')
+      .fill('E2E Applied Task');
     await modal
       .locator('label', { hasText: 'Script file path' })
       .locator('..')
@@ -74,9 +81,20 @@ test.describe.serial('mock Windows agent flows', () => {
     await expect(page.getByRole('status')).toContainText(
       'Task created on Windows from "PowerShell Script".'
     );
-    await expect.poll(() => agent.creates.map((create) => create.name)).toContain('PowerShell Script');
+    await expect.poll(() => agent.creates.map((create) => create.name)).toContain('E2E Applied Task');
     expect(agent.creates.at(-1)?.action?.executable).toBe('powershell.exe');
     expect(agent.creates.at(-1)?.action?.args).toContain('C:\\TaskHubE2E\\template-run.ps1');
+
+    // The applied task is tracked immediately (duplicate-name guard). Delete it
+    // through the real signed task:delete path so repeat runs don't 409 — this
+    // also covers the delete round-trip end to end.
+    const tasks = await apiGet<ApiTask[]>('/tasks');
+    const applied = tasks.find((t) => t.externalId === '\\TaskHub\\E2E Applied Task');
+    expect(applied).toBeTruthy();
+    await apiDelete(`/tasks/${applied!.id}`);
+    expect(agent.deletes.map((d) => d.taskPath)).toContain('\\TaskHub\\E2E Applied Task');
+    const after = await apiGet<ApiTask[]>('/tasks');
+    expect(after.some((t) => t.externalId === '\\TaskHub\\E2E Applied Task')).toBe(false);
   });
 
   test('shows the agent as offline after the socket disconnects', async ({ page }) => {

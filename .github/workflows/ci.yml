@@ -44,6 +44,52 @@ jobs:
       - name: Build backend
         run: npm run build
 
+  backend-integration:
+    name: Backend integration tests (real Postgres)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taskhub
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: taskhub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskhub"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # globalSetup creates taskhub_test on this server and migrates it.
+      TEST_DATABASE_URL: postgresql://taskhub:password@localhost:5432/taskhub_test
+      JWT_SECRET: 'ci-jwt-secret-not-for-production-use'
+      ENCRYPTION_KEY: '12345678901234567890123456789012'
+      AGENT_PAIRING_SECRET: 'ci-agent-pairing-secret-not-real'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run integration tests
+        run: npm run test:integration
+
   frontend:
     name: Frontend lint and build
     runs-on: ubuntu-latest

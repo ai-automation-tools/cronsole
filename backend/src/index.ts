@@ -1,27 +1,20 @@
 import 'dotenv/config';
-import express, { Request, Response } from 'express';
 import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
-import cors from 'cors';
 import { PlatformType } from '@prisma/client';
 import { prisma } from './db.js';
-import taskRoutes from './routes/tasks.js';
-import templateRoutes from './routes/templates.js';
-import authRoutes from './routes/auth.js';
-import { authenticateToken } from './auth/auth.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import { createApp } from './app.js';
 import { agentManager } from './ws/AgentManager.js';
 import { agentAuthMiddleware, assertAgentAuthConfig } from './ws/agentAuth.js';
 import { registerUiChannel } from './ws/uiChannel.js';
 import { serializeConfig } from './auth/connectionConfig.js';
-import { TaskService } from './services/TaskService.js';
 import { nativeScheduler } from './services/NativeScheduler.js';
 
 // Fail fast if the agent pairing secret is missing/weak — the socket channel is
 // remote command execution on the user's machine, so booting without it is unsafe.
 assertAgentAuthConfig();
 
-const app = express();
+const app = createApp();
 const server = createServer(app);
 
 // Restrict Socket.IO CORS. Only the non-browser .NET agent connects today
@@ -46,21 +39,6 @@ io.use(agentAuthMiddleware);
 registerUiChannel(io);
 
 const PORT = process.env.PORT || 3000;
-
-app.use(cors());
-app.use(express.json());
-
-// --- Routes ---
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date() });
-});
-app.use('/api/auth', authRoutes);
-app.use('/api/tasks', authenticateToken, taskRoutes);
-app.use('/api/templates', authenticateToken, templateRoutes);
-
-// Single error boundary — mounted after all routes. Express 5 forwards
-// rejected promises from async handlers here automatically.
-app.use(errorHandler);
 
 // --- WebSocket (Agent) ---
 

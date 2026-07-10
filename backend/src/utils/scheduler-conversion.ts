@@ -17,6 +17,32 @@ export interface ConversionResult {
   warnings: string[];
 }
 
+/**
+ * Canonical string a trigger contributes to the task:create HMAC, so the agent
+ * verifies the schedule it's about to register — not just the command. MUST
+ * match the C# `AgentAuthenticator.CanonicalizeTrigger` byte-for-byte. Every
+ * field the agent reads back off the wire is included, in a fixed order; a null
+ * trigger (non-Windows create, or an unconverted schedule) canonicalizes to the
+ * literal "none". Optional fields collapse to empty so a present-but-empty and
+ * an absent value serialize identically on both sides.
+ */
+export function canonicalizeTrigger(trigger: WindowsTrigger | null | undefined): string {
+  if (!trigger) return 'none';
+  const daysInterval = trigger.daysInterval ?? '';
+  const daysOfWeek = (trigger.daysOfWeek ?? []).join(',');
+  const repInterval = trigger.repetition?.interval ?? '';
+  const repDuration = trigger.repetition?.duration ?? '';
+  return [
+    'trigger',
+    trigger.type,
+    trigger.startBoundary,
+    daysInterval,
+    daysOfWeek,
+    repInterval,
+    repDuration
+  ].join('|');
+}
+
 export interface ReverseResult {
   confidence: number;
   cron: string;

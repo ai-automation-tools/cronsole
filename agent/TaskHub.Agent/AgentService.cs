@@ -232,17 +232,11 @@ namespace TaskHub.Agent
                     string schedule = data.GetProperty("schedule").GetString() ?? "0 3 * * *";
                     string command = data.GetProperty("command").GetString() ?? "echo Hello";
 
-                    // The structured action (executable + args) is what we actually
-                    // register as the ExecAction, and it's covered by the signature.
+                    // The structured action (executable + args) and the trigger are
+                    // both covered by the signature, so parse the trigger BEFORE
+                    // verifying — its canonical form is part of the signed message.
                     AgentExecAction action = ReadAction(data);
                     string actionCanonical = AgentAuthenticator.CanonicalizeAction(action.Executable, action.Args);
-
-                    if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, ts), ts, sig))
-                    {
-                        Console.WriteLine($"REJECTED unsigned/invalid task:create for {name}");
-                        return;
-                    }
 
                     TriggerSpec? trigger = null;
                     if (data.TryGetProperty("trigger", out var triggerElement) &&
@@ -251,6 +245,14 @@ namespace TaskHub.Agent
                         trigger = JsonSerializer.Deserialize<TriggerSpec>(
                             triggerElement.GetRawText(),
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    }
+                    string triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(trigger);
+
+                    if (!TryReadSignature(data, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, triggerCanonical, ts), ts, sig))
+                    {
+                        Console.WriteLine($"REJECTED unsigned/invalid task:create for {name}");
+                        return;
                     }
 
                     Console.WriteLine($"Server command: task:create -> {name} (exe={action.Executable}, args={action.Args.Count}, trigger={(trigger?.Type ?? "none")})");

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -23,9 +25,27 @@ namespace TaskHub.Agent
 
         private readonly string _secret;
 
+        // Session keys currently valid for command verification. The current key
+        // (Expiry == null) never expires — a connection reuses it for its whole
+        // lifetime. A reconnect derives a new current key and gives the outgoing
+        // one a grace expiry (unix seconds), so a command signed under the old
+        // connection that's still in flight when the socket rekeys isn't
+        // false-rejected. Superseded keys drop after MaxSkewSeconds (a command
+        // older than that fails the freshness check anyway), so the set stays tiny.
+        private readonly object _keyLock = new();
+        private readonly List<(string Key, long? Expiry)> _sessionKeys = new();
+
+        // Seen (ts|sig) command signatures -> expiry (unix seconds): a valid
+        // command is accepted at most once within its freshness window, so a
+        // captured command frame can't be replayed on a plaintext connection.
+        private readonly object _replayLock = new();
+        private readonly Dictionary<string, long> _seenCommands = new();
+
         public string AgentId { get; }
 
-        // Set on each CreateHandshakeAuth(); null until the first connect attempt.
+        // The most recent session key (from the last CreateHandshakeAuth); null
+        // until the first connect attempt. VerifyCommand accepts this AND any
+        // other still-valid key (see _sessionKeys).
         public string? SessionKey { get; private set; }
 
         // Fields from the most recent handshake, exposed for inspection/testing
@@ -58,21 +78,76 @@ namespace TaskHub.Agent
             HandshakeHmac = hmac;
             SessionKey = Hmac(_secret, $"session:{nonce}");
 
+            // Make the new key the current (non-expiring) one; give the outgoing
+            // current key a grace expiry so in-flight commands under it still
+            // verify through the reconnect overlap, and drop any already past it.
+            lock (_keyLock)
+            {
+                var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                _sessionKeys.RemoveAll(k => k.Expiry.HasValue && k.Expiry.Value <= now);
+                for (var i = 0; i < _sessionKeys.Count; i++)
+                {
+                    if (_sessionKeys[i].Expiry == null)
+                    {
+                        _sessionKeys[i] = (_sessionKeys[i].Key, now + MaxSkewSeconds);
+                    }
+                }
+                _sessionKeys.Add((SessionKey, null));
+            }
+
             // Lowercase keys => socket.handshake.auth.{agentId,nonce,ts,hmac} server-side.
             return new { agentId = AgentId, nonce, ts, hmac };
         }
 
-        // Verify a command's HMAC against the current session key and freshness
-        // window. `message` must be built with the *Message helpers below.
+        // Verify a command's HMAC against any currently-valid session key and the
+        // freshness window, then guard against replay. `message` must be built
+        // with the *Message helpers below. Returns false for a stale timestamp,
+        // an unverifiable signature, or a signature already seen in-window.
         public bool VerifyCommand(string message, long ts, string sig)
         {
-            if (SessionKey == null || string.IsNullOrEmpty(sig)) return false;
+            if (string.IsNullOrEmpty(sig)) return false;
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             if (Math.Abs(now - ts) > MaxSkewSeconds) return false;
 
-            var expected = Hmac(SessionKey, message);
-            return FixedTimeEquals(expected, sig);
+            string[] keys;
+            lock (_keyLock)
+            {
+                // Only superseded keys carry an expiry; the current key (null) stays.
+                _sessionKeys.RemoveAll(k => k.Expiry.HasValue && k.Expiry.Value <= now);
+                keys = _sessionKeys.Select(k => k.Key).ToArray();
+            }
+            if (keys.Length == 0) return false;
+
+            var verified = false;
+            foreach (var key in keys)
+            {
+                // No early break: check every key so timing doesn't reveal which
+                // (if any) matched.
+                if (FixedTimeEquals(Hmac(key, message), sig)) verified = true;
+            }
+            if (!verified) return false;
+
+            // Only consume the replay slot after the signature checks out, so a
+            // forged (ts, sig) can't pre-poison the cache to block a real command.
+            return RegisterCommandUse(ts, sig, now);
+        }
+
+        // Record a verified command's signature; returns false if it was already
+        // used within its freshness window (a replay). Bounded: entries expire
+        // after MaxSkewSeconds and are pruned on each call.
+        private bool RegisterCommandUse(long ts, string sig, long now)
+        {
+            lock (_replayLock)
+            {
+                var expired = _seenCommands.Where(kv => kv.Value <= now).Select(kv => kv.Key).ToList();
+                foreach (var k in expired) _seenCommands.Remove(k);
+
+                var key = $"{ts}|{sig}";
+                if (_seenCommands.ContainsKey(key)) return false;
+                _seenCommands[key] = now + MaxSkewSeconds;
+                return true;
+            }
         }
 
         // Canonical command messages — must match commandMessage() in agentAuth.ts.
@@ -82,8 +157,8 @@ namespace TaskHub.Agent
         public static string SetStatusMessage(string taskPath, bool enabled, long ts) =>
             $"task:set_status|{taskPath}|{(enabled ? 1 : 0)}|{ts}";
 
-        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, long ts) =>
-            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{ts}";
+        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, long ts) =>
+            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{ts}";
 
         // Canonical action string the create signature covers. MUST match the
         // backend's canonicalizeAction (utils/commandParser.ts): the executable and
@@ -93,6 +168,29 @@ namespace TaskHub.Agent
             var parts = new List<string> { executable };
             parts.AddRange(args);
             return string.Join('\u001f', parts);
+        }
+
+        // Canonical trigger string the create signature covers. MUST match the
+        // backend's canonicalizeTrigger (utils/scheduler-conversion.ts): a null
+        // trigger is the literal "none"; otherwise a fixed-order, pipe-joined
+        // form with optional fields collapsed to empty.
+        public static string CanonicalizeTrigger(TriggerSpec? trigger)
+        {
+            if (trigger == null) return "none";
+            var daysInterval = trigger.DaysInterval?.ToString(CultureInfo.InvariantCulture) ?? "";
+            var daysOfWeek = trigger.DaysOfWeek != null ? string.Join(",", trigger.DaysOfWeek) : "";
+            var repInterval = trigger.Repetition?.Interval ?? "";
+            var repDuration = trigger.Repetition?.Duration ?? "";
+            return string.Join("|", new[]
+            {
+                "trigger",
+                trigger.Type,
+                trigger.StartBoundary,
+                daysInterval,
+                daysOfWeek,
+                repInterval,
+                repDuration
+            });
         }
 
         public static string Hmac(string key, string message)

@@ -9,6 +9,13 @@ import {
   getTemplateConfidence,
   WindowsTrigger
 } from '../utils/scheduler-conversion.js';
+import { StructuredAction } from '../utils/commandParser.js';
+import {
+  resolveTemplateParams,
+  substituteStructuredCommand,
+  substitutePlainCommand,
+  TemplateParamError
+} from '../utils/templateCommand.js';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -90,7 +97,7 @@ router.post('/:id/preview', async (req: Request, res: Response) => {
 // Apply a template to a platform
 router.post('/:id/apply', async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { platform, command, schedule, scheduleExpression, name } = req.body;
+  const { platform, command, schedule, scheduleExpression, name, parameters } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   try {
@@ -101,22 +108,51 @@ router.post('/:id/apply', async (req: Request, res: Response) => {
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
     }
+    if (!platform || !Object.values(PlatformType).includes(platform)) {
+      return res.status(400).json({ error: `Invalid platform: ${platform}` });
+    }
 
-    // Resolve the task to create. The client may send overrides produced by the
-    // Apply modal (placeholders substituted, schedule confirmed); fall back to the
-    // stored template otherwise. Accept both `schedule` (what the modal sends)
+    // Resolve the task to create. Accept both `schedule` (what the modal sends)
     // and `scheduleExpression` (the template field name).
     const finalName =
       typeof name === 'string' && name.trim() ? name.trim() : template.name;
     const finalSchedule =
       [schedule, scheduleExpression].find(s => typeof s === 'string' && s.trim())?.trim() ||
       template.scheduleExpression;
-    const finalCommand =
-      typeof command === 'string' && command.trim()
-        ? command.trim()
-        : template.command || '';
+
+    // Command resolution. Preferred path: the client sends raw `parameters` and
+    // the server owns {{placeholder}} substitution per-token, so a parameter is
+    // always exactly one argument regardless of quotes/spaces in its value (see
+    // utils/templateCommand.ts). Legacy path: a pre-substituted `command` string
+    // (deprecated — kept for API compatibility; it gets re-tokenized downstream).
+    let finalCommand: string;
+    let structuredAction: StructuredAction | undefined;
+    if (parameters !== undefined) {
+      const commandTemplate = template.commandTemplate || template.command || '';
+      try {
+        const values = resolveTemplateParams(template.parameters, parameters);
+        if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+          const resolved = substituteStructuredCommand(commandTemplate, values);
+          structuredAction = resolved.action;
+          finalCommand = resolved.command;
+        } else {
+          finalCommand = substitutePlainCommand(commandTemplate, values);
+        }
+      } catch (err) {
+        if (err instanceof TemplateParamError) {
+          return res.status(400).json({ error: err.message });
+        }
+        throw err;
+      }
+    } else {
+      finalCommand =
+        typeof command === 'string' && command.trim()
+          ? command.trim()
+          : template.command || '';
+    }
 
     // Never register a task with unfilled {{placeholders}} (see Templates.md §5).
+    // The parameters path already threw on unfilled keys; this guards the legacy path.
     if (finalCommand.includes('{{')) {
       return res
         .status(400)
@@ -152,13 +188,15 @@ router.post('/:id/apply', async (req: Request, res: Response) => {
       return res.status(400).json({ error: `No connector registered for platform ${platform}` });
     }
 
-    // Call createTask on the connector
+    // Call createTask on the connector. When the server resolved the command
+    // from raw parameters, pass the structured action so the connector doesn't
+    // re-tokenize the display string.
     const result = await connector.createTask(
       finalName,
       finalSchedule,
       finalCommand,
       { ...deserializeConfig(connection.config), userId },
-      { trigger: conversion.trigger }
+      { trigger: conversion.trigger, action: structuredAction }
     );
 
     if (result.success) {

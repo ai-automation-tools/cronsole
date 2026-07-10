@@ -27,22 +27,35 @@ export interface StructuredAction {
   args: string[];
 }
 
-/** Split a command line into argv, honoring double-quote grouping. */
-export function parseCommandLine(input: string): string[] {
-  const args: string[] = [];
+export interface CommandToken {
+  text: string;
+  /**
+   * True if any part of the token was double-quoted in the source. Template
+   * substitution uses this as the author's "this is exactly one argument"
+   * signal: a quoted {{placeholder}} never expands into multiple args.
+   */
+  quoted: boolean;
+}
+
+/** Split a command line into tokens, honoring double-quote grouping. */
+export function parseCommandTokens(input: string): CommandToken[] {
+  const tokens: CommandToken[] = [];
   let cur = '';
   let inQuotes = false;
+  let quoted = false;
   let hasToken = false; // lets an explicit empty token ("") survive
   for (const c of input) {
     if (c === '"') {
       inQuotes = !inQuotes;
+      quoted = true;
       hasToken = true;
       continue;
     }
     if (!inQuotes && (c === ' ' || c === '\t' || c === '\n' || c === '\r')) {
       if (hasToken) {
-        args.push(cur);
+        tokens.push({ text: cur, quoted });
         cur = '';
+        quoted = false;
         hasToken = false;
       }
       continue;
@@ -50,8 +63,13 @@ export function parseCommandLine(input: string): string[] {
     cur += c;
     hasToken = true;
   }
-  if (hasToken) args.push(cur);
-  return args;
+  if (hasToken) tokens.push({ text: cur, quoted });
+  return tokens;
+}
+
+/** Split a command line into argv, honoring double-quote grouping. */
+export function parseCommandLine(input: string): string[] {
+  return parseCommandTokens(input).map(t => t.text);
 }
 
 /** Derive { executable, args[] } from a resolved command string. */

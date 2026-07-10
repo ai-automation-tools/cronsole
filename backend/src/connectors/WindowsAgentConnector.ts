@@ -138,9 +138,12 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       // Structure the command into { executable, args[] } so the agent registers
       // a direct ExecAction with no shell (closes the cmd.exe injection sink).
+      // Prefer the action the template route resolved from raw parameters
+      // (per-token substitution — a parameter can't split into extra args);
+      // fall back to tokenizing the command string for plain create/clone flows.
       // The action is covered by the command signature; `trigger` still rides
       // along unsigned (see the note on commandMessage in agentAuth.ts).
-      const action = toStructuredAction(command);
+      const action = options?.action ?? toStructuredAction(command);
 
       socket.on('task:created', handler);
       emitSignedCommand(

@@ -1,5 +1,6 @@
 import { PlatformType, HealthState } from '@prisma/client';
 import { WindowsTrigger } from '../utils/scheduler-conversion.js';
+import { StructuredAction } from '../utils/commandParser.js';
 
 export interface CreateTaskOptions {
   /**
@@ -8,6 +9,13 @@ export interface CreateTaskOptions {
    * should prefer this over re-parsing the raw cron string.
    */
   trigger?: WindowsTrigger | null;
+  /**
+   * Structured { executable, args[] } action resolved server-side from raw
+   * template parameters (utils/templateCommand.ts). Connectors that execute
+   * commands should prefer this over re-tokenizing the `command` string, so a
+   * parameter value can never split into extra arguments.
+   */
+  action?: StructuredAction;
 }
 
 export interface ConnectorHealth {

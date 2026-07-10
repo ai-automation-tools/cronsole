@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, ArrowRight, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { Template } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
@@ -30,8 +30,6 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const missing = params.filter(p => p.required && !values[p.key]?.trim());
   const incomplete = missing.length > 0 || resolved.includes('{{');
 
-  const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
-
   // Debounce the schedule so the preview doesn't fire per keystroke.
   const [debouncedSchedule, setDebouncedSchedule] = useState(schedule);
   useEffect(() => {
@@ -53,14 +51,13 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
       });
       return res.data;
     },
-    enabled: !DEMO_MODE && !!platform && !!debouncedSchedule.trim(),
+    enabled: !!platform && !!debouncedSchedule.trim(),
     staleTime: 60_000,
     retry: false
   });
 
   const applyMutation = useMutation({
     mutationFn: async () => {
-      if (DEMO_MODE) return;
       return api.post(`/templates/${template.id}/apply`, {
         platform,
         schedule,
@@ -69,11 +66,9 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
       });
     },
     onSuccess: () => {
-      if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast(
-        DEMO_MODE
-          ? `Demo mode — "${template.name}" would be created on ${platformLabel(platform)}.`
-          : `Task created on ${platformLabel(platform)} from "${template.name}".`,
+        `Task created on ${platformLabel(platform)} from "${template.name}".`,
         'success'
       );
       onClose();
@@ -174,12 +169,6 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
             </pre>
             {incomplete && <p className="text-[10px] text-amber-500 italic">Fill the required fields above before applying.</p>}
           </div>
-
-          {DEMO_MODE && (
-            <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-center gap-2">
-              <Info size={13} className="text-foreground shrink-0" /> Demo mode — applying is simulated; no task is created.
-            </div>
-          )}
         </div>
 
         <footer className="p-6 bg-background border-t border-border flex gap-4">

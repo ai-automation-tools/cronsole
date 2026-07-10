@@ -5,7 +5,7 @@
 **Local path:** `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub` *(promoted from `Other-Repos/` to a top-level workspace repo on 2026-06-01)*
 **GitHub:** [`github.com/michaelschecht/taskhub`](https://github.com/michaelschecht/taskhub) (private)
 **Working branch:** `mike_desktop` · **Deploy branch:** `main` (per workspace convention)
-**Live (frontend demo):** [`taskhub.mikesailab.com`](https://taskhub.mikesailab.com) — Vercel project `taskhub`, root dir `frontend/` (backup `taskhub-iota-seven.vercel.app`). The public deployment is a frontend-only demo backed by sample data via `VITE_DEMO_MODE`; backend + .NET agent are still local-only. Hosting the backend and setting `VITE_API_URL` is the next step toward a real hosted control plane.
+**Hosting:** Not hosted — the frontend, backend, and .NET agent all run locally. Hosting the frontend + backend and setting `VITE_API_URL` is a planned step toward a real hosted control plane (see [`docs/ROADMAP.md`](docs/ROADMAP.md) › P3 / Go-public).
 
 ---
 
@@ -280,7 +280,7 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 
 ## 12. Open Questions / Decisions Needed
 
-Tracked in the **Open decisions** section of [`docs/ROADMAP.md`](docs/ROADMAP.md) — keep them there, not here. (Resolved 2026: the app lives at `taskhub.mikesailab.com`; frontend on Vercel. P0 security is now complete — backend hosting is unblocked for a single-user host; a multi-user launch still depends on the Go-public account/operations items.)
+Tracked in the **Open decisions** section of [`docs/ROADMAP.md`](docs/ROADMAP.md) — keep them there, not here. (Resolved 2026: P0 security is now complete — backend hosting is unblocked for a single-user host; a multi-user launch still depends on the Go-public account/operations items. The frontend-only demo deployment was retired 2026-07-09.)
 
 ---
 

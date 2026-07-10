@@ -106,30 +106,4 @@ describe('ApplyTemplateModal Component', () => {
     expect(toastMock).toHaveBeenCalledWith('Task created on Claude from "Daily Cron Backup".', 'success');
     expect(onClose).toHaveBeenCalled();
   });
-
-  it('can simulate application in DEMO mode without API call', async () => {
-    import.meta.env.VITE_DEMO_MODE = 'true';
-    const onClose = vi.fn();
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ApplyTemplateModal template={mockTemplate} onClose={onClose} />
-      </QueryClientProvider>
-    );
-
-    const destInput = screen.getAllByPlaceholderText('C:\\path\\to\\file')[1];
-    fireEvent.change(destInput, { target: { value: 'D:\\backup' } });
-
-    const createBtn = screen.getByRole('button', { name: /Create Task/ });
-    fireEvent.click(createBtn);
-
-    await waitFor(() => {
-      expect(api.post).not.toHaveBeenCalled();
-    });
-
-    expect(toastMock).toHaveBeenCalledWith('Demo mode — "Daily Cron Backup" would be created on Windows.', 'success');
-    expect(onClose).toHaveBeenCalled();
-
-    import.meta.env.VITE_DEMO_MODE = undefined;
-  });
 });

@@ -28,10 +28,6 @@ variables.
 | [**🪟 Windows Install Guide**](guides/Windows_Install_Guide.md) | You want the full experience — live Windows Task Scheduler sync and remote triggering. |
 | [**🍎 macOS Install Guide**](guides/macOS_Install_Guide.md) | You want to run and explore TaskHub, minus the Windows agent. |
 
-> [!TIP]
-> Just want a look around first? The [**public demo**](https://taskhub.mikesailab.com)
-> runs the full dashboard against sample data with zero setup.
-
 ## 🐳 Prefer to run each piece manually?
 
 If you'd rather not use Docker, run the backend, frontend, and agent yourself. That path —

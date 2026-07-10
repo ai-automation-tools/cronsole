@@ -39,9 +39,6 @@ docker compose up --build
 | **Template library** | Browse the catalog and apply templates targeting other platforms. |
 | **Full dashboard UI** | All four views, categories, search, run history, themes. |
 
-To browse the interface without any backend at all, just visit the
-[**public demo**](https://taskhub.mikesailab.com).
-
 Next: tune environment variables and options in
 [**⚙️ Setup & Configuration**](../../setup/README.md).
 

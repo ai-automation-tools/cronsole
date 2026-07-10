@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, CopyPlus, Info } from 'lucide-react';
+import { XCircle, Clock, Loader2, CopyPlus } from 'lucide-react';
 import type { Task } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
@@ -41,35 +41,8 @@ export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
     return 'echo Hello from Cloned Task'; // fallback default
   });
 
-  const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
-
   const cloneMutation = useMutation({
     mutationFn: async () => {
-      if (DEMO_MODE) {
-        // Simulate creation in DEMO mode by adding a task to react-query cache
-        const newTask: Task = {
-          id: `cloned-${Date.now()}`,
-          name,
-          category,
-          platform: task.platform,
-          status: 'ACTIVE',
-          externalId: task.platform === 'WINDOWS_TASK_SCHEDULER' ? `\\Cloned\\${name.replace(/\s+/g, '')}` : `cloned_${Date.now()}`,
-          updatedAt: new Date().toISOString(),
-          metadata: {
-            schedule,
-            command,
-            state: 'Ready',
-            clonedFrom: task.id
-          }
-        };
-
-        queryClient.setQueryData(['tasks'], (prev: Task[] | undefined) => {
-          if (!prev) return [newTask];
-          return [newTask, ...prev];
-        });
-        return;
-      }
-
       return api.post('/tasks', {
         name,
         platform: task.platform,
@@ -79,13 +52,9 @@ export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
       });
     },
     onSuccess: () => {
-      if (!DEMO_MODE) {
-        queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast(
-        DEMO_MODE
-          ? `Demo Mode — Cloned "${task.name}" as "${name}" locally.`
-          : `Task "${name}" successfully cloned on ${platformLabel(task.platform)}!`,
+        `Task "${name}" successfully cloned on ${platformLabel(task.platform)}!`,
         'success'
       );
       onClose();
@@ -168,11 +137,6 @@ export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
             />
           </div>
 
-          {DEMO_MODE && (
-            <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-center gap-2">
-              <Info size={13} className="text-foreground shrink-0" /> Demo Mode — task will be simulated in frontend memory.
-            </div>
-          )}
         </div>
 
         <footer className="p-6 bg-background border-t border-border flex gap-4">

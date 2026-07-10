@@ -79,7 +79,7 @@ so what you see is consistent no matter where a task actually lives.
 
 ## 🎨 Screenshots
 
-<details>
+<details open>
 <summary><b>📸 Dashboard, Templates, Settings, Views, and Themes</b> </summary>
 
 <br>

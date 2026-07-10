@@ -91,3 +91,9 @@ docs/archive/
 # --- Local scratch / tooling artifacts ---
 temp/
 .playwright-mcp/
+
+# --- Playwright E2E artifacts ---
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/.playwright/

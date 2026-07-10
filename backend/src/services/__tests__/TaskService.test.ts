@@ -11,7 +11,9 @@ const { mockPrisma } = vi.hoisted(() => ({
     executionLog: {
       deleteMany: vi.fn()
     },
-    $transaction: vi.fn(async (ops: unknown[]) => ops)
+    // Real $transaction resolves the batched operations; mirror that so
+    // upsertTasks gets values back, not promises.
+    $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops))
   }
 }));
 
@@ -94,6 +96,26 @@ describe('TaskService', () => {
     expect(call.update).not.toHaveProperty('schedule'); // preserved
     expect(call.update.nextRunTime).toBeNull();          // live value still refreshed
     expect(call.create.schedule).toBeNull();
+  });
+
+  it('should batch upserts into bounded transactions and preserve order', async () => {
+    const tasks = Array.from({ length: 250 }, (_, i) => ({
+      externalId: `\\Batch\\Task${i}`,
+      name: `Task ${i}`,
+      status: 'ACTIVE' as const
+    }));
+    mockPrisma.task.upsert.mockImplementation(
+      async (args: any) => ({ externalId: args.where.platform_externalId.externalId })
+    );
+
+    const results = await TaskService.upsertTasks('user-1', 'WINDOWS_TASK_SCHEDULER' as any, tasks);
+
+    // 250 ops → 3 transactions (100 + 100 + 50), one round trip each.
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(3);
+    expect(mockPrisma.$transaction.mock.calls.map(c => c[0].length)).toEqual([100, 100, 50]);
+    expect(results).toHaveLength(250);
+    expect(results[0]).toEqual({ externalId: '\\Batch\\Task0' });
+    expect(results[249]).toEqual({ externalId: '\\Batch\\Task249' });
   });
 
   it('should delete tasks missing from the current platform list', async () => {

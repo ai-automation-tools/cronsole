@@ -1,6 +1,5 @@
-import { PrismaClient, PlatformType, TaskStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PlatformType, TaskStatus } from '@prisma/client';
+import { prisma } from '../db.js';
 
 export interface NormalizedTask {
   externalId: string;
@@ -13,14 +12,15 @@ export interface NormalizedTask {
   metadata?: any;
 }
 
+// Upserts per $transaction batch: bounds transaction size on large syncs
+// (a full Windows sync is hundreds of tasks) while still cutting the
+// one-round-trip-per-task chatter of sequential awaits.
+const UPSERT_BATCH_SIZE = 100;
+
 export class TaskService {
   static async upsertTasks(userId: string, platform: PlatformType, tasks: NormalizedTask[]) {
-    const results = [];
-    for (const t of tasks) {
-      // Extract initial category from native path if applicable
-      const initialCategory = this.extractCategory(t.externalId, platform);
-
-      const task = await prisma.task.upsert({
+    const ops = tasks.map(t =>
+      prisma.task.upsert({
         where: {
           platform_externalId: {
             platform,
@@ -44,14 +44,19 @@ export class TaskService {
           platform,
           externalId: t.externalId,
           name: t.name,
-          category: initialCategory, // Only set on initial import
+          // Extracted from the native path; only set on initial import
+          category: this.extractCategory(t.externalId, platform),
           status: t.status === 'ACTIVE' ? TaskStatus.ACTIVE : TaskStatus.DISABLED,
           schedule: t.schedule ?? null,
           nextRunTime: t.nextRunTime ?? null,
           metadata: t.metadata
         }
-      });
-      results.push(task);
+      })
+    );
+
+    const results = [];
+    for (let i = 0; i < ops.length; i += UPSERT_BATCH_SIZE) {
+      results.push(...await prisma.$transaction(ops.slice(i, i + UPSERT_BATCH_SIZE)));
     }
     return results;
   }

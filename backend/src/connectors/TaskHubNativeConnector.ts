@@ -1,10 +1,9 @@
 import { randomBytes } from 'crypto';
-import { Prisma, PrismaClient, PlatformType, HealthState, TaskStatus } from '@prisma/client';
+import { Prisma, PlatformType, HealthState, TaskStatus } from '@prisma/client';
+import { prisma } from '../db.js';
 import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
 import { executeJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { computeNextRun } from '../utils/cron-next.js';
-
-const prisma = new PrismaClient();
 
 /**
  * Connector for tasks that live only in TaskHub: the database is the platform

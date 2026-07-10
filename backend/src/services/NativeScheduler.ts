@@ -1,9 +1,8 @@
-import { PrismaClient, PlatformType, TaskStatus } from '@prisma/client';
+import { PlatformType, TaskStatus } from '@prisma/client';
+import { prisma } from '../db.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { executeJob, NativeJob } from './NativeTaskExecutor.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
-
-const prisma = new PrismaClient();
 
 const TICK_INTERVAL_MS = 30_000;
 // Due times missed by more than this (server downtime) are skipped, not fired.

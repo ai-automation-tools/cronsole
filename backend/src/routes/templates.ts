@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { PlatformType, PrismaClient } from '@prisma/client';
+import { z } from 'zod';
+import { PlatformType } from '@prisma/client';
+import { prisma } from '../db.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
 import { deserializeConfig } from '../auth/connectionConfig.js';
@@ -13,12 +15,17 @@ import { StructuredAction } from '../utils/commandParser.js';
 import {
   resolveTemplateParams,
   substituteStructuredCommand,
-  substitutePlainCommand,
-  TemplateParamError
+  substitutePlainCommand
 } from '../utils/templateCommand.js';
+import { HttpError } from '../middleware/errorHandler.js';
+import { validateBody } from '../middleware/validate.js';
 
-const prisma = new PrismaClient();
 const router = Router();
+
+// Unexpected errors (and TemplateParamError from the substitution helpers)
+// fall through to the app-level error handler.
+
+const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 
 const isValidCron = (cron: string) => cron.trim().split(/\s+/).length === 5;
 
@@ -38,181 +45,168 @@ const resolveTrigger = (
 };
 
 // List all templates
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const templates = await prisma.template.findMany({
-      orderBy: { upvotes: 'desc' }
-    });
-    res.json(templates);
-  } catch (error) {
-    console.error('Error fetching templates:', error);
-    res.status(500).json({ error: 'Failed to fetch templates' });
-  }
+router.get('/', async (_req: Request, res: Response) => {
+  const templates = await prisma.template.findMany({
+    orderBy: { upvotes: 'desc' }
+  });
+  res.json(templates);
+});
+
+const previewSchema = z.object({
+  platform: platformSchema,
+  schedule: z.string().optional(),
+  scheduleExpression: z.string().optional()
 });
 
 // Preview how a template + schedule converts for a target platform, so the
 // Apply modal can warn about lossy cron→trigger conversions before creating.
-router.post('/:id/preview', async (req: Request, res: Response) => {
+// An unparseable schedule is a score-0 preview result, not a 400.
+router.post('/:id/preview', validateBody(previewSchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const { platform, schedule, scheduleExpression } = req.body;
 
-  try {
-    const template = await prisma.template.findUnique({ where: { id } });
-    if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
-    }
-    if (!platform || !Object.values(PlatformType).includes(platform)) {
-      return res.status(400).json({ error: `Invalid platform: ${platform}` });
-    }
-
-    const finalSchedule =
-      [schedule, scheduleExpression].find(s => typeof s === 'string' && s.trim())?.trim() ||
-      template.scheduleExpression;
-
-    if (!isValidCron(finalSchedule)) {
-      return res.json({
-        score: 0,
-        warnings: ['Schedule must be a 5-field cron expression (min hour dom month dow).'],
-        trigger: null
-      });
-    }
-
-    const conversion = resolveTrigger(platform, finalSchedule);
-    const compat = getTemplateConfidence(
-      { ...template, scheduleExpression: finalSchedule },
-      platform
-    );
-
-    res.json({
-      score: Math.min(compat.score, conversion.confidence),
-      warnings: [...new Set([...compat.warnings, ...conversion.warnings])],
-      trigger: conversion.trigger
-    });
-  } catch (error) {
-    console.error('Error previewing template:', error);
-    res.status(500).json({ error: 'Failed to preview template' });
+  const template = await prisma.template.findUnique({ where: { id } });
+  if (!template) {
+    throw new HttpError(404, 'Template not found');
   }
+
+  const finalSchedule =
+    [schedule, scheduleExpression].find(s => typeof s === 'string' && s.trim())?.trim() ||
+    template.scheduleExpression;
+
+  if (!isValidCron(finalSchedule)) {
+    return res.json({
+      score: 0,
+      warnings: ['Schedule must be a 5-field cron expression (min hour dom month dow).'],
+      trigger: null
+    });
+  }
+
+  const conversion = resolveTrigger(platform, finalSchedule);
+  const compat = getTemplateConfidence(
+    { ...template, scheduleExpression: finalSchedule },
+    platform
+  );
+
+  res.json({
+    score: Math.min(compat.score, conversion.confidence),
+    warnings: [...new Set([...compat.warnings, ...conversion.warnings])],
+    trigger: conversion.trigger
+  });
+});
+
+const applySchema = z.object({
+  platform: platformSchema,
+  name: z.string().optional(),
+  schedule: z.string().optional(),
+  scheduleExpression: z.string().optional(),
+  /** Deprecated: pre-substituted command string (legacy clients). */
+  command: z.string().optional(),
+  /**
+   * Raw parameter values — the server owns {{placeholder}} substitution
+   * (utils/templateCommand.ts validates shape and semantics for granular
+   * per-parameter errors, so the boundary schema stays permissive here).
+   */
+  parameters: z.unknown().optional()
 });
 
 // Apply a template to a platform
-router.post('/:id/apply', async (req: Request, res: Response) => {
+router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const { platform, command, schedule, scheduleExpression, name, parameters } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
-  try {
-    const template = await prisma.template.findUnique({
-      where: { id }
-    });
-
-    if (!template) {
-      return res.status(404).json({ error: 'Template not found' });
-    }
-    if (!platform || !Object.values(PlatformType).includes(platform)) {
-      return res.status(400).json({ error: `Invalid platform: ${platform}` });
-    }
-
-    // Resolve the task to create. Accept both `schedule` (what the modal sends)
-    // and `scheduleExpression` (the template field name).
-    const finalName =
-      typeof name === 'string' && name.trim() ? name.trim() : template.name;
-    const finalSchedule =
-      [schedule, scheduleExpression].find(s => typeof s === 'string' && s.trim())?.trim() ||
-      template.scheduleExpression;
-
-    // Command resolution. Preferred path: the client sends raw `parameters` and
-    // the server owns {{placeholder}} substitution per-token, so a parameter is
-    // always exactly one argument regardless of quotes/spaces in its value (see
-    // utils/templateCommand.ts). Legacy path: a pre-substituted `command` string
-    // (deprecated — kept for API compatibility; it gets re-tokenized downstream).
-    let finalCommand: string;
-    let structuredAction: StructuredAction | undefined;
-    if (parameters !== undefined) {
-      const commandTemplate = template.commandTemplate || template.command || '';
-      try {
-        const values = resolveTemplateParams(template.parameters, parameters);
-        if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
-          const resolved = substituteStructuredCommand(commandTemplate, values);
-          structuredAction = resolved.action;
-          finalCommand = resolved.command;
-        } else {
-          finalCommand = substitutePlainCommand(commandTemplate, values);
-        }
-      } catch (err) {
-        if (err instanceof TemplateParamError) {
-          return res.status(400).json({ error: err.message });
-        }
-        throw err;
-      }
-    } else {
-      finalCommand =
-        typeof command === 'string' && command.trim()
-          ? command.trim()
-          : template.command || '';
-    }
-
-    // Never register a task with unfilled {{placeholders}} (see Templates.md §5).
-    // The parameters path already threw on unfilled keys; this guards the legacy path.
-    if (finalCommand.includes('{{')) {
-      return res
-        .status(400)
-        .json({ error: 'Command still contains unfilled placeholders' });
-    }
-
-    if (!isValidCron(finalSchedule)) {
-      return res.status(400).json({
-        error: 'Schedule must be a 5-field cron expression (min hour dom month dow).'
-      });
-    }
-
-    // Convert the cron to a platform-native trigger so the agent registers the
-    // real schedule instead of guessing (see docs/resources/Templates.md §6).
-    const conversion = resolveTrigger(platform, finalSchedule);
-    if (platform === PlatformType.WINDOWS_TASK_SCHEDULER && !conversion.trigger) {
-      return res.status(400).json({
-        error: 'Schedule cannot be converted to a Windows trigger.',
-        warnings: conversion.warnings
-      });
-    }
-
-    const connection = await prisma.platformConnection.findUnique({
-      where: { userId_platform: { userId, platform } }
-    });
-
-    if (!connection) {
-      return res.status(400).json({ error: `No connection found for platform ${platform}` });
-    }
-
-    const connector = connectorRegistry.getConnector(platform);
-    if (!connector) {
-      return res.status(400).json({ error: `No connector registered for platform ${platform}` });
-    }
-
-    // Call createTask on the connector. When the server resolved the command
-    // from raw parameters, pass the structured action so the connector doesn't
-    // re-tokenize the display string.
-    const result = await connector.createTask(
-      finalName,
-      finalSchedule,
-      finalCommand,
-      { ...deserializeConfig(connection.config), userId },
-      { trigger: conversion.trigger, action: structuredAction }
-    );
-
-    if (result.success) {
-      notifyTasksChanged(userId);
-      res.json({
-        message: 'Template applied successfully',
-        externalId: result.externalId,
-        conversion: { confidence: conversion.confidence, warnings: conversion.warnings }
-      });
-    } else {
-      res.status(500).json({ error: result.message || 'Failed to apply template' });
-    }
-  } catch (error: any) {
-    console.error('Error applying template:', error);
-    res.status(500).json({ error: error.message });
+  const template = await prisma.template.findUnique({
+    where: { id }
+  });
+  if (!template) {
+    throw new HttpError(404, 'Template not found');
   }
+
+  // Resolve the task to create. Accept both `schedule` (what the modal sends)
+  // and `scheduleExpression` (the template field name).
+  const finalName =
+    typeof name === 'string' && name.trim() ? name.trim() : template.name;
+  const finalSchedule =
+    [schedule, scheduleExpression].find(s => typeof s === 'string' && s.trim())?.trim() ||
+    template.scheduleExpression;
+
+  // Command resolution. Preferred path: the client sends raw `parameters` and
+  // the server owns {{placeholder}} substitution per-token, so a parameter is
+  // always exactly one argument regardless of quotes/spaces in its value (see
+  // utils/templateCommand.ts). Legacy path: a pre-substituted `command` string
+  // (deprecated — kept for API compatibility; it gets re-tokenized downstream).
+  let finalCommand: string;
+  let structuredAction: StructuredAction | undefined;
+  if (parameters !== undefined) {
+    const commandTemplate = template.commandTemplate || template.command || '';
+    const values = resolveTemplateParams(template.parameters, parameters);
+    if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+      const resolved = substituteStructuredCommand(commandTemplate, values);
+      structuredAction = resolved.action;
+      finalCommand = resolved.command;
+    } else {
+      finalCommand = substitutePlainCommand(commandTemplate, values);
+    }
+  } else {
+    finalCommand =
+      typeof command === 'string' && command.trim()
+        ? command.trim()
+        : template.command || '';
+  }
+
+  // Never register a task with unfilled {{placeholders}} (see Templates.md §5).
+  // The parameters path already threw on unfilled keys; this guards the legacy path.
+  if (finalCommand.includes('{{')) {
+    throw new HttpError(400, 'Command still contains unfilled placeholders');
+  }
+
+  if (!isValidCron(finalSchedule)) {
+    throw new HttpError(400, 'Schedule must be a 5-field cron expression (min hour dom month dow).');
+  }
+
+  // Convert the cron to a platform-native trigger so the agent registers the
+  // real schedule instead of guessing (see docs/resources/Templates.md §6).
+  const conversion = resolveTrigger(platform, finalSchedule);
+  if (platform === PlatformType.WINDOWS_TASK_SCHEDULER && !conversion.trigger) {
+    throw new HttpError(400, 'Schedule cannot be converted to a Windows trigger.', {
+      warnings: conversion.warnings
+    });
+  }
+
+  const connection = await prisma.platformConnection.findUnique({
+    where: { userId_platform: { userId, platform } }
+  });
+  if (!connection) {
+    throw new HttpError(400, `No connection found for platform ${platform}`);
+  }
+
+  const connector = connectorRegistry.getConnector(platform);
+  if (!connector) {
+    throw new HttpError(400, `No connector registered for platform ${platform}`);
+  }
+
+  // Call createTask on the connector. When the server resolved the command
+  // from raw parameters, pass the structured action so the connector doesn't
+  // re-tokenize the display string.
+  const result = await connector.createTask(
+    finalName,
+    finalSchedule,
+    finalCommand,
+    { ...deserializeConfig(connection.config), userId },
+    { trigger: conversion.trigger, action: structuredAction }
+  );
+
+  if (!result.success) {
+    return res.status(500).json({ error: result.message || 'Failed to apply template' });
+  }
+
+  notifyTasksChanged(userId);
+  res.json({
+    message: 'Template applied successfully',
+    externalId: result.externalId,
+    conversion: { confidence: conversion.confidence, warnings: conversion.warnings }
+  });
 });
 
 export default router;

@@ -55,194 +55,6 @@ import { formatDateTime, formatTime, timeAgo } from './utils/datetime';
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
 
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
-
-const DEMO_TASKS: Task[] = [
-  {
-    id: 'demo-1',
-    name: 'Edge-Radar Daily Calibration',
-    category: 'Monitoring',
-    platform: 'WINDOWS_TASK_SCHEDULER',
-    status: 'ACTIVE',
-    externalId: '\\Mikes\\EdgeRadar\\DailyCalibration',
-    updatedAt: '2026-06-01T09:00:00Z',
-    metadata: { schedule: '0 9 * * *', state: 'Ready', machine: 'MIKE-DESKTOP' },
-  },
-  {
-    id: 'demo-2',
-    name: 'Morning News Digest',
-    category: 'Intelligence',
-    platform: 'CLAUDE_CODE',
-    status: 'ACTIVE',
-    externalId: 'routine_news_digest_0700',
-    updatedAt: '2026-06-01T07:00:00Z',
-    metadata: { schedule: '0 7 * * *', model: 'claude-opus-4-8' },
-  },
-  {
-    id: 'demo-3',
-    name: 'System Cleanup',
-    category: 'Maintenance',
-    platform: 'WINDOWS_TASK_SCHEDULER',
-    status: 'DISABLED',
-    externalId: '\\Mikes\\Cleanup',
-    updatedAt: '2026-06-01T00:00:00Z',
-    metadata: { schedule: '0 0 * * 0', state: 'Disabled' },
-  },
-  {
-    id: 'demo-4',
-    name: 'Uptime Webhook Ping',
-    category: 'TaskHub',
-    platform: 'TASKHUB_NATIVE',
-    status: 'ACTIVE',
-    externalId: 'native_demo1',
-    updatedAt: '2026-06-01T08:00:00Z',
-    schedule: '*/15 * * * *',
-    metadata: { job: { jobType: 'HTTP', url: 'https://hc-ping.com/demo', method: 'GET' } },
-  },
-];
-
-// Mirrors the seeded catalog (backend/src/seed.ts) so the demo showcases the same
-// Tier B patterns + Tier A starters — including parameterized starters that drive the Apply modal.
-const DEMO_TEMPLATES: Template[] = [
-  // --- Tier B: use-case patterns ---
-  {
-    id: 'tpl_daily_backup',
-    name: 'Daily Database Backup',
-    description: 'Backs up a PostgreSQL database every night at 3 AM.',
-    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
-    targetPlatforms: ['WINDOWS_TASK_SCHEDULER', 'CLAUDE_CODE'],
-    scheduleExpression: '0 3 * * *',
-    command: 'pg_dump -U postgres my_db > backup.sql',
-    scriptType: 'EXECUTABLE',
-    os: 'WINDOWS',
-    category: 'BACKUP',
-    icon: 'Database',
-    upvotes: 42
-  },
-  {
-    id: 'tpl_news_digest',
-    name: 'Morning News Digest',
-    description: 'Summarizes top news stories from specified RSS feeds.',
-    sourcePlatform: 'CLAUDE_CODE',
-    targetPlatforms: ['CLAUDE_CODE', 'CHATGPT'],
-    scheduleExpression: '0 7 * * *',
-    command: 'Fetch and summarize news',
-    scriptType: 'AI_PROMPT',
-    os: 'CROSS_PLATFORM',
-    category: 'AI_AGENT',
-    icon: 'Newspaper',
-    upvotes: 128
-  },
-  {
-    id: 'tpl_system_cleanup',
-    name: 'Weekly System Cleanup',
-    description: 'Cleans up temporary files and logs every Sunday.',
-    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
-    targetPlatforms: ['WINDOWS_TASK_SCHEDULER'],
-    scheduleExpression: '0 0 * * 0',
-    command: 'del /q /s %temp%\\*',
-    scriptType: 'BATCH',
-    os: 'WINDOWS',
-    category: 'CLEANUP',
-    icon: 'Trash2',
-    upvotes: 15
-  },
-  {
-    id: 'tpl_pr_triage',
-    name: 'GitHub PR Triage',
-    description: 'Triage new pull requests and label them based on content.',
-    sourcePlatform: 'CLAUDE_CODE',
-    targetPlatforms: ['CLAUDE_CODE'],
-    scheduleExpression: '*/30 * * * *',
-    command: 'Triage PRs',
-    scriptType: 'AI_PROMPT',
-    os: 'CROSS_PLATFORM',
-    category: 'DEV_WORKFLOW',
-    icon: 'GitPullRequest',
-    upvotes: 89
-  },
-  // --- Tier A: script starters (parameterized — drive the Apply modal) ---
-  {
-    id: 'tpl_starter_powershell_script',
-    name: 'PowerShell Script',
-    description: 'Run a .ps1 PowerShell script file on a schedule.',
-    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
-    targetPlatforms: ['WINDOWS_TASK_SCHEDULER'],
-    scheduleExpression: '0 9 * * *',
-    command: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{{scriptPath}}"',
-    commandTemplate: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{{scriptPath}}"',
-    parameters: [
-      { key: 'scriptPath', label: 'Script file path', type: 'path', default: '', required: true, help: 'Absolute path to the script on the target machine.' }
-    ],
-    scriptType: 'POWERSHELL',
-    os: 'WINDOWS',
-    category: 'OTHER',
-    icon: 'Terminal',
-    isStarter: true,
-    upvotes: 0
-  },
-  {
-    id: 'tpl_starter_python_cross',
-    name: 'Python Script (cross-platform)',
-    description: 'Run a Python script on Windows or macOS.',
-    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
-    targetPlatforms: ['WINDOWS_TASK_SCHEDULER', 'MACOS_LAUNCHD'],
-    scheduleExpression: '0 8 * * *',
-    command: 'python "{{scriptPath}}" {{args}}',
-    commandTemplate: 'python "{{scriptPath}}" {{args}}',
-    parameters: [
-      { key: 'scriptPath', label: 'Script file path', type: 'path', default: '', required: true, help: 'Absolute path to the script on the target machine.' },
-      { key: 'args', label: 'Arguments', type: 'text', default: '', required: false, help: 'Optional command-line arguments.' }
-    ],
-    scriptType: 'PYTHON',
-    os: 'CROSS_PLATFORM',
-    category: 'OTHER',
-    icon: 'FileCode',
-    isStarter: true,
-    upvotes: 0
-  },
-  {
-    id: 'tpl_starter_zsh_script',
-    name: 'Shell Script (zsh)',
-    description: 'Run a shell script with zsh, the macOS default shell.',
-    sourcePlatform: 'MACOS_LAUNCHD',
-    targetPlatforms: ['MACOS_LAUNCHD'],
-    scheduleExpression: '0 9 * * *',
-    command: '/bin/zsh "{{scriptPath}}" {{args}}',
-    commandTemplate: '/bin/zsh "{{scriptPath}}" {{args}}',
-    parameters: [
-      { key: 'scriptPath', label: 'Script file path', type: 'path', default: '', required: true, help: 'Absolute path to the script on the target machine.' },
-      { key: 'args', label: 'Arguments', type: 'text', default: '', required: false, help: 'Optional command-line arguments.' }
-    ],
-    scriptType: 'ZSH',
-    os: 'MACOS',
-    category: 'OTHER',
-    icon: 'Terminal',
-    isStarter: true,
-    upvotes: 0
-  },
-  {
-    id: 'tpl_starter_webhook_windows',
-    name: 'Webhook / HTTP Ping (Windows)',
-    description: 'Call a URL on a schedule using Invoke-WebRequest.',
-    sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
-    targetPlatforms: ['WINDOWS_TASK_SCHEDULER'],
-    scheduleExpression: '*/15 * * * *',
-    command: 'powershell.exe -Command "Invoke-WebRequest -Uri \'{{url}}\' -Method {{method}}"',
-    commandTemplate: 'powershell.exe -Command "Invoke-WebRequest -Uri \'{{url}}\' -Method {{method}}"',
-    parameters: [
-      { key: 'url', label: 'URL', type: 'url', default: '', required: true, help: 'The endpoint to call.' },
-      { key: 'method', label: 'HTTP method', type: 'select', options: ['GET', 'POST'], default: 'GET', required: true, help: 'HTTP verb for the request.' }
-    ],
-    scriptType: 'HTTP',
-    os: 'WINDOWS',
-    category: 'MONITORING',
-    icon: 'Globe',
-    isStarter: true,
-    upvotes: 0
-  }
-];
-
 const DashboardScreen = ({
   onTaskSelect,
   onRun,
@@ -399,13 +211,6 @@ const DashboardScreen = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {DEMO_MODE && (
-        <div className="flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">
-          <Info size={18} className="mt-0.5 flex-shrink-0 text-foreground" />
-          <p className="text-foreground"><span className="font-semibold text-foreground">Demo data.</span> You're viewing a live demo. <a href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2 hover:text-foreground">Run it locally</a> with the backend.</p>
-        </div>
-      )}
-      
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1">Unified Task Dashboard</h2>
@@ -1061,7 +866,6 @@ const TemplatesScreen = () => {
   const { data: templates, isLoading } = useQuery<Template[]>({
     queryKey: ['templates'],
     queryFn: async () => {
-      if (DEMO_MODE) return DEMO_TEMPLATES;
       try {
         const response = await api.get('/templates');
         return response.data;
@@ -1069,8 +873,7 @@ const TemplatesScreen = () => {
         console.error('Failed to fetch templates:', err);
         return [];
       }
-    },
-    initialData: DEMO_MODE ? DEMO_TEMPLATES : undefined
+    }
   });
 
   const all = useMemo(() => templates ?? [], [templates]);
@@ -1427,11 +1230,9 @@ const Dashboard = () => {
   const { data: tasks, isLoading } = useQuery<Task[]>({
     queryKey: ['tasks'],
     queryFn: async () => {
-      if (DEMO_MODE) return DEMO_TASKS;
       const response = await api.get('/tasks');
       return response.data;
-    },
-    initialData: DEMO_MODE ? DEMO_TASKS : undefined
+    }
   });
 
   const runMutation = useMutation({
@@ -1439,13 +1240,12 @@ const Dashboard = () => {
       if (settings.confirmBeforeRun && !confirm(`Are you sure you want to run task "${task.name}"?`)) {
         throw new Error('Cancelled');
       }
-      if (DEMO_MODE) return { task };
       await api.post(`/tasks/${task.id}/run`);
       return { task };
     },
     onSuccess: ({ task }) => {
       if (settings.toastOnSuccess) {
-        toast(DEMO_MODE ? `Demo mode — "${task.name}" triggered.` : `"${task.name}" triggered successfully.`, 'success');
+        toast(`"${task.name}" triggered successfully.`, 'success');
       }
     },
     onError: (error: unknown, task) => {
@@ -1459,8 +1259,6 @@ const Dashboard = () => {
 
   const syncMutation = useMutation({
     mutationFn: async (categories: string[]) => {
-      if (DEMO_MODE) return;
-      
       // 1. Ensure we have an active connection for Windows
       await api.get('/tasks/health'); // This route is often used to probe/refresh connections, 
                                      // but let's be more explicit.
@@ -1471,7 +1269,7 @@ const Dashboard = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['connections'] });
       setShowImport(false);
-      if (settings.toastOnSuccess) toast(DEMO_MODE ? 'Demo mode — sync simulated.' : 'Tasks synced.', 'success');
+      if (settings.toastOnSuccess) toast('Tasks synced.', 'success');
     },
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
@@ -1483,7 +1281,6 @@ const Dashboard = () => {
 
   // Effect to ensure at least one connection exists for MVP (Windows)
   useEffect(() => {
-    if (DEMO_MODE) return;
     const checkConnection = async () => {
       try {
         const res = await api.get('/tasks/health');
@@ -1502,17 +1299,10 @@ const Dashboard = () => {
 
   const categoryMutation = useMutation({
     mutationFn: async ({ taskId, category }: { taskId: string; category: string }) => {
-      if (DEMO_MODE) {
-        queryClient.setQueryData(['tasks'], (prev: Task[] | undefined) => {
-          if (!prev) return prev;
-          return prev.map(t => t.id === taskId ? { ...t, category } : t);
-        });
-        return;
-      }
       return api.patch(`/tasks/${taskId}`, { category });
     },
     onSuccess: () => {
-      if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     }
   });
 

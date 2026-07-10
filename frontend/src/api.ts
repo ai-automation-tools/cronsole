@@ -12,7 +12,7 @@ export const api = axios.create({
 // There is intentionally NO committed fallback: a hardcoded token is a leaked
 // credential, and it's invalid anyway once JWT_SECRET is rotated. A real
 // login/account flow replaces this before the app is hosted (ROADMAP Go-public
-// › "Real account system"). Demo mode never calls the backend, so it needs none.
+// › "Real account system").
 const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
 api.interceptors.request.use(config => {
   if (DEV_TOKEN) {

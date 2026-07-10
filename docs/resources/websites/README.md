@@ -29,7 +29,6 @@ they're saved locally and grouped under a **User Defined** section.
 
 | Site | Why it's useful |
 |:---|:---|
-| [**Live demo — taskhub.mikesailab.com**](https://taskhub.mikesailab.com) | The public frontend demo of TaskHub. |
 | [**crontab.guru**](https://crontab.guru/) | Sanity-check cron expressions (TaskHub stores schedules as 5-field cron). |
 | [**Windows Task Scheduler docs**](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page) | Reference for the platform the Windows agent wraps. |
 

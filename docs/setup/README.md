@@ -6,22 +6,20 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/config-env_vars-F97316?style=for-the-badge" alt="Config">
-  <img src="https://img.shields.io/badge/mode-demo_or_live-8B5CF6?style=for-the-badge" alt="Mode">
 </p>
 
 ---
 
-Already installed? This page covers the settings that make TaskHub read **live data** vs.
-demo fixtures, point at the right backend, and connect the agent. If you haven't installed
-yet, start with [**⬇️ Installation**](../install/README.md).
+Already installed? This page covers the settings that point TaskHub at the right backend,
+authenticate the dashboard, and connect the agent. If you haven't installed yet, start with
+[**⬇️ Installation**](../install/README.md).
 
 ## 🔑 Key environment variables
 
 | Variable | Where | Purpose |
 |:---|:---|:---|
-| **`VITE_DEMO_MODE`** | frontend | When `true`, the dashboard renders built-in sample tasks and **Run Now** is a no-op (this drives the public demo). Leave it **unset** locally to read live data. |
 | **`VITE_API_URL`** | frontend | Origin the dashboard calls for the API. Defaults to `http://localhost:3000`. Set this if the backend runs elsewhere. |
-| **`VITE_DEV_TOKEN`** | frontend | Dev/MVP auth token the dashboard sends as `Authorization: Bearer` for **live** mode (there is no committed default — a real login flow replaces this pre-launch). Sign one with the backend's `JWT_SECRET` for the placeholder user; see `frontend/.env.example`. Not needed in demo mode (which never calls the backend). |
+| **`VITE_DEV_TOKEN`** | frontend | Dev/MVP auth token the dashboard sends as `Authorization: Bearer` (there is no committed default — a real login flow replaces this pre-launch). Sign one with the backend's `JWT_SECRET` for the placeholder user; see `frontend/.env.example`. |
 | **`DATABASE_URL`** | backend | PostgreSQL 16 connection string. Required when running the backend outside Docker Compose. |
 | **`JWT_SECRET`** | backend | Signing secret for user auth tokens. Must be **≥ 16 chars**; the backend **fails to start** on a missing or weak secret. Generate: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. |
 | **`ENCRYPTION_KEY`** | backend | AES-256-GCM key that encrypts `PlatformConnection.config` (API keys, agent IDs, pairing secrets) **at rest**. Must be **exactly 32 characters**; the backend **fails to start** otherwise. |
@@ -107,8 +105,7 @@ For installing, registering, verifying, and troubleshooting the agent itself, se
 ## ✅ Verify your configuration
 
 - Backend healthy: `GET http://localhost:3000/api/health` → `{ "status": "ok", ... }`.
-- Live mode active: the dashboard shows **your** tasks (not the demo samples) — confirm
-  `VITE_DEMO_MODE` is unset.
+- Dashboard reading live data: it shows **your** tasks once the agent has synced.
 - Agent connected: the sidebar **Windows Agent** status reads **Online**.
 
 ---

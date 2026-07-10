@@ -230,7 +230,7 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
    cron schedule, live-substitutes `{{placeholders}}` into a previewed command, and
    `POST`s `{ platform, command, scheduleExpression, name }` to `/templates/:id/apply`
    (which now accepts those overrides and rejects unfilled placeholders). Invalidates `tasks`
-   on success. Demo mode simulates the apply.
+   on success.
 4. **Card UI** — `scriptType` badge is shown; still to add: `os` badge, `category` filter chips,
    and grouping starters vs patterns. Reuse the existing dark card style.
 5. ~~**Cron ↔ Windows trigger conversion** with confidence score~~ ✅ *Done (2026-07-07)* —

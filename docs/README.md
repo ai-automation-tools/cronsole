@@ -22,11 +22,9 @@ that explains what's inside and links to the individual documents.
 New to TaskHub? Follow this path in order:
 
 1. [**⬇️ Install**](install/README.md) — get the stack running (Windows, macOS, or clone-the-repo).
-2. [**⚙️ Configure**](setup/README.md) — environment variables, demo vs. live mode, agent connection.
+2. [**⚙️ Configure**](setup/README.md) — environment variables, backend connection, agent pairing.
 3. [**🖥️ Use the dashboard**](user-guides/guides/UI_User_Guide.md) — views, categories, templates, Run Now.
 4. [**🤖 Run the Windows agent**](user-guides/guides/Agent_Setup_Guide.md) — install, register, verify, troubleshoot.
-
-Just browsing? The [**live demo**](https://taskhub.mikesailab.com) needs zero setup.
 
 ## 🚀 Guides
 

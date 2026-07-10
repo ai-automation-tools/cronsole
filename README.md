@@ -1,7 +1,7 @@
 <a id="readme-top"></a>
 
 <p align="center">
-  <a href="https://taskhub.mikesailab.com">
+  <a href="docs/README.md">
     <img src="images/TaskHub-Images/logos/dark/landscape-01-command-grid.svg" alt="TaskHub — one control plane for scheduled tasks" width="720">
   </a>
 </p>
@@ -15,15 +15,12 @@
 </p>
 
 <p align="center">
-  <a href="https://taskhub.mikesailab.com">View Demo</a>
-  ·
   <a href="https://github.com/michaelschecht/taskhub/issues">Report Bug</a>
   ·
   <a href="https://github.com/michaelschecht/taskhub/issues">Request Feature</a>
 </p>
 
 <p align="center">
-  <a href="https://taskhub.mikesailab.com"><img src="https://img.shields.io/badge/Live_Demo-taskhub.mikesailab.com-2ea44f?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo"></a>
   <img src="https://img.shields.io/badge/status-MVP_Prototype-F59E0B?style=for-the-badge" alt="Status: MVP Prototype">
   <a href="docs/ROADMAP.md"><img src="https://img.shields.io/badge/plan-ROADMAP-8B5CF6?style=for-the-badge" alt="Roadmap"></a>
 </p>
@@ -73,9 +70,9 @@ TaskHub connects to:
 - **ChatGPT, Gemini, Jules, and others** — quick links to their native scheduling screens.
 
 > [!NOTE]
-> TaskHub is an early **MVP prototype**. The public site is a self-contained demo; the full
-> experience (live Windows sync, real triggering) runs locally today. See
-> [Quick Start](#-quick-start) for the difference.
+> TaskHub is an early **MVP prototype**. It runs locally today — the dashboard, backend, and
+> Windows agent all run on your own machine (live Windows sync, real triggering). See
+> [Quick Start](#-quick-start) to get it running.
 
 **Why it exists:** no existing tool unifies AI-assistant schedulers with your operating
 system's scheduler. Desktop utilities are Windows-only or abandoned; heavyweight
@@ -106,9 +103,8 @@ are normalized to standard cron internally and translated to each platform's nat
 so what you see is consistent no matter where a task actually lives.
 
 > [!IMPORTANT]
-> Only the **frontend** is currently hosted (the public demo, where "Run Now" is a no-op).
-> The backend and Windows agent run on **your** machine — full setup is in the
-> [Installation guide](docs/install/README.md).
+> TaskHub is not hosted yet — the dashboard, backend, and Windows agent all run on **your**
+> machine. Full setup is in the [Installation guide](docs/install/README.md).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -159,7 +155,7 @@ npm start                   # http://localhost:3000
 
 # Frontend — in a second terminal
 cd frontend
-cp .env.example .env.local  # set VITE_DEV_TOKEN for live mode (not needed for demo)
+cp .env.example .env.local  # set VITE_DEV_TOKEN so the dashboard can reach the backend
 npm install
 npm run dev                 # http://localhost:5173
 
@@ -168,8 +164,7 @@ cd agent/TaskHub.Agent
 dotnet run                  # connects out to the backend, pushes Task Scheduler tasks
 ```
 
-Leave `VITE_DEMO_MODE` unset locally so the dashboard reads live data instead of the demo
-fixtures. See [Setup & configuration](docs/setup/README.md) for every option.
+See [Setup & configuration](docs/setup/README.md) for every option.
 
 </details>
 
@@ -183,7 +178,7 @@ fixtures. See [Setup & configuration](docs/setup/README.md) for every option.
 | **Backend** | Node.js + Express 5 + Socket.io (TypeScript) |
 | **Database** | PostgreSQL 16 + Prisma 6 ORM |
 | **Windows agent** | .NET 10 (`TaskHub.Agent`) reading Windows Task Scheduler |
-| **Hosting** | Frontend on Vercel; backend + agent local; dev stack via Docker Compose |
+| **Hosting** | Runs locally — backend + agent on your machine; dev stack via Docker Compose |
 
 ## 📖 Documentation
 
@@ -219,7 +214,6 @@ TaskHub is a private MVP-stage repository. If you're working on it, start with
 
 <p align="center">
   Part of the <a href="https://mikesailab.com">mikesailab.com</a> ecosystem ·
-  <a href="https://taskhub.mikesailab.com">Live Demo</a> ·
   <a href="docs/README.md">Documentation</a> ·
   <a href="docs/ROADMAP.md">Roadmap</a>
 </p>

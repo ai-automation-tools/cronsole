@@ -66,7 +66,7 @@ sign in — not just the agent — use the
 > sidebar should read **Online** with your tasks imported.
 
 - Backend healthy: `GET http://localhost:3000/api/health` → `{ "status": "ok", ... }`.
-- Your real Task Scheduler tasks appear on the dashboard (not the demo samples).
+- Your real Task Scheduler tasks appear on the dashboard.
 
 Next: tune environment variables and options in
 [**⚙️ Setup & Configuration**](../../setup/README.md).

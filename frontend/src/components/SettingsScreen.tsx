@@ -31,7 +31,6 @@ import { formatDateTime } from '../utils/datetime';
 import { API_ORIGIN, subscribeBackendStatus, type BackendStatus } from '../api';
 import type { Task } from '../types';
 
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 const PLATFORM_LINKS_KEY = 'taskhub_platform_links';
 
 const VIEW_OPTIONS: { value: DashboardView; label: string; Icon: typeof Grid }[] = [
@@ -314,16 +313,6 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
         <p className="text-muted-foreground">Preferences are saved in this browser.</p>
       </div>
 
-      {DEMO_MODE && (
-        <div className="flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">
-          <Info size={18} className="mt-0.5 flex-shrink-0 text-foreground" />
-          <p className="text-foreground">
-            <span className="font-semibold">Demo mode.</span> Settings still apply, but there's no backend to run
-            tasks against, so run-related actions are simulated.
-          </p>
-        </div>
-      )}
-
       {/* Connections */}
       <ConnectionsSection timezone={settings.timezone} />
 
@@ -454,7 +443,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
         <Row label="Backend">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold">
             <span className={`h-1.5 w-1.5 rounded-full ${backendStatus === 'ok' ? 'bg-green-500' : 'bg-red-500'}`} />
-            {DEMO_MODE ? 'Demo (no backend)' : backendStatus === 'ok' ? 'Reachable' : 'Unreachable'}
+            {backendStatus === 'ok' ? 'Reachable' : 'Unreachable'}
           </span>
         </Row>
         <Row label="API origin">

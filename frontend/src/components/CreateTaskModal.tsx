@@ -42,7 +42,6 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   const [command, setCommand] = useState('');
   const [preview, setPreview] = useState<{ score: number; warnings: string[] } | null>(null);
 
-  const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   // Full class names so Tailwind's compiler sees them (no template interpolation).
   const focusAccent = isWindows ? 'focus:border-primary' : 'focus:border-violet-500';
@@ -55,7 +54,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   // Live cron→Windows-trigger conversion warnings, debounced (mirrors the
   // Apply modal's preview behavior).
   useEffect(() => {
-    if (!isWindows || DEMO_MODE) return;
+    if (!isWindows) return;
     const handle = setTimeout(async () => {
       try {
         const res = await api.post('/tasks/preview', { platform, schedule });
@@ -65,11 +64,10 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
       }
     }, 400);
     return () => clearTimeout(handle);
-  }, [isWindows, DEMO_MODE, platform, schedule]);
+  }, [isWindows, platform, schedule]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (DEMO_MODE) return;
       if (isWindows) {
         return api.post('/tasks', {
           name,
@@ -87,13 +85,11 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
       });
     },
     onSuccess: () => {
-      if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast(
-        DEMO_MODE
-          ? `Demo mode — "${name}" would be created as a ${isWindows ? 'Windows' : 'TaskHub-native'} task.`
-          : isWindows
-            ? `Windows task "${name}" created under the \\TaskHub\\ scheduler folder.`
-            : `TaskHub task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
+        isWindows
+          ? `Windows task "${name}" created under the \\TaskHub\\ scheduler folder.`
+          : `TaskHub task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
         'success'
       );
       onClose();
@@ -279,11 +275,6 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             </span>
           </div>
 
-          {DEMO_MODE && (
-            <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-center gap-2">
-              <Info size={13} className="text-foreground shrink-0" /> Demo mode — creation is simulated.
-            </div>
-          )}
         </div>
 
         <footer className="p-6 bg-background border-t border-border flex gap-4">

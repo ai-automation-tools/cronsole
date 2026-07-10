@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { io, type Socket } from 'socket.io-client';
 import { API_ORIGIN } from '../api';
 
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
 
 /**
@@ -13,14 +12,13 @@ const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
  * tabs immediately instead of waiting for a poll or a window-focus refetch.
  *
  * This is lighter than polling: one idle WebSocket that only carries a message
- * when something actually changed. No-op in demo mode (which never talks to the
- * backend) or when no auth token is configured.
+ * when something actually changed. No-op when no auth token is configured.
  */
 export function useLiveTaskUpdates(): void {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (DEMO_MODE || !DEV_TOKEN) return;
+    if (!DEV_TOKEN) return;
 
     const socket: Socket = io(`${API_ORIGIN}/ui`, {
       auth: { token: DEV_TOKEN },

@@ -178,8 +178,6 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   const [newCategory, setNewCategory] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview');
 
-  const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
-
   useEffect(() => {
     if (task) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -195,12 +193,11 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      if (DEMO_MODE) return;
       return api.delete(`/tasks/${task!.id}`);
     },
     onSuccess: () => {
-      if (!DEMO_MODE) queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast(DEMO_MODE ? `Demo mode — "${task!.name}" would be deleted.` : `Task "${task!.name}" deleted.`, 'success');
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast(`Task "${task!.name}" deleted.`, 'success');
       onClose();
     },
     onError: (error: unknown) => {
@@ -215,7 +212,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
       const res = await api.get(`/tasks/${task!.id}/executions`);
       return res.data;
     },
-    enabled: !!task && activeTab === 'runs' && !DEMO_MODE,
+    enabled: !!task && activeTab === 'runs',
     staleTime: 15_000
   });
 
@@ -262,11 +259,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
 
         {activeTab === 'runs' && (
           <div className="p-6 overflow-y-auto flex-1 text-foreground space-y-3">
-            {DEMO_MODE ? (
-              <div className="text-xs text-subtle-foreground bg-background border border-border rounded-xl px-4 py-3 flex items-center gap-2">
-                <Info size={14} className="text-foreground shrink-0" /> Run history isn't available in the demo.
-              </div>
-            ) : executionsLoading ? (
+            {executionsLoading ? (
               <div className="flex items-center justify-center py-16 text-subtle-foreground gap-2 text-sm">
                 <Loader2 size={18} className="animate-spin" /> Loading run history…
               </div>

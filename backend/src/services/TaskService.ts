@@ -17,6 +17,13 @@ export interface NormalizedTask {
 // one-round-trip-per-task chatter of sequential awaits.
 const UPSERT_BATCH_SIZE = 100;
 
+// Stale pruning is destructive. A complete Windows snapshot is usually hundreds
+// of rows; if an established platform suddenly reports a tiny non-empty subset,
+// treat it as a partial/bad sync and preserve the DB instead of deleting most
+// tracked tasks.
+const STALE_PRUNE_MIN_TRACKED = 20;
+const STALE_PRUNE_MIN_RETAIN_RATIO = 0.5;
+
 export class TaskService {
   static async upsertTasks(userId: string, platform: PlatformType, tasks: NormalizedTask[]) {
     const ops = tasks.map(t =>
@@ -68,6 +75,20 @@ export class TaskService {
    * user chose to import.
    */
   static async removeStaleTasks(userId: string, platform: PlatformType, currentExternalIds: string[]) {
+    if (currentExternalIds.length === 0) return 0;
+
+    const trackedCount = await prisma.task.count({ where: { userId, platform } });
+    if (
+      trackedCount >= STALE_PRUNE_MIN_TRACKED &&
+      currentExternalIds.length / trackedCount < STALE_PRUNE_MIN_RETAIN_RATIO
+    ) {
+      console.warn(
+        `[TaskService] skipped stale pruning for ${platform}: partial snapshot suspected ` +
+        `(${currentExternalIds.length}/${trackedCount} IDs returned)`
+      );
+      return 0;
+    }
+
     const stale = await prisma.task.findMany({
       where: { userId, platform, externalId: { notIn: currentExternalIds } },
       select: { id: true }

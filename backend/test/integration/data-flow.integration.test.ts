@@ -1,16 +1,54 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { PlatformType } from '@prisma/client';
+import { createServer } from 'http';
+import { AddressInfo } from 'net';
+import { PlatformType, TaskStatus } from '@prisma/client';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/db.js';
+import { NativeScheduler } from '../../src/services/NativeScheduler.js';
+import { flushFailureNotifications } from '../../src/services/FailureNotificationService.js';
 import { TaskService, NormalizedTask } from '../../src/services/TaskService.js';
-import { createUser } from './helpers.js';
+import { createNativeConnection, createUser } from './helpers.js';
 
 // End-to-end data-flow checks against a real Postgres: the native-create route,
 // and TaskService.upsertTasks' batched $transaction path at a size that spans
 // multiple batches (the batch size is 100).
 
 const app = createApp();
+
+async function withNotificationSink<T>(fn: (url: string, requests: string[]) => Promise<T>): Promise<T> {
+  const requests: string[] = [];
+  const server = createServer((req, res) => {
+    let body = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      requests.push(body);
+      res.statusCode = 204;
+      res.end();
+    });
+  });
+
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as AddressInfo;
+  const prevUrl = process.env.TASKHUB_FAILURE_WEBHOOK_URL;
+  const prevType = process.env.TASKHUB_FAILURE_WEBHOOK_TYPE;
+  process.env.TASKHUB_FAILURE_WEBHOOK_URL = `http://127.0.0.1:${port}/notify`;
+  process.env.TASKHUB_FAILURE_WEBHOOK_TYPE = 'generic';
+
+  try {
+    return await fn(process.env.TASKHUB_FAILURE_WEBHOOK_URL, requests);
+  } finally {
+    await flushFailureNotifications();
+    if (prevUrl === undefined) delete process.env.TASKHUB_FAILURE_WEBHOOK_URL;
+    else process.env.TASKHUB_FAILURE_WEBHOOK_URL = prevUrl;
+    if (prevType === undefined) delete process.env.TASKHUB_FAILURE_WEBHOOK_TYPE;
+    else process.env.TASKHUB_FAILURE_WEBHOOK_TYPE = prevType;
+    await new Promise<void>((resolve, reject) => {
+      server.close(err => err ? reject(err) : resolve());
+    });
+  }
+}
 
 describe('native task creation', () => {
   it('creates a TASKHUB_NATIVE task with a computed nextRunTime', async () => {
@@ -42,6 +80,71 @@ describe('native task creation', () => {
       .set('Authorization', auth)
       .send({ name: 'Bad', schedule: '0 0 * * *', job: { jobType: 'HTTP', url: 'not-a-url' } });
     expect(res.status).toBe(400);
+  });
+
+  it('sends a failure notification when a manual native run fails', async () => {
+    const { user, auth } = await createUser('manual-notify@example.com');
+    await createNativeConnection(user.id);
+    const task = await prisma.task.create({
+      data: {
+        userId: user.id,
+        platform: PlatformType.TASKHUB_NATIVE,
+        externalId: 'native_missing_job',
+        name: 'Broken native task',
+        category: 'TaskHub',
+        schedule: '0 3 * * *',
+        status: TaskStatus.ACTIVE,
+        metadata: {}
+      }
+    });
+
+    await withNotificationSink(async (_url, requests) => {
+      const res = await request(app)
+        .post(`/api/tasks/${task.id}/run`)
+        .set('Authorization', auth)
+        .send({});
+
+      expect(res.status).toBe(500);
+      await flushFailureNotifications();
+      expect(requests).toHaveLength(1);
+      expect(JSON.parse(requests[0]).event).toEqual(expect.objectContaining({
+        taskId: task.id,
+        taskName: 'Broken native task',
+        trigger: 'manual',
+        status: 'FAILURE'
+      }));
+    });
+  });
+
+  it('sends a failure notification when a scheduled native run fails', async () => {
+    const { user } = await createUser('scheduled-notify@example.com');
+    const dueAt = new Date('2026-07-10T20:00:00.000Z');
+    const task = await prisma.task.create({
+      data: {
+        userId: user.id,
+        platform: PlatformType.TASKHUB_NATIVE,
+        externalId: 'native_scheduled_missing_job',
+        name: 'Broken scheduled task',
+        category: 'TaskHub',
+        schedule: '*/5 * * * *',
+        nextRunTime: dueAt,
+        status: TaskStatus.ACTIVE,
+        metadata: {}
+      }
+    });
+
+    await withNotificationSink(async (_url, requests) => {
+      await new NativeScheduler().tick(dueAt);
+      await flushFailureNotifications();
+
+      expect(requests).toHaveLength(1);
+      expect(JSON.parse(requests[0]).event).toEqual(expect.objectContaining({
+        taskId: task.id,
+        taskName: 'Broken scheduled task',
+        trigger: 'scheduled',
+        status: 'FAILURE'
+      }));
+    });
   });
 });
 
@@ -84,5 +187,24 @@ describe('TaskService.upsertTasks batching', () => {
     );
     expect(removed).toBe(3);
     expect(await prisma.task.count({ where: { userId: user.id } })).toBe(2);
+  });
+
+  it('removeStaleTasks preserves rows when a large platform returns a suspicious partial list', async () => {
+    const { user } = await createUser('partial-stale@example.com');
+    const tasks: NormalizedTask[] = Array.from({ length: 30 }, (_, i) => ({
+      externalId: `\\Partial\\Task${i}`,
+      name: `Task ${i}`,
+      status: 'ACTIVE' as const
+    }));
+    await TaskService.upsertTasks(user.id, PlatformType.WINDOWS_TASK_SCHEDULER, tasks);
+
+    const removed = await TaskService.removeStaleTasks(
+      user.id,
+      PlatformType.WINDOWS_TASK_SCHEDULER,
+      ['\\Partial\\Task0']
+    );
+
+    expect(removed).toBe(0);
+    expect(await prisma.task.count({ where: { userId: user.id } })).toBe(30);
   });
 });

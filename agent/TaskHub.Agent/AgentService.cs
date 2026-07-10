@@ -34,6 +34,21 @@ namespace TaskHub.Agent
             return sig.Length > 0;
         }
 
+        // Map a delete failure to a message the dashboard can show as-is. The
+        // common real-world case is E_ACCESSDENIED: tasks registered by an
+        // elevated process grant the interactive user read-only ACLs, so the
+        // unelevated agent can't remove them — say that instead of the raw HRESULT.
+        private static string FriendlyDeleteError(Exception ex)
+        {
+            const int E_ACCESSDENIED = unchecked((int)0x80070005);
+            if (ex is UnauthorizedAccessException || ex.HResult == E_ACCESSDENIED)
+            {
+                return "Windows denied the delete — this task requires administrator rights to remove. " +
+                       "Delete it from an elevated Task Scheduler, or run the TaskHub agent elevated.";
+            }
+            return ex.Message;
+        }
+
         // Read the structured { executable, args[], workingDirectory? } action from
         // a task:create payload. Missing/ill-typed fields degrade to empty rather
         // than throwing (the signature check is what actually gates execution).
@@ -219,6 +234,53 @@ namespace TaskHub.Agent
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error running task: {ex.Message}");
+                }
+            });
+
+            // Event: task:delete (Server commanded us to remove a task)
+            _socket.On("task:delete", async response =>
+            {
+                // Parse inside the try — same async-void malformed-frame guard as task:run.
+                var taskPath = "";
+                try
+                {
+                    var data = response.GetValue<JsonElement>(0);
+                    taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
+
+                    if (!TryReadSignature(data, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.DeleteMessage(taskPath, ts), ts, sig))
+                    {
+                        Console.WriteLine($"REJECTED unsigned/invalid task:delete for {taskPath}");
+                        return;
+                    }
+
+                    Console.WriteLine($"Server command: task:delete -> {taskPath}");
+
+                    // Idempotent: a task already gone is a success — the end
+                    // state the server asked for holds either way.
+                    bool found = _scheduler.DeleteTask(taskPath);
+                    Console.WriteLine(found
+                        ? $"Task {taskPath} deleted."
+                        : $"Task {taskPath} not found (already removed).");
+
+                    await _socket.EmitAsync("task:deleted", new[] { new {
+                        taskExternalId = taskPath,
+                        success = true,
+                        message = found ? "Task deleted" : "Task not found (already removed)"
+                    }});
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error deleting task: {ex.Message}");
+                    try
+                    {
+                        await _socket.EmitAsync("task:deleted", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = FriendlyDeleteError(ex)
+                        }});
+                    }
+                    catch { /* socket gone — server's 15s timeout covers it */ }
                 }
             });
 

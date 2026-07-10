@@ -94,6 +94,35 @@ export class WindowsAgentConnector implements PlatformConnector {
     });
   }
 
+  async deleteTask(externalId: string, config: any): Promise<{ success: boolean; message?: string }> {
+    const userId = config.userId;
+    const socket = agentManager.getSocket(userId);
+
+    if (!socket) {
+      return { success: false, message: 'Agent offline' };
+    }
+
+    return new Promise((resolve) => {
+      const handler = (payload: any) => {
+        if (payload.taskExternalId === externalId) {
+          socket.off('task:deleted', handler);
+          resolve({
+            success: payload.success,
+            message: payload.message
+          });
+        }
+      };
+
+      socket.on('task:deleted', handler);
+      emitSignedCommand(socket, { event: 'task:delete', taskPath: externalId });
+
+      setTimeout(() => {
+        socket.off('task:deleted', handler);
+        resolve({ success: false, message: 'Agent delete timeout' });
+      }, 15000);
+    });
+  }
+
   async setTaskStatus(externalId: string, enabled: boolean, config: any): Promise<{ success: boolean }> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);

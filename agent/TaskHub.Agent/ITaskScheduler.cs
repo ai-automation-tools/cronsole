@@ -9,6 +9,9 @@ namespace TaskHub.Agent
         bool SetTaskStatus(string path, bool enabled);
         bool RunTask(string path);
         AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null);
+        // Returns false when no task exists at the path (treated as an
+        // idempotent success by the caller — the end state already holds).
+        bool DeleteTask(string path);
     }
 
     // Structured action the agent registers as the task's ExecAction. The server

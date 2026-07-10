@@ -175,9 +175,32 @@ describe('TaskModal Component', () => {
     });
   });
 
-  it('hides the Delete button for platform-synced tasks', () => {
+  it('hides the Delete button for platforms without native delete support', () => {
+    // CLAUDE_TASK_FLEET has no connector deleteTask — the button must not render.
     renderModal();
     expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+  });
+
+  it('deletes a Windows task after a scheduler-specific confirmation', async () => {
+    vi.mocked(api.delete).mockResolvedValue({ data: { message: 'Task deleted' } });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const onClose = vi.fn();
+
+    renderModal({
+      task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' },
+      onClose
+    });
+
+    fireEvent.click(screen.getByText('Delete'));
+
+    // The confirm copy must say the real scheduler entry goes too.
+    expect(confirmSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Windows Task Scheduler')
+    );
+    await waitFor(() => {
+      expect(api.delete).toHaveBeenCalledWith('/tasks/task-123');
+    });
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('deletes a TaskHub-native task after confirmation', async () => {

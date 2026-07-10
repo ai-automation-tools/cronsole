@@ -19,6 +19,7 @@ namespace TaskHub.Agent.Tests
         private const string ExpectedHandshake = "e8e72a611dac9a8f0b3fab109adea8871b61ca31980efcba7c3ed842d94c0434";
         private const string ExpectedSessionKey = "67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14";
         private const string ExpectedRunSig = "e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48";
+        private const string ExpectedDeleteSig = "ac32ed9af3b1904803cc54a7667e109e25e79c068f420c386c054374fd23d61f";
         private const string ExpectedStatusSig = "9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133";
         // task:create signs the structured action AND the trigger. Golden action is
         // { executable: "dir", args: [] } -> canonical "dir"; trigger null -> "none".
@@ -39,6 +40,8 @@ namespace TaskHub.Agent.Tests
         {
             AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.RunMessage("MyTask", Ts))
                 .Should().Be(ExpectedRunSig);
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.DeleteMessage("MyTask", Ts))
+                .Should().Be(ExpectedDeleteSig);
             AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.SetStatusMessage("MyTask", false, Ts))
                 .Should().Be(ExpectedStatusSig);
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);

@@ -30,9 +30,13 @@ const VEC = {
   sessionKey: '67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14',
   runSig: 'e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48',
   statusSig: '9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133',
-  // task:create now signs the structured action (executable + args) too. Golden
-  // case: command 'dir', action { executable: 'dir', args: [] } -> canonical 'dir'.
-  createSig: '0a39b0a5317f5710621e0a5748402fa2baec4496eb2177e1adeb98a31eb14da2',
+  // task:create signs the structured action AND the trigger. Golden case:
+  // command 'dir', action { executable: 'dir', args: [] } -> canonical 'dir',
+  // trigger null -> canonical 'none'.
+  createSig: '4e04ffa6a881215d70a94ef84984898398567f7218d57f6cc3d9fa9264f9e0ba',
+  // Same command with a Weekly trigger -> canonical
+  // 'trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D'.
+  createSigWithTrigger: 'e4bfa1a7b2c20bde20c72bf444b955dbad5c27c920af5fdddd5750191278643e',
 };
 
 /** Build a valid, fresh handshake auth payload for the given nonce. */
@@ -57,8 +61,25 @@ describe('agentAuth cross-language vector', () => {
           schedule: '0 3 * * *',
           command: 'dir',
           action: { executable: 'dir', args: [] },
+          trigger: null,
         },
         VEC.createSig,
+      ],
+      [
+        {
+          event: 'task:create',
+          name: 'Job',
+          schedule: '0 3 * * *',
+          command: 'dir',
+          action: { executable: 'dir', args: [] },
+          trigger: {
+            type: 'Weekly',
+            startBoundary: '09:30',
+            daysOfWeek: ['Monday', 'Wednesday'],
+            repetition: { interval: 'PT30M', duration: 'P1D' },
+          },
+        },
+        VEC.createSigWithTrigger,
       ],
     ];
     for (const [cmd, expected] of cases) {

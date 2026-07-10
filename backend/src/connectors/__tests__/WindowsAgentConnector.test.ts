@@ -19,13 +19,13 @@ function emitArgs(socket: any, event: string): any[] | undefined {
 }
 
 /** Assert the emitted command carries a valid signature for `cmd`. */
-function expectSignedCommand(socket: any, event: string, cmd: SignableCommand, extra: Record<string, unknown> = {}) {
+function expectSignedCommand(socket: any, event: string, cmd: SignableCommand) {
   const [payload] = emitArgs(socket, event) ?? [];
   expect(payload).toBeDefined();
   expect(typeof payload.ts).toBe('number');
   const { sig } = signCommand(SESSION_KEY, cmd, payload.ts);
   const { event: _e, ...fields } = cmd;
-  expect(payload).toEqual({ ...fields, ...extra, ts: payload.ts, sig });
+  expect(payload).toEqual({ ...fields, ts: payload.ts, sig });
 }
 
 describe('WindowsAgentConnector', () => {
@@ -214,9 +214,9 @@ describe('WindowsAgentConnector', () => {
         name: 'NewTask',
         schedule: '0 3 * * *',
         command: 'echo hello',
-        action: { executable: 'echo', args: ['hello'] }
-      },
-      { trigger: null }
+        action: { executable: 'echo', args: ['hello'] },
+        trigger: null
+      }
     );
     expect(result.success).toBe(true);
     expect(result.externalId).toBe('\\NewTask');
@@ -250,9 +250,9 @@ describe('WindowsAgentConnector', () => {
         name: 'NewTask',
         schedule: '0 8 * * *',
         command: 'echo hello',
-        action: { executable: 'echo', args: ['hello'] }
-      },
-      { trigger }
+        action: { executable: 'echo', args: ['hello'] },
+        trigger
+      }
     );
     expect(result.success).toBe(true);
   });

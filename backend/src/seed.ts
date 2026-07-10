@@ -1,13 +1,11 @@
 import {
-  PrismaClient,
   PlatformType,
   ScriptType,
   OsTarget,
   TemplateCategory,
   Prisma
 } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from './db.js';
 
 // --- Reusable parameter definitions (see docs/resources/Templates.md §5) ---
 const P = {

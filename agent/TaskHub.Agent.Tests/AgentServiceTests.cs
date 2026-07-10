@@ -203,10 +203,11 @@ namespace TaskHub.Agent.Tests
         [Fact]
         public void TaskCreate_Event_CreatesTaskAndEmitsResult()
         {
-            // Arrange
+            // Arrange — no trigger field => trigger canonicalizes to "none"
             var ts = Now();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, ts));
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -237,10 +238,18 @@ namespace TaskHub.Agent.Tests
         [Fact]
         public void TaskCreate_Event_ParsesStructuredTrigger()
         {
-            // Arrange — payload as emitted by WindowsAgentConnector.createTask
+            // Arrange — payload as emitted by WindowsAgentConnector.createTask.
+            // The signed trigger canonical must match what the agent derives from
+            // the deserialized payload trigger.
             var ts = Now();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", canonical, ts));
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(new TriggerSpec
+            {
+                Type = "Weekly",
+                StartBoundary = "08:00",
+                DaysOfWeek = new List<string> { "Monday" }
+            });
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", canonical, triggerCanonical, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -280,7 +289,8 @@ namespace TaskHub.Agent.Tests
             // Arrange — server sends trigger: null when no conversion applies
             var ts = Now();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, ts));
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -303,6 +313,40 @@ namespace TaskHub.Agent.Tests
 
             // Assert
             _mockScheduler.Verify(s => s.CreateTask("MyTestTask", "0 * * * *", It.IsAny<AgentExecAction>(), null), Times.Once);
+        }
+
+        [Fact]
+        public void TaskCreate_Event_TamperedTrigger_IsRejected()
+        {
+            // Arrange — sign the command as if there were NO trigger, but send a
+            // real trigger on the wire (an on-path attacker rewriting the schedule).
+            // The trigger is now part of the signed message, so verification fails.
+            var ts = Now();
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var sigWithoutTrigger = AgentAuthenticator.Hmac(
+                _auth.SessionKey!,
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, AgentAuthenticator.CanonicalizeTrigger(null), ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    name = "MyTestTask",
+                    schedule = "0 * * * *",
+                    command = "dir",
+                    action = new { executable = "dir", args = new string[0] },
+                    trigger = new { type = "Weekly", startBoundary = "03:00", daysOfWeek = new[] { "Sunday" } },
+                    ts,
+                    sig = sigWithoutTrigger
+                }));
+
+            // Act
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            // Assert — the tampered command never reaches the scheduler.
+            _mockScheduler.Verify(
+                s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentExecAction>(), It.IsAny<TriggerSpec?>()),
+                Times.Never);
         }
     }
 }

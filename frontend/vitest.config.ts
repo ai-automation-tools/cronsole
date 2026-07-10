@@ -7,5 +7,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
+    // Playwright E2E specs live in tests/e2e and run under their own runner.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/tests/e2e/**'],
   },
 });

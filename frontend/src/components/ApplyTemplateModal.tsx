@@ -6,7 +6,9 @@ import { api } from '../api';
 import { platformLabel } from '../platform';
 import { useToast } from '../hooks/useToast';
 
-// Substitute {{key}} placeholders.
+// Substitute {{key}} placeholders — preview only. The apply request sends the
+// raw parameter values; the backend owns the real substitution per-token, so a
+// value with quotes/spaces is always exactly one argument (templateCommand.ts).
 const resolveCommand = (tpl: string, values: Record<string, string>) =>
   tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in values ? values[k] : `{{${k}}}`));
 
@@ -62,7 +64,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
         platform,
         schedule,
         name: template.name,
-        command: resolved
+        parameters: values
       });
     },
     onSuccess: () => {

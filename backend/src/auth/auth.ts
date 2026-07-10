@@ -1,9 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 // Fail fast on a missing/weak JWT secret. A signing key is what stands between
 // an anonymous request and a forged identity — booting with a hardcoded fallback

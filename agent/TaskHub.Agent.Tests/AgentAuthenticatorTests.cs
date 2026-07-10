@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using Xunit;
 using FluentAssertions;
 using TaskHub.Agent;
@@ -18,9 +20,12 @@ namespace TaskHub.Agent.Tests
         private const string ExpectedSessionKey = "67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14";
         private const string ExpectedRunSig = "e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48";
         private const string ExpectedStatusSig = "9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133";
-        // task:create now signs the structured action too; golden action is
-        // { executable: "dir", args: [] } -> canonical "dir".
-        private const string ExpectedCreateSig = "0a39b0a5317f5710621e0a5748402fa2baec4496eb2177e1adeb98a31eb14da2";
+        // task:create signs the structured action AND the trigger. Golden action is
+        // { executable: "dir", args: [] } -> canonical "dir"; trigger null -> "none".
+        private const string ExpectedCreateSig = "4e04ffa6a881215d70a94ef84984898398567f7218d57f6cc3d9fa9264f9e0ba";
+        // Same command with a Weekly trigger -> canonical
+        // "trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D".
+        private const string ExpectedCreateSigWithTrigger = "e4bfa1a7b2c20bde20c72bf444b955dbad5c27c920af5fdddd5750191278643e";
 
         [Fact]
         public void Hmac_MatchesGoldenVector_HandshakeAndSession()
@@ -37,8 +42,32 @@ namespace TaskHub.Agent.Tests
             AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.SetStatusMessage("MyTask", false, Ts))
                 .Should().Be(ExpectedStatusSig);
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
-            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, Ts))
+            var nullTrigger = AgentAuthenticator.CanonicalizeTrigger(null);
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, Ts))
                 .Should().Be(ExpectedCreateSig);
+
+            var weekly = new TriggerSpec
+            {
+                Type = "Weekly",
+                StartBoundary = "09:30",
+                DaysOfWeek = new List<string> { "Monday", "Wednesday" },
+                Repetition = new RepetitionSpec { Interval = "PT30M", Duration = "P1D" }
+            };
+            var weeklyCanonical = AgentAuthenticator.CanonicalizeTrigger(weekly);
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, weeklyCanonical, Ts))
+                .Should().Be(ExpectedCreateSigWithTrigger);
+        }
+
+        [Fact]
+        public void CanonicalizeTrigger_MatchesBackendFormat()
+        {
+            AgentAuthenticator.CanonicalizeTrigger(null).Should().Be("none");
+            AgentAuthenticator.CanonicalizeTrigger(new TriggerSpec
+            {
+                Type = "Daily",
+                StartBoundary = "03:00",
+                DaysInterval = 1
+            }).Should().Be("trigger|Daily|03:00|1|||");
         }
 
         [Fact]
@@ -65,6 +94,41 @@ namespace TaskHub.Agent.Tests
             var sig = AgentAuthenticator.Hmac(auth.SessionKey!, msg);
 
             auth.VerifyCommand(msg, ts, sig).Should().BeTrue();
+        }
+
+        [Fact]
+        public void VerifyCommand_RejectsAReplayedSignature()
+        {
+            var auth = new AgentAuthenticator(Secret, AgentId);
+            auth.CreateHandshakeAuth();
+
+            var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var msg = AgentAuthenticator.RunMessage("MyTask", ts);
+            var sig = AgentAuthenticator.Hmac(auth.SessionKey!, msg);
+
+            // First use is accepted; the identical (ts, sig) frame is a replay.
+            auth.VerifyCommand(msg, ts, sig).Should().BeTrue();
+            auth.VerifyCommand(msg, ts, sig).Should().BeFalse();
+        }
+
+        [Fact]
+        public void VerifyCommand_AcceptsACommandSignedWithThePriorSessionKeyAfterRekey()
+        {
+            // A reconnect derives a new session key, but a command signed under the
+            // previous connection that's still in flight must not be false-rejected.
+            var auth = new AgentAuthenticator(Secret, AgentId);
+            auth.CreateHandshakeAuth();
+            var oldKey = auth.SessionKey!;
+
+            Thread.Sleep(1); // ensure a distinct nonce/key on the next handshake
+            auth.CreateHandshakeAuth();
+            auth.SessionKey.Should().NotBe(oldKey);
+
+            var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var msg = AgentAuthenticator.RunMessage("MyTask", ts);
+            var sigWithOldKey = AgentAuthenticator.Hmac(oldKey, msg);
+
+            auth.VerifyCommand(msg, ts, sigWithOldKey).Should().BeTrue();
         }
 
         [Fact]

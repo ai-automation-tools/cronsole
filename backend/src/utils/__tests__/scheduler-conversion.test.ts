@@ -3,8 +3,39 @@ import { PlatformType, OsTarget } from '@prisma/client';
 import {
   convertCronToWindowsTrigger,
   convertWindowsTriggerToCron,
-  getTemplateConfidence
+  getTemplateConfidence,
+  canonicalizeTrigger
 } from '../scheduler-conversion.js';
+
+describe('canonicalizeTrigger', () => {
+  it('canonicalizes a null/undefined trigger to "none"', () => {
+    expect(canonicalizeTrigger(null)).toBe('none');
+    expect(canonicalizeTrigger(undefined)).toBe('none');
+  });
+
+  it('collapses optional fields to empty in a fixed order', () => {
+    // 7 fields: trigger|type|start|daysInterval|daysOfWeek|repInterval|repDuration
+    expect(canonicalizeTrigger({ type: 'Daily', startBoundary: '03:00', daysInterval: 1 }))
+      .toBe('trigger|Daily|03:00|1|||');
+  });
+
+  it('serializes a full weekly trigger deterministically', () => {
+    expect(
+      canonicalizeTrigger({
+        type: 'Weekly',
+        startBoundary: '09:30',
+        daysOfWeek: ['Monday', 'Wednesday'],
+        repetition: { interval: 'PT30M', duration: 'P1D' }
+      })
+    ).toBe('trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D');
+  });
+
+  it('round-trips a real converted trigger through the canonical form', () => {
+    const { trigger } = convertCronToWindowsTrigger('0 3 * * *');
+    // Daily 03:00 → no days/repetition, so trailing fields are empty.
+    expect(canonicalizeTrigger(trigger)).toBe('trigger|Daily|03:00|1|||');
+  });
+});
 
 describe('Schedule Conversion Utility', () => {
   describe('convertCronToWindowsTrigger', () => {

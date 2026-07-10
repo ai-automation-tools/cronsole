@@ -7,8 +7,10 @@
 > **Status:** Catalog drafted + schema migrated + starters seeded (2026-06-10); Apply modal + library UI shipped.
 > The new `Template` fields (§2) shipped in migration `20260610000000_add_template_catalog_fields`,
 > and all 20 Tier A starters + 4 backfilled patterns are in `backend/src/seed.ts` (24 rows total,
-> verified seeded). The **Apply modal** that substitutes `{{placeholders}}` (§7 step 3) shipped, backed by
-> `GET /api/templates` + `POST /api/templates/:id/apply`. The **library UI** (2026-07-08) adds search,
+> verified seeded). The **Apply modal** (§7 step 3) shipped, backed by
+> `GET /api/templates` + `POST /api/templates/:id/apply`; since 2026-07-10 the modal sends **raw
+> parameter values** and the **backend owns `{{placeholder}}` substitution per-token** (§5).
+> The **library UI** (2026-07-08) adds search,
 > faceted OS + Tags(category) filters, a Starter/Pattern type toggle, and starter-vs-pattern grouping.
 > Still open (see `docs/ROADMAP.md`): parameterize the 4 Tier-B patterns; real-vs-removed upvotes; template import/export.
 
@@ -89,8 +91,9 @@ enum TemplateCategory {
 ```
 
 > `command` stays for backward-compat (the resolved, ready-to-run string). `commandTemplate`
-> holds the un-filled version with `{{placeholders}}`; the Apply flow substitutes parameters
-> into it to produce the final `command` sent to the connector.
+> holds the un-filled version with `{{placeholders}}`; the Apply flow sends the raw parameter
+> values and the **backend** substitutes them into it (per-token — see §5) to produce the
+> structured action + final `command` sent to the connector.
 
 ---
 
@@ -165,7 +168,8 @@ the target set to grow toward (community-contributed ones land here too via `isP
 ## 5. Parameter / placeholder convention
 
 `parameters` is a JSON array describing each `{{placeholder}}` in `commandTemplate`. The Apply
-modal renders one input per entry; the resolved string becomes the task's `command`.
+modal renders one input per entry and sends the **raw values** (`parameters` in the apply body);
+the **backend owns substitution** and derives both the structured action and the display `command`.
 
 ```jsonc
 [
@@ -189,7 +193,17 @@ modal renders one input per entry; the resolved string becomes the task's `comma
 ```
 
 Rules:
-- Substitution is literal `{{key}}` → value. Unfilled **required** params block Apply.
+- The client sends raw values; the **server substitutes per-token** (2026-07-10,
+  `backend/src/utils/templateCommand.ts`): the template is tokenized first, then values are
+  substituted into tokens. A **quoted or composite** placeholder (`"{{scriptPath}}"`,
+  `--flag={{v}}`) is always exactly **one argument**, no matter what the value contains
+  (spaces, quotes — even unbalanced ones). A **bare** placeholder token (`{{args}}`) is the
+  author's multi-argument slot: its value is tokenized and may expand to zero or more
+  arguments, contained to that position. Quote a placeholder in `commandTemplate` when its
+  value must stay a single argument; leave it bare only for free-form extra-args.
+- The server validates raw values against this parameter spec: unfilled **required** params,
+  a `select` value outside `options`, undeclared keys, and non-string values are each a
+  specific 400. (The modal also blocks Apply client-side on missing required fields.)
 - On Windows, the resolved command is **structured into `{executable, args[]}` server-side and
   registered as a direct ExecAction — no `cmd.exe /c` shell wrapper** (2026-07-09 P0 hardening).
   Each argument is quoted per Windows rules, so a parameter value stays a single argument to the
@@ -227,10 +241,11 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
    in `backend/src/seed.ts` (24 rows total).
 3. ~~**Wire the dead "Apply Template" button**~~ ✅ *Done* — `ApplyTemplateModal` in
    `Dashboard.tsx` renders `parameters`, lets the user pick the target platform + confirm the
-   cron schedule, live-substitutes `{{placeholders}}` into a previewed command, and
-   `POST`s `{ platform, command, scheduleExpression, name }` to `/templates/:id/apply`
-   (which now accepts those overrides and rejects unfilled placeholders). Invalidates `tasks`
-   on success.
+   cron schedule, live-substitutes `{{placeholders}}` into a previewed command (preview only),
+   and `POST`s `{ platform, parameters, schedule, name }` to `/templates/:id/apply` — the
+   backend substitutes the raw values per-token and rejects unfilled/invalid parameters (§5;
+   a legacy pre-substituted `command` field is still accepted, deprecated). Invalidates
+   `tasks` on success.
 4. **Card UI** — `scriptType` badge is shown; still to add: `os` badge, `category` filter chips,
    and grouping starters vs patterns. Reuse the existing dark card style.
 5. ~~**Cron ↔ Windows trigger conversion** with confidence score~~ ✅ *Done (2026-07-07)* —

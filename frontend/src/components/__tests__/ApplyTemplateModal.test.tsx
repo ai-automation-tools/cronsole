@@ -95,11 +95,16 @@ describe('ApplyTemplateModal Component', () => {
     fireEvent.click(createBtn);
 
     await waitFor(() => {
+      // Raw parameter values go to the server; the backend owns substitution.
       expect(api.post).toHaveBeenCalledWith('/templates/template-cron-backup/apply', {
         platform: 'CLAUDE_CODE',
         schedule: '0 0 * * *',
         name: 'Daily Cron Backup',
-        command: 'backup-tool --src C:\\data --dest D:\\backup --options --fast'
+        parameters: {
+          srcDir: 'C:\\data',
+          destDir: 'D:\\backup',
+          options: '--fast'
+        }
       });
     });
 

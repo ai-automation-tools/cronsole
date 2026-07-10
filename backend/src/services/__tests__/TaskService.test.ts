@@ -6,6 +6,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     task: {
       upsert: vi.fn(),
       findMany: vi.fn(),
+      count: vi.fn(),
       deleteMany: vi.fn()
     },
     executionLog: {
@@ -37,6 +38,7 @@ vi.mock('@prisma/client', () => {
 describe('TaskService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.task.count.mockResolvedValue(3);
   });
 
   it('should extract root folder as category for Windows tasks', async () => {
@@ -119,6 +121,7 @@ describe('TaskService', () => {
   });
 
   it('should delete tasks missing from the current platform list', async () => {
+    mockPrisma.task.count.mockResolvedValue(3);
     mockPrisma.task.findMany.mockResolvedValue([{ id: 'stale-1' }, { id: 'stale-2' }]);
 
     const removed = await TaskService.removeStaleTasks(
@@ -144,7 +147,35 @@ describe('TaskService', () => {
     });
   });
 
+  it('should skip stale pruning when the platform snapshot is empty', async () => {
+    const removed = await TaskService.removeStaleTasks(
+      'user-1',
+      'WINDOWS_TASK_SCHEDULER' as any,
+      []
+    );
+
+    expect(removed).toBe(0);
+    expect(mockPrisma.task.count).not.toHaveBeenCalled();
+    expect(mockPrisma.task.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('should skip stale pruning when an established platform returns a suspicious partial snapshot', async () => {
+    mockPrisma.task.count.mockResolvedValue(100);
+
+    const removed = await TaskService.removeStaleTasks(
+      'user-1',
+      'WINDOWS_TASK_SCHEDULER' as any,
+      ['\\Only\\OneTask']
+    );
+
+    expect(removed).toBe(0);
+    expect(mockPrisma.task.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('should not delete anything when no tasks are stale', async () => {
+    mockPrisma.task.count.mockResolvedValue(1);
     mockPrisma.task.findMany.mockResolvedValue([]);
 
     const removed = await TaskService.removeStaleTasks(

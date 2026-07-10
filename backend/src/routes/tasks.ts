@@ -10,6 +10,7 @@ import { notifyTasksChanged } from '../ws/uiChannel.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
+import { queueFailureNotification } from '../services/FailureNotificationService.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-conversion.js';
 import { HttpError } from '../middleware/errorHandler.js';
@@ -449,7 +450,7 @@ router.post('/:id/run', async (req: Request, res: Response) => {
   const result = await connector.runTask(task.externalId, config);
   const durationMs = Date.now() - runStartedAt;
 
-  await prisma.executionLog.create({
+  const execution = await prisma.executionLog.create({
     data: {
       taskId: id,
       status: result.success ? 'SUCCESS' : 'FAILURE',
@@ -458,6 +459,17 @@ router.post('/:id/run', async (req: Request, res: Response) => {
       durationMs
     }
   });
+  if (!result.success) {
+    queueFailureNotification({
+      task,
+      trigger: 'manual',
+      status: 'FAILURE',
+      message: result.message || 'Failed to trigger',
+      durationMs,
+      executionId: execution.id,
+      triggeredAt: execution.triggeredAt
+    });
+  }
   notifyTasksChanged(userId);
 
   if (result.success) {

@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { executeJob, NativeJob } from './NativeTaskExecutor.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
+import { queueFailureNotification } from './FailureNotificationService.js';
 
 const TICK_INTERVAL_MS = 30_000;
 // Due times missed by more than this (server downtime) are skipped, not fired.
@@ -76,7 +77,7 @@ export class NativeScheduler {
           ? await executeJob(job)
           : { success: false, log: 'Task has no job spec in metadata.job', durationMs: 0 };
 
-        await prisma.executionLog.create({
+        const execution = await prisma.executionLog.create({
           data: {
             taskId: task.id,
             status: result.success ? 'SUCCESS' : 'FAILURE',
@@ -84,6 +85,17 @@ export class NativeScheduler {
             durationMs: result.durationMs
           }
         });
+        if (!result.success) {
+          queueFailureNotification({
+            task,
+            trigger: 'scheduled',
+            status: 'FAILURE',
+            message: result.log,
+            durationMs: result.durationMs,
+            executionId: execution.id,
+            triggeredAt: execution.triggeredAt
+          });
+        }
         console.log(`[NativeScheduler] ran "${task.name}": ${result.success ? 'SUCCESS' : 'FAILURE'}`);
       }
 

@@ -29,6 +29,7 @@ const VEC = {
   ts: 1700000000,
   sessionKey: '67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14',
   runSig: 'e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48',
+  deleteSig: 'ac32ed9af3b1904803cc54a7667e109e25e79c068f420c386c054374fd23d61f',
   statusSig: '9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133',
   // task:create signs the structured action AND the trigger. Golden case:
   // command 'dir', action { executable: 'dir', args: [] } -> canonical 'dir',
@@ -53,6 +54,7 @@ describe('agentAuth cross-language vector', () => {
   it('signs each command to the golden signature', () => {
     const cases: Array<[SignableCommand, string]> = [
       [{ event: 'task:run', taskPath: 'MyTask' }, VEC.runSig],
+      [{ event: 'task:delete', taskPath: 'MyTask' }, VEC.deleteSig],
       [{ event: 'task:set_status', taskPath: 'MyTask', enabled: false }, VEC.statusSig],
       [
         {

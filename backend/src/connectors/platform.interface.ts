@@ -65,4 +65,14 @@ export interface PlatformConnector {
    * the server was able to convert the cron.
    */
   createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }>;
+
+  /**
+   * Delete the platform's native task entry. Optional — platforms that can't
+   * remove their real entry (quick-link platforms, the experimental Claude
+   * connector) simply don't implement it, and the DELETE route refuses rather
+   * than leaving an orphaned native task behind. Implementations should be
+   * idempotent: deleting a task that no longer exists on the platform is a
+   * success (the desired end state holds).
+   */
+  deleteTask?(externalId: string, config: any): Promise<{ success: boolean; message?: string }>;
 }

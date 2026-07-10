@@ -414,20 +414,28 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
         </div>
         )}
         <footer className="p-6 bg-background border-t border-border flex gap-4">
-          {task.platform === 'TASKHUB_NATIVE' && (
-            <button
-              onClick={() => {
-                if (confirm(`Delete "${task.name}" and its run history? This cannot be undone.`)) {
-                  deleteMutation.mutate();
-                }
-              }}
-              disabled={deleteMutation.isPending}
-              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-3 rounded-xl font-bold transition-all border border-red-500/30 active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
-              title="Delete this TaskHub-native task"
-            >
-              {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Delete
-            </button>
-          )}
+          {(task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && (() => {
+            const isWindowsTask = task.platform === 'WINDOWS_TASK_SCHEDULER';
+            return (
+              <button
+                onClick={() => {
+                  const scope = isWindowsTask
+                    ? `Delete "${task.name}" from Windows Task Scheduler and remove its TaskHub run history? This cannot be undone.`
+                    : `Delete "${task.name}" and its run history? This cannot be undone.`;
+                  if (confirm(scope)) {
+                    deleteMutation.mutate();
+                  }
+                }}
+                disabled={deleteMutation.isPending}
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-3 rounded-xl font-bold transition-all border border-red-500/30 active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
+                title={isWindowsTask
+                  ? 'Delete this task from Windows Task Scheduler (via the agent)'
+                  : 'Delete this TaskHub-native task'}
+              >
+                {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Delete
+              </button>
+            );
+          })()}
           <button className="flex-1 bg-muted hover:bg-muted py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm">
             Edit Schedule
           </button>

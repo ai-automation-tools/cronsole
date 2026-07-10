@@ -175,6 +175,64 @@ describe('WindowsAgentConnector', () => {
     vi.useRealTimers();
   });
 
+  it('should delete a task successfully', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:deleted') {
+        setTimeout(() => {
+          handler({
+            taskExternalId: '\\TaskHub\\Task1',
+            success: true,
+            message: 'Task deleted'
+          });
+        }, 10);
+      }
+    });
+
+    const result = await connector.deleteTask('\\TaskHub\\Task1', { userId: 'test_user' });
+
+    expectSignedCommand(mockSocket, 'task:delete', { event: 'task:delete', taskPath: '\\TaskHub\\Task1' });
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Task deleted');
+  });
+
+  it('should surface an agent-side delete failure', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:deleted') {
+        setTimeout(() => {
+          handler({ taskExternalId: '\\Task1', success: false, message: 'Access is denied' });
+        }, 10);
+      }
+    });
+
+    const result = await connector.deleteTask('\\Task1', { userId: 'test_user' });
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Access is denied');
+  });
+
+  it('should fail to delete a task if agent offline', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
+    const result = await connector.deleteTask('\\Task1', { userId: 'test_user' });
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Agent offline');
+  });
+
+  it('should timeout if delete task takes too long', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+    vi.useFakeTimers();
+
+    const deletePromise = connector.deleteTask('\\Task1', { userId: 'test_user' });
+    vi.advanceTimersByTime(15500);
+
+    const result = await deletePromise;
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Agent delete timeout');
+    vi.useRealTimers();
+  });
+
   it('should set task status successfully', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
     const result = await connector.setTaskStatus('\\Task1', true, { userId: 'test_user' });

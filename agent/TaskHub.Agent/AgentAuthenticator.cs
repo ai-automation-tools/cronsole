@@ -154,6 +154,9 @@ namespace TaskHub.Agent
         public static string RunMessage(string taskPath, long ts) =>
             $"task:run|{taskPath}|{ts}";
 
+        public static string DeleteMessage(string taskPath, long ts) =>
+            $"task:delete|{taskPath}|{ts}";
+
         public static string SetStatusMessage(string taskPath, bool enabled, long ts) =>
             $"task:set_status|{taskPath}|{(enabled ? 1 : 0)}|{ts}";
 

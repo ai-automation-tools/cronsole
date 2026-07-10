@@ -121,6 +121,19 @@ namespace TaskHub.Agent
             }
         }
 
+        public bool DeleteTask(string path)
+        {
+            using (TaskService ts = new TaskService())
+            {
+                var task = ts.GetTask(path);
+                if (task == null) return false;
+                // Delete from the task's own containing folder so paths under
+                // \TaskHub\ (or anywhere else) resolve without string surgery.
+                task.Folder.DeleteTask(task.Name, exceptionOnNotExists: false);
+                return true;
+            }
+        }
+
         public AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null)
         {
             using (TaskService ts = new TaskService())

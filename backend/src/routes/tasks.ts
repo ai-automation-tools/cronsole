@@ -377,9 +377,12 @@ router.get('/discover', async (req: Request, res: Response) => {
   res.json(discovery);
 });
 
-// Delete a task. Only TaskHub-native tasks for now — deleting a synced task
-// would need the platform connector to remove the real entry (agent task:delete
-// is still on the roadmap).
+// Delete a task. TaskHub-native rows are backend-owned, so the DB delete is the
+// whole operation. For agent-backed platforms (Windows) the connector must
+// remove the real scheduler entry first (signed task:delete to the agent) — the
+// DB row only goes away once the platform confirms, so TaskHub never claims a
+// task is gone while it still exists (and runs) on the machine. Platforms
+// without a deleteTask implementation still get the honest 400.
 router.delete('/:id', async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const userId = (req as AuthRequest).user!.id;
@@ -388,8 +391,25 @@ router.delete('/:id', async (req: Request, res: Response) => {
   if (!task) {
     throw new HttpError(404, 'Task not found');
   }
+
   if (task.platform !== PlatformType.TASKHUB_NATIVE) {
-    throw new HttpError(400, 'Only TaskHub-native tasks can be deleted. Synced tasks must be removed on their own platform.');
+    const connector = connectorRegistry.getConnector(task.platform);
+    if (!connector?.deleteTask) {
+      throw new HttpError(400, `Deleting tasks is not supported for ${task.platform} yet. Remove the task on its own platform instead.`);
+    }
+
+    const connection = await prisma.platformConnection.findUnique({
+      where: { userId_platform: { userId, platform: task.platform } }
+    });
+
+    // Config is encrypted at rest (AES-256-GCM); decrypt before use.
+    const result = await connector.deleteTask(task.externalId, {
+      ...deserializeConfig(connection?.config),
+      userId
+    });
+    if (!result.success) {
+      throw new HttpError(502, result.message || 'The platform failed to delete the task');
+    }
   }
 
   await prisma.$transaction([

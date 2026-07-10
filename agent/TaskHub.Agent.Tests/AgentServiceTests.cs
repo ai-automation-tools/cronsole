@@ -65,6 +65,7 @@ namespace TaskHub.Agent.Tests
             _socketHandlers.Should().ContainKey("task:set_status");
             _socketHandlers.Should().ContainKey("task:run");
             _socketHandlers.Should().ContainKey("task:create");
+            _socketHandlers.Should().ContainKey("task:delete");
         }
 
         [Fact]
@@ -175,6 +176,97 @@ namespace TaskHub.Agent.Tests
             // Assert — scheduler untouched, no result emitted.
             _mockScheduler.Verify(s => s.RunTask(It.IsAny<string>()), Times.Never);
             _mockSocket.Verify(s => s.EmitAsync("task:executed", It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public void TaskDelete_Event_DeletesTaskAndEmitsResult()
+        {
+            // Arrange
+            var taskPath = "\\TaskHub\\OldJob";
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig }));
+
+            _mockScheduler.Setup(s => s.DeleteTask(taskPath)).Returns(true);
+
+            // Act
+            _socketHandlers["task:delete"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockScheduler.Verify(s => s.DeleteTask(taskPath), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:deleted", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public void TaskDelete_Event_NotFound_ReportsIdempotentSuccess()
+        {
+            // Arrange — a task already gone must still ack success (the desired
+            // end state holds), so a stale DB row can be cleaned up server-side.
+            var taskPath = "\\TaskHub\\Ghost";
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig }));
+
+            _mockScheduler.Setup(s => s.DeleteTask(taskPath)).Returns(false);
+
+            // Act
+            _socketHandlers["task:delete"].Invoke(mockResponse.Object);
+
+            // Assert — still emits task:deleted (success carried in the payload).
+            _mockScheduler.Verify(s => s.DeleteTask(taskPath), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:deleted", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public void TaskDelete_Event_AccessDenied_EmitsFriendlyFailure()
+        {
+            // Arrange — tasks registered by an elevated process give the user
+            // read-only ACLs; the unelevated agent gets E_ACCESSDENIED. The ack
+            // must carry an actionable message, not the raw HRESULT.
+            var taskPath = "\\AI-Automation-Library\\LockedTask";
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig }));
+
+            _mockScheduler.Setup(s => s.DeleteTask(taskPath))
+                .Throws(new UnauthorizedAccessException("Access is denied. (0x80070005 (E_ACCESSDENIED))"));
+
+            // Act
+            _socketHandlers["task:delete"].Invoke(mockResponse.Object);
+
+            // Assert — failure ack with the friendly explanation (and the path).
+            _mockSocket.Verify(s => s.EmitAsync("task:deleted", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("administrator rights") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("LockedTask"))), Times.Once);
+        }
+
+        [Fact]
+        public void TaskDelete_Event_RejectsInvalidSignature()
+        {
+            // Arrange — a forged delete must never touch the scheduler (an
+            // attacker could otherwise remove backups/monitoring jobs).
+            var taskPath = "\\Mikes\\NightlyBackup";
+            var ts = Now();
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig = "deadbeef" }));
+
+            // Act
+            _socketHandlers["task:delete"].Invoke(mockResponse.Object);
+
+            // Assert — scheduler untouched, no ack emitted.
+            _mockScheduler.Verify(s => s.DeleteTask(It.IsAny<string>()), Times.Never);
+            _mockSocket.Verify(s => s.EmitAsync("task:deleted", It.IsAny<object>()), Times.Never);
         }
 
         [Fact]

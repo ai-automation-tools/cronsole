@@ -235,6 +235,15 @@ describe('WindowsAgentConnector', () => {
 
   it('should set task status successfully', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:status_set') {
+        setTimeout(() => {
+          handler({ taskExternalId: '\\Task1', success: true });
+        }, 10);
+      }
+    });
+
     const result = await connector.setTaskStatus('\\Task1', true, { userId: 'test_user' });
     expectSignedCommand(mockSocket, 'task:set_status', { event: 'task:set_status', taskPath: '\\Task1', enabled: true });
     expect(result.success).toBe(true);
@@ -244,6 +253,19 @@ describe('WindowsAgentConnector', () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
     const result = await connector.setTaskStatus('\\Task1', true, { userId: 'test_user' });
     expect(result.success).toBe(false);
+  });
+
+  it('should timeout if set status takes too long', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+    vi.useFakeTimers();
+
+    const setStatusPromise = connector.setTaskStatus('\\Task1', true, { userId: 'test_user' });
+    vi.advanceTimersByTime(15500);
+
+    const result = await setStatusPromise;
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Agent status update timeout');
+    vi.useRealTimers();
   });
 
   it('should create a task successfully', async () => {

@@ -44,6 +44,16 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 - **Manual** — run each service yourself when you're developing or debugging a single
   layer. See below.
 
+> [!IMPORTANT]
+> `docker-compose.yml` bakes in **DEV-ONLY default secrets** (`JWT_SECRET`,
+> `ENCRYPTION_KEY`, `AGENT_PAIRING_SECRET`) so `docker compose up` boots out of the box.
+> Those defaults **won't match** a `frontend/.env.local` dev token or an agent pairing
+> secret you generated against a rotated `backend/.env` — the dashboard then gets
+> `403 Invalid or expired token` and the agent handshake is rejected. To align them,
+> create a **root `.env`** (gitignored, next to `docker-compose.yml`) mirroring the
+> secret values from `backend/.env`; Compose interpolates it automatically. Recreate the
+> backend after changing it: `docker compose up -d --force-recreate backend`.
+
 ### Run it manually (no Docker)
 
 ```bash

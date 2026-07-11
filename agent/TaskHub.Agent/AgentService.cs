@@ -49,6 +49,19 @@ namespace TaskHub.Agent
             return ex.Message;
         }
 
+        // Map a status-change failure to a message the dashboard can show as-is.
+        // The common case is E_ACCESSDENIED.
+        private static string FriendlyStatusError(Exception ex)
+        {
+            const int E_ACCESSDENIED = unchecked((int)0x80070005);
+            if (ex is UnauthorizedAccessException || ex.HResult == E_ACCESSDENIED)
+            {
+                return "Windows denied the update — this task requires administrator rights to modify. " +
+                       "Modify it from an elevated Task Scheduler, or run the TaskHub agent elevated.";
+            }
+            return ex.Message;
+        }
+
         // Read the structured { executable, args[], workingDirectory? } action from
         // a task:create payload. Missing/ill-typed fields degrade to empty rather
         // than throwing (the signature check is what actually gates execution).
@@ -162,13 +175,15 @@ namespace TaskHub.Agent
             });
 
             // Event: task:set_status (Server commanded us to enable/disable a task)
-            _socket.On("task:set_status", response =>
+            _socket.On("task:set_status", async response =>
             {
+                var taskPath = "";
+                var enabled = false;
                 try
                 {
                     var data = response.GetValue<JsonElement>(0);
-                    var taskPath = data.GetProperty("taskPath").GetString() ?? "";
-                    var enabled = data.GetProperty("enabled").GetBoolean();
+                    taskPath = data.GetProperty("taskPath").GetString() ?? "";
+                    enabled = data.GetProperty("enabled").GetBoolean();
 
                     if (!TryReadSignature(data, out var ts, out var sig) ||
                         !_auth.VerifyCommand(AgentAuthenticator.SetStatusMessage(taskPath, enabled, ts), ts, sig))
@@ -183,15 +198,34 @@ namespace TaskHub.Agent
                     if (success)
                     {
                         Console.WriteLine($"Task {taskPath} is now {(enabled ? "enabled" : "disabled")}.");
+                        await _socket.EmitAsync("task:status_set", new[] { new {
+                            taskExternalId = taskPath,
+                            success = true,
+                            message = $"Task is now {(enabled ? "enabled" : "disabled")}."
+                        }});
                     }
                     else
                     {
                         Console.WriteLine($"Task {taskPath} not found for status update.");
+                        await _socket.EmitAsync("task:status_set", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = "Task not found"
+                        }});
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error setting status: {ex.Message}");
+                    try
+                    {
+                        await _socket.EmitAsync("task:status_set", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = FriendlyStatusError(ex)
+                        }});
+                    }
+                    catch { /* socket gone */ }
                 }
             });
 

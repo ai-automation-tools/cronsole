@@ -123,15 +123,33 @@ export class WindowsAgentConnector implements PlatformConnector {
     });
   }
 
-  async setTaskStatus(externalId: string, enabled: boolean, config: any): Promise<{ success: boolean }> {
+  async setTaskStatus(externalId: string, enabled: boolean, config: any): Promise<{ success: boolean; message?: string }> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
 
-    if (!socket) return { success: false };
+    if (!socket) {
+      return { success: false, message: 'Agent offline' };
+    }
 
-    // Status update is currently fire-and-forget in agent for simplicity
-    emitSignedCommand(socket, { event: 'task:set_status', taskPath: externalId, enabled });
-    return { success: true };
+    return new Promise((resolve) => {
+      const handler = (payload: any) => {
+        if (payload.taskExternalId === externalId) {
+          socket.off('task:status_set', handler);
+          resolve({
+            success: payload.success,
+            message: payload.message
+          });
+        }
+      };
+
+      socket.on('task:status_set', handler);
+      emitSignedCommand(socket, { event: 'task:set_status', taskPath: externalId, enabled });
+
+      setTimeout(() => {
+        socket.off('task:status_set', handler);
+        resolve({ success: false, message: 'Agent status update timeout' });
+      }, 15000);
+    });
   }
 
   async getHealth(config: any): Promise<ConnectorHealth> {

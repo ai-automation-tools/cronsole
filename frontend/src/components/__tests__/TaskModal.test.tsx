@@ -220,4 +220,18 @@ describe('TaskModal Component', () => {
     });
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('triggers patch request when Enable/Disable is clicked', async () => {
+    vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask, status: 'DISABLED' } });
+    renderModal();
+
+    const toggleBtn = screen.getByRole('button', { name: /Disable/i });
+    expect(toggleBtn).toBeInTheDocument();
+
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith('/tasks/task-123/status', { status: 'DISABLED' });
+    });
+  });
 });

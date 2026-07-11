@@ -1338,7 +1338,7 @@ const Dashboard = () => {
         {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
       </main>
       <TaskModal 
-        task={selectedTask} 
+        task={(tasks || []).find(t => t.id === selectedTask?.id) || selectedTask} 
         onClose={() => setSelectedTask(null)} 
         onRun={runMutation.mutate} 
         onCategoryUpdate={handleCategoryUpdate}

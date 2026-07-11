@@ -116,7 +116,7 @@ namespace TaskHub.Agent.Tests
         }
 
         [Fact]
-        public void TaskSetStatus_Event_UpdatesTaskStatus()
+        public void TaskSetStatus_Event_UpdatesTaskStatusAndEmitsAck()
         {
             // Arrange
             var taskPath = "\\Mikes\\Backup";
@@ -135,6 +135,76 @@ namespace TaskHub.Agent.Tests
 
             // Assert
             _mockScheduler.Verify(s => s.SetTaskStatus(taskPath, enabled), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:status_set", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public void TaskSetStatus_Event_NotFound_EmitsFailureAck()
+        {
+            // Arrange
+            var taskPath = "\\Mikes\\Backup";
+            var enabled = false;
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, enabled, ts, sig }));
+
+            _mockScheduler.Setup(s => s.SetTaskStatus(taskPath, enabled)).Returns(false);
+
+            // Act
+            _socketHandlers["task:set_status"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockScheduler.Verify(s => s.SetTaskStatus(taskPath, enabled), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:status_set", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Task not found"))), Times.Once);
+        }
+
+        [Fact]
+        public void TaskSetStatus_Event_AccessDenied_EmitsFriendlyFailureAck()
+        {
+            // Arrange
+            var taskPath = "\\Mikes\\Backup";
+            var enabled = false;
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, enabled, ts, sig }));
+
+            _mockScheduler.Setup(s => s.SetTaskStatus(taskPath, enabled))
+                .Throws(new UnauthorizedAccessException("Access is denied. (0x80070005 (E_ACCESSDENIED))"));
+
+            // Act
+            _socketHandlers["task:set_status"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockScheduler.Verify(s => s.SetTaskStatus(taskPath, enabled), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:status_set", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("administrator rights"))), Times.Once);
+        }
+
+        [Fact]
+        public void TaskSetStatus_Event_RejectsInvalidSignature()
+        {
+            // Arrange
+            var taskPath = "\\Mikes\\Backup";
+            var enabled = false;
+            var ts = Now();
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, enabled, ts, sig = "deadbeef" }));
+
+            // Act
+            _socketHandlers["task:set_status"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockScheduler.Verify(s => s.SetTaskStatus(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+            _mockSocket.Verify(s => s.EmitAsync("task:status_set", It.IsAny<object>()), Times.Never);
         }
 
         [Fact]

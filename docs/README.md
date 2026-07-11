@@ -33,6 +33,7 @@ New to TaskHub? Follow this path in order:
 | [**⬇️ install/**](install/README.md) | Install TaskHub — Windows, macOS, and clone-the-repo paths. |
 | [**⚙️ setup/**](setup/README.md) | Configure it — environment variables, Docker vs. manual, agent pairing. |
 | [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough and the Windows agent guide. |
+| [**🧯 troubleshooting/**](troubleshooting/README.md) | Fix it — symptom → cause → fix for problems we've actually hit. |
 
 ## 🧰 Reference & building blocks
 
@@ -69,5 +70,6 @@ New to TaskHub? Follow this path in order:
   <a href="../README.md">Repository Root</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
   <a href="install/README.md">Install</a> ·
-  <a href="user-guides/README.md">User Guides</a>
+  <a href="user-guides/README.md">User Guides</a> ·
+  <a href="troubleshooting/README.md">Troubleshooting</a>
 </p>

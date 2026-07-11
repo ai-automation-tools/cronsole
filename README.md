@@ -179,6 +179,7 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 | [**⬇️ Installation**](docs/install/README.md) | Install TaskHub on Windows or macOS, or clone the repo. |
 | [**⚙️ Setup & Configuration**](docs/setup/README.md) | Environment variables, Docker vs. manual, agent pairing. |
 | [**🖥️ User Guides**](docs/user-guides/README.md) | Day-to-day guides for using TaskHub once it's running. |
+| [**🧯 Troubleshooting**](docs/troubleshooting/README.md) | Symptom → cause → fix for problems we've actually hit. |
 | [**🗺️ Roadmap**](docs/ROADMAP.md) | What's shipped and what's next, in priority order. |
 
 And the key guides, one click away:

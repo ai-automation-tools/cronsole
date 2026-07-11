@@ -275,6 +275,7 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 4. **External library question:** `context7` before writing.
 5. **PR / large diff:** invoke the **`code-reviewer`** skill before declaring done.
 6. **End of session:** if any deliverable shipped or scope shifted, move/update the item in `docs/ROADMAP.md` (dated).
+7. **Setup / runtime error (won't build, boot, connect, or authenticate):** check [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) **first** — it's a symptom → cause → fix log of problems we've hit. When you resolve a *new* one that took real digging or is likely to recur, add an entry there.
 
 ---
 

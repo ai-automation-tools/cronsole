@@ -195,7 +195,7 @@ And the key guides, one click away:
 
 TaskHub is a private MVP-stage repository. If you're working on it, start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CLAUDE.md`](CLAUDE.md), and track work on the
-[Roadmap](docs/ROADMAP.md). Recent changes are logged in [`CHANGELOG.md`](CHANGELOG.md).
+[Roadmap](docs/ROADMAP.md). Recent changes are logged in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

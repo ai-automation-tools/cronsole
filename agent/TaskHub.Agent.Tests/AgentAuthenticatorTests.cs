@@ -21,6 +21,9 @@ namespace TaskHub.Agent.Tests
         private const string ExpectedRunSig = "e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48";
         private const string ExpectedDeleteSig = "ac32ed9af3b1904803cc54a7667e109e25e79c068f420c386c054374fd23d61f";
         private const string ExpectedStatusSig = "9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133";
+        // task:update_schedule signs the trigger. Golden case: Daily 03:00,
+        // daysInterval 1 -> canonical "trigger|Daily|03:00|1|||".
+        private const string ExpectedUpdateScheduleSig = "65333bec21e6e67657195befd02cd7178309cbcb4404e0ce7ed99ff912ae686b";
         // task:create signs the structured action AND the trigger. Golden action is
         // { executable: "dir", args: [] } -> canonical "dir"; trigger null -> "none".
         private const string ExpectedCreateSig = "4e04ffa6a881215d70a94ef84984898398567f7218d57f6cc3d9fa9264f9e0ba";
@@ -44,6 +47,10 @@ namespace TaskHub.Agent.Tests
                 .Should().Be(ExpectedDeleteSig);
             AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.SetStatusMessage("MyTask", false, Ts))
                 .Should().Be(ExpectedStatusSig);
+            var dailyTrigger = new TriggerSpec { Type = "Daily", StartBoundary = "03:00", DaysInterval = 1 };
+            AgentAuthenticator.Hmac(ExpectedSessionKey,
+                AgentAuthenticator.UpdateScheduleMessage("MyTask", AgentAuthenticator.CanonicalizeTrigger(dailyTrigger), Ts))
+                .Should().Be(ExpectedUpdateScheduleSig);
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var nullTrigger = AgentAuthenticator.CanonicalizeTrigger(null);
             AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, Ts))

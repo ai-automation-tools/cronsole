@@ -35,6 +35,21 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${backendOrigin()}/api${path}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${devToken()}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    throw new Error(`PATCH ${path} failed with ${res.status}: ${await res.text()}`);
+  }
+  return (await res.json()) as T;
+}
+
 export async function apiDelete<T>(path: string): Promise<T> {
   const res = await fetch(`${backendOrigin()}/api${path}`, {
     method: 'DELETE',

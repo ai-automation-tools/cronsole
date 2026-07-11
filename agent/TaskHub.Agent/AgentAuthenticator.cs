@@ -160,6 +160,11 @@ namespace TaskHub.Agent
         public static string SetStatusMessage(string taskPath, bool enabled, long ts) =>
             $"task:set_status|{taskPath}|{(enabled ? 1 : 0)}|{ts}";
 
+        // The trigger IS the change, so it's part of the signed message (mirrors
+        // the task:create trigger coverage).
+        public static string UpdateScheduleMessage(string taskPath, string triggerCanonical, long ts) =>
+            $"task:update_schedule|{taskPath}|{triggerCanonical}|{ts}";
+
         public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, long ts) =>
             $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{ts}";
 

@@ -381,6 +381,71 @@ namespace TaskHub.Agent
                     }});
                 }
             });
+
+            // Event: task:update_schedule (Server commanded us to change a task's trigger)
+            _socket.On("task:update_schedule", async response =>
+            {
+                // Parse inside the try — async-void malformed-frame guard as elsewhere.
+                var taskPath = "";
+                try
+                {
+                    var data = response.GetValue<JsonElement>(0);
+                    taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
+
+                    // The trigger IS the change and is covered by the signature, so
+                    // parse + canonicalize it BEFORE verifying (like task:create).
+                    TriggerSpec? trigger = null;
+                    if (data.TryGetProperty("trigger", out var triggerElement) &&
+                        triggerElement.ValueKind == JsonValueKind.Object)
+                    {
+                        trigger = JsonSerializer.Deserialize<TriggerSpec>(
+                            triggerElement.GetRawText(),
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    }
+                    string triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(trigger);
+
+                    if (!TryReadSignature(data, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, ts), ts, sig))
+                    {
+                        Console.WriteLine($"REJECTED unsigned/invalid task:update_schedule for {taskPath}");
+                        return;
+                    }
+
+                    // A signed command with no usable trigger is malformed — refuse
+                    // rather than clearing the task's triggers and leaving it unscheduled.
+                    if (trigger == null)
+                    {
+                        await _socket.EmitAsync("task:schedule_updated", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = "No trigger supplied"
+                        }});
+                        return;
+                    }
+
+                    Console.WriteLine($"Server command: task:update_schedule -> {taskPath} (trigger={trigger.Type})");
+
+                    bool success = _scheduler.UpdateTaskSchedule(taskPath, trigger);
+                    await _socket.EmitAsync("task:schedule_updated", new[] { new {
+                        taskExternalId = taskPath,
+                        success,
+                        message = success ? "Schedule updated" : "Task not found"
+                    }});
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error updating schedule: {ex.Message}");
+                    try
+                    {
+                        await _socket.EmitAsync("task:schedule_updated", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = FriendlyStatusError(ex)
+                        }});
+                    }
+                    catch { /* socket gone — server's 15s timeout covers it */ }
+                }
+            });
         }
     }
 }

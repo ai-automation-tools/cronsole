@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { apiDelete, apiGet, apiPost, type ApiTask, windowsTasksAsAgentTasks } from './helpers/api';
+import { apiDelete, apiGet, apiPatch, apiPost, type ApiTask, windowsTasksAsAgentTasks } from './helpers/api';
 import { e2eAgentTask, MockTaskHubAgent } from './helpers/mockAgent';
 
 test.describe.serial('mock Windows agent flows', () => {
@@ -95,6 +95,26 @@ test.describe.serial('mock Windows agent flows', () => {
     expect(agent.deletes.map((d) => d.taskPath)).toContain('\\TaskHub\\E2E Applied Task');
     const after = await apiGet<ApiTask[]>('/tasks');
     expect(after.some((t) => t.externalId === '\\TaskHub\\E2E Applied Task')).toBe(false);
+  });
+
+  test('edits a Windows task schedule through the real signed command', async () => {
+    // Make sure the deterministic E2E task is tracked, then edit its schedule.
+    await apiPost('/tasks/sync', { categories: ['E2E'] });
+    const tasks = await apiGet<ApiTask[]>('/tasks');
+    const target = tasks.find((t) => t.externalId === '\\E2E\\Mock Nightly Backup');
+    expect(target).toBeTruthy();
+
+    const updated = await apiPatch<ApiTask>(`/tasks/${target!.id}/schedule`, { schedule: '0 8 * * *' });
+    expect(updated.schedule).toBe('0 8 * * *');
+    // The signed task:update_schedule reached the agent for the real task path.
+    expect(agent.scheduleUpdates.map((u) => u.taskPath)).toContain('\\E2E\\Mock Nightly Backup');
+
+    // The stored schedule reflects the change after platform confirmation.
+    const after = await apiGet<ApiTask[]>('/tasks');
+    expect(after.find((t) => t.id === target!.id)?.schedule).toBe('0 8 * * *');
+
+    // Restore so repeat runs are stable.
+    await apiPatch(`/tasks/${target!.id}/schedule`, { schedule: '15 9 * * *' });
   });
 
   test('shows the agent as offline after the socket disconnects', async ({ page }) => {

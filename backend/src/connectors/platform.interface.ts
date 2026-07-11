@@ -50,9 +50,10 @@ export interface PlatformConnector {
   runTask(externalId: string, config: any): Promise<{ success: boolean; platformRunId?: string; message?: string }>;
 
   /**
-   * Enable/Disable a task.
+   * Enable/Disable a task. `message` carries a platform failure reason (e.g. an
+   * elevation/ACL refusal) the route surfaces on a non-success result.
    */
-  setTaskStatus(externalId: string, enabled: boolean, config: any): Promise<{ success: boolean }>;
+  setTaskStatus(externalId: string, enabled: boolean, config: any): Promise<{ success: boolean; message?: string }>;
 
   /**
    * Check health of the connection.
@@ -65,6 +66,15 @@ export interface PlatformConnector {
    * the server was able to convert the cron.
    */
   createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }>;
+
+  /**
+   * Change the schedule (trigger) of an existing platform task, leaving its
+   * action and settings intact. Optional — only platforms that register native
+   * triggers (Windows Task Scheduler) implement it; others get an honest 400
+   * from the route. `trigger` is the structured form produced by
+   * convertCronToWindowsTrigger for the new cron.
+   */
+  updateSchedule?(externalId: string, trigger: WindowsTrigger, config: any): Promise<{ success: boolean; message?: string }>;
 
   /**
    * Delete the platform's native task entry. Optional — platforms that can't

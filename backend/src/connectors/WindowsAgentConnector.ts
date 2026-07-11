@@ -152,6 +152,35 @@ export class WindowsAgentConnector implements PlatformConnector {
     });
   }
 
+  async updateSchedule(externalId: string, trigger: WindowsTrigger, config: any): Promise<{ success: boolean; message?: string }> {
+    const userId = config.userId;
+    const socket = agentManager.getSocket(userId);
+
+    if (!socket) {
+      return { success: false, message: 'Agent offline' };
+    }
+
+    return new Promise((resolve) => {
+      const handler = (payload: any) => {
+        if (payload.taskExternalId === externalId) {
+          socket.off('task:schedule_updated', handler);
+          resolve({
+            success: payload.success,
+            message: payload.message
+          });
+        }
+      };
+
+      socket.on('task:schedule_updated', handler);
+      emitSignedCommand(socket, { event: 'task:update_schedule', taskPath: externalId, trigger });
+
+      setTimeout(() => {
+        socket.off('task:schedule_updated', handler);
+        resolve({ success: false, message: 'Agent schedule update timeout' });
+      }, 15000);
+    });
+  }
+
   async getHealth(config: any): Promise<ConnectorHealth> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);

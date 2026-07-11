@@ -71,6 +71,56 @@ router.patch('/:id', validateBody(patchTaskSchema), async (req: Request, res: Re
   res.json(task);
 });
 
+const patchTaskStatusSchema = z.object({
+  status: z.enum([TaskStatus.ACTIVE, TaskStatus.DISABLED], { message: 'Invalid status' })
+});
+
+// Enable/Disable a task (contacts the platform, then updates the DB)
+router.patch('/:id/status', validateBody(patchTaskStatusSchema), async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+  const { status } = req.body;
+
+  // Scope by userId so one user can't mutate another's task (IDOR).
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  const connector = connectorRegistry.getConnector(task.platform);
+  if (!connector) {
+    throw new HttpError(400, 'Platform connector not found');
+  }
+
+  const connection = await prisma.platformConnection.findUnique({
+    where: { userId_platform: { userId, platform: task.platform } }
+  });
+
+  const config = {
+    ...deserializeConfig(connection?.config),
+    userId
+  };
+
+  const enabled = status === TaskStatus.ACTIVE;
+  const result = await connector.setTaskStatus(task.externalId, enabled, config);
+  if (!result.success) {
+    throw new HttpError(502, result.message || 'The platform failed to update the task status');
+  }
+
+  // Update DB status. For TASKHUB_NATIVE it is already updated by the connector,
+  // but doing it here guarantees consistency and handles platforms where connector doesn't update DB.
+  const updatedTask = await prisma.task.update({
+    where: { id },
+    data: {
+      status,
+      nextRunTime: enabled ? undefined : null
+    }
+  });
+
+  notifyTasksChanged(userId);
+  res.json(updatedTask);
+});
+
 const previewSchema = z.object({
   platform: platformSchema,
   schedule: z.unknown()

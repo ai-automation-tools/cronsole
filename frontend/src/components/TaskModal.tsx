@@ -191,6 +191,20 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   const { toast } = useToast();
   const { settings: prefs } = useSettings();
 
+  const statusMutation = useMutation({
+    mutationFn: async (newStatus: 'ACTIVE' | 'DISABLED') => {
+      return api.patch(`/tasks/${task!.id}/status`, { status: newStatus });
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast(`Task "${task!.name}" is now ${res.data.status.toLowerCase()}.`, 'success');
+    },
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      toast(`Failed to update status: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       return api.delete(`/tasks/${task!.id}`);
@@ -301,9 +315,25 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
         {activeTab === 'overview' && (
         <div className="p-6 overflow-y-auto space-y-8 flex-1 text-foreground">
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-background p-4 rounded-xl border border-border">
-              <span className="text-xs text-subtle-foreground block mb-1">Status</span>
-              <span className="font-semibold text-foreground uppercase tracking-tighter text-sm">{task.status}</span>
+            <div className="bg-background p-4 rounded-xl border border-border flex justify-between items-center">
+              <div>
+                <span className="text-xs text-subtle-foreground block mb-1">Status</span>
+                <span className="font-semibold text-foreground uppercase tracking-tighter text-sm flex items-center gap-2">
+                  <div className={`h-2.5 w-2.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-muted-foreground'}`}></div>
+                  {task.status}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  const nextStatus = task.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+                  statusMutation.mutate(nextStatus);
+                }}
+                disabled={statusMutation.isPending}
+                className="bg-muted hover:bg-muted/80 text-foreground px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-border active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {statusMutation.isPending && <Loader2 size={12} className="animate-spin" />}
+                {task.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+              </button>
             </div>
             <div className="bg-background p-4 rounded-xl border border-border">
               <span className="text-xs text-subtle-foreground block mb-1">Last Result</span>

@@ -31,6 +31,9 @@ const VEC = {
   runSig: 'e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48',
   deleteSig: 'ac32ed9af3b1904803cc54a7667e109e25e79c068f420c386c054374fd23d61f',
   statusSig: '9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133',
+  // task:update_schedule signs the trigger. Golden case: Daily 03:00,
+  // daysInterval 1 -> canonical 'trigger|Daily|03:00|1|||'.
+  updateScheduleSig: '65333bec21e6e67657195befd02cd7178309cbcb4404e0ce7ed99ff912ae686b',
   // task:create signs the structured action AND the trigger. Golden case:
   // command 'dir', action { executable: 'dir', args: [] } -> canonical 'dir',
   // trigger null -> canonical 'none'.
@@ -56,6 +59,14 @@ describe('agentAuth cross-language vector', () => {
       [{ event: 'task:run', taskPath: 'MyTask' }, VEC.runSig],
       [{ event: 'task:delete', taskPath: 'MyTask' }, VEC.deleteSig],
       [{ event: 'task:set_status', taskPath: 'MyTask', enabled: false }, VEC.statusSig],
+      [
+        {
+          event: 'task:update_schedule',
+          taskPath: 'MyTask',
+          trigger: { type: 'Daily', startBoundary: '03:00', daysInterval: 1 },
+        },
+        VEC.updateScheduleSig,
+      ],
       [
         {
           event: 'task:create',

@@ -34,6 +34,13 @@ export interface MockCreateCommand {
   sig?: string;
 }
 
+export interface MockUpdateScheduleCommand {
+  taskPath: string;
+  trigger?: unknown;
+  ts?: number;
+  sig?: string;
+}
+
 function hmacHex(key: string, message: string): string {
   return crypto.createHmac('sha256', key).update(message, 'utf8').digest('hex');
 }
@@ -53,6 +60,7 @@ export class MockTaskHubAgent {
   readonly runs: MockRunCommand[] = [];
   readonly creates: MockCreateCommand[] = [];
   readonly deletes: MockRunCommand[] = [];
+  readonly scheduleUpdates: MockUpdateScheduleCommand[] = [];
   private socket: Socket | null = null;
 
   constructor(
@@ -90,6 +98,20 @@ export class MockTaskHubAgent {
         taskExternalId: payload.taskPath,
         success: true,
         message: existed ? 'Task deleted' : 'Task not found (already removed)'
+      });
+    });
+
+    socket.on('task:update_schedule', (payload: MockUpdateScheduleCommand) => {
+      this.scheduleUpdates.push(payload);
+      const existed = this.tasks.some((t) => t.path === payload.taskPath);
+      // Mirror the real agent: swap only the trigger on the matching task.
+      this.tasks = this.tasks.map((t) =>
+        t.path === payload.taskPath ? { ...t, trigger: payload.trigger ?? t.trigger } : t
+      );
+      socket.emit('task:schedule_updated', {
+        taskExternalId: payload.taskPath,
+        success: existed,
+        message: existed ? 'Schedule updated' : 'Task not found'
       });
     });
 

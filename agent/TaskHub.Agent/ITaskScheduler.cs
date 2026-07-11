@@ -12,6 +12,9 @@ namespace TaskHub.Agent
         // Returns false when no task exists at the path (treated as an
         // idempotent success by the caller — the end state already holds).
         bool DeleteTask(string path);
+        // Replace an existing task's trigger with the given spec, preserving its
+        // actions/principal/settings. Returns false when no task exists at the path.
+        bool UpdateTaskSchedule(string path, TriggerSpec trigger);
     }
 
     // Structured action the agent registers as the task's ExecAction. The server

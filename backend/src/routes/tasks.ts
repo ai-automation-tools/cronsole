@@ -121,6 +121,73 @@ router.patch('/:id/status', validateBody(patchTaskStatusSchema), async (req: Req
   res.json(updatedTask);
 });
 
+const patchTaskScheduleSchema = z.object({
+  schedule: z.string().trim().min(1, 'schedule is required')
+});
+
+// Edit the schedule of an existing platform task. For Windows the agent rebuilds
+// only the task's trigger (action/principal/settings preserved) via a signed
+// task:update_schedule; the DB row's schedule/trigger are updated only after the
+// platform confirms — same ack-before-write ordering as delete/status. Platforms
+// without an updateSchedule implementation get an honest 400.
+router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+  const { schedule } = req.body;
+
+  // Scope by userId so one user can't edit another's task (IDOR).
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  if (!isValidCron(schedule)) {
+    throw new HttpError(400, 'Schedule must be a 5-field cron expression (min hour dom month dow).');
+  }
+
+  const connector = connectorRegistry.getConnector(task.platform);
+  if (!connector?.updateSchedule) {
+    throw new HttpError(400, `Editing schedules is not supported for ${task.platform} yet.`);
+  }
+
+  const conversion = convertCronToWindowsTrigger(schedule);
+  if (!conversion.trigger) {
+    throw new HttpError(400, 'Schedule cannot be converted to a Windows trigger.', {
+      warnings: conversion.warnings
+    });
+  }
+
+  const connection = await prisma.platformConnection.findUnique({
+    where: { userId_platform: { userId, platform: task.platform } }
+  });
+
+  // Config is encrypted at rest (AES-256-GCM); decrypt before use.
+  const result = await connector.updateSchedule(task.externalId, conversion.trigger, {
+    ...deserializeConfig(connection?.config),
+    userId
+  });
+  if (!result.success) {
+    throw new HttpError(502, result.message || 'The platform failed to update the schedule');
+  }
+
+  // Only after platform confirmation: store the new schedule + trigger, leaving
+  // every other field (command/actions/name/category/status) untouched.
+  const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+    ? (task.metadata as Record<string, unknown>)
+    : {};
+  const updatedTask = await prisma.task.update({
+    where: { id },
+    data: {
+      schedule,
+      nextRunTime: computeNextRun(schedule) ?? task.nextRunTime,
+      metadata: { ...meta, schedule, trigger: conversion.trigger } as unknown as Prisma.InputJsonValue
+    }
+  });
+
+  notifyTasksChanged(userId);
+  res.json(updatedTask);
+});
+
 const previewSchema = z.object({
   platform: platformSchema,
   schedule: z.unknown()

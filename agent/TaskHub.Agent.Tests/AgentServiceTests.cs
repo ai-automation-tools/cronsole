@@ -66,6 +66,7 @@ namespace TaskHub.Agent.Tests
             _socketHandlers.Should().ContainKey("task:run");
             _socketHandlers.Should().ContainKey("task:create");
             _socketHandlers.Should().ContainKey("task:delete");
+            _socketHandlers.Should().ContainKey("task:update_schedule");
         }
 
         [Fact]
@@ -205,6 +206,94 @@ namespace TaskHub.Agent.Tests
             // Assert
             _mockScheduler.Verify(s => s.SetTaskStatus(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
             _mockSocket.Verify(s => s.EmitAsync("task:status_set", It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public void TaskUpdateSchedule_Event_UpdatesTriggerAndEmitsAck()
+        {
+            // Arrange — payload as emitted by WindowsAgentConnector.updateSchedule.
+            // The trigger is signed, so its canonical form is part of the message.
+            var taskPath = "\\TaskHub\\Nightly";
+            var ts = Now();
+            var trigger = new TriggerSpec { Type = "Daily", StartBoundary = "03:00", DaysInterval = 1 };
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(trigger);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    taskPath,
+                    trigger = new { type = "Daily", startBoundary = "03:00", daysInterval = 1 },
+                    ts,
+                    sig
+                }));
+
+            _mockScheduler.Setup(s => s.UpdateTaskSchedule(taskPath, It.IsAny<TriggerSpec>())).Returns(true);
+
+            // Act
+            _socketHandlers["task:update_schedule"].Invoke(mockResponse.Object);
+
+            // Assert — the parsed trigger reaches the scheduler, and success is acked.
+            _mockScheduler.Verify(s => s.UpdateTaskSchedule(taskPath,
+                It.Is<TriggerSpec>(t => t.Type == "Daily" && t.StartBoundary == "03:00" && t.DaysInterval == 1)), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:schedule_updated", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Schedule updated"))), Times.Once);
+        }
+
+        [Fact]
+        public void TaskUpdateSchedule_Event_NotFound_EmitsFailureAck()
+        {
+            // Arrange
+            var taskPath = "\\TaskHub\\Ghost";
+            var ts = Now();
+            var trigger = new TriggerSpec { Type = "Daily", StartBoundary = "03:00", DaysInterval = 1 };
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(trigger);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    taskPath,
+                    trigger = new { type = "Daily", startBoundary = "03:00", daysInterval = 1 },
+                    ts,
+                    sig
+                }));
+
+            _mockScheduler.Setup(s => s.UpdateTaskSchedule(taskPath, It.IsAny<TriggerSpec>())).Returns(false);
+
+            // Act
+            _socketHandlers["task:update_schedule"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockSocket.Verify(s => s.EmitAsync("task:schedule_updated", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Task not found"))), Times.Once);
+        }
+
+        [Fact]
+        public void TaskUpdateSchedule_Event_RejectsInvalidSignature()
+        {
+            // Arrange — a forged schedule change must never touch the scheduler.
+            var taskPath = "\\TaskHub\\Nightly";
+            var ts = Now();
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    taskPath,
+                    trigger = new { type = "Daily", startBoundary = "03:00", daysInterval = 1 },
+                    ts,
+                    sig = "deadbeef"
+                }));
+
+            // Act
+            _socketHandlers["task:update_schedule"].Invoke(mockResponse.Object);
+
+            // Assert — scheduler untouched, no ack emitted.
+            _mockScheduler.Verify(s => s.UpdateTaskSchedule(It.IsAny<string>(), It.IsAny<TriggerSpec>()), Times.Never);
+            _mockSocket.Verify(s => s.EmitAsync("task:schedule_updated", It.IsAny<object>()), Times.Never);
         }
 
         [Fact]

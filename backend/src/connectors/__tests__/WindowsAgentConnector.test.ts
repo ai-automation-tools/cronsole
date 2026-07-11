@@ -268,6 +268,68 @@ describe('WindowsAgentConnector', () => {
     vi.useRealTimers();
   });
 
+  it('should update a task schedule successfully', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:schedule_updated') {
+        setTimeout(() => {
+          handler({ taskExternalId: '\\TaskHub\\Task1', success: true, message: 'Schedule updated' });
+        }, 10);
+      }
+    });
+
+    const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
+    const result = await connector.updateSchedule('\\TaskHub\\Task1', trigger, { userId: 'test_user' });
+
+    expectSignedCommand(mockSocket, 'task:update_schedule', {
+      event: 'task:update_schedule',
+      taskPath: '\\TaskHub\\Task1',
+      trigger
+    });
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Schedule updated');
+  });
+
+  it('should surface an agent-side schedule-update failure', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:schedule_updated') {
+        setTimeout(() => {
+          handler({ taskExternalId: '\\Task1', success: false, message: 'Task not found' });
+        }, 10);
+      }
+    });
+
+    const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
+    const result = await connector.updateSchedule('\\Task1', trigger, { userId: 'test_user' });
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Task not found');
+  });
+
+  it('should fail to update a schedule if agent offline', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
+    const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
+    const result = await connector.updateSchedule('\\Task1', trigger, { userId: 'test_user' });
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Agent offline');
+  });
+
+  it('should timeout if schedule update takes too long', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+    vi.useFakeTimers();
+
+    const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
+    const updatePromise = connector.updateSchedule('\\Task1', trigger, { userId: 'test_user' });
+    vi.advanceTimersByTime(15500);
+
+    const result = await updatePromise;
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Agent schedule update timeout');
+    vi.useRealTimers();
+  });
+
   it('should create a task successfully', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
 

@@ -7,6 +7,7 @@ import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
+import { EditScheduleModal } from './EditScheduleModal';
 
 interface TaskModalProps {
   task: Task | null;
@@ -177,6 +178,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview');
+  const [showScheduleEditor, setShowScheduleEditor] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -184,6 +186,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
       setNewCategory(task.category || '');
       setIsEditingCategory(false);
       setActiveTab('overview');
+      setShowScheduleEditor(false);
     }
   }, [task]);
 
@@ -466,9 +469,25 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               </button>
             );
           })()}
-          <button className="flex-1 bg-muted hover:bg-muted py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm">
-            Edit Schedule
-          </button>
+          {(() => {
+            // Editable only for Windows tasks whose trigger is cron-expressible
+            // (task.schedule is set). Boot/logon/event/on-demand triggers read
+            // back as no schedule and stay read-only until they have a safe editor.
+            const editable = task.platform === 'WINDOWS_TASK_SCHEDULER' && !!task.schedule;
+            const reason = task.platform !== 'WINDOWS_TASK_SCHEDULER'
+              ? 'Schedule editing is only available for Windows Task Scheduler tasks.'
+              : "This task runs on a trigger TaskHub can't edit yet (boot, logon, event, or on-demand only).";
+            return (
+              <button
+                onClick={() => editable && setShowScheduleEditor(true)}
+                disabled={!editable}
+                title={editable ? 'Edit this task’s schedule' : reason}
+                className="flex-1 bg-muted hover:bg-muted/80 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              >
+                Edit Schedule
+              </button>
+            );
+          })()}
           <button 
             onClick={() => { onRun(task); onClose(); }} 
             className="flex-1 bg-success hover:bg-success-hover text-success-foreground py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-success/20 active:scale-95 text-sm"
@@ -477,6 +496,9 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
           </button>
         </footer>
       </div>
+      {showScheduleEditor && (
+        <EditScheduleModal task={task} onClose={() => setShowScheduleEditor(false)} />
+      )}
     </div>
   );
 };

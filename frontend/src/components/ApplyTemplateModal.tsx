@@ -3,7 +3,7 @@ import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { Template } from '../types';
 import { api } from '../api';
-import { platformLabel } from '../platform';
+import { platformLabel, isCreatablePlatform } from '../platform';
 import { useToast } from '../hooks/useToast';
 import { useSettings } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
@@ -27,7 +27,11 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(params.map(p => [p.key, p.default ?? '']))
   );
-  const [platform, setPlatform] = useState(template.targetPlatforms[0] ?? '');
+  // Only platforms TaskHub can actually create a task on are selectable; the
+  // rest are compatibility labels (no agent/API yet). Default to the first
+  // creatable target so Apply doesn't silently fail on an uncreatable platform.
+  const creatableTargets = template.targetPlatforms.filter(isCreatablePlatform);
+  const [platform, setPlatform] = useState(creatableTargets[0] ?? '');
   const [name, setName] = useState(template.name);
   const [schedule, setSchedule] = useState(template.scheduleExpression);
   const { settings: prefs } = useSettings();
@@ -91,7 +95,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   });
 
   const canApply =
-    !!platform && !!name.trim() && !!schedule.trim() && !incomplete && !applyMutation.isPending;
+    !!platform && isCreatablePlatform(platform) && !!name.trim() && !!schedule.trim() && !incomplete && !applyMutation.isPending;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -111,16 +115,33 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Target platform</label>
             <div className="flex flex-wrap gap-2">
-              {template.targetPlatforms.map(p => (
-                <button 
-                  key={p} 
-                  onClick={() => setPlatform(p)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${platform === p ? 'bg-primary border-primary text-primary-foreground' : 'bg-background border-border text-muted-foreground hover:border-foreground/30'}`}
-                >
-                  {platformLabel(p)}
-                </button>
-              ))}
+              {template.targetPlatforms.map(p => {
+                const creatable = isCreatablePlatform(p);
+                return (
+                  <button
+                    key={p}
+                    onClick={() => creatable && setPlatform(p)}
+                    disabled={!creatable}
+                    title={creatable ? undefined : 'TaskHub can’t create tasks on this platform yet — no agent or API.'}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                      platform === p
+                        ? 'bg-primary border-primary text-primary-foreground'
+                        : creatable
+                          ? 'bg-background border-border text-muted-foreground hover:border-foreground/30'
+                          : 'bg-background border-border/50 text-subtle-foreground/60 opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    {platformLabel(p)}{!creatable && ' *'}
+                  </button>
+                );
+              })}
             </div>
+            {creatableTargets.length === 0 && (
+              <p className="text-[11px] text-amber-400 bg-amber-500/5 border border-amber-500/30 rounded-xl px-3 py-2 flex items-start gap-1.5">
+                <AlertTriangle size={11} className="shrink-0 mt-0.5" />
+                This is a compatible pattern — TaskHub can’t create tasks on its target platform(s) yet (no agent or API). Copy the command below to set it up manually.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

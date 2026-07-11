@@ -46,10 +46,11 @@ const resolveTrigger = (
   return { trigger: result.trigger, confidence: result.confidence, warnings: result.warnings };
 };
 
-// List all templates
+// List all templates (starters first, then alphabetical — the frontend re-sorts
+// and groups anyway; upvotes were removed as a fake/static signal).
 router.get('/', async (_req: Request, res: Response) => {
   const templates = await prisma.template.findMany({
-    orderBy: { upvotes: 'desc' }
+    orderBy: [{ isStarter: 'desc' }, { name: 'asc' }]
   });
   res.json(templates);
 });

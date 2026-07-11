@@ -42,7 +42,6 @@ export interface Template {
   targetPlatforms: string[];
   scheduleExpression: string;
   command: string;
-  upvotes: number;
   scriptType?: string;
   os?: string;
   category?: string;

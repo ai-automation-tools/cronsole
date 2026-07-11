@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export type DashboardView = 'grid' | 'list' | 'kanban' | 'schedule';
+export type TemplateView = 'grid' | 'list' | 'kanban';
 export type TimezoneMode = 'local' | 'utc';
 
 /**
@@ -13,6 +14,8 @@ export interface Settings {
   defaultShowDisabled: boolean;
   defaultCategory: string;
   defaultPlatform: string;
+  // Templates tab: persisted view mode (the toggle writes here directly)
+  templateView: TemplateView;
   // Behavior
   confirmBeforeRun: boolean;
   timezone: TimezoneMode;
@@ -27,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultShowDisabled: false,
   defaultCategory: 'All',
   defaultPlatform: 'All',
+  templateView: 'grid',
   confirmBeforeRun: true,
   timezone: 'local',
   toastOnSuccess: true,

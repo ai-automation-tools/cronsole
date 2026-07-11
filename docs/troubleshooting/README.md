@@ -24,6 +24,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 1 | Backend crash-loops on startup with an opaque `[Object: null prototype] {}` uncaught exception | `ts-node` can't parse the installed TypeScript version | [→](#1-backend-crash-loops-with-object-null-prototype) |
 | 2 | Dashboard shows no tasks / `403 Invalid or expired token`; agent handshake rejected | Docker's default secrets don't match your rotated `backend/.env` | [→](#2-403-invalid-or-expired-token-or-agent-rejected) |
 | 3 | Port 3000 shows as `LISTENING` but every request returns `HTTP 000` / `EADDRINUSE` on restart | Docker's port proxy holds the port even though the app process died | [→](#3-port-listening-but-http-000--eaddrinuse) |
+| 4 | Edited backend source, but the running Docker stack still 404s the new route / serves old behavior | `tsx watch` inside the container never sees the file change (Windows→Linux bind-mount inotify) | [→](#4-backend-source-edits-not-picked-up-in-docker) |
 
 ---
 
@@ -136,6 +137,39 @@ cd backend && npm run dev
 > [!TIP]
 > `HTTP 000` from `curl` means "connected but got nothing," which points at a **crashed app
 > behind a live proxy**, not a firewall or a wrong URL.
+
+*First hit: 2026-07-10.*
+
+---
+
+## 4. Backend source edits not picked up in Docker
+
+**Symptom** — you edit `backend/src/**`, the source is correct and `npm run build` passes, but
+the **running** stack still behaves like the old code: a newly added route 404s
+(`Cannot PATCH /api/tasks/:id/schedule`), a changed handler runs the old logic, etc. A live
+E2E/API check fails even though every offline test is green.
+
+**Cause** — the backend container runs `npm run dev` = `tsx watch` over the bind-mounted
+`./backend:/app` volume. On a **Windows host → Linux container** bind mount, filesystem
+change events (inotify) **don't propagate**, so `tsx watch` never notices the edit and keeps
+serving the process it started with. The container can be "up 2 hours" and still be running
+pre-edit code.
+
+**Fix** — restart the container so it re-reads the mounted source on boot:
+
+```bash
+docker restart taskhub-backend-1
+# then wait for it to answer (403 = up, auth-gated):
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/tasks -H "Authorization: Bearer x"
+```
+
+A plain restart is enough (the source is already mounted — no rebuild needed unless
+`package.json`/deps changed, in which case see entry #1's `--renew-anon-volumes`).
+
+> [!TIP]
+> The tell: `npm run build` succeeds and the offline unit/integration suites pass, but a
+> request against `localhost:3000` disagrees with the source. That gap = the live process is
+> stale. Restart before you debug the code.
 
 *First hit: 2026-07-10.*
 

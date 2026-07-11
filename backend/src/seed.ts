@@ -85,62 +85,80 @@ const patterns: SeedTemplate[] = [
   {
     id: 'tpl_daily_database_backup',
     name: 'Daily Database Backup',
-    description: 'Backs up a PostgreSQL database every night at 3 AM.',
+    description: 'Back up a PostgreSQL database on a schedule with pg_dump.',
     sourcePlatform: PlatformType.WINDOWS_TASK_SCHEDULER,
-    targetPlatforms: [PlatformType.WINDOWS_TASK_SCHEDULER, PlatformType.CLAUDE_CODE],
+    // Windows-only: this is a Windows shell command, so it's the only platform
+    // TaskHub can actually create it on (no fake cross-platform target).
+    targetPlatforms: [PlatformType.WINDOWS_TASK_SCHEDULER],
     scheduleExpression: '0 3 * * *',
-    // Redirection needs a shell, so name it explicitly (the agent no longer wraps
-    // commands in an implicit cmd.exe /c — see utils/commandParser.ts).
-    command: 'cmd.exe /c "pg_dump -U postgres my_db > backup.sql"',
+    // Redirection needs a shell, so cmd.exe is named explicitly and the whole
+    // pg_dump line stays inside one quoted /c argument — the {{placeholders}}
+    // substitute within that single arg (see utils/templateCommand.ts).
+    commandTemplate: 'cmd.exe /c "pg_dump -U {{dbUser}} {{dbName}} > {{backupPath}}"',
+    command: 'cmd.exe /c "pg_dump -U {{dbUser}} {{dbName}} > {{backupPath}}"',
+    parameters: [
+      { key: 'dbUser', label: 'Database user', type: 'text', default: 'postgres', required: true, help: 'The PostgreSQL role to connect as.' },
+      { key: 'dbName', label: 'Database name', type: 'text', default: '', required: true, help: 'The database to back up.' },
+      { key: 'backupPath', label: 'Backup file path', type: 'path', default: 'C:\\backups\\db.sql', required: true, help: 'Where to write the .sql dump.' }
+    ],
     scriptType: ScriptType.EXECUTABLE,
     os: OsTarget.WINDOWS,
     category: TemplateCategory.BACKUP,
-    icon: 'Database',
-    upvotes: 42
+    icon: 'Database'
   },
   {
     id: 'tpl_morning_news_digest',
     name: 'Morning News Digest',
-    description: 'Summarizes top news stories from specified RSS feeds.',
+    description: 'Summarize top stories from your news sources into a daily digest.',
     sourcePlatform: PlatformType.CLAUDE_CODE,
     targetPlatforms: [PlatformType.CLAUDE_CODE, PlatformType.CHATGPT],
     scheduleExpression: '0 7 * * *',
-    command: 'Fetch and summarize news',
+    commandTemplate: 'Summarize the top stories from {{feeds}} into a {{length}} digest.',
+    command: 'Summarize the top stories from {{feeds}} into a {{length}} digest.',
+    parameters: [
+      { key: 'feeds', label: 'News sources / feeds', type: 'text', default: '', required: true, help: 'Comma-separated RSS feeds or topics to summarize.' },
+      { key: 'length', label: 'Digest length', type: 'select', options: ['short', 'detailed'], default: 'short', required: true, help: 'How long the summary should be.' }
+    ],
     scriptType: ScriptType.AI_PROMPT,
     os: OsTarget.CROSS_PLATFORM,
     category: TemplateCategory.AI_AGENT,
-    icon: 'Newspaper',
-    upvotes: 128
+    icon: 'Newspaper'
   },
   {
     id: 'tpl_weekly_system_cleanup',
     name: 'Weekly System Cleanup',
-    description: 'Cleans up temporary files and logs every Sunday.',
+    description: 'Delete temporary files on a schedule to reclaim disk space.',
     sourcePlatform: PlatformType.WINDOWS_TASK_SCHEDULER,
     targetPlatforms: [PlatformType.WINDOWS_TASK_SCHEDULER],
     scheduleExpression: '0 0 * * 0',
     // `del` is a cmd builtin and %temp% needs cmd expansion, so invoke cmd
-    // explicitly rather than relying on an implicit shell wrapper.
-    command: 'cmd.exe /c "del /q /s %temp%\\*"',
+    // explicitly; the path stays inside the single quoted /c argument.
+    commandTemplate: 'cmd.exe /c "del /q /s {{targetPath}}"',
+    command: 'cmd.exe /c "del /q /s {{targetPath}}"',
+    parameters: [
+      { key: 'targetPath', label: 'Path to clean', type: 'path', default: '%temp%\\*', required: true, help: 'Files/glob to delete, e.g. %temp%\\*.' }
+    ],
     scriptType: ScriptType.BATCH,
     os: OsTarget.WINDOWS,
     category: TemplateCategory.CLEANUP,
-    icon: 'Trash2',
-    upvotes: 15
+    icon: 'Trash2'
   },
   {
     id: 'tpl_github_pr_triage',
     name: 'GitHub PR Triage',
-    description: 'Triage new pull requests and label them based on content.',
+    description: 'Triage new pull requests in a repo and label them by content.',
     sourcePlatform: PlatformType.CLAUDE_CODE,
     targetPlatforms: [PlatformType.CLAUDE_CODE],
     scheduleExpression: '*/30 * * * *',
-    command: 'Triage PRs',
+    commandTemplate: 'Triage new pull requests in {{repo}} and label them by content and priority.',
+    command: 'Triage new pull requests in {{repo}} and label them by content and priority.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the GitHub repo to triage.' }
+    ],
     scriptType: ScriptType.AI_PROMPT,
     os: OsTarget.CROSS_PLATFORM,
     category: TemplateCategory.DEV_WORKFLOW,
-    icon: 'GitPullRequest',
-    upvotes: 89
+    icon: 'GitPullRequest'
   }
 ];
 

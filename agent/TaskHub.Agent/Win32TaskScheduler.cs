@@ -134,6 +134,36 @@ namespace TaskHub.Agent
             }
         }
 
+        public bool UpdateTaskSchedule(string path, TriggerSpec trigger)
+        {
+            if (trigger == null) throw new ArgumentNullException(nameof(trigger));
+            using (TaskService ts = new TaskService())
+            {
+                var task = ts.GetTask(path);
+                if (task == null) return false;
+
+                // Replace ONLY the first cron-expressible trigger — the one TaskHub
+                // surfaced as the schedule — and re-register under the same
+                // name/folder. Reusing the live TaskDefinition preserves the task's
+                // Actions, Principal, RegistrationInfo, and Settings; leaving the
+                // other triggers alone preserves any boot/logon/event triggers a
+                // multi-trigger task also carries (we're editing the schedule, not
+                // wiping the task's other ways of firing). If the task has no
+                // cron-expressible trigger (shouldn't happen — the UI only offers
+                // editing when one exists), we add the new one without removing any.
+                var def = task.Definition;
+                int cronIndex = -1;
+                for (int i = 0; i < def.Triggers.Count; i++)
+                {
+                    if (TriggerReader.Read(def.Triggers[i]) != null) { cronIndex = i; break; }
+                }
+                if (cronIndex >= 0) def.Triggers.RemoveAt(cronIndex);
+                def.Triggers.Add(TriggerBuilder.Build(trigger));
+                task.Folder.RegisterTaskDefinition(task.Name, def);
+                return true;
+            }
+        }
+
         public AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null)
         {
             using (TaskService ts = new TaskService())

@@ -29,7 +29,9 @@ import {
   Zap,
   Search,
   X,
-  Download
+  Download,
+  BookOpen,
+  ChevronDown
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CloneTaskModal } from './components/CloneTaskModal';
@@ -43,10 +45,11 @@ import { ImportModal } from './components/ImportModal';
 import { TaskCard } from './components/TaskCard';
 import { ApplyTemplateModal } from './components/ApplyTemplateModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
-import { platformLabel, platformBadgeClass } from './platform';
+import { platformLabel, platformBadgeClass, isCreatablePlatform } from './platform';
 import { matchesTaskSearch } from './utils/taskSearch';
 import { SettingsScreen } from './components/SettingsScreen';
-import { useSettings, type Settings } from './hooks/useSettings';
+import { useSettings, type Settings, type TemplateView } from './hooks/useSettings';
+import { TEMPLATE_RESOURCES } from './data/templateResources';
 import { useToast } from './hooks/useToast';
 import { useConnections } from './hooks/useConnections';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
@@ -756,8 +759,7 @@ const matchesTemplateSearch = (t: Template, query: string) => {
   return terms.every(term => hay.includes(term));
 };
 
-const byTemplatePopularity = (a: Template, b: Template) =>
-  (b.upvotes ?? 0) - (a.upvotes ?? 0) || a.name.localeCompare(b.name);
+const byTemplateName = (a: Template, b: Template) => a.name.localeCompare(b.name);
 
 // Count occurrences of a facet value across a list, pinning the selected value
 // so it stays visible (as a 0-count chip) even after it's filtered everything out.
@@ -787,31 +789,40 @@ const TemplateChip = ({ active, onClick, children }: { active: boolean; onClick:
 const TemplateCard = ({ template, onApply }: { template: Template; onApply: (t: Template) => void }) => (
   <div className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
     <div className="p-6 flex-1">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex flex-wrap gap-2">
-          {template.isStarter && (
-            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
-              <Sparkles size={9} /> Starter
-            </span>
-          )}
-          {template.targetPlatforms.map(p => (
-            <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-              {platformLabel(p)}
-            </span>
-          ))}
-          {template.scriptType && (
-            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              {template.scriptType.replace(/_/g, ' ')}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 text-foreground bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 text-[10px] font-bold shrink-0">
-          <Activity size={10} /> {template.upvotes}
-        </div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {template.isStarter && (
+          <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
+            <Sparkles size={9} /> Starter
+          </span>
+        )}
+        {template.scriptType && (
+          <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            {template.scriptType.replace(/_/g, ' ')}
+          </span>
+        )}
       </div>
 
       <h3 className="text-xl font-bold mb-2 group-hover:text-foreground transition-colors">{template.name}</h3>
-      <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{template.description}</p>
+      <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{template.description}</p>
+
+      {/* "Compatible with" — honest framing: creatable platforms are highlighted,
+          the rest are compatibility labels only (no agent/API yet), so the badges
+          never imply a one-click export that silently fails. */}
+      <div className="flex items-center gap-2 flex-wrap mb-6">
+        <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground">Compatible with</span>
+        {template.targetPlatforms.map(p => {
+          const creatable = isCreatablePlatform(p);
+          return (
+            <span
+              key={p}
+              title={creatable ? 'TaskHub can create this task here' : 'Compatible pattern — TaskHub can’t create tasks here yet'}
+              className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full border ${creatable ? 'bg-primary/15 text-foreground border-primary/30' : 'bg-muted text-subtle-foreground border-border opacity-70'}`}
+            >
+              {platformLabel(p)}{!creatable && ' *'}
+            </span>
+          );
+        })}
+      </div>
 
       <div className="space-y-3">
         <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
@@ -832,12 +843,38 @@ const TemplateCard = ({ template, onApply }: { template: Template; onApply: (t: 
   </div>
 );
 
-const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply }: {
+// Compact single-line row used by the List view.
+const TemplateListRow = ({ template, onApply }: { template: Template; onApply: (t: Template) => void }) => (
+  <div className="bg-surface border border-border rounded-2xl px-4 py-3 flex items-center gap-4 hover:border-primary/30 transition-all">
+    <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+        <h4 className="text-sm font-bold text-foreground truncate">{template.name}</h4>
+        {template.isStarter && (
+          <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30">Starter</span>
+        )}
+        {template.scriptType && (
+          <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">{template.scriptType.replace(/_/g, ' ')}</span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground truncate">{template.description}</p>
+    </div>
+    <code className="hidden sm:block text-[11px] font-mono text-subtle-foreground shrink-0">{template.scheduleExpression}</code>
+    <button
+      onClick={() => onApply(template)}
+      className="shrink-0 bg-muted hover:bg-primary-hover text-foreground hover:text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all border border-border"
+    >
+      Apply <ArrowRight size={13} />
+    </button>
+  </div>
+);
+
+const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, view = 'grid' }: {
   icon: LucideIcon;
   title: string;
   subtitle: string;
   templates: Template[];
   onApply: (t: Template) => void;
+  view?: 'grid' | 'list';
 }) => {
   if (templates.length === 0) return null;
   return (
@@ -849,9 +886,142 @@ const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply }: {
         </h3>
         <span className="text-xs text-subtle-foreground">{subtitle}</span>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {templates.map(t => <TemplateCard key={t.id} template={t} onApply={onApply} />)}
-      </div>
+      {view === 'list' ? (
+        <div className="space-y-2">
+          {templates.map(t => <TemplateListRow key={t.id} template={t} onApply={onApply} />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {templates.map(t => <TemplateCard key={t.id} template={t} onApply={onApply} />)}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Kanban lane card — compact vertical card stacked inside a category column.
+const TemplateKanbanCard = ({ template, onApply }: { template: Template; onApply: (t: Template) => void }) => (
+  <div className="bg-background border border-border rounded-xl p-3 space-y-2 hover:border-primary/30 transition-all">
+    <div className="flex items-start justify-between gap-2">
+      <h4 className="text-sm font-bold text-foreground leading-tight">{template.name}</h4>
+      {template.isStarter && <Sparkles size={12} className="text-foreground shrink-0 mt-0.5" />}
+    </div>
+    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">{template.description}</p>
+    <div className="flex items-center justify-between gap-2 pt-1">
+      <code className="text-[10px] font-mono text-subtle-foreground truncate">{template.scheduleExpression}</code>
+      <button onClick={() => onApply(template)} className="shrink-0 text-[11px] font-bold text-primary hover:text-primary-hover flex items-center gap-1">
+        Apply <ArrowRight size={11} />
+      </button>
+    </div>
+  </div>
+);
+
+// Kanban view: one lane per category (Tag), horizontally scrollable.
+const TemplateKanban = ({ templates, onApply }: { templates: Template[]; onApply: (t: Template) => void }) => {
+  const lanes = useMemo(() => {
+    const map = new Map<string, Template[]>();
+    for (const t of templates) {
+      const key = t.category ?? 'OTHER';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    }
+    return Array.from(map.entries())
+      .map(([cat, items]) => ({ cat, items: [...items].sort(byTemplateName) }))
+      .sort((a, b) => templateCategoryLabel(a.cat).localeCompare(templateCategoryLabel(b.cat)));
+  }, [templates]);
+
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-20">
+      {lanes.map(lane => (
+        <div key={lane.cat} className="shrink-0 w-72 space-y-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <Tag size={11} /> {templateCategoryLabel(lane.cat)}
+            </h3>
+            <span className="text-[10px] font-bold text-subtle-foreground bg-muted px-1.5 py-0.5 rounded-full">{lane.items.length}</span>
+          </div>
+          <div className="space-y-3">
+            {lane.items.map(t => <TemplateKanbanCard key={t.id} template={t} onApply={onApply} />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Templates-tab view switcher (persisted to settings.templateView).
+const TEMPLATE_VIEWS: { id: TemplateView; label: string; icon: LucideIcon }[] = [
+  { id: 'grid', label: 'Grid', icon: Grid },
+  { id: 'list', label: 'List', icon: List },
+  { id: 'kanban', label: 'Kanban', icon: Columns }
+];
+const TemplateViewToggle = ({ view, onChange }: { view: TemplateView; onChange: (v: TemplateView) => void }) => (
+  <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md shrink-0">
+    {TEMPLATE_VIEWS.map(({ id, label, icon: Icon }) => (
+      <button
+        key={id}
+        onClick={() => onChange(id)}
+        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${view === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+      >
+        <Icon size={12} /> {label}
+      </button>
+    ))}
+  </div>
+);
+
+// Templates-tab "Resources" dropdown — curated external links (see data/templateResources.ts).
+const TemplateResourcesMenu = () => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 bg-surface border border-border px-3 py-1.5 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground transition-all shadow-md"
+      >
+        <BookOpen size={13} /> Resources <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-surface border border-border rounded-2xl shadow-2xl z-50 p-2">
+          {TEMPLATE_RESOURCES.map(section => (
+            <div key={section.title} className="px-1 py-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground px-2 mb-1">{section.title}</p>
+              <div className="space-y-0.5">
+                {section.links.map(link => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block px-2 py-1.5 rounded-lg hover:bg-background transition-colors group/link"
+                  >
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                      {link.label}
+                      <ExternalLink size={11} className="text-subtle-foreground opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                    </div>
+                    {link.description && <p className="text-[11px] text-subtle-foreground leading-snug">{link.description}</p>}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -862,6 +1032,8 @@ const TemplatesScreen = () => {
   const [kind, setKind] = useState<TemplateKind>('all');
   const [selectedOs, setSelectedOs] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const { settings, update } = useSettings();
+  const view = settings.templateView;
 
   const { data: templates, isLoading } = useQuery<Template[]>({
     queryKey: ['templates'],
@@ -914,8 +1086,8 @@ const TemplatesScreen = () => {
     return list;
   }, [searchKindFiltered, selectedOs, selectedCategory]);
 
-  const starters = useMemo(() => filtered.filter(t => t.isStarter).sort(byTemplatePopularity), [filtered]);
-  const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byTemplatePopularity), [filtered]);
+  const starters = useMemo(() => filtered.filter(t => t.isStarter).sort(byTemplateName), [filtered]);
+  const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byTemplateName), [filtered]);
 
   const osValues = useMemo(() => Array.from(osFacets.keys()).sort((a, b) => templateOsLabel(a).localeCompare(templateOsLabel(b))), [osFacets]);
   const categoryValues = useMemo(() => Array.from(categoryFacets.keys()).sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b))), [categoryFacets]);
@@ -935,10 +1107,14 @@ const TemplatesScreen = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-end gap-3 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold mb-1">Schedule Template Library</h2>
           <p className="text-muted-foreground">Prebuilt automation patterns for any platform.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <TemplateResourcesMenu />
+          {hasTemplates && <TemplateViewToggle view={view} onChange={v => update('templateView', v)} />}
         </div>
       </div>
 
@@ -1025,10 +1201,12 @@ const TemplatesScreen = () => {
                 <X size={15} /> Clear filters
               </button>
             </div>
+          ) : view === 'kanban' ? (
+            <TemplateKanban templates={filtered} onApply={setApplyTarget} />
           ) : (
             <div className="space-y-10 pb-20">
-              <TemplateGroup icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={setApplyTarget} />
-              <TemplateGroup icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={setApplyTarget} />
+              <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={setApplyTarget} />
+              <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={setApplyTarget} />
             </div>
           )}
         </>

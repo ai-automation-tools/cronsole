@@ -52,13 +52,13 @@ New to TaskHub? Follow this path in order:
 > Engineering specs, research, and the historical phase plans are kept locally under
 > `docs/archive/` and are **not tracked in git**.
 
-## 📂 Related, outside `docs/`
+## 📂 Related
 
 | Location | What's inside |
 |:---|:---|
+| [**📝 CHANGELOG.md**](CHANGELOG.md) | Notable changes to the repository. |
 | [**🔧 scripts/**](../scripts/README.md) | Operational scripts — including the logon auto-start launcher. |
 | [**📋 CONTRIBUTING.md**](../CONTRIBUTING.md) | Local setup, validation commands, and PR expectations. |
-| [**📝 CHANGELOG.md**](../CHANGELOG.md) | Notable changes to the repository. |
 | [**🤖 CLAUDE.md**](../CLAUDE.md) | Project conventions and instructions for Claude Code. |
 
 <p align="right">(<a href="#docs-top">back to top</a>)</p>

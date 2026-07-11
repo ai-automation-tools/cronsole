@@ -129,7 +129,7 @@ At minimum, review whether these need edits:
 - `README.md`
 - `docs/ROADMAP.md` (the spec of record)
 - `docs/setup/README.md` (if env vars / config changed)
-- `CHANGELOG.md`
+- `docs/CHANGELOG.md`
 
 ## Current implementation caveats
 
@@ -188,7 +188,7 @@ Before requesting review, confirm:
 - [ ] Relevant tests were added or updated where practical.
 - [ ] Build/test/lint commands were run locally.
 - [ ] Docs were updated to match behavior.
-- [ ] `CHANGELOG.md` was updated for user-visible changes.
+- [ ] `docs/CHANGELOG.md` was updated for user-visible changes.
 - [ ] No secrets, keys, or local-only machine details were committed.
 
 ## Security and secrets
@@ -196,7 +196,7 @@ Before requesting review, confirm:
 - Never commit `.env` files or real secrets.
 - Never log decrypted platform credentials.
 - Do not paste real API tokens into fixtures, screenshots, or docs.
-- If you change auth, encryption, or agent trust boundaries, update [`docs/ROADMAP.md`](docs/ROADMAP.md) (the spec of record) and `CHANGELOG.md`. (The original `docs/specs/CONTRACTS.md` and per-phase docs are frozen under the local-only `docs/archive/`.)
+- If you change auth, encryption, or agent trust boundaries, update [`docs/ROADMAP.md`](docs/ROADMAP.md) (the spec of record) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md). (The original `docs/specs/CONTRACTS.md` and per-phase docs are frozen under the local-only `docs/archive/`.)
 
 ## When in doubt
 

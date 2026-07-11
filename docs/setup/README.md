@@ -119,6 +119,11 @@ For installing, registering, verifying, and troubleshooting the agent itself, se
 - Dashboard reading live data: it shows **your** tasks once the agent has synced.
 - Agent connected: the sidebar **Windows Agent** status reads **Online**.
 
+> [!TIP]
+> Something not coming up? Check [**🧯 Troubleshooting**](../troubleshooting/README.md) — it
+> has symptom → cause → fix entries for the boot/auth issues we've hit (crash-looping
+> backend, `403 Invalid or expired token`, ports that look alive but don't respond).
+
 ---
 
 <p align="center">

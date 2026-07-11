@@ -23,3 +23,11 @@ export const platformBadgeClass = (p: string) =>
   }[p] ?? 'bg-muted/10 text-muted-foreground border-border/20');
 
 export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';
+
+// Platforms TaskHub can actually CREATE a task on today (a registered, working
+// connector). Everything else a template lists is "compatible with" only — no
+// agent/API yet (macOS launchd, ChatGPT), or an experimental scaffold not wired
+// for creation (Claude). Templates advertise broader targetPlatforms; Apply is
+// gated to this set so a badge never implies an export that silently fails.
+export const CREATABLE_PLATFORMS = new Set(['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE']);
+export const isCreatablePlatform = (p: string) => CREATABLE_PLATFORMS.has(p);

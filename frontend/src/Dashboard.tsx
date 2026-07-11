@@ -45,7 +45,7 @@ import { ImportModal } from './components/ImportModal';
 import { TaskCard } from './components/TaskCard';
 import { ApplyTemplateModal } from './components/ApplyTemplateModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
-import { platformLabel, platformBadgeClass } from './platform';
+import { platformLabel, platformBadgeClass, isCreatablePlatform } from './platform';
 import { matchesTaskSearch } from './utils/taskSearch';
 import { SettingsScreen } from './components/SettingsScreen';
 import { useSettings, type Settings, type TemplateView } from './hooks/useSettings';
@@ -759,8 +759,7 @@ const matchesTemplateSearch = (t: Template, query: string) => {
   return terms.every(term => hay.includes(term));
 };
 
-const byTemplatePopularity = (a: Template, b: Template) =>
-  (b.upvotes ?? 0) - (a.upvotes ?? 0) || a.name.localeCompare(b.name);
+const byTemplateName = (a: Template, b: Template) => a.name.localeCompare(b.name);
 
 // Count occurrences of a facet value across a list, pinning the selected value
 // so it stays visible (as a 0-count chip) even after it's filtered everything out.
@@ -790,31 +789,40 @@ const TemplateChip = ({ active, onClick, children }: { active: boolean; onClick:
 const TemplateCard = ({ template, onApply }: { template: Template; onApply: (t: Template) => void }) => (
   <div className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
     <div className="p-6 flex-1">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex flex-wrap gap-2">
-          {template.isStarter && (
-            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
-              <Sparkles size={9} /> Starter
-            </span>
-          )}
-          {template.targetPlatforms.map(p => (
-            <span key={p} className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-              {platformLabel(p)}
-            </span>
-          ))}
-          {template.scriptType && (
-            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              {template.scriptType.replace(/_/g, ' ')}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 text-foreground bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 text-[10px] font-bold shrink-0">
-          <Activity size={10} /> {template.upvotes}
-        </div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {template.isStarter && (
+          <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
+            <Sparkles size={9} /> Starter
+          </span>
+        )}
+        {template.scriptType && (
+          <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            {template.scriptType.replace(/_/g, ' ')}
+          </span>
+        )}
       </div>
 
       <h3 className="text-xl font-bold mb-2 group-hover:text-foreground transition-colors">{template.name}</h3>
-      <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{template.description}</p>
+      <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{template.description}</p>
+
+      {/* "Compatible with" — honest framing: creatable platforms are highlighted,
+          the rest are compatibility labels only (no agent/API yet), so the badges
+          never imply a one-click export that silently fails. */}
+      <div className="flex items-center gap-2 flex-wrap mb-6">
+        <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground">Compatible with</span>
+        {template.targetPlatforms.map(p => {
+          const creatable = isCreatablePlatform(p);
+          return (
+            <span
+              key={p}
+              title={creatable ? 'TaskHub can create this task here' : 'Compatible pattern — TaskHub can’t create tasks here yet'}
+              className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full border ${creatable ? 'bg-primary/15 text-foreground border-primary/30' : 'bg-muted text-subtle-foreground border-border opacity-70'}`}
+            >
+              {platformLabel(p)}{!creatable && ' *'}
+            </span>
+          );
+        })}
+      </div>
 
       <div className="space-y-3">
         <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
@@ -918,7 +926,7 @@ const TemplateKanban = ({ templates, onApply }: { templates: Template[]; onApply
       map.get(key)!.push(t);
     }
     return Array.from(map.entries())
-      .map(([cat, items]) => ({ cat, items: [...items].sort(byTemplatePopularity) }))
+      .map(([cat, items]) => ({ cat, items: [...items].sort(byTemplateName) }))
       .sort((a, b) => templateCategoryLabel(a.cat).localeCompare(templateCategoryLabel(b.cat)));
   }, [templates]);
 
@@ -1078,8 +1086,8 @@ const TemplatesScreen = () => {
     return list;
   }, [searchKindFiltered, selectedOs, selectedCategory]);
 
-  const starters = useMemo(() => filtered.filter(t => t.isStarter).sort(byTemplatePopularity), [filtered]);
-  const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byTemplatePopularity), [filtered]);
+  const starters = useMemo(() => filtered.filter(t => t.isStarter).sort(byTemplateName), [filtered]);
+  const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byTemplateName), [filtered]);
 
   const osValues = useMemo(() => Array.from(osFacets.keys()).sort((a, b) => templateOsLabel(a).localeCompare(templateOsLabel(b))), [osFacets]);
   const categoryValues = useMemo(() => Array.from(categoryFacets.keys()).sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b))), [categoryFacets]);

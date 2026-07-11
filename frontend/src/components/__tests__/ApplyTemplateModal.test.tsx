@@ -26,7 +26,6 @@ const mockTemplate: Template = {
   targetPlatforms: ['WINDOWS_TASK_SCHEDULER', 'CLAUDE_CODE'],
   sourcePlatform: 'WINDOWS_TASK_SCHEDULER',
   command: 'backup-tool',
-  upvotes: 5,
   parameters: [
     { key: 'srcDir', label: 'Source Directory', type: 'path', required: true, default: 'C:\\data' },
     { key: 'destDir', label: 'Destination Directory', type: 'path', required: true },
@@ -58,8 +57,10 @@ describe('ApplyTemplateModal Component', () => {
     expect(screen.getByText('Daily Cron Backup')).toBeInTheDocument();
     expect(screen.getByText('Creates a daily backup of a target directory.')).toBeInTheDocument();
 
-    expect(screen.getByText('Windows')).toBeInTheDocument();
-    expect(screen.getByText('Claude')).toBeInTheDocument();
+    // Both targets show, but only the creatable one (Windows) is selectable;
+    // Claude is a compatibility label and its button is disabled.
+    expect(screen.getByRole('button', { name: /Windows/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Claude/ })).toBeDisabled();
 
     const srcInput = screen.getByDisplayValue('C:\\data');
     expect(srcInput).toBeInTheDocument();
@@ -87,9 +88,8 @@ describe('ApplyTemplateModal Component', () => {
     expect(screen.getByText(/backup-tool --src C:\\data --dest D:\\backup --options --fast/)).toBeInTheDocument();
     expect(screen.queryByText('Fill the required fields above before applying.')).not.toBeInTheDocument();
 
-    const platformBtn = screen.getByText('Claude');
-    fireEvent.click(platformBtn);
-
+    // Windows (the creatable target) is selected by default; Claude is disabled,
+    // so apply goes to Windows — never the uncreatable platform.
     const createBtn = screen.getByRole('button', { name: /Create Task/ });
     expect(createBtn).not.toBeDisabled();
     fireEvent.click(createBtn);
@@ -97,7 +97,7 @@ describe('ApplyTemplateModal Component', () => {
     await waitFor(() => {
       // Raw parameter values go to the server; the backend owns substitution.
       expect(api.post).toHaveBeenCalledWith('/templates/template-cron-backup/apply', {
-        platform: 'CLAUDE_CODE',
+        platform: 'WINDOWS_TASK_SCHEDULER',
         schedule: '0 0 * * *',
         name: 'Daily Cron Backup',
         parameters: {
@@ -108,7 +108,7 @@ describe('ApplyTemplateModal Component', () => {
       });
     });
 
-    expect(toastMock).toHaveBeenCalledWith('Task created on Claude from "Daily Cron Backup".', 'success');
+    expect(toastMock).toHaveBeenCalledWith('Task created on Windows from "Daily Cron Backup".', 'success');
     expect(onClose).toHaveBeenCalled();
   });
 

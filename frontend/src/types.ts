@@ -49,6 +49,8 @@ export interface Template {
   parameters?: TemplateParameter[] | null;
   isStarter?: boolean;
   icon?: string | null;
+  /** Per-user favorite flag (from the TemplateFavorite join), enriched by GET /templates. */
+  isFavorite?: boolean;
 }
 
 export interface PlatformLink {

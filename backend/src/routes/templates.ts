@@ -47,12 +47,47 @@ const resolveTrigger = (
 };
 
 // List all templates (starters first, then alphabetical — the frontend re-sorts
-// and groups anyway; upvotes were removed as a fake/static signal).
-router.get('/', async (_req: Request, res: Response) => {
-  const templates = await prisma.template.findMany({
-    orderBy: [{ isStarter: 'desc' }, { name: 'asc' }]
+// and groups anyway; upvotes were removed as a fake/static signal). Each template
+// is enriched with a per-user `isFavorite` flag (the shared catalog is unchanged;
+// favorites live in the TemplateFavorite join).
+router.get('/', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const [templates, favorites] = await Promise.all([
+    prisma.template.findMany({ orderBy: [{ isStarter: 'desc' }, { name: 'asc' }] }),
+    prisma.templateFavorite.findMany({ where: { userId }, select: { templateId: true } })
+  ]);
+  const favoriteIds = new Set(favorites.map(f => f.templateId));
+  res.json(templates.map(t => ({ ...t, isFavorite: favoriteIds.has(t.id) })));
+});
+
+// Mark a template as a favorite for the current user (idempotent — favoriting an
+// already-favorited template is a no-op success). Favorites are per-user and
+// never touch the shared seeded catalog.
+router.post('/:id/favorite', async (req: Request, res: Response) => {
+  const templateId = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const template = await prisma.template.findUnique({ where: { id: templateId } });
+  if (!template) {
+    throw new HttpError(404, 'Template not found');
+  }
+
+  await prisma.templateFavorite.upsert({
+    where: { userId_templateId: { userId, templateId } },
+    update: {},
+    create: { userId, templateId }
   });
-  res.json(templates);
+  res.json({ id: templateId, isFavorite: true });
+});
+
+// Remove a template from the current user's favorites (idempotent — removing a
+// non-favorite is a success; the desired end state already holds).
+router.delete('/:id/favorite', async (req: Request, res: Response) => {
+  const templateId = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  await prisma.templateFavorite.deleteMany({ where: { userId, templateId } });
+  res.json({ id: templateId, isFavorite: false });
 });
 
 const previewSchema = z.object({

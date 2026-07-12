@@ -1,5 +1,5 @@
 import { PlatformType, HealthState } from '@prisma/client';
-import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
+import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { emitSignedCommand } from '../ws/agentAuth.js';
 import { toStructuredAction } from '../utils/commandParser.js';
@@ -177,6 +177,44 @@ export class WindowsAgentConnector implements PlatformConnector {
       setTimeout(() => {
         socket.off('task:schedule_updated', handler);
         resolve({ success: false, message: 'Agent schedule update timeout' });
+      }, 15000);
+    });
+  }
+
+  async updateActions(externalId: string, input: UpdateActionsInput, config: any): Promise<{ success: boolean; message?: string }> {
+    const userId = config.userId;
+    const socket = agentManager.getSocket(userId);
+
+    if (!socket) {
+      return { success: false, message: 'Agent offline' };
+    }
+
+    return new Promise((resolve) => {
+      const handler = (payload: any) => {
+        if (payload.taskExternalId === externalId) {
+          socket.off('task:updated', handler);
+          resolve({
+            success: payload.success,
+            message: payload.message
+          });
+        }
+      };
+
+      socket.on('task:updated', handler);
+      // The action, working dir, description, and run level are all covered by
+      // the command signature (see agentAuth.ts commandMessage 'task:update').
+      emitSignedCommand(socket, {
+        event: 'task:update',
+        taskPath: externalId,
+        action: input.action,
+        workingDirectory: input.workingDirectory,
+        description: input.description,
+        runLevel: input.runLevel
+      });
+
+      setTimeout(() => {
+        socket.off('task:updated', handler);
+        resolve({ success: false, message: 'Agent action update timeout' });
       }, 15000);
     });
   }

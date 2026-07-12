@@ -24,6 +24,11 @@ namespace TaskHub.Agent.Tests
         // task:update_schedule signs the trigger. Golden case: Daily 03:00,
         // daysInterval 1 -> canonical "trigger|Daily|03:00|1|||".
         private const string ExpectedUpdateScheduleSig = "65333bec21e6e67657195befd02cd7178309cbcb4404e0ce7ed99ff912ae686b";
+        // task:update signs the structured action, working dir, description, and run
+        // level. Golden case: action { executable: "powershell.exe", args: ["-File",
+        // "C:\\x.ps1"] } -> canonical "powershell.exe-FileC:\\x.ps1",
+        // working dir "C:\\scripts", description "Nightly job", runLevel "highest".
+        private const string ExpectedUpdateSig = "a11ff9024b5a5b0e590f8a6b55824f289dd26abba53d0ecb2d594d18b320c91f";
         // task:create signs the structured action AND the trigger. Golden action is
         // { executable: "dir", args: [] } -> canonical "dir"; trigger null -> "none".
         private const string ExpectedCreateSig = "4e04ffa6a881215d70a94ef84984898398567f7218d57f6cc3d9fa9264f9e0ba";
@@ -51,6 +56,11 @@ namespace TaskHub.Agent.Tests
             AgentAuthenticator.Hmac(ExpectedSessionKey,
                 AgentAuthenticator.UpdateScheduleMessage("MyTask", AgentAuthenticator.CanonicalizeTrigger(dailyTrigger), Ts))
                 .Should().Be(ExpectedUpdateScheduleSig);
+            var updateAction = AgentAuthenticator.CanonicalizeAction("powershell.exe", new[] { "-File", "C:\\x.ps1" });
+            AgentAuthenticator.Hmac(ExpectedSessionKey,
+                AgentAuthenticator.UpdateMessage("MyTask", updateAction, "C:\\scripts", "Nightly job", "highest", Ts))
+                .Should().Be(ExpectedUpdateSig);
+
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var nullTrigger = AgentAuthenticator.CanonicalizeTrigger(null);
             AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, Ts))

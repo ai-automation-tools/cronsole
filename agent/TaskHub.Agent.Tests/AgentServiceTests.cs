@@ -67,6 +67,7 @@ namespace TaskHub.Agent.Tests
             _socketHandlers.Should().ContainKey("task:create");
             _socketHandlers.Should().ContainKey("task:delete");
             _socketHandlers.Should().ContainKey("task:update_schedule");
+            _socketHandlers.Should().ContainKey("task:update");
         }
 
         [Fact]
@@ -294,6 +295,106 @@ namespace TaskHub.Agent.Tests
             // Assert — scheduler untouched, no ack emitted.
             _mockScheduler.Verify(s => s.UpdateTaskSchedule(It.IsAny<string>(), It.IsAny<TriggerSpec>()), Times.Never);
             _mockSocket.Verify(s => s.EmitAsync("task:schedule_updated", It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public void TaskUpdate_Event_UpdatesActionAndEmitsAck()
+        {
+            // Arrange — payload as emitted by WindowsAgentConnector.updateActions.
+            // The action (executable + args), working dir, description, and run
+            // level are all part of the signed message.
+            var taskPath = "\\TaskHub\\Nightly";
+            var ts = Now();
+            var actionCanonical = AgentAuthenticator.CanonicalizeAction("powershell.exe", new[] { "-File", "C:\\x.ps1" });
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
+                AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, "C:\\scripts", "Nightly job", "highest", ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    taskPath,
+                    action = new { executable = "powershell.exe", args = new[] { "-File", "C:\\x.ps1" } },
+                    workingDirectory = "C:\\scripts",
+                    description = "Nightly job",
+                    runLevel = "highest",
+                    ts,
+                    sig
+                }));
+
+            _mockScheduler.Setup(s => s.UpdateTaskActions(taskPath, It.IsAny<AgentExecAction>(), It.IsAny<string?>(), It.IsAny<string>())).Returns(true);
+
+            // Act
+            _socketHandlers["task:update"].Invoke(mockResponse.Object);
+
+            // Assert — the parsed action (exe + args + working dir), description, and
+            // run level reach the scheduler, and success is acked.
+            _mockScheduler.Verify(s => s.UpdateTaskActions(taskPath,
+                It.Is<AgentExecAction>(a => a.Executable == "powershell.exe" && a.Args.Count == 2 && a.WorkingDirectory == "C:\\scripts"),
+                "Nightly job", "highest"), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:updated", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Task updated"))), Times.Once);
+        }
+
+        [Fact]
+        public void TaskUpdate_Event_NotFound_EmitsFailureAck()
+        {
+            // Arrange
+            var taskPath = "\\TaskHub\\Ghost";
+            var ts = Now();
+            var actionCanonical = AgentAuthenticator.CanonicalizeAction("cmd.exe", new string[0]);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
+                AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, "", "", "least", ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    taskPath,
+                    action = new { executable = "cmd.exe", args = new string[0] },
+                    workingDirectory = "",
+                    description = "",
+                    runLevel = "least",
+                    ts,
+                    sig
+                }));
+
+            _mockScheduler.Setup(s => s.UpdateTaskActions(taskPath, It.IsAny<AgentExecAction>(), It.IsAny<string?>(), It.IsAny<string>())).Returns(false);
+
+            // Act
+            _socketHandlers["task:update"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockSocket.Verify(s => s.EmitAsync("task:updated", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Task not found"))), Times.Once);
+        }
+
+        [Fact]
+        public void TaskUpdate_Event_RejectsInvalidSignature()
+        {
+            // Arrange — a forged action change must never touch the scheduler.
+            var taskPath = "\\TaskHub\\Nightly";
+            var ts = Now();
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new
+                {
+                    taskPath,
+                    action = new { executable = "calc.exe", args = new string[0] },
+                    workingDirectory = "",
+                    description = "",
+                    runLevel = "highest",
+                    ts,
+                    sig = "deadbeef"
+                }));
+
+            // Act
+            _socketHandlers["task:update"].Invoke(mockResponse.Object);
+
+            // Assert — scheduler untouched, no ack emitted.
+            _mockScheduler.Verify(s => s.UpdateTaskActions(It.IsAny<string>(), It.IsAny<AgentExecAction>(), It.IsAny<string?>(), It.IsAny<string>()), Times.Never);
+            _mockSocket.Verify(s => s.EmitAsync("task:updated", It.IsAny<object>()), Times.Never);
         }
 
         [Fact]

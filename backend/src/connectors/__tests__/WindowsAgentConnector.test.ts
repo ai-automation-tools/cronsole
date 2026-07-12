@@ -330,6 +330,88 @@ describe('WindowsAgentConnector', () => {
     vi.useRealTimers();
   });
 
+  it('should update a task action successfully', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:updated') {
+        setTimeout(() => {
+          handler({ taskExternalId: '\\TaskHub\\Task1', success: true, message: 'Task updated' });
+        }, 10);
+      }
+    });
+
+    const input = {
+      action: { executable: 'powershell.exe', args: ['-File', 'C:\\x.ps1'] },
+      workingDirectory: 'C:\\scripts',
+      description: 'Nightly job',
+      runLevel: 'highest' as const
+    };
+    const result = await connector.updateActions('\\TaskHub\\Task1', input, { userId: 'test_user' });
+
+    expectSignedCommand(mockSocket, 'task:update', {
+      event: 'task:update',
+      taskPath: '\\TaskHub\\Task1',
+      ...input
+    });
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Task updated');
+  });
+
+  it('should surface an agent-side action-update failure', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:updated') {
+        setTimeout(() => {
+          handler({ taskExternalId: '\\Task1', success: false, message: 'This task requires administrator rights to edit.' });
+        }, 10);
+      }
+    });
+
+    const input = {
+      action: { executable: 'cmd.exe', args: [] },
+      workingDirectory: '',
+      description: '',
+      runLevel: 'least' as const
+    };
+    const result = await connector.updateActions('\\Task1', input, { userId: 'test_user' });
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('This task requires administrator rights to edit.');
+  });
+
+  it('should fail to update an action if agent offline', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
+    const input = {
+      action: { executable: 'cmd.exe', args: [] },
+      workingDirectory: '',
+      description: '',
+      runLevel: 'least' as const
+    };
+    const result = await connector.updateActions('\\Task1', input, { userId: 'test_user' });
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Agent offline');
+  });
+
+  it('should timeout if action update takes too long', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+    vi.useFakeTimers();
+
+    const input = {
+      action: { executable: 'cmd.exe', args: [] },
+      workingDirectory: '',
+      description: '',
+      runLevel: 'least' as const
+    };
+    const updatePromise = connector.updateActions('\\Task1', input, { userId: 'test_user' });
+    vi.advanceTimersByTime(15500);
+
+    const result = await updatePromise;
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Agent action update timeout');
+    vi.useRealTimers();
+  });
+
   it('should create a task successfully', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
 

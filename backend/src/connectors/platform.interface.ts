@@ -18,6 +18,19 @@ export interface CreateTaskOptions {
   action?: StructuredAction;
 }
 
+/**
+ * The editable action + settings for an existing platform task, resolved
+ * server-side. The action is the structured { executable, args[] } form (same
+ * no-shell model as create); workingDirectory/description are normalized to an
+ * empty string when unset so the signed canonical form is unambiguous.
+ */
+export interface UpdateActionsInput {
+  action: StructuredAction;
+  workingDirectory: string;
+  description: string;
+  runLevel: 'least' | 'highest';
+}
+
 export interface ConnectorHealth {
   state: HealthState;
   reason?: string;
@@ -75,6 +88,15 @@ export interface PlatformConnector {
    * convertCronToWindowsTrigger for the new cron.
    */
   updateSchedule?(externalId: string, trigger: WindowsTrigger, config: any): Promise<{ success: boolean; message?: string }>;
+
+  /**
+   * Change the action (executable + args + working dir) and selected settings
+   * (description, run level) of an existing platform task, leaving its trigger,
+   * principal identity, and other settings intact. Optional — only Windows Task
+   * Scheduler implements it today; other platforms get an honest 400. The whole
+   * input is covered by the task:update HMAC signature.
+   */
+  updateActions?(externalId: string, input: UpdateActionsInput, config: any): Promise<{ success: boolean; message?: string }>;
 
   /**
    * Delete the platform's native task entry. Optional — platforms that can't

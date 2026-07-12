@@ -165,6 +165,13 @@ namespace TaskHub.Agent
         public static string UpdateScheduleMessage(string taskPath, string triggerCanonical, long ts) =>
             $"task:update_schedule|{taskPath}|{triggerCanonical}|{ts}";
 
+        // The action (executable + args), working dir, description, and run level
+        // ARE the change here, so all are part of the signed message. Fields are
+        // pre-normalized (empty string for unset) — must match commandMessage()'s
+        // 'task:update' case in agentAuth.ts byte-for-byte.
+        public static string UpdateMessage(string taskPath, string actionCanonical, string workingDirectory, string description, string runLevel, long ts) =>
+            $"task:update|{taskPath}|{actionCanonical}|{workingDirectory}|{description}|{runLevel}|{ts}";
+
         public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, long ts) =>
             $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{ts}";
 

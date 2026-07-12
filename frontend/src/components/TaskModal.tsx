@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
@@ -8,6 +8,7 @@ import { useToast } from '../hooks/useToast';
 import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
 import { EditScheduleModal } from './EditScheduleModal';
+import { EditActionModal } from './EditActionModal';
 
 interface TaskModalProps {
   task: Task | null;
@@ -133,6 +134,54 @@ function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
   return { rows, reported: false };
 }
 
+/**
+ * Whether the task's action + settings can be edited from TaskHub, plus the
+ * prefill for the editor. Gated to Windows tasks with exactly one reported exec
+ * action — the agent replaces the single exec action, so multi-action or
+ * not-yet-synced tasks stay read-only with an honest reason.
+ */
+function actionEditInfo(task: Task): {
+  editable: boolean;
+  reason: string;
+  initial: { command: string; workingDirectory: string; description: string; runLevel: 'least' | 'highest' };
+} {
+  const meta = (task.metadata ?? {}) as Meta;
+  const runLevel: 'least' | 'highest' = /highest/i.test(asText(meta.runLevel) ?? '') ? 'highest' : 'least';
+  const description = asText(meta.description) ?? '';
+
+  if (task.platform !== 'WINDOWS_TASK_SCHEDULER') {
+    return { editable: false, reason: 'Command editing is only available for Windows Task Scheduler tasks.', initial: { command: '', workingDirectory: '', description, runLevel } };
+  }
+
+  const acts = Array.isArray(meta.actions) ? meta.actions : [];
+  const execActs = acts
+    .map(a => (a ?? {}) as Meta)
+    .filter(a => asText(a.path) ?? asText(a.executable));
+
+  if (execActs.length !== 1) {
+    return {
+      editable: false,
+      reason: acts.length === 0
+        ? "The agent hasn't reported this task's command yet — sync and try again."
+        : "This task has multiple actions; editing multi-action tasks isn't supported yet.",
+      initial: { command: '', workingDirectory: '', description, runLevel }
+    };
+  }
+
+  const act = execActs[0];
+  const exe = asText(act.path) ?? asText(act.executable) ?? '';
+  const args = asText(act.arguments);
+  // Quote the executable when it contains whitespace so the reconstructed command
+  // re-tokenizes back to the same { executable, args } on save — otherwise a path
+  // like C:\Program Files\app.exe would split into "C:\Program" + args. The
+  // backend's toStructuredAction strips the quotes. (Reported args already carry
+  // their own quoting, so they round-trip as-is.)
+  const exeToken = /\s/.test(exe) ? `"${exe}"` : exe;
+  const command = args ? `${exeToken} ${args}` : exeToken;
+  const workingDirectory = asText(act.workingDirectory) ?? '';
+  return { editable: true, reason: '', initial: { command, workingDirectory, description, runLevel } };
+}
+
 /** Extra settings a newer agent reports; empty for older syncs (section hides). */
 function settingsRows(task: Task): DetailRow[] {
   const meta = (task.metadata ?? {}) as Meta;
@@ -154,11 +203,14 @@ function settingsRows(task: Task): DetailRow[] {
   return rows;
 }
 
-const DetailSection = ({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) => (
+const DetailSection = ({ icon: Icon, title, children, action }: { icon: LucideIcon; title: string; children: React.ReactNode; action?: React.ReactNode }) => (
   <div className="space-y-3">
-    <h3 className="flex items-center gap-2 text-xs font-bold text-subtle-foreground uppercase tracking-widest">
-      <Icon size={13} /> {title}
-    </h3>
+    <div className="flex items-center justify-between gap-2">
+      <h3 className="flex items-center gap-2 text-xs font-bold text-subtle-foreground uppercase tracking-widest">
+        <Icon size={13} /> {title}
+      </h3>
+      {action}
+    </div>
     {children}
   </div>
 );
@@ -179,6 +231,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   const [newCategory, setNewCategory] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview');
   const [showScheduleEditor, setShowScheduleEditor] = useState(false);
+  const [showActionEditor, setShowActionEditor] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -187,6 +240,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
       setIsEditingCategory(false);
       setActiveTab('overview');
       setShowScheduleEditor(false);
+      setShowActionEditor(false);
     }
   }, [task]);
 
@@ -239,6 +293,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   const sched = scheduleInfo(task, prefs.timezone);
   const actions = actionInfo(task);
   const settings = settingsRows(task);
+  const actionEdit = actionEditInfo(task);
   const nextRun = asText(meta.nextRunTime);
   const lastRun = task.lastRunAt ?? asText(meta.lastRunTime) ?? null;
 
@@ -376,7 +431,20 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
           </DetailSection>
 
           {/* Actions */}
-          <DetailSection icon={Terminal} title="Action">
+          <DetailSection
+            icon={Terminal}
+            title="Action"
+            action={task.platform === 'WINDOWS_TASK_SCHEDULER' ? (
+              <button
+                onClick={() => actionEdit.editable && setShowActionEditor(true)}
+                disabled={!actionEdit.editable}
+                title={actionEdit.editable ? 'Edit this task’s command & settings' : actionEdit.reason}
+                className="flex items-center gap-1.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-subtle-foreground"
+              >
+                <Pencil size={12} /> Edit
+              </button>
+            ) : undefined}
+          >
             {actions.reported ? (
               <RowList rows={actions.rows} />
             ) : (
@@ -498,6 +566,9 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
       </div>
       {showScheduleEditor && (
         <EditScheduleModal task={task} onClose={() => setShowScheduleEditor(false)} />
+      )}
+      {showActionEditor && (
+        <EditActionModal task={task} initial={actionEdit.initial} onClose={() => setShowActionEditor(false)} />
       )}
     </div>
   );

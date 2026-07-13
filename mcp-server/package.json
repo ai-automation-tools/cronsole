@@ -1,0 +1,37 @@
+{
+  "name": "taskhub-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for TaskHub — a thin wrapper over the REST API so Claude / Codex / Cursor can list, run, and create scheduled tasks via natural language.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "taskhub-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "taskhub",
+    "scheduler"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.19.1",
+    "axios": "^1.16.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.3"
+  }
+}

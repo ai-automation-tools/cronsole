@@ -13,10 +13,33 @@ frontend talks to was never started).
 | File | Purpose |
 |---|---|
 | `Start-TaskHub.ps1` | The launcher. Brings up every component in order; idempotent. Now delegates to `..\taskhub.ps1 up`. |
-| `Register-TaskHubStack.ps1` | Registers the **`\Task-Hub\TaskHubStack`** self-heal watchdog (runs `taskhub.ps1 up` at logon + every 5 min). Run once, **as Administrator**. |
-| `Set-TaskHubRepetition.ps1` | Adds/updates the repeating trigger on `TaskHubAgent`. Run **as Administrator**. |
-| `TaskHubAgent.updated.xml` | The **applied** Scheduled Task definition (points at the launcher). |
+| `run-hidden.vbs` | **No-flash launcher.** Runs a PowerShell script hidden from creation via `WScript.Shell.Run(cmd, 0, False)`, so no console/conhost window flashes on recurring triggers. Both self-heal tasks launch through this. |
+| `Register-TaskHubStack.ps1` | Registers the **`\Task-Hub\TaskHubStack`** self-heal watchdog (recurring `taskhub.ps1 up`, launched via `run-hidden.vbs`) **and** repairs `TaskHubAgent` to a flash-free, logon-only bootstrap. Run once, **as Administrator**. |
+| `Set-TaskHubRepetition.ps1` | **Deprecated** — TaskHubStack now owns recurring self-heal. Adding a repetition to `TaskHubAgent` duplicates it (and doubles the flashing); no-op without `-Force`. |
+| `TaskHubAgent.updated.xml` | Reference/legacy Scheduled Task definition (runs the launcher via `powershell.exe`). Superseded by the programmatic repair in `Register-TaskHubStack.ps1` — kept for history. |
 | `TaskHubAgent.backup.xml` | The **original** task definition (agent-only), kept for rollback. |
+
+## No console flash (why `run-hidden.vbs` exists)
+
+The self-heal tasks run on a short recurring trigger. Running them as
+`powershell.exe -WindowStyle Hidden` **still flashes** a window every few minutes:
+PowerShell is a console app, so Windows creates a `conhost` window and only *then*
+applies `-WindowStyle Hidden` — a brief flash on each fire. `run-hidden.vbs`
+launches PowerShell through `WScript.Shell.Run(cmd, 0, False)`, which creates the
+process with the window **hidden from the start** (never shown), and `wscript.exe`
+is itself windowless — so nothing appears on screen.
+
+`Register-TaskHubStack.ps1` points **both** self-heal tasks at `run-hidden.vbs`:
+
+- **`\Task-Hub\TaskHubStack`** — the single **recurring** self-heal (`taskhub.ps1 up`
+  at logon + every 5 min). Idempotent, so it only relaunches what actually died.
+- **`\Task-Hub\TaskHubAgent`** — a **logon-only** bootstrap (`Start-TaskHub.ps1`:
+  Docker engine + `up`). It no longer carries a recurring repetition, so the two
+  tasks don't both re-run `up` on an interval (that redundancy was the second
+  source of flashing).
+
+Re-run `Register-TaskHubStack.ps1` (elevated) once to apply the no-flash + dedupe
+fix to an existing install.
 
 ## `\Task-Hub\TaskHubStack` — the self-heal watchdog
 

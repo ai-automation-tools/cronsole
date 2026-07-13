@@ -26,6 +26,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 3 | Port 3000 shows as `LISTENING` but every request returns `HTTP 000` / `EADDRINUSE` on restart | Docker's port proxy holds the port even though the app process died | [→](#3-port-listening-but-http-000--eaddrinuse) |
 | 4 | Edited backend source, but the running Docker stack still 404s the new route / serves old behavior | `tsx watch` inside the container never sees the file change (Windows→Linux bind-mount inotify) | [→](#4-backend-source-edits-not-picked-up-in-docker) |
 | 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
+| 6 | A `.ps1` fails to parse under `powershell` (5.1) with `Unexpected token '}'` / `The string is missing the terminator` — but runs fine under `pwsh` (7) | A non-ASCII char (e.g. an em-dash `—`) in a BOM-less UTF-8 script; Windows PowerShell 5.1 reads it as ANSI and decodes it into a curly quote it treats as a string delimiter | [→](#6-ps1-parse-errors-under-windows-powershell-51-only) |
 
 ---
 
@@ -208,6 +209,56 @@ Windows returns to `HEALTHY` within ~15s of the restart.
 > to hand the connection back.
 
 *First hit: 2026-07-11.*
+
+---
+
+## 6. `.ps1` parse errors under Windows PowerShell 5.1 only
+
+**Symptom** — running a script with the stock `powershell` (Windows PowerShell 5.1) fails to
+parse, even though it's syntactically fine and runs under `pwsh` (7):
+
+```
+Unexpected token '}' in expression or statement.
+The string is missing the terminator: ".
+Missing closing '}' in statement block or type definition.
+```
+
+The reported line/column point at the *end* of the file (a late `}` or the last string),
+not the real culprit — the parser got desynced earlier and only noticed at EOF.
+
+**Cause** — a **non-ASCII character in a BOM-less UTF-8 script**. The usual offender is an
+**em-dash `—`** (U+2014) pasted into a comment or `Write-Host` string. Windows PowerShell 5.1
+reads a file with no byte-order mark as the system **ANSI** codepage (Windows-1252), so the
+em-dash's UTF-8 bytes (`E2 80 94`) decode to three characters — one of which is a **curly
+quote** (`"`, U+201D). PowerShell treats curly quotes as valid string delimiters, so it thinks
+a string opened and never closed, and every brace after it is misread. `pwsh` 7 defaults to
+UTF-8, so it never sees the problem — which is why a pwsh-based syntax check passes.
+
+**Fix** — keep PowerShell (and VBScript) scripts **pure ASCII**. Replace em-dashes with `-`:
+
+```powershell
+# find non-ASCII chars in a script
+([System.IO.File]::ReadAllText($f).ToCharArray() | Where-Object { [int]$_ -gt 127 } |
+  Sort-Object -Unique | ForEach-Object { 'U+{0:X4}' -f [int]$_ })
+
+# replace em-dashes, rewrite as UTF-8 without BOM
+$t = [System.IO.File]::ReadAllText($f) -replace [char]0x2014, '-'
+[System.IO.File]::WriteAllText($f, $t, (New-Object System.Text.UTF8Encoding($false)))
+```
+
+Then verify **under 5.1 specifically** (not just pwsh):
+
+```powershell
+& 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -NoProfile -Command "
+  `$e=`$null; [System.Management.Automation.Language.Parser]::ParseFile('$f',[ref]`$null,[ref]`$e)
+  if(`$e){ `$e.Message } else { 'OK' }"
+```
+
+> [!TIP]
+> A BOM would also fix it (5.1 auto-detects UTF-8 with a BOM), but plain ASCII is the most
+> portable — it can't be corrupted by any editor/encoding and stays greppable.
+
+*First hit: 2026-07-13.*
 
 ---
 

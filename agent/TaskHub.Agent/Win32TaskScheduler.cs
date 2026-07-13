@@ -8,6 +8,12 @@ namespace TaskHub.Agent
 {
     public class Win32TaskScheduler : ITaskScheduler
     {
+        // The Task Scheduler folder TaskHub-created Windows tasks live under. Note
+        // this is distinct from the self-heal *infrastructure* folder "\Task-Hub\"
+        // (hyphenated, owned by the PowerShell setup scripts) — we only ever create
+        // or delete this one.
+        private const string TaskHubFolder = "TaskHub";
+
         public List<AgentTaskInfo> ListTasks()
         {
             using (TaskService ts = new TaskService())
@@ -129,8 +135,39 @@ namespace TaskHub.Agent
                 if (task == null) return false;
                 // Delete from the task's own containing folder so paths under
                 // \TaskHub\ (or anywhere else) resolve without string surgery.
-                task.Folder.DeleteTask(task.Name, exceptionOnNotExists: false);
+                var folder = task.Folder;
+                folder.DeleteTask(task.Name, exceptionOnNotExists: false);
+
+                // If that emptied our \TaskHub\ folder, remove the folder too —
+                // Task Scheduler doesn't auto-prune empty folders, so it would
+                // otherwise linger. Guarded to *our* folder only (never the root
+                // or the hyphenated infra folder), and best-effort: a failure here
+                // must not turn a successful task delete into an error.
+                TryPruneTaskHubFolder(ts, folder);
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// Delete the \TaskHub\ folder when it holds no tasks and no subfolders.
+        /// No-op for any other folder. Swallows failures (e.g. a concurrent
+        /// registration or an ACL) so the caller's delete still reports success.
+        /// </summary>
+        private static void TryPruneTaskHubFolder(TaskService ts, TaskFolder folder)
+        {
+            try
+            {
+                if (folder == null) return;
+                // Only our own top-level folder: \TaskHub\ (name == "TaskHub",
+                // parented directly on root). Never touch root or \Task-Hub\.
+                if (!string.Equals(folder.Name, TaskHubFolder, StringComparison.OrdinalIgnoreCase)) return;
+                if (folder.Tasks.Count != 0 || folder.SubFolders.Count != 0) return;
+
+                ts.RootFolder.DeleteFolder(TaskHubFolder, exceptionOnNotExists: false);
+            }
+            catch
+            {
+                // Best-effort cleanup; the task delete already succeeded.
             }
         }
 
@@ -244,9 +281,10 @@ namespace TaskHub.Agent
 
                 // TaskHub-created tasks live under \TaskHub\ so they're identifiable
                 // and cleanly removable (and category-extract as "TaskHub" on sync).
+                // Created lazily — the folder only exists while it holds tasks.
                 TaskFolder? folder = null;
-                try { folder = ts.GetFolder("TaskHub"); } catch { /* not found */ }
-                folder ??= ts.RootFolder.CreateFolder("TaskHub");
+                try { folder = ts.GetFolder(TaskHubFolder); } catch { /* not found */ }
+                folder ??= ts.RootFolder.CreateFolder(TaskHubFolder);
 
                 var task = folder.RegisterTaskDefinition(name, td);
 

@@ -21,7 +21,7 @@ import {
 import { formatCommandLine } from '../utils/templateCommand.js';
 import type { RegistryTemplate } from './schema.js';
 
-const RUNTIME_TO_SCRIPT: Record<string, ScriptType> = {
+export const RUNTIME_TO_SCRIPT: Record<string, ScriptType> = {
   powershell: ScriptType.POWERSHELL,
   batch: ScriptType.BATCH,
   bash: ScriptType.BASH,
@@ -35,14 +35,14 @@ const RUNTIME_TO_SCRIPT: Record<string, ScriptType> = {
   'ai-prompt': ScriptType.AI_PROMPT
 };
 
-const OS_TO_TARGET: Record<string, OsTarget> = {
+export const OS_TO_TARGET: Record<string, OsTarget> = {
   windows: OsTarget.WINDOWS,
   macos: OsTarget.MACOS,
   linux: OsTarget.LINUX,
   'cross-platform': OsTarget.CROSS_PLATFORM
 };
 
-const CATEGORY_TO_ENUM: Record<string, TemplateCategory> = {
+export const CATEGORY_TO_ENUM: Record<string, TemplateCategory> = {
   backup: TemplateCategory.BACKUP,
   cleanup: TemplateCategory.CLEANUP,
   monitoring: TemplateCategory.MONITORING,
@@ -57,7 +57,7 @@ const CATEGORY_TO_ENUM: Record<string, TemplateCategory> = {
 
 // `linux` has no PlatformType today (no Linux agent) — it maps to nothing and is
 // dropped from targetPlatforms, matching the current catalog which never used it.
-const TARGET_TO_PLATFORM: Record<string, PlatformType | undefined> = {
+export const TARGET_TO_PLATFORM: Record<string, PlatformType | undefined> = {
   windows: PlatformType.WINDOWS_TASK_SCHEDULER,
   'taskhub-native': PlatformType.TASKHUB_NATIVE,
   macos: PlatformType.MACOS_LAUNCHD,

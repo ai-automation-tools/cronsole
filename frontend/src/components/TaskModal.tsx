@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
@@ -277,6 +277,20 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
     }
   });
 
+  // Save this task as a reusable catalog template. Invalidates ['templates'] so
+  // the new template shows up on the Templates tab immediately.
+  const saveTemplateMutation = useMutation({
+    mutationFn: async () => api.post(`/tasks/${task!.id}/save-as-template`),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
+      toast(`Saved "${res.data.template?.name ?? task!.name}" to the template library.`, 'success');
+    },
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      toast(`Couldn't save as template: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  });
+
   const { data: executions, isLoading: executionsLoading, isError: executionsError } = useQuery<ExecutionLogEntry[]>({
     queryKey: ['executions', task?.id],
     queryFn: async () => {
@@ -534,6 +548,23 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
                   : 'Delete this TaskHub-native task'}
               >
                 {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Delete
+              </button>
+            );
+          })()}
+          {(task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && (() => {
+            // Save-as-template needs a cron-expressible schedule (the template's
+            // required scheduleExpression); a boot/logon-only Windows task has none.
+            const canSave = !!task.schedule && !saveTemplateMutation.isPending;
+            return (
+              <button
+                onClick={() => canSave && saveTemplateMutation.mutate()}
+                disabled={!canSave}
+                title={task.schedule
+                  ? 'Save this task as a reusable template in the library'
+                  : "This task's trigger isn't cron-expressible, so it can't be saved as a template."}
+                className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-3 rounded-xl font-bold transition-all border border-primary/30 active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              >
+                {saveTemplateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <BookmarkPlus size={16} />} Save as template
               </button>
             );
           })()}

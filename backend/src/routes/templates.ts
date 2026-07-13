@@ -21,6 +21,9 @@ import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
 import { assertWindowsTaskNameAvailable } from '../utils/windowsTaskName.js';
 import { TaskService } from '../services/TaskService.js';
+import { exportCatalog } from '../catalog/exportCatalog.js';
+import { importTemplates } from '../catalog/importCatalog.js';
+import { denormalizeTemplate } from '../catalog/denormalize.js';
 
 const router = Router();
 
@@ -58,6 +61,52 @@ router.get('/', async (req: Request, res: Response) => {
   ]);
   const favoriteIds = new Set(favorites.map(f => f.templateId));
   res.json(templates.map(t => ({ ...t, isFavorite: favoriteIds.has(t.id) })));
+});
+
+// Only allow safe chars in a downloaded filename (avoid header injection / odd
+// characters from a template name).
+const safeFilePart = (s: string) => s.replace(/[^\w.-]+/g, '_').slice(0, 80) || 'catalog';
+
+// Export the catalog (or a subset) as a portable Registry v1 JSON download.
+//   GET /export            -> whole catalog, as an { taskhubCatalogVersion, ... } bundle
+//   GET /export?ids=a,b    -> just those templates, same bundle shape
+//   GET /export?id=x       -> a single template as a bare v1 object (nice to hand-edit)
+// Reads the DB (what the user actually sees) and lowers each row to v1 via
+// denormalizeTemplate; the file round-trips straight back through POST /import.
+router.get('/export', async (req: Request, res: Response) => {
+  const singleId = typeof req.query.id === 'string' ? req.query.id.trim() : '';
+
+  if (singleId) {
+    const row = await prisma.template.findUnique({ where: { id: singleId } });
+    if (!row) throw new HttpError(404, 'Template not found');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="taskhub-template-${safeFilePart(singleId)}.json"`);
+    return res.json(denormalizeTemplate(row));
+  }
+
+  const ids = typeof req.query.ids === 'string'
+    ? req.query.ids.split(',').map(s => s.trim()).filter(Boolean)
+    : undefined;
+
+  const bundle = await exportCatalog(new Date().toISOString(), ids);
+  const stamp = bundle.exportedAt.slice(0, 10);
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition',
+    `attachment; filename="taskhub-catalog-${safeFilePart(stamp)}.json"`);
+  res.json(bundle);
+});
+
+// Import Registry v1 templates into the shared catalog. Accepts a bundle
+// ({ templates: [...] }), a bare array, or a single template object. Each entry
+// is schema-validated and put through the same {{placeholder}} resolvability
+// check Apply uses; bad entries are reported per-item without failing the batch.
+// 400 when nothing could be imported (empty/all-invalid), 200 on partial/full
+// success — the frontend re-fetches ['templates'] on success.
+router.post('/import', async (req: Request, res: Response) => {
+  const result = await importTemplates(req.body);
+  const importedCount = result.created.length + result.updated.length;
+  res.status(importedCount === 0 ? 400 : 200).json(result);
 });
 
 // Mark a template as a favorite for the current user (idempotent — favoriting an

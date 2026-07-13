@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type ChangeEvent } from 'react';
 import {
   Activity,
   LayoutDashboard,
@@ -31,6 +31,7 @@ import {
   Search,
   X,
   Download,
+  Upload,
   BookOpen,
   ChevronDown
 } from 'lucide-react';
@@ -39,7 +40,7 @@ import { CloneTaskModal } from './components/CloneTaskModal';
 import { HelpModal } from './components/HelpModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
-import type { Task, Template, PlatformLink } from './types';
+import type { Task, Template, PlatformLink, ImportResult } from './types';
 import { Sidebar } from './components/Sidebar';
 import { TaskModal } from './components/TaskModal';
 import { ImportModal } from './components/ImportModal';
@@ -1052,6 +1053,113 @@ const TemplateResourcesMenu = () => {
   );
 };
 
+// Export the catalog to a JSON file / import a Registry v1 JSON file back in.
+// Export goes through the api client (not a bare <a href>) so the auth header
+// rides along; import posts the parsed file and reports a per-item summary.
+const TemplateImportExport = () => {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const handleExport = async () => {
+    setBusy('export');
+    try {
+      const res = await api.get('/templates/export', { responseType: 'blob' });
+      const cd = res.headers['content-disposition'] as string | undefined;
+      const filename = cd?.match(/filename="?([^"]+)"?/)?.[1] ?? 'taskhub-catalog.json';
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast('Catalog exported.', 'success');
+    } catch {
+      toast('Export failed — is the backend running?', 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    setBusy('import');
+    try {
+      const json = JSON.parse(await file.text());
+      const res = await api.post('/templates/import', json);
+      summarizeImport(res.data, toast);
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
+    } catch (err) {
+      const anyErr = err as { response?: { data?: ImportResult }; name?: string };
+      if (anyErr.response?.data) {
+        // 400 from the server (nothing imported / all invalid) — show why.
+        summarizeImport(anyErr.response.data, toast);
+        queryClient.invalidateQueries({ queryKey: ['templates'] });
+      } else if (err instanceof SyntaxError) {
+        toast('Import failed — that file is not valid JSON.', 'error');
+      } else {
+        toast('Import failed — is the backend running?', 'error');
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={handleExport}
+        disabled={busy !== null}
+        className="flex items-center gap-1.5 bg-surface border border-border px-3 py-1.5 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground transition-all shadow-md disabled:opacity-50"
+        title="Download the template catalog as JSON"
+      >
+        {busy === 'export' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Export
+      </button>
+      <button
+        onClick={() => fileRef.current?.click()}
+        disabled={busy !== null}
+        className="flex items-center gap-1.5 bg-surface border border-border px-3 py-1.5 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground transition-all shadow-md disabled:opacity-50"
+        title="Import templates from a JSON file"
+      >
+        {busy === 'import' ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Import
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={handleFile}
+        className="hidden"
+      />
+    </div>
+  );
+};
+
+/** Turn an /templates/import result into a single honest toast. */
+function summarizeImport(
+  result: ImportResult,
+  toast: (message: string, type?: 'success' | 'error') => void
+): void {
+  const imported = result.created.length + result.updated.length;
+  const parts: string[] = [];
+  if (result.created.length) parts.push(`${result.created.length} added`);
+  if (result.updated.length) parts.push(`${result.updated.length} updated`);
+  if (result.errors.length) parts.push(`${result.errors.length} skipped`);
+  const summary = parts.length ? parts.join(', ') : 'nothing to import';
+
+  if (imported === 0) {
+    const first = result.errors[0]?.error;
+    toast(`Import failed: ${first ?? summary}.`, 'error');
+    return;
+  }
+  const detail = result.errors.length ? ` (first issue: ${result.errors[0].error})` : '';
+  toast(`Imported ${summary}.${detail}`, result.errors.length ? 'error' : 'success');
+}
+
 const TemplatesScreen = () => {
   const [applyTarget, setApplyTarget] = useState<Template | null>(null);
   const [search, setSearch] = useState('');
@@ -1164,6 +1272,7 @@ const TemplatesScreen = () => {
           <p className="text-muted-foreground">Prebuilt automation patterns for any platform.</p>
         </div>
         <div className="flex items-center gap-2">
+          <TemplateImportExport />
           <TemplateResourcesMenu />
           {hasTemplates && <TemplateViewToggle view={view} onChange={v => update('templateView', v)} />}
         </div>

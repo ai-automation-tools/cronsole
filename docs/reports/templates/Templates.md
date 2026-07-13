@@ -5,9 +5,9 @@
 > source of truth for *which* templates we ship and *what shape* a template has.
 >
 > **Status:** Catalog drafted + schema migrated + starters seeded (2026-06-10); Apply modal + library UI shipped.
-> The new `Template` fields (§2) shipped in migration `20260610000000_add_template_catalog_fields`,
-> and all 20 Tier A starters + 4 backfilled patterns are in `backend/src/seed.ts` (24 rows total,
-> verified seeded). The **Apply modal** (§7 step 3) shipped, backed by
+> The catalog now lives behind the Registry v1 source (`backend/src/catalog/` + hosted
+> `taskhub-registry`) with 40 templates: 20 Tier A starters + 20 use-case patterns
+> (Developer Pack, Claude Code AI pack, and Codex AI pack included). The **Apply modal** (§7 step 3) shipped, backed by
 > `GET /api/templates` + `POST /api/templates/:id/apply`; since 2026-07-10 the modal sends **raw
 > parameter values** and the **backend owns `{{placeholder}}` substitution per-token** (§5).
 > Also 2026-07-10: the modal gained an editable **task-name field** backed by a server-side
@@ -16,8 +16,8 @@
 > **human-readable schedule preview** (local/UTC per Settings); applied Windows tasks are
 > **tracked immediately** rather than waiting for the next sync.
 > The **library UI** (2026-07-08) adds search,
-> faceted OS + Tags(category) filters, a Starter/Pattern type toggle, and starter-vs-pattern grouping.
-> Still open (see `docs/ROADMAP.md`): parameterize the 4 Tier-B patterns; real-vs-removed upvotes; template import/export.
+> faceted OS + Category + free-form Tags filters, a Starter/Pattern type toggle, and starter-vs-pattern grouping.
+> Import/export, Save as template, registry refresh, favorites, and the Developer/AI packs are shipped.
 
 ---
 
@@ -188,6 +188,23 @@ every entry carries the `dev` tag plus specifics (`git`, `npm`, `build`, `test`,
 
 ---
 
+### 4.2 AI CLI Pack (seeded 2026-07-13)
+
+Seven AI-agent patterns run coding CLIs as real Windows scheduled tasks. They are tagged
+`ai`, `llm`, `cli`, and `agents`, plus provider-specific tags (`claude-code` or `codex`).
+
+| Template (`id`) | Category | Command shape | Default cron |
+|---|---|---|---|
+| Claude Code Headless Run (`ai-claude-headless-run`) | `AI_AGENT` | `claude -p` with `--permission-mode dontAsk`, explicit `--allowedTools`, `--bare`, captured log | `0 7 * * *` |
+| Claude Code Repo Digest (`ai-claude-repo-digest`) | `AI_AGENT` | read/search-only Claude Code digest to Markdown | `0 7 * * 1` |
+| Claude Code Auto-Fix & Commit (`ai-claude-autofix-commit`) | `AI_AGENT` | higher-trust Claude Code edit + scoped git allowlist | `0 3 * * *` |
+| Claude Code Log Cleanup (`ai-claude-log-cleanup`) | `CLEANUP` | PowerShell deletes old AI run logs | `0 2 * * 0` |
+| Codex Headless Run (`ai-codex-headless-run`) | `AI_AGENT` | `codex --ask-for-approval never exec` with selectable sandbox + captured output | `0 7 * * *` |
+| Codex Repo Digest (`ai-codex-repo-digest`) | `AI_AGENT` | read-only `codex exec` digest to Markdown | `0 7 * * 1` |
+| Codex Auto-Fix Workspace (`ai-codex-autofix-workspace`) | `AI_AGENT` | higher-trust `codex exec --sandbox workspace-write` with summary + log capture | `0 3 * * *` |
+
+---
+
 ## 5. Parameter / placeholder convention
 
 `parameters` is a JSON array describing each `{{placeholder}}` in `commandTemplate`. The Apply
@@ -260,8 +277,9 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
 1. ~~**Schema migration**~~ ✅ *Done* — `scriptType`, `os`, `category`, `commandTemplate`,
    `parameters`, `isStarter`, `icon` added (migration `20260610000000_add_template_catalog_fields`).
    Also added `MACOS_LAUNCHD` to `PlatformType` for the future macOS agent. 4 patterns backfilled.
-2. ~~**Seed the Tier A starters**~~ ✅ *Done* — all 20 §3 starters seeded with `isStarter: true`
-   in `backend/src/seed.ts` (24 rows total).
+2. ~~**Seed the Tier A starters**~~ ✅ *Done* — `seed.ts` now materializes templates from
+   `backend/src/catalog/`, backed by a bundled fallback snapshot and the hosted static registry
+   (40 templates today).
 3. ~~**Wire the dead "Apply Template" button**~~ ✅ *Done* — `ApplyTemplateModal` in
    `Dashboard.tsx` renders `parameters`, lets the user pick the target platform + confirm the
    cron schedule, live-substitutes `{{placeholders}}` into a previewed command (preview only),

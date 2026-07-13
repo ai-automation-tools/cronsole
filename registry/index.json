@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-13T20:52:27.122Z",
+  "updatedAt": "2026-07-13T21:28:36.796Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -333,6 +333,68 @@
       ],
       "path": "templates/ai-claude-log-cleanup.json",
       "sha256": "cd1549251e631f30594eb86c000bb49a52d8a197a76b72c9b5020021cde731ae"
+    },
+    {
+      "id": "ai-codex-headless-run",
+      "name": "Codex Headless Run",
+      "description": "Run Codex CLI non-interactively against a repo on a schedule with a fixed prompt. Uses `codex exec`, no approval prompts, an explicit sandbox, an ephemeral session, and captured output.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "codex"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-codex-headless-run.json",
+      "sha256": "5f5ee5422a6ac145c8a1189f63a9745aae37d1b670d362a9ab906f6625bc2168"
+    },
+    {
+      "id": "ai-codex-repo-digest",
+      "name": "Codex Repo Digest",
+      "description": "A read-only Codex run that summarizes a repository into a Markdown digest on a schedule. The final digest and full run stream are captured separately.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "codex",
+        "report"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-codex-repo-digest.json",
+      "sha256": "31be0c1ab595e5f149293ff10ea902ba680bb939e4d8fd6681e72d1920912cb9"
+    },
+    {
+      "id": "ai-codex-autofix-workspace",
+      "name": "Codex Auto-Fix Workspace",
+      "description": "Higher-trust: let Codex edit a repository on a schedule. Runs non-interactively with no approval prompts but stays inside the workspace-write sandbox; review the diff and logs before pushing.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "codex",
+        "git"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-codex-autofix-workspace.json",
+      "sha256": "267af80d4e84f106eb1da8537878d69e348c8e80d07275a57c81eefc25556e89"
     },
     {
       "id": "tpl_starter_powershell_script",

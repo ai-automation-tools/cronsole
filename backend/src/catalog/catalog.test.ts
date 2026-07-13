@@ -30,12 +30,12 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 37 templates (4 patterns + 9 dev pack + 4 ai pack + 20 starters)', () => {
-    expect(bundledCatalog).toHaveLength(37);
+  it('has the expected shape: 40 templates (4 patterns + 9 dev pack + 7 ai pack + 20 starters)', () => {
+    expect(bundledCatalog).toHaveLength(40);
     expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(20);
-    expect(bundledCatalog.filter((t) => !t.isStarter)).toHaveLength(17);
+    expect(bundledCatalog.filter((t) => !t.isStarter)).toHaveLength(20);
     expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(9);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(4);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
   });
 
   it('has unique ids', () => {
@@ -157,10 +157,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 37 normalized templates', async () => {
+  it('lists all 40 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(37);
+    expect(list).toHaveLength(40);
     expect(src.name).toBe('bundled');
   });
 });

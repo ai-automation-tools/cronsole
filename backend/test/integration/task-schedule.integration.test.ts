@@ -59,16 +59,40 @@ describe('PATCH /tasks/:id/schedule', () => {
     expect(dbTask?.schedule).toBe('0 3 * * *');
   });
 
-  it('400s on a native task (schedule editing not supported yet)', async () => {
-    const task = await createNativeTask(owner.user.id, { name: 'Native No Edit' });
+  it('updates a native task schedule immediately and recomputes nextRunTime', async () => {
+    const task = await createNativeTask(owner.user.id, { name: 'Native Edit' });
+    const before = task.nextRunTime?.toISOString();
 
     const res = await request(app)
       .patch(`/api/tasks/${task.id}/schedule`)
       .set('Authorization', owner.auth)
       .send({ schedule: '0 8 * * *' });
 
+    expect(res.status).toBe(200);
+    expect(res.body.schedule).toBe('0 8 * * *');
+    expect(res.body.nextRunTime).toBeTruthy();
+
+    const dbTask = await prisma.task.findUnique({ where: { id: task.id } });
+    expect(dbTask?.schedule).toBe('0 8 * * *');
+    expect(dbTask?.nextRunTime?.toISOString()).not.toBe(before);
+    expect((dbTask?.metadata as any)?.job?.jobType).toBe('HTTP');
+    expect((dbTask?.metadata as any)?.schedule).toBe('0 8 * * *');
+  });
+
+  it('400s on a semantically invalid native cron and leaves the task unchanged', async () => {
+    const task = await createNativeTask(owner.user.id, { name: 'Native Bad Cron' });
+
+    const res = await request(app)
+      .patch(`/api/tasks/${task.id}/schedule`)
+      .set('Authorization', owner.auth)
+      .send({ schedule: '99 99 * * *' });
+
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/not supported/i);
+    expect(res.body.error).toMatch(/valid 5-field cron/i);
+
+    const dbTask = await prisma.task.findUnique({ where: { id: task.id } });
+    expect(dbTask?.schedule).toBe('0 3 * * *');
+    expect((dbTask?.metadata as any)?.schedule).toBeUndefined();
   });
 
   it('404s when the task does not exist', async () => {

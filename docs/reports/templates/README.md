@@ -5,26 +5,26 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/templates-37-2ea44f?style=for-the-badge" alt="37 templates">
+  <img src="https://img.shields.io/badge/templates-40-2ea44f?style=for-the-badge" alt="40 templates">
   <img src="https://img.shields.io/badge/starters-20-8B5CF6?style=for-the-badge" alt="20 script starters">
-  <img src="https://img.shields.io/badge/patterns-17-0EA5E9?style=for-the-badge" alt="17 use-case patterns">
+  <img src="https://img.shields.io/badge/patterns-20-0EA5E9?style=for-the-badge" alt="20 use-case patterns">
 </p>
 
 ---
 
-TaskHub ships a **two-tier template catalog** (37 templates). Pick a template, fill in its
+TaskHub ships a **two-tier template catalog** (40 templates). Pick a template, fill in its
 `{{placeholder}}` parameters in the Apply modal, and TaskHub creates a real scheduled task —
 converting the cron to the platform's native trigger for you.
 
 - **Tier A — script starters:** 20 curated starters across PowerShell, Python, Bash/zsh,
   Node, and more.
-- **Tier B — use-case patterns:** 17 higher-level patterns for common automation scenarios,
+- **Tier B — use-case patterns:** 20 higher-level patterns for common automation scenarios,
   including the **Developer Pack** (9 dev-workflow templates — git hygiene, npm
   dependency-check/build/test, .NET build, Docker cleanup + compose self-heal — all
   discoverable via the free-form `dev`/`git`/`build`/`test`/`docker` tags) and the
-  **AI Pack — Claude Code** (4 templates that run the Claude Code CLI unattended as real
-  Windows tasks — headless run, repo digest, auto-fix & commit, log cleanup — tagged
-  `ai`/`llm`/`cli`/`agents`/`claude-code`).
+  **AI CLI packs**: Claude Code (4 templates — headless run, repo digest, auto-fix &
+  commit, log cleanup) and Codex (3 templates — headless run, repo digest, auto-fix
+  workspace), all real Windows tasks tagged for `ai`/`llm`/`cli`/`agents`.
 
 ## 📄 Documents
 

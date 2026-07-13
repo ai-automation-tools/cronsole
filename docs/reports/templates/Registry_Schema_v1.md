@@ -439,7 +439,14 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
   templates (published to the hosted registry). Headless print mode (`claude -p`) fenced
   by `--permission-mode dontAsk` + a user-scoped `--allowedTools` allowlist + `--bare`, output
   captured through a PowerShell `-Command` wrapper (single-quoted inner args). Clears the roadmap's
-  "safe non-interactive execution path" gate for Claude Code; the **Codex** slice is deferred.
+  "safe non-interactive execution path" gate for Claude Code; the **Codex** slice shipped later the same day.
+- **Third content pack — AI Pack (Codex)** (2026-07-13): 3 `ai-agent` templates that run
+  the Codex CLI unattended as real, creatable Windows tasks (`ai-codex-headless-run`,
+  `-repo-digest`, `-autofix-workspace`), bringing the catalog 37 → **40** templates.
+  Non-interactive mode (`codex exec`) is fenced by `--ask-for-approval never`, an explicit
+  `--sandbox` (`read-only` by default, `workspace-write` only for the higher-trust autofix
+  template), `--ephemeral`, final-message capture via `-o`, and full log capture through a
+  PowerShell `-Command` wrapper (single-quoted inner args). Clears the roadmap's Codex slice.
 - **Optional follow-ups** — index signing (beyond per-file checksums) and prune-on-sync (removed
   templates aren't deleted yet). Exactly one real compiler (Windows) stays real; everything else is
   declared-but-manual.

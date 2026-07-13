@@ -44,6 +44,9 @@ Instead of raw data, the Overview parses the task's synced configuration into re
 ### Run History
 The second tab lists recorded runs with their status, timestamp, duration, and a log snippet — so you can answer "did it actually run, and did it work?"
 
+### Editing a schedule
+The modal footer shows **Edit Schedule** for TaskHub-native tasks and Windows tasks whose trigger can be represented as a cron expression. TaskHub-native edits update the backend scheduler immediately; Windows edits require the local agent because TaskHub changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until TaskHub has a dedicated safe editor for those trigger types.
+
 ### Deleting a task
 The modal footer has a **Delete** button for TaskHub-native and Windows tasks:
 - **TaskHub-native:** removes the task and its run history from TaskHub (nothing exists outside TaskHub).
@@ -109,8 +112,9 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 - **Sidebar:** Shows a live per-platform health summary (Online / Degraded / Offline) driven by real connection checks, plus a "synced N ago" indicator.
 - **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand.
+- **Settings → About → API origin:** Shows the backend URL the dashboard is using. You can override it in the browser when testing a different backend; **Reset** returns to the configured `VITE_API_URL` default.
 - **Sync vs. Import:** **Sync Now** re-pulls status and schedules for categories you already track; **Import** opens the discovery picker to add new tasks.
 
 ---
 
-*Last Updated: July 10, 2026*
+*Last Updated: July 13, 2026*

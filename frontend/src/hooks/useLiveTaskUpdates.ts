@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { io, type Socket } from 'socket.io-client';
-import { API_ORIGIN } from '../api';
+import { API_ORIGIN, subscribeApiOrigin } from '../api';
 
 const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
 
@@ -16,11 +16,14 @@ const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
  */
 export function useLiveTaskUpdates(): void {
   const queryClient = useQueryClient();
+  const [apiOrigin, setApiOriginState] = useState(API_ORIGIN);
+
+  useEffect(() => subscribeApiOrigin(setApiOriginState), []);
 
   useEffect(() => {
     if (!DEV_TOKEN) return;
 
-    const socket: Socket = io(`${API_ORIGIN}/ui`, {
+    const socket: Socket = io(`${apiOrigin}/ui`, {
       auth: { token: DEV_TOKEN },
       transports: ['websocket'], // skip the HTTP long-poll handshake
       reconnectionDelayMax: 30_000, // gentle backoff if the backend is down
@@ -37,5 +40,5 @@ export function useLiveTaskUpdates(): void {
       socket.off('task:updated', refresh);
       socket.disconnect();
     };
-  }, [queryClient]);
+  }, [apiOrigin, queryClient]);
 }

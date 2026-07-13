@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ai-codex-headless-run",
+  "name": "Codex Headless Run",
+  "description": "Run Codex CLI non-interactively against a repo on a schedule with a fixed prompt. Uses `codex exec`, no approval prompts, an explicit sandbox, an ephemeral session, and captured output.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "llm",
+    "cli",
+    "agents",
+    "codex"
+  ],
+  "icon": "Bot",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox {{sandbox}} --ephemeral --color never -C '{{repoPath}}' -o '{{outputPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    },
+    {
+      "key": "prompt",
+      "label": "Prompt",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The instruction Codex runs each time. Avoid single quotes (they close the PowerShell string)."
+    },
+    {
+      "key": "sandbox",
+      "label": "Sandbox",
+      "type": "select",
+      "default": "read-only",
+      "required": true,
+      "options": [
+        "read-only",
+        "workspace-write"
+      ],
+      "help": "Least privilege for the run. read-only is safest; workspace-write allows Codex to edit files inside the repo."
+    },
+    {
+      "key": "outputPath",
+      "label": "Final output path",
+      "type": "path",
+      "default": "C:\\reports\\codex-output.md",
+      "required": true,
+      "help": "Where Codex writes the final agent message via --output-last-message."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\codex-run.log",
+      "required": true,
+      "help": "Where the full non-interactive run stream is captured for review."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

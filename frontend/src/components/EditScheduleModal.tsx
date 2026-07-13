@@ -14,11 +14,9 @@ interface EditScheduleModalProps {
 }
 
 /**
- * Edit the schedule (trigger) of an existing Windows Task Scheduler task. Reuses
- * the New Task modal's cron presets + live cron→trigger conversion preview, plus
- * the task-detail local/UTC human preview. Sends only the new cron to
- * PATCH /tasks/:id/schedule — the backend converts it to a native trigger and
- * the agent rebuilds only the task's trigger (its action/settings are preserved).
+ * Edit the cron schedule of an existing TaskHub-native task or cron-expressible
+ * Windows Task Scheduler task. Windows edits rebuild only the native trigger via
+ * the agent; TaskHub-native edits update the backend scheduler directly.
  */
 export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => {
   const queryClient = useQueryClient();
@@ -27,13 +25,14 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
   const [schedule, setSchedule] = useState(task.schedule ?? '');
   const [preview, setPreview] = useState<{ score: number; warnings: string[] } | null>(null);
 
-  // Live cron→Windows-trigger conversion warnings, debounced (mirrors the New
-  // Task / Apply modals).
+  const isWindows = task.platform === 'WINDOWS_TASK_SCHEDULER';
+
+  // Live cron preview, debounced (mirrors the New Task / Apply modals).
   useEffect(() => {
     const handle = setTimeout(async () => {
       try {
         const res = await api.post('/tasks/preview', {
-          platform: 'WINDOWS_TASK_SCHEDULER',
+          platform: task.platform,
           schedule
         });
         setPreview(res.data);
@@ -42,7 +41,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
       }
     }, 400);
     return () => clearTimeout(handle);
-  }, [schedule]);
+  }, [schedule, task.platform]);
 
   const mutation = useMutation({
     mutationFn: async () => api.patch(`/tasks/${task.id}/schedule`, { schedule }),
@@ -55,7 +54,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
       const err = error as Error & { response?: { data?: { error?: string } } };
       const message = err.response?.data?.error || err.message;
       toast(
-        message === 'Agent offline'
+        isWindows && message === 'Agent offline'
           ? 'Update failed: the Windows agent is not connected. Check that the TaskHubAgent scheduled task is running.'
           : `Update failed: ${message}`,
         'error'
@@ -73,11 +72,13 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
             <p className="text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 text-foreground">
-              <CalendarClock size={11} /> Windows Task Scheduler
+              <CalendarClock size={11} /> {isWindows ? 'Windows Task Scheduler' : 'TaskHub-native'}
             </p>
             <h2 className="text-xl font-bold">Edit Schedule</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
-              Changes only the trigger for <span className="font-semibold text-foreground">{task.name}</span> — its command and settings are preserved. Requires the Windows agent to be online.
+              {isWindows
+                ? <>Changes only the trigger for <span className="font-semibold text-foreground">{task.name}</span> — its command and settings are preserved. Requires the Windows agent to be online.</>
+                : <>Changes when <span className="font-semibold text-foreground">{task.name}</span> runs in the TaskHub backend scheduler.</>}
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
@@ -124,7 +125,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
                 </div>
               ) : (
                 <p className="text-[11px] text-emerald-500 flex items-center gap-1.5">
-                  <CheckCircle2 size={12} /> Converts cleanly to a Windows trigger.
+                  <CheckCircle2 size={12} /> {isWindows ? 'Converts cleanly to a Windows trigger.' : 'Valid TaskHub-native cron schedule.'}
                 </p>
               )
             )}

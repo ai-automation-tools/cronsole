@@ -16,11 +16,19 @@ vi.mock('../../api', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  confirmMock.mockResolvedValue(true);
 });
 
 // TaskModal calls useToast; provide a no-op so tests don't need a ToastProvider.
 vi.mock('../../hooks/useToast', () => ({
   useToast: () => ({ toast: vi.fn() })
+}));
+
+// TaskModal calls useConfirm; provide a shared stub so tests don't need a
+// ConfirmProvider and can assert the confirmation options passed to it.
+const { confirmMock } = vi.hoisted(() => ({ confirmMock: vi.fn() }));
+vi.mock('../../hooks/useConfirm', () => ({
+  useConfirm: () => confirmMock
 }));
 
 const mockTask: Task = {
@@ -187,7 +195,6 @@ describe('TaskModal Component', () => {
 
   it('deletes a Windows task after a scheduler-specific confirmation', async () => {
     vi.mocked(api.delete).mockResolvedValue({ data: { message: 'Task deleted' } });
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const onClose = vi.fn();
 
     renderModal({
@@ -197,9 +204,13 @@ describe('TaskModal Component', () => {
 
     fireEvent.click(screen.getByText('Delete'));
 
-    // The confirm copy must say the real scheduler entry goes too.
-    expect(confirmSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Windows Task Scheduler')
+    // The confirm copy must say the real scheduler entry goes too, and be flagged
+    // as a destructive action.
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tone: 'danger',
+        message: expect.stringContaining('Windows Task Scheduler')
+      })
     );
     await waitFor(() => {
       expect(api.delete).toHaveBeenCalledWith('/tasks/task-123');
@@ -207,9 +218,18 @@ describe('TaskModal Component', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('does not delete when the confirmation is cancelled', async () => {
+    confirmMock.mockResolvedValue(false);
+    renderModal({ task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' } });
+
+    fireEvent.click(screen.getByText('Delete'));
+
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
   it('deletes a TaskHub-native task after confirmation', async () => {
     vi.mocked(api.delete).mockResolvedValue({ data: { message: 'Task deleted' } });
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const onClose = vi.fn();
 
     renderModal({

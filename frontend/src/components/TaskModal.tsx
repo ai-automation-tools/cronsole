@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
+import { useConfirm } from '../hooks/useConfirm';
 import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
 import { EditScheduleModal } from './EditScheduleModal';
@@ -247,6 +248,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const { settings: prefs } = useSettings();
 
   const statusMutation = useMutation({
@@ -571,11 +573,17 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
             const isWindowsTask = task.platform === 'WINDOWS_TASK_SCHEDULER';
             return (
               <button
-                onClick={() => {
+                onClick={async () => {
                   const scope = isWindowsTask
                     ? `Delete "${task.name}" from Windows Task Scheduler and remove its TaskHub run history? This cannot be undone.`
                     : `Delete "${task.name}" and its run history? This cannot be undone.`;
-                  if (confirm(scope)) {
+                  const ok = await confirm({
+                    title: 'Delete task?',
+                    message: scope,
+                    confirmText: 'Delete',
+                    tone: 'danger'
+                  });
+                  if (ok) {
                     deleteMutation.mutate();
                   }
                 }}

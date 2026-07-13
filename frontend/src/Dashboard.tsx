@@ -53,6 +53,7 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { useSettings, type Settings, type TemplateView } from './hooks/useSettings';
 import { TEMPLATE_RESOURCES } from './data/templateResources';
 import { useToast } from './hooks/useToast';
+import { useConfirm } from './hooks/useConfirm';
 import { useConnections } from './hooks/useConnections';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { formatDateTime, formatTime, timeAgo } from './utils/datetime';
@@ -1606,6 +1607,7 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const { settings, update } = useSettings();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   // Push-based live updates: refresh the task list when the backend signals a
   // change (agent sync, scheduled run, another tab), instead of only polling.
@@ -1628,8 +1630,13 @@ const Dashboard = () => {
 
   const runMutation = useMutation({
     mutationFn: async (task: Task) => {
-      if (settings.confirmBeforeRun && !confirm(`Are you sure you want to run task "${task.name}"?`)) {
-        throw new Error('Cancelled');
+      if (settings.confirmBeforeRun) {
+        const ok = await confirm({
+          title: 'Run task now?',
+          message: `Run "${task.name}" immediately?`,
+          confirmText: 'Run'
+        });
+        if (!ok) throw new Error('Cancelled');
       }
       await api.post(`/tasks/${task.id}/run`);
       return { task };

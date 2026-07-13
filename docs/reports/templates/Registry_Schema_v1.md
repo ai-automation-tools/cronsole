@@ -435,8 +435,8 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
   guards every bundled `commandTemplate` through the Apply substitution pipeline.
 - **Second content pack — AI Pack (Claude Code)** (2026-07-13): 4 `ai-agent` templates that run
   the Claude Code CLI unattended as real, creatable Windows tasks (`ai-claude-headless-run`,
-  `-repo-digest`, `-autofix-commit`, `-log-cleanup`), bringing the bundled snapshot 33 → **37**
-  templates *(not yet published to the hosted registry)*. Headless print mode (`claude -p`) fenced
+  `-repo-digest`, `-autofix-commit`, `-log-cleanup`), bringing the catalog 33 → **37**
+  templates (published to the hosted registry). Headless print mode (`claude -p`) fenced
   by `--permission-mode dontAsk` + a user-scoped `--allowedTools` allowlist + `--bare`, output
   captured through a PowerShell `-Command` wrapper (single-quoted inner args). Clears the roadmap's
   "safe non-interactive execution path" gate for Claude Code; the **Codex** slice is deferred.

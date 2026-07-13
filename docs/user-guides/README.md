@@ -21,6 +21,7 @@ Windows agent. If you haven't set TaskHub up yet, start with
 | [**🖥️ UI User Guide**](guides/UI_User_Guide.md) | Navigating the dashboard, task cards and views, categorization and overrides, and applying templates. |
 | [**🤖 Windows Agent Setup Guide**](guides/Agent_Setup_Guide.md) | Installing, registering, running, verifying, and troubleshooting the local .NET agent. |
 | [**🧩 MCP Server Guide**](guides/MCP_Server_Guide.md) | Wiring the MCP server into Claude / Codex / Cursor to list, run, and create tasks in natural language. |
+| [**🌐 Remote Access Guide**](guides/Remote_Access_Guide.md) <sub>· advanced · optional</sub> | Reach your own local TaskHub from other devices (Tailscale / Cloudflare Tunnel). A future, self-hosted enhancement — TaskHub is local-first by default. |
 
 ## 🔗 Related
 

@@ -424,7 +424,11 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
   `RegistryCatalogSource` fetches + integrity-checks + caches, falling back to the bundled
   snapshot on any failure. Wired via `TEMPLATE_REGISTRY_URL` (unset = bundled). A drift test
   keeps the committed artifact in sync with the snapshot.
-- **Next** — serve the `registry/` folder from a static host / separate content repo and set
-  `TEMPLATE_REGISTRY_URL`; a runtime refresh (re-pull without a manual reseed) and index
-  signing are the follow-ups. Exactly one real compiler (Windows) stays real; everything else
-  is declared-but-manual.
+- **Step 4 — hosting + runtime refresh** (2026-07-13): ✅ done. The artifact is mirrored to the
+  public repo `michaelschecht/taskhub-registry` (GitHub Pages → `https://mikesailab.com/taskhub-registry`,
+  set as `TEMPLATE_REGISTRY_URL`) via `scripts/publish-registry.ps1`; the backend syncs the catalog
+  into the DB on boot + on an interval (`catalog/catalogSync.ts`), so registry changes land with no
+  reseed. Verified live end-to-end.
+- **Optional follow-ups** — index signing (beyond per-file checksums) and prune-on-sync (removed
+  templates aren't deleted yet). Exactly one real compiler (Windows) stays real; everything else is
+  declared-but-manual.

@@ -9,6 +9,7 @@ import { agentAuthMiddleware, assertAgentAuthConfig } from './ws/agentAuth.js';
 import { registerUiChannel } from './ws/uiChannel.js';
 import { serializeConfig } from './auth/connectionConfig.js';
 import { nativeScheduler } from './services/NativeScheduler.js';
+import { startCatalogRefresh } from './catalog/catalogSync.js';
 
 // Fail fast if the agent pairing secret is missing/weak — the socket channel is
 // remote command execution on the user's machine, so booting without it is unsafe.
@@ -95,6 +96,11 @@ async function main() {
       healthState: 'HEALTHY'
     }
   });
+
+  // Populate the template catalog from the configured source (bundled snapshot
+  // or the remote registry) and, when pointed at a registry, keep it fresh on an
+  // interval — so catalog updates land without a manual reseed. Non-fatal.
+  await startCatalogRefresh();
 
   await nativeScheduler.start();
 

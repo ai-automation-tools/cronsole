@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_github_pr_triage",
+  "name": "GitHub PR Triage",
+  "description": "Triage new pull requests in a repo and label them by content.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "ai",
+    "github",
+    "dev"
+  ],
+  "icon": "GitPullRequest",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/30 * * * *"
+  },
+  "commandTemplate": "Triage new pull requests in {{repo}} and label them by content and priority.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The owner/name of the GitHub repo to triage."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

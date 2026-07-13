@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_morning_news_digest",
+  "name": "Morning News Digest",
+  "description": "Summarize top stories from your news sources into a daily digest.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "digest",
+    "news"
+  ],
+  "icon": "Newspaper",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * *"
+  },
+  "commandTemplate": "Summarize the top stories from {{feeds}} into a {{length}} digest.",
+  "parameters": [
+    {
+      "key": "feeds",
+      "label": "News sources / feeds",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "Comma-separated RSS feeds or topics to summarize."
+    },
+    {
+      "key": "length",
+      "label": "Digest length",
+      "type": "select",
+      "default": "short",
+      "required": true,
+      "options": [
+        "short",
+        "detailed"
+      ],
+      "help": "How long the summary should be."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code",
+    "chatgpt"
+  ]
+}

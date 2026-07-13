@@ -13,6 +13,9 @@
 import { bundledCatalog } from './bundled.js';
 import { registryTemplateSchema, type RegistryTemplate } from './schema.js';
 import { normalizeTemplate, type NormalizedTemplate } from './normalize.js';
+// registrySource imports only the *type* from this module (erased at runtime),
+// so this static import creates no load-time cycle.
+import { RegistryCatalogSource } from './registrySource.js';
 
 export interface TemplateCatalogSource {
   /** A short identifier for logs/diagnostics (e.g. "bundled", "registry"). */
@@ -50,7 +53,21 @@ export class BundledCatalogSource implements TemplateCatalogSource {
 }
 
 /**
- * The default catalog source. Swappable for a registry-backed source later
- * without touching the seed or routes.
+ * Resolve the process-wide catalog source. When `TEMPLATE_REGISTRY_URL` is set,
+ * templates are fetched from that remote static registry (integrity-checked,
+ * cached) with the bundled snapshot as the fallback; otherwise the bundled
+ * snapshot is used directly. Either way the seed/routes just call `.list()`.
  */
-export const catalogSource: TemplateCatalogSource = new BundledCatalogSource();
+export function buildCatalogSource(env: NodeJS.ProcessEnv = process.env): TemplateCatalogSource {
+  const bundled = new BundledCatalogSource();
+  const url = env.TEMPLATE_REGISTRY_URL?.trim();
+  if (!url) return bundled;
+
+  return new RegistryCatalogSource({
+    baseUrl: url,
+    fallback: bundled,
+    logger: (m: string) => console.log(`[catalog] ${m}`)
+  });
+}
+
+export const catalogSource: TemplateCatalogSource = buildCatalogSource();

@@ -412,10 +412,19 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
 
 ---
 
-## 8. What step 2 becomes (not in this draft)
+## 8. Implementation status
 
-Once this schema is approved: refactor the app to load templates from a **catalog source
-behind an interface**, with the current seeded set as the bundled fallback snapshot — no
-behavior change, purely decoupling "where templates come from." Then stand up the static
-registry and point the app at it (cache + fallback). Exactly one real compiler (Windows)
-stays real; everything else is declared-but-manual.
+- **Step 1 — schema + ADR** (this doc): ✅ done.
+- **Step 2 — catalog behind an interface** (2026-07-13): ✅ done. `backend/src/catalog/`
+  holds the v1 Zod schema, the bundled snapshot (all 24 templates), a lowercase-kebab →
+  Prisma-enum normalizer, and a `TemplateCatalogSource` interface with `BundledCatalogSource`.
+  `seed.ts` is now just the materializer. No behavior change — DB content byte-for-byte identical.
+- **Step 3 — static registry + remote source** (2026-07-13): ✅ done. `npm run registry:build`
+  emits `registry/index.json` + `registry/templates/*.json` with per-file `sha256`;
+  `RegistryCatalogSource` fetches + integrity-checks + caches, falling back to the bundled
+  snapshot on any failure. Wired via `TEMPLATE_REGISTRY_URL` (unset = bundled). A drift test
+  keeps the committed artifact in sync with the snapshot.
+- **Next** — serve the `registry/` folder from a static host / separate content repo and set
+  `TEMPLATE_REGISTRY_URL`; a runtime refresh (re-pull without a manual reseed) and index
+  signing are the follow-ups. Exactly one real compiler (Windows) stays real; everything else
+  is declared-but-manual.

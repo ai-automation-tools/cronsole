@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_applescript",
+  "name": "AppleScript",
+  "description": "Run an AppleScript file via osascript.",
+  "runtime": "applescript",
+  "os": "macos",
+  "category": "other",
+  "tags": [
+    "macos",
+    "applescript"
+  ],
+  "icon": "Apple",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 18 * * *"
+  },
+  "commandTemplate": "osascript \"{{scriptPath}}\"",
+  "parameters": [
+    {
+      "key": "scriptPath",
+      "label": "Script file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the script on the target machine."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

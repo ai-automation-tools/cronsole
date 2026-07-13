@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_git_sync",
+  "name": "Git Pull / Repo Sync",
+  "description": "Pull the latest commits for a local git repository on a schedule.",
+  "runtime": "bash",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "git",
+    "dev",
+    "sync"
+  ],
+  "icon": "GitBranch",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 */6 * * *"
+  },
+  "commandTemplate": "git -C \"{{repoPath}}\" pull",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

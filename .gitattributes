@@ -1,0 +1,5 @@
+# The static template registry is content-addressed: each template's sha256 in
+# index.json is computed over the file's exact bytes. Force LF so a checkout
+# never rewrites line endings (which would break every checksum). The generator
+# (backend: npm run registry:build) always writes LF.
+registry/** text eol=lf

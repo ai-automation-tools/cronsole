@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_python_macos",
+  "name": "Python Script (macOS)",
+  "description": "Run a Python script with python3 on macOS.",
+  "runtime": "python",
+  "os": "macos",
+  "category": "other",
+  "tags": [
+    "macos",
+    "python",
+    "script"
+  ],
+  "icon": "FileCode",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * *"
+  },
+  "commandTemplate": "python3 \"{{scriptPath}}\" {{args}}",
+  "parameters": [
+    {
+      "key": "scriptPath",
+      "label": "Script file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the script on the target machine."
+    },
+    {
+      "key": "args",
+      "label": "Arguments",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional command-line arguments."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

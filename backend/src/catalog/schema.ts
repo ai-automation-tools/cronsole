@@ -118,3 +118,31 @@ export const registryTemplateSchema = z
 export type RegistryTemplate = z.infer<typeof registryTemplateSchema>;
 export type RegistryParameter = z.infer<typeof registryParameterSchema>;
 export type RegistryAction = z.infer<typeof registryActionSchema>;
+
+// --- Registry index (index.json) ---------------------------------------------
+// One lightweight entry per template — enough to render the Templates tab
+// (search/filter/group) without fetching every template file. `sha256` is the
+// integrity hash of the referenced template file's bytes; a consumer verifies
+// it before parsing the fetched file as executable content.
+export const registryIndexEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  category: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  isStarter: z.boolean().optional(),
+  runtime: z.string().optional(),
+  os: z.string().optional(),
+  compatibleTargets: z.array(z.string()),
+  path: z.string(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/, 'sha256 must be 64 lowercase hex chars.')
+});
+
+export const registryIndexSchema = z.object({
+  registryVersion: z.literal('1.0'),
+  updatedAt: z.string().optional(),
+  templates: z.array(registryIndexEntrySchema)
+});
+
+export type RegistryIndex = z.infer<typeof registryIndexSchema>;
+export type RegistryIndexEntry = z.infer<typeof registryIndexEntrySchema>;

@@ -1562,7 +1562,7 @@ const Dashboard = () => {
   const [showImport, setShowImport] = useState(false);
   const [showCreateNative, setShowCreateNative] = useState(false);
   const queryClient = useQueryClient();
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
   const { toast } = useToast();
 
   // Push-based live updates: refresh the task list when the backend signals a
@@ -1663,6 +1663,30 @@ const Dashboard = () => {
     <div className="flex h-screen bg-background text-foreground font-sans selection:bg-primary/30 overflow-hidden">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="flex-1 p-10 overflow-y-auto">
+        {!settings.onboardingSeen && (
+          <div className="mb-6 flex items-center gap-4 flex-wrap bg-primary/10 border border-primary/30 rounded-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-500">
+            <Sparkles size={20} className="text-primary shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-foreground">New to TaskHub?</p>
+              <p className="text-xs text-muted-foreground">Take the 4-step getting-started tour — connect the agent, import tasks, and use templates.</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => { setShowHelp(true); update('onboardingSeen', true); }}
+                className="bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95"
+              >
+                Take the tour
+              </button>
+              <button
+                onClick={() => update('onboardingSeen', true)}
+                title="Dismiss"
+                className="p-2 rounded-lg text-subtle-foreground hover:text-foreground hover:bg-background transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
         {activeTab === 'dashboard' && (
           <DashboardScreen
             tasks={tasks}

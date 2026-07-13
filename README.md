@@ -23,6 +23,11 @@
 <p align="center">
   <img src="https://img.shields.io/badge/status-MVP_Prototype-F59E0B?style=for-the-badge" alt="Status: MVP Prototype">
   <a href="docs/ROADMAP.md"><img src="https://img.shields.io/badge/plan-ROADMAP-8B5CF6?style=for-the-badge" alt="Roadmap"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-2ea44f?style=for-the-badge" alt="License: Apache 2.0"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/michaelschecht/taskhub/actions/workflows/ci.yml"><img src="https://github.com/michaelschecht/taskhub/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
 </p>
 
 <p align="center">
@@ -211,5 +216,5 @@ TaskHub is a private MVP-stage repository. If you're working on it, start with
 </p>
 
 <p align="center">
-  <sub>© 2026 Michael Schecht · Private repository · All rights reserved</sub>
+  <sub>© 2026 Michael Schecht · Licensed under <a href="LICENSE">Apache-2.0</a> · Local-first, pre-public MVP</sub>
 </p>

@@ -33,7 +33,8 @@ import {
   Download,
   Upload,
   BookOpen,
-  ChevronDown
+  ChevronDown,
+  Menu
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CloneTaskModal } from './components/CloneTaskModal';
@@ -1599,6 +1600,7 @@ const PlatformRow = ({ link, onDelete }: { link: PlatformLink; onDelete: (id: st
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [cloningTask, setCloningTask] = useState<Task | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -1710,8 +1712,27 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-background text-foreground font-sans selection:bg-primary/30 overflow-hidden">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="flex-1 p-10 overflow-y-auto">
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+      <main className="flex-1 p-4 md:p-10 overflow-y-auto">
+        {/* Mobile top bar — the drawer toggle (the sidebar is off-canvas below md). */}
+        <div className="flex items-center gap-3 mb-6 md:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg border border-border text-foreground hover:bg-surface transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 bg-primary rounded-lg flex items-center justify-center font-bold text-primary-foreground text-sm">T</div>
+            <span className="font-bold">TaskHub</span>
+          </div>
+        </div>
         {!settings.onboardingSeen && (
           <div className="mb-6 flex items-center gap-4 flex-wrap bg-primary/10 border border-primary/30 rounded-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-500">
             <Sparkles size={20} className="text-primary shrink-0" />

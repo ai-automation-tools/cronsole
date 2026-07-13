@@ -51,6 +51,36 @@ describe('Sidebar Component', () => {
     expect(setActiveTab).toHaveBeenCalledWith('settings');
   });
 
+  it('closes the mobile drawer when a nav item is selected', () => {
+    const onClose = vi.fn();
+    render(
+      <Sidebar activeTab="dashboard" setActiveTab={vi.fn()} open onClose={onClose} />
+    );
+
+    fireEvent.click(screen.getByText('Templates').closest('button')!);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('closes the mobile drawer on Escape when open', () => {
+    const onClose = vi.fn();
+    render(
+      <Sidebar activeTab="dashboard" setActiveTab={vi.fn()} open onClose={onClose} />
+    );
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not listen for Escape when the drawer is closed', () => {
+    const onClose = vi.fn();
+    render(
+      <Sidebar activeTab="dashboard" setActiveTab={vi.fn()} open={false} onClose={onClose} />
+    );
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('highlights the active tab', () => {
     const setActiveTab = vi.fn();
     const { rerender } = render(<Sidebar activeTab="dashboard" setActiveTab={setActiveTab} />);

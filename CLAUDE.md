@@ -5,7 +5,7 @@
 **Local path:** `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub` *(promoted from `Other-Repos/` to a top-level workspace repo on 2026-06-01)*
 **GitHub:** [`github.com/michaelschecht/taskhub`](https://github.com/michaelschecht/taskhub) (private)
 **Working branch:** `mike_desktop` · **Deploy branch:** `main` (per workspace convention)
-**Hosting:** Not hosted — the frontend, backend, and .NET agent all run locally. Hosting the frontend + backend and setting `VITE_API_URL` is a planned step toward a real hosted control plane (see [`docs/ROADMAP.md`](docs/ROADMAP.md) › P3 / Go-public).
+**Hosting:** **Local-first by design** — the frontend, backend, and .NET agent all run on the user's own machine, and TaskHub **launches local-first** (no hosted/SaaS instance; the earlier Hetzner "hosted control plane" plan was dropped 2026-07-13). Reaching your own local instance from other devices (Tailscale / Cloudflare Tunnel — the code-server model) is the **final, optional P3 enhancement**, delivered as docs + optional tooling: [`docs/user-guides/guides/Remote_Access_Guide.md`](docs/user-guides/guides/Remote_Access_Guide.md), [`docs/ROADMAP.md`](docs/ROADMAP.md) › P3.
 
 ---
 

@@ -1,0 +1,501 @@
+/**
+ * Bundled fallback snapshot of the template catalog, in Registry v1 shape.
+ *
+ * This is the compiled-in source of truth the seed materializes into the DB and
+ * the fallback a future remote-registry source falls back to when the network
+ * is down or a fetch fails. It replaces the hand-inlined arrays that used to
+ * live in src/seed.ts — content is now data behind a catalog source, not code.
+ *
+ * Faithfulness rule (step-2 "no behavior change"): every `commandTemplate` and
+ * cron here is byte-for-byte identical to the previous seed, and the legacy
+ * `tpl_*` IDs are preserved so the DB upsert updates the same rows and existing
+ * TemplateFavorite FKs are never orphaned. The on-disk *remote* registry format
+ * is JSON; this bundled snapshot is a typed TS module purely so it needs no
+ * build-time JSON copy step.
+ */
+
+import type { RegistryTemplate } from './schema.js';
+
+// --- Reusable parameter definitions (unchanged from the previous seed). ---
+const P = {
+  scriptPath: {
+    key: 'scriptPath',
+    label: 'Script file path',
+    type: 'path',
+    default: '',
+    required: true,
+    help: 'Absolute path to the script on the target machine.'
+  },
+  args: {
+    key: 'args',
+    label: 'Arguments',
+    type: 'text',
+    default: '',
+    required: false,
+    help: 'Optional command-line arguments.'
+  },
+  inlineCommand: {
+    key: 'command',
+    label: 'Command',
+    type: 'text',
+    default: '',
+    required: true,
+    help: 'The command/code to run inline.'
+  },
+  exePath: {
+    key: 'exePath',
+    label: 'Executable path',
+    type: 'path',
+    default: '',
+    required: true,
+    help: 'Absolute path to the .exe / binary.'
+  },
+  url: {
+    key: 'url',
+    label: 'URL',
+    type: 'url',
+    default: '',
+    required: true,
+    help: 'The endpoint to call.'
+  },
+  method: {
+    key: 'method',
+    label: 'HTTP method',
+    type: 'select',
+    options: ['GET', 'POST'],
+    default: 'GET',
+    required: true,
+    help: 'HTTP verb for the request.'
+  },
+  repoPath: {
+    key: 'repoPath',
+    label: 'Repository path',
+    type: 'path',
+    default: '',
+    required: true,
+    help: 'Absolute path to the local git repository.'
+  },
+  prompt: {
+    key: 'prompt',
+    label: 'Prompt',
+    type: 'text',
+    default: '',
+    required: true,
+    help: 'The natural-language instruction for the agent.'
+  }
+};
+
+const sched = (cron: string) => ({ kind: 'schedule' as const, cron });
+
+// =====================================================================
+// Tier B — Use-Case Patterns
+// =====================================================================
+const patterns: RegistryTemplate[] = [
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_daily_database_backup',
+    name: 'Daily Database Backup',
+    description: 'Back up a PostgreSQL database on a schedule with pg_dump.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'backup',
+    tags: ['windows', 'backup', 'database', 'postgres'],
+    icon: 'Database',
+    trigger: sched('0 3 * * *'),
+    // Redirection needs a shell, so cmd.exe is named explicitly and the whole
+    // pg_dump line stays inside one quoted /c argument.
+    commandTemplate: 'cmd.exe /c "pg_dump -U {{dbUser}} {{dbName}} > {{backupPath}}"',
+    parameters: [
+      { key: 'dbUser', label: 'Database user', type: 'text', default: 'postgres', required: true, help: 'The PostgreSQL role to connect as.' },
+      { key: 'dbName', label: 'Database name', type: 'text', default: '', required: true, help: 'The database to back up.' },
+      { key: 'backupPath', label: 'Backup file path', type: 'path', default: 'C:\\backups\\db.sql', required: true, help: 'Where to write the .sql dump.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_morning_news_digest',
+    name: 'Morning News Digest',
+    description: 'Summarize top stories from your news sources into a daily digest.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'ai-agent',
+    tags: ['ai', 'digest', 'news'],
+    icon: 'Newspaper',
+    trigger: sched('0 7 * * *'),
+    commandTemplate: 'Summarize the top stories from {{feeds}} into a {{length}} digest.',
+    parameters: [
+      { key: 'feeds', label: 'News sources / feeds', type: 'text', default: '', required: true, help: 'Comma-separated RSS feeds or topics to summarize.' },
+      { key: 'length', label: 'Digest length', type: 'select', options: ['short', 'detailed'], default: 'short', required: true, help: 'How long the summary should be.' }
+    ],
+    compatibleTargets: ['claude-code', 'chatgpt']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_weekly_system_cleanup',
+    name: 'Weekly System Cleanup',
+    description: 'Delete temporary files on a schedule to reclaim disk space.',
+    runtime: 'batch',
+    os: 'windows',
+    category: 'cleanup',
+    tags: ['windows', 'cleanup', 'disk'],
+    icon: 'Trash2',
+    trigger: sched('0 0 * * 0'),
+    commandTemplate: 'cmd.exe /c "del /q /s {{targetPath}}"',
+    parameters: [
+      { key: 'targetPath', label: 'Path to clean', type: 'path', default: '%temp%\\*', required: true, help: 'Files/glob to delete, e.g. %temp%\\*.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_github_pr_triage',
+    name: 'GitHub PR Triage',
+    description: 'Triage new pull requests in a repo and label them by content.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'github', 'dev'],
+    icon: 'GitPullRequest',
+    trigger: sched('*/30 * * * *'),
+    commandTemplate: 'Triage new pull requests in {{repo}} and label them by content and priority.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the GitHub repo to triage.' }
+    ],
+    compatibleTargets: ['claude-code']
+  }
+];
+
+// =====================================================================
+// Tier A — Script Starters (isStarter = true)
+// =====================================================================
+const starters: RegistryTemplate[] = [
+  // ---- Windows ----
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_powershell_script',
+    name: 'PowerShell Script',
+    description: 'Run a .ps1 PowerShell script file on a schedule.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'other',
+    tags: ['windows', 'script', 'powershell'],
+    icon: 'Terminal',
+    isStarter: true,
+    trigger: sched('0 9 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{{scriptPath}}"',
+    parameters: [P.scriptPath],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_powershell_inline',
+    name: 'PowerShell Inline Command',
+    description: 'Run an inline PowerShell command without a script file.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'other',
+    tags: ['windows', 'powershell'],
+    icon: 'Terminal',
+    isStarter: true,
+    trigger: sched('0 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "{{command}}"',
+    parameters: [P.inlineCommand],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_batch_script',
+    name: 'Batch / CMD Script',
+    description: 'Run a .bat or .cmd batch file via cmd.exe.',
+    runtime: 'batch',
+    os: 'windows',
+    category: 'other',
+    tags: ['windows', 'batch', 'script'],
+    icon: 'SquareTerminal',
+    isStarter: true,
+    trigger: sched('0 0 * * *'),
+    commandTemplate: 'cmd.exe /c "{{scriptPath}}"',
+    parameters: [P.scriptPath],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_python_windows',
+    name: 'Python Script (Windows)',
+    description: 'Run a Python script with the Windows python interpreter.',
+    runtime: 'python',
+    os: 'windows',
+    category: 'other',
+    tags: ['windows', 'python', 'script'],
+    icon: 'FileCode',
+    isStarter: true,
+    trigger: sched('0 8 * * *'),
+    commandTemplate: 'python "{{scriptPath}}" {{args}}',
+    parameters: [P.scriptPath, P.args],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_node_windows',
+    name: 'Node.js Script (Windows)',
+    description: 'Run a Node.js script with node on Windows.',
+    runtime: 'node',
+    os: 'windows',
+    category: 'other',
+    tags: ['windows', 'node', 'script'],
+    icon: 'Hexagon',
+    isStarter: true,
+    trigger: sched('*/30 * * * *'),
+    commandTemplate: 'node "{{scriptPath}}" {{args}}',
+    parameters: [P.scriptPath, P.args],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_run_exe',
+    name: 'Run a Program / .exe',
+    description: 'Launch an executable or binary directly on a schedule.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'other',
+    tags: ['windows', 'executable'],
+    icon: 'AppWindow',
+    isStarter: true,
+    trigger: sched('0 7 * * 1'),
+    commandTemplate: '"{{exePath}}" {{args}}',
+    parameters: [P.exePath, P.args],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_webhook_windows',
+    name: 'Webhook / HTTP Ping (Windows)',
+    description: 'Call a URL on a schedule using Invoke-WebRequest.',
+    runtime: 'http',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['windows', 'http', 'monitoring', 'webhook'],
+    icon: 'Globe',
+    isStarter: true,
+    trigger: sched('*/15 * * * *'),
+    commandTemplate: 'powershell.exe -Command "Invoke-WebRequest -Uri \'{{url}}\' -Method {{method}}"',
+    parameters: [P.url, P.method],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_vbscript',
+    name: 'VBScript (legacy)',
+    description: 'Run a legacy .vbs script via cscript.',
+    runtime: 'vbscript',
+    os: 'windows',
+    category: 'other',
+    tags: ['windows', 'vbscript', 'legacy'],
+    icon: 'FileCode',
+    isStarter: true,
+    trigger: sched('0 6 * * *'),
+    commandTemplate: 'cscript //nologo "{{scriptPath}}"',
+    parameters: [P.scriptPath],
+    compatibleTargets: ['windows']
+  },
+
+  // ---- macOS (catalog-only until the macOS agent ships) ----
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_zsh_script',
+    name: 'Shell Script (zsh)',
+    description: 'Run a shell script with zsh, the macOS default shell.',
+    runtime: 'zsh',
+    os: 'macos',
+    category: 'other',
+    tags: ['macos', 'shell', 'zsh'],
+    icon: 'Terminal',
+    isStarter: true,
+    trigger: sched('0 9 * * *'),
+    commandTemplate: '/bin/zsh "{{scriptPath}}" {{args}}',
+    parameters: [P.scriptPath, P.args],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_bash_script',
+    name: 'Shell Script (bash)',
+    description: 'Run a shell script with bash on macOS or Linux.',
+    runtime: 'bash',
+    os: 'macos',
+    category: 'other',
+    tags: ['macos', 'shell', 'bash'],
+    icon: 'Terminal',
+    isStarter: true,
+    trigger: sched('0 9 * * *'),
+    commandTemplate: '/bin/bash "{{scriptPath}}" {{args}}',
+    parameters: [P.scriptPath, P.args],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_python_macos',
+    name: 'Python Script (macOS)',
+    description: 'Run a Python script with python3 on macOS.',
+    runtime: 'python',
+    os: 'macos',
+    category: 'other',
+    tags: ['macos', 'python', 'script'],
+    icon: 'FileCode',
+    isStarter: true,
+    trigger: sched('0 8 * * *'),
+    commandTemplate: 'python3 "{{scriptPath}}" {{args}}',
+    parameters: [P.scriptPath, P.args],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_node_macos',
+    name: 'Node.js Script (macOS)',
+    description: 'Run a Node.js script with node on macOS.',
+    runtime: 'node',
+    os: 'macos',
+    category: 'other',
+    tags: ['macos', 'node', 'script'],
+    icon: 'Hexagon',
+    isStarter: true,
+    trigger: sched('*/30 * * * *'),
+    commandTemplate: 'node "{{scriptPath}}" {{args}}',
+    parameters: [P.scriptPath, P.args],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_applescript',
+    name: 'AppleScript',
+    description: 'Run an AppleScript file via osascript.',
+    runtime: 'applescript',
+    os: 'macos',
+    category: 'other',
+    tags: ['macos', 'applescript'],
+    icon: 'Apple',
+    isStarter: true,
+    trigger: sched('0 18 * * *'),
+    commandTemplate: 'osascript "{{scriptPath}}"',
+    parameters: [P.scriptPath],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_shell_inline_macos',
+    name: 'Inline Shell Command (macOS)',
+    description: 'Run an inline shell command via zsh.',
+    runtime: 'zsh',
+    os: 'macos',
+    category: 'other',
+    tags: ['macos', 'shell'],
+    icon: 'Terminal',
+    isStarter: true,
+    trigger: sched('0 * * * *'),
+    commandTemplate: '/bin/zsh -c "{{command}}"',
+    parameters: [P.inlineCommand],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_webhook_macos',
+    name: 'Webhook / HTTP Ping (macOS)',
+    description: 'Call a URL on a schedule using curl.',
+    runtime: 'http',
+    os: 'macos',
+    category: 'monitoring',
+    tags: ['macos', 'http', 'monitoring', 'webhook'],
+    icon: 'Globe',
+    isStarter: true,
+    trigger: sched('*/15 * * * *'),
+    commandTemplate: 'curl -fsS -X {{method}} "{{url}}"',
+    parameters: [P.method, P.url],
+    compatibleTargets: ['macos']
+  },
+
+  // ---- Cross-platform / platform-native ----
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_python_cross',
+    name: 'Python Script (cross-platform)',
+    description: 'Run a Python script on Windows or macOS (interpreter resolved at apply-time).',
+    runtime: 'python',
+    os: 'cross-platform',
+    category: 'other',
+    tags: ['python', 'script'],
+    icon: 'FileCode',
+    isStarter: true,
+    trigger: sched('0 8 * * *'),
+    commandTemplate: 'python "{{scriptPath}}" {{args}}',
+    parameters: [P.scriptPath, P.args],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_node_cross',
+    name: 'Node.js Script (cross-platform)',
+    description: 'Run a Node.js script on Windows or macOS.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'other',
+    tags: ['node', 'script'],
+    icon: 'Hexagon',
+    isStarter: true,
+    trigger: sched('0 8 * * *'),
+    commandTemplate: 'node "{{scriptPath}}" {{args}}',
+    parameters: [P.scriptPath, P.args],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_git_sync',
+    name: 'Git Pull / Repo Sync',
+    description: 'Pull the latest commits for a local git repository on a schedule.',
+    runtime: 'bash',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['git', 'dev', 'sync'],
+    icon: 'GitBranch',
+    isStarter: true,
+    trigger: sched('0 */6 * * *'),
+    commandTemplate: 'git -C "{{repoPath}}" pull',
+    parameters: [P.repoPath],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_claude_routine',
+    name: 'Claude Code Routine',
+    description: 'Run a natural-language Claude Code routine on a schedule.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'ai-agent',
+    tags: ['ai', 'claude-code'],
+    icon: 'Sparkles',
+    isStarter: true,
+    trigger: sched('0 7 * * *'),
+    commandTemplate: '{{prompt}}',
+    parameters: [P.prompt],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'tpl_starter_chatgpt_link',
+    name: 'ChatGPT Automation (link)',
+    description: 'Quick-link to create a ChatGPT automation (no public API — opens native UI).',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'ai-agent',
+    tags: ['ai', 'chatgpt'],
+    icon: 'MessageSquare',
+    isStarter: true,
+    trigger: sched('0 9 * * *'),
+    commandTemplate: '{{prompt}}',
+    parameters: [P.prompt],
+    compatibleTargets: ['chatgpt']
+  }
+];
+
+/** The full bundled catalog (patterns first, then starters), Registry v1 shape. */
+export const bundledCatalog: RegistryTemplate[] = [...patterns, ...starters];

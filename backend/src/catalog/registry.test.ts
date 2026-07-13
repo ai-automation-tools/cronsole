@@ -69,7 +69,7 @@ describe('RegistryCatalogSource — happy path', () => {
       src.list(),
       new BundledCatalogSource().list()
     ]);
-    expect(fromRegistry).toHaveLength(33);
+    expect(fromRegistry).toHaveLength(37);
     // The registry is generated from the same snapshot, so normalized output is
     // identical — proves the fetch/verify/normalize path is faithful.
     expect(fromRegistry).toEqual(fromBundled);
@@ -82,10 +82,10 @@ describe('RegistryCatalogSource — happy path', () => {
       fallback: new BundledCatalogSource(),
       cacheTtlMs: 60_000
     });
-    expect(await src.list()).toHaveLength(33);
+    expect(await src.list()).toHaveLength(37);
     await srv.close(); // registry now unreachable
     // Still served from the fresh cache, not the fallback.
-    expect(await src.list()).toHaveLength(33);
+    expect(await src.list()).toHaveLength(37);
   });
 });
 
@@ -116,17 +116,17 @@ describe('RegistryCatalogSource — failure handling', () => {
       baseUrl: 'http://127.0.0.1:1',
       fallback: new BundledCatalogSource()
     });
-    expect(await src.list()).toHaveLength(33);
+    expect(await src.list()).toHaveLength(37);
   });
 });
 
 describe('committed registry artifact', () => {
-  it('index.json is valid and lists all 33 templates', () => {
+  it('index.json is valid and lists all 37 templates', () => {
     const index = registryIndexSchema.parse(
       JSON.parse(readFileSync(join(registryDir, 'index.json'), 'utf8'))
     );
     expect(index.registryVersion).toBe('1.0');
-    expect(index.templates).toHaveLength(33);
+    expect(index.templates).toHaveLength(37);
   });
 
   it('is in sync with the bundled snapshot (regenerate + compare, EOL-normalized)', () => {

@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-13T20:18:02.770Z",
+  "updatedAt": "2026-07-13T20:52:27.122Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -251,6 +251,88 @@
       ],
       "path": "templates/dev-docker-compose-up.json",
       "sha256": "fc1ac426f5e1b2bce4c9f2f3d66704dc2565548f7a8e230f267beeb03195d09b"
+    },
+    {
+      "id": "ai-claude-headless-run",
+      "name": "Claude Code Headless Run",
+      "description": "Run the Claude Code CLI unattended against a repo on a schedule with a fixed prompt. Non-interactive (`-p`), fenced by `--permission-mode dontAsk`, scoped to the tools you list, output captured to a log.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "claude-code"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-claude-headless-run.json",
+      "sha256": "d126357d247cf27ae852682e97938443aff9734cfb59632c73aaf95b43021eb8"
+    },
+    {
+      "id": "ai-claude-repo-digest",
+      "name": "Claude Code Repo Digest",
+      "description": "A read-only Claude Code run that summarizes a repository into a Markdown digest on a schedule (e.g. weekly). Tools are locked to read/search only; the printed digest is written to a report file.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "claude-code",
+        "report"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-claude-repo-digest.json",
+      "sha256": "35b1dcb1091b4df884727dc604c5a395de0def4fd72983fee25f94e32a790273"
+    },
+    {
+      "id": "ai-claude-autofix-commit",
+      "name": "Claude Code Auto-Fix & Commit",
+      "description": "Higher-trust: let Claude Code edit a repo and commit on a schedule. Still fenced by `--permission-mode dontAsk` — only the edit/git tools you list are pre-approved. Scope `--allowedTools` narrowly and review the log/commits.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "claude-code",
+        "git"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-claude-autofix-commit.json",
+      "sha256": "e22e94f33a6fc00fe797214d6b216f74508f101670689b8905e3e9826f01b26e"
+    },
+    {
+      "id": "ai-claude-log-cleanup",
+      "name": "Claude Code Log Cleanup",
+      "description": "Housekeeping companion for the scheduled Claude runs: delete run logs/digests older than a cutoff so they do not pile up. Read-nothing, deletes only matching files in one folder.",
+      "category": "cleanup",
+      "tags": [
+        "ai",
+        "cli",
+        "agents",
+        "cleanup",
+        "logs"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-claude-log-cleanup.json",
+      "sha256": "cd1549251e631f30594eb86c000bb49a52d8a197a76b72c9b5020021cde731ae"
     },
     {
       "id": "tpl_starter_powershell_script",

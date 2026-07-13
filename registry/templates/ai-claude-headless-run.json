@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ai-claude-headless-run",
+  "name": "Claude Code Headless Run",
+  "description": "Run the Claude Code CLI unattended against a repo on a schedule with a fixed prompt. Non-interactive (`-p`), fenced by `--permission-mode dontAsk`, scoped to the tools you list, output captured to a log.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "llm",
+    "cli",
+    "agents",
+    "claude-code"
+  ],
+  "icon": "Bot",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools '{{allowedTools}}' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    },
+    {
+      "key": "prompt",
+      "label": "Prompt",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The instruction Claude runs each time. Avoid single quotes (they close the PowerShell string)."
+    },
+    {
+      "key": "allowedTools",
+      "label": "Allowed tools",
+      "type": "text",
+      "default": "Read,Grep,Glob",
+      "required": true,
+      "help": "Comma-separated Claude Code tool allowlist, e.g. Read,Grep,Glob or Bash(git log *),Edit. dontAsk still auto-denies anything not listed. See the Claude Code --allowedTools docs for the exact syntax."
+    },
+    {
+      "key": "maxTurns",
+      "label": "Max turns",
+      "type": "text",
+      "default": "5",
+      "required": true,
+      "help": "Abort the run after this many agentic turns (bounds runtime and cost)."
+    },
+    {
+      "key": "model",
+      "label": "Model",
+      "type": "select",
+      "default": "sonnet",
+      "required": true,
+      "options": [
+        "sonnet",
+        "opus",
+        "haiku"
+      ],
+      "help": "Claude model alias to run."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\claude-run.log",
+      "required": true,
+      "help": "Where the run output (Claude's printed result + any errors) is captured."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

@@ -17,6 +17,8 @@ import { toStructuredAction } from '../utils/commandParser.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { assertWindowsTaskNameAvailable } from '../utils/windowsTaskName.js';
 import { validateBody } from '../middleware/validate.js';
+import { importTemplates } from '../catalog/importCatalog.js';
+import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateFromTask.js';
 
 const router = Router();
 
@@ -644,6 +646,43 @@ router.get('/:id/executions', async (req: Request, res: Response) => {
     take: 20
   });
   res.json(executions);
+});
+
+const saveAsTemplateSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(1000).optional(),
+  category: z.string().trim().max(100).optional()
+});
+
+// Save an existing task as a reusable catalog template ("grow the catalog from
+// real tasks"). Derives a Registry v1 template from the task's command +
+// schedule (buildTemplateFromTask) and routes it through the same import
+// pipeline as file import (schema + {{placeholder}} resolvability + upsert), so
+// the new template is validated exactly like any other catalog content.
+router.post('/:id/save-as-template', validateBody(saveAsTemplateSchema), async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  let template;
+  try {
+    template = buildTemplateFromTask(task, req.body);
+  } catch (err) {
+    if (err instanceof SaveAsTemplateError) throw new HttpError(400, err.message);
+    throw err;
+  }
+
+  const result = await importTemplates(template);
+  if (result.created.length === 0) {
+    throw new HttpError(400, result.errors[0]?.error || 'Could not save this task as a template.');
+  }
+
+  const created = await prisma.template.findUnique({ where: { id: result.created[0] } });
+  res.status(201).json({ message: 'Task saved as template', template: created });
 });
 
 // Trigger a task

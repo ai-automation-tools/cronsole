@@ -60,6 +60,14 @@ export interface PlatformLink {
   iconType: string;
 }
 
+/** Result of POST /api/templates/import — a per-item summary of the batch. */
+export interface ImportResult {
+  total: number;
+  created: string[];
+  updated: string[];
+  errors: { id?: string; error: string }[];
+}
+
 export type HealthState = 'HEALTHY' | 'DEGRADED' | 'OFFLINE';
 
 /** One row from GET /api/tasks/health — live status of a platform connection. */

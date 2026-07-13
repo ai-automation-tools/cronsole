@@ -1,31 +1,42 @@
 <#
 .SYNOPSIS
-    Adds a repeating trigger to the \Task-Hub\TaskHubAgent scheduled task so the
-    idempotent launcher (Start-TaskHub.ps1) re-runs periodically and self-heals
-    any dead component (agent, backend, frontend, db/redis).
+    DEPRECATED - adds a repeating trigger to \Task-Hub\TaskHubAgent.
 
 .DESCRIPTION
-    The task fires AtLogon and the launcher exits once everything is started, so a
-    component that crashes mid-session would otherwise stay down until the next
-    logon. Start-TaskHub.ps1 skips anything already running, so re-running it every
-    few minutes is safe and only relaunches what actually died.
+    Superseded by \Task-Hub\TaskHubStack (see Register-TaskHubStack.ps1), which now
+    owns the recurring self-heal (`taskhub.ps1 up` every few minutes) and launches
+    hidden via run-hidden.vbs so nothing flashes on screen. Adding a repetition to
+    TaskHubAgent as well makes BOTH tasks re-run `up` on an interval - redundant
+    work and double the PowerShell console flashing. TaskHubAgent should stay a
+    flash-free, logon-only bootstrap (Docker + up); Register-TaskHubStack.ps1
+    -RepairAgentTask already resets it to exactly that.
 
-    This preserves the existing AtLogon trigger and only adds a repetition to it;
-    actions, settings, and principal are left untouched. Idempotent: re-running
-    just re-applies the same repetition.
+    Only use this script if you deliberately want a SECOND recurring self-heal on
+    TaskHubAgent (you almost certainly don't). Pass -Force to proceed.
 
     REQUIRES ELEVATION: the task runs at RunLevel Highest, so editing its
     definition needs an administrator PowerShell.
 
 .PARAMETER IntervalMinutes
     Minutes between launcher re-runs. Default 10.
+
+.PARAMETER Force
+    Proceed despite the deprecation (this script is a no-op without it).
 #>
 [CmdletBinding()]
 param(
-    [int]$IntervalMinutes = 10
+    [int]$IntervalMinutes = 10,
+    [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $Force) {
+    Write-Warning "DEPRECATED: TaskHubStack owns recurring self-heal now (Register-TaskHubStack.ps1)."
+    Write-Warning "Adding a repetition to TaskHubAgent duplicates it and doubles the console flashing."
+    Write-Warning "Re-run with -Force only if you truly want a second recurring self-heal task."
+    return
+}
 
 $taskPath = '\Task-Hub\'
 $taskName = 'TaskHubAgent'

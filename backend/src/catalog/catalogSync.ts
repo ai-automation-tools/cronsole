@@ -26,16 +26,22 @@ export interface CatalogSyncResult {
   source: string;
 }
 
-export async function syncCatalogToDb(
-  source: TemplateCatalogSource = catalogSource
-): Promise<CatalogSyncResult> {
-  // Ensure the catalog owner exists so the create branch's relation resolves,
-  // regardless of call order (seed vs. boot).
+/**
+ * Ensure the shared catalog owner exists so a template create's `user` relation
+ * resolves, regardless of call order (seed / boot / import). Idempotent.
+ */
+export async function ensureCatalogOwner(): Promise<void> {
   await prisma.user.upsert({
     where: { email: CATALOG_OWNER_EMAIL },
     update: {},
     create: { id: CATALOG_OWNER_ID, email: CATALOG_OWNER_EMAIL, name: 'Mike' }
   });
+}
+
+export async function syncCatalogToDb(
+  source: TemplateCatalogSource = catalogSource
+): Promise<CatalogSyncResult> {
+  await ensureCatalogOwner();
 
   const templates = await source.list();
   for (const { id, ...data } of templates) {

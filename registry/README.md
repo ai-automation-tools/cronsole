@@ -49,10 +49,25 @@ artifact is out of sync with the bundled snapshot, so a catalog edit that forget
 > **Line endings:** files here are pinned to LF (`.gitattributes`) because each
 > `sha256` is computed over exact bytes — a CRLF rewrite would break every checksum.
 
-## Publishing (future)
+## Publishing
 
-This folder is self-contained and host-agnostic: copy it to any static host
-(GitHub Pages, a CDN, the VPS) or split it into its own content repo, then point
-`TEMPLATE_REGISTRY_URL` at it. Serving `index.json` + `templates/` over HTTPS with
-correct bytes is all that's required. (Index signing is the stronger integrity
-follow-up beyond per-file checksums.)
+This artifact is mirrored to a **separate public repo** served over GitHub Pages:
+
+- **Repo:** https://github.com/michaelschecht/taskhub-registry
+- **Served at:** `https://mikesailab.com/taskhub-registry` → set as `TEMPLATE_REGISTRY_URL`.
+
+`taskhub/registry/` (this folder, in the main repo) is the source of truth — it's
+generated from `backend/src/catalog/bundled.ts` and drift-tested. To ship a catalog
+change:
+
+```bash
+cd backend && npm run registry:build     # regenerate this folder
+# commit registry/ in the taskhub repo, then mirror it to the public repo:
+pwsh scripts/publish-registry.ps1         # copies registry/ -> taskhub-registry, pushes
+```
+
+GitHub Pages rebuilds on push (usually < 1 min); the backend picks up the change on
+its next catalog fetch (cache TTL) or reseed. Serving `index.json` + `templates/`
+over HTTPS with correct (LF) bytes is all that's required, so any static host works
+as a drop-in replacement. (Index signing is the stronger integrity follow-up beyond
+the per-file checksums.)

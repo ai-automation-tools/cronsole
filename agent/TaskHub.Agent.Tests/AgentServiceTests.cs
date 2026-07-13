@@ -62,6 +62,7 @@ namespace TaskHub.Agent.Tests
             _onConnectedHandler.Should().NotBeNull();
             _onDisconnectedHandler.Should().NotBeNull();
             _socketHandlers.Should().ContainKey("task:list");
+            _socketHandlers.Should().ContainKey("task:export");
             _socketHandlers.Should().ContainKey("task:set_status");
             _socketHandlers.Should().ContainKey("task:run");
             _socketHandlers.Should().ContainKey("task:create");
@@ -115,6 +116,45 @@ namespace TaskHub.Agent.Tests
             // Assert
             _mockScheduler.Verify(s => s.ListTasks(), Times.Once);
             _mockSocket.Verify(s => s.EmitAsync("task:full_list", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public void TaskExport_Event_ReturnsNativeXml()
+        {
+            // Arrange — read-only, so no signature required (mirrors task:list).
+            var taskPath = "\\TaskHub\\Nightly";
+            _mockScheduler.Setup(s => s.ExportTaskXml(taskPath)).Returns("<Task><Settings/></Task>");
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(Payload(new { taskPath }));
+
+            // Act
+            _socketHandlers["task:export"].Invoke(mockResponse.Object);
+
+            // Assert (default JSON serialization HTML-escapes '<', so match on the
+            // success message + the escaped XML marker instead of a raw "<Task>").
+            _mockScheduler.Verify(s => s.ExportTaskXml(taskPath), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:exported", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Exported") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Task"))), Times.Once);
+        }
+
+        [Fact]
+        public void TaskExport_Event_NotFound_EmitsFailure()
+        {
+            // Arrange
+            var taskPath = "\\TaskHub\\Ghost";
+            _mockScheduler.Setup(s => s.ExportTaskXml(taskPath)).Returns((string?)null);
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(Payload(new { taskPath }));
+
+            // Act
+            _socketHandlers["task:export"].Invoke(mockResponse.Object);
+
+            // Assert
+            _mockSocket.Verify(s => s.EmitAsync("task:exported", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Task not found"))), Times.Once);
         }
 
         [Fact]

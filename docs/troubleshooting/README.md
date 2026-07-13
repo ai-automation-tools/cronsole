@@ -27,6 +27,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 4 | Edited backend source, but the running Docker stack still 404s the new route / serves old behavior | `tsx watch` inside the container never sees the file change (Windows→Linux bind-mount inotify) | [→](#4-backend-source-edits-not-picked-up-in-docker) |
 | 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
 | 6 | A `.ps1` fails to parse under `powershell` (5.1) with `Unexpected token '}'` / `The string is missing the terminator` — but runs fine under `pwsh` (7) | A non-ASCII char (e.g. an em-dash `—`) in a BOM-less UTF-8 script; Windows PowerShell 5.1 reads it as ANSI and decodes it into a curly quote it treats as a string delimiter | [→](#6-ps1-parse-errors-under-windows-powershell-51-only) |
+| 7 | A newly added agent command (e.g. a new `task:*` socket op) returns `502` with `... timeout` after ~15s, even though the backend route exists | The **.NET agent is a host process running the old published exe** — it doesn't hot-reload, so it has no handler for the new command and never answers; the backend times out | [→](#7-new-agent-command-502-times-out-until-the-agent-is-republished) |
 
 ---
 
@@ -257,6 +258,58 @@ Then verify **under 5.1 specifically** (not just pwsh):
 > [!TIP]
 > A BOM would also fix it (5.1 auto-detects UTF-8 with a BOM), but plain ASCII is the most
 > portable — it can't be corrupted by any editor/encoding and stays greppable.
+
+*First hit: 2026-07-13.*
+
+---
+
+## 7. New agent command 502-times-out until the agent is republished
+
+**Symptom** — you add a new agent socket command (a `task:*` op like `task:export`),
+wire up the backend route + connector, restart the backend, and the endpoint now
+*exists* (no 404) — but it hangs ~15s and returns:
+
+```json
+{ "error": "Agent export timeout" }
+```
+(HTTP 502; the message varies per command — "Agent … timeout".)
+
+**Cause** — two separate processes run old code, and they reload differently:
+
+1. The **backend** is a Docker container (`taskhub-backend-1`, `npm run dev`) with
+   the source bind-mounted. Windows→Linux bind mounts don't propagate file-change
+   events, so `tsx watch` never sees your edit — the new **route** 404s. See
+   [entry #4](#4-backend-source-edits-not-picked-up-in-docker). Fix: `docker compose restart backend`.
+2. The **.NET agent** is a **host process** running the published exe
+   (`agent\publish\TaskHub.Agent.exe`), launched by the stack / self-heal task. It
+   does **not** hot-reload at all. Until you rebuild + republish it, it has no
+   handler for the new command, never emits the response, and the backend's 15s
+   wait times out to a 502.
+
+The tell that distinguishes this from entry #4: the route **exists** (a bad id
+returns your handler's `{"error":"Task not found"}`, not an Express "Cannot GET"),
+and only the **agent-backed** path (Windows tasks) times out — a DB-only path
+(TaskHub-native) works immediately.
+
+**Fix** — republish the agent. It runs at **RunLevel Highest**, so an unelevated
+shell can't stop it and `dotnet publish` can't overwrite the locked exe; run this
+in an **Administrator** PowerShell:
+
+```powershell
+# 1. Stop the running agent so its exe can be replaced
+Get-Process TaskHub.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
+# 2. Rebuild + publish (now includes the new command handler)
+dotnet publish ".\agent\TaskHub.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
+# 3. Relaunch the stack (starts the new agent hidden)
+& ".\scripts\taskhub.ps1" up
+```
+
+> [!NOTE]
+> Any change to the **backend** signature side of a signed command (e.g. a new
+> `SignableCommand` variant) must ship **with** the agent — deploy both together,
+> or the mismatch surfaces as a rejected/timed-out command. Read-only commands
+> (like `task:export`) aren't signed, but still need the agent republished for the
+> handler to exist.
 
 *First hit: 2026-07-13.*
 

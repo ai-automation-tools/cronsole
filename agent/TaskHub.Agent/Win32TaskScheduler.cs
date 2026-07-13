@@ -171,6 +171,17 @@ namespace TaskHub.Agent
             }
         }
 
+        public string? ExportTaskXml(string path)
+        {
+            using (TaskService ts = new TaskService())
+            {
+                // Task.Xml is the native definition — identical to what
+                // Export-ScheduledTask and the Task Scheduler UI's Export emit.
+                var task = ts.GetTask(path);
+                return task?.Xml;
+            }
+        }
+
         public bool UpdateTaskSchedule(string path, TriggerSpec trigger)
         {
             if (trigger == null) throw new ArgumentNullException(nameof(trigger));

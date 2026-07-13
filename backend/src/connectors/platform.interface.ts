@@ -107,4 +107,13 @@ export interface PlatformConnector {
    * success (the desired end state holds).
    */
   deleteTask?(externalId: string, config: any): Promise<{ success: boolean; message?: string }>;
+
+  /**
+   * Export the platform's native task definition (read-only). Optional —
+   * implemented only where the platform has a portable native format. The
+   * Windows agent returns the task's Task Scheduler XML (round-trips into any
+   * Windows machine); TaskHub-native tasks have no such format and are exported
+   * as JSON directly from the DB by the route, so this stays connector-specific.
+   */
+  exportTask?(externalId: string, config: any): Promise<{ success: boolean; xml?: string; message?: string }>;
 }

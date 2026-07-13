@@ -174,6 +174,41 @@ namespace TaskHub.Agent
                 }
             });
 
+            // Event: task:export (Server requested a task's native XML — read-only,
+            // so no per-command signature, mirroring task:list).
+            _socket.On("task:export", async response =>
+            {
+                var taskPath = "";
+                try
+                {
+                    var data = response.GetValue<JsonElement>(0);
+                    taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
+                    Console.WriteLine($"Server requested task:export -> {taskPath}");
+
+                    var xml = _scheduler.ExportTaskXml(taskPath);
+                    await _socket.EmitAsync("task:exported", new[] { new {
+                        taskExternalId = taskPath,
+                        success = xml != null,
+                        xml = xml,
+                        message = xml != null ? "Exported" : "Task not found"
+                    }});
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error exporting task: {ex.Message}");
+                    try
+                    {
+                        await _socket.EmitAsync("task:exported", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            xml = (string?)null,
+                            message = ex.Message
+                        }});
+                    }
+                    catch { /* socket gone — server's timeout covers it */ }
+                }
+            });
+
             // Event: task:set_status (Server commanded us to enable/disable a task)
             _socket.On("task:set_status", async response =>
             {

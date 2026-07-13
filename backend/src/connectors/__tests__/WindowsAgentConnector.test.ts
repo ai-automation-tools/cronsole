@@ -136,6 +136,33 @@ describe('WindowsAgentConnector', () => {
     expect(health.state).toBe('OFFLINE');
   });
 
+  it('exportTask returns "Agent offline" when the socket is missing', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
+    const result = await connector.exportTask('\\TaskHub\\Nightly', { userId: 'test_user' });
+    expect(result).toEqual({ success: false, message: 'Agent offline' });
+  });
+
+  it('exportTask emits an unsigned task:export and returns the agent XML', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:exported') {
+        setTimeout(() => handler({
+          taskExternalId: '\\TaskHub\\Nightly',
+          success: true,
+          xml: '<Task><Settings/></Task>',
+          message: 'Exported'
+        }), 10);
+      }
+    });
+
+    const result = await connector.exportTask('\\TaskHub\\Nightly', { userId: 'test_user' });
+
+    // Read-only: a plain (unsigned) emit, unlike run/delete/update.
+    expect(mockSocket.emit).toHaveBeenCalledWith('task:export', { taskPath: '\\TaskHub\\Nightly' });
+    expect(result.success).toBe(true);
+    expect(result.xml).toBe('<Task><Settings/></Task>');
+  });
+
   it('should throw "Invalid task list received from agent" if payload is missing tasks', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
 

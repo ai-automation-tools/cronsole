@@ -39,6 +39,7 @@ describe('denormalizeTemplate', () => {
     expect(back.commandTemplate).toBe(original.commandTemplate);
     expect(back.isStarter).toBe(true);
     expect(back.parameters).toEqual(original.parameters);
+    expect(back.tags).toEqual(original.tags); // tags survive the DB round-trip
   });
 
   it('maps platforms back to at least the source compatible target', () => {

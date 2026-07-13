@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, Download } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
@@ -232,6 +232,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview');
   const [showScheduleEditor, setShowScheduleEditor] = useState(false);
   const [showActionEditor, setShowActionEditor] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -290,6 +291,43 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
       toast(`Couldn't save as template: ${err.response?.data?.error || err.message}`, 'error');
     }
   });
+
+  // Export the task's native definition: Windows → Task Scheduler XML (via the
+  // agent), TaskHub-native → TaskHub JSON. Downloads through the api client so
+  // the auth header rides along, using the server's Content-Disposition filename.
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get(`/tasks/${task!.id}/export`, { responseType: 'blob' });
+      const cd = res.headers['content-disposition'] as string | undefined;
+      const filename = cd?.match(/filename="?([^"]+)"?/)?.[1]
+        ?? `${task!.name}.${task!.platform === 'WINDOWS_TASK_SCHEDULER' ? 'xml' : 'json'}`;
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast(`Exported "${task!.name}".`, 'success');
+    } catch (error: unknown) {
+      const err = error as Error & { response?: { data?: unknown } };
+      // With responseType 'blob' the error body is a Blob — read it back to
+      // surface the server's real message (e.g. "Agent offline").
+      let msg = err.message;
+      try {
+        const data = err.response?.data;
+        if (data instanceof Blob) {
+          const parsed = JSON.parse(await data.text());
+          if (parsed?.error) msg = parsed.error;
+        }
+      } catch { /* keep the generic message */ }
+      toast(`Export failed: ${msg}`, 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const { data: executions, isLoading: executionsLoading, isError: executionsError } = useQuery<ExecutionLogEntry[]>({
     queryKey: ['executions', task?.id],
@@ -528,7 +566,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
           </details>
         </div>
         )}
-        <footer className="p-6 bg-background border-t border-border flex gap-4">
+        <footer className="p-6 bg-background border-t border-border flex flex-wrap gap-3">
           {(task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && (() => {
             const isWindowsTask = task.platform === 'WINDOWS_TASK_SCHEDULER';
             return (
@@ -568,6 +606,18 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               </button>
             );
           })()}
+          {(task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && (
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              title={task.platform === 'WINDOWS_TASK_SCHEDULER'
+                ? 'Export this task as Windows Task Scheduler XML (via the agent)'
+                : 'Export this TaskHub-native task as JSON'}
+              className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export
+            </button>
+          )}
           {(() => {
             // Editable only for Windows tasks whose trigger is cron-expressible
             // (task.schedule is set). Boot/logon/event/on-demand triggers read

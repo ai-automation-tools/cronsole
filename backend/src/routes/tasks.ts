@@ -685,6 +685,72 @@ router.post('/:id/save-as-template', validateBody(saveAsTemplateSchema), async (
   res.status(201).json({ message: 'Task saved as template', template: created });
 });
 
+// Only allow safe chars in a downloaded filename (avoid header issues / odd chars).
+const safeFilePart = (s: string) => s.replace(/[^\w.-]+/g, '_').slice(0, 80) || 'task';
+
+// Export a user's *actual* tracked task (distinct from template export). A
+// Windows task exports as native Task Scheduler XML (retrieved through the
+// agent — round-trips into any Windows machine); a TaskHub-native task has no
+// Windows XML equivalent, so it exports as TaskHub JSON built from the DB row.
+router.get('/:id/export', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  if (task.platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+    const connector = connectorRegistry.getConnector(task.platform);
+    if (!connector?.exportTask) {
+      throw new HttpError(400, `Exporting is not supported for ${task.platform} yet.`);
+    }
+    const connection = await prisma.platformConnection.findUnique({
+      where: { userId_platform: { userId, platform: task.platform } }
+    });
+    const result = await connector.exportTask(task.externalId, {
+      ...deserializeConfig(connection?.config),
+      userId
+    });
+    if (!result.success || !result.xml) {
+      throw new HttpError(502, result.message || 'The agent could not export this task');
+    }
+    // Deliver the definition byte-identical to what Export-ScheduledTask / the
+    // Task Scheduler UI's Export produce: UTF-16 LE + BOM, keeping the native
+    // encoding="UTF-16" declaration. Every Windows re-import path is built around
+    // that exact format — declaring UTF-8 instead breaks the COM / `-Xml` string
+    // import with "unable to switch the encoding" (verified against real Task
+    // Scheduler). res.send(Buffer) writes raw bytes with no transcoding.
+    const body = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(result.xml, 'utf16le')]);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-16le');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilePart(task.name)}.xml"`);
+    return res.send(body);
+  }
+
+  if (task.platform === PlatformType.TASKHUB_NATIVE) {
+    const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+      ? (task.metadata as Record<string, unknown>)
+      : {};
+    const bundle = {
+      taskhubTaskVersion: '1.0',
+      exportedAt: new Date().toISOString(),
+      task: {
+        name: task.name,
+        platform: task.platform,
+        category: task.category,
+        schedule: task.schedule,
+        job: meta.job ?? null
+      }
+    };
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilePart(task.name)}.json"`);
+    return res.json(bundle);
+  }
+
+  throw new HttpError(400, `Exporting is not supported for ${task.platform} tasks.`);
+});
+
 // Trigger a task
 router.post('/:id/run', async (req: Request, res: Response) => {
   const id = req.params.id as string;

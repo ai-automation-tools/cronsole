@@ -123,6 +123,38 @@ export class WindowsAgentConnector implements PlatformConnector {
     });
   }
 
+  async exportTask(externalId: string, config: any): Promise<{ success: boolean; xml?: string; message?: string }> {
+    const userId = config.userId;
+    const socket = agentManager.getSocket(userId);
+
+    if (!socket) {
+      return { success: false, message: 'Agent offline' };
+    }
+
+    // Read-only, like syncTasks — no per-command signature (the socket is
+    // authenticated at the handshake). The agent returns the task's native XML.
+    return new Promise((resolve) => {
+      const handler = (payload: any) => {
+        if (payload.taskExternalId === externalId) {
+          socket.off('task:exported', handler);
+          resolve({
+            success: payload.success,
+            xml: payload.xml,
+            message: payload.message
+          });
+        }
+      };
+
+      socket.on('task:exported', handler);
+      socket.emit('task:export', { taskPath: externalId });
+
+      setTimeout(() => {
+        socket.off('task:exported', handler);
+        resolve({ success: false, message: 'Agent export timeout' });
+      }, 15000);
+    });
+  }
+
   async setTaskStatus(externalId: string, enabled: boolean, config: any): Promise<{ success: boolean; message?: string }> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);

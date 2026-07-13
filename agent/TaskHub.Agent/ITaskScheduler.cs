@@ -19,6 +19,10 @@ namespace TaskHub.Agent
         // level, preserving its triggers, principal identity, and other settings.
         // runLevel is "least" or "highest". Returns false when no task exists.
         bool UpdateTaskActions(string path, AgentExecAction action, string? description, string runLevel);
+        // Return the task's native Task Scheduler XML (the exact format
+        // Export-ScheduledTask / the Task Scheduler UI's Export produces), so it
+        // round-trips into any Windows machine. Null when no task exists at the path.
+        string? ExportTaskXml(string path);
     }
 
     // Structured action the agent registers as the task's ExecAction. The server

@@ -165,6 +165,36 @@ describe('template import/export', () => {
     expect(await prisma.template.findUnique({ where: { id: 'tpl_ie_unfillable' } })).toBeNull();
   });
 
+  it('round-trips tags: import with tags → GET shows them → export includes them', async () => {
+    const withTags = {
+      schemaVersion: '1.0',
+      id: 'tpl_ie_tagged',
+      name: 'Tagged',
+      trigger: { kind: 'schedule', cron: '0 2 * * *' },
+      runtime: 'bash',
+      commandTemplate: 'echo hi',
+      compatibleTargets: ['taskhub-native'],
+      tags: ['dev', 'git', 'build']
+    };
+    const imp = await request(app)
+      .post('/api/templates/import')
+      .set('Authorization', owner.auth)
+      .send(withTags);
+    expect(imp.status).toBe(200);
+    expect(imp.body.created).toContain('tpl_ie_tagged');
+
+    // Tags surface on GET /templates (frontend facet reads this).
+    const list = await request(app).get('/api/templates').set('Authorization', owner.auth);
+    const row = list.body.find((t: { id: string }) => t.id === 'tpl_ie_tagged');
+    expect(row.tags).toEqual(['dev', 'git', 'build']);
+
+    // ...and survive export.
+    const exp = await request(app)
+      .get('/api/templates/export?id=tpl_ie_tagged')
+      .set('Authorization', owner.auth);
+    expect(exp.body.tags).toEqual(['dev', 'git', 'build']);
+  });
+
   it('401s when unauthenticated', async () => {
     expect((await request(app).get('/api/templates/export')).status).toBe(401);
     expect((await request(app).post('/api/templates/import').send({})).status).toBe(401);

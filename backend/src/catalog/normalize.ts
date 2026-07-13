@@ -77,6 +77,7 @@ export interface NormalizedTemplate {
   command: string;
   commandTemplate: string;
   parameters: Prisma.InputJsonValue;
+  tags: string[];
   scriptType: ScriptType;
   os: OsTarget;
   category: TemplateCategory;
@@ -131,6 +132,7 @@ export function normalizeTemplate(t: RegistryTemplate): NormalizedTemplate {
     command,
     commandTemplate: command,
     parameters: (t.parameters ?? []) as Prisma.InputJsonValue,
+    tags: t.tags ?? [],
     scriptType: t.runtime ? RUNTIME_TO_SCRIPT[t.runtime] : ScriptType.AI_PROMPT,
     os: t.os ? OS_TO_TARGET[t.os] : OsTarget.CROSS_PLATFORM,
     category: t.category ? CATEGORY_TO_ENUM[t.category] : TemplateCategory.OTHER,

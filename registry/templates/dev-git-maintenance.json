@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-git-maintenance",
+  "name": "Git Repo Maintenance",
+  "description": "Run git maintenance (gc, commit-graph, prefetch) to keep a large repository fast.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "git",
+    "hygiene"
+  ],
+  "icon": "Wrench",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 2 * * 0"
+  },
+  "commandTemplate": "git -C \"{{repoPath}}\" maintenance run",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

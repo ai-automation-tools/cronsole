@@ -165,8 +165,26 @@ the target set to grow toward (community-contributed ones land here too via `isP
 | Log Rotation / Archive | `CLEANUP` | Bash | `0 1 * * *` |
 | Folder → Cloud Sync | `DATA_SYNC` | PowerShell / rsync | `*/30 * * * *` |
 | Certificate Expiry Check | `MONITORING` | PowerShell | `0 6 * * 1` |
-| Nightly Build & Test | `DEV_WORKFLOW` | Node / Python | `0 2 * * *` |
+| Nightly Build & Test *(seeded — split into the Developer Pack's Nightly Build + Scheduled Test Run)* | `DEV_WORKFLOW` | Node / Python | `0 2 * * *` |
 | Screenshot / Site Snapshot | `MEDIA` | Node (Playwright) | `0 12 * * *` |
+
+### 4.1 Developer Pack (seeded 2026-07-13)
+
+Nine dev-workflow patterns shipped as the first content pack on the free-form tags model —
+every entry carries the `dev` tag plus specifics (`git`, `npm`, `build`, `test`, `ci`,
+`docker`, …), and new ids use the plain-kebab registry form (`dev-*`).
+
+| Template (`id`) | Category | Command shape | Default cron |
+|---|---|---|---|
+| Git Fetch & Prune (`dev-git-fetch-prune`) | `DEV_WORKFLOW` | `git fetch --all --prune` (no shell) | `0 6 * * *` |
+| Git Repo Maintenance (`dev-git-maintenance`) | `DEV_WORKFLOW` | `git maintenance run` (no shell) | `0 2 * * 0` |
+| Git Auto-Commit & Push (`dev-git-autocommit-push`) | `DEV_WORKFLOW` | PowerShell `add -A; commit; push` (one `-Command` arg) | `0 18 * * 1-5` |
+| Dependency Update Check (`dev-npm-outdated-check`) | `DEV_WORKFLOW` | `cmd.exe /c "npm outdated > report"` — non-zero exit = updates exist | `0 7 * * 1` |
+| Nightly Build (`dev-npm-nightly-build`) | `DEV_WORKFLOW` | `cmd.exe /c "npm run {{script}} > log"` | `0 4 * * *` |
+| Scheduled Test Run (`dev-npm-test-run`) | `DEV_WORKFLOW` | `cmd.exe /c "npm test > log"` | `0 5 * * *` |
+| .NET Build (`dev-dotnet-build`) | `DEV_WORKFLOW` | `dotnet build` (no shell, cross-platform) | `30 4 * * *` |
+| Docker Cleanup (`dev-docker-prune`) | `CLEANUP` | `docker system prune -f` (no shell) | `0 1 * * 0` |
+| Docker Compose Self-Heal (`dev-docker-compose-up`) | `MONITORING` | `docker compose -f "{{composeFile}}" up -d` (no shell, idempotent) | `*/10 * * * *` |
 
 ---
 

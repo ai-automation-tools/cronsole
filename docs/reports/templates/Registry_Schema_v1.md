@@ -429,6 +429,10 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
   set as `TEMPLATE_REGISTRY_URL`) via `scripts/publish-registry.ps1`; the backend syncs the catalog
   into the DB on boot + on an interval (`catalog/catalogSync.ts`), so registry changes land with no
   reseed. Verified live end-to-end.
+- **First content pack — Developer Pack** (2026-07-13): 9 dev-workflow templates added to the
+  bundled snapshot + published registry (24 → 33 templates), the first entries using the
+  plain-kebab id form (`dev-*`) and the free-form tags. A whole-catalog resolvability test now
+  guards every bundled `commandTemplate` through the Apply substitution pipeline.
 - **Optional follow-ups** — index signing (beyond per-file checksums) and prune-on-sync (removed
   templates aren't deleted yet). Exactly one real compiler (Windows) stays real; everything else is
   declared-but-manual.

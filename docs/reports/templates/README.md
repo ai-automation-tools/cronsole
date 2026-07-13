@@ -5,19 +5,23 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tiers-2-2ea44f?style=for-the-badge" alt="Two tiers">
+  <img src="https://img.shields.io/badge/templates-33-2ea44f?style=for-the-badge" alt="33 templates">
   <img src="https://img.shields.io/badge/starters-20-8B5CF6?style=for-the-badge" alt="20 script starters">
+  <img src="https://img.shields.io/badge/patterns-13-0EA5E9?style=for-the-badge" alt="13 use-case patterns">
 </p>
 
 ---
 
-TaskHub ships a **two-tier template catalog**. Pick a template, fill in its
+TaskHub ships a **two-tier template catalog** (33 templates). Pick a template, fill in its
 `{{placeholder}}` parameters in the Apply modal, and TaskHub creates a real scheduled task —
 converting the cron to the platform's native trigger for you.
 
-- **Tier A — script starters:** ~20 curated starters across PowerShell, Python, Bash/zsh,
+- **Tier A — script starters:** 20 curated starters across PowerShell, Python, Bash/zsh,
   Node, and more.
-- **Tier B — use-case patterns:** higher-level patterns for common automation scenarios.
+- **Tier B — use-case patterns:** 13 higher-level patterns for common automation scenarios,
+  including the **Developer Pack** (9 dev-workflow templates — git hygiene, npm
+  dependency-check/build/test, .NET build, Docker cleanup + compose self-heal — all
+  discoverable via the free-form `dev`/`git`/`build`/`test`/`docker` tags).
 
 ## 📄 Documents
 

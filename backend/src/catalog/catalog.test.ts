@@ -9,6 +9,11 @@ import { bundledCatalog } from './bundled.js';
 import { registryTemplateSchema } from './schema.js';
 import { normalizeTemplate } from './normalize.js';
 import { BundledCatalogSource } from './source.js';
+import {
+  resolveTemplateParams,
+  substituteStructuredCommand,
+  type TemplateParameterDef
+} from '../utils/templateCommand.js';
 
 const byId = <T extends { id: string }>(list: T[], id: string): T => {
   const found = list.find((t) => t.id === id);
@@ -25,10 +30,11 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 24 templates (4 patterns + 20 starters)', () => {
-    expect(bundledCatalog).toHaveLength(24);
+  it('has the expected shape: 33 templates (4 patterns + 9 dev pack + 20 starters)', () => {
+    expect(bundledCatalog).toHaveLength(33);
     expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(20);
-    expect(bundledCatalog.filter((t) => !t.isStarter)).toHaveLength(4);
+    expect(bundledCatalog.filter((t) => !t.isStarter)).toHaveLength(13);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(9);
   });
 
   it('has unique ids', () => {
@@ -37,7 +43,41 @@ describe('bundled catalog snapshot', () => {
   });
 
   it('keeps the legacy tpl_* ids so DB rows / favorites are not orphaned', () => {
-    expect(bundledCatalog.every((t) => t.id.startsWith('tpl_'))).toBe(true);
+    // The 24 pre-registry rows keep their tpl_* ids (same DB rows, favorites
+    // FKs intact); templates added since (the Developer Pack) use the plain
+    // kebab id form the v1 spec prescribes for new registry templates.
+    expect(bundledCatalog.filter((t) => t.id.startsWith('tpl_'))).toHaveLength(24);
+    for (const t of bundledCatalog.filter((x) => !x.id.startsWith('tpl_'))) {
+      expect(t.id, `${t.id} should be plain kebab`).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+    }
+  });
+
+  it('every Developer Pack template carries the dev tag', () => {
+    for (const t of bundledCatalog.filter((x) => x.id.startsWith('dev-'))) {
+      expect(t.tags, `${t.id} missing 'dev' tag`).toContain('dev');
+    }
+  });
+
+  it('every commandTemplate resolves through the Apply substitution pipeline', () => {
+    // The same resolvability guarantee import enforces on untrusted content:
+    // every {{placeholder}} is a declared parameter and the command resolves to
+    // a non-empty structured action. Synthesizes each param's value the same
+    // way (default → first select option → dummy).
+    for (const t of bundledCatalog) {
+      if (!t.commandTemplate) continue;
+      const defs = (t.parameters ?? []) as TemplateParameterDef[];
+      const provided: Record<string, string> = {};
+      for (const def of defs) {
+        provided[def.key] =
+          (def.default && def.default.trim() ? def.default : undefined) ??
+          def.options?.[0] ??
+          'x';
+      }
+      expect(
+        () => substituteStructuredCommand(t.commandTemplate!, resolveTemplateParams(defs, provided)),
+        `${t.id} has an unresolvable commandTemplate`
+      ).not.toThrow();
+    }
   });
 });
 
@@ -110,10 +150,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 24 normalized templates', async () => {
+  it('lists all 33 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(24);
+    expect(list).toHaveLength(33);
     expect(src.name).toBe('bundled');
   });
 });

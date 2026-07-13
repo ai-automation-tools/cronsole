@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-docker-prune",
+  "name": "Docker Cleanup (prune)",
+  "description": "Reclaim disk space by pruning unused Docker containers, networks, and images.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "cleanup",
+  "tags": [
+    "dev",
+    "docker",
+    "cleanup",
+    "disk"
+  ],
+  "icon": "Trash2",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 1 * * 0"
+  },
+  "commandTemplate": "docker system prune -f {{args}}",
+  "parameters": [
+    {
+      "key": "args",
+      "label": "Extra prune flags",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional extra flags, e.g. --volumes or -a (removes ALL unused images)."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

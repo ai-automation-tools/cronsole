@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-git-autocommit-push",
+  "name": "Git Auto-Commit & Push",
+  "description": "Snapshot a working repository on a schedule: stage everything, commit, and push.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "git",
+    "backup"
+  ],
+  "icon": "GitCommitHorizontal",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 18 * * 1-5"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"git -C '{{repoPath}}' add -A; git -C '{{repoPath}}' commit -m '{{message}}'; git -C '{{repoPath}}' push\"",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    },
+    {
+      "key": "message",
+      "label": "Commit message",
+      "type": "text",
+      "default": "chore: scheduled auto-commit",
+      "required": true,
+      "help": "Message used for each scheduled commit. Avoid single quotes."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-docker-compose-up",
+  "name": "Docker Compose Self-Heal",
+  "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern TaskHub uses for its own stack).",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "dev",
+    "docker",
+    "self-heal",
+    "monitoring"
+  ],
+  "icon": "RefreshCw",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/10 * * * *"
+  },
+  "commandTemplate": "docker compose -f \"{{composeFile}}\" up -d",
+  "parameters": [
+    {
+      "key": "composeFile",
+      "label": "Compose file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the docker-compose.yml. up -d is idempotent — running containers are left alone."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-git-fetch-prune",
+  "name": "Git Fetch & Prune",
+  "description": "Keep a local repository fresh: fetch all remotes and prune deleted remote branches.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "git",
+    "sync",
+    "hygiene"
+  ],
+  "icon": "GitBranch",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 6 * * *"
+  },
+  "commandTemplate": "git -C \"{{repoPath}}\" fetch --all --prune",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

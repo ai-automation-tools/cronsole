@@ -167,6 +167,171 @@ const patterns: RegistryTemplate[] = [
 ];
 
 // =====================================================================
+// Developer Pack — dev-workflow use-case patterns (2026-07-13)
+// Tagged via the free-form tags model ('dev' on every entry + specifics).
+// New entries use the plain-kebab id form per Registry_Schema_v1 §7 (the
+// legacy tpl_* form is only for the pre-registry rows).
+// =====================================================================
+const devPack: RegistryTemplate[] = [
+  {
+    schemaVersion: '1.0',
+    id: 'dev-git-fetch-prune',
+    name: 'Git Fetch & Prune',
+    description: 'Keep a local repository fresh: fetch all remotes and prune deleted remote branches.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['dev', 'git', 'sync', 'hygiene'],
+    icon: 'GitBranch',
+    trigger: sched('0 6 * * *'),
+    commandTemplate: 'git -C "{{repoPath}}" fetch --all --prune',
+    parameters: [P.repoPath],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-git-maintenance',
+    name: 'Git Repo Maintenance',
+    description: 'Run git maintenance (gc, commit-graph, prefetch) to keep a large repository fast.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['dev', 'git', 'hygiene'],
+    icon: 'Wrench',
+    trigger: sched('0 2 * * 0'),
+    commandTemplate: 'git -C "{{repoPath}}" maintenance run',
+    parameters: [P.repoPath],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-git-autocommit-push',
+    name: 'Git Auto-Commit & Push',
+    description: 'Snapshot a working repository on a schedule: stage everything, commit, and push.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'dev-workflow',
+    tags: ['dev', 'git', 'backup'],
+    icon: 'GitCommitHorizontal',
+    trigger: sched('0 18 * * 1-5'),
+    commandTemplate:
+      'powershell.exe -NoProfile -Command "git -C \'{{repoPath}}\' add -A; git -C \'{{repoPath}}\' commit -m \'{{message}}\'; git -C \'{{repoPath}}\' push"',
+    parameters: [
+      P.repoPath,
+      { key: 'message', label: 'Commit message', type: 'text', default: 'chore: scheduled auto-commit', required: true, help: 'Message used for each scheduled commit. Avoid single quotes.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-npm-outdated-check',
+    name: 'Dependency Update Check (npm)',
+    description: 'Write an npm outdated report for a project on a schedule.',
+    runtime: 'node',
+    os: 'windows',
+    category: 'dev-workflow',
+    tags: ['dev', 'node', 'npm', 'dependencies'],
+    icon: 'PackageSearch',
+    trigger: sched('0 7 * * 1'),
+    commandTemplate: 'cmd.exe /c "cd /d {{projectPath}} && npm outdated > {{reportPath}} 2>&1"',
+    parameters: [
+      { key: 'projectPath', label: 'Project path', type: 'path', default: '', required: true, help: 'Folder containing package.json (avoid spaces in the path).' },
+      { key: 'reportPath', label: 'Report file path', type: 'path', default: 'C:\\reports\\npm-outdated.txt', required: true, help: 'Where to write the outdated report. Note: npm outdated exits non-zero when updates exist, so the run shows as failed exactly when there is something to update.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-npm-nightly-build',
+    name: 'Nightly Build (npm)',
+    description: 'Run an npm script (build, lint, …) for a project every night and capture the log.',
+    runtime: 'node',
+    os: 'windows',
+    category: 'dev-workflow',
+    tags: ['dev', 'node', 'npm', 'build', 'ci'],
+    icon: 'Hammer',
+    trigger: sched('0 4 * * *'),
+    commandTemplate: 'cmd.exe /c "cd /d {{projectPath}} && npm run {{script}} > {{logPath}} 2>&1"',
+    parameters: [
+      { key: 'projectPath', label: 'Project path', type: 'path', default: '', required: true, help: 'Folder containing package.json (avoid spaces in the path).' },
+      { key: 'script', label: 'npm script', type: 'text', default: 'build', required: true, help: 'The package.json script to run, e.g. build or lint.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\nightly-build.log', required: true, help: 'Where to write the build output.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-npm-test-run',
+    name: 'Scheduled Test Run (npm)',
+    description: 'Run a project test suite on a schedule and capture the log; a red run means failing tests.',
+    runtime: 'node',
+    os: 'windows',
+    category: 'dev-workflow',
+    tags: ['dev', 'node', 'npm', 'test', 'ci'],
+    icon: 'FlaskConical',
+    trigger: sched('0 5 * * *'),
+    commandTemplate: 'cmd.exe /c "cd /d {{projectPath}} && npm test > {{logPath}} 2>&1"',
+    parameters: [
+      { key: 'projectPath', label: 'Project path', type: 'path', default: '', required: true, help: 'Folder containing package.json (avoid spaces in the path).' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\test-run.log', required: true, help: 'Where to write the test output.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-dotnet-build',
+    name: '.NET Build',
+    description: 'Build a .NET project or solution with the dotnet CLI on a schedule.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['dev', 'dotnet', 'build', 'ci'],
+    icon: 'Package',
+    trigger: sched('30 4 * * *'),
+    commandTemplate: 'dotnet build "{{projectPath}}" {{args}}',
+    parameters: [
+      { key: 'projectPath', label: 'Project / solution path', type: 'path', default: '', required: true, help: 'Absolute path to the .csproj or .sln.' },
+      P.args
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-docker-prune',
+    name: 'Docker Cleanup (prune)',
+    description: 'Reclaim disk space by pruning unused Docker containers, networks, and images.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'cleanup',
+    tags: ['dev', 'docker', 'cleanup', 'disk'],
+    icon: 'Trash2',
+    trigger: sched('0 1 * * 0'),
+    commandTemplate: 'docker system prune -f {{args}}',
+    parameters: [
+      { key: 'args', label: 'Extra prune flags', type: 'text', default: '', required: false, help: 'Optional extra flags, e.g. --volumes or -a (removes ALL unused images).' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-docker-compose-up',
+    name: 'Docker Compose Self-Heal',
+    description: 'Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern TaskHub uses for its own stack).',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['dev', 'docker', 'self-heal', 'monitoring'],
+    icon: 'RefreshCw',
+    trigger: sched('*/10 * * * *'),
+    commandTemplate: 'docker compose -f "{{composeFile}}" up -d',
+    parameters: [
+      { key: 'composeFile', label: 'Compose file path', type: 'path', default: '', required: true, help: 'Absolute path to the docker-compose.yml. up -d is idempotent — running containers are left alone.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  }
+];
+
+// =====================================================================
 // Tier A — Script Starters (isStarter = true)
 // =====================================================================
 const starters: RegistryTemplate[] = [
@@ -497,5 +662,5 @@ const starters: RegistryTemplate[] = [
   }
 ];
 
-/** The full bundled catalog (patterns first, then starters), Registry v1 shape. */
-export const bundledCatalog: RegistryTemplate[] = [...patterns, ...starters];
+/** The full bundled catalog (patterns, then the Developer Pack, then starters), Registry v1 shape. */
+export const bundledCatalog: RegistryTemplate[] = [...patterns, ...devPack, ...starters];

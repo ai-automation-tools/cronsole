@@ -45,13 +45,14 @@ if (Test-Path (Join-Path $WorkDir '.git')) {
 }
 
 # Mirror the served content: replace index.json + templates/ wholesale (so a
-# removed template disappears), refresh README. Leave .nojekyll / .gitattributes
-# (they belong to the target repo, not the generated artifact).
+# removed template disappears). Leave .nojekyll / .gitattributes / README.md —
+# they belong to the public repo, not the generated artifact. The public repo
+# owns its own house-style README (front page); the in-repo registry/README.md
+# is a separate developer folder-note. Do NOT copy README over it.
 Copy-Item (Join-Path $SrcDir 'index.json') (Join-Path $WorkDir 'index.json') -Force
 $dstTemplates = Join-Path $WorkDir 'templates'
 if (Test-Path $dstTemplates) { Remove-Item -Recurse -Force $dstTemplates }
 Copy-Item (Join-Path $SrcDir 'templates') $dstTemplates -Recurse
-Copy-Item (Join-Path $SrcDir 'README.md') (Join-Path $WorkDir 'README.md') -Force
 
 git -C $WorkDir add -A
 if ((git -C $WorkDir status --porcelain).Length -eq 0) {

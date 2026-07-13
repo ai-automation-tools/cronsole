@@ -32,7 +32,7 @@ New to TaskHub? Follow this path in order:
 |:---|:---|
 | [**⬇️ install/**](install/README.md) | Install TaskHub — Windows, macOS, and clone-the-repo paths. |
 | [**⚙️ setup/**](setup/README.md) | Configure it — environment variables, Docker vs. manual, agent pairing. |
-| [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough and the Windows agent guide. |
+| [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive TaskHub from Claude/Codex/Cursor), and remote access from other devices. |
 | [**🧯 troubleshooting/**](troubleshooting/README.md) | Fix it — symptom → cause → fix for problems we've actually hit. |
 
 ## 🧰 Reference & building blocks

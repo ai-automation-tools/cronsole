@@ -20,9 +20,10 @@ If your change affects runtime behavior, docs, or roadmap status, update the mat
 - Keep one logical change per PR.
 - Prefer small, reversible changes over broad refactors.
 - Match the existing stack and patterns:
-  - frontend: React + TypeScript + Vite
+  - frontend: React + TypeScript + Vite + React Router
   - backend: Node.js + Express + Prisma
   - agent: .NET 10
+  - mcp-server: Node.js + `@modelcontextprotocol/sdk` (stdio; a thin wrapper over the REST API)
 - Do not add new infrastructure, frameworks, or dependencies without a clear reason.
 - Do not market planned features as shipped features in docs or UI copy.
 - Treat the repo as a **control plane MVP**, not a general workflow builder.
@@ -84,6 +85,7 @@ GitHub Actions now runs a basic CI workflow from `.github/workflows/ci.yml` for:
 - backend tests + build
 - frontend lint + build
 - Windows agent build
+- MCP server build
 
 Local verification is still expected before opening a PR.
 
@@ -99,6 +101,7 @@ npm run build
 
 ```bash
 cd frontend
+npm test
 npm run build
 npm run lint
 ```
@@ -110,6 +113,15 @@ Run a local build when you touch `.cs` or agent protocol behavior.
 ```bash
 cd agent/TaskHub.Agent
 dotnet build
+```
+
+### MCP server
+
+Run a local build when you touch anything under `mcp-server/`.
+
+```bash
+cd mcp-server
+npm run build
 ```
 
 ## Documentation expectations

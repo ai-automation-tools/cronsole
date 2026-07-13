@@ -164,7 +164,7 @@ See [Setup & configuration](docs/setup/README.md) for every option.
 
 | Layer | Technology |
 |:---|:---|
-| **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS + TanStack Query |
+| **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS + TanStack Query + React Router |
 | **Backend** | Node.js + Express 5 + Socket.io (TypeScript) |
 | **Database** | PostgreSQL 16 + Prisma 6 ORM |
 | **Windows agent** | .NET 10 (`TaskHub.Agent`) reading Windows Task Scheduler |

@@ -40,6 +40,8 @@ New to TaskHub? Follow this path in order:
 | Folder | What's inside |
 |:---|:---|
 | [**📄 reports/**](reports/README.md) | Task templates (the two-tier catalog) and worked API examples. |
+| [**🧩 Template registry**](reports/templates/Registry_Schema_v1.md) | The target-agnostic Registry v1 JSON schema for templates (the catalog is a decoupled, hosted registry). |
+| [**🧠 adr/**](adr/0001-template-registry-schema.md) | Architecture decision records (ADR 0001: the template registry). |
 | [**🛠️ agent-tools/**](agent-tools/README.md) | The AI tooling TaskHub is built with — MCP servers, CLIs, and subagents. |
 | [**🌐 resources/**](resources/README.md) | Curated external links — native scheduler UIs and reference repos/sites. |
 

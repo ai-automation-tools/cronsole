@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_webhook_windows",
+  "name": "Webhook / HTTP Ping (Windows)",
+  "description": "Call a URL on a schedule using Invoke-WebRequest.",
+  "runtime": "http",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "windows",
+    "http",
+    "monitoring",
+    "webhook"
+  ],
+  "icon": "Globe",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/15 * * * *"
+  },
+  "commandTemplate": "powershell.exe -Command \"Invoke-WebRequest -Uri '{{url}}' -Method {{method}}\"",
+  "parameters": [
+    {
+      "key": "url",
+      "label": "URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "The endpoint to call."
+    },
+    {
+      "key": "method",
+      "label": "HTTP method",
+      "type": "select",
+      "default": "GET",
+      "required": true,
+      "options": [
+        "GET",
+        "POST"
+      ],
+      "help": "HTTP verb for the request."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

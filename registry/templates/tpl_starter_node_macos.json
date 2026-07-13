@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_node_macos",
+  "name": "Node.js Script (macOS)",
+  "description": "Run a Node.js script with node on macOS.",
+  "runtime": "node",
+  "os": "macos",
+  "category": "other",
+  "tags": [
+    "macos",
+    "node",
+    "script"
+  ],
+  "icon": "Hexagon",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/30 * * * *"
+  },
+  "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+  "parameters": [
+    {
+      "key": "scriptPath",
+      "label": "Script file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the script on the target machine."
+    },
+    {
+      "key": "args",
+      "label": "Arguments",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional command-line arguments."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

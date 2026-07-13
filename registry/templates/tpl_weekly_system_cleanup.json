@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_weekly_system_cleanup",
+  "name": "Weekly System Cleanup",
+  "description": "Delete temporary files on a schedule to reclaim disk space.",
+  "runtime": "batch",
+  "os": "windows",
+  "category": "cleanup",
+  "tags": [
+    "windows",
+    "cleanup",
+    "disk"
+  ],
+  "icon": "Trash2",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 0 * * 0"
+  },
+  "commandTemplate": "cmd.exe /c \"del /q /s {{targetPath}}\"",
+  "parameters": [
+    {
+      "key": "targetPath",
+      "label": "Path to clean",
+      "type": "path",
+      "default": "%temp%\\*",
+      "required": true,
+      "help": "Files/glob to delete, e.g. %temp%\\*."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

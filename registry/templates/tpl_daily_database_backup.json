@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_daily_database_backup",
+  "name": "Daily Database Backup",
+  "description": "Back up a PostgreSQL database on a schedule with pg_dump.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "backup",
+  "tags": [
+    "windows",
+    "backup",
+    "database",
+    "postgres"
+  ],
+  "icon": "Database",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * *"
+  },
+  "commandTemplate": "cmd.exe /c \"pg_dump -U {{dbUser}} {{dbName}} > {{backupPath}}\"",
+  "parameters": [
+    {
+      "key": "dbUser",
+      "label": "Database user",
+      "type": "text",
+      "default": "postgres",
+      "required": true,
+      "help": "The PostgreSQL role to connect as."
+    },
+    {
+      "key": "dbName",
+      "label": "Database name",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The database to back up."
+    },
+    {
+      "key": "backupPath",
+      "label": "Backup file path",
+      "type": "path",
+      "default": "C:\\backups\\db.sql",
+      "required": true,
+      "help": "Where to write the .sql dump."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

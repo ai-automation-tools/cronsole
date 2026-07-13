@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_powershell_script",
+  "name": "PowerShell Script",
+  "description": "Run a .ps1 PowerShell script file on a schedule.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "other",
+  "tags": [
+    "windows",
+    "script",
+    "powershell"
+  ],
+  "icon": "Terminal",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{{scriptPath}}\"",
+  "parameters": [
+    {
+      "key": "scriptPath",
+      "label": "Script file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the script on the target machine."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

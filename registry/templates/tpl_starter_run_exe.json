@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_run_exe",
+  "name": "Run a Program / .exe",
+  "description": "Launch an executable or binary directly on a schedule.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "other",
+  "tags": [
+    "windows",
+    "executable"
+  ],
+  "icon": "AppWindow",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * 1"
+  },
+  "commandTemplate": "\"{{exePath}}\" {{args}}",
+  "parameters": [
+    {
+      "key": "exePath",
+      "label": "Executable path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the .exe / binary."
+    },
+    {
+      "key": "args",
+      "label": "Arguments",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional command-line arguments."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

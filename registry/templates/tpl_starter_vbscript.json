@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_vbscript",
+  "name": "VBScript (legacy)",
+  "description": "Run a legacy .vbs script via cscript.",
+  "runtime": "vbscript",
+  "os": "windows",
+  "category": "other",
+  "tags": [
+    "windows",
+    "vbscript",
+    "legacy"
+  ],
+  "icon": "FileCode",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 6 * * *"
+  },
+  "commandTemplate": "cscript //nologo \"{{scriptPath}}\"",
+  "parameters": [
+    {
+      "key": "scriptPath",
+      "label": "Script file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the script on the target machine."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

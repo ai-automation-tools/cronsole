@@ -1,0 +1,457 @@
+{
+  "registryVersion": "1.0",
+  "updatedAt": "2026-07-13T00:00:00Z",
+  "templates": [
+    {
+      "id": "tpl_daily_database_backup",
+      "name": "Daily Database Backup",
+      "description": "Back up a PostgreSQL database on a schedule with pg_dump.",
+      "category": "backup",
+      "tags": [
+        "windows",
+        "backup",
+        "database",
+        "postgres"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_daily_database_backup.json",
+      "sha256": "41d8116537d874b82dfcf1965f2cb8e29253057855f41a14b1130985e80f9e1d"
+    },
+    {
+      "id": "tpl_morning_news_digest",
+      "name": "Morning News Digest",
+      "description": "Summarize top stories from your news sources into a daily digest.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "digest",
+        "news"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code",
+        "chatgpt"
+      ],
+      "path": "templates/tpl_morning_news_digest.json",
+      "sha256": "92a941072262d05c4e3f964ec126b82684d3ed4fb5aa6d28564dec41cf1ca1ee"
+    },
+    {
+      "id": "tpl_weekly_system_cleanup",
+      "name": "Weekly System Cleanup",
+      "description": "Delete temporary files on a schedule to reclaim disk space.",
+      "category": "cleanup",
+      "tags": [
+        "windows",
+        "cleanup",
+        "disk"
+      ],
+      "runtime": "batch",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_weekly_system_cleanup.json",
+      "sha256": "66b53e12e6f34d8aa2ad23be785c28acae4a3d062570698c483f01e814b3477f"
+    },
+    {
+      "id": "tpl_github_pr_triage",
+      "name": "GitHub PR Triage",
+      "description": "Triage new pull requests in a repo and label them by content.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "github",
+        "dev"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/tpl_github_pr_triage.json",
+      "sha256": "1d2365682dd091eaf4b825e441d493b86883fb13d68f8581b70cae2e03ad06ef"
+    },
+    {
+      "id": "tpl_starter_powershell_script",
+      "name": "PowerShell Script",
+      "description": "Run a .ps1 PowerShell script file on a schedule.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "script",
+        "powershell"
+      ],
+      "isStarter": true,
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_powershell_script.json",
+      "sha256": "8a3d81b76b9dbebde4ef7a9def35eba8a584c8a3f58a77789aaf0ec4552220e3"
+    },
+    {
+      "id": "tpl_starter_powershell_inline",
+      "name": "PowerShell Inline Command",
+      "description": "Run an inline PowerShell command without a script file.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "powershell"
+      ],
+      "isStarter": true,
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_powershell_inline.json",
+      "sha256": "9248c361d3bdc0aa1cfa827d736cd144082900b2ad71c6b04d147781d1c15cf8"
+    },
+    {
+      "id": "tpl_starter_batch_script",
+      "name": "Batch / CMD Script",
+      "description": "Run a .bat or .cmd batch file via cmd.exe.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "batch",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "batch",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_batch_script.json",
+      "sha256": "24bb19410009a290de2558ab711e8b2f194a78b0aa0e06c627a87fdaa0788fe3"
+    },
+    {
+      "id": "tpl_starter_python_windows",
+      "name": "Python Script (Windows)",
+      "description": "Run a Python script with the Windows python interpreter.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "python",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "python",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_python_windows.json",
+      "sha256": "a13794278d933a44e16148f68d24a447d59146d5b7676953ad7dbc1444c10b74"
+    },
+    {
+      "id": "tpl_starter_node_windows",
+      "name": "Node.js Script (Windows)",
+      "description": "Run a Node.js script with node on Windows.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "node",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_node_windows.json",
+      "sha256": "12c7561b172e9b676013f56bb9d1b996d06419be65cc9b27cb2d2a19b51388a4"
+    },
+    {
+      "id": "tpl_starter_run_exe",
+      "name": "Run a Program / .exe",
+      "description": "Launch an executable or binary directly on a schedule.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "executable"
+      ],
+      "isStarter": true,
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_run_exe.json",
+      "sha256": "bf5f5d31224fa113133c1d43e0c4f41f218d20f50978603a27ed79fb6fac2777"
+    },
+    {
+      "id": "tpl_starter_webhook_windows",
+      "name": "Webhook / HTTP Ping (Windows)",
+      "description": "Call a URL on a schedule using Invoke-WebRequest.",
+      "category": "monitoring",
+      "tags": [
+        "windows",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "isStarter": true,
+      "runtime": "http",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_webhook_windows.json",
+      "sha256": "e4a208ebca646d97c740e3fe9d2c3d876a3b477497921618e86e7591b71e335a"
+    },
+    {
+      "id": "tpl_starter_vbscript",
+      "name": "VBScript (legacy)",
+      "description": "Run a legacy .vbs script via cscript.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "vbscript",
+        "legacy"
+      ],
+      "isStarter": true,
+      "runtime": "vbscript",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_vbscript.json",
+      "sha256": "1a62b41f530859b301d8c03bde0ba7bc21dd921e63ec4d8da6f78d330f89b460"
+    },
+    {
+      "id": "tpl_starter_zsh_script",
+      "name": "Shell Script (zsh)",
+      "description": "Run a shell script with zsh, the macOS default shell.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell",
+        "zsh"
+      ],
+      "isStarter": true,
+      "runtime": "zsh",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_zsh_script.json",
+      "sha256": "5305ba1bc79d995474f957558f40d746e384392d2bde26718f9cda7a068007ff"
+    },
+    {
+      "id": "tpl_starter_bash_script",
+      "name": "Shell Script (bash)",
+      "description": "Run a shell script with bash on macOS or Linux.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell",
+        "bash"
+      ],
+      "isStarter": true,
+      "runtime": "bash",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_bash_script.json",
+      "sha256": "0254eecbf16e6f64066b6bbcbfcd95f3f98c24e011db8561fbcc6460e4dc872c"
+    },
+    {
+      "id": "tpl_starter_python_macos",
+      "name": "Python Script (macOS)",
+      "description": "Run a Python script with python3 on macOS.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "python",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "python",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_python_macos.json",
+      "sha256": "90016cbd3dac864b93c7d02cc9ebd7f211e9fba182f39720680b474d93c4db87"
+    },
+    {
+      "id": "tpl_starter_node_macos",
+      "name": "Node.js Script (macOS)",
+      "description": "Run a Node.js script with node on macOS.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "node",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "node",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_node_macos.json",
+      "sha256": "ea8f25872b2c5eef6835500cb26f38359f7404cefba5f2bbd2791c30aab17256"
+    },
+    {
+      "id": "tpl_starter_applescript",
+      "name": "AppleScript",
+      "description": "Run an AppleScript file via osascript.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "applescript"
+      ],
+      "isStarter": true,
+      "runtime": "applescript",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_applescript.json",
+      "sha256": "513d60a532f49367a9982cd120c89c4b167114bc514786963dc920dc2fdeeb59"
+    },
+    {
+      "id": "tpl_starter_shell_inline_macos",
+      "name": "Inline Shell Command (macOS)",
+      "description": "Run an inline shell command via zsh.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell"
+      ],
+      "isStarter": true,
+      "runtime": "zsh",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_shell_inline_macos.json",
+      "sha256": "209c1cc617c5955072d23925a8afbaaa3cf9db006bafba54f1275f7d29782281"
+    },
+    {
+      "id": "tpl_starter_webhook_macos",
+      "name": "Webhook / HTTP Ping (macOS)",
+      "description": "Call a URL on a schedule using curl.",
+      "category": "monitoring",
+      "tags": [
+        "macos",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "isStarter": true,
+      "runtime": "http",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_webhook_macos.json",
+      "sha256": "af76f249b81a7cf1760a3bebbf809571e655d8b84c2920c873bee460c5c2cb04"
+    },
+    {
+      "id": "tpl_starter_python_cross",
+      "name": "Python Script (cross-platform)",
+      "description": "Run a Python script on Windows or macOS (interpreter resolved at apply-time).",
+      "category": "other",
+      "tags": [
+        "python",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "python",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/tpl_starter_python_cross.json",
+      "sha256": "974e335c08d6b4549c0bec6a2ab583183a39e96948f1811e13909ffa61bc623c"
+    },
+    {
+      "id": "tpl_starter_node_cross",
+      "name": "Node.js Script (cross-platform)",
+      "description": "Run a Node.js script on Windows or macOS.",
+      "category": "other",
+      "tags": [
+        "node",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/tpl_starter_node_cross.json",
+      "sha256": "d981191ea2a9666d5e094caeae3e0b6cd5f052cae4f25357f715f699869af9d3"
+    },
+    {
+      "id": "tpl_starter_git_sync",
+      "name": "Git Pull / Repo Sync",
+      "description": "Pull the latest commits for a local git repository on a schedule.",
+      "category": "dev-workflow",
+      "tags": [
+        "git",
+        "dev",
+        "sync"
+      ],
+      "isStarter": true,
+      "runtime": "bash",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/tpl_starter_git_sync.json",
+      "sha256": "c9b8b852df519b47da41b3c7beb9f6bd922f2547f0d88e4e6e68de2195f013b5"
+    },
+    {
+      "id": "tpl_starter_claude_routine",
+      "name": "Claude Code Routine",
+      "description": "Run a natural-language Claude Code routine on a schedule.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "claude-code"
+      ],
+      "isStarter": true,
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/tpl_starter_claude_routine.json",
+      "sha256": "0d7f60ce3de459cb5538916ff62c6c1811e93a3fc4b92d734d90bb0510fd94d2"
+    },
+    {
+      "id": "tpl_starter_chatgpt_link",
+      "name": "ChatGPT Automation (link)",
+      "description": "Quick-link to create a ChatGPT automation (no public API — opens native UI).",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "chatgpt"
+      ],
+      "isStarter": true,
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "chatgpt"
+      ],
+      "path": "templates/tpl_starter_chatgpt_link.json",
+      "sha256": "3caddc239f013473c087e17609e10ece1316a1a66f5e80ab507e8b87803d4560"
+    }
+  ]
+}

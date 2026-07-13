@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_webhook_macos",
+  "name": "Webhook / HTTP Ping (macOS)",
+  "description": "Call a URL on a schedule using curl.",
+  "runtime": "http",
+  "os": "macos",
+  "category": "monitoring",
+  "tags": [
+    "macos",
+    "http",
+    "monitoring",
+    "webhook"
+  ],
+  "icon": "Globe",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/15 * * * *"
+  },
+  "commandTemplate": "curl -fsS -X {{method}} \"{{url}}\"",
+  "parameters": [
+    {
+      "key": "method",
+      "label": "HTTP method",
+      "type": "select",
+      "default": "GET",
+      "required": true,
+      "options": [
+        "GET",
+        "POST"
+      ],
+      "help": "HTTP verb for the request."
+    },
+    {
+      "key": "url",
+      "label": "URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "The endpoint to call."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

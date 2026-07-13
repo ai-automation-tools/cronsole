@@ -7,6 +7,7 @@ import { useToast } from '../hooks/useToast';
 import { useSettings } from '../hooks/useSettings';
 import { CRON_PRESETS } from '../utils/cronPresets';
 import { describeCron } from '../utils/schedule';
+import { Modal } from './ui/Modal';
 
 interface EditScheduleModalProps {
   task: Task;
@@ -67,14 +68,19 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
   const canSave = !!schedule.trim() && changed && !mutation.isPending;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <Modal
+      onClose={onClose}
+      overlayClassName="z-[60]"
+      closeOnBackdrop={false}
+      labelledBy="edit-schedule-title"
+      panelClassName="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+    >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
             <p className="text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 text-foreground">
               <CalendarClock size={11} /> {isWindows ? 'Windows Task Scheduler' : 'TaskHub-native'}
             </p>
-            <h2 className="text-xl font-bold">Edit Schedule</h2>
+            <h2 id="edit-schedule-title" className="text-xl font-bold">Edit Schedule</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               {isWindows
                 ? <>Changes only the trigger for <span className="font-semibold text-foreground">{task.name}</span> — its command and settings are preserved. Requires the Windows agent to be online.</>
@@ -144,8 +150,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
               : <><CalendarClock size={16} /> Update Schedule</>}
           </button>
         </footer>
-      </div>
-    </div>
+    </Modal>
   );
 };
 export default EditScheduleModal;

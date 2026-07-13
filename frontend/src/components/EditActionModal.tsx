@@ -4,6 +4,7 @@ import { XCircle, Terminal, Loader2, FolderOpen, FileText, ShieldCheck } from 'l
 import type { Task } from '../types';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
+import { Modal } from './ui/Modal';
 
 type RunLevel = 'least' | 'highest';
 
@@ -68,14 +69,19 @@ export const EditActionModal = ({ task, initial, onClose }: EditActionModalProps
   const canSave = !!command.trim() && changed && !mutation.isPending;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <Modal
+      onClose={onClose}
+      overlayClassName="z-[60]"
+      closeOnBackdrop={false}
+      labelledBy="edit-action-title"
+      panelClassName="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+    >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
             <p className="text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 text-foreground">
               <Terminal size={11} /> Windows Task Scheduler
             </p>
-            <h2 className="text-xl font-bold">Edit Command &amp; Settings</h2>
+            <h2 id="edit-action-title" className="text-xl font-bold">Edit Command &amp; Settings</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               Changes what <span className="font-semibold text-foreground">{task.name}</span> runs — its schedule and run-as identity are preserved. Requires the Windows agent to be online.
             </p>
@@ -169,8 +175,7 @@ export const EditActionModal = ({ task, initial, onClose }: EditActionModalProps
               : <><Terminal size={16} /> Save Changes</>}
           </button>
         </footer>
-      </div>
-    </div>
+    </Modal>
   );
 };
 export default EditActionModal;

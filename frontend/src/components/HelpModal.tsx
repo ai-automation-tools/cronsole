@@ -1,5 +1,6 @@
 import { XCircle, HelpCircle, BookOpen, ExternalLink, Sparkles, Compass } from 'lucide-react';
 import { GETTING_STARTED_STEPS, HELP_GUIDES } from '../data/onboarding';
+import { Modal } from './ui/Modal';
 
 interface HelpModalProps {
   onClose: () => void;
@@ -7,15 +8,19 @@ interface HelpModalProps {
 
 export const HelpModal = ({ onClose }: HelpModalProps) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+    <Modal
+      onClose={onClose}
+      overlayClassName="z-50"
+      labelledBy="help-center-title"
+      panelClassName="bg-surface border border-border rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+    >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <HelpCircle className="text-foreground" size={22} />
               <p className="text-[10px] text-foreground uppercase font-black tracking-widest">Documentation & Help</p>
             </div>
-            <h2 className="text-xl font-bold">TaskHub Help Center</h2>
+            <h2 id="help-center-title" className="text-xl font-bold">TaskHub Help Center</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               Get started, master the basics, and find the full guides.
             </p>
@@ -180,8 +185,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
             Close Help Center
           </button>
         </footer>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

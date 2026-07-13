@@ -8,6 +8,7 @@ import { useToast } from '../hooks/useToast';
 import { useSettings } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
 import { CRON_PRESETS } from '../utils/cronPresets';
+import { Modal } from './ui/Modal';
 
 // Substitute {{key}} placeholders — preview only. The apply request sends the
 // raw parameter values; the backend owns the real substitution per-token, so a
@@ -98,12 +99,17 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
     !!platform && isCreatablePlatform(platform) && !!name.trim() && !!schedule.trim() && !incomplete && !applyMutation.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <Modal
+      onClose={onClose}
+      overlayClassName="z-50"
+      closeOnBackdrop={false}
+      labelledBy="apply-template-title"
+      panelClassName="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+    >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
             <p className="text-[10px] text-foreground uppercase font-black tracking-widest mb-1">Apply Template</p>
-            <h2 className="text-xl font-bold">{template.name}</h2>
+            <h2 id="apply-template-title" className="text-xl font-bold">{template.name}</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">{template.description}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
@@ -247,8 +253,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
             {applyMutation.isPending ? <><Loader2 size={16} className="animate-spin" /> Applying…</> : <>Create Task <ArrowRight size={16} /></>}
           </button>
         </footer>
-      </div>
-    </div>
+    </Modal>
   );
 };
 export default ApplyTemplateModal;

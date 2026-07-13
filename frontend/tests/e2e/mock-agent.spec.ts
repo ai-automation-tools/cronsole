@@ -20,11 +20,6 @@ test.describe.serial('mock Windows agent flows', () => {
   });
 
   test('syncs a deterministic agent task and runs it from the dashboard', async ({ page }) => {
-    page.on('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('E2E Mock Nightly Backup');
-      await dialog.accept();
-    });
-
     await page.goto('/');
 
     const statusPanel = page.locator('aside').filter({ hasText: 'System Status' });
@@ -43,6 +38,11 @@ test.describe.serial('mock Windows agent flows', () => {
 
     await page.getByPlaceholder(/Search tasks/).fill('E2E Mock Nightly Backup');
     await page.getByTitle('Run Task').first().click();
+
+    // Confirm the run in the custom confirmation dialog (replaced native confirm()).
+    const confirmDialog = page.getByRole('alertdialog');
+    await expect(confirmDialog).toContainText('E2E Mock Nightly Backup');
+    await confirmDialog.getByRole('button', { name: 'Run' }).click();
 
     await expect(page.getByRole('status')).toContainText(
       '"E2E Mock Nightly Backup" triggered successfully.'

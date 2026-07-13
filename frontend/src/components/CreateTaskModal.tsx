@@ -4,6 +4,7 @@ import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangl
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { CRON_PRESETS } from '../utils/cronPresets';
+import { Modal } from './ui/Modal';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
@@ -116,15 +117,20 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <Modal
+      onClose={onClose}
+      overlayClassName="z-50"
+      closeOnBackdrop={false}
+      labelledBy="create-task-title"
+      panelClassName="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+    >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
             <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : 'text-violet-400'}`}>
               {isWindows ? <Monitor size={11} /> : <Zap size={11} />}
               {isWindows ? 'Windows Task Scheduler' : 'TaskHub-native task'}
             </p>
-            <h2 className="text-xl font-bold">New Task</h2>
+            <h2 id="create-task-title" className="text-xl font-bold">New Task</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               {isWindows
                 ? 'Registered as a real Windows scheduled task via the local agent — survives reboots, runs even when TaskHub is down.'
@@ -288,8 +294,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                 : <><Zap size={16} /> Create TaskHub Task</>}
           </button>
         </footer>
-      </div>
-    </div>
+    </Modal>
   );
 };
 export default CreateTaskModal;

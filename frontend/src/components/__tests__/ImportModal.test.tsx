@@ -115,7 +115,7 @@ describe('ImportModal Component', () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockDiscovery });
     const onClose = vi.fn();
 
-    const { container } = render(
+    render(
       <QueryClientProvider client={queryClient}>
         <ImportModal onClose={onClose} onImport={vi.fn()} />
       </QueryClientProvider>
@@ -125,7 +125,8 @@ describe('ImportModal Component', () => {
       expect(screen.queryByText('Scanning platforms for tasks...')).not.toBeInTheDocument();
     });
 
-    const closeBtn = container.querySelector('header button');
+    // The modal renders through a portal to document.body, so query from there.
+    const closeBtn = document.querySelector('header button');
     expect(closeBtn).toBeInTheDocument();
     if (closeBtn) {
       fireEvent.click(closeBtn);

@@ -128,11 +128,12 @@ const patchTaskScheduleSchema = z.object({
   schedule: z.string().trim().min(1, 'schedule is required')
 });
 
-// Edit the schedule of an existing platform task. For Windows the agent rebuilds
-// only the task's trigger (action/principal/settings preserved) via a signed
-// task:update_schedule; the DB row's schedule/trigger are updated only after the
-// platform confirms — same ack-before-write ordering as delete/status. Platforms
-// without an updateSchedule implementation get an honest 400.
+// Edit the schedule of an existing task. For TaskHub-native tasks, the backend
+// owns the scheduler, so it can update the cron + nextRunTime directly. For
+// Windows the agent rebuilds only the task's trigger (action/principal/settings
+// preserved) via a signed task:update_schedule; the DB row's schedule/trigger
+// are updated only after the platform confirms — same ack-before-write ordering
+// as delete/status. Other platforms get an honest 400.
 router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const userId = (req as AuthRequest).user!.id;
@@ -146,6 +147,26 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
 
   if (!isValidCron(schedule)) {
     throw new HttpError(400, 'Schedule must be a 5-field cron expression (min hour dom month dow).');
+  }
+
+  if (task.platform === PlatformType.TASKHUB_NATIVE) {
+    const nextRunTime = computeNextRun(schedule);
+    if (!nextRunTime) {
+      throw new HttpError(400, 'Schedule must be a valid 5-field cron expression (UTC).');
+    }
+    const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+      ? (task.metadata as Record<string, unknown>)
+      : {};
+    const updatedTask = await prisma.task.update({
+      where: { id },
+      data: {
+        schedule,
+        nextRunTime,
+        metadata: { ...meta, schedule } as unknown as Prisma.InputJsonValue
+      }
+    });
+    notifyTasksChanged(userId);
+    return res.json(updatedTask);
   }
 
   const connector = connectorRegistry.getConnector(task.platform);

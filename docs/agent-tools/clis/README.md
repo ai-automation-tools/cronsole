@@ -18,6 +18,7 @@ versions are covered in [**⬇️ Installation**](../../install/README.md).
 | Tool | Used for |
 |:---|:---|
 | [**Claude Code**](https://claude.com/claude-code) | The AI development agent — runs skills, subagents, and MCP servers per [`CLAUDE.md`](../../../CLAUDE.md). |
+| [**Codex CLI**](https://developers.openai.com/codex) | OpenAI coding agent CLI. TaskHub templates use `codex --ask-for-approval never exec` for unattended scheduled runs with explicit sandboxing and captured output. |
 | [**docker / docker compose**](https://docs.docker.com/) | Bring up the dev stack (`docker compose up --build`): Postgres + Redis + backend + frontend. |
 | [**npm**](https://docs.npmjs.com/cli) | Install deps and run scripts for the frontend and backend (`npm install`, `npm run dev`, `npm start`). |
 | [**npx prisma**](https://www.prisma.io/docs/orm/tools/prisma-cli) | Database schema and migrations (`npx prisma migrate dev`, `prisma studio`). |

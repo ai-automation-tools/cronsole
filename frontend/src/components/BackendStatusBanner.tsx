@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { subscribeBackendStatus, API_ORIGIN, type BackendStatus } from '../api';
+import { subscribeApiOrigin, subscribeBackendStatus, API_ORIGIN, type BackendStatus } from '../api';
 
 /**
  * Fixed banner shown whenever the frontend cannot reach the TaskHub backend
@@ -11,9 +11,11 @@ import { subscribeBackendStatus, API_ORIGIN, type BackendStatus } from '../api';
 export default function BackendStatusBanner() {
   const [status, setStatus] = useState<BackendStatus>('ok');
   const [retrying, setRetrying] = useState(false);
+  const [apiOrigin, setApiOriginState] = useState(API_ORIGIN);
   const queryClient = useQueryClient();
 
   useEffect(() => subscribeBackendStatus(setStatus), []);
+  useEffect(() => subscribeApiOrigin(setApiOriginState), []);
 
   // While the fixed banner is visible, offset page content so it isn't covered.
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function BackendStatusBanner() {
       <AlertTriangle size={18} className="shrink-0 text-red-400" />
       <span className="text-center">
         Can&apos;t reach the TaskHub backend at{' '}
-        <code className="font-mono text-red-200">{API_ORIGIN}</code>. Is the server running?
+        <code className="font-mono text-red-200">{apiOrigin}</code>. Is the server running?
       </span>
       <button
         onClick={handleRetry}

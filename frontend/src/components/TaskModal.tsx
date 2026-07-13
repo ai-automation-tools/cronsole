@@ -619,13 +619,14 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
             </button>
           )}
           {(() => {
-            // Editable only for Windows tasks whose trigger is cron-expressible
-            // (task.schedule is set). Boot/logon/event/on-demand triggers read
-            // back as no schedule and stay read-only until they have a safe editor.
-            const editable = task.platform === 'WINDOWS_TASK_SCHEDULER' && !!task.schedule;
-            const reason = task.platform !== 'WINDOWS_TASK_SCHEDULER'
-              ? 'Schedule editing is only available for Windows Task Scheduler tasks.'
-              : "This task runs on a trigger TaskHub can't edit yet (boot, logon, event, or on-demand only).";
+            // Editable for TaskHub-native tasks (backend owns the scheduler) and
+            // for Windows tasks whose trigger is cron-expressible (task.schedule
+            // is set). Boot/logon/event/on-demand Windows triggers read back as
+            // no schedule and stay read-only until they have a safe editor.
+            const editable = (task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && !!task.schedule;
+            const reason = task.platform === 'WINDOWS_TASK_SCHEDULER'
+              ? "This task runs on a trigger TaskHub can't edit yet (boot, logon, event, or on-demand only)."
+              : 'Schedule editing is only available for TaskHub-native tasks and cron-expressible Windows tasks.';
             return (
               <button
                 onClick={() => editable && setShowScheduleEditor(true)}

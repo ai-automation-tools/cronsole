@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ai-codex-autofix-workspace",
+  "name": "Codex Auto-Fix Workspace",
+  "description": "Higher-trust: let Codex edit a repository on a schedule. Runs non-interactively with no approval prompts but stays inside the workspace-write sandbox; review the diff and logs before pushing.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "llm",
+    "cli",
+    "agents",
+    "codex",
+    "git"
+  ],
+  "icon": "GitPullRequestArrow",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox workspace-write --ephemeral --color never -C '{{repoPath}}' -o '{{summaryPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    },
+    {
+      "key": "prompt",
+      "label": "Prompt",
+      "type": "text",
+      "default": "Fix straightforward lint, formatting, or test failures in this repository. Keep changes small and summarize every file changed.",
+      "required": true,
+      "help": "The task Codex performs. It may edit files inside the repo. Avoid single quotes."
+    },
+    {
+      "key": "summaryPath",
+      "label": "Summary file path",
+      "type": "path",
+      "default": "C:\\reports\\codex-autofix-summary.md",
+      "required": true,
+      "help": "Where Codex writes the final summary."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\codex-autofix.log",
+      "required": true,
+      "help": "Where the full run stream is captured for review."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

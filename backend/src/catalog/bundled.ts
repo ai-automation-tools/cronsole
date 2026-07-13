@@ -332,19 +332,26 @@ const devPack: RegistryTemplate[] = [
 ];
 
 // =====================================================================
-// AI Pack (Claude Code) — ai-agent use-case patterns (2026-07-13)
-// Real, *creatable* Windows tasks that run the Claude Code CLI unattended —
-// distinct from the honest-manual `ai-prompt` link starters below. They clear
-// the roadmap's "safe non-interactive execution path" gate: headless print mode
-// (`claude -p`), permissions fenced by `--permission-mode dontAsk` (auto-denies
-// unprompted actions so a scheduled run never hangs on an approval), an explicit
-// user-scoped `--allowedTools` allowlist, `--bare` for machine-independent runs,
-// and captured output. `claude` is a native Windows binary but redirection needs
-// a shell, so — like the npm pack — a shell is opted into explicitly; here it's
-// PowerShell so the multi-word prompt can ride as a single-quoted string inside
-// the one `-Command` arg (the same nesting the webhook starter uses). `claude`
-// is invoked bare, assuming it's on the task user's PATH (as git/npm/docker are).
-// Verified flags: docs/agent-tools/clis (cli-reference / headless / permission-modes).
+// AI Pack (Claude Code + Codex) — ai-agent use-case patterns (2026-07-13)
+// Real, *creatable* Windows tasks that run AI coding CLIs unattended, distinct
+// from the honest-manual `ai-prompt` link starters below.
+//
+// Claude Code clears the gate with headless print mode (`claude -p`), permission
+// fencing via `--permission-mode dontAsk`, an explicit user-scoped `--allowedTools`
+// allowlist, `--bare`, and captured output.
+//
+// Codex clears the gate with non-interactive mode (`codex exec`), explicit
+// no-prompt approval policy (`codex --ask-for-approval never exec ...`), explicit
+// sandbox selection, `--ephemeral`, `--color never`, final-message capture via
+// `-o`, and full stream capture via PowerShell redirection. The default templates
+// stay read-only; the workspace-write template is labeled higher-trust. Verified
+// against the installed Codex CLI (`codex exec --help`, v0.144.1) and a live
+// read-only smoke run.
+//
+// Both CLIs are invoked bare, assuming they're on the task user's PATH (as git,
+// npm, and docker are). Redirection needs a shell, so PowerShell is named
+// explicitly and the multi-word prompt rides as a single-quoted string inside
+// the one `-Command` arg.
 // =====================================================================
 const aiPack: RegistryTemplate[] = [
   {
@@ -436,6 +443,73 @@ const aiPack: RegistryTemplate[] = [
       { key: 'logDir', label: 'Log folder', type: 'path', default: 'C:\\logs', required: true, help: 'Folder holding the Claude run logs to prune.' },
       { key: 'filter', label: 'File filter', type: 'text', default: 'claude-*.log', required: true, help: 'Which files to consider, e.g. claude-*.log or *.md.' },
       { key: 'days', label: 'Keep for (days)', type: 'text', default: '14', required: true, help: 'Delete matching files older than this many days.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ai-codex-headless-run',
+    name: 'Codex Headless Run',
+    description:
+      'Run Codex CLI non-interactively against a repo on a schedule with a fixed prompt. Uses `codex exec`, no approval prompts, an explicit sandbox, an ephemeral session, and captured output.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'ai-agent',
+    tags: ['ai', 'llm', 'cli', 'agents', 'codex'],
+    icon: 'Bot',
+    trigger: sched('0 7 * * *'),
+    commandTemplate:
+      "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox {{sandbox}} --ephemeral --color never -C '{{repoPath}}' -o '{{outputPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    parameters: [
+      P.repoPath,
+      { key: 'prompt', label: 'Prompt', type: 'text', default: '', required: true, help: 'The instruction Codex runs each time. Avoid single quotes (they close the PowerShell string).' },
+      { key: 'sandbox', label: 'Sandbox', type: 'select', options: ['read-only', 'workspace-write'], default: 'read-only', required: true, help: 'Least privilege for the run. read-only is safest; workspace-write allows Codex to edit files inside the repo.' },
+      { key: 'outputPath', label: 'Final output path', type: 'path', default: 'C:\\reports\\codex-output.md', required: true, help: 'Where Codex writes the final agent message via --output-last-message.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\codex-run.log', required: true, help: 'Where the full non-interactive run stream is captured for review.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ai-codex-repo-digest',
+    name: 'Codex Repo Digest',
+    description:
+      'A read-only Codex run that summarizes a repository into a Markdown digest on a schedule. The final digest and full run stream are captured separately.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'ai-agent',
+    tags: ['ai', 'llm', 'cli', 'agents', 'codex', 'report'],
+    icon: 'ScrollText',
+    trigger: sched('0 7 * * 1'),
+    commandTemplate:
+      "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox read-only --ephemeral --color never -C '{{repoPath}}' -o '{{reportPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    parameters: [
+      P.repoPath,
+      { key: 'prompt', label: 'Digest prompt', type: 'text', default: 'Summarize the notable changes, open TODOs, and anything that looks risky in this repository into a concise Markdown digest.', required: true, help: 'What to summarize. This template runs Codex in a read-only sandbox. Avoid single quotes.' },
+      { key: 'reportPath', label: 'Report file path', type: 'path', default: 'C:\\reports\\codex-repo-digest.md', required: true, help: 'Where the Markdown digest is written.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\codex-repo-digest.log', required: true, help: 'Where the full run stream is captured for review.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ai-codex-autofix-workspace',
+    name: 'Codex Auto-Fix Workspace',
+    description:
+      'Higher-trust: let Codex edit a repository on a schedule. Runs non-interactively with no approval prompts but stays inside the workspace-write sandbox; review the diff and logs before pushing.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'ai-agent',
+    tags: ['ai', 'llm', 'cli', 'agents', 'codex', 'git'],
+    icon: 'GitPullRequestArrow',
+    trigger: sched('0 3 * * *'),
+    commandTemplate:
+      "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox workspace-write --ephemeral --color never -C '{{repoPath}}' -o '{{summaryPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    parameters: [
+      P.repoPath,
+      { key: 'prompt', label: 'Prompt', type: 'text', default: 'Fix straightforward lint, formatting, or test failures in this repository. Keep changes small and summarize every file changed.', required: true, help: 'The task Codex performs. It may edit files inside the repo. Avoid single quotes.' },
+      { key: 'summaryPath', label: 'Summary file path', type: 'path', default: 'C:\\reports\\codex-autofix-summary.md', required: true, help: 'Where Codex writes the final summary.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\codex-autofix.log', required: true, help: 'Where the full run stream is captured for review.' }
     ],
     compatibleTargets: ['windows']
   }

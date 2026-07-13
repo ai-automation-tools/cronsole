@@ -18,7 +18,7 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 
 | Variable | Where | Purpose |
 |:---|:---|:---|
-| **`VITE_API_URL`** | frontend | Origin the dashboard calls for the API. Defaults to `http://localhost:3000`. Set this if the backend runs elsewhere. |
+| **`VITE_API_URL`** | frontend | Default origin the dashboard calls for the API. Defaults to `http://localhost:3000`. Users can override it at runtime in **Settings → About → API origin**; the override is saved in that browser. |
 | **`VITE_DEV_TOKEN`** | frontend | Dev/MVP auth token the dashboard sends as `Authorization: Bearer` (there is no committed default — a real login flow replaces this pre-launch). Sign one with the backend's `JWT_SECRET` for the placeholder user; see `frontend/.env.example`. |
 | **`DATABASE_URL`** | backend | PostgreSQL 16 connection string. Required when running the backend outside Docker Compose. |
 | **`TEST_DATABASE_URL`** | backend (tests) | Postgres URL for the integration suite (`npm run test:integration`). Defaults to `postgresql://taskhub:password@localhost:5432/taskhub_test` — the suite **creates, migrates, and truncates** this database, so point it at a throwaway DB, never a real one. Unit tests (`npm test`) don't use it. |
@@ -72,6 +72,13 @@ npm run dev                 # http://localhost:5173  (uses VITE_API_URL, default
 cd agent/TaskHub.Agent
 dotnet run                  # connects out to the backend
 ```
+
+### Changing the backend URL from the dashboard
+
+`VITE_API_URL` is only the default. In the running app, open **Settings → About → API origin**
+to point the dashboard at another backend without rebuilding the frontend. TaskHub stores that
+browser-local override in `localStorage`, updates REST calls and the live `/ui` Socket.IO
+channel immediately, and **Reset** returns to the `VITE_API_URL` default.
 
 ## 🎛️ Controlling the stack (one command)
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Palette,
   LayoutDashboard,
@@ -28,7 +29,15 @@ import { useToast } from '../hooks/useToast';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { platformLabel } from '../platform';
 import { formatDateTime } from '../utils/datetime';
-import { API_ORIGIN, subscribeBackendStatus, type BackendStatus } from '../api';
+import {
+  API_ORIGIN,
+  DEFAULT_API_ORIGIN,
+  resetApiOrigin,
+  setApiOrigin as setRuntimeApiOrigin,
+  subscribeApiOrigin,
+  subscribeBackendStatus,
+  type BackendStatus
+} from '../api';
 import type { Task } from '../types';
 
 const PLATFORM_LINKS_KEY = 'taskhub_platform_links';
@@ -242,10 +251,17 @@ const ConnectionsSection = ({ timezone }: { timezone: Settings['timezone'] }) =>
 export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
   const { settings, update, replaceAll, reset } = useSettings();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('ok');
+  const [apiOrigin, setApiOriginState] = useState(API_ORIGIN);
+  const [apiOriginInput, setApiOriginInput] = useState(API_ORIGIN);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => subscribeBackendStatus(setBackendStatus), []);
+  useEffect(() => subscribeApiOrigin(origin => {
+    setApiOriginState(origin);
+    setApiOriginInput(origin);
+  }), []);
 
   const categoryOptions = useMemo(() => {
     const unique = Array.from(new Set((tasks ?? []).map(t => t.category || 'Uncategorized')));
@@ -304,6 +320,22 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
   const resetPlatformLinks = () => {
     localStorage.removeItem(PLATFORM_LINKS_KEY);
     toast('Platform links reset to defaults. Reload to see the change.', 'info');
+  };
+
+  const saveApiOrigin = async () => {
+    try {
+      const next = setRuntimeApiOrigin(apiOriginInput);
+      toast(`Backend API origin set to ${next}.`, 'success');
+      await queryClient.invalidateQueries();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Could not save API origin.', 'error');
+    }
+  };
+
+  const restoreDefaultApiOrigin = async () => {
+    const next = resetApiOrigin();
+    toast(`Backend API origin reset to ${next}.`, 'info');
+    await queryClient.invalidateQueries();
   };
 
   return (
@@ -426,6 +458,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
           <button
             onClick={() => {
               reset();
+              resetApiOrigin();
               toast('All preferences reset to defaults.', 'info');
             }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all active:scale-95"
@@ -446,10 +479,36 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
             {backendStatus === 'ok' ? 'Reachable' : 'Unreachable'}
           </span>
         </Row>
-        <Row label="API origin">
-          <span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-            <Globe size={12} className="text-subtle-foreground" /> {API_ORIGIN}
-          </span>
+        <Row
+          label="API origin"
+          description={`Default from VITE_API_URL: ${DEFAULT_API_ORIGIN}. Override is saved in this browser.`}
+        >
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <div className="relative">
+              <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle-foreground" />
+              <input
+                type="url"
+                value={apiOriginInput}
+                onChange={e => setApiOriginInput(e.target.value)}
+                placeholder="http://localhost:3000"
+                className="w-full sm:w-72 bg-background border border-border rounded-xl pl-8 pr-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary shadow-sm"
+              />
+            </div>
+            <button
+              onClick={saveApiOrigin}
+              disabled={apiOriginInput.trim().replace(/\/+$/, '') === apiOrigin}
+              className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+            >
+              Save
+            </button>
+            <button
+              onClick={restoreDefaultApiOrigin}
+              disabled={apiOrigin === DEFAULT_API_ORIGIN}
+              className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+            >
+              Reset
+            </button>
+          </div>
         </Row>
         <Row label="Links">
           <div className="flex items-center gap-2">

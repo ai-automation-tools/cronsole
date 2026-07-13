@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TaskModal } from '../TaskModal';
 import type { Task } from '../../types';
-import { vi, describe, it, expect } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({
@@ -13,6 +13,10 @@ vi.mock('../../api', () => ({
     delete: vi.fn()
   }
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 // TaskModal calls useToast; provide a no-op so tests don't need a ToastProvider.
 vi.mock('../../hooks/useToast', () => ({
@@ -219,6 +223,34 @@ describe('TaskModal Component', () => {
       expect(api.delete).toHaveBeenCalledWith('/tasks/task-123');
     });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('edits a TaskHub-native task schedule via PATCH /tasks/:id/schedule', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { score: 1, warnings: [] } });
+    vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask, schedule: '0 8 * * *' } });
+
+    renderModal({
+      task: {
+        ...mockTask,
+        platform: 'TASKHUB_NATIVE',
+        schedule: '0 3 * * *',
+        metadata: {
+          job: { jobType: 'HTTP', url: 'https://example.com/health', method: 'GET' }
+        }
+      }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit Schedule/i }));
+    expect(screen.getByText('TaskHub-native')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue('0 3 * * *'), {
+      target: { value: '0 8 * * *' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Update Schedule/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith('/tasks/task-123/schedule', { schedule: '0 8 * * *' });
+    });
   });
 
   it('edits a Windows task command & settings via PATCH /tasks/:id/actions', async () => {

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ai-codex-repo-digest",
+  "name": "Codex Repo Digest",
+  "description": "A read-only Codex run that summarizes a repository into a Markdown digest on a schedule. The final digest and full run stream are captured separately.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "llm",
+    "cli",
+    "agents",
+    "codex",
+    "report"
+  ],
+  "icon": "ScrollText",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * 1"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox read-only --ephemeral --color never -C '{{repoPath}}' -o '{{reportPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    },
+    {
+      "key": "prompt",
+      "label": "Digest prompt",
+      "type": "text",
+      "default": "Summarize the notable changes, open TODOs, and anything that looks risky in this repository into a concise Markdown digest.",
+      "required": true,
+      "help": "What to summarize. This template runs Codex in a read-only sandbox. Avoid single quotes."
+    },
+    {
+      "key": "reportPath",
+      "label": "Report file path",
+      "type": "path",
+      "default": "C:\\reports\\codex-repo-digest.md",
+      "required": true,
+      "help": "Where the Markdown digest is written."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\codex-repo-digest.log",
+      "required": true,
+      "help": "Where the full run stream is captured for review."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

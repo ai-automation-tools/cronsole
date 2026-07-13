@@ -1,12 +1,67 @@
 import axios from 'axios';
 
-// --- API base (exported so the UI can show the user which host it's targeting) ---
-export const API_ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const API_ORIGIN_STORAGE_KEY = 'taskhub.apiOrigin';
+export const DEFAULT_API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_URL ?? 'http://localhost:3000');
+
+function normalizeApiOrigin(origin: string): string {
+  const trimmed = origin.trim().replace(/\/+$/, '');
+  const parsed = new URL(trimmed);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('API origin must start with http:// or https://');
+  }
+  return parsed.origin;
+}
+
+function readApiOrigin(): string {
+  if (typeof window === 'undefined') return DEFAULT_API_ORIGIN;
+  try {
+    const stored = window.localStorage.getItem(API_ORIGIN_STORAGE_KEY);
+    return normalizeApiOrigin(stored || DEFAULT_API_ORIGIN);
+  } catch {
+    return DEFAULT_API_ORIGIN;
+  }
+}
+
+// --- API base (live binding so UI + sockets can react to Settings changes) ---
+export let API_ORIGIN = readApiOrigin();
 
 // --- API Client ---
 export const api = axios.create({
   baseURL: `${API_ORIGIN}/api`
 });
+
+const originListeners = new Set<(origin: string) => void>();
+
+export function subscribeApiOrigin(cb: (origin: string) => void): () => void {
+  originListeners.add(cb);
+  cb(API_ORIGIN);
+  return () => { originListeners.delete(cb); };
+}
+
+export function setApiOrigin(origin: string): string {
+  let next: string;
+  try {
+    next = normalizeApiOrigin(origin);
+  } catch {
+    throw new Error('API origin must start with http:// or https://');
+  }
+  if (next === API_ORIGIN) return API_ORIGIN;
+  API_ORIGIN = next;
+  if (typeof window !== 'undefined') window.localStorage.setItem(API_ORIGIN_STORAGE_KEY, next);
+  api.defaults.baseURL = `${API_ORIGIN}/api`;
+  setBackendStatus('ok');
+  originListeners.forEach(l => l(API_ORIGIN));
+  return API_ORIGIN;
+}
+
+export function resetApiOrigin(): string {
+  if (typeof window !== 'undefined') window.localStorage.removeItem(API_ORIGIN_STORAGE_KEY);
+  API_ORIGIN = normalizeApiOrigin(DEFAULT_API_ORIGIN);
+  api.defaults.baseURL = `${API_ORIGIN}/api`;
+  setBackendStatus('ok');
+  originListeners.forEach(l => l(API_ORIGIN));
+  return API_ORIGIN;
+}
 
 // Dev/MVP auth token, injected from the environment (see frontend/.env.example).
 // There is intentionally NO committed fallback: a hardcoded token is a leaked

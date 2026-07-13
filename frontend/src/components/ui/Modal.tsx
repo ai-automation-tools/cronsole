@@ -27,6 +27,11 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])'
 ].join(',');
 
+// Stack of open modals. When modals nest (a confirm/edit dialog over the task
+// detail modal), only the top-most one handles Escape and traps focus — otherwise
+// a single Escape would close every open modal at once.
+const modalStack: symbol[] = [];
+
 interface ModalProps {
   onClose: () => void;
   children: ReactNode;
@@ -62,6 +67,11 @@ export const Modal = ({
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
+    // Register on the modal stack so only the top-most modal handles keys.
+    const id = Symbol('modal');
+    modalStack.push(id);
+    const isTop = () => modalStack[modalStack.length - 1] === id;
+
     // Lock body scroll while the dialog is open.
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -75,6 +85,7 @@ export const Modal = ({
     focusTarget?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (!isTop()) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();
@@ -114,6 +125,8 @@ export const Modal = ({
     document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
+      const idx = modalStack.indexOf(id);
+      if (idx !== -1) modalStack.splice(idx, 1);
       document.body.style.overflow = prevOverflow;
       previouslyFocused?.focus?.();
     };

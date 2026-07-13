@@ -80,9 +80,10 @@ describe('TaskModal Component', () => {
 
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn();
-    const { container } = renderModal({ onClose });
+    renderModal({ onClose });
 
-    const closeBtn = container.querySelector('header button');
+    // The modal renders through a portal to document.body, so query from there.
+    const closeBtn = document.querySelector('header button');
     expect(closeBtn).toBeInTheDocument();
     if (closeBtn) {
       fireEvent.click(closeBtn);

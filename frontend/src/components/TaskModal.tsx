@@ -6,6 +6,7 @@ import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
+import { Modal } from './ui/Modal';
 import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
 import { EditScheduleModal } from './EditScheduleModal';
@@ -352,15 +353,21 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   const lastRun = task.lastRunAt ?? asText(meta.lastRunTime) ?? null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <>
+    <Modal
+      onClose={onClose}
+      overlayClassName="z-50"
+      closeOnBackdrop={false}
+      labelledBy="task-modal-title"
+      panelClassName="bg-surface border border-border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+    >
         <header className="p-6 border-b border-border flex justify-between items-start">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/20 text-foreground border border-primary/30">
                 {task.platform}
               </span>
-              <h2 className="text-2xl font-bold">{task.name}</h2>
+              <h2 id="task-modal-title" className="text-2xl font-bold">{task.name}</h2>
             </div>
             <code className="text-xs text-subtle-foreground bg-background px-2 py-1 rounded">{task.externalId}</code>
           </div>
@@ -653,13 +660,13 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
             <Play size={16} fill="currentColor" /> Run Now
           </button>
         </footer>
-      </div>
+    </Modal>
       {showScheduleEditor && (
         <EditScheduleModal task={task} onClose={() => setShowScheduleEditor(false)} />
       )}
       {showActionEditor && (
         <EditActionModal task={task} initial={actionEdit.initial} onClose={() => setShowActionEditor(false)} />
       )}
-    </div>
+    </>
   );
 };

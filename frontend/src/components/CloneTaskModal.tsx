@@ -5,6 +5,7 @@ import type { Task } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
 import { useToast } from '../hooks/useToast';
+import { Modal } from './ui/Modal';
 
 interface CloneTaskModalProps {
   task: Task;
@@ -68,12 +69,17 @@ export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
   const isValid = name.trim() && schedule.trim() && command.trim();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <Modal
+      onClose={onClose}
+      overlayClassName="z-50"
+      closeOnBackdrop={false}
+      labelledBy="clone-task-title"
+      panelClassName="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+    >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
             <p className="text-[10px] text-foreground uppercase font-black tracking-widest mb-1">Clone Existing Task</p>
-            <h2 className="text-xl font-bold flex items-center gap-2">
+            <h2 id="clone-task-title" className="text-xl font-bold flex items-center gap-2">
               <CopyPlus size={18} className="text-foreground" />
               Clone: {task.name}
             </h2>
@@ -149,8 +155,7 @@ export const CloneTaskModal = ({ task, onClose }: CloneTaskModalProps) => {
             {cloneMutation.isPending ? <><Loader2 size={16} className="animate-spin" /> Cloning…</> : <>Confirm Clone</>}
           </button>
         </footer>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

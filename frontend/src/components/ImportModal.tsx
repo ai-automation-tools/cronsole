@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, XCircle, Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
+import { Modal } from './ui/Modal';
 
 interface DiscoveredCategory {
   name: string;
@@ -48,20 +49,25 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
   };
 
   if (isLoading) return (
-     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+     <Modal onClose={onClose} overlayClassName="z-50" closeOnBackdrop={false}>
         <div className="text-center space-y-4">
            <Loader2 className="animate-spin text-foreground mx-auto" size={48} />
            <p className="text-muted-foreground font-medium">Scanning platforms for tasks...</p>
         </div>
-     </div>
+     </Modal>
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col">
+    <Modal
+      onClose={onClose}
+      overlayClassName="z-50"
+      closeOnBackdrop={false}
+      labelledBy="import-modal-title"
+      panelClassName="bg-surface border border-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col"
+    >
         <header className="p-6 border-b border-border flex justify-between items-center bg-surface/50">
           <div>
-            <h2 className="text-xl font-bold">Import & Sync</h2>
+            <h2 id="import-modal-title" className="text-xl font-bold">Import & Sync</h2>
             <p className="text-[10px] text-subtle-foreground uppercase font-bold tracking-wider">Select categories to pull into dashboard</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors"><XCircle size={20} /></button>
@@ -116,8 +122,7 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
             Sync {selected.length} Categories
           </button>
         </footer>
-      </div>
-    </div>
+    </Modal>
   );
 };
 export default ImportModal;

@@ -332,6 +332,116 @@ const devPack: RegistryTemplate[] = [
 ];
 
 // =====================================================================
+// AI Pack (Claude Code) — ai-agent use-case patterns (2026-07-13)
+// Real, *creatable* Windows tasks that run the Claude Code CLI unattended —
+// distinct from the honest-manual `ai-prompt` link starters below. They clear
+// the roadmap's "safe non-interactive execution path" gate: headless print mode
+// (`claude -p`), permissions fenced by `--permission-mode dontAsk` (auto-denies
+// unprompted actions so a scheduled run never hangs on an approval), an explicit
+// user-scoped `--allowedTools` allowlist, `--bare` for machine-independent runs,
+// and captured output. `claude` is a native Windows binary but redirection needs
+// a shell, so — like the npm pack — a shell is opted into explicitly; here it's
+// PowerShell so the multi-word prompt can ride as a single-quoted string inside
+// the one `-Command` arg (the same nesting the webhook starter uses). `claude`
+// is invoked bare, assuming it's on the task user's PATH (as git/npm/docker are).
+// Verified flags: docs/agent-tools/clis (cli-reference / headless / permission-modes).
+// =====================================================================
+const aiPack: RegistryTemplate[] = [
+  {
+    schemaVersion: '1.0',
+    id: 'ai-claude-headless-run',
+    name: 'Claude Code Headless Run',
+    description:
+      'Run the Claude Code CLI unattended against a repo on a schedule with a fixed prompt. Non-interactive (`-p`), fenced by `--permission-mode dontAsk`, scoped to the tools you list, output captured to a log.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'ai-agent',
+    tags: ['ai', 'llm', 'cli', 'agents', 'claude-code'],
+    icon: 'Bot',
+    trigger: sched('0 7 * * *'),
+    commandTemplate:
+      "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools '{{allowedTools}}' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{logPath}}'\"",
+    parameters: [
+      P.repoPath,
+      { key: 'prompt', label: 'Prompt', type: 'text', default: '', required: true, help: 'The instruction Claude runs each time. Avoid single quotes (they close the PowerShell string).' },
+      { key: 'allowedTools', label: 'Allowed tools', type: 'text', default: 'Read,Grep,Glob', required: true, help: "Comma-separated Claude Code tool allowlist, e.g. Read,Grep,Glob or Bash(git log *),Edit. dontAsk still auto-denies anything not listed. See the Claude Code --allowedTools docs for the exact syntax." },
+      { key: 'maxTurns', label: 'Max turns', type: 'text', default: '5', required: true, help: 'Abort the run after this many agentic turns (bounds runtime and cost).' },
+      { key: 'model', label: 'Model', type: 'select', options: ['sonnet', 'opus', 'haiku'], default: 'sonnet', required: true, help: 'Claude model alias to run.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\claude-run.log', required: true, help: 'Where the run output (Claude\'s printed result + any errors) is captured.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ai-claude-repo-digest',
+    name: 'Claude Code Repo Digest',
+    description:
+      'A read-only Claude Code run that summarizes a repository into a Markdown digest on a schedule (e.g. weekly). Tools are locked to read/search only; the printed digest is written to a report file.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'ai-agent',
+    tags: ['ai', 'llm', 'cli', 'agents', 'claude-code', 'report'],
+    icon: 'ScrollText',
+    trigger: sched('0 7 * * 1'),
+    commandTemplate:
+      "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools 'Read,Grep,Glob' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{reportPath}}'\"",
+    parameters: [
+      P.repoPath,
+      { key: 'prompt', label: 'Digest prompt', type: 'text', default: 'Summarize the notable changes, open TODOs, and anything that looks risky in this repository into a concise Markdown digest.', required: true, help: 'What to summarize. Read-only tools only — avoid single quotes.' },
+      { key: 'maxTurns', label: 'Max turns', type: 'text', default: '8', required: true, help: 'Abort the run after this many agentic turns.' },
+      { key: 'model', label: 'Model', type: 'select', options: ['sonnet', 'opus', 'haiku'], default: 'sonnet', required: true, help: 'Claude model alias to run.' },
+      { key: 'reportPath', label: 'Report file path', type: 'path', default: 'C:\\reports\\repo-digest.md', required: true, help: 'Where the Markdown digest is written.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ai-claude-autofix-commit',
+    name: 'Claude Code Auto-Fix & Commit',
+    description:
+      'Higher-trust: let Claude Code edit a repo and commit on a schedule. Still fenced by `--permission-mode dontAsk` — only the edit/git tools you list are pre-approved. Scope `--allowedTools` narrowly and review the log/commits.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'ai-agent',
+    tags: ['ai', 'llm', 'cli', 'agents', 'claude-code', 'git'],
+    icon: 'GitPullRequestArrow',
+    trigger: sched('0 3 * * *'),
+    commandTemplate:
+      "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools '{{allowedTools}}' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{logPath}}'\"",
+    parameters: [
+      P.repoPath,
+      { key: 'prompt', label: 'Prompt', type: 'text', default: '', required: true, help: 'The task Claude performs, e.g. "Fix lint errors and commit". Avoid single quotes.' },
+      { key: 'allowedTools', label: 'Allowed tools', type: 'text', default: 'Read,Edit,Write,Grep,Glob,Bash(git add *),Bash(git commit *),Bash(git status *),Bash(git diff *)', required: true, help: 'Edit + scoped git tools pre-approved for the run. Keep Bash scoped (e.g. Bash(git commit *)), never a bare Bash. dontAsk auto-denies anything not listed.' },
+      { key: 'maxTurns', label: 'Max turns', type: 'text', default: '10', required: true, help: 'Abort the run after this many agentic turns.' },
+      { key: 'model', label: 'Model', type: 'select', options: ['sonnet', 'opus', 'haiku'], default: 'sonnet', required: true, help: 'Claude model alias to run.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\claude-autofix.log', required: true, help: 'Where the run output is captured for review.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ai-claude-log-cleanup',
+    name: 'Claude Code Log Cleanup',
+    description:
+      'Housekeeping companion for the scheduled Claude runs: delete run logs/digests older than a cutoff so they do not pile up. Read-nothing, deletes only matching files in one folder.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'cleanup',
+    tags: ['ai', 'cli', 'agents', 'cleanup', 'logs'],
+    icon: 'Trash2',
+    trigger: sched('0 2 * * 0'),
+    commandTemplate:
+      "powershell.exe -NoProfile -Command \"Get-ChildItem -Path '{{logDir}}' -Filter '{{filter}}' -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-{{days}}) } | Remove-Item -Force\"",
+    parameters: [
+      { key: 'logDir', label: 'Log folder', type: 'path', default: 'C:\\logs', required: true, help: 'Folder holding the Claude run logs to prune.' },
+      { key: 'filter', label: 'File filter', type: 'text', default: 'claude-*.log', required: true, help: 'Which files to consider, e.g. claude-*.log or *.md.' },
+      { key: 'days', label: 'Keep for (days)', type: 'text', default: '14', required: true, help: 'Delete matching files older than this many days.' }
+    ],
+    compatibleTargets: ['windows']
+  }
+];
+
+// =====================================================================
 // Tier A — Script Starters (isStarter = true)
 // =====================================================================
 const starters: RegistryTemplate[] = [
@@ -662,5 +772,5 @@ const starters: RegistryTemplate[] = [
   }
 ];
 
-/** The full bundled catalog (patterns, then the Developer Pack, then starters), Registry v1 shape. */
-export const bundledCatalog: RegistryTemplate[] = [...patterns, ...devPack, ...starters];
+/** The full bundled catalog (patterns, Developer Pack, AI Pack, then starters), Registry v1 shape. */
+export const bundledCatalog: RegistryTemplate[] = [...patterns, ...devPack, ...aiPack, ...starters];

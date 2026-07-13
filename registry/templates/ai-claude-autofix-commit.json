@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ai-claude-autofix-commit",
+  "name": "Claude Code Auto-Fix & Commit",
+  "description": "Higher-trust: let Claude Code edit a repo and commit on a schedule. Still fenced by `--permission-mode dontAsk` — only the edit/git tools you list are pre-approved. Scope `--allowedTools` narrowly and review the log/commits.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "llm",
+    "cli",
+    "agents",
+    "claude-code",
+    "git"
+  ],
+  "icon": "GitPullRequestArrow",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools '{{allowedTools}}' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    },
+    {
+      "key": "prompt",
+      "label": "Prompt",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The task Claude performs, e.g. \"Fix lint errors and commit\". Avoid single quotes."
+    },
+    {
+      "key": "allowedTools",
+      "label": "Allowed tools",
+      "type": "text",
+      "default": "Read,Edit,Write,Grep,Glob,Bash(git add *),Bash(git commit *),Bash(git status *),Bash(git diff *)",
+      "required": true,
+      "help": "Edit + scoped git tools pre-approved for the run. Keep Bash scoped (e.g. Bash(git commit *)), never a bare Bash. dontAsk auto-denies anything not listed."
+    },
+    {
+      "key": "maxTurns",
+      "label": "Max turns",
+      "type": "text",
+      "default": "10",
+      "required": true,
+      "help": "Abort the run after this many agentic turns."
+    },
+    {
+      "key": "model",
+      "label": "Model",
+      "type": "select",
+      "default": "sonnet",
+      "required": true,
+      "options": [
+        "sonnet",
+        "opus",
+        "haiku"
+      ],
+      "help": "Claude model alias to run."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\claude-autofix.log",
+      "required": true,
+      "help": "Where the run output is captured for review."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

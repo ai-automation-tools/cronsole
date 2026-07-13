@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ai-claude-log-cleanup",
+  "name": "Claude Code Log Cleanup",
+  "description": "Housekeeping companion for the scheduled Claude runs: delete run logs/digests older than a cutoff so they do not pile up. Read-nothing, deletes only matching files in one folder.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "cleanup",
+  "tags": [
+    "ai",
+    "cli",
+    "agents",
+    "cleanup",
+    "logs"
+  ],
+  "icon": "Trash2",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 2 * * 0"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Get-ChildItem -Path '{{logDir}}' -Filter '{{filter}}' -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-{{days}}) } | Remove-Item -Force\"",
+  "parameters": [
+    {
+      "key": "logDir",
+      "label": "Log folder",
+      "type": "path",
+      "default": "C:\\logs",
+      "required": true,
+      "help": "Folder holding the Claude run logs to prune."
+    },
+    {
+      "key": "filter",
+      "label": "File filter",
+      "type": "text",
+      "default": "claude-*.log",
+      "required": true,
+      "help": "Which files to consider, e.g. claude-*.log or *.md."
+    },
+    {
+      "key": "days",
+      "label": "Keep for (days)",
+      "type": "text",
+      "default": "14",
+      "required": true,
+      "help": "Delete matching files older than this many days."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

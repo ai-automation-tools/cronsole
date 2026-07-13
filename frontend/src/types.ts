@@ -47,6 +47,8 @@ export interface Template {
   category?: string;
   commandTemplate?: string | null;
   parameters?: TemplateParameter[] | null;
+  /** Free-form tags (git, build, ai, …) — distinct from the single `category`. */
+  tags?: string[];
   isStarter?: boolean;
   icon?: string | null;
   /** Per-user favorite flag (from the TemplateFavorite join), enriched by GET /templates. */

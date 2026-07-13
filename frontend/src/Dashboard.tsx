@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, type ChangeEvent } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import {
   Activity,
   LayoutDashboard,
@@ -749,7 +749,7 @@ const templateCategoryLabel = (c: string) => TEMPLATE_CATEGORY_LABELS[c] ?? titl
 type TemplateKind = 'all' | 'starters' | 'patterns';
 
 const templateHaystack = (t: Template) =>
-  [t.name, t.description, t.command, t.category, t.scriptType, t.os, ...(t.targetPlatforms ?? [])]
+  [t.name, t.description, t.command, t.category, t.scriptType, t.os, ...(t.targetPlatforms ?? []), ...(t.tags ?? [])]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
@@ -774,6 +774,17 @@ const buildTemplateFacet = (list: Template[], key: (t: Template) => string | und
   for (const t of list) {
     const k = key(t);
     if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  if (pin !== 'All' && !counts.has(pin)) counts.set(pin, 0);
+  return counts;
+};
+
+// Tags are multi-valued per template, so count each tag across all templates
+// (a template contributes to every tag it carries), pinning the selected tag.
+const buildTemplateTagFacet = (list: Template[], pin: string) => {
+  const counts = new Map<string, number>();
+  for (const t of list) {
+    for (const tag of t.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
   }
   if (pin !== 'All' && !counts.has(pin)) counts.set(pin, 0);
   return counts;
@@ -857,6 +868,16 @@ const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Templ
           <span className="truncate text-foreground italic">{template.command}</span>
         </div>
       </div>
+
+      {template.tags && template.tags.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap mt-4">
+          {template.tags.map(tag => (
+            <span key={tag} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-background text-subtle-foreground border border-border/60 flex items-center gap-1">
+              <Tag size={9} /> {tag}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
 
     <button onClick={() => onApply(template)} className="w-full bg-muted hover:bg-primary-hover text-foreground hover:text-primary-foreground py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-border group-hover:border-primary/20">
@@ -1166,6 +1187,7 @@ const TemplatesScreen = () => {
   const [kind, setKind] = useState<TemplateKind>('all');
   const [selectedOs, setSelectedOs] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedTag, setSelectedTag] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const { settings, update } = useSettings();
   const view = settings.templateView;
@@ -1218,37 +1240,44 @@ const TemplatesScreen = () => {
     return list;
   }, [all, kind, favoritesOnly, search]);
 
-  // Faceted OS / category chips: each reflects the other's current selection so
-  // an empty combination drops out instead of showing a 0-count tag.
+  // Faceted OS / Category / Tag chips: each facet is counted over the list
+  // narrowed by the *other two* selections, so an empty combination drops out
+  // instead of showing a 0-count chip.
+  const narrow = useCallback((
+    list: Template[],
+    opts: { os?: boolean; category?: boolean; tag?: boolean }
+  ) => {
+    let out = list;
+    if (opts.os && selectedOs !== 'All') out = out.filter(t => (t.os ?? '') === selectedOs);
+    if (opts.category && selectedCategory !== 'All') out = out.filter(t => (t.category ?? '') === selectedCategory);
+    if (opts.tag && selectedTag !== 'All') out = out.filter(t => (t.tags ?? []).includes(selectedTag));
+    return out;
+  }, [selectedOs, selectedCategory, selectedTag]);
+
   const osFacets = useMemo(
-    () => buildTemplateFacet(
-      selectedCategory === 'All' ? searchKindFiltered : searchKindFiltered.filter(t => t.category === selectedCategory),
-      t => t.os,
-      selectedOs
-    ),
-    [searchKindFiltered, selectedCategory, selectedOs]
+    () => buildTemplateFacet(narrow(searchKindFiltered, { category: true, tag: true }), t => t.os, selectedOs),
+    [searchKindFiltered, narrow, selectedOs]
   );
   const categoryFacets = useMemo(
-    () => buildTemplateFacet(
-      selectedOs === 'All' ? searchKindFiltered : searchKindFiltered.filter(t => t.os === selectedOs),
-      t => t.category,
-      selectedCategory
-    ),
-    [searchKindFiltered, selectedOs, selectedCategory]
+    () => buildTemplateFacet(narrow(searchKindFiltered, { os: true, tag: true }), t => t.category, selectedCategory),
+    [searchKindFiltered, narrow, selectedCategory]
+  );
+  const tagFacets = useMemo(
+    () => buildTemplateTagFacet(narrow(searchKindFiltered, { os: true, category: true }), selectedTag),
+    [searchKindFiltered, narrow, selectedTag]
   );
 
-  const filtered = useMemo(() => {
-    let list = searchKindFiltered;
-    if (selectedOs !== 'All') list = list.filter(t => (t.os ?? '') === selectedOs);
-    if (selectedCategory !== 'All') list = list.filter(t => (t.category ?? '') === selectedCategory);
-    return list;
-  }, [searchKindFiltered, selectedOs, selectedCategory]);
+  const filtered = useMemo(
+    () => narrow(searchKindFiltered, { os: true, category: true, tag: true }),
+    [searchKindFiltered, narrow]
+  );
 
   const starters = useMemo(() => filtered.filter(t => t.isStarter).sort(byFavoriteThenName), [filtered]);
   const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byFavoriteThenName), [filtered]);
 
   const osValues = useMemo(() => Array.from(osFacets.keys()).sort((a, b) => templateOsLabel(a).localeCompare(templateOsLabel(b))), [osFacets]);
   const categoryValues = useMemo(() => Array.from(categoryFacets.keys()).sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b))), [categoryFacets]);
+  const tagValues = useMemo(() => Array.from(tagFacets.keys()).sort((a, b) => a.localeCompare(b)), [tagFacets]);
 
   if (isLoading) {
     return (
@@ -1261,8 +1290,8 @@ const TemplatesScreen = () => {
 
   const hasTemplates = all.length > 0;
   const favoriteCount = all.filter(t => t.isFavorite).length;
-  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedCategory !== 'All' || favoritesOnly || !!search.trim();
-  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedCategory('All'); setFavoritesOnly(false); };
+  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedCategory !== 'All' || selectedTag !== 'All' || favoritesOnly || !!search.trim();
+  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedCategory('All'); setSelectedTag('All'); setFavoritesOnly(false); };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -1351,12 +1380,25 @@ const TemplatesScreen = () => {
 
             {categoryValues.length > 1 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0 flex items-center gap-1"><Tag size={10} /> Tags</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0">Category</span>
                 <TemplateChip active={selectedCategory === 'All'} onClick={() => setSelectedCategory('All')}>All</TemplateChip>
                 {categoryValues.map(cat => (
                   <TemplateChip key={cat} active={selectedCategory === cat} onClick={() => setSelectedCategory(cat)}>
                     {templateCategoryLabel(cat)}
                     <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{categoryFacets.get(cat) ?? 0}</span>
+                  </TemplateChip>
+                ))}
+              </div>
+            )}
+
+            {tagValues.length > 1 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0 flex items-center gap-1"><Tag size={10} /> Tags</span>
+                <TemplateChip active={selectedTag === 'All'} onClick={() => setSelectedTag('All')}>All</TemplateChip>
+                {tagValues.map(tag => (
+                  <TemplateChip key={tag} active={selectedTag === tag} onClick={() => setSelectedTag(tag)}>
+                    {tag}
+                    <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedTag === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{tagFacets.get(tag) ?? 0}</span>
                   </TemplateChip>
                 ))}
               </div>

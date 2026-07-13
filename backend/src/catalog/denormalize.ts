@@ -57,6 +57,7 @@ export interface DbTemplateLike {
   command?: string | null;
   commandTemplate?: string | null;
   parameters?: unknown;
+  tags?: string[];
   scriptType: ScriptType;
   os: OsTarget;
   category: TemplateCategory;
@@ -133,6 +134,7 @@ export function denormalizeTemplate(t: DbTemplateLike): RegistryTemplate {
   if (category) template.category = category as RegistryTemplate['category'];
   if (t.icon) template.icon = t.icon;
   if (t.isStarter) template.isStarter = true;
+  if (t.tags && t.tags.length) template.tags = t.tags;
   const parameters = toRegistryParameters(t.parameters);
   if (parameters) template.parameters = parameters;
 

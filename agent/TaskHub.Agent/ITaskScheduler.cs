@@ -15,6 +15,10 @@ namespace TaskHub.Agent
         // Replace an existing task's trigger with the given spec, preserving its
         // actions/principal/settings. Returns false when no task exists at the path.
         bool UpdateTaskSchedule(string path, TriggerSpec trigger);
+        // Replace an existing task's exec action and set its description + run
+        // level, preserving its triggers, principal identity, and other settings.
+        // runLevel is "least" or "highest". Returns false when no task exists.
+        bool UpdateTaskActions(string path, AgentExecAction action, string? description, string runLevel);
     }
 
     // Structured action the agent registers as the task's ExecAction. The server

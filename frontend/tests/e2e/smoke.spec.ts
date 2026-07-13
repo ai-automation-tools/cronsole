@@ -28,4 +28,29 @@ test.describe('dashboard smoke', () => {
       page.getByRole('heading', { name: 'Schedule Template Library' })
     ).toBeVisible();
   });
+
+  test('favorites a template and filters by Favorites', async ({ page }) => {
+    await page.goto('/');
+    await page.getByText('Templates', { exact: true }).first().click();
+    await expect(page.getByRole('heading', { name: 'Schedule Template Library' })).toBeVisible();
+
+    const card = page
+      .locator('div.group')
+      .filter({ has: page.getByRole('heading', { name: 'PowerShell Script' }) })
+      .first();
+
+    // Star it — the toggle flips from "Add" to "Remove" (optimistic) and the real
+    // POST /templates/:id/favorite persists it.
+    await card.getByTitle('Add to favorites').click();
+    await expect(card.getByTitle('Remove from favorites')).toBeVisible();
+
+    // The Favorites filter shows only favorited templates; our card survives it.
+    await page.getByRole('button', { name: /Favorites/ }).click();
+    await expect(page.getByRole('heading', { name: 'PowerShell Script' })).toBeVisible();
+
+    // Turn the filter off, then unfavorite to keep the shared dev user clean.
+    await page.getByRole('button', { name: /Favorites/ }).click();
+    await card.getByTitle('Remove from favorites').click();
+    await expect(card.getByTitle('Add to favorites')).toBeVisible();
+  });
 });

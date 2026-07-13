@@ -221,6 +221,79 @@ describe('TaskModal Component', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('edits a Windows task command & settings via PATCH /tasks/:id/actions', async () => {
+    vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask } });
+    renderModal({
+      task: {
+        ...mockTask,
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        metadata: {
+          actions: [{ type: 'Exec', path: 'powershell.exe', arguments: '-File C:\\x.ps1', workingDirectory: 'C:\\scripts' }],
+          description: 'Old desc',
+          runLevel: 'LUA'
+        }
+      }
+    });
+
+    // The Action section's Edit button opens the editor (prefilled).
+    fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }));
+    const commandInput = screen.getByDisplayValue('powershell.exe -File C:\\x.ps1');
+    fireEvent.change(commandInput, { target: { value: 'powershell.exe -File C:\\y.ps1' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith('/tasks/task-123/actions', {
+        command: 'powershell.exe -File C:\\y.ps1',
+        workingDirectory: 'C:\\scripts',
+        description: 'Old desc',
+        runLevel: 'least'
+      });
+    });
+  });
+
+  it('quotes a spaced executable path in the prefilled command so it round-trips', async () => {
+    vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask } });
+    renderModal({
+      task: {
+        ...mockTask,
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        metadata: {
+          actions: [{ type: 'Exec', path: 'C:\\Program Files\\App\\app.exe', arguments: '--run', workingDirectory: '' }],
+          description: '',
+          runLevel: 'LUA'
+        }
+      }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }));
+    // The executable path with a space is quoted so the backend tokenizes it back
+    // to a single executable instead of splitting on "C:\Program".
+    screen.getByDisplayValue('"C:\\Program Files\\App\\app.exe" --run');
+    // Change only the description; the (unchanged) command must still be the quoted form.
+    // (Working dir + description share the "(optional)" placeholder — description is second.)
+    const optionalInputs = screen.getAllByPlaceholderText('(optional)');
+    fireEvent.change(optionalInputs[1], { target: { value: 'now with a description' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith('/tasks/task-123/actions', {
+        command: '"C:\\Program Files\\App\\app.exe" --run',
+        workingDirectory: '',
+        description: 'now with a description',
+        runLevel: 'least'
+      });
+    });
+  });
+
+  it('disables the Action Edit button when no command is reported yet', () => {
+    renderModal({
+      task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER', metadata: {} }
+    });
+    const editBtn = screen.getByRole('button', { name: /^Edit$/ });
+    expect(editBtn).toBeDisabled();
+  });
+
   it('triggers patch request when Enable/Disable is clicked', async () => {
     vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask, status: 'DISABLED' } });
     renderModal();

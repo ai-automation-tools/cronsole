@@ -22,6 +22,7 @@ import {
   Grid,
   List,
   Columns,
+  Star,
   Calendar,
   HelpCircle,
   CopyPlus,
@@ -761,6 +762,10 @@ const matchesTemplateSearch = (t: Template, query: string) => {
 
 const byTemplateName = (a: Template, b: Template) => a.name.localeCompare(b.name);
 
+// Favorites float to the top of a group, then alphabetical within each tier.
+const byFavoriteThenName = (a: Template, b: Template) =>
+  (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0) || byTemplateName(a, b);
+
 // Count occurrences of a facet value across a list, pinning the selected value
 // so it stays visible (as a 0-count chip) even after it's filtered everything out.
 const buildTemplateFacet = (list: Template[], key: (t: Template) => string | undefined, pin: string) => {
@@ -786,20 +791,36 @@ const TemplateChip = ({ active, onClick, children }: { active: boolean; onClick:
   </button>
 );
 
-const TemplateCard = ({ template, onApply }: { template: Template; onApply: (t: Template) => void }) => (
+// Per-user favorite toggle (a star) shown on template cards/rows. Optimistic —
+// the click flips template.isFavorite via the ['templates'] cache immediately.
+const FavoriteStar = ({ template, onToggle, size = 16 }: { template: Template; onToggle: (t: Template) => void; size?: number }) => (
+  <button
+    onClick={e => { e.stopPropagation(); onToggle(template); }}
+    aria-pressed={!!template.isFavorite}
+    title={template.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+    className={`shrink-0 transition-colors ${template.isFavorite ? 'text-amber-400 hover:text-amber-500' : 'text-subtle-foreground hover:text-amber-400'}`}
+  >
+    <Star size={size} className={template.isFavorite ? 'fill-current' : ''} />
+  </button>
+);
+
+const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void }) => (
   <div className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
     <div className="p-6 flex-1">
-      <div className="flex flex-wrap gap-2 mb-4">
-        {template.isStarter && (
-          <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
-            <Sparkles size={9} /> Starter
-          </span>
-        )}
-        {template.scriptType && (
-          <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-            {template.scriptType.replace(/_/g, ' ')}
-          </span>
-        )}
+      <div className="flex items-start justify-between gap-2 mb-4">
+        <div className="flex flex-wrap gap-2">
+          {template.isStarter && (
+            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
+              <Sparkles size={9} /> Starter
+            </span>
+          )}
+          {template.scriptType && (
+            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              {template.scriptType.replace(/_/g, ' ')}
+            </span>
+          )}
+        </div>
+        <FavoriteStar template={template} onToggle={onToggleFavorite} size={18} />
       </div>
 
       <h3 className="text-xl font-bold mb-2 group-hover:text-foreground transition-colors">{template.name}</h3>
@@ -844,8 +865,9 @@ const TemplateCard = ({ template, onApply }: { template: Template; onApply: (t: 
 );
 
 // Compact single-line row used by the List view.
-const TemplateListRow = ({ template, onApply }: { template: Template; onApply: (t: Template) => void }) => (
+const TemplateListRow = ({ template, onApply, onToggleFavorite }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void }) => (
   <div className="bg-surface border border-border rounded-2xl px-4 py-3 flex items-center gap-4 hover:border-primary/30 transition-all">
+    <FavoriteStar template={template} onToggle={onToggleFavorite} size={16} />
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2 flex-wrap mb-0.5">
         <h4 className="text-sm font-bold text-foreground truncate">{template.name}</h4>
@@ -868,12 +890,13 @@ const TemplateListRow = ({ template, onApply }: { template: Template; onApply: (
   </div>
 );
 
-const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, view = 'grid' }: {
+const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, onToggleFavorite, view = 'grid' }: {
   icon: LucideIcon;
   title: string;
   subtitle: string;
   templates: Template[];
   onApply: (t: Template) => void;
+  onToggleFavorite: (t: Template) => void;
   view?: 'grid' | 'list';
 }) => {
   if (templates.length === 0) return null;
@@ -888,11 +911,11 @@ const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, view =
       </div>
       {view === 'list' ? (
         <div className="space-y-2">
-          {templates.map(t => <TemplateListRow key={t.id} template={t} onApply={onApply} />)}
+          {templates.map(t => <TemplateListRow key={t.id} template={t} onApply={onApply} onToggleFavorite={onToggleFavorite} />)}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {templates.map(t => <TemplateCard key={t.id} template={t} onApply={onApply} />)}
+          {templates.map(t => <TemplateCard key={t.id} template={t} onApply={onApply} onToggleFavorite={onToggleFavorite} />)}
         </div>
       )}
     </div>
@@ -900,11 +923,14 @@ const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, view =
 };
 
 // Kanban lane card — compact vertical card stacked inside a category column.
-const TemplateKanbanCard = ({ template, onApply }: { template: Template; onApply: (t: Template) => void }) => (
+const TemplateKanbanCard = ({ template, onApply, onToggleFavorite }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void }) => (
   <div className="bg-background border border-border rounded-xl p-3 space-y-2 hover:border-primary/30 transition-all">
     <div className="flex items-start justify-between gap-2">
       <h4 className="text-sm font-bold text-foreground leading-tight">{template.name}</h4>
-      {template.isStarter && <Sparkles size={12} className="text-foreground shrink-0 mt-0.5" />}
+      <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+        {template.isStarter && <Sparkles size={12} className="text-foreground" />}
+        <FavoriteStar template={template} onToggle={onToggleFavorite} size={13} />
+      </div>
     </div>
     <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">{template.description}</p>
     <div className="flex items-center justify-between gap-2 pt-1">
@@ -917,7 +943,7 @@ const TemplateKanbanCard = ({ template, onApply }: { template: Template; onApply
 );
 
 // Kanban view: one lane per category (Tag), horizontally scrollable.
-const TemplateKanban = ({ templates, onApply }: { templates: Template[]; onApply: (t: Template) => void }) => {
+const TemplateKanban = ({ templates, onApply, onToggleFavorite }: { templates: Template[]; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void }) => {
   const lanes = useMemo(() => {
     const map = new Map<string, Template[]>();
     for (const t of templates) {
@@ -926,7 +952,7 @@ const TemplateKanban = ({ templates, onApply }: { templates: Template[]; onApply
       map.get(key)!.push(t);
     }
     return Array.from(map.entries())
-      .map(([cat, items]) => ({ cat, items: [...items].sort(byTemplateName) }))
+      .map(([cat, items]) => ({ cat, items: [...items].sort(byFavoriteThenName) }))
       .sort((a, b) => templateCategoryLabel(a.cat).localeCompare(templateCategoryLabel(b.cat)));
   }, [templates]);
 
@@ -941,7 +967,7 @@ const TemplateKanban = ({ templates, onApply }: { templates: Template[]; onApply
             <span className="text-[10px] font-bold text-subtle-foreground bg-muted px-1.5 py-0.5 rounded-full">{lane.items.length}</span>
           </div>
           <div className="space-y-3">
-            {lane.items.map(t => <TemplateKanbanCard key={t.id} template={t} onApply={onApply} />)}
+            {lane.items.map(t => <TemplateKanbanCard key={t.id} template={t} onApply={onApply} onToggleFavorite={onToggleFavorite} />)}
           </div>
         </div>
       ))}
@@ -1032,8 +1058,11 @@ const TemplatesScreen = () => {
   const [kind, setKind] = useState<TemplateKind>('all');
   const [selectedOs, setSelectedOs] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const { settings, update } = useSettings();
   const view = settings.templateView;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: templates, isLoading } = useQuery<Template[]>({
     queryKey: ['templates'],
@@ -1048,6 +1077,26 @@ const TemplatesScreen = () => {
     }
   });
 
+  // Toggle a per-user favorite. Optimistic: flip isFavorite in the ['templates']
+  // cache immediately (snappy star), roll back on error, then reconcile on settle.
+  const favoriteMutation = useMutation({
+    mutationFn: async ({ id, next }: { id: string; next: boolean }) =>
+      next ? api.post(`/templates/${id}/favorite`) : api.delete(`/templates/${id}/favorite`),
+    onMutate: async ({ id, next }) => {
+      await queryClient.cancelQueries({ queryKey: ['templates'] });
+      const prev = queryClient.getQueryData<Template[]>(['templates']);
+      queryClient.setQueryData<Template[]>(['templates'], old =>
+        (old ?? []).map(t => (t.id === id ? { ...t, isFavorite: next } : t)));
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['templates'], ctx.prev);
+      toast('Could not update favorite — try again.', 'error');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['templates'] })
+  });
+  const toggleFavorite = (t: Template) => favoriteMutation.mutate({ id: t.id, next: !t.isFavorite });
+
   const all = useMemo(() => templates ?? [], [templates]);
 
   // Narrow by the "kind" toggle + search first; the OS/category facets and the
@@ -1056,9 +1105,10 @@ const TemplatesScreen = () => {
     let list = all;
     if (kind === 'starters') list = list.filter(t => t.isStarter);
     else if (kind === 'patterns') list = list.filter(t => !t.isStarter);
+    if (favoritesOnly) list = list.filter(t => t.isFavorite);
     if (search.trim()) list = list.filter(t => matchesTemplateSearch(t, search));
     return list;
-  }, [all, kind, search]);
+  }, [all, kind, favoritesOnly, search]);
 
   // Faceted OS / category chips: each reflects the other's current selection so
   // an empty combination drops out instead of showing a 0-count tag.
@@ -1086,8 +1136,8 @@ const TemplatesScreen = () => {
     return list;
   }, [searchKindFiltered, selectedOs, selectedCategory]);
 
-  const starters = useMemo(() => filtered.filter(t => t.isStarter).sort(byTemplateName), [filtered]);
-  const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byTemplateName), [filtered]);
+  const starters = useMemo(() => filtered.filter(t => t.isStarter).sort(byFavoriteThenName), [filtered]);
+  const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byFavoriteThenName), [filtered]);
 
   const osValues = useMemo(() => Array.from(osFacets.keys()).sort((a, b) => templateOsLabel(a).localeCompare(templateOsLabel(b))), [osFacets]);
   const categoryValues = useMemo(() => Array.from(categoryFacets.keys()).sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b))), [categoryFacets]);
@@ -1102,8 +1152,9 @@ const TemplatesScreen = () => {
   }
 
   const hasTemplates = all.length > 0;
-  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedCategory !== 'All' || !!search.trim();
-  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedCategory('All'); };
+  const favoriteCount = all.filter(t => t.isFavorite).length;
+  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedCategory !== 'All' || favoritesOnly || !!search.trim();
+  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedCategory('All'); setFavoritesOnly(false); };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -1147,6 +1198,17 @@ const TemplatesScreen = () => {
                   </button>
                 )}
               </div>
+              <button
+                onClick={() => setFavoritesOnly(v => !v)}
+                title={favoritesOnly ? 'Show all templates' : 'Show favorites only'}
+                aria-pressed={favoritesOnly}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${favoritesOnly ? 'bg-amber-400/15 text-amber-500 border-amber-400/40' : 'bg-background text-muted-foreground border-border hover:text-foreground'}`}
+              >
+                <Star size={13} className={favoritesOnly ? 'fill-current' : ''} /> Favorites
+                {favoriteCount > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${favoritesOnly ? 'bg-amber-400/20' : 'bg-muted text-subtle-foreground'}`}>{favoriteCount}</span>
+                )}
+              </button>
               <div className="flex items-center gap-1.5 bg-background border border-border p-1 rounded-xl shrink-0">
                 {(['all', 'starters', 'patterns'] as const).map(k => (
                   <button
@@ -1202,11 +1264,11 @@ const TemplatesScreen = () => {
               </button>
             </div>
           ) : view === 'kanban' ? (
-            <TemplateKanban templates={filtered} onApply={setApplyTarget} />
+            <TemplateKanban templates={filtered} onApply={setApplyTarget} onToggleFavorite={toggleFavorite} />
           ) : (
             <div className="space-y-10 pb-20">
-              <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={setApplyTarget} />
-              <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={setApplyTarget} />
+              <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={setApplyTarget} onToggleFavorite={toggleFavorite} />
+              <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={setApplyTarget} onToggleFavorite={toggleFavorite} />
             </div>
           )}
         </>

@@ -41,6 +41,19 @@ export interface MockUpdateScheduleCommand {
   sig?: string;
 }
 
+export interface MockUpdateCommand {
+  taskPath: string;
+  action?: {
+    executable?: string;
+    args?: string[];
+  };
+  workingDirectory?: string;
+  description?: string;
+  runLevel?: string;
+  ts?: number;
+  sig?: string;
+}
+
 function hmacHex(key: string, message: string): string {
   return crypto.createHmac('sha256', key).update(message, 'utf8').digest('hex');
 }
@@ -61,6 +74,7 @@ export class MockTaskHubAgent {
   readonly creates: MockCreateCommand[] = [];
   readonly deletes: MockRunCommand[] = [];
   readonly scheduleUpdates: MockUpdateScheduleCommand[] = [];
+  readonly actionUpdates: MockUpdateCommand[] = [];
   private socket: Socket | null = null;
 
   constructor(
@@ -112,6 +126,35 @@ export class MockTaskHubAgent {
         taskExternalId: payload.taskPath,
         success: existed,
         message: existed ? 'Schedule updated' : 'Task not found'
+      });
+    });
+
+    socket.on('task:update', (payload: MockUpdateCommand) => {
+      this.actionUpdates.push(payload);
+      const existed = this.tasks.some((t) => t.path === payload.taskPath);
+      // Mirror the real agent: replace the matching task's exec action +
+      // description on success.
+      this.tasks = this.tasks.map((t) =>
+        t.path === payload.taskPath
+          ? {
+              ...t,
+              actions: payload.action
+                ? [
+                    {
+                      path: payload.action.executable,
+                      arguments: payload.action.args?.join(' ') ?? '',
+                      workingDirectory: payload.workingDirectory ?? ''
+                    }
+                  ]
+                : t.actions,
+              description: payload.description ?? t.description
+            }
+          : t
+      );
+      socket.emit('task:updated', {
+        taskExternalId: payload.taskPath,
+        success: existed,
+        message: existed ? 'Task updated' : 'Task not found'
       });
     });
 

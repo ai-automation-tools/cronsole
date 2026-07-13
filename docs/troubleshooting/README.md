@@ -25,6 +25,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 2 | Dashboard shows no tasks / `403 Invalid or expired token`; agent handshake rejected | Docker's default secrets don't match your rotated `backend/.env` | [→](#2-403-invalid-or-expired-token-or-agent-rejected) |
 | 3 | Port 3000 shows as `LISTENING` but every request returns `HTTP 000` / `EADDRINUSE` on restart | Docker's port proxy holds the port even though the app process died | [→](#3-port-listening-but-http-000--eaddrinuse) |
 | 4 | Edited backend source, but the running Docker stack still 404s the new route / serves old behavior | `tsx watch` inside the container never sees the file change (Windows→Linux bind-mount inotify) | [→](#4-backend-source-edits-not-picked-up-in-docker) |
+| 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
 
 ---
 
@@ -172,6 +173,41 @@ A plain restart is enough (the source is already mounted — no rebuild needed u
 > stale. Restart before you debug the code.
 
 *First hit: 2026-07-10.*
+
+---
+
+## 5. Windows `OFFLINE` after running a transient test agent
+
+**Symptom** — you start a second agent instance for a dogfood/test (e.g. `dotnet
+TaskHub.Agent.dll` with `TASKHUB_AGENT_ID=dogfood-agent`), do your testing, then stop it —
+and now `GET /api/tasks/health` reports `WINDOWS_TASK_SCHEDULER: OFFLINE` and stays that way,
+even though the **real** agent process (the elevated `\Task-Hub\TaskHubAgent` scheduled task)
+is still running. Polling for a minute-plus doesn't recover it.
+
+**Cause** — the backend maps one agent socket per user (single-user MVP). When the transient
+agent connects it becomes *the* Windows agent; when it disconnects, the backend clears the
+mapping. The real agent's socket is still alive from **its** point of view, so it doesn't
+reconnect — and re-registration only happens on (re)connect. Result: the real agent is
+connected-but-unregistered, and the backend has no Windows socket to command.
+
+**Fix** — force the real agent to reconnect by dropping all agent sockets. Restarting the
+backend does it (its 30s watchdog reconnects the real agent, which re-registers on connect):
+
+```bash
+docker compose restart backend
+# then confirm Windows is HEALTHY again:
+curl -s http://localhost:3000/api/tasks/health -H "Authorization: Bearer <dev token>"
+```
+
+Windows returns to `HEALTHY` within ~15s of the restart.
+
+> [!TIP]
+> The real agent runs **elevated** (registered with highest privileges), so an unelevated
+> shell **can't** `Stop-Process` it (`Access is denied`). Don't try to kill/republish over
+> it for a dogfood — run a transient agent instead, and restart the backend when you're done
+> to hand the connection back.
+
+*First hit: 2026-07-11.*
 
 ---
 

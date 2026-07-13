@@ -164,6 +164,46 @@ namespace TaskHub.Agent
             }
         }
 
+        public bool UpdateTaskActions(string path, AgentExecAction action, string? description, string runLevel)
+        {
+            if (action == null) throw new ArgumentNullException(nameof(action));
+            using (TaskService ts = new TaskService())
+            {
+                var task = ts.GetTask(path);
+                if (task == null) return false;
+
+                // Reuse the live TaskDefinition so triggers, principal identity
+                // (logon type / run-as user), and untouched settings are preserved;
+                // we only rewrite the exec action + description + run level.
+                var def = task.Definition;
+
+                // Register a DIRECT ExecAction from the structured action — never a
+                // `cmd.exe /c` shell wrapper — with args quoted per Windows rules so
+                // a value with spaces/quotes stays one argument (mirrors CreateTask).
+                string argString = ArgumentQuoting.Join(action.Args);
+                var exec = new ExecAction(
+                    action.Executable,
+                    string.IsNullOrEmpty(argString) ? null : argString,
+                    string.IsNullOrWhiteSpace(action.WorkingDirectory) ? null : action.WorkingDirectory);
+
+                // The editor only offers action editing for single-exec-action tasks,
+                // so replacing the action set with the edited exec action is exact for
+                // that case. (Multi-action tasks aren't editable in the UI yet.)
+                def.Actions.Clear();
+                def.Actions.Add(exec);
+
+                def.RegistrationInfo.Description =
+                    string.IsNullOrWhiteSpace(description) ? null : description;
+                def.Principal.RunLevel =
+                    string.Equals(runLevel, "highest", StringComparison.OrdinalIgnoreCase)
+                        ? TaskRunLevel.Highest
+                        : TaskRunLevel.LUA;
+
+                task.Folder.RegisterTaskDefinition(task.Name, def);
+                return true;
+            }
+        }
+
         public AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null)
         {
             using (TaskService ts = new TaskService())

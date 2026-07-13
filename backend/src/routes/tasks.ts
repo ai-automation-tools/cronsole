@@ -13,6 +13,7 @@ import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { queueFailureNotification } from '../services/FailureNotificationService.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-conversion.js';
+import { toStructuredAction } from '../utils/commandParser.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { assertWindowsTaskNameAvailable } from '../utils/windowsTaskName.js';
 import { validateBody } from '../middleware/validate.js';
@@ -181,6 +182,88 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
       schedule,
       nextRunTime: computeNextRun(schedule) ?? task.nextRunTime,
       metadata: { ...meta, schedule, trigger: conversion.trigger } as unknown as Prisma.InputJsonValue
+    }
+  });
+
+  notifyTasksChanged(userId);
+  res.json(updatedTask);
+});
+
+const patchTaskActionsSchema = z.object({
+  command: z.string().trim().min(1, 'command is required'),
+  workingDirectory: z.string().trim().optional(),
+  description: z.string().trim().max(1024, 'description is too long').optional(),
+  runLevel: z.enum(['least', 'highest'], { message: "runLevel must be 'least' or 'highest'" })
+});
+
+// Edit the action (executable + args + working dir) and selected settings
+// (description, run level) of an existing platform task. For Windows the agent
+// replaces the task's first exec action + updates the description/run level,
+// preserving its trigger, principal identity, and other settings, via a signed
+// task:update. The DB metadata is refreshed only after the platform confirms —
+// same ack-before-write ordering as schedule/delete/status. Platforms without
+// an updateActions implementation get an honest 400.
+router.patch('/:id/actions', validateBody(patchTaskActionsSchema), async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+  const { command, workingDirectory, description, runLevel } = req.body;
+
+  // Scope by userId so one user can't edit another's task (IDOR).
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  const connector = connectorRegistry.getConnector(task.platform);
+  if (!connector?.updateActions) {
+    throw new HttpError(400, `Editing actions is not supported for ${task.platform} yet.`);
+  }
+
+  // Structure the command server-side (no shell) so a value can never split
+  // into a second process — same model as create. An empty executable is a 400.
+  const action = toStructuredAction(command);
+  if (!action.executable) {
+    throw new HttpError(400, 'Command must start with an executable.');
+  }
+
+  const workingDir = workingDirectory ?? '';
+  const desc = description ?? '';
+
+  const connection = await prisma.platformConnection.findUnique({
+    where: { userId_platform: { userId, platform: task.platform } }
+  });
+
+  // Config is encrypted at rest (AES-256-GCM); decrypt before use.
+  const result = await connector.updateActions(
+    task.externalId,
+    { action, workingDirectory: workingDir, description: desc, runLevel },
+    { ...deserializeConfig(connection?.config), userId }
+  );
+  if (!result.success) {
+    throw new HttpError(502, result.message || 'The platform failed to update the task');
+  }
+
+  // Only after platform confirmation: refresh the action/description/run-level
+  // metadata (optimistic — the next sync overwrites it with the agent's
+  // authoritative report), leaving schedule/trigger/name/category untouched.
+  const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+    ? (task.metadata as Record<string, unknown>)
+    : {};
+  const updatedTask = await prisma.task.update({
+    where: { id },
+    data: {
+      metadata: {
+        ...meta,
+        command,
+        actions: [{
+          type: 'Exec',
+          path: action.executable,
+          arguments: action.args.join(' ') || null,
+          workingDirectory: workingDir || null
+        }],
+        description: desc || null,
+        runLevel: runLevel === 'highest' ? 'Highest' : 'LUA'
+      } as unknown as Prisma.InputJsonValue
     }
   });
 

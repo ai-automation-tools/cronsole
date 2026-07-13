@@ -446,6 +446,73 @@ namespace TaskHub.Agent
                     catch { /* socket gone — server's 15s timeout covers it */ }
                 }
             });
+
+            // Event: task:update (Server commanded us to change a task's action + settings)
+            _socket.On("task:update", async response =>
+            {
+                // Parse inside the try — async-void malformed-frame guard as elsewhere.
+                var taskPath = "";
+                try
+                {
+                    var data = response.GetValue<JsonElement>(0);
+                    taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
+
+                    // The action + settings ARE the change and are covered by the
+                    // signature, so parse + canonicalize them BEFORE verifying
+                    // (like task:create). The working dir rides as a top-level field
+                    // (StructuredAction carries only executable + args).
+                    AgentExecAction action = ReadAction(data);
+                    string actionCanonical = AgentAuthenticator.CanonicalizeAction(action.Executable, action.Args);
+                    string workingDir = data.TryGetProperty("workingDirectory", out var wd) && wd.ValueKind == JsonValueKind.String
+                        ? wd.GetString() ?? "" : "";
+                    string description = data.TryGetProperty("description", out var ds) && ds.ValueKind == JsonValueKind.String
+                        ? ds.GetString() ?? "" : "";
+                    string runLevel = data.TryGetProperty("runLevel", out var rl) && rl.ValueKind == JsonValueKind.String
+                        ? rl.GetString() ?? "least" : "least";
+                    action.WorkingDirectory = workingDir;
+
+                    if (!TryReadSignature(data, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, workingDir, description, runLevel, ts), ts, sig))
+                    {
+                        Console.WriteLine($"REJECTED unsigned/invalid task:update for {taskPath}");
+                        return;
+                    }
+
+                    // A signed command with no executable is malformed — refuse
+                    // rather than registering an actionless task.
+                    if (string.IsNullOrWhiteSpace(action.Executable))
+                    {
+                        await _socket.EmitAsync("task:updated", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = "No executable supplied"
+                        }});
+                        return;
+                    }
+
+                    Console.WriteLine($"Server command: task:update -> {taskPath} (exe={action.Executable}, args={action.Args.Count}, runLevel={runLevel})");
+
+                    bool success = _scheduler.UpdateTaskActions(taskPath, action, description, runLevel);
+                    await _socket.EmitAsync("task:updated", new[] { new {
+                        taskExternalId = taskPath,
+                        success,
+                        message = success ? "Task updated" : "Task not found"
+                    }});
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error updating task: {ex.Message}");
+                    try
+                    {
+                        await _socket.EmitAsync("task:updated", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            message = FriendlyStatusError(ex)
+                        }});
+                    }
+                    catch { /* socket gone — server's 15s timeout covers it */ }
+                }
+            });
         }
     }
 }

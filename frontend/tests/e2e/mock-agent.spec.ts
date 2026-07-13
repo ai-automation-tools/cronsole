@@ -117,6 +117,42 @@ test.describe.serial('mock Windows agent flows', () => {
     await apiPatch(`/tasks/${target!.id}/schedule`, { schedule: '15 9 * * *' });
   });
 
+  test('edits a Windows task command & settings through the real signed command', async () => {
+    // Make sure the deterministic E2E task is tracked, then edit its action.
+    await apiPost('/tasks/sync', { categories: ['E2E'] });
+    const tasks = await apiGet<ApiTask[]>('/tasks');
+    const target = tasks.find((t) => t.externalId === '\\E2E\\Mock Nightly Backup');
+    expect(target).toBeTruthy();
+
+    const updated = await apiPatch<ApiTask>(`/tasks/${target!.id}/actions`, {
+      command: 'powershell.exe -File C:\\TaskHubE2E\\edited.ps1',
+      workingDirectory: 'C:\\TaskHubE2E',
+      description: 'Edited by E2E',
+      runLevel: 'highest'
+    });
+    // Optimistic metadata reflects the new command after platform confirmation.
+    const updatedMeta = updated.metadata as Record<string, unknown>;
+    expect(updatedMeta.command).toBe('powershell.exe -File C:\\TaskHubE2E\\edited.ps1');
+    expect(updatedMeta.runLevel).toBe('Highest');
+
+    // The signed task:update reached the agent, structured into { executable, args }
+    // server-side (no shell) for the real task path.
+    expect(agent.actionUpdates.map((u) => u.taskPath)).toContain('\\E2E\\Mock Nightly Backup');
+    const lastUpdate = agent.actionUpdates.at(-1)!;
+    expect(lastUpdate.action?.executable).toBe('powershell.exe');
+    expect(lastUpdate.action?.args).toContain('C:\\TaskHubE2E\\edited.ps1');
+    expect(lastUpdate.workingDirectory).toBe('C:\\TaskHubE2E');
+    expect(lastUpdate.runLevel).toBe('highest');
+
+    // Restore so repeat runs are stable.
+    await apiPatch(`/tasks/${target!.id}/actions`, {
+      command: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\TaskHubE2E\\backup.ps1',
+      workingDirectory: 'C:\\TaskHubE2E',
+      description: 'Deterministic task for Playwright mock-agent coverage',
+      runLevel: 'least'
+    });
+  });
+
   test('shows the agent as offline after the socket disconnects', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('aside').getByText('Online').first()).toBeVisible();

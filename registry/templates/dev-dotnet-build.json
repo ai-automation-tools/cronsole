@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-dotnet-build",
+  "name": ".NET Build",
+  "description": "Build a .NET project or solution with the dotnet CLI on a schedule.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "dotnet",
+    "build",
+    "ci"
+  ],
+  "icon": "Package",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "30 4 * * *"
+  },
+  "commandTemplate": "dotnet build \"{{projectPath}}\" {{args}}",
+  "parameters": [
+    {
+      "key": "projectPath",
+      "label": "Project / solution path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the .csproj or .sln."
+    },
+    {
+      "key": "args",
+      "label": "Arguments",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional command-line arguments."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

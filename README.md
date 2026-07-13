@@ -71,7 +71,7 @@ so what you see is consistent no matter where a task actually lives.
 | **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. |
 | **Live sync** | The local agent keeps TaskHub in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
 | **TaskHub-native tasks** | Create HTTP jobs (webhooks, health checks) that TaskHub schedules and runs itself — no OS task needed. |
-| **Template library** | Ready-to-use script starters and use-case patterns; fill in the blanks and TaskHub creates a real scheduled task. Backed by a versioned, hosted [template registry](docs/reports/templates/Registry_Schema_v1.md) so the catalog updates independently of the app. **Grow it without a reseed**: export/import templates as JSON, or **Save as template** straight from a real task. |
+| **Template library** | 33 ready-to-use script starters and use-case patterns — including a **Developer Pack** (git hygiene, npm build/test/dependency checks, .NET build, Docker maintenance); fill in the blanks and TaskHub creates a real scheduled task. Backed by a versioned, hosted [template registry](docs/reports/templates/Registry_Schema_v1.md) so the catalog updates independently of the app. **Grow it without a reseed**: export/import templates as JSON, or **Save as template** straight from a real task. |
 | **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
 | **Search & organize** | Free-text search plus local categories to keep a big task list navigable. |
 | **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |

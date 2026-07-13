@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-npm-test-run",
+  "name": "Scheduled Test Run (npm)",
+  "description": "Run a project test suite on a schedule and capture the log; a red run means failing tests.",
+  "runtime": "node",
+  "os": "windows",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "node",
+    "npm",
+    "test",
+    "ci"
+  ],
+  "icon": "FlaskConical",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 5 * * *"
+  },
+  "commandTemplate": "cmd.exe /c \"cd /d {{projectPath}} && npm test > {{logPath}} 2>&1\"",
+  "parameters": [
+    {
+      "key": "projectPath",
+      "label": "Project path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Folder containing package.json (avoid spaces in the path)."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\test-run.log",
+      "required": true,
+      "help": "Where to write the test output."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

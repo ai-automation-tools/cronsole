@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-13T00:00:00Z",
+  "updatedAt": "2026-07-13T20:18:02.770Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -75,6 +75,182 @@
       ],
       "path": "templates/tpl_github_pr_triage.json",
       "sha256": "1d2365682dd091eaf4b825e441d493b86883fb13d68f8581b70cae2e03ad06ef"
+    },
+    {
+      "id": "dev-git-fetch-prune",
+      "name": "Git Fetch & Prune",
+      "description": "Keep a local repository fresh: fetch all remotes and prune deleted remote branches.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "git",
+        "sync",
+        "hygiene"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-git-fetch-prune.json",
+      "sha256": "0b54c7bcffe935e40ebae33334224f00f05a191001900dd0aff73bcdb07315b0"
+    },
+    {
+      "id": "dev-git-maintenance",
+      "name": "Git Repo Maintenance",
+      "description": "Run git maintenance (gc, commit-graph, prefetch) to keep a large repository fast.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "git",
+        "hygiene"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-git-maintenance.json",
+      "sha256": "87f36dc866f5f8a5c4263fa6b78af868d429cc3eb4214d78bdbff6f70ed06281"
+    },
+    {
+      "id": "dev-git-autocommit-push",
+      "name": "Git Auto-Commit & Push",
+      "description": "Snapshot a working repository on a schedule: stage everything, commit, and push.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "git",
+        "backup"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-git-autocommit-push.json",
+      "sha256": "5fb5d1c129bc1a81c39d29fcaf5b158065d07f6e960d2d917161b6b9025e1d82"
+    },
+    {
+      "id": "dev-npm-outdated-check",
+      "name": "Dependency Update Check (npm)",
+      "description": "Write an npm outdated report for a project on a schedule.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "node",
+        "npm",
+        "dependencies"
+      ],
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-npm-outdated-check.json",
+      "sha256": "c16e2ebf9f5382bc0b3721449ab89b30ce5c082b69d5a02b38f835998619b499"
+    },
+    {
+      "id": "dev-npm-nightly-build",
+      "name": "Nightly Build (npm)",
+      "description": "Run an npm script (build, lint, …) for a project every night and capture the log.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "node",
+        "npm",
+        "build",
+        "ci"
+      ],
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-npm-nightly-build.json",
+      "sha256": "be85379842ba85e3b5292bbca6c4240b1f74cc63b161cb922cac7ad255a77eed"
+    },
+    {
+      "id": "dev-npm-test-run",
+      "name": "Scheduled Test Run (npm)",
+      "description": "Run a project test suite on a schedule and capture the log; a red run means failing tests.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "node",
+        "npm",
+        "test",
+        "ci"
+      ],
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-npm-test-run.json",
+      "sha256": "4727faa48d5d435410324b4b86129e2091b3b7b0d2ca5900f908449c80135f7e"
+    },
+    {
+      "id": "dev-dotnet-build",
+      "name": ".NET Build",
+      "description": "Build a .NET project or solution with the dotnet CLI on a schedule.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "dotnet",
+        "build",
+        "ci"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-dotnet-build.json",
+      "sha256": "5ffc26e53b68130e515fffab4068eacd2b5203529d625d1b83df833cd6e60a6d"
+    },
+    {
+      "id": "dev-docker-prune",
+      "name": "Docker Cleanup (prune)",
+      "description": "Reclaim disk space by pruning unused Docker containers, networks, and images.",
+      "category": "cleanup",
+      "tags": [
+        "dev",
+        "docker",
+        "cleanup",
+        "disk"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-docker-prune.json",
+      "sha256": "132f1094a1379674ee54852b059c111561efdb91943755fa84206c616a240bed"
+    },
+    {
+      "id": "dev-docker-compose-up",
+      "name": "Docker Compose Self-Heal",
+      "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern TaskHub uses for its own stack).",
+      "category": "monitoring",
+      "tags": [
+        "dev",
+        "docker",
+        "self-heal",
+        "monitoring"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-docker-compose-up.json",
+      "sha256": "fc1ac426f5e1b2bce4c9f2f3d66704dc2565548f7a8e230f267beeb03195d09b"
     },
     {
       "id": "tpl_starter_powershell_script",

@@ -55,6 +55,7 @@ import { useSettings, type Settings, type TemplateView } from './hooks/useSettin
 import { TEMPLATE_RESOURCES } from './data/templateResources';
 import { useToast } from './hooks/useToast';
 import { useConfirm } from './hooks/useConfirm';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useConnections } from './hooks/useConnections';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { formatDateTime, formatTime, timeAgo } from './utils/datetime';
@@ -1184,7 +1185,9 @@ function summarizeImport(
 }
 
 const TemplatesScreen = () => {
-  const [applyTarget, setApplyTarget] = useState<Template | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const openTemplate = (t: Template) => navigate(`/templates/${t.id}`);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<TemplateKind>('all');
   const [selectedOs, setSelectedOs] = useState('All');
@@ -1208,6 +1211,12 @@ const TemplatesScreen = () => {
       }
     }
   });
+
+  // The Apply modal is driven by /templates/:id (bookmarkable, back/forward).
+  const routeTemplateId = location.pathname.split('/')[2];
+  const applyTarget = routeTemplateId
+    ? (templates ?? []).find(t => t.id === routeTemplateId) ?? null
+    : null;
 
   // Toggle a per-user favorite. Optimistic: flip isFavorite in the ['templates']
   // cache immediately (snappy star), roll back on error, then reconcile on settle.
@@ -1417,18 +1426,18 @@ const TemplatesScreen = () => {
               </button>
             </div>
           ) : view === 'kanban' ? (
-            <TemplateKanban templates={filtered} onApply={setApplyTarget} onToggleFavorite={toggleFavorite} />
+            <TemplateKanban templates={filtered} onApply={openTemplate} onToggleFavorite={toggleFavorite} />
           ) : (
             <div className="space-y-10 pb-20">
-              <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={setApplyTarget} onToggleFavorite={toggleFavorite} />
-              <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={setApplyTarget} onToggleFavorite={toggleFavorite} />
+              <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={openTemplate} onToggleFavorite={toggleFavorite} />
+              <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={openTemplate} onToggleFavorite={toggleFavorite} />
             </div>
           )}
         </>
       )}
 
       {applyTarget && (
-        <ApplyTemplateModal template={applyTarget} onClose={() => setApplyTarget(null)} />
+        <ApplyTemplateModal template={applyTarget} onClose={() => navigate('/templates')} />
       )}
     </div>
   );
@@ -1599,9 +1608,19 @@ const PlatformRow = ({ link, onDelete }: { link: PlatformLink; onDelete: (id: st
 };
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Section + open task detail come from the URL (bookmarkable, back/forward):
+  //   /                → dashboard      /templates → templates
+  //   /platforms       → platforms      /settings  → settings
+  //   /tasks/:id       → dashboard with the task detail modal open
+  const navigate = useNavigate();
+  const location = useLocation();
+  const segments = location.pathname.split('/').filter(Boolean);
+  const section = segments[0] ?? '';
+  const activeTab = ['templates', 'platforms', 'settings'].includes(section) ? section : 'dashboard';
+  const setActiveTab = (tab: string) => navigate(tab === 'dashboard' ? '/' : `/${tab}`);
+  const routeTaskId = section === 'tasks' ? segments[1] : undefined;
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [cloningTask, setCloningTask] = useState<Task | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -1767,7 +1786,7 @@ const Dashboard = () => {
               syncMutation.mutate(cats);
             }}
             isSyncing={syncMutation.isPending}
-            onTaskSelect={setSelectedTask}
+            onTaskSelect={(t) => navigate(`/tasks/${t.id}`)}
             onRun={runMutation.mutate}
             onCategoryUpdate={handleCategoryUpdate}
             onClone={setCloningTask}
@@ -1780,10 +1799,10 @@ const Dashboard = () => {
         {activeTab === 'platforms' && <PlatformsScreen />}
         {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
       </main>
-      <TaskModal 
-        task={(tasks || []).find(t => t.id === selectedTask?.id) || selectedTask} 
-        onClose={() => setSelectedTask(null)} 
-        onRun={runMutation.mutate} 
+      <TaskModal
+        task={routeTaskId ? (tasks || []).find(t => t.id === routeTaskId) ?? null : null}
+        onClose={() => navigate('/')}
+        onRun={runMutation.mutate}
         onCategoryUpdate={handleCategoryUpdate}
       />
       {cloningTask && (

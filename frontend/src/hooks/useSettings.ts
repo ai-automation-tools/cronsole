@@ -23,6 +23,8 @@ export interface Settings {
   toastOnSuccess: boolean;
   toastOnFailure: boolean;
   desktopNotifyOnFailure: boolean;
+  // Onboarding: whether the first-run getting-started nudge has been dismissed
+  onboardingSeen: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   toastOnSuccess: true,
   toastOnFailure: true,
   desktopNotifyOnFailure: false,
+  onboardingSeen: false,
 };
 
 const STORAGE_KEY = 'taskhub.settings';

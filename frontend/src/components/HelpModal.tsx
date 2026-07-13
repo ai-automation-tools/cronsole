@@ -1,4 +1,5 @@
-import { XCircle, HelpCircle, BookOpen, ExternalLink, Sparkles } from 'lucide-react';
+import { XCircle, HelpCircle, BookOpen, ExternalLink, Sparkles, Compass } from 'lucide-react';
+import { GETTING_STARTED_STEPS, HELP_GUIDES } from '../data/onboarding';
 
 interface HelpModalProps {
   onClose: () => void;
@@ -16,7 +17,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
             </div>
             <h2 className="text-xl font-bold">TaskHub Help Center</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
-              Tips and quick links to master your task automation.
+              Get started, master the basics, and find the full guides.
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
@@ -25,6 +26,60 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
         </header>
 
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+          {/* Getting Started walkthrough */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-black text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <Compass size={14} className="text-primary" />
+              Getting Started
+            </h3>
+            <ol className="space-y-2.5">
+              {GETTING_STARTED_STEPS.map((step, i) => (
+                <li key={step.title} className="flex gap-3 p-3 bg-background/50 rounded-2xl border border-border/80">
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-black flex items-center justify-center">{i + 1}</span>
+                  <div className="min-w-0 text-xs">
+                    <span className="font-bold text-foreground block mb-0.5">{step.icon} {step.title}</span>
+                    <p className="text-muted-foreground leading-relaxed">{step.body}</p>
+                    {step.link && (
+                      <a
+                        href={step.link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-1.5 text-primary hover:underline font-semibold"
+                      >
+                        {step.link.label} <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          {/* Guides & Docs */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-black text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <BookOpen size={14} className="text-foreground" />
+              Guides & Docs
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {HELP_GUIDES.map(guide => (
+                <a
+                  key={guide.url}
+                  href={guide.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-3 bg-background border border-border hover:border-primary/50 rounded-2xl flex items-center justify-between group transition-colors"
+                >
+                  <div className="min-w-0">
+                    <span className="font-semibold text-xs text-foreground block truncate group-hover:text-foreground transition-colors">{guide.label}</span>
+                    <span className="text-[10px] text-subtle-foreground truncate block">{guide.description}</span>
+                  </div>
+                  <ExternalLink size={14} className="text-subtle-foreground group-hover:text-foreground transition-colors shrink-0 ml-2" />
+                </a>
+              ))}
+            </div>
+          </div>
+
           {/* Tips Section */}
           <div className="space-y-3">
             <h3 className="text-xs font-black text-muted-foreground uppercase tracking-wider flex items-center gap-2">

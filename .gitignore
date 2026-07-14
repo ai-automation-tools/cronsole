@@ -88,6 +88,15 @@ logs/
 # --- Local-only docs (historical plans, engineering specs, research) ---
 docs/archive/
 
+# --- Agent skill links (per-machine; created by scripts/setup-skill-links.ps1/.sh) ---
+# The canonical skill lives at the repo-root skills/ (tracked). Claude Code reads
+# it through a per-machine junction (Windows) / symlink (POSIX) at
+# .claude/skills/<name>. The rest of .claude/skills/ IS tracked, so each link must
+# be ignored by name: git follows a junction and would commit the skill content a
+# second time (once under skills/, again under .claude/skills/).
+# Add a line here for every new folder in skills/ -- the setup script warns if you forget.
+/.claude/skills/taskhub/
+
 # --- Local scratch / tooling artifacts ---
 temp/
 .playwright-mcp/

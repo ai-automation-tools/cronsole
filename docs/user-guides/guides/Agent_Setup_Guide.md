@@ -19,9 +19,9 @@ The agent runs as a headless (windowless) background process that connects to th
 The repository provides an automation script, [setup-agent-startup.ps1](../../../agent/setup-agent-startup.ps1), that compiles the agent and registers it in Windows Task Scheduler under a dedicated folder.
 
 1. Open **PowerShell** as **Administrator**.
-2. Navigate to the agent directory:
+2. Navigate to the agent directory (inside your clone of the repo):
    ```powershell
-   cd D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub\agent
+   cd path\to\taskhub\agent
    ```
 3. Execute the registration script:
    ```powershell

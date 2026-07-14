@@ -34,6 +34,7 @@ New to TaskHub? Follow this path in order:
 | [**⚙️ setup/**](setup/README.md) | Configure it — environment variables, Docker vs. manual, agent pairing. |
 | [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive TaskHub from Claude/Codex/Cursor), and remote access from other devices. |
 | [**🧯 troubleshooting/**](troubleshooting/README.md) | Fix it — symptom → cause → fix for problems we've actually hit. |
+| [**🧪 testing/**](testing/README.md) | Verify it — functional, integration, regression, and UAT: what to test, what covers it today, and how to run it. Includes copy-pasteable [manual runbooks](testing/manual-testing/README.md) for what no suite can prove (real Task Scheduler, agent resilience, security at rest). |
 
 ## 🧰 Reference & building blocks
 
@@ -43,6 +44,7 @@ New to TaskHub? Follow this path in order:
 | [**🧩 Template registry**](reports/templates/Registry_Schema_v1.md) | The target-agnostic Registry v1 JSON schema for templates (the catalog is a decoupled, hosted registry). |
 | [**🧠 adr/**](adr/0001-template-registry-schema.md) | Architecture decision records (ADR 0001: the template registry). |
 | [**🛠️ agent-tools/**](agent-tools/README.md) | The AI tooling TaskHub is built with — MCP servers, CLIs, and subagents. |
+| [**🧠 skills/**](../skills/README.md) | The TaskHub Agent Skill — architecture, invariants, and traps, so an AI agent knows the system before it edits it. |
 | [**🌐 resources/**](resources/README.md) | Curated external links — native scheduler UIs and reference repos/sites. |
 
 ## 🗺️ Planning
@@ -73,5 +75,6 @@ New to TaskHub? Follow this path in order:
   <a href="ROADMAP.md">Roadmap</a> ·
   <a href="install/README.md">Install</a> ·
   <a href="user-guides/README.md">User Guides</a> ·
+  <a href="testing/README.md">Testing</a> ·
   <a href="troubleshooting/README.md">Troubleshooting</a>
 </p>

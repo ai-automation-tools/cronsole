@@ -20,8 +20,14 @@
 [CmdletBinding()]
 param(
     [string]$RegistryRepoUrl = 'https://github.com/michaelschecht/taskhub-registry.git',
-    # Persistent working clone so re-publishing doesn't re-clone every time.
-    [string]$WorkDir = (Join-Path $env:TEMP 'taskhub-registry-publish')
+    # The local reference clone (see CLAUDE.md) doubles as the publish working clone, so
+    # every publish leaves it updated to the pushed state. It's a pure mirror — this script
+    # runs `git reset --hard origin/main` on it, so never keep manual work here. Falls back
+    # to a %TEMP% clone on any other machine where the Tools path doesn't exist.
+    [string]$WorkDir = $(
+        $tools = 'D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\taskhub-registry'
+        if (Test-Path (Join-Path $tools '.git')) { $tools } else { Join-Path $env:TEMP 'taskhub-registry-publish' }
+    )
 )
 
 $ErrorActionPreference = 'Stop'

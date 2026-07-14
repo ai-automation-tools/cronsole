@@ -19,7 +19,14 @@
 [CmdletBinding()]
 param(
     [string]$SiteRepoUrl = 'https://github.com/michaelschecht/taskhub-site.git',
-    [string]$WorkDir = (Join-Path $env:TEMP 'taskhub-site-publish')
+    # The local reference clone (see CLAUDE.md) doubles as the publish working clone, so every
+    # publish leaves it updated to the pushed state. It's a pure mirror — this script runs
+    # `git reset --hard origin/main` on it, so never keep manual work here. The clone owns its
+    # own README.md (excluded from the mirror below). Falls back to a %TEMP% clone elsewhere.
+    [string]$WorkDir = $(
+        $tools = 'D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\taskhub-site'
+        if (Test-Path (Join-Path $tools '.git')) { $tools } else { Join-Path $env:TEMP 'taskhub-site-publish' }
+    )
 )
 
 $ErrorActionPreference = 'Stop'

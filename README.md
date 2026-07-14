@@ -207,14 +207,39 @@ And the key guides, one click away:
 | [**🧩 MCP Server**](docs/user-guides/guides/MCP_Server_Guide.md) | Wiring TaskHub into Claude / Codex / Cursor to manage tasks in natural language. |
 | [**🔥 Smoke Test**](docs/testing/manual-testing/runbooks/Smoke_Test.md) | Verifying your stack is actually alive and the agent is talking — in about 10 minutes. |
 
+## 🧠 The TaskHub Skill
+
+Building TaskHub with an AI agent? The repo ships an **[Agent Skill](skills/README.md)** — a
+briefing that gives Claude Code the project's mental model *before* it touches anything: the
+architecture, the invariants that must never break (schedules are cron-UTC, `exec` is
+never implicitly shelled, the registry is content-addressed), and the traps that quietly eat
+an afternoon (a Dockerized backend that won't hot-reload; an agent that must be republished).
+
+```powershell
+# Windows — junctions, so no admin rights or Developer Mode needed
+pwsh scripts/setup-skill-links.ps1
+```
+
+```bash
+# macOS / Linux
+./scripts/setup-skill-links.sh
+```
+
+Run **once per clone**, then restart your CLI — it activates automatically on TaskHub work.
+The script links [`skills/taskhub/`](skills/taskhub/SKILL.md) into `.claude/skills/`, so the
+agent reads the tracked source directly and **no second copy exists to drift**. The skill
+routes to [`docs/`](docs/README.md) rather than restating it, for the same reason.
+
+> [!NOTE]
+> **Skill vs. MCP server** — easy to conflate. The [**skill**](skills/README.md) teaches an
+> agent to *work on* TaskHub's codebase. The [**MCP server**](docs/user-guides/guides/MCP_Server_Guide.md)
+> lets an agent *use* a running TaskHub — list, run, and create tasks in natural language.
+
 ## 🤝 Contributing
 
 TaskHub is a private MVP-stage repository. If you're working on it, start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CLAUDE.md`](CLAUDE.md), and track work on the
 [Roadmap](docs/ROADMAP.md). Recent changes are logged in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
-
-Working with an AI agent? Install the [**🧠 TaskHub skill**](skills/README.md) — it front-loads
-the architecture, invariants, and known traps so the agent knows the system before it edits it.
 
 Before opening a PR, run the suites and — for anything touching the agent, real Task
 Scheduler, or security — the relevant [manual runbook](docs/testing/manual-testing/README.md):

@@ -36,6 +36,7 @@ not a replacement of the concepts:
 | `category` enum | `category` + `tags[]` | Adds free-form tags (the Developer-Pack "tags beyond one category" item) |
 | `targetPlatforms[]` | `compatibleTargets[]` | Renamed to match the "Compatible with" honesty framing |
 | `isStarter`, `icon`, `name`, `description` | same | unchanged |
+| — | `core` | **New (2026-07-14).** Optional `boolean`; absent ⇒ extended. `core: true` = the curated set auto-synced into every install's DB by default (bundled + prune-managed); everything else is **extended** — in the registry/gallery, imported on demand. Only the *auto-sync* is limited; the full registry always contains both. See `catalogSync` prune-on-sync + CLAUDE.md § "Core vs. extended". |
 | `upvotes` | — | dropped (already retired as fake) |
 
 ---
@@ -308,6 +309,7 @@ vocabulary.
     "tags": { "type": "array", "items": { "type": "string" } },
     "icon": { "type": "string" },
     "isStarter": { "type": "boolean" },
+    "core": { "type": "boolean" },
     "trigger": {
       "type": "object",
       "required": ["kind"],

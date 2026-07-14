@@ -123,6 +123,10 @@ model Template {
   tags              String[]         @default([])            // free-form tags (e.g. git, build, ai) — distinct from the single `category`
   isStarter         Boolean          @default(false)         // true = Tier A curated starter
   icon              String?          // lucide icon name for the card
+  // Provenance for prune-on-sync: true = auto-synced from the bundled/registry
+  // catalog (catalogSync owns it and may prune it when it's no longer `core`);
+  // false = user-authored (imported or saved-as-template) — never pruned.
+  managed           Boolean          @default(false)
 
   isPublic          Boolean      @default(false)
   upvotes           Int          @default(0)

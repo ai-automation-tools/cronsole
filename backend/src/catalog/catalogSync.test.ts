@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     user: { upsert: vi.fn() },
-    template: { upsert: vi.fn() }
+    template: { upsert: vi.fn(), deleteMany: vi.fn(async () => ({ count: 0 })) }
   }
 }));
 
@@ -53,18 +53,20 @@ describe('syncCatalogToDb', () => {
     ];
     const res = await syncCatalogToDb(fakeSource(raw, norm));
 
-    expect(res).toEqual({ count: 2, source: 'fake' });
+    expect(res).toEqual({ count: 2, pruned: 0, source: 'fake' });
     expect(mockPrisma.user.upsert).toHaveBeenCalledTimes(1);
     expect(mockPrisma.template.upsert).toHaveBeenCalledTimes(2);
 
     const first = mockPrisma.template.upsert.mock.calls[0][0];
     expect(first.where).toEqual({ id: 'tpl_a' });
-    // The update branch carries the normalized template data minus the id — this
-    // is exactly how a registry change propagates to an existing row (no reseed).
-    expect(first.update).toEqual({ name: 'A', scriptType: 'POWERSHELL' });
+    // The update branch carries the normalized data + managed:true — this is
+    // exactly how a registry change propagates to an existing row (no reseed),
+    // and managed:true is what makes it eligible for prune-on-sync.
+    expect(first.update).toEqual({ name: 'A', scriptType: 'POWERSHELL', managed: true });
     expect(first.create).toMatchObject({
       id: 'tpl_a',
       name: 'A',
+      managed: true,
       user: { connect: { id: CATALOG_OWNER_ID } }
     });
   });
@@ -82,14 +84,36 @@ describe('syncCatalogToDb', () => {
     ];
     const res = await syncCatalogToDb(fakeSource(raw, norm));
 
-    expect(res).toEqual({ count: 1, source: 'fake' });
+    expect(res).toEqual({ count: 1, pruned: 0, source: 'fake' });
     expect(mockPrisma.template.upsert).toHaveBeenCalledTimes(1);
     expect(mockPrisma.template.upsert.mock.calls[0][0].where).toEqual({ id: 'tpl_core' });
   });
 
-  it('handles an empty catalog and reports the source name', async () => {
+  it('prunes managed templates that are no longer core (import-safe)', async () => {
+    mockPrisma.template.deleteMany.mockResolvedValueOnce({ count: 3 });
+    const raw = [
+      { id: 'tpl_core1', core: true },
+      { id: 'tpl_core2', core: true }
+    ];
+    const norm = [
+      { id: 'tpl_core1', name: 'C1', scriptType: 'POWERSHELL' },
+      { id: 'tpl_core2', name: 'C2', scriptType: 'BASH' }
+    ];
+    const res = await syncCatalogToDb(fakeSource(raw, norm));
+
+    expect(res).toEqual({ count: 2, pruned: 3, source: 'fake' });
+    // Prune deletes only managed rows outside the current core set — imported /
+    // saved-as-template rows (managed:false) are never matched.
+    expect(mockPrisma.template.deleteMany).toHaveBeenCalledWith({
+      where: { managed: true, id: { notIn: ['tpl_core1', 'tpl_core2'] } }
+    });
+  });
+
+  it('handles an empty catalog and does NOT prune (safety guard)', async () => {
     const res = await syncCatalogToDb(fakeSource([], []));
-    expect(res).toEqual({ count: 0, source: 'fake' });
+    expect(res).toEqual({ count: 0, pruned: 0, source: 'fake' });
     expect(mockPrisma.template.upsert).not.toHaveBeenCalled();
+    // No core ⇒ skip prune entirely, so a bad/empty sync can't wipe the catalog.
+    expect(mockPrisma.template.deleteMany).not.toHaveBeenCalled();
   });
 });

@@ -81,6 +81,10 @@
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
     .hero h1 { margin: 0 0 22px; font-size: clamp(40px, 7.5vw, 82px); line-height: .96; letter-spacing: -.035em; font-weight: 800; max-width: 14ch; }
     .hero h1 .gr { background: linear-gradient(102deg, var(--violet-hi) 8%, var(--cyan) 92%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .hero h1 .t-task { color: var(--violet-hi); }
+    .hero h1 .t-hub { color: var(--cyan); }
+    :root[data-theme="light"] .hero h1 .t-task { color: #7c3aed; }
+    :root[data-theme="light"] .hero h1 .t-hub { color: #0ea5e9; }
     .hero .lede { margin: 0; max-width: 620px; color: var(--ink-2); font-size: clamp(16px, 2.4vw, 19px); line-height: 1.6; }
     .hero-cta { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 34px; }
     .badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
@@ -210,7 +214,7 @@
     <div class="wrap">
       <section class="hero">
         <span class="hero-kicker kicker reveal"><span class="pulse"></span>Local-first · open source</span>
-        <h1 class="reveal" style="animation-delay:.05s">One pane of glass for<br><span class="gr">every scheduled task.</span></h1>
+        <h1 class="reveal" style="animation-delay:.05s"><span class="t-task">Task</span><span class="t-hub">Hub</span></h1>
         <p class="lede reveal" style="animation-delay:.12s">TaskHub is a local-first control plane for the automations scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code and Codex routines, AI-agent jobs and more — in a single dark, fast dashboard. View, trigger, edit, and schedule them from one place, and grow your catalog from an open template registry.</p>
         <div class="hero-cta reveal" style="animation-delay:.18s">
           <a class="btn btn-primary" href="#get-started">Get started

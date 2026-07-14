@@ -12,7 +12,6 @@
   ],
   "icon": "AppWindow",
   "isStarter": true,
-  "core": true,
   "trigger": {
     "kind": "schedule",
     "cron": "0 7 * * 1"

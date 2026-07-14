@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-disk-report",
+  "name": "Log Disk Usage",
+  "description": "Append free/used disk space for every drive to a log file.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "windows",
+    "disk",
+    "report"
+  ],
+  "icon": "HardDrive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 * * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Get-PSDrive -PSProvider FileSystem | Select-Object Name, Used, Free | Out-File -Append '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\disk.log",
+      "required": true,
+      "help": "Where to append the disk snapshot."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

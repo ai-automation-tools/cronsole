@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0",
+  "id": "data-rclone-sync",
+  "name": "Sync Folder to Cloud (rclone)",
+  "description": "Sync a local folder to a configured rclone remote (S3, Drive, B2, …).",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "data-sync",
+  "tags": [
+    "data",
+    "sync",
+    "cloud",
+    "rclone",
+    "backup"
+  ],
+  "icon": "CloudUpload",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 23 * * *"
+  },
+  "commandTemplate": "rclone sync \"{{source}}\" \"{{dest}}\" --log-file \"{{logFile}}\"",
+  "parameters": [
+    {
+      "key": "source",
+      "label": "Local source",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "Local path to sync from. Requires rclone installed + a configured remote."
+    },
+    {
+      "key": "dest",
+      "label": "Remote destination",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "rclone remote target, e.g. mydrive:backups/photos."
+    },
+    {
+      "key": "logFile",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\rclone.log",
+      "required": true,
+      "help": "Where rclone writes its run log."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

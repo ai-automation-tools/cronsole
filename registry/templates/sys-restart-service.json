@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-restart-service",
+  "name": "Restart a Windows Service",
+  "description": "Restart a Windows service on a schedule (e.g. to recover a flaky one).",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "service"
+  ],
+  "icon": "RefreshCw",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Restart-Service -Name '{{serviceName}}' -Force\"",
+  "parameters": [
+    {
+      "key": "serviceName",
+      "label": "Service name",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The service short name (Get-Service to list). Runs elevated for most services."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

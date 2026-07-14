@@ -13,6 +13,7 @@
     "postgres"
   ],
   "icon": "Database",
+  "core": true,
   "trigger": {
     "kind": "schedule",
     "cron": "0 3 * * *"

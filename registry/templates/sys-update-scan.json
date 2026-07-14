@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-update-scan",
+  "name": "Trigger Windows Update Scan",
+  "description": "Kick off a Windows Update detection scan on a schedule.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "updates"
+  ],
+  "icon": "DownloadCloud",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * *"
+  },
+  "commandTemplate": "usoclient StartScan",
+  "parameters": [],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

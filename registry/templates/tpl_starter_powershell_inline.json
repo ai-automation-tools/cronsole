@@ -12,6 +12,7 @@
   ],
   "icon": "Terminal",
   "isStarter": true,
+  "core": true,
   "trigger": {
     "kind": "schedule",
     "cron": "0 * * * *"

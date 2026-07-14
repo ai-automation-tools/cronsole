@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ntf-discord-heartbeat",
+  "name": "Discord Webhook Message",
+  "description": "Post a scheduled message to a Discord channel via a webhook.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "notification",
+  "tags": [
+    "notification",
+    "windows",
+    "discord",
+    "webhook"
+  ],
+  "icon": "Bell",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-RestMethod -Uri '{{webhookUrl}}' -Method Post -ContentType 'application/json' -Body (@{ content = '{{message}}' } | ConvertTo-Json)\"",
+  "parameters": [
+    {
+      "key": "webhookUrl",
+      "label": "Discord webhook URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "Channel → Integrations → Webhooks → Copy URL."
+    },
+    {
+      "key": "message",
+      "label": "Message",
+      "type": "text",
+      "default": "TaskHub scheduled heartbeat",
+      "required": true,
+      "help": "The text to post. Avoid single quotes (they close the PowerShell string)."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

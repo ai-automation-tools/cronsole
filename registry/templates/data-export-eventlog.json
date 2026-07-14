@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "data-export-eventlog",
+  "name": "Export Windows Event Log",
+  "description": "Archive a Windows event log (System, Application, …) to an .evtx file.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "data-sync",
+  "tags": [
+    "data",
+    "windows",
+    "eventlog",
+    "archive"
+  ],
+  "icon": "FileArchive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 0 * * 0"
+  },
+  "commandTemplate": "wevtutil epl \"{{logName}}\" \"{{outFile}}\" /ow:true",
+  "parameters": [
+    {
+      "key": "logName",
+      "label": "Event log",
+      "type": "text",
+      "default": "System",
+      "required": true,
+      "help": "Log channel to export (System, Application, Security, …)."
+    },
+    {
+      "key": "outFile",
+      "label": "Output .evtx path",
+      "type": "path",
+      "default": "C:\\logs\\System.evtx",
+      "required": true,
+      "help": "Where to write the exported log. /ow:true overwrites."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

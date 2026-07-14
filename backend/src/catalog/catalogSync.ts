@@ -11,6 +11,12 @@
  * removed from the registry are NOT pruned here — deleting shared catalog rows
  * (which may be favorited) is a separate, safety-sensitive decision left as a
  * follow-up.
+ *
+ * Core vs. extended: this auto-sync only materializes the curated **core** set
+ * (`core: true`). The full registry/gallery contains core + extended, but
+ * extended templates enter a DB only when a user imports one (via the Import
+ * route). So a fresh install gets a small, high-value default catalog, and the
+ * long tail is opt-in — see ROADMAP "Template gallery site + selective-import".
  */
 
 import { prisma } from '../db.js';
@@ -43,7 +49,12 @@ export async function syncCatalogToDb(
 ): Promise<CatalogSyncResult> {
   await ensureCatalogOwner();
 
-  const templates = await source.list();
+  // Only the curated core auto-syncs. `listRaw()` carries the `core` flag (the
+  // normalized `list()` shape drops it); intersect by id so we upsert the
+  // normalized rows for core templates only.
+  const raw = await source.listRaw();
+  const coreIds = new Set(raw.filter((t) => t.core === true).map((t) => t.id));
+  const templates = (await source.list()).filter((t) => coreIds.has(t.id));
   for (const { id, ...data } of templates) {
     await prisma.template.upsert({
       where: { id },

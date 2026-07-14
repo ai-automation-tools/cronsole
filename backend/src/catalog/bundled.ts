@@ -94,6 +94,7 @@ const patterns: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_daily_database_backup',
+    core: true,
     name: 'Daily Database Backup',
     description: 'Back up a PostgreSQL database on a schedule with pg_dump.',
     runtime: 'executable',
@@ -133,6 +134,7 @@ const patterns: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_weekly_system_cleanup',
+    core: true,
     name: 'Weekly System Cleanup',
     description: 'Delete temporary files on a schedule to reclaim disk space.',
     runtime: 'batch',
@@ -176,6 +178,7 @@ const devPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'dev-git-fetch-prune',
+    core: true,
     name: 'Git Fetch & Prune',
     description: 'Keep a local repository fresh: fetch all remotes and prune deleted remote branches.',
     runtime: 'executable',
@@ -262,6 +265,7 @@ const devPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'dev-npm-test-run',
+    core: true,
     name: 'Scheduled Test Run (npm)',
     description: 'Run a project test suite on a schedule and capture the log; a red run means failing tests.',
     runtime: 'node',
@@ -315,6 +319,7 @@ const devPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'dev-docker-compose-up',
+    core: true,
     name: 'Docker Compose Self-Heal',
     description: 'Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern TaskHub uses for its own stack).',
     runtime: 'executable',
@@ -523,6 +528,7 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_powershell_script',
+    core: true,
     name: 'PowerShell Script',
     description: 'Run a .ps1 PowerShell script file on a schedule.',
     runtime: 'powershell',
@@ -539,6 +545,7 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_powershell_inline',
+    core: true,
     name: 'PowerShell Inline Command',
     description: 'Run an inline PowerShell command without a script file.',
     runtime: 'powershell',
@@ -555,6 +562,7 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_batch_script',
+    core: true,
     name: 'Batch / CMD Script',
     description: 'Run a .bat or .cmd batch file via cmd.exe.',
     runtime: 'batch',
@@ -571,6 +579,7 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_python_windows',
+    core: true,
     name: 'Python Script (Windows)',
     description: 'Run a Python script with the Windows python interpreter.',
     runtime: 'python',
@@ -587,6 +596,7 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_node_windows',
+    core: true,
     name: 'Node.js Script (Windows)',
     description: 'Run a Node.js script with node on Windows.',
     runtime: 'node',
@@ -603,6 +613,7 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_run_exe',
+    core: true,
     name: 'Run a Program / .exe',
     description: 'Launch an executable or binary directly on a schedule.',
     runtime: 'executable',
@@ -619,6 +630,7 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_webhook_windows',
+    core: true,
     name: 'Webhook / HTTP Ping (Windows)',
     description: 'Call a URL on a schedule using Invoke-WebRequest.',
     runtime: 'http',
@@ -846,5 +858,283 @@ const starters: RegistryTemplate[] = [
   }
 ];
 
-/** The full bundled catalog (patterns, Developer Pack, AI Pack, then starters), Registry v1 shape. */
-export const bundledCatalog: RegistryTemplate[] = [...patterns, ...devPack, ...aiPack, ...starters];
+// =====================================================================
+// Extended Pack — gallery-only templates (2026-07-14)
+// These are deliberately NOT `core`, so they are NOT auto-synced into a fresh
+// install's DB; they live in the registry/gallery and a user imports the ones
+// they want (see catalogSync core-only filter + ROADMAP "Template gallery site
+// + selective-import distribution"). All are Windows-creatable — either a
+// structured no-shell exec or an explicit `powershell.exe -Command "…"` /
+// `cmd.exe /c` opt-in — honest about targets, and covered by the whole-catalog
+// resolvability sweep. Every placeholder sits inside a quoted/composite token
+// (never a bare multi-arg slot), so each value stays exactly one argument.
+// =====================================================================
+const extendedPack: RegistryTemplate[] = [
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-folder-zip',
+    name: 'Backup Folder to Zip',
+    description: 'Compress a folder into a .zip archive on a schedule.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'backup',
+    tags: ['backup', 'windows', 'archive', 'zip'],
+    icon: 'Archive',
+    trigger: sched('0 2 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Compress-Archive -Path \'{{sourcePath}}\' -DestinationPath \'{{destZip}}\' -Force"',
+    parameters: [
+      { key: 'sourcePath', label: 'Folder to back up', type: 'path', default: '', required: true, help: 'Folder (or glob) to compress. Avoid single quotes in the path.' },
+      { key: 'destZip', label: 'Destination .zip', type: 'path', default: 'C:\\backups\\backup.zip', required: true, help: 'Where to write the archive. -Force overwrites an existing file.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-robocopy-mirror',
+    name: 'Mirror Folder (robocopy)',
+    description: 'Mirror a directory to a backup location with robocopy /MIR.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'backup',
+    tags: ['backup', 'windows', 'robocopy', 'sync'],
+    icon: 'FolderSync',
+    trigger: sched('0 1 * * *'),
+    commandTemplate: 'robocopy "{{sourceDir}}" "{{destDir}}" /MIR /R:2 /W:5',
+    parameters: [
+      { key: 'sourceDir', label: 'Source folder', type: 'path', default: '', required: true, help: 'The directory to mirror from.' },
+      { key: 'destDir', label: 'Destination folder', type: 'path', default: 'C:\\backups\\mirror', required: true, help: 'The backup directory. /MIR makes it match the source exactly (deletes extras).' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'cln-old-files',
+    name: 'Delete Files Older Than N Days',
+    description: 'Prune files in a folder that are older than a cutoff, to reclaim disk.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'cleanup',
+    tags: ['cleanup', 'windows', 'disk', 'logs'],
+    icon: 'CalendarX',
+    trigger: sched('0 4 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-ChildItem -Path \'{{targetDir}}\' -Recurse -File | Where-Object LastWriteTime -lt (Get-Date).AddDays(-{{days}}) | Remove-Item -Force"',
+    parameters: [
+      { key: 'targetDir', label: 'Folder to prune', type: 'path', default: '', required: true, help: 'Directory whose old files are deleted (recursively).' },
+      { key: 'days', label: 'Older than (days)', type: 'text', default: '30', required: true, help: 'Delete files last modified more than this many days ago.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'cln-recycle-bin',
+    name: 'Empty Recycle Bin',
+    description: 'Empty the Windows Recycle Bin on a schedule.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'cleanup',
+    tags: ['cleanup', 'windows', 'disk'],
+    icon: 'Trash2',
+    trigger: sched('0 5 * * 0'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Clear-RecycleBin -Force -ErrorAction SilentlyContinue"',
+    parameters: [],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-restart-service',
+    name: 'Restart a Windows Service',
+    description: 'Restart a Windows service on a schedule (e.g. to recover a flaky one).',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'service'],
+    icon: 'RefreshCw',
+    trigger: sched('0 3 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Restart-Service -Name \'{{serviceName}}\' -Force"',
+    parameters: [
+      { key: 'serviceName', label: 'Service name', type: 'text', default: '', required: true, help: 'The service short name (Get-Service to list). Runs elevated for most services.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-flush-dns',
+    name: 'Flush DNS Cache',
+    description: 'Clear the Windows DNS resolver cache.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'network', 'dns'],
+    icon: 'Network',
+    trigger: sched('0 6 * * *'),
+    commandTemplate: 'ipconfig /flushdns',
+    parameters: [],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-update-scan',
+    name: 'Trigger Windows Update Scan',
+    description: 'Kick off a Windows Update detection scan on a schedule.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'updates'],
+    icon: 'DownloadCloud',
+    trigger: sched('0 7 * * *'),
+    commandTemplate: 'usoclient StartScan',
+    parameters: [],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-battery-report',
+    name: 'Generate Battery Report',
+    description: 'Write a laptop battery health report to an HTML file.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'power', 'report'],
+    icon: 'BatteryCharging',
+    trigger: sched('0 8 * * 1'),
+    commandTemplate: 'powercfg /batteryreport /output "{{outFile}}"',
+    parameters: [
+      { key: 'outFile', label: 'Report output path', type: 'path', default: 'C:\\reports\\battery-report.html', required: true, help: 'Where to write the battery report (.html).' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-disk-report',
+    name: 'Log Disk Usage',
+    description: 'Append free/used disk space for every drive to a log file.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'disk', 'report'],
+    icon: 'HardDrive',
+    trigger: sched('0 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-PSDrive -PSProvider FileSystem | Select-Object Name, Used, Free | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\disk.log', required: true, help: 'Where to append the disk snapshot.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-ping-host',
+    name: 'Ping Host & Log',
+    description: 'Check whether a host is reachable and append the result to a log.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'network', 'uptime'],
+    icon: 'Activity',
+    trigger: sched('*/15 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Test-Connection -ComputerName \'{{host}}\' -Count 2 | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'host', label: 'Host / IP', type: 'text', default: '', required: true, help: 'The hostname or IP to ping.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\ping.log', required: true, help: 'Where to append the ping result.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-service-health',
+    name: 'Log Service Status',
+    description: 'Record whether a Windows service is running, on an interval.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'service', 'health'],
+    icon: 'HeartPulse',
+    trigger: sched('*/30 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-Service -Name \'{{serviceName}}\' | Format-Table -AutoSize | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'serviceName', label: 'Service name', type: 'text', default: '', required: true, help: 'The service short name to check.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\service.log', required: true, help: 'Where to append the status.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'data-export-eventlog',
+    name: 'Export Windows Event Log',
+    description: 'Archive a Windows event log (System, Application, …) to an .evtx file.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'data-sync',
+    tags: ['data', 'windows', 'eventlog', 'archive'],
+    icon: 'FileArchive',
+    trigger: sched('0 0 * * 0'),
+    commandTemplate: 'wevtutil epl "{{logName}}" "{{outFile}}" /ow:true',
+    parameters: [
+      { key: 'logName', label: 'Event log', type: 'text', default: 'System', required: true, help: 'Log channel to export (System, Application, Security, …).' },
+      { key: 'outFile', label: 'Output .evtx path', type: 'path', default: 'C:\\logs\\System.evtx', required: true, help: 'Where to write the exported log. /ow:true overwrites.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'data-rclone-sync',
+    name: 'Sync Folder to Cloud (rclone)',
+    description: 'Sync a local folder to a configured rclone remote (S3, Drive, B2, …).',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'data-sync',
+    tags: ['data', 'sync', 'cloud', 'rclone', 'backup'],
+    icon: 'CloudUpload',
+    trigger: sched('0 23 * * *'),
+    commandTemplate: 'rclone sync "{{source}}" "{{dest}}" --log-file "{{logFile}}"',
+    parameters: [
+      { key: 'source', label: 'Local source', type: 'text', default: '', required: true, help: 'Local path to sync from. Requires rclone installed + a configured remote.' },
+      { key: 'dest', label: 'Remote destination', type: 'text', default: '', required: true, help: 'rclone remote target, e.g. mydrive:backups/photos.' },
+      { key: 'logFile', label: 'Log file path', type: 'path', default: 'C:\\logs\\rclone.log', required: true, help: 'Where rclone writes its run log.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ntf-discord-heartbeat',
+    name: 'Discord Webhook Message',
+    description: 'Post a scheduled message to a Discord channel via a webhook.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'notification',
+    tags: ['notification', 'windows', 'discord', 'webhook'],
+    icon: 'Bell',
+    trigger: sched('0 9 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Invoke-RestMethod -Uri \'{{webhookUrl}}\' -Method Post -ContentType \'application/json\' -Body (@{ content = \'{{message}}\' } | ConvertTo-Json)"',
+    parameters: [
+      { key: 'webhookUrl', label: 'Discord webhook URL', type: 'url', default: '', required: true, help: 'Channel → Integrations → Webhooks → Copy URL.' },
+      { key: 'message', label: 'Message', type: 'text', default: 'TaskHub scheduled heartbeat', required: true, help: 'The text to post. Avoid single quotes (they close the PowerShell string).' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ntf-log-heartbeat',
+    name: 'Heartbeat to Log File',
+    description: 'Append a timestamped line to a log — a simple "am I still scheduled?" check.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'notification',
+    tags: ['notification', 'windows', 'heartbeat', 'logs'],
+    icon: 'FileClock',
+    trigger: sched('*/10 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Add-Content -Path \'{{logPath}}\' -Value (Get-Date)"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\heartbeat.log', required: true, help: 'Where to append the heartbeat timestamp.' }
+    ],
+    compatibleTargets: ['windows']
+  }
+];
+
+/** The full bundled catalog: core (auto-synced) + extended (gallery/import-only), Registry v1 shape. */
+export const bundledCatalog: RegistryTemplate[] = [
+  ...patterns,
+  ...devPack,
+  ...aiPack,
+  ...starters,
+  ...extendedPack
+];

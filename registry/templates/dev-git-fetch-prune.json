@@ -13,6 +13,7 @@
     "hygiene"
   ],
   "icon": "GitBranch",
+  "core": true,
   "trigger": {
     "kind": "schedule",
     "cron": "0 6 * * *"

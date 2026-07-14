@@ -265,7 +265,6 @@ const devPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'dev-npm-test-run',
-    core: true,
     name: 'Scheduled Test Run (npm)',
     description: 'Run a project test suite on a schedule and capture the log; a red run means failing tests.',
     runtime: 'node',
@@ -319,7 +318,6 @@ const devPack: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'dev-docker-compose-up',
-    core: true,
     name: 'Docker Compose Self-Heal',
     description: 'Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern TaskHub uses for its own stack).',
     runtime: 'executable',
@@ -545,7 +543,6 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_powershell_inline',
-    core: true,
     name: 'PowerShell Inline Command',
     description: 'Run an inline PowerShell command without a script file.',
     runtime: 'powershell',
@@ -562,7 +559,6 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_batch_script',
-    core: true,
     name: 'Batch / CMD Script',
     description: 'Run a .bat or .cmd batch file via cmd.exe.',
     runtime: 'batch',
@@ -579,7 +575,6 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_python_windows',
-    core: true,
     name: 'Python Script (Windows)',
     description: 'Run a Python script with the Windows python interpreter.',
     runtime: 'python',
@@ -596,7 +591,6 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_node_windows',
-    core: true,
     name: 'Node.js Script (Windows)',
     description: 'Run a Node.js script with node on Windows.',
     runtime: 'node',
@@ -613,7 +607,6 @@ const starters: RegistryTemplate[] = [
   {
     schemaVersion: '1.0',
     id: 'tpl_starter_run_exe',
-    core: true,
     name: 'Run a Program / .exe',
     description: 'Launch an executable or binary directly on a schedule.',
     runtime: 'executable',

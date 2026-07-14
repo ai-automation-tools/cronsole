@@ -620,6 +620,28 @@ export const TemplatesScreen = () => {
         </div>
       </div>
 
+      {/* Gallery pointer — the built-in set is a small curated sampler; the rest
+          of the catalog lives in the public gallery and is imported on demand. */}
+      <a
+        href="https://mikesailab.com/taskhub-registry/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex items-center gap-4 bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-2xl p-4 hover:border-primary/40 transition-colors"
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
+          <Sparkles size={20} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-foreground">Browse the full Template Gallery</p>
+          <p className="text-sm text-muted-foreground">
+            These are a few built-in starters. Explore the full catalog — filter, preview, and import the automations you want.
+          </p>
+        </div>
+        <span className="hidden sm:flex items-center gap-1.5 text-sm font-semibold text-primary whitespace-nowrap">
+          Open gallery <ExternalLink size={15} className="group-hover:translate-x-0.5 transition-transform" />
+        </span>
+      </a>
+
       {!hasTemplates ? (
         <div className="flex flex-col items-center justify-center h-[40vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
           <Library size={48} className="text-subtle-foreground mb-4" />

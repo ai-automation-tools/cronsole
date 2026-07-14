@@ -6,17 +6,23 @@
  * shipping the app" real: when the catalog source is the remote registry, a
  * periodic sync pulls catalog changes into the DB with no reseed/redeploy.
  *
- * Upsert-only by design: templates are keyed by their stable id, so favorites
- * (a separate join on templateId) and applied tasks are untouched. Templates
- * removed from the registry are NOT pruned here — deleting shared catalog rows
- * (which may be favorited) is a separate, safety-sensitive decision left as a
- * follow-up.
+ * Keyed by stable template id, so favorites (a join on templateId) and applied
+ * tasks are keyed the same way and survive an upsert.
  *
  * Core vs. extended: this auto-sync only materializes the curated **core** set
  * (`core: true`). The full registry/gallery contains core + extended, but
  * extended templates enter a DB only when a user imports one (via the Import
  * route). So a fresh install gets a small, high-value default catalog, and the
  * long tail is opt-in — see ROADMAP "Template gallery site + selective-import".
+ *
+ * Prune-on-sync: auto-synced templates are marked `managed: true` and are
+ * reconciled to the current core set on every sync — a template demoted out of
+ * core (or removed from the catalog) is deleted, so an *existing* install
+ * converges to the curated default, not just fresh ones. Prune is scoped to
+ * `managed: true`, so anything the user imported or saved-as-template
+ * (`managed: false`) is never touched. Deleting a managed template cascades its
+ * favorites (a re-import re-adds it); applied tasks are separate rows and are
+ * untouched.
  */
 
 import { prisma } from '../db.js';
@@ -29,6 +35,8 @@ const CATALOG_OWNER_EMAIL = 'mike@example.com';
 
 export interface CatalogSyncResult {
   count: number;
+  /** Managed templates deleted because they are no longer `core`. */
+  pruned: number;
   source: string;
 }
 
@@ -53,17 +61,35 @@ export async function syncCatalogToDb(
   // normalized `list()` shape drops it); intersect by id so we upsert the
   // normalized rows for core templates only.
   const raw = await source.listRaw();
-  const coreIds = new Set(raw.filter((t) => t.core === true).map((t) => t.id));
+  const coreIdList = raw.filter((t) => t.core === true).map((t) => t.id);
+  const coreIds = new Set(coreIdList);
   const templates = (await source.list()).filter((t) => coreIds.has(t.id));
+  // Auto-synced templates are marked `managed: true`, which is what makes them
+  // eligible for prune below. User-authored templates (import / save-as-template)
+  // leave `managed` at its `false` default and are never touched.
   for (const { id, ...data } of templates) {
     await prisma.template.upsert({
       where: { id },
-      update: data,
-      create: { id, user: { connect: { id: CATALOG_OWNER_ID } }, ...data }
+      update: { ...data, managed: true },
+      create: { id, user: { connect: { id: CATALOG_OWNER_ID } }, ...data, managed: true }
     });
   }
 
-  return { count: templates.length, source: source.name };
+  // Prune-on-sync: delete managed templates that are no longer core, so an
+  // existing install converges to the curated default (not just fresh ones) and
+  // a demoted template disappears without a reseed. Scoped to `managed: true`,
+  // so imported/saved templates survive. Guarded: if the source returned no core
+  // (e.g. a bad fetch that somehow bypassed the bundled fallback), skip the prune
+  // rather than wipe the catalog.
+  let pruned = 0;
+  if (coreIdList.length > 0) {
+    const res = await prisma.template.deleteMany({
+      where: { managed: true, id: { notIn: coreIdList } }
+    });
+    pruned = res.count;
+  }
+
+  return { count: templates.length, pruned, source: source.name };
 }
 
 // --- Runtime refresh (boot + interval) ---------------------------------------
@@ -88,7 +114,10 @@ export async function startCatalogRefresh(): Promise<void> {
   const run = async () => {
     try {
       const r = await syncCatalogToDb();
-      console.log(`[catalog] synced ${r.count} templates from "${r.source}".`);
+      console.log(
+        `[catalog] synced ${r.count} core templates from "${r.source}"` +
+          (r.pruned > 0 ? `, pruned ${r.pruned} stale managed template(s).` : '.')
+      );
     } catch (err) {
       console.error('[catalog] sync failed:', err);
     }

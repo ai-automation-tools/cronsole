@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-14T19:06:35.295Z",
+  "updatedAt": "2026-07-14T19:21:48.738Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -187,14 +187,13 @@
         "test",
         "ci"
       ],
-      "core": true,
       "runtime": "node",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/dev-npm-test-run.json",
-      "sha256": "f500429829de4743a8ea26c2424efc447d9a49cdfaddef1b8a8bbd0a576de52f"
+      "sha256": "4727faa48d5d435410324b4b86129e2091b3b7b0d2ca5900f908449c80135f7e"
     },
     {
       "id": "dev-dotnet-build",
@@ -247,7 +246,6 @@
         "self-heal",
         "monitoring"
       ],
-      "core": true,
       "runtime": "executable",
       "os": "cross-platform",
       "compatibleTargets": [
@@ -255,7 +253,7 @@
         "macos"
       ],
       "path": "templates/dev-docker-compose-up.json",
-      "sha256": "da853ff0acf359cd9fcdfd2d0cc0b7f7261059f7cc2a319981ac3b98554bad4e"
+      "sha256": "fc1ac426f5e1b2bce4c9f2f3d66704dc2565548f7a8e230f267beeb03195d09b"
     },
     {
       "id": "ai-claude-headless-run",
@@ -431,14 +429,13 @@
         "powershell"
       ],
       "isStarter": true,
-      "core": true,
       "runtime": "powershell",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_powershell_inline.json",
-      "sha256": "7877ec2fe8c8f3d907119936f5034f06b892f3ede5256dc4355d5d6cab734bad"
+      "sha256": "9248c361d3bdc0aa1cfa827d736cd144082900b2ad71c6b04d147781d1c15cf8"
     },
     {
       "id": "tpl_starter_batch_script",
@@ -451,14 +448,13 @@
         "script"
       ],
       "isStarter": true,
-      "core": true,
       "runtime": "batch",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_batch_script.json",
-      "sha256": "8821e5edd9968d8b5ae9430017345d2a0e30794e4e30fc90972174f9084275f2"
+      "sha256": "24bb19410009a290de2558ab711e8b2f194a78b0aa0e06c627a87fdaa0788fe3"
     },
     {
       "id": "tpl_starter_python_windows",
@@ -471,14 +467,13 @@
         "script"
       ],
       "isStarter": true,
-      "core": true,
       "runtime": "python",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_python_windows.json",
-      "sha256": "bbdb61a9c0ae0d9edd446582e47c5910a437c6438ac85c3a7b64ec8d7cb933d9"
+      "sha256": "a13794278d933a44e16148f68d24a447d59146d5b7676953ad7dbc1444c10b74"
     },
     {
       "id": "tpl_starter_node_windows",
@@ -491,14 +486,13 @@
         "script"
       ],
       "isStarter": true,
-      "core": true,
       "runtime": "node",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_node_windows.json",
-      "sha256": "8e62ef762520bb4394c164cd286cf8af1427cbb0e32f8ab20082152788937bfb"
+      "sha256": "12c7561b172e9b676013f56bb9d1b996d06419be65cc9b27cb2d2a19b51388a4"
     },
     {
       "id": "tpl_starter_run_exe",
@@ -510,14 +504,13 @@
         "executable"
       ],
       "isStarter": true,
-      "core": true,
       "runtime": "executable",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_run_exe.json",
-      "sha256": "09edf3ccd5b34aa7602cd6154610850bf4fda7faa95dd04da2ff47f4e87e7f03"
+      "sha256": "bf5f5d31224fa113133c1d43e0c4f41f218d20f50978603a27ed79fb6fac2777"
     },
     {
       "id": "tpl_starter_webhook_windows",

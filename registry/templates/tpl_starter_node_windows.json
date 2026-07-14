@@ -13,7 +13,6 @@
   ],
   "icon": "Hexagon",
   "isStarter": true,
-  "core": true,
   "trigger": {
     "kind": "schedule",
     "cron": "*/30 * * * *"

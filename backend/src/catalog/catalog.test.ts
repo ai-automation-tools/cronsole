@@ -42,8 +42,10 @@ describe('bundled catalog snapshot', () => {
     // The rest are extended — in the registry/gallery, imported on demand.
     const core = bundledCatalog.filter((t) => t.core === true);
     const extended = bundledCatalog.filter((t) => !t.core);
-    expect(core).toHaveLength(12);
-    expect(extended).toHaveLength(43);
+    // Core is a deliberately small sampler (one example across a few common use
+    // cases); the rest is browse-and-import from the gallery.
+    expect(core).toHaveLength(5);
+    expect(extended).toHaveLength(50);
     expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
     // Extended Pack templates use the ext-namespace prefixes and are never core.
     for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {

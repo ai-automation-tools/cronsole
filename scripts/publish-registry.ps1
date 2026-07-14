@@ -32,6 +32,10 @@ $SrcDir = Join-Path $RepoRoot 'registry'
 if (-not (Test-Path (Join-Path $SrcDir 'index.json'))) {
     throw "No registry/index.json at $SrcDir — run 'npm run registry:build' in backend/ first."
 }
+# Gallery site (browse/import UI) — source of truth for the public site is <taskhub>/registry-site/.
+# Served at https://mikesailab.com/taskhub-registry/ (index.html at the clone root); it fetches
+# the registry's index.json + templates/*.json from the same origin.
+$SiteDir = Join-Path $RepoRoot 'registry-site'
 
 # Clone or refresh the target repo.
 if (Test-Path (Join-Path $WorkDir '.git')) {
@@ -53,6 +57,21 @@ Copy-Item (Join-Path $SrcDir 'index.json') (Join-Path $WorkDir 'index.json') -Fo
 $dstTemplates = Join-Path $WorkDir 'templates'
 if (Test-Path $dstTemplates) { Remove-Item -Recurse -Force $dstTemplates }
 Copy-Item (Join-Path $SrcDir 'templates') $dstTemplates -Recurse
+
+# Mirror the gallery site into the clone root (its own file, not part of the generated
+# JSON artifact — so it lives alongside index.json without a subpath). Copy the site
+# assets flat to the root, so adding CSS/JS/images later Just Works. README.md is
+# excluded — the public repo owns its own house-style front-page README (never overwrite
+# it, mirroring how the registry JSON copy leaves README/.nojekyll/.gitattributes alone).
+if (Test-Path (Join-Path $SiteDir 'index.html')) {
+    # NB: the wildcard path (…\*) is required — `Get-ChildItem -Path <dir> -Exclude` on a
+    # bare directory silently returns nothing.
+    Get-ChildItem -Path (Join-Path $SiteDir '*') -File -Exclude 'README.md' | ForEach-Object {
+        Copy-Item $_.FullName (Join-Path $WorkDir $_.Name) -Force
+    }
+} else {
+    Write-Host "No registry-site/index.html — skipping gallery site (registry JSON still published)." -ForegroundColor Yellow
+}
 
 git -C $WorkDir add -A
 if ((git -C $WorkDir status --porcelain).Length -eq 0) {

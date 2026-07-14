@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskHub Template Gallery</title>
+  <meta name="description" content="Browse and import automation templates for TaskHub — the unified scheduled-task manager. A curated catalog of cron jobs, scripts, and AI-agent workflows you can filter, download, and import." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%238B5CF6'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <style>
+    /* ============================================================
+       TaskHub Template Gallery — "automation control catalog"
+       Self-contained: no build step, no external fonts/CDN.
+       ============================================================ */
+
+    :root {
+      --violet: #8b5cf6;
+      --violet-lo: #7c3aed;
+      --violet-hi: #a78bfa;
+      --cyan: #38bdf8;
+      --phosphor: #7ee787;      /* "runnable / creatable" signal */
+      --amber: #fbbf24;
+      --rose: #fb7185;
+
+      --font-display: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, "Cascadia Code", "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+      --r-lg: 16px; --r-md: 11px; --r-sm: 8px;
+      --maxw: 1240px;
+      --ease: cubic-bezier(.2, .7, .25, 1);
+    }
+    :root[data-theme="dark"] {
+      --bg: #08080c;
+      --bg-2: #0d0d14;
+      --panel: #121220;
+      --panel-2: #171728;
+      --panel-hi: #1e1e34;
+      --line: #24243a;
+      --line-2: #33334f;
+      --ink: #edecf5;
+      --ink-2: #a5a4bd;
+      --ink-3: #6f6e8c;
+      --violet-soft: rgba(139, 92, 246, .16);
+      --cyan-soft: rgba(56, 189, 248, .14);
+      --phosphor-soft: rgba(126, 231, 135, .13);
+      --glow-1: rgba(139, 92, 246, .22);
+      --glow-2: rgba(56, 189, 248, .12);
+      --grain-op: .035;
+      --card-sheen: linear-gradient(180deg, rgba(255,255,255,.03), transparent 40%);
+      --shadow: 0 24px 60px -28px rgba(0,0,0,.85);
+    }
+    :root[data-theme="light"] {
+      --bg: #f4f2f9;
+      --bg-2: #ebe9f4;
+      --panel: #ffffff;
+      --panel-2: #f6f4fc;
+      --panel-hi: #efecfa;
+      --line: #e3dff2;
+      --line-2: #d3cdea;
+      --ink: #1a1725;
+      --ink-2: #565073;
+      --ink-3: #8b85a6;
+      --violet-soft: rgba(139, 92, 246, .12);
+      --cyan-soft: rgba(56, 189, 248, .13);
+      --phosphor-soft: rgba(34, 160, 74, .12);
+      --phosphor: #16a34a;
+      --glow-1: rgba(139, 92, 246, .16);
+      --glow-2: rgba(56, 189, 248, .10);
+      --grain-op: .02;
+      --card-sheen: linear-gradient(180deg, rgba(255,255,255,.7), transparent 45%);
+      --shadow: 0 24px 55px -30px rgba(60,40,110,.28);
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+    body {
+      margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--ink);
+      line-height: 1.5; min-height: 100vh; overflow-x: hidden;
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    /* Atmosphere: gradient mesh + grain overlay */
+    body::before {
+      content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+      background:
+        radial-gradient(1200px 620px at 8% -6%, var(--glow-1), transparent 62%),
+        radial-gradient(1000px 560px at 102% 4%, var(--glow-2), transparent 58%),
+        radial-gradient(900px 700px at 50% 108%, var(--violet-soft), transparent 60%);
+    }
+    body::after {
+      content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: var(--grain-op);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--violet-soft); }
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+    .mono { font-family: var(--font-mono); }
+    .kicker {
+      font-family: var(--font-mono); font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--violet-hi); font-weight: 600;
+    }
+
+    /* ---------------- Top nav ---------------- */
+    .nav {
+      position: sticky; top: 0; z-index: 40;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 78%, transparent);
+      backdrop-filter: blur(16px) saturate(140%);
+    }
+    .nav-inner { display: flex; align-items: center; gap: 20px; height: 62px; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+    .brand { display: flex; align-items: center; gap: 11px; cursor: pointer; }
+    .brand-mark {
+      width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--violet), var(--violet-lo));
+      display: grid; place-items: center; box-shadow: 0 6px 20px -6px var(--violet);
+    }
+    .brand-mark svg { width: 19px; height: 19px; }
+    .brand-name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+    .brand-name .reg { color: var(--ink-3); font-weight: 500; }
+    .nav-links { display: flex; align-items: center; gap: 4px; margin-left: 12px; }
+    .nav-link {
+      font-size: 13.5px; font-weight: 550; color: var(--ink-2); padding: 7px 12px; border-radius: 8px;
+      transition: color .15s, background .15s; cursor: pointer; position: relative;
+    }
+    .nav-link:hover { color: var(--ink); background: var(--panel-2); }
+    .nav-link.active { color: var(--ink); }
+    .nav-link.active::after {
+      content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+      background: var(--violet); border-radius: 2px;
+    }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .ibtn {
+      width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--line);
+      background: var(--panel); color: var(--ink-2); cursor: pointer; display: grid; place-items: center;
+      transition: all .15s;
+    }
+    .ibtn:hover { color: var(--ink); border-color: var(--line-2); background: var(--panel-hi); }
+    .ibtn svg { width: 17px; height: 17px; }
+    .nav-toggle { display: none; }
+    @media (max-width: 720px) {
+      .nav-links { display: none; }
+      .nav-links.open {
+        display: flex; flex-direction: column; position: absolute; top: 62px; left: 0; right: 0;
+        background: var(--bg-2); border-bottom: 1px solid var(--line); padding: 10px 18px 16px; gap: 2px; margin: 0;
+      }
+      .nav-links.open .nav-link { padding: 11px 12px; }
+      .nav-link.active::after { display: none; }
+      .nav-toggle { display: grid; }
+    }
+
+    /* ---------------- Buttons ---------------- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 16px; font-size: 13.5px; font-weight: 650; border-radius: var(--r-sm);
+      border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); cursor: pointer;
+      font-family: inherit; transition: all .15s var(--ease); white-space: nowrap;
+    }
+    .btn:hover { background: var(--panel-hi); border-color: var(--line-2); transform: translateY(-1px); }
+    .btn svg { width: 15px; height: 15px; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--violet), var(--violet-lo)); border-color: transparent; color: #fff;
+      box-shadow: 0 10px 26px -12px var(--violet);
+    }
+    .btn-primary:hover { box-shadow: 0 14px 32px -12px var(--violet); filter: brightness(1.06); }
+    .btn-ghost { background: transparent; }
+    .btn-sm { padding: 8px 12px; font-size: 12.5px; }
+    .btn-icon { width: 38px; padding: 10px 0; flex: 0 0 auto; }
+
+    /* ---------------- Badges / chips ---------------- */
+    .badge {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .01em;
+      padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+    }
+    .badge-cat { background: var(--violet-soft); color: var(--violet-hi); }
+    .badge-os { background: var(--cyan-soft); color: var(--cyan); }
+    .badge-runtime { background: var(--panel-2); color: var(--ink-2); border: 1px solid var(--line); }
+    .tag {
+      font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); background: var(--panel-2);
+      padding: 2px 7px; border-radius: 5px; cursor: pointer; transition: color .12s, background .12s;
+    }
+    .tag::before { content: "#"; opacity: .5; }
+    .tag:hover { color: var(--violet-hi); background: var(--violet-soft); }
+
+    /* ---------------- Template card ---------------- */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .tcard {
+      position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
+      padding: 18px; display: flex; flex-direction: column; gap: 13px; cursor: pointer; overflow: hidden;
+      transition: border-color .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
+    }
+    .tcard::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 1px; background: linear-gradient(90deg, transparent, var(--line-2), transparent); opacity: 0; transition: opacity .2s; }
+    .tcard:hover { border-color: var(--line-2); transform: translateY(-3px); box-shadow: var(--shadow); }
+    .tcard:hover::before { opacity: 1; }
+    .tcard-head { display: flex; gap: 12px; align-items: flex-start; }
+    .ic {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center;
+      background: var(--violet-soft); color: var(--violet-hi); border: 1px solid var(--line);
+    }
+    .ic svg { width: 20px; height: 20px; }
+    .tcard-title { font-weight: 650; font-size: 15px; letter-spacing: -.01em; margin: 0; line-height: 1.25; }
+    .tcard-id { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-top: 3px; word-break: break-all; }
+    .tcard-desc { font-size: 13px; color: var(--ink-2); margin: 0; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .tcard-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .tcard-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 4px; border-top: 1px solid var(--line); margin-top: 2px; }
+    .run-flag { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
+    .run-flag .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .run-flag.real { color: var(--phosphor); } .run-flag.real .dot { background: var(--phosphor); box-shadow: 0 0 8px var(--phosphor); }
+    .run-flag.manual { color: var(--ink-3); } .run-flag.manual .dot { background: var(--ink-3); }
+    .card-cta { font-size: 12.5px; font-weight: 650; color: var(--violet-hi); display: inline-flex; align-items: center; gap: 4px; }
+    .card-cta svg { width: 14px; height: 14px; transition: transform .15s; }
+    .tcard:hover .card-cta svg { transform: translateX(3px); }
+
+    /* stagger reveal */
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .reveal { animation: rise .5s var(--ease) both; }
+
+    /* ---------------- HOME ---------------- */
+    .hero { padding: 74px 0 40px; position: relative; }
+    .hero-kicker { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 22px; }
+    .hero-kicker .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--phosphor); box-shadow: 0 0 10px var(--phosphor); animation: blink 2.4s ease-in-out infinite; }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+    .hero h1 { margin: 0 0 20px; font-size: clamp(38px, 7vw, 74px); line-height: .98; letter-spacing: -.035em; font-weight: 800; max-width: 15ch; }
+    .hero h1 .gr { background: linear-gradient(102deg, var(--violet-hi) 10%, var(--cyan) 90%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .hero p.lede { margin: 0; max-width: 560px; color: var(--ink-2); font-size: clamp(15px, 2.3vw, 18px); line-height: 1.6; }
+    .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .stat-strip { display: flex; flex-wrap: wrap; gap: 0; margin-top: 46px; border: 1px solid var(--line); border-radius: var(--r-lg); background: color-mix(in srgb, var(--panel) 60%, transparent); overflow: hidden; }
+    .stat { flex: 1 1 130px; padding: 20px 22px; border-right: 1px solid var(--line); position: relative; }
+    .stat:last-child { border-right: none; }
+    .stat .num { font-family: var(--font-mono); font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
+    .stat .lbl { font-size: 12px; color: var(--ink-3); margin-top: 7px; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+    @media (max-width: 620px) { .stat { flex-basis: 50%; border-bottom: 1px solid var(--line); } .stat:nth-child(2) { border-right: none; } }
+
+    section.band { padding: 46px 0; }
+    .band-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 26px; flex-wrap: wrap; }
+    .band-head h2 { font-size: clamp(22px, 3.4vw, 30px); letter-spacing: -.02em; margin: 0; font-weight: 750; }
+    .band-head p { margin: 6px 0 0; color: var(--ink-2); font-size: 14px; }
+    .band-head .see-all { font-size: 13px; font-weight: 650; color: var(--violet-hi); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+    .band-head .see-all svg { width: 15px; height: 15px; }
+
+    /* collection cards */
+    .coll-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .ccard {
+      position: relative; border: 1px solid var(--line); border-radius: var(--r-lg); padding: 24px; cursor: pointer;
+      background: var(--panel); overflow: hidden; transition: transform .18s var(--ease), border-color .18s, box-shadow .18s;
+      min-height: 168px; display: flex; flex-direction: column;
+    }
+    .ccard::after { content: ""; position: absolute; right: -40px; top: -40px; width: 150px; height: 150px; border-radius: 50%; background: var(--cglow, var(--violet-soft)); filter: blur(30px); opacity: .8; transition: opacity .2s; }
+    .ccard:hover { transform: translateY(-3px); border-color: var(--line-2); box-shadow: var(--shadow); }
+    .ccard:hover::after { opacity: 1; }
+    .ccard .cic { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 16px; position: relative; z-index: 1; }
+    .ccard .cic svg { width: 24px; height: 24px; }
+    .ccard h3 { margin: 0 0 6px; font-size: 18px; letter-spacing: -.01em; position: relative; z-index: 1; }
+    .ccard p { margin: 0 0 auto; color: var(--ink-2); font-size: 13px; line-height: 1.5; position: relative; z-index: 1; }
+    .ccard .cnt { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); margin-top: 16px; position: relative; z-index: 1; display: flex; align-items: center; gap: 6px; }
+    .ccard .cnt svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* how-to band */
+    .how { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); padding: 34px; }
+    .how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 26px; margin-top: 24px; counter-reset: s; }
+    .how-step { position: relative; }
+    .how-step .n { counter-increment: s; font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--violet-hi); width: 30px; height: 30px; border: 1px solid var(--line-2); border-radius: 8px; display: grid; place-items: center; margin-bottom: 13px; }
+    .how-step .n::before { content: counter(s, decimal-leading-zero); }
+    .how-step h4 { margin: 0 0 6px; font-size: 14.5px; }
+    .how-step p { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+
+    /* ---------------- BROWSE ---------------- */
+    .browse-head { padding: 40px 0 24px; }
+    .browse-head h1 { font-size: clamp(28px, 4.5vw, 40px); letter-spacing: -.025em; margin: 0 0 8px; font-weight: 780; }
+    .browse-head p { margin: 0; color: var(--ink-2); font-size: 15px; }
+    .browse-layout { display: grid; grid-template-columns: 244px 1fr; gap: 30px; align-items: start; padding-bottom: 70px; }
+    .rail { position: sticky; top: 78px; }
+    .search-box { position: relative; margin-bottom: 18px; }
+    .search-box svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--ink-3); pointer-events: none; }
+    .search-box input {
+      width: 100%; padding: 12px 14px 12px 40px; font-size: 14px; font-family: inherit;
+      background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-sm); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .search-box input::placeholder { color: var(--ink-3); }
+    .search-box input:focus { border-color: var(--violet); box-shadow: 0 0 0 3px var(--violet-soft); }
+    .facet { border-top: 1px solid var(--line); padding: 16px 0; }
+    .facet:first-of-type { border-top: none; }
+    .facet-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; }
+    .facet-opts { display: flex; flex-direction: column; gap: 2px; }
+    .fopt {
+      display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 7px; cursor: pointer;
+      font-size: 13px; color: var(--ink-2); transition: background .12s, color .12s; user-select: none;
+    }
+    .fopt:hover { background: var(--panel-2); color: var(--ink); }
+    .fopt.on { color: var(--ink); }
+    .fopt .box { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--line-2); flex-shrink: 0; display: grid; place-items: center; transition: all .13s; }
+    .fopt.on .box { background: var(--violet); border-color: var(--violet); }
+    .fopt .box svg { width: 10px; height: 10px; color: #fff; opacity: 0; }
+    .fopt.on .box svg { opacity: 1; }
+    .fopt .fname { flex: 1; text-transform: capitalize; }
+    .fopt .fcnt { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+    .fopt.dim { opacity: .4; }
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag-cloud .tag.on { color: var(--violet-hi); background: var(--violet-soft); }
+    .tag-more { font-family: var(--font-mono); font-size: 11px; color: var(--violet-hi); cursor: pointer; background: none; border: none; padding: 3px; }
+    .clear-all { font-size: 12.5px; color: var(--ink-2); cursor: pointer; background: none; border: 1px solid var(--line); border-radius: 7px; padding: 8px; width: 100%; margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; }
+    .clear-all:hover { color: var(--ink); border-color: var(--line-2); }
+    .clear-all svg { width: 13px; height: 13px; }
+
+    .browse-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+    .result-n { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
+    .result-n b { color: var(--ink); }
+    .active-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-family: var(--font-mono); background: var(--violet-soft); color: var(--violet-hi); padding: 3px 6px 3px 9px; border-radius: 6px; }
+    .pill button { background: none; border: none; color: inherit; cursor: pointer; display: grid; place-items: center; padding: 0; }
+    .pill button svg { width: 12px; height: 12px; }
+    .sort-sel { font-family: var(--font-mono); font-size: 12.5px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; cursor: pointer; }
+    .mobile-filter-btn { display: none; }
+
+    @media (max-width: 860px) {
+      .browse-layout { grid-template-columns: 1fr; }
+      .rail { position: fixed; inset: 0; z-index: 60; background: var(--bg-2); padding: 20px; overflow-y: auto; transform: translateX(-100%); transition: transform .25s var(--ease); top: 0; }
+      .rail.open { transform: none; }
+      .rail-close { display: flex !important; }
+      .mobile-filter-btn { display: inline-flex; }
+    }
+    .rail-close { display: none; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .rail-close h3 { margin: 0; font-size: 16px; }
+
+    /* ---------------- TEMPLATE DETAIL ---------------- */
+    .detail { padding: 30px 0 70px; }
+    .crumb { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); margin-bottom: 24px; }
+    .crumb a { color: var(--ink-2); cursor: pointer; } .crumb a:hover { color: var(--violet-hi); }
+    .crumb svg { width: 13px; height: 13px; }
+    .detail-hero { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 26px; }
+    .detail-hero .ic { width: 58px; height: 58px; border-radius: 14px; } .detail-hero .ic svg { width: 28px; height: 28px; }
+    .detail-hero h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 38px); letter-spacing: -.025em; font-weight: 780; line-height: 1.05; }
+    .detail-hero .did { font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); }
+    .detail-hero .dsub { margin: 12px 0 0; color: var(--ink-2); font-size: 15px; max-width: 62ch; line-height: 1.6; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 330px; gap: 30px; align-items: start; }
+    @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } .detail-hero .dsub { max-width: none; } }
+    .sec { margin-bottom: 30px; }
+    .sec-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin: 0 0 12px; }
+    .code {
+      font-family: var(--font-mono); font-size: 13px; background: var(--bg-2); border: 1px solid var(--line);
+      border-radius: var(--r-md); padding: 16px 18px; color: var(--ink); overflow-x: auto; white-space: pre-wrap;
+      word-break: break-word; line-height: 1.65; position: relative;
+    }
+    .code .ph { color: var(--phosphor); font-weight: 600; }
+    .code-wrap { position: relative; }
+    .code-copy { position: absolute; top: 10px; right: 10px; }
+    .sched { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 15px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); }
+    .sched .clock { width: 40px; height: 40px; border-radius: 10px; background: var(--cyan-soft); color: var(--cyan); display: grid; place-items: center; flex-shrink: 0; }
+    .sched .clock svg { width: 20px; height: 20px; }
+    .sched .human { font-size: 15px; font-weight: 650; }
+    .sched .cron { font-family: var(--font-mono); font-size: 12.5px; color: var(--violet-hi); background: var(--violet-soft); padding: 2px 8px; border-radius: 5px; }
+    table.params { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.params th { text-align: left; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; padding: 0 12px 9px 0; border-bottom: 1px solid var(--line); }
+    table.params td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink-2); }
+    table.params tr:last-child td { border-bottom: none; }
+    table.params td.k { color: var(--phosphor); font-family: var(--font-mono); font-size: 12.5px; white-space: nowrap; }
+    table.params .sub { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+    table.params .req { color: var(--amber); font-family: var(--font-mono); font-size: 10.5px; }
+    table.params .opt { color: var(--ink-3); font-family: var(--font-mono); font-size: 10.5px; }
+    .targets { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tg { font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; }
+    .tg .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .tg.real { background: var(--phosphor-soft); color: var(--phosphor); }
+    .tg.manual { background: var(--panel-2); color: var(--ink-3); border: 1px solid var(--line); }
+    .note { font-size: 12.5px; color: var(--ink-3); margin: 10px 0 0; line-height: 1.5; }
+
+    /* detail aside */
+    .aside-card { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); padding: 20px; position: sticky; top: 78px; }
+    .aside-card h3 { margin: 0 0 4px; font-size: 15px; }
+    .aside-card .sub { font-size: 12.5px; color: var(--ink-3); margin: 0 0 16px; }
+    .aside-actions { display: flex; flex-direction: column; gap: 9px; }
+    .aside-actions .btn { width: 100%; }
+    .aside-meta { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 11px; }
+    .meta-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+    .meta-row .ml { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+    .meta-row .mv { color: var(--ink); text-align: right; }
+    .aside-tags { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+    .related { display: flex; flex-direction: column; gap: 8px; }
+    .rel { display: flex; gap: 11px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; transition: border-color .15s, background .15s; }
+    .rel:hover { border-color: var(--line-2); background: var(--panel-2); }
+    .rel .ic { width: 32px; height: 32px; border-radius: 8px; } .rel .ic svg { width: 16px; height: 16px; }
+    .rel .rt { font-size: 13px; font-weight: 600; margin: 0; } .rel .rd { font-size: 11.5px; color: var(--ink-3); margin: 1px 0 0; }
+
+    /* ---------------- states ---------------- */
+    .state { text-align: center; padding: 80px 20px; color: var(--ink-2); }
+    .state svg { width: 44px; height: 44px; color: var(--ink-3); margin-bottom: 16px; }
+    .state h3 { margin: 0 0 6px; color: var(--ink); font-size: 19px; }
+    .state p { margin: 0; font-size: 14px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--line); border-top-color: var(--violet); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .skel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); height: 210px; position: relative; overflow: hidden; }
+    .skel::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--panel-hi), transparent); animation: sh 1.3s infinite; }
+    @keyframes sh { 100% { transform: translateX(100%); } }
+
+    /* ---------------- modal ---------------- */
+    .backdrop { position: fixed; inset: 0; background: rgba(4,4,10,.7); backdrop-filter: blur(5px); display: flex; align-items: flex-start; justify-content: center; padding: 44px 16px; z-index: 80; overflow-y: auto; opacity: 0; animation: fade .16s forwards; }
+    @keyframes fade { to { opacity: 1; } }
+    .modal { background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r-lg); width: 100%; max-width: 560px; box-shadow: 0 44px 90px -34px rgba(0,0,0,.75); transform: translateY(10px); opacity: 0; animation: pop .2s var(--ease) forwards; }
+    @keyframes pop { to { transform: none; opacity: 1; } }
+    .modal-h { display: flex; gap: 14px; align-items: flex-start; padding: 22px 22px 16px; border-bottom: 1px solid var(--line); }
+    .modal-h .ic { width: 44px; height: 44px; } .modal-h .ic svg { width: 22px; height: 22px; }
+    .modal-h h2 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+    .modal-h .sub { font-size: 12.5px; color: var(--ink-3); margin: 3px 0 0; }
+    .modal-x { margin-left: auto; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2); cursor: pointer; display: grid; place-items: center; flex-shrink: 0; }
+    .modal-x:hover { color: var(--ink); background: var(--panel-hi); } .modal-x svg { width: 15px; height: 15px; }
+    .modal-b { padding: 22px; }
+    .steps { counter-reset: st; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+    .steps li { display: flex; gap: 13px; align-items: flex-start; }
+    .steps li::before { counter-increment: st; content: counter(st); flex-shrink: 0; width: 27px; height: 27px; border-radius: 50%; background: var(--violet-soft); color: var(--violet-hi); font-family: var(--font-mono); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+    .steps li div { font-size: 13.5px; color: var(--ink-2); padding-top: 3px; }
+    .steps li b { color: var(--ink); }
+
+    /* ---------------- toast ---------------- */
+    #toasts { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+    .toast { background: var(--panel-hi); color: var(--ink); border: 1px solid var(--line-2); padding: 11px 18px; border-radius: 10px; font-size: 13.5px; font-weight: 550; box-shadow: var(--shadow); display: flex; align-items: center; gap: 9px; animation: tin .2s var(--ease); }
+    .toast svg { width: 16px; height: 16px; }
+    .toast.ok svg { color: var(--phosphor); } .toast.err svg { color: var(--rose); }
+    @keyframes tin { from { transform: translateY(12px); opacity: 0; } }
+
+    footer.ft { border-top: 1px solid var(--line); margin-top: 40px; padding: 30px 0 46px; }
+    footer.ft .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    footer.ft .fl { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-3); }
+    footer.ft .fr { display: flex; gap: 18px; font-size: 13px; }
+    footer.ft .fr a { color: var(--ink-2); } footer.ft .fr a:hover { color: var(--violet-hi); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="brand" data-nav="#/">
+        <div class="brand-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M9 16.5l4.5 4.5L23 11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="brand-name">TaskHub <span class="reg">Registry</span></div>
+      </div>
+      <div class="nav-links" id="navlinks">
+        <span class="nav-link" data-nav="#/">Home</span>
+        <span class="nav-link" data-nav="#/browse">Browse</span>
+        <span class="nav-link" data-nav="#/collections">Collections</span>
+        <span class="nav-link" id="nav-import">Import guide</span>
+      </div>
+      <div class="nav-right">
+        <button class="ibtn nav-toggle" id="navtoggle" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <button class="ibtn" id="theme" aria-label="Toggle theme"></button>
+        <a class="ibtn" href="https://github.com/michaelschecht/taskhub-registry" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02.8-.22 1.65-.33 2.5-.34.85 0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85 0 1.34-.01 2.42-.01 2.75 0 .27.18.58.69.48A10.01 10.01 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></svg></a>
+      </div>
+    </div>
+  </nav>
+
+  <main id="app"></main>
+
+  <footer class="ft">
+    <div class="wrap">
+      <div class="fl">
+        <div class="brand-mark" style="width:26px;height:26px;border-radius:7px"><svg viewBox="0 0 32 32" fill="none"><path d="M9 16.5l4.5 4.5L23 11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <span>TaskHub Template Registry · content-addressed · served via GitHub Pages</span>
+      </div>
+      <div class="fr">
+        <a href="https://mikesailab.com" target="_blank" rel="noopener">TaskHub</a>
+        <a href="https://mikesailab.com/taskhub-registry/index.json" target="_blank" rel="noopener">index.json</a>
+        <a href="https://github.com/michaelschecht/taskhub-registry/issues" target="_blank" rel="noopener">Request a template</a>
+      </div>
+    </div>
+  </footer>
+
+  <div id="modal-root"></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var INDEX_URL = "./index.json";
+
+    // ---------- label maps ----------
+    var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };
+    var OS = { windows: "Windows", macos: "macOS", linux: "Linux", "cross-platform": "Cross-platform" };
+    var RT = { powershell: "PowerShell", batch: "Batch", bash: "Bash", zsh: "Zsh", python: "Python", node: "Node.js", executable: "Executable", http: "HTTP", "ai-prompt": "AI Prompt", applescript: "AppleScript", vbscript: "VBScript" };
+    var CREATABLE = { windows: 1, "taskhub-native": 1 };
+    var TGT = { windows: "Windows", "taskhub-native": "TaskHub", macos: "macOS", linux: "Linux", "claude-code": "Claude Code", chatgpt: "ChatGPT" };
+    function lab(m, v) { return m[v] || v; }
+
+    // ---------- icons ----------
+    var I = {
+      arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+      back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+      dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>',
+      copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+      info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+      x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+      check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+      alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>',
+      search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+      clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+      moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>',
+      filter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></svg>',
+      tpl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>',
+      // collection / category icons
+      spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>',
+      code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>',
+      bot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M12 8V4M8 2h8"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg>',
+      shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      pulse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>',
+      broom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4l-7 7M12 11l-7 9h9l1-4M12 11l4 4"/></svg>',
+      db: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
+      grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>'
+    };
+    // runtime → glyph for cards
+    function runtimeIcon(rt) {
+      if (rt === "ai-prompt") return I.bot;
+      if (rt === "http") return I.pulse;
+      if (rt === "executable") return I.grid;
+      return I.code;
+    }
+
+    // ---------- collections (curated) ----------
+    var COLLECTIONS = [
+      { key: "starters", title: "Script Starters", tagline: "Blank-slate primitives for PowerShell, Bash, Python, Node, executables and HTTP — the fastest way to schedule any command.", icon: I.spark, glow: "var(--violet-soft)", iconBg: "var(--violet-soft)", iconFg: "var(--violet-hi)", match: function (t) { return !!t.isStarter; } },
+      { key: "developer", title: "Developer Pack", tagline: "Keep repos fresh and toolchains healthy: git hygiene, npm checks, builds, tests, Docker upkeep.", icon: I.code, glow: "var(--cyan-soft)", iconBg: "var(--cyan-soft)", iconFg: "var(--cyan)", match: function (t) { return (t.tags || []).indexOf("dev") !== -1; } },
+      { key: "ai-agents", title: "AI & Agents", tagline: "Run Claude Code and Codex unattended — headless prompts, repo digests, autofix — plus AI prompt patterns.", icon: I.bot, glow: "var(--phosphor-soft)", iconBg: "var(--phosphor-soft)", iconFg: "var(--phosphor)", match: function (t) { return t.category === "ai-agent" || (t.tags || []).indexOf("ai") !== -1; } },
+      { key: "backup-cleanup", title: "Backup & Cleanup", tagline: "Protect data and reclaim disk: scheduled database backups, temp-file sweeps, and log rotation.", icon: I.shield, glow: "rgba(251,191,36,.14)", iconBg: "rgba(251,191,36,.14)", iconFg: "var(--amber)", match: function (t) { return t.category === "backup" || t.category === "cleanup"; } },
+      { key: "monitoring", title: "Monitoring", tagline: "Watch what matters — health checks, webhooks, and status pings on a schedule.", icon: I.pulse, glow: "rgba(251,113,133,.14)", iconBg: "rgba(251,113,133,.14)", iconFg: "var(--rose)", match: function (t) { return t.category === "monitoring"; } }
+    ];
+    function collByKey(k) { for (var i = 0; i < COLLECTIONS.length; i++) if (COLLECTIONS[i].key === k) return COLLECTIONS[i]; return null; }
+
+    // ---------- state ----------
+    var TEMPLATES = [], FULL = {}, LOADED = false, LOAD_ERR = null;
+    var browseState = { search: "", category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
+
+    // ---------- helpers ----------
+    function $(id) { return document.getElementById(id); }
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function byId(id) { for (var i = 0; i < TEMPLATES.length; i++) if (TEMPLATES[i].id === id) return TEMPLATES[i]; return null; }
+    function uniq(arr) { var s = {}, o = []; arr.forEach(function (v) { if (v != null && !s[v]) { s[v] = 1; o.push(v); } }); return o; }
+    function pluralize(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+
+    // ---------- toast ----------
+    function toast(msg, kind) {
+      var t = document.createElement("div");
+      t.className = "toast " + (kind === "err" ? "err" : "ok");
+      t.innerHTML = (kind === "err" ? I.alert : I.check) + "<span>" + esc(msg) + "</span>";
+      $("toasts").appendChild(t);
+      setTimeout(function () { t.style.transition = "opacity .3s,transform .3s"; t.style.opacity = "0"; t.style.transform = "translateY(8px)"; setTimeout(function () { t.remove(); }, 300); }, 2400);
+    }
+
+    // ---------- cron humanizer ----------
+    var DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    var MON = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    function p2(n) { return (n < 10 ? "0" : "") + n; }
+    function t12(h, m) { var ap = h < 12 ? "AM" : "PM", hr = h % 12; if (hr === 0) hr = 12; return hr + ":" + p2(m) + " " + ap; }
+    function ord(n) { var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+    function describeCron(expr) {
+      if (!expr || typeof expr !== "string") return null;
+      var p = expr.trim().split(/\s+/); if (p.length !== 5) return null;
+      var mi = p[0], hr = p[1], dom = p[2], mon = p[3], dow = p[4], ev = function (f) { return f === "*"; };
+      var im = mi.match(/^\*\/(\d+)$/); if (im && ev(hr) && ev(dom) && ev(mon) && ev(dow)) return "Every " + im[1] + " minutes";
+      var ih = hr.match(/^\*\/(\d+)$/); if (ih && mi === "0" && ev(dom) && ev(mon) && ev(dow)) return "Every " + ih[1] + " hours";
+      var mn = parseInt(mi, 10), hn = parseInt(hr, 10);
+      var clock = (/^\d+$/.test(mi) && /^\d+$/.test(hr)) ? t12(hn, mn) + " UTC" : null;
+      if (ev(mon) && ev(dom) && dow === "1-5") return "Weekdays" + (clock ? " at " + clock : "");
+      if (ev(mon) && ev(dom) && (dow === "0,6" || dow === "6,0")) return "Weekends" + (clock ? " at " + clock : "");
+      if (ev(mon) && ev(dom) && /^\d+$/.test(dow)) return "Weekly on " + DOW[parseInt(dow, 10) % 7] + (clock ? " at " + clock : "");
+      if (ev(mon) && ev(dow) && /^\d+$/.test(dom)) return "Monthly on the " + ord(parseInt(dom, 10)) + (clock ? " at " + clock : "");
+      if (ev(dom) && ev(mon) && ev(dow)) return clock ? "Daily at " + clock : "Daily";
+      if (/^\d+$/.test(mon)) return MON[parseInt(mon, 10)] + (dom !== "*" ? " " + ord(parseInt(dom, 10)) : "") + (clock ? " at " + clock : "");
+      return null;
+    }
+
+    // ---------- fetch full template ----------
+    function fetchFull(entry) {
+      if (FULL[entry.id]) return Promise.resolve(FULL[entry.id]);
+      return fetch("./" + entry.path).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (j) { FULL[entry.id] = j; return j; });
+    }
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+      return new Promise(function (res, rej) { try { var ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); res(); } catch (e) { rej(e); } });
+    }
+    function download(entry) {
+      fetchFull(entry).then(function (j) {
+        var blob = new Blob([JSON.stringify(j, null, 2)], { type: "application/json" });
+        var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = entry.id + ".json";
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        toast("Downloaded " + entry.id + ".json");
+      }).catch(function (e) { toast("Download failed: " + e.message, "err"); });
+    }
+    function copyTpl(entry) {
+      fetchFull(entry).then(function (j) { return copyText(JSON.stringify(j, null, 2)); })
+        .then(function () { toast("Template JSON copied — paste into TaskHub → Import"); })
+        .catch(function (e) { toast("Copy failed: " + e.message, "err"); });
+    }
+
+    // ---------- card ----------
+    function targetInfo(t) {
+      var real = (t.compatibleTargets || []).filter(function (x) { return CREATABLE[x]; });
+      return real.length ? { cls: "real", txt: real.map(function (x) { return lab(TGT, x); }).join(" · ") } : { cls: "manual", txt: "Manual setup" };
+    }
+    function card(t, idx) {
+      var ti = targetInfo(t);
+      var tags = (t.tags || []).slice(0, 3).map(function (x) { return '<span class="tag" data-tag="' + esc(x) + '">' + esc(x) + '</span>'; }).join("");
+      return '<article class="tcard reveal" style="animation-delay:' + Math.min(idx * 28, 340) + 'ms" data-open="' + esc(t.id) + '">' +
+        '<div class="tcard-head"><div class="ic">' + runtimeIcon(t.runtime) + '</div>' +
+        '<div style="min-width:0;flex:1"><h3 class="tcard-title">' + esc(t.name) + '</h3><div class="tcard-id">' + esc(t.id) + '</div></div></div>' +
+        '<p class="tcard-desc">' + esc(t.description) + '</p>' +
+        '<div class="tcard-meta"><span class="badge badge-cat">' + esc(lab(CAT, t.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, t.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, t.runtime)) + '</span>' + tags + '</div>' +
+        '<div class="tcard-foot"><span class="run-flag ' + ti.cls + '"><span class="dot"></span>' + esc(ti.txt) + '</span>' +
+        '<span class="card-cta">View' + I.arrow + '</span></div></article>';
+    }
+    function cardGrid(list) {
+      if (!list.length) return '<div class="state">' + I.search + '<h3>No templates match</h3><p>Try clearing a filter or searching for something else.</p></div>';
+      return '<div class="grid">' + list.map(card).join("") + '</div>';
+    }
+
+    // ---------- sorting ----------
+    function sortList(list, mode) {
+      var l = list.slice();
+      if (mode === "name") l.sort(function (a, b) { return a.name.localeCompare(b.name); });
+      else if (mode === "category") l.sort(function (a, b) { return lab(CAT, a.category).localeCompare(lab(CAT, b.category)) || a.name.localeCompare(b.name); });
+      else l.sort(function (a, b) { var as = a.isStarter ? 1 : 0, bs = b.isStarter ? 1 : 0; return as - bs || a.name.localeCompare(b.name); });
+      return l;
+    }
+
+    // ======================================================
+    //  VIEWS
+    // ======================================================
+
+    function viewHome() {
+      var cats = uniq(TEMPLATES.map(function (t) { return t.category; })).length;
+      var rts = uniq(TEMPLATES.map(function (t) { return t.runtime; })).length;
+      var oses = uniq(TEMPLATES.map(function (t) { return t.os; })).length;
+      var creatable = TEMPLATES.filter(function (t) { return (t.compatibleTargets || []).some(function (x) { return CREATABLE[x]; }); }).length;
+
+      var collCards = COLLECTIONS.map(function (c) {
+        var n = TEMPLATES.filter(c.match).length;
+        return '<div class="ccard" style="--cglow:' + c.glow + '" data-nav="#/collection/' + c.key + '">' +
+          '<div class="cic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
+          '<h3>' + esc(c.title) + '</h3><p>' + esc(c.tagline) + '</p>' +
+          '<div class="cnt">' + I.tpl + pluralize(n, "template") + '</div></div>';
+      }).join("");
+
+      // featured: a couple from each of the richer collections
+      var featured = [];
+      ["developer", "ai-agents", "backup-cleanup", "monitoring"].forEach(function (k) {
+        var c = collByKey(k), got = TEMPLATES.filter(c.match).filter(function (t) { return !t.isStarter; });
+        featured = featured.concat(got.slice(0, 2));
+      });
+      featured = uniq(featured.map(function (t) { return t.id; })).map(byId).slice(0, 6);
+
+      return '<div class="wrap">' +
+        '<section class="hero">' +
+          '<span class="hero-kicker kicker"><span class="pulse"></span>TaskHub · Template Registry</span>' +
+          '<h1>Automation templates,<br><span class="gr">ready to run.</span></h1>' +
+          '<p class="lede">A curated, open catalog of scheduled tasks — cron jobs, scripts, and unattended AI-agent workflows. Filter, preview, download, and import straight into your local TaskHub.</p>' +
+          '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse all templates' + I.arrow + '</button>' +
+          '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
+          '<div class="stat-strip">' +
+            stat(TEMPLATES.length, "Templates") + stat(cats, "Categories") + stat(rts, "Runtimes") + stat(creatable, "One-click ready") +
+          '</div>' +
+        '</section>' +
+
+        '<section class="band"><div class="band-head"><div><h2>Browse by collection</h2><p>Hand-picked bundles for the things people automate most.</p></div>' +
+          '<span class="see-all" data-nav="#/collections">All collections' + I.arrow + '</span></div>' +
+          '<div class="coll-grid">' + collCards + '</div></section>' +
+
+        (featured.length ? '<section class="band"><div class="band-head"><div><h2>Featured templates</h2><p>Real, ready-to-schedule automations from across the catalog.</p></div>' +
+          '<span class="see-all" data-nav="#/browse">See everything' + I.arrow + '</span></div>' + cardGrid(featured) + '</section>' : "") +
+
+        '<section class="band"><div class="how"><span class="kicker">Two clicks, no redeploy</span>' +
+          '<div class="band-head" style="margin:10px 0 0"><div><h2>How importing works</h2></div></div>' +
+          '<div class="how-grid">' +
+            howStep("Pick a template", "Download or copy any template here. You get one Registry v1 JSON file — fully inspectable.") +
+            howStep("Open TaskHub → Import", "In your local TaskHub, go to the Templates tab and click Import.") +
+            howStep("Validate & add", "TaskHub checks it against the same schema and {{placeholder}} rules as every built-in template.") +
+            howStep("Apply & schedule", "Fill in the parameters, and it becomes a real scheduled task on your machine.") +
+          '</div></div></section>' +
+        '</div>';
+    }
+    function stat(n, l) { return '<div class="stat"><div class="num">' + n + '</div><div class="lbl">' + esc(l) + '</div></div>'; }
+    function howStep(h, p) { return '<div class="how-step"><div class="n"></div><h4>' + esc(h) + '</h4><p>' + esc(p) + '</p></div>'; }
+
+    // ---------- collections index ----------
+    function viewCollections() {
+      var cards = COLLECTIONS.map(function (c) {
+        var n = TEMPLATES.filter(c.match).length;
+        return '<div class="ccard" style="--cglow:' + c.glow + '" data-nav="#/collection/' + c.key + '">' +
+          '<div class="cic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
+          '<h3>' + esc(c.title) + '</h3><p>' + esc(c.tagline) + '</p>' +
+          '<div class="cnt">' + I.tpl + pluralize(n, "template") + '</div></div>';
+      }).join("");
+      return '<div class="wrap"><div class="browse-head"><span class="kicker">Curated bundles</span>' +
+        '<h1 style="margin-top:14px">Collections</h1><p>Grouped by what you\'re trying to automate — jump into any bundle and import what you need.</p></div>' +
+        '<div class="coll-grid" style="padding-bottom:70px">' + cards + '</div></div>';
+    }
+
+    // ---------- collection detail ----------
+    function viewCollection(key) {
+      var c = collByKey(key);
+      if (!c) return notFound("Collection not found");
+      var list = sortList(TEMPLATES.filter(c.match), "featured");
+      return '<div class="wrap"><div class="crumb"><a data-nav="#/">Home</a>' + I.arrow + '<a data-nav="#/collections">Collections</a>' + I.arrow + '<span>' + esc(c.title) + '</span></div>' +
+        '<div class="detail-hero"><div class="ic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
+        '<div><h1>' + esc(c.title) + '</h1><p class="dsub">' + esc(c.tagline) + '</p>' +
+        '<div class="mono" style="color:var(--ink-3);font-size:13px;margin-top:12px">' + pluralize(list.length, "template") + '</div></div></div>' +
+        '<div style="padding-bottom:70px">' + cardGrid(list) + '</div></div>';
+    }
+
+    // ---------- browse ----------
+    function browseFiltered(except) {
+      var q = browseState.search.toLowerCase().trim();
+      return TEMPLATES.filter(function (t) {
+        if (except !== "search" && q) {
+          var hay = (t.name + " " + t.description + " " + t.id + " " + (t.tags || []).join(" ") + " " + t.category + " " + t.runtime).toLowerCase();
+          if (!q.split(/\s+/).every(function (w) { return hay.indexOf(w) !== -1; })) return false;
+        }
+        if (except !== "category" && browseState.category.length && browseState.category.indexOf(t.category) === -1) return false;
+        if (except !== "os" && browseState.os.length && browseState.os.indexOf(t.os) === -1) return false;
+        if (except !== "runtime" && browseState.runtime.length && browseState.runtime.indexOf(t.runtime) === -1) return false;
+        if (except !== "tags" && browseState.tags.length) { var ts = t.tags || []; if (!browseState.tags.every(function (tg) { return ts.indexOf(tg) !== -1; })) return false; }
+        return true;
+      });
+    }
+    function counts(list, keyFn) { var m = {}; list.forEach(function (t) { var ks = keyFn(t); (Array.isArray(ks) ? ks : [ks]).forEach(function (k) { if (k == null) return; m[k] = (m[k] || 0) + 1; }); }); return m; }
+
+    function viewBrowse() {
+      return '<div class="wrap"><div class="browse-head"><h1>Browse the catalog</h1><p>Every template in the registry — filter by category, platform, runtime, and tags.</p></div>' +
+        '<div class="browse-layout"><aside class="rail' + (browseState.railOpen ? " open" : "") + '" id="rail"></aside>' +
+        '<div><div class="browse-bar">' +
+          '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="result-n" id="rn"></span><button class="btn btn-sm mobile-filter-btn" id="mfilter">' + I.filter + ' Filters</button></div>' +
+          '<div style="display:flex;align-items:center;gap:10px"><span class="mono" style="font-size:11px;color:var(--ink-3)">SORT</span>' +
+          '<select class="sort-sel" id="sort"><option value="featured">Featured</option><option value="name">Name A–Z</option><option value="category">Category</option></select></div>' +
+        '</div><div id="pills"></div><div id="grid" style="margin-top:14px"></div></div></div></div>';
+    }
+    function renderRail() {
+      var rail = $("rail"); if (!rail) return;
+      var cc = counts(browseFiltered("category"), function (t) { return t.category; });
+      var oc = counts(browseFiltered("os"), function (t) { return t.os; });
+      var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
+      var tc = counts(browseFiltered("tags"), function (t) { return t.tags || []; });
+      var cats = uniq(TEMPLATES.map(function (t) { return t.category; })).sort();
+      var oses = uniq(TEMPLATES.map(function (t) { return t.os; })).sort();
+      var rts = uniq(TEMPLATES.map(function (t) { return t.runtime; })).sort();
+      var allTags = Object.keys(counts(TEMPLATES, function (t) { return t.tags || []; })).sort(function (a, b) { return (tc[b] || 0) - (tc[a] || 0) || a.localeCompare(b); });
+      var shown = browseState.showAllTags ? allTags : allTags.slice(0, 14);
+
+      function opt(dim, v, txt, cnt) {
+        var on = browseState[dim].indexOf(v) !== -1;
+        return '<div class="fopt' + (on ? " on" : "") + (cnt === 0 && !on ? " dim" : "") + '" data-fdim="' + dim + '" data-fval="' + esc(v) + '">' +
+          '<span class="box">' + I.check + '</span><span class="fname">' + esc(txt) + '</span><span class="fcnt">' + cnt + '</span></div>';
+      }
+      var html = "";
+      html += '<div class="rail-close"><h3>Filters</h3><button class="ibtn" id="railx">' + I.x + '</button></div>';
+      html += '<div class="search-box">' + I.search + '<input type="search" id="bsearch" placeholder="Search templates…" autocomplete="off" value="' + esc(browseState.search) + '"></div>';
+      html += '<div class="facet"><div class="facet-title">Category</div><div class="facet-opts">' + cats.map(function (v) { return opt("category", v, lab(CAT, v), cc[v] || 0); }).join("") + '</div></div>';
+      html += '<div class="facet"><div class="facet-title">Platform</div><div class="facet-opts">' + oses.map(function (v) { return opt("os", v, lab(OS, v), oc[v] || 0); }).join("") + '</div></div>';
+      html += '<div class="facet"><div class="facet-title">Runtime</div><div class="facet-opts">' + rts.map(function (v) { return opt("runtime", v, lab(RT, v), rc[v] || 0); }).join("") + '</div></div>';
+      var tagHtml = shown.map(function (v) { var on = browseState.tags.indexOf(v) !== -1; return '<span class="tag' + (on ? " on" : "") + '" data-ftag="' + esc(v) + '">' + esc(v) + '</span>'; }).join("");
+      if (allTags.length > 14) tagHtml += '<button class="tag-more" id="tagmore">' + (browseState.showAllTags ? "− less" : "+" + (allTags.length - shown.length) + " more") + '</button>';
+      html += '<div class="facet"><div class="facet-title">Tags</div><div class="tag-cloud">' + tagHtml + '</div></div>';
+      var anyActive = browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
+      if (anyActive) html += '<button class="clear-all" id="clearall">' + I.x + ' Clear all filters</button>';
+      rail.innerHTML = html;
+    }
+    function renderPills() {
+      var pills = $("pills"); if (!pills) return;
+      var out = [];
+      browseState.category.forEach(function (v) { out.push(pill("category", v, lab(CAT, v))); });
+      browseState.os.forEach(function (v) { out.push(pill("os", v, lab(OS, v))); });
+      browseState.runtime.forEach(function (v) { out.push(pill("runtime", v, lab(RT, v))); });
+      browseState.tags.forEach(function (v) { out.push(pill("tags", v, "#" + v)); });
+      pills.innerHTML = out.length ? '<div class="active-pills">' + out.join("") + '</div>' : "";
+    }
+    function pill(dim, v, txt) { return '<span class="pill">' + esc(txt) + '<button data-pdim="' + dim + '" data-pval="' + esc(v) + '" aria-label="Remove">' + I.x + '</button></span>'; }
+    function renderBrowseGrid() {
+      var g = $("grid"); if (!g) return;
+      var list = sortList(browseFiltered(null), browseState.sort);
+      var rn = $("rn"); if (rn) rn.innerHTML = '<b>' + list.length + '</b> of ' + TEMPLATES.length + ' templates';
+      g.innerHTML = cardGrid(list);
+    }
+    function refreshBrowse() { renderRail(); renderPills(); renderBrowseGrid(); }
+
+    // ---------- template detail ----------
+    function viewDetailShell() {
+      return '<div class="wrap"><div class="detail" id="detail"><div class="state"><div class="spinner"></div><p>Loading template…</p></div></div></div>';
+    }
+    function renderDetail(entry, tpl) {
+      var d = $("detail"); if (!d) return;
+      var cron = tpl.trigger && tpl.trigger.cron, human = describeCron(cron);
+      var schedHtml = "";
+      if (tpl.trigger && tpl.trigger.kind === "schedule" && cron) {
+        schedHtml = '<div class="sec"><p class="sec-label">Schedule</p><div class="sched"><div class="clock">' + I.clock + '</div>' +
+          (human ? '<span class="human">' + esc(human) + '</span>' : "") + '<span class="cron">' + esc(cron) + '</span></div></div>';
+      } else if (tpl.trigger) {
+        schedHtml = '<div class="sec"><p class="sec-label">Trigger</p><div class="sched"><div class="clock">' + I.clock + '</div><span class="human">' + esc(tpl.trigger.kind || "custom") + '</span></div></div>';
+      }
+      var cmd = tpl.commandTemplate || (tpl.action ? JSON.stringify(tpl.action, null, 2) : "");
+      var cmdHi = esc(cmd).replace(/\{\{(\w+)\}\}/g, '<span class="ph">{{$1}}</span>');
+      var cmdHtml = '<div class="sec"><p class="sec-label">' + (tpl.commandTemplate ? "Command" : "Action") + '</p><div class="code-wrap"><div class="code">' + cmdHi + '</div>' +
+        '<button class="btn btn-sm code-copy" data-copycmd>' + I.copy + ' Copy</button></div></div>';
+
+      var paramsHtml = "";
+      if (tpl.parameters && tpl.parameters.length) {
+        var rows = tpl.parameters.map(function (p) {
+          var extra = "";
+          if (p.type === "select" && p.options) extra += '<div class="sub">options: ' + esc(p.options.join(", ")) + '</div>';
+          if (p.default !== undefined && p.default !== "") extra += '<div class="sub">default: ' + esc(p.default) + '</div>';
+          return '<tr><td class="k">{{' + esc(p.key) + '}}</td><td>' + esc(p.label || "") + (p.help ? '<div class="sub">' + esc(p.help) + '</div>' : "") + extra + '</td>' +
+            '<td>' + esc(p.type || "text") + '<div class="' + (p.required ? "req" : "opt") + '">' + (p.required ? "required" : "optional") + '</div></td></tr>';
+        }).join("");
+        paramsHtml = '<div class="sec"><p class="sec-label">Parameters</p><table class="params"><thead><tr><th>Placeholder</th><th>Description</th><th>Type</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+      }
+      var targets = (tpl.compatibleTargets || []).map(function (x) { var r = CREATABLE[x]; return '<span class="tg ' + (r ? "real" : "manual") + '"><span class="dot"></span>' + esc(lab(TGT, x)) + '</span>'; }).join("");
+      var anyManual = (tpl.compatibleTargets || []).some(function (x) { return !CREATABLE[x]; });
+      var targetsHtml = '<div class="sec"><p class="sec-label">Compatible targets</p><div class="targets">' + targets + '</div>' +
+        (anyManual ? '<p class="note">Highlighted targets are created directly by TaskHub today. Others are an honest "copy to set up manually" path — no silent failure.</p>' : "") + '</div>';
+
+      // related
+      var related = TEMPLATES.filter(function (t) { return t.id !== entry.id && t.category === entry.category; });
+      if (related.length < 4) {
+        var etags = entry.tags || [];
+        TEMPLATES.forEach(function (t) { if (t.id !== entry.id && related.indexOf(t) === -1 && (t.tags || []).some(function (x) { return etags.indexOf(x) !== -1; })) related.push(t); });
+      }
+      related = related.slice(0, 4);
+      var relHtml = related.map(function (t) {
+        return '<div class="rel" data-open="' + esc(t.id) + '"><div class="ic">' + runtimeIcon(t.runtime) + '</div><div style="min-width:0"><p class="rt">' + esc(t.name) + '</p><p class="rd">' + esc(lab(CAT, t.category)) + '</p></div></div>';
+      }).join("");
+
+      var tagChips = (entry.tags || []).map(function (x) { return '<span class="tag" data-tag="' + esc(x) + '">' + esc(x) + '</span>'; }).join("");
+
+      d.innerHTML =
+        '<div class="crumb"><a data-nav="#/">Home</a>' + I.arrow + '<a data-nav="#/browse">Browse</a>' + I.arrow + '<span>' + esc(tpl.name) + '</span></div>' +
+        '<div class="detail-hero"><div class="ic">' + runtimeIcon(tpl.runtime) + '</div>' +
+          '<div style="min-width:0"><h1>' + esc(tpl.name) + '</h1><div class="did">' + esc(tpl.id) + '</div>' +
+          '<p class="dsub">' + esc(tpl.description) + '</p>' +
+          '<div class="tcard-meta" style="margin-top:16px"><span class="badge badge-cat">' + esc(lab(CAT, tpl.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, tpl.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, tpl.runtime)) + '</span></div></div></div>' +
+        '<div class="detail-grid"><div>' + schedHtml + cmdHtml + paramsHtml + targetsHtml + '</div>' +
+        '<aside><div class="aside-card"><h3>Add to your TaskHub</h3><p class="sub">Download or copy, then import in the Templates tab.</p>' +
+          '<div class="aside-actions"><button class="btn btn-primary" data-dl>' + I.dl + ' Download JSON</button>' +
+          '<button class="btn" data-copy>' + I.copy + ' Copy JSON</button>' +
+          '<button class="btn btn-ghost" id="detail-import">' + I.info + ' How to import</button></div>' +
+          '<div class="aside-meta">' +
+            metaRow("Category", esc(lab(CAT, tpl.category))) + metaRow("Platform", esc(lab(OS, tpl.os))) + metaRow("Runtime", esc(lab(RT, tpl.runtime))) +
+            metaRow("Schema", esc(tpl.schemaVersion || "1.0")) +
+            (tagChips ? '<div class="meta-row" style="align-items:flex-start"><span class="ml">Tags</span><div class="aside-tags">' + tagChips + '</div></div>' : "") +
+          '</div></div>' +
+          (relHtml ? '<div class="aside-card" style="margin-top:16px;position:static"><h3 style="margin-bottom:14px">Related templates</h3><div class="related">' + relHtml + '</div></div>' : "") +
+        '</aside></div>';
+
+      // wire actions
+      d.querySelector("[data-dl]").addEventListener("click", function () { download(entry); });
+      d.querySelector("[data-copy]").addEventListener("click", function () { copyTpl(entry); });
+      var cc = d.querySelector("[data-copycmd]"); if (cc) cc.addEventListener("click", function () { copyText(cmd).then(function () { toast("Command copied"); }).catch(function (e) { toast("Copy failed: " + e.message, "err"); }); });
+      $("detail-import").addEventListener("click", importModal);
+    }
+    function metaRow(l, v) { return '<div class="meta-row"><span class="ml">' + l + '</span><span class="mv">' + v + '</span></div>'; }
+
+    function notFound(msg) {
+      return '<div class="wrap"><div class="state">' + I.alert + '<h3>' + esc(msg || "Not found") + '</h3><p>The page you\'re looking for doesn\'t exist.</p><p style="margin-top:14px"><button class="btn" data-nav="#/">' + I.back + ' Back to home</button></p></div></div>';
+    }
+
+    // ---------- import modal ----------
+    var lastFocus = null;
+    function openModal(html) {
+      lastFocus = document.activeElement;
+      $("modal-root").innerHTML = '<div class="backdrop" role="dialog" aria-modal="true">' + html + '</div>';
+      document.body.style.overflow = "hidden";
+      var bd = $("modal-root").querySelector(".backdrop");
+      bd.addEventListener("mousedown", function (e) { if (e.target === bd) closeModal(); });
+      document.addEventListener("keydown", escClose);
+      var x = bd.querySelector("[data-close]"); if (x) x.focus();
+    }
+    function closeModal() { $("modal-root").innerHTML = ""; document.body.style.overflow = ""; document.removeEventListener("keydown", escClose); if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+    function escClose(e) { if (e.key === "Escape") closeModal(); }
+    function importModal() {
+      openModal('<div class="modal"><div class="modal-h"><div class="ic">' + I.dl + '</div><div><h2>Import a template</h2><p class="sub">Two clicks — no reseed, no redeploy.</p></div><button class="modal-x" data-close aria-label="Close">' + I.x + '</button></div>' +
+        '<div class="modal-b"><ol class="steps">' +
+        '<li><div><b>Download</b> or <b>Copy</b> a template from this gallery — a single Registry v1 JSON file.</div></li>' +
+        '<li><div>In your local <b>TaskHub</b>, open the <b>Templates</b> tab and click <b>Import</b>.</div></li>' +
+        '<li><div>Pick the file (or paste the JSON). TaskHub validates it with the same schema + <b>{{placeholder}}</b> checks it uses for every built-in template.</div></li>' +
+        '<li><div>Click <b>Apply</b>, fill in the parameters, and it becomes a real scheduled task.</div></li>' +
+        '</ol><p class="note" style="margin-top:18px">Imported templates are treated as untrusted content and never shell-wrapped — a placeholder value is always exactly one argument to the intended program.</p></div></div>');
+    }
+
+    // ======================================================
+    //  ROUTER
+    // ======================================================
+    function parseHash() {
+      var h = (location.hash || "#/").replace(/^#/, "");
+      var parts = h.split("/").filter(Boolean); // e.g. ["t","dev-git-fetch-prune"]
+      if (!parts.length) return { view: "home" };
+      if (parts[0] === "browse") return { view: "browse", tag: parseQuery(h).tag };
+      if (parts[0] === "collections") return { view: "collections" };
+      if (parts[0] === "collection") return { view: "collection", key: parts[1] };
+      if (parts[0] === "t") return { view: "detail", id: decodeURIComponent(parts[1] || "") };
+      return { view: "home" };
+    }
+    function parseQuery(h) { var q = {}; var qi = h.indexOf("?"); if (qi === -1) return q; h.slice(qi + 1).split("&").forEach(function (kv) { var p = kv.split("="); q[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || ""); }); return q; }
+
+    function setActiveNav(view) {
+      var map = { home: "#/", browse: "#/browse", collections: "#/collections", collection: "#/collections" };
+      document.querySelectorAll(".nav-link[data-nav]").forEach(function (el) {
+        el.classList.toggle("active", el.getAttribute("data-nav") === map[view]);
+      });
+    }
+
+    function route() {
+      if (LOAD_ERR) { $("app").innerHTML = '<div class="wrap"><div class="state">' + I.alert + '<h3>Couldn\'t load the catalog</h3><p>' + esc(LOAD_ERR) + '</p><p style="margin-top:12px"><a class="btn" href="' + INDEX_URL + '">Open index.json</a></p></div></div>'; return; }
+      if (!LOADED) { $("app").innerHTML = '<div class="wrap"><div class="browse-head"></div><div class="grid">' + Array(6).join("<div class='skel'></div>") + '</div></div>'; return; }
+      var r = parseHash();
+      setActiveNav(r.view);
+      closeNavMenu();
+      window.scrollTo(0, 0);
+
+      if (r.view === "home") { $("app").innerHTML = viewHome(); wireHome(); }
+      else if (r.view === "collections") { $("app").innerHTML = viewCollections(); }
+      else if (r.view === "collection") { $("app").innerHTML = viewCollection(r.key); }
+      else if (r.view === "browse") {
+        if (r.tag && browseState.tags.indexOf(r.tag) === -1) browseState.tags.push(r.tag);
+        $("app").innerHTML = viewBrowse(); wireBrowse();
+      } else if (r.view === "detail") {
+        var entry = byId(r.id);
+        if (!entry) { $("app").innerHTML = notFound("Template not found"); return; }
+        $("app").innerHTML = viewDetailShell();
+        fetchFull(entry).then(function (tpl) { renderDetail(entry, tpl); }).catch(function (e) {
+          var d = $("detail"); if (d) d.innerHTML = '<div class="state">' + I.alert + '<h3>Could not load template</h3><p>' + esc(e.message) + '</p></div>';
+        });
+      } else { $("app").innerHTML = notFound(); }
+    }
+
+    function wireHome() {
+      var hi = $("hero-import"); if (hi) hi.addEventListener("click", importModal);
+    }
+    function wireBrowse() {
+      refreshBrowse();
+      var sort = $("sort"); if (sort) { sort.value = browseState.sort; sort.addEventListener("change", function () { browseState.sort = sort.value; renderBrowseGrid(); }); }
+      var mf = $("mfilter"); if (mf) mf.addEventListener("click", function () { browseState.railOpen = true; var rl = $("rail"); if (rl) rl.classList.add("open"); document.body.style.overflow = "hidden"; });
+    }
+
+    // ---------- global event delegation ----------
+    document.addEventListener("click", function (e) {
+      var nav = e.target.closest("[data-nav]");
+      if (nav) { location.hash = nav.getAttribute("data-nav"); return; }
+      var open = e.target.closest("[data-open]");
+      if (open) { location.hash = "#/t/" + encodeURIComponent(open.getAttribute("data-open")); return; }
+      var tag = e.target.closest("[data-tag]");
+      if (tag) { browseState.tags = [tag.getAttribute("data-tag")]; browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.search = ""; location.hash = "#/browse"; return; }
+
+      // browse rail interactions (event-delegated so re-renders keep working)
+      var fopt = e.target.closest(".fopt[data-fdim]");
+      if (fopt) { toggleArr(browseState[fopt.getAttribute("data-fdim")], fopt.getAttribute("data-fval")); refreshBrowse(); return; }
+      var ftag = e.target.closest("[data-ftag]");
+      if (ftag) { toggleArr(browseState.tags, ftag.getAttribute("data-ftag")); refreshBrowse(); return; }
+      if (e.target.closest("#tagmore")) { browseState.showAllTags = !browseState.showAllTags; renderRail(); return; }
+      if (e.target.closest("#clearall")) { browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.tags = []; browseState.search = ""; refreshBrowse(); return; }
+      if (e.target.closest("#railx")) { browseState.railOpen = false; var rl = $("rail"); if (rl) rl.classList.remove("open"); document.body.style.overflow = ""; return; }
+      var pb = e.target.closest("[data-pdim]");
+      if (pb) { toggleArr(browseState[pb.getAttribute("data-pdim")], pb.getAttribute("data-pval")); refreshBrowse(); return; }
+
+      if (e.target.closest("#nav-import")) { importModal(); return; }
+      if (e.target.closest("#navtoggle")) { toggleNavMenu(); return; }
+    });
+    // browse search (delegated input)
+    document.addEventListener("input", function (e) {
+      if (e.target && e.target.id === "bsearch") { browseState.search = e.target.value; renderPills(); renderBrowseGrid(); // keep focus: only re-render counts, not whole rail
+        renderRailCountsOnly(); }
+    });
+    function renderRailCountsOnly() {
+      // update facet counts + tag counts without rebuilding the search input (preserves focus)
+      var cc = counts(browseFiltered("category"), function (t) { return t.category; });
+      var oc = counts(browseFiltered("os"), function (t) { return t.os; });
+      var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
+      var tc = counts(browseFiltered("tags"), function (t) { return t.tags || []; });
+      document.querySelectorAll(".fopt[data-fdim]").forEach(function (el) {
+        var dim = el.getAttribute("data-fdim"), val = el.getAttribute("data-fval");
+        var m = dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
+        var c = el.querySelector(".fcnt"); if (c) c.textContent = n;
+        var on = browseState[dim].indexOf(val) !== -1; el.classList.toggle("dim", n === 0 && !on);
+      });
+      document.querySelectorAll("[data-ftag]").forEach(function (el) { /* tag counts not shown inline */ });
+    }
+    function toggleArr(arr, v) { var i = arr.indexOf(v); if (i === -1) arr.push(v); else arr.splice(i, 1); }
+
+    function toggleNavMenu() { var nl = $("navlinks"); if (nl) nl.classList.toggle("open"); }
+    function closeNavMenu() { var nl = $("navlinks"); if (nl) nl.classList.remove("open"); }
+
+    // ---------- theme ----------
+    function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); $("theme").innerHTML = t === "dark" ? I.sun : I.moon; try { localStorage.setItem("taskhub.gallery.theme", t); } catch (e) {} }
+    $("theme").addEventListener("click", function () { applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"); });
+    (function () { var s; try { s = localStorage.getItem("taskhub.gallery.theme"); } catch (e) {} applyTheme(s || "dark"); })();
+
+    window.addEventListener("hashchange", route);
+
+    // ---------- boot ----------
+    fetch(INDEX_URL, { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " fetching index.json"); return r.json(); })
+      .then(function (data) { TEMPLATES = (data && data.templates) || []; LOADED = true; if (!TEMPLATES.length) LOAD_ERR = "The registry has no templates."; route(); })
+      .catch(function (e) { LOAD_ERR = e.message; route(); });
+    route();
+  })();
+  </script>
+</body>
+</html>

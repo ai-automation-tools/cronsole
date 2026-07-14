@@ -35,9 +35,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-2ea44f?style=for-the-badge" alt="License: Apache 2.0"></a>
 </p>
 
-<p align="center">
-  <a href="https://github.com/michaelschecht/taskhub/actions/workflows/ci.yml"><img src="https://github.com/michaelschecht/taskhub/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React 19">

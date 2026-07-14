@@ -18,6 +18,9 @@ the full details.
 | Script | What it does |
 |:---|:---|
 | **`taskhub.ps1`** | **Single control surface** for the whole local stack — one command to bring it up, take it down, restart it, or see one combined status. Use this instead of hunting for which service is down. |
+| **`setup-skill-links.ps1`** · **`.sh`** | Link the tracked [**🧠 skills/**](../skills/README.md) into `.claude/skills/` so Claude Code loads them. **Run once per fresh clone**; idempotent. See below. |
+| **`publish-registry.ps1`** | Mirror the generated `registry/` + `registry-site/` to the public `taskhub-registry` repo (GitHub Pages). Does **not** regenerate — run `npm run registry:build` in `backend/` first. |
+| **`publish-landing.ps1`** | Mirror `landing-site/` to the public `taskhub-site` repo. |
 | [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Task-Hub\TaskHubAgent` scheduled task (re-runs every 10 min as a self-heal). It now delegates to `taskhub.ps1 up`, so boot and manual control share one code path. |
 
 ## 🎛️ Controlling the stack (`taskhub.ps1`)
@@ -46,6 +49,32 @@ self-heal (or immediately with `taskhub up`).
 > Paths in these scripts are **machine-specific** — `Start-TaskHub.ps1` and the task XMLs
 > hardcode this machine's Node, Docker, and repo paths (and the task XML embeds a user SID).
 > Adjust them before using on another machine.
+
+## 🧠 Linking the skills (`setup-skill-links.ps1` / `.sh`)
+
+The TaskHub Agent Skill lives canonically at the repo-root [**`skills/`**](../skills/README.md)
+(tracked). Claude Code, though, only loads skills from **`.claude/skills/`**. This script
+bridges the two with a per-machine link, so the agent reads the tracked source directly and
+**no second copy exists to drift**:
+
+```powershell
+pwsh scripts\setup-skill-links.ps1     # Windows  — junctions (no admin / Developer Mode needed)
+```
+
+```bash
+./scripts/setup-skill-links.sh          # Linux / macOS — symlinks
+```
+
+Run it **once per fresh clone**, and again after adding a skill. It's idempotent, links only
+folders that contain a `SKILL.md`, refuses to clobber a real directory, and leaves the other
+skills committed under `.claude/skills/` alone.
+
+> [!WARNING]
+> **Each linked skill needs a `.gitignore` line** (`/.claude/skills/<name>/`). taskhub
+> **tracks** `.claude/skills/`, so git follows the junction and would commit the skill content
+> **twice** — once under `skills/`, again under `.claude/skills/`. The script checks this and
+> warns if an entry is missing. Sibling repos don't hit this because they ignore their whole
+> CLI tree.
 
 ## 🔗 Related
 

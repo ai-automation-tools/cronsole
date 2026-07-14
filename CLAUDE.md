@@ -205,6 +205,8 @@ Also available from the user environment: `mermaid-chart` (Phase 2 architecture 
 │   └── update-docs.md
 ├── rules/          # (empty — add project-specific rules as patterns emerge)
 └── skills/         # 16 locally-installed skills (mirrors §6 above)
+    │               #   + taskhub/ — a per-machine JUNCTION to the repo-root skills/taskhub
+    │                     (gitignored; created by scripts/setup-skill-links.ps1)
     ├── agent-tool-builder/
     ├── ai-agents-architect/
     ├── canvas-design/
@@ -224,6 +226,8 @@ Also available from the user environment: `mermaid-chart` (Phase 2 architecture 
 ```
 
 These are scoped to this project and override any same-named global skill/agent. Edit them in place when behavior needs to differ from the global default.
+
+**The `taskhub` skill is the exception — do not edit it here.** It lives canonically at the repo-root [`skills/taskhub/`](skills/README.md) (tracked) and is surfaced to Claude Code through a per-machine junction at `.claude/skills/taskhub`, created by `scripts/setup-skill-links.ps1` (`.sh` on POSIX). Run that once per fresh clone. **Always edit `skills/taskhub/`**, never through the link. Each linked skill needs a `/.claude/skills/<name>/` line in `.gitignore` — because `.claude/skills/` *is* tracked here, git would otherwise follow the junction and commit the content twice; the setup script warns if the entry is missing.
 
 ---
 

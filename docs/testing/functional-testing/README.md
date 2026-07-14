@@ -1,0 +1,130 @@
+<a id="functional-top"></a>
+
+<h1 align="center">✅ Functional Testing</h1>
+
+<p align="center">
+  <em>Does each feature do what it claims — on its own, on purpose, and when abused?</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/asks-does_it_work%3F-2ea44f?style=for-the-badge" alt="Asks">
+  <img src="https://img.shields.io/badge/tools-Vitest_·_RTL_·_xUnit_·_Playwright-8B5CF6?style=for-the-badge" alt="Tools">
+  <a href="../README.md"><img src="https://img.shields.io/badge/↩-testing_home-6B7280?style=for-the-badge" alt="Testing Home"></a>
+</p>
+
+---
+
+Functional tests take **one feature** and prove it behaves per spec — the happy path, the
+error paths, and the boundaries. They're written **as the feature is built**, and they're the
+first thing that should exist for anything user-facing.
+
+**This layer is not:** wiring between components (that's [integration](../integration-testing/README.md)),
+protecting old features (that's [regression](../regression-testing/README.md)), or judging
+whether the feature was worth building (that's [UAT](../uat/README.md)).
+
+**Legend:** ✅ automated today · 🟡 partial · ⬜ gap / manual only
+
+> [!TIP]
+> **The ⬜ rows aren't untested — they're hand-tested.** Concrete steps for them live in
+> [manual-testing/](../manual-testing/README.md): the [Windows Task Lifecycle](../manual-testing/runbooks/Windows_Task_Lifecycle.md)
+> runbook covers the real-COM rows (F1.3–F1.5, F1.8, F2.8), [Template Apply](../manual-testing/runbooks/Template_Apply.md)
+> covers F2.7 / F3.4 / F3.9, and [Security Checks](../manual-testing/runbooks/Security_Checks.md)
+> covers F4.3–F4.6.
+
+## 🗂️ Task lifecycle
+
+The core loop. If any of this lies, the product has no reason to exist.
+
+| # | Test type | What it must prove | Status |
+|:--|:---|:---|:--|
+| F1.1 | **List & view** | Tasks render with correct name, platform, schedule, last-run, next-run, and enabled state | ✅ `TaskCard.test.tsx`, `TaskModal.test.tsx` |
+| F1.2 | **Selective import** | Import modal defaults `Microsoft` and `Uncategorized` to **unchecked**, but both toggle; only checked items import | ✅ `ImportModal.test.tsx` |
+| F1.3 | **Run Now (manual trigger)** | Command reaches the platform, result returns, UI shows success/failure honestly | ✅ E2E `mock-agent.spec.ts` |
+| F1.4 | **Enable / disable** | Toggle flips real platform state, not just the DB row | ✅ `task-status.integration.test.ts` |
+| F1.5 | **Delete** | Windows delete removes the real Task Scheduler entry; **DB row only goes after platform confirms**; admin-ACL'd tasks get an honest "needs elevation" refusal (not a fake success) | ✅ `task-delete.integration.test.ts` |
+| F1.6 | **Local categorization** | User categories and overrides persist and survive a re-sync | 🟡 |
+| F1.7 | **Search & filter** | Query matching, view tabs, active/disabled filters | ✅ `taskSearch.test.ts` |
+| F1.8 | **Export a task** | Windows → native Task Scheduler XML (**UTF-16 LE + BOM**); TaskHub-native → JSON | ✅ `task-export.integration.test.ts` |
+
+## ⏰ Schedules & conversion
+
+Every schedule is stored as **5-field cron in UTC** and displayed local. Conversion is where
+silent data loss lives.
+
+| # | Test type | What it must prove | Status |
+|:--|:---|:---|:--|
+| F2.1 | **Cron parsing & validation** | Valid expressions accepted, invalid rejected at the boundary with a usable message | ✅ `scheduler-conversion.test.ts` |
+| F2.2 | **Cron → Windows trigger** | Each cron shape compiles to the correct native trigger | ✅ `TriggerBuilderTests.cs` |
+| F2.3 | **Windows trigger → cron** | Native triggers read back into the right expression | ✅ `TriggerReaderTests.cs` |
+| F2.4 | **Round-trip fidelity** | `cron → Windows → cron` returns the **identical** expression | ✅ `test-templates.test.ts` |
+| F2.5 | **Next-run calculation** | Next fire time is correct across DST boundaries and month ends | ✅ `cron-next.test.ts` |
+| F2.6 | **UTC ↔ local display** | Preview shows both, and they agree with the stored UTC | ✅ `schedule.test.ts` |
+| F2.7 | **Honest confidence scoring** | Lossy conversions return confidence `< 1.0` **with** a warning payload; very lossy (`< 0.7`) blocks auto-apply until acknowledged | ⬜ **Verify this still holds** |
+| F2.8 | **Schedule edit** | Editing a Windows task's schedule applies to the real entry | ✅ `task-schedule.integration.test.ts` |
+
+## 📄 Template catalog
+
+| # | Test type | What it must prove | Status |
+|:--|:---|:---|:--|
+| F3.1 | **Browse & facets** | Category, Tags, and Availability (Built-in / Import) facets filter correctly | ✅ E2E `smoke.spec.ts` |
+| F3.2 | **Favorites** | Favoriting persists, keyed by template id, and survives a catalog re-sync | ✅ `template-favorites.integration.test.ts` |
+| F3.3 | **Apply modal** | `{{placeholder}}` params render, live preview updates, cron preset chips work | ✅ `ApplyTemplateModal.test.tsx` |
+| F3.4 | **Duplicate-name guard** | Applying a name that already exists returns **409** — Windows must never silently overwrite | ✅ `task-name.integration.test.ts` |
+| F3.5 | **Apply → real task** | The compiled command creates an actual Windows task via the signed socket command | ✅ E2E `mock-agent.spec.ts` |
+| F3.6 | **Every template resolves** | Whole-catalog sweep: all 55 bundled `commandTemplate`s survive the Apply pipeline | ✅ `test-templates.test.ts` |
+| F3.7 | **Import / export** | Round-trip through `GET /api/templates/export` → `POST /api/templates/import` preserves the template | ✅ `template-import-export.integration.test.ts` |
+| F3.8 | **Save task as template** | An existing task becomes a valid, re-appliable template | ✅ `save-as-template.integration.test.ts` |
+| F3.9 | **Honest uncompiled targets** | A declared-but-uncompiled `compatibleTargets` entry shows the "copy to set up manually" path — **never a silent failure** | ⬜ |
+
+## 🔐 Auth & security behavior
+
+| # | Test type | What it must prove | Status |
+|:--|:---|:---|:--|
+| F4.1 | **Register / login** | Credential validation, password hashing, token issuance | ✅ `auth.integration.test.ts` |
+| F4.2 | **JWT access + refresh** | Refresh works; rotation invalidates the old token | ✅ `auth.integration.test.ts` |
+| F4.3 | **Config encryption** | `PlatformConnection.config` is AES-256-GCM encrypted before write; decrypted values never logged | ✅ `encryption.test.ts`, `connectionConfig.test.ts` |
+| F4.4 | **Route scoping** | A user cannot read or mutate another user's tasks | ✅ `idor.integration.test.ts` |
+| F4.5 | **No-shell command handling** | Structured `exec` stays `{executable, args[]}` — no implicit shell, no `cmd.exe /c` | ✅ `commandParser.test.ts`, `ArgumentQuotingTests.cs` |
+| F4.6 | **Login rate limit** | 10 login attempts in 10s returns **429** | ⬜ **Not implemented** — see [ROADMAP](../../ROADMAP.md) |
+
+## 🖥️ UI & interaction
+
+| # | Test type | What it must prove | Status |
+|:--|:---|:---|:--|
+| F5.1 | **Modal primitive** | Escape closes, focus traps, ARIA roles correct, nested-modal stack unwinds in order | ✅ `Modal` + `ConfirmProvider.test.tsx` |
+| F5.2 | **Confirm gates** | Destructive actions prompt; cancel truly cancels, accept truly executes | ✅ `ConfirmProvider.test.tsx` |
+| F5.3 | **Mobile viewport** | Primary dashboard stays usable and actionable below **375px** | ✅ E2E `mock-agent.spec.ts` |
+| F5.4 | **Routing & deep links** | Bookmarkable sections; `/tasks/:id` and `/templates/:id` resolve cold | 🟡 |
+| F5.5 | **Dark theme default** | Dark is default (light is the toggle); persists via `localStorage` key `taskhub.theme` | ⬜ |
+| F5.6 | **Live updates** | A WebSocket `task:updated` invalidates the TanStack Query cache and repaints | ✅ E2E `smoke.spec.ts` |
+| F5.7 | **Agent offline guard** | Socket drops → badge flips to Offline and Run Now disables | ✅ E2E `mock-agent.spec.ts` |
+| F5.8 | **Onboarding surfaces** | Help Center walkthrough renders; first-run banner dismisses and stays dismissed | ✅ `HelpModal.test.tsx` |
+
+## 🤖 Agent & MCP surfaces
+
+| # | Test type | What it must prove | Status |
+|:--|:---|:---|:--|
+| F6.1 | **Agent command handlers** | `task:run`, `task:scan`, `task:create`, `task:delete`, `task:export` each behave per contract | ✅ `AgentServiceTests.cs` |
+| F6.2 | **Agent config & auth** | Pairing config parses; authenticator derives the right token | ✅ `AgentConfigTests.cs`, `AgentAuthenticatorTests.cs` |
+| F6.3 | **Health diagnostics** | An invalid Claude key surfaces "Key authentication failed" **with** corrective instructions | ⬜ |
+| F6.4 | **Failure notifications** | Failed manual + scheduled native runs fire generic / Discord / ntfy webhooks | ✅ `FailureNotificationService.test.ts` |
+| F6.5 | **MCP tools** | All 5 tools (`list_tasks`, `run_task`, `list_templates`, `create_task_from_template`, `convert_schedule`) work over stdio | ⬜ **No suite** — manual only |
+
+## ✍️ Writing a good functional test
+
+1. **Name the claim, not the code.** `rejects a duplicate Windows task name with 409` beats `test applyTemplate`.
+2. **Test the error path too.** Most TaskHub bugs are honesty bugs — the feature "works" but lies when it fails. Assert what the user is *told*.
+3. **Validate at boundaries.** Per CLAUDE.md, Zod guards the edges; trust internal code. Test the edge, not every internal hop.
+4. **Prefer the cheapest layer.** If a Vitest unit test can prove it, don't spend an E2E run.
+5. **A new feature ships with its functional test.** Once it's merged, that test becomes [regression](../regression-testing/README.md) coverage for free.
+
+<p align="right">(<a href="#functional-top">back to top</a>)</p>
+
+---
+
+<p align="center">
+  <a href="../README.md">← Testing Home</a> ·
+  <a href="../integration-testing/README.md">Integration</a> ·
+  <a href="../regression-testing/README.md">Regression</a> ·
+  <a href="../uat/README.md">UAT</a>
+</p>

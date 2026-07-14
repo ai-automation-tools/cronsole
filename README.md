@@ -192,6 +192,7 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 | [**⚙️ Setup & Configuration**](docs/setup/README.md) | Environment variables, Docker vs. manual, agent pairing. |
 | [**🖥️ User Guides**](docs/user-guides/README.md) | Day-to-day guides for using TaskHub once it's running. |
 | [**🧯 Troubleshooting**](docs/troubleshooting/README.md) | Symptom → cause → fix for problems we've actually hit. |
+| [**🧪 Testing**](docs/testing/README.md) | What to test and how to run it — functional, integration, regression, and UAT, plus step-by-step manual runbooks. |
 | [**🗺️ Roadmap**](docs/ROADMAP.md) | What's shipped and what's next, in priority order. |
 
 And the key guides, one click away:
@@ -204,12 +205,27 @@ And the key guides, one click away:
 | [**🖥️ UI User Guide**](docs/user-guides/guides/UI_User_Guide.md) | Navigating the dashboard, categorizing tasks, applying templates. |
 | [**🤖 Windows Agent Setup**](docs/user-guides/guides/Agent_Setup_Guide.md) | Installing, verifying, and troubleshooting the local agent. |
 | [**🧩 MCP Server**](docs/user-guides/guides/MCP_Server_Guide.md) | Wiring TaskHub into Claude / Codex / Cursor to manage tasks in natural language. |
+| [**🔥 Smoke Test**](docs/testing/manual-testing/runbooks/Smoke_Test.md) | Verifying your stack is actually alive and the agent is talking — in about 10 minutes. |
 
 ## 🤝 Contributing
 
 TaskHub is a private MVP-stage repository. If you're working on it, start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CLAUDE.md`](CLAUDE.md), and track work on the
 [Roadmap](docs/ROADMAP.md). Recent changes are logged in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+
+Working with an AI agent? Install the [**🧠 TaskHub skill**](skills/README.md) — it front-loads
+the architecture, invariants, and known traps so the agent knows the system before it edits it.
+
+Before opening a PR, run the suites and — for anything touching the agent, real Task
+Scheduler, or security — the relevant [manual runbook](docs/testing/manual-testing/README.md):
+
+```bash
+cd backend  && npm test && npm run test:integration
+cd ../frontend && npm run lint && npm test
+cd ../agent  && dotnet test
+```
+
+See [**🧪 Testing**](docs/testing/README.md) for what each layer covers and where the gaps are.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

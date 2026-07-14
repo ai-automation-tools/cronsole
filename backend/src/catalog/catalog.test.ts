@@ -30,12 +30,25 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 40 templates (4 patterns + 9 dev pack + 7 ai pack + 20 starters)', () => {
-    expect(bundledCatalog).toHaveLength(40);
+  it('has the expected shape: 55 templates (4 patterns + 9 dev + 7 ai + 20 starters + 15 extended)', () => {
+    expect(bundledCatalog).toHaveLength(55);
     expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(20);
-    expect(bundledCatalog.filter((t) => !t.isStarter)).toHaveLength(20);
     expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(9);
     expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
+  });
+
+  it('splits into a curated core (auto-synced) and an extended gallery-only set', () => {
+    // core: true = bundled + auto-synced into every install's DB by default.
+    // The rest are extended — in the registry/gallery, imported on demand.
+    const core = bundledCatalog.filter((t) => t.core === true);
+    const extended = bundledCatalog.filter((t) => !t.core);
+    expect(core).toHaveLength(12);
+    expect(extended).toHaveLength(43);
+    expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
+    // Extended Pack templates use the ext-namespace prefixes and are never core.
+    for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {
+      expect(t.core, `${t.id} (extended pack) must not be core`).not.toBe(true);
+    }
   });
 
   it('has unique ids', () => {
@@ -157,10 +170,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 40 normalized templates', async () => {
+  it('lists all 55 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(40);
+    expect(list).toHaveLength(55);
     expect(src.name).toBe('bundled');
   });
 });

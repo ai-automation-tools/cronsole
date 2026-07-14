@@ -14,6 +14,7 @@
   ],
   "icon": "Globe",
   "isStarter": true,
+  "core": true,
   "trigger": {
     "kind": "schedule",
     "cron": "*/15 * * * *"

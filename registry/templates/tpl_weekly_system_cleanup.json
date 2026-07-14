@@ -12,6 +12,7 @@
     "disk"
   ],
   "icon": "Trash2",
+  "core": true,
   "trigger": {
     "kind": "schedule",
     "cron": "0 0 * * 0"

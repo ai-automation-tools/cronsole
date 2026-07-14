@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "cln-old-files",
+  "name": "Delete Files Older Than N Days",
+  "description": "Prune files in a folder that are older than a cutoff, to reclaim disk.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "cleanup",
+  "tags": [
+    "cleanup",
+    "windows",
+    "disk",
+    "logs"
+  ],
+  "icon": "CalendarX",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 4 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Get-ChildItem -Path '{{targetDir}}' -Recurse -File | Where-Object LastWriteTime -lt (Get-Date).AddDays(-{{days}}) | Remove-Item -Force\"",
+  "parameters": [
+    {
+      "key": "targetDir",
+      "label": "Folder to prune",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Directory whose old files are deleted (recursively)."
+    },
+    {
+      "key": "days",
+      "label": "Older than (days)",
+      "type": "text",
+      "default": "30",
+      "required": true,
+      "help": "Delete files last modified more than this many days ago."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

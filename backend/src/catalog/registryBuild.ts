@@ -71,6 +71,7 @@ export function buildRegistry(
       category: t.category,
       tags: t.tags,
       isStarter: t.isStarter,
+      core: t.core,
       runtime: t.runtime,
       os: t.os,
       compatibleTargets: t.compatibleTargets,

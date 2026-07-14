@@ -97,6 +97,12 @@ export const registryTemplateSchema = z
     tags: z.array(z.string()).optional(),
     icon: z.string().optional(),
     isStarter: z.boolean().optional(),
+    // Distribution tier. `core: true` templates are the curated set the app
+    // bundles and auto-syncs into every install's DB by default; everything else
+    // is "extended" — it lives in the registry/gallery and is pulled into a DB
+    // only when a user imports it. Absent ⇒ extended. (The full registry always
+    // contains both; only the *auto-sync* is limited to core — see catalogSync.)
+    core: z.boolean().optional(),
     trigger: registryTriggerSchema,
     action: registryActionSchema.optional(),
     // Authoring shorthand (kept per the 2026-07-13 decision): a command string
@@ -131,6 +137,9 @@ export const registryIndexEntrySchema = z.object({
   category: z.string().optional(),
   tags: z.array(z.string()).optional(),
   isStarter: z.boolean().optional(),
+  // Mirrors the template's `core` flag so the gallery can badge "built-in" vs
+  // "import" without fetching every template file. Absent ⇒ extended.
+  core: z.boolean().optional(),
   runtime: z.string().optional(),
   os: z.string().optional(),
   compatibleTargets: z.array(z.string()),

@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-13T21:28:36.796Z",
+  "updatedAt": "2026-07-14T19:06:35.295Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -13,13 +13,14 @@
         "database",
         "postgres"
       ],
+      "core": true,
       "runtime": "executable",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_daily_database_backup.json",
-      "sha256": "41d8116537d874b82dfcf1965f2cb8e29253057855f41a14b1130985e80f9e1d"
+      "sha256": "3a8caeca781b4fe3690ea76520ec68604e376e3ab93cdc7037ea8f032c490d90"
     },
     {
       "id": "tpl_morning_news_digest",
@@ -50,13 +51,14 @@
         "cleanup",
         "disk"
       ],
+      "core": true,
       "runtime": "batch",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_weekly_system_cleanup.json",
-      "sha256": "66b53e12e6f34d8aa2ad23be785c28acae4a3d062570698c483f01e814b3477f"
+      "sha256": "311c4a7525377ee116eed57779e3a2efe4461af374c94c763c35dd3c010ea151"
     },
     {
       "id": "tpl_github_pr_triage",
@@ -87,6 +89,7 @@
         "sync",
         "hygiene"
       ],
+      "core": true,
       "runtime": "executable",
       "os": "cross-platform",
       "compatibleTargets": [
@@ -94,7 +97,7 @@
         "macos"
       ],
       "path": "templates/dev-git-fetch-prune.json",
-      "sha256": "0b54c7bcffe935e40ebae33334224f00f05a191001900dd0aff73bcdb07315b0"
+      "sha256": "28519f8d5499ac384b9c347cb585099e650ccf89a6d90c84fa5c19030aff9db0"
     },
     {
       "id": "dev-git-maintenance",
@@ -184,13 +187,14 @@
         "test",
         "ci"
       ],
+      "core": true,
       "runtime": "node",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/dev-npm-test-run.json",
-      "sha256": "4727faa48d5d435410324b4b86129e2091b3b7b0d2ca5900f908449c80135f7e"
+      "sha256": "f500429829de4743a8ea26c2424efc447d9a49cdfaddef1b8a8bbd0a576de52f"
     },
     {
       "id": "dev-dotnet-build",
@@ -243,6 +247,7 @@
         "self-heal",
         "monitoring"
       ],
+      "core": true,
       "runtime": "executable",
       "os": "cross-platform",
       "compatibleTargets": [
@@ -250,7 +255,7 @@
         "macos"
       ],
       "path": "templates/dev-docker-compose-up.json",
-      "sha256": "fc1ac426f5e1b2bce4c9f2f3d66704dc2565548f7a8e230f267beeb03195d09b"
+      "sha256": "da853ff0acf359cd9fcdfd2d0cc0b7f7261059f7cc2a319981ac3b98554bad4e"
     },
     {
       "id": "ai-claude-headless-run",
@@ -407,13 +412,14 @@
         "powershell"
       ],
       "isStarter": true,
+      "core": true,
       "runtime": "powershell",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_powershell_script.json",
-      "sha256": "8a3d81b76b9dbebde4ef7a9def35eba8a584c8a3f58a77789aaf0ec4552220e3"
+      "sha256": "3773946cded1c0dd1b058431f86ae5ed7efd30131fcd868b28d75abf390f25e2"
     },
     {
       "id": "tpl_starter_powershell_inline",
@@ -425,13 +431,14 @@
         "powershell"
       ],
       "isStarter": true,
+      "core": true,
       "runtime": "powershell",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_powershell_inline.json",
-      "sha256": "9248c361d3bdc0aa1cfa827d736cd144082900b2ad71c6b04d147781d1c15cf8"
+      "sha256": "7877ec2fe8c8f3d907119936f5034f06b892f3ede5256dc4355d5d6cab734bad"
     },
     {
       "id": "tpl_starter_batch_script",
@@ -444,13 +451,14 @@
         "script"
       ],
       "isStarter": true,
+      "core": true,
       "runtime": "batch",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_batch_script.json",
-      "sha256": "24bb19410009a290de2558ab711e8b2f194a78b0aa0e06c627a87fdaa0788fe3"
+      "sha256": "8821e5edd9968d8b5ae9430017345d2a0e30794e4e30fc90972174f9084275f2"
     },
     {
       "id": "tpl_starter_python_windows",
@@ -463,13 +471,14 @@
         "script"
       ],
       "isStarter": true,
+      "core": true,
       "runtime": "python",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_python_windows.json",
-      "sha256": "a13794278d933a44e16148f68d24a447d59146d5b7676953ad7dbc1444c10b74"
+      "sha256": "bbdb61a9c0ae0d9edd446582e47c5910a437c6438ac85c3a7b64ec8d7cb933d9"
     },
     {
       "id": "tpl_starter_node_windows",
@@ -482,13 +491,14 @@
         "script"
       ],
       "isStarter": true,
+      "core": true,
       "runtime": "node",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_node_windows.json",
-      "sha256": "12c7561b172e9b676013f56bb9d1b996d06419be65cc9b27cb2d2a19b51388a4"
+      "sha256": "8e62ef762520bb4394c164cd286cf8af1427cbb0e32f8ab20082152788937bfb"
     },
     {
       "id": "tpl_starter_run_exe",
@@ -500,13 +510,14 @@
         "executable"
       ],
       "isStarter": true,
+      "core": true,
       "runtime": "executable",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_run_exe.json",
-      "sha256": "bf5f5d31224fa113133c1d43e0c4f41f218d20f50978603a27ed79fb6fac2777"
+      "sha256": "09edf3ccd5b34aa7602cd6154610850bf4fda7faa95dd04da2ff47f4e87e7f03"
     },
     {
       "id": "tpl_starter_webhook_windows",
@@ -520,13 +531,14 @@
         "webhook"
       ],
       "isStarter": true,
+      "core": true,
       "runtime": "http",
       "os": "windows",
       "compatibleTargets": [
         "windows"
       ],
       "path": "templates/tpl_starter_webhook_windows.json",
-      "sha256": "e4a208ebca646d97c740e3fe9d2c3d876a3b477497921618e86e7591b71e335a"
+      "sha256": "e26ef9a1d57e9caf7ce22c2ff821acb50fc8c66ebaabca6d6ca355aa7c428c70"
     },
     {
       "id": "tpl_starter_vbscript",
@@ -772,6 +784,290 @@
       ],
       "path": "templates/tpl_starter_chatgpt_link.json",
       "sha256": "3caddc239f013473c087e17609e10ece1316a1a66f5e80ab507e8b87803d4560"
+    },
+    {
+      "id": "bkp-folder-zip",
+      "name": "Backup Folder to Zip",
+      "description": "Compress a folder into a .zip archive on a schedule.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "windows",
+        "archive",
+        "zip"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/bkp-folder-zip.json",
+      "sha256": "5da8d98f732b1d097dbe583c4da9011b7cda17d24ef87d49425af757ed7528d0"
+    },
+    {
+      "id": "bkp-robocopy-mirror",
+      "name": "Mirror Folder (robocopy)",
+      "description": "Mirror a directory to a backup location with robocopy /MIR.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "windows",
+        "robocopy",
+        "sync"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/bkp-robocopy-mirror.json",
+      "sha256": "43c17825048df6380dcae6cb6872a2f4ca6230f12075d1d296459566c11b4b74"
+    },
+    {
+      "id": "cln-old-files",
+      "name": "Delete Files Older Than N Days",
+      "description": "Prune files in a folder that are older than a cutoff, to reclaim disk.",
+      "category": "cleanup",
+      "tags": [
+        "cleanup",
+        "windows",
+        "disk",
+        "logs"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/cln-old-files.json",
+      "sha256": "4cc20a5c17da110a2ba345a0314914842fb0f3d241d0c24ae0bcd81557ae4160"
+    },
+    {
+      "id": "cln-recycle-bin",
+      "name": "Empty Recycle Bin",
+      "description": "Empty the Windows Recycle Bin on a schedule.",
+      "category": "cleanup",
+      "tags": [
+        "cleanup",
+        "windows",
+        "disk"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/cln-recycle-bin.json",
+      "sha256": "ac1f853e4383e2cafc31d07dbd85ff5c910183be64329612a39ed5f8731be8a9"
+    },
+    {
+      "id": "sys-restart-service",
+      "name": "Restart a Windows Service",
+      "description": "Restart a Windows service on a schedule (e.g. to recover a flaky one).",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "service"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-restart-service.json",
+      "sha256": "aae50bf104c77b048ef2fe3946af0da61064be4ab0e51ef5cb02c4c95acc7fbc"
+    },
+    {
+      "id": "sys-flush-dns",
+      "name": "Flush DNS Cache",
+      "description": "Clear the Windows DNS resolver cache.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "network",
+        "dns"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-flush-dns.json",
+      "sha256": "744ea019fa1a8404561fd29694147bd8719ba6f4f283c4f97f7329aad2904ee3"
+    },
+    {
+      "id": "sys-update-scan",
+      "name": "Trigger Windows Update Scan",
+      "description": "Kick off a Windows Update detection scan on a schedule.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "updates"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-update-scan.json",
+      "sha256": "945e57f469d30cabf1fc1b9b5a42b6cf99accec389f2957144baf821cbe861f2"
+    },
+    {
+      "id": "sys-battery-report",
+      "name": "Generate Battery Report",
+      "description": "Write a laptop battery health report to an HTML file.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "power",
+        "report"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-battery-report.json",
+      "sha256": "ab4c0c8cd7f9e60f15209ee314fd016d5d4744cb3cc3b076457d580f2a903e9e"
+    },
+    {
+      "id": "mon-disk-report",
+      "name": "Log Disk Usage",
+      "description": "Append free/used disk space for every drive to a log file.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "disk",
+        "report"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-disk-report.json",
+      "sha256": "b4158f6a3fd6699aa1f8cb0a534fa4ab7aa004d59f47a83262d123c83ecd7ca8"
+    },
+    {
+      "id": "mon-ping-host",
+      "name": "Ping Host & Log",
+      "description": "Check whether a host is reachable and append the result to a log.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "network",
+        "uptime"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-ping-host.json",
+      "sha256": "545974d695a6b031c3fe2edb56e2d85a4390b58fde28f1b38a8148f179043bd5"
+    },
+    {
+      "id": "mon-service-health",
+      "name": "Log Service Status",
+      "description": "Record whether a Windows service is running, on an interval.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "service",
+        "health"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-service-health.json",
+      "sha256": "9b005c3b62f46cd7a367f60e4aac7a8eb61fad9a57f8ca430960e270086c1ff1"
+    },
+    {
+      "id": "data-export-eventlog",
+      "name": "Export Windows Event Log",
+      "description": "Archive a Windows event log (System, Application, …) to an .evtx file.",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "windows",
+        "eventlog",
+        "archive"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/data-export-eventlog.json",
+      "sha256": "f6e92d052273ff823a6651e768bd13ad2aacf246e43c844b4618c09d37f2ec5f"
+    },
+    {
+      "id": "data-rclone-sync",
+      "name": "Sync Folder to Cloud (rclone)",
+      "description": "Sync a local folder to a configured rclone remote (S3, Drive, B2, …).",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "sync",
+        "cloud",
+        "rclone",
+        "backup"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/data-rclone-sync.json",
+      "sha256": "c768ed3420b9267f28c37a3d802fd9af2509f423777dee43016a444cbed5710b"
+    },
+    {
+      "id": "ntf-discord-heartbeat",
+      "name": "Discord Webhook Message",
+      "description": "Post a scheduled message to a Discord channel via a webhook.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "discord",
+        "webhook"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ntf-discord-heartbeat.json",
+      "sha256": "c4bccd8d47a1450de7017cb4c8b89e94657006f1fea3e49ef76a81ff7acac39f"
+    },
+    {
+      "id": "ntf-log-heartbeat",
+      "name": "Heartbeat to Log File",
+      "description": "Append a timestamped line to a log — a simple \"am I still scheduled?\" check.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "heartbeat",
+        "logs"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ntf-log-heartbeat.json",
+      "sha256": "1bb767472b0cbf03a8df7c392bc23360e618eabd27e940c016a0ee94b669486a"
     }
   ]
 }

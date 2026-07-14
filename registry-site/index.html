@@ -174,6 +174,8 @@
     .badge-cat { background: var(--violet-soft); color: var(--violet-hi); }
     .badge-os { background: var(--cyan-soft); color: var(--cyan); }
     .badge-runtime { background: var(--panel-2); color: var(--ink-2); border: 1px solid var(--line); }
+    .badge-core { background: var(--phosphor-soft); color: var(--phosphor); }
+    .badge-ext { background: var(--cyan-soft); color: var(--cyan); }
     .tag {
       font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); background: var(--panel-2);
       padding: 2px 7px; border-radius: 5px; cursor: pointer; transition: color .12s, background .12s;
@@ -476,6 +478,10 @@
     var OS = { windows: "Windows", macos: "macOS", linux: "Linux", "cross-platform": "Cross-platform" };
     var RT = { powershell: "PowerShell", batch: "Batch", bash: "Bash", zsh: "Zsh", python: "Python", node: "Node.js", executable: "Executable", http: "HTTP", "ai-prompt": "AI Prompt", applescript: "AppleScript", vbscript: "VBScript" };
     var CREATABLE = { windows: 1, "taskhub-native": 1 };
+    // Distribution tier: core templates ship built into TaskHub (auto-synced by
+    // default); everything else is extended — browse here and import on demand.
+    function availOf(t) { return t.core ? "core" : "extended"; }
+    var AVAIL = { core: "Built-in", extended: "Import" };
     var TGT = { windows: "Windows", "taskhub-native": "TaskHub", macos: "macOS", linux: "Linux", "claude-code": "Claude Code", chatgpt: "ChatGPT" };
     function lab(m, v) { return m[v] || v; }
 
@@ -525,7 +531,7 @@
 
     // ---------- state ----------
     var TEMPLATES = [], FULL = {}, LOADED = false, LOAD_ERR = null;
-    var browseState = { search: "", category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
+    var browseState = { search: "", availability: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
 
     // ---------- helpers ----------
     function $(id) { return document.getElementById(id); }
@@ -602,7 +608,7 @@
         '<div class="tcard-head"><div class="ic">' + runtimeIcon(t.runtime) + '</div>' +
         '<div style="min-width:0;flex:1"><h3 class="tcard-title">' + esc(t.name) + '</h3><div class="tcard-id">' + esc(t.id) + '</div></div></div>' +
         '<p class="tcard-desc">' + esc(t.description) + '</p>' +
-        '<div class="tcard-meta"><span class="badge badge-cat">' + esc(lab(CAT, t.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, t.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, t.runtime)) + '</span>' + tags + '</div>' +
+        '<div class="tcard-meta">' + (t.core ? '<span class="badge badge-core">Built-in</span>' : '') + '<span class="badge badge-cat">' + esc(lab(CAT, t.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, t.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, t.runtime)) + '</span>' + tags + '</div>' +
         '<div class="tcard-foot"><span class="run-flag ' + ti.cls + '"><span class="dot"></span>' + esc(ti.txt) + '</span>' +
         '<span class="card-cta">View' + I.arrow + '</span></div></article>';
     }
@@ -628,7 +634,7 @@
       var cats = uniq(TEMPLATES.map(function (t) { return t.category; })).length;
       var rts = uniq(TEMPLATES.map(function (t) { return t.runtime; })).length;
       var oses = uniq(TEMPLATES.map(function (t) { return t.os; })).length;
-      var creatable = TEMPLATES.filter(function (t) { return (t.compatibleTargets || []).some(function (x) { return CREATABLE[x]; }); }).length;
+      var coreCount = TEMPLATES.filter(function (t) { return t.core; }).length;
 
       var collCards = COLLECTIONS.map(function (c) {
         var n = TEMPLATES.filter(c.match).length;
@@ -654,7 +660,7 @@
           '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse all templates' + I.arrow + '</button>' +
           '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
           '<div class="stat-strip">' +
-            stat(TEMPLATES.length, "Templates") + stat(cats, "Categories") + stat(rts, "Runtimes") + stat(creatable, "One-click ready") +
+            stat(TEMPLATES.length, "Templates") + stat(coreCount, "Built-in") + stat(TEMPLATES.length - coreCount, "To import") + stat(cats, "Categories") +
           '</div>' +
         '</section>' +
 
@@ -712,6 +718,7 @@
           var hay = (t.name + " " + t.description + " " + t.id + " " + (t.tags || []).join(" ") + " " + t.category + " " + t.runtime).toLowerCase();
           if (!q.split(/\s+/).every(function (w) { return hay.indexOf(w) !== -1; })) return false;
         }
+        if (except !== "availability" && browseState.availability.length && browseState.availability.indexOf(availOf(t)) === -1) return false;
         if (except !== "category" && browseState.category.length && browseState.category.indexOf(t.category) === -1) return false;
         if (except !== "os" && browseState.os.length && browseState.os.indexOf(t.os) === -1) return false;
         if (except !== "runtime" && browseState.runtime.length && browseState.runtime.indexOf(t.runtime) === -1) return false;
@@ -722,7 +729,7 @@
     function counts(list, keyFn) { var m = {}; list.forEach(function (t) { var ks = keyFn(t); (Array.isArray(ks) ? ks : [ks]).forEach(function (k) { if (k == null) return; m[k] = (m[k] || 0) + 1; }); }); return m; }
 
     function viewBrowse() {
-      return '<div class="wrap"><div class="browse-head"><h1>Browse the catalog</h1><p>Every template in the registry — filter by category, platform, runtime, and tags.</p></div>' +
+      return '<div class="wrap"><div class="browse-head"><h1>Browse the catalog</h1><p>Every template in the registry. A curated <b style="color:var(--phosphor)">Built-in</b> set ships with TaskHub by default; filter to <b style="color:var(--cyan)">Import on demand</b> to see everything else you can add.</p></div>' +
         '<div class="browse-layout"><aside class="rail' + (browseState.railOpen ? " open" : "") + '" id="rail"></aside>' +
         '<div><div class="browse-bar">' +
           '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="result-n" id="rn"></span><button class="btn btn-sm mobile-filter-btn" id="mfilter">' + I.filter + ' Filters</button></div>' +
@@ -732,6 +739,7 @@
     }
     function renderRail() {
       var rail = $("rail"); if (!rail) return;
+      var ac = counts(browseFiltered("availability"), function (t) { return availOf(t); });
       var cc = counts(browseFiltered("category"), function (t) { return t.category; });
       var oc = counts(browseFiltered("os"), function (t) { return t.os; });
       var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
@@ -750,19 +758,23 @@
       var html = "";
       html += '<div class="rail-close"><h3>Filters</h3><button class="ibtn" id="railx">' + I.x + '</button></div>';
       html += '<div class="search-box">' + I.search + '<input type="search" id="bsearch" placeholder="Search templates…" autocomplete="off" value="' + esc(browseState.search) + '"></div>';
+      html += '<div class="facet"><div class="facet-title">Availability</div><div class="facet-opts">' +
+        opt("availability", "core", "Built-in", ac.core || 0) +
+        opt("availability", "extended", "Import on demand", ac.extended || 0) + '</div></div>';
       html += '<div class="facet"><div class="facet-title">Category</div><div class="facet-opts">' + cats.map(function (v) { return opt("category", v, lab(CAT, v), cc[v] || 0); }).join("") + '</div></div>';
       html += '<div class="facet"><div class="facet-title">Platform</div><div class="facet-opts">' + oses.map(function (v) { return opt("os", v, lab(OS, v), oc[v] || 0); }).join("") + '</div></div>';
       html += '<div class="facet"><div class="facet-title">Runtime</div><div class="facet-opts">' + rts.map(function (v) { return opt("runtime", v, lab(RT, v), rc[v] || 0); }).join("") + '</div></div>';
       var tagHtml = shown.map(function (v) { var on = browseState.tags.indexOf(v) !== -1; return '<span class="tag' + (on ? " on" : "") + '" data-ftag="' + esc(v) + '">' + esc(v) + '</span>'; }).join("");
       if (allTags.length > 14) tagHtml += '<button class="tag-more" id="tagmore">' + (browseState.showAllTags ? "− less" : "+" + (allTags.length - shown.length) + " more") + '</button>';
       html += '<div class="facet"><div class="facet-title">Tags</div><div class="tag-cloud">' + tagHtml + '</div></div>';
-      var anyActive = browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
+      var anyActive = browseState.availability.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
       if (anyActive) html += '<button class="clear-all" id="clearall">' + I.x + ' Clear all filters</button>';
       rail.innerHTML = html;
     }
     function renderPills() {
       var pills = $("pills"); if (!pills) return;
       var out = [];
+      browseState.availability.forEach(function (v) { out.push(pill("availability", v, lab(AVAIL, v))); });
       browseState.category.forEach(function (v) { out.push(pill("category", v, lab(CAT, v))); });
       browseState.os.forEach(function (v) { out.push(pill("os", v, lab(OS, v))); });
       browseState.runtime.forEach(function (v) { out.push(pill("runtime", v, lab(RT, v))); });
@@ -831,13 +843,14 @@
         '<div class="detail-hero"><div class="ic">' + runtimeIcon(tpl.runtime) + '</div>' +
           '<div style="min-width:0"><h1>' + esc(tpl.name) + '</h1><div class="did">' + esc(tpl.id) + '</div>' +
           '<p class="dsub">' + esc(tpl.description) + '</p>' +
-          '<div class="tcard-meta" style="margin-top:16px"><span class="badge badge-cat">' + esc(lab(CAT, tpl.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, tpl.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, tpl.runtime)) + '</span></div></div></div>' +
+          '<div class="tcard-meta" style="margin-top:16px">' + (tpl.core ? '<span class="badge badge-core">Built-in</span>' : '<span class="badge badge-ext">Import</span>') + '<span class="badge badge-cat">' + esc(lab(CAT, tpl.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, tpl.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, tpl.runtime)) + '</span></div></div></div>' +
         '<div class="detail-grid"><div>' + schedHtml + cmdHtml + paramsHtml + targetsHtml + '</div>' +
-        '<aside><div class="aside-card"><h3>Add to your TaskHub</h3><p class="sub">Download or copy, then import in the Templates tab.</p>' +
+        '<aside><div class="aside-card"><h3>' + (tpl.core ? 'Built into TaskHub' : 'Add to your TaskHub') + '</h3><p class="sub">' + (tpl.core ? 'This template ships by default — no import needed. You can still download it for reference.' : 'Download or copy, then import in the Templates tab.') + '</p>' +
           '<div class="aside-actions"><button class="btn btn-primary" data-dl>' + I.dl + ' Download JSON</button>' +
           '<button class="btn" data-copy>' + I.copy + ' Copy JSON</button>' +
           '<button class="btn btn-ghost" id="detail-import">' + I.info + ' How to import</button></div>' +
           '<div class="aside-meta">' +
+            metaRow("Availability", tpl.core ? "Built-in (default)" : "Import on demand") +
             metaRow("Category", esc(lab(CAT, tpl.category))) + metaRow("Platform", esc(lab(OS, tpl.os))) + metaRow("Runtime", esc(lab(RT, tpl.runtime))) +
             metaRow("Schema", esc(tpl.schemaVersion || "1.0")) +
             (tagChips ? '<div class="meta-row" style="align-items:flex-start"><span class="ml">Tags</span><div class="aside-tags">' + tagChips + '</div></div>' : "") +
@@ -950,7 +963,7 @@
       var ftag = e.target.closest("[data-ftag]");
       if (ftag) { toggleArr(browseState.tags, ftag.getAttribute("data-ftag")); refreshBrowse(); return; }
       if (e.target.closest("#tagmore")) { browseState.showAllTags = !browseState.showAllTags; renderRail(); return; }
-      if (e.target.closest("#clearall")) { browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.tags = []; browseState.search = ""; refreshBrowse(); return; }
+      if (e.target.closest("#clearall")) { browseState.availability = []; browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.tags = []; browseState.search = ""; refreshBrowse(); return; }
       if (e.target.closest("#railx")) { browseState.railOpen = false; var rl = $("rail"); if (rl) rl.classList.remove("open"); document.body.style.overflow = ""; return; }
       var pb = e.target.closest("[data-pdim]");
       if (pb) { toggleArr(browseState[pb.getAttribute("data-pdim")], pb.getAttribute("data-pval")); refreshBrowse(); return; }
@@ -965,13 +978,13 @@
     });
     function renderRailCountsOnly() {
       // update facet counts + tag counts without rebuilding the search input (preserves focus)
+      var ac = counts(browseFiltered("availability"), function (t) { return availOf(t); });
       var cc = counts(browseFiltered("category"), function (t) { return t.category; });
       var oc = counts(browseFiltered("os"), function (t) { return t.os; });
       var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
-      var tc = counts(browseFiltered("tags"), function (t) { return t.tags || []; });
       document.querySelectorAll(".fopt[data-fdim]").forEach(function (el) {
         var dim = el.getAttribute("data-fdim"), val = el.getAttribute("data-fval");
-        var m = dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
+        var m = dim === "availability" ? ac : dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
         var c = el.querySelector(".fcnt"); if (c) c.textContent = n;
         var on = browseState[dim].indexOf(val) !== -1; el.classList.toggle("dim", n === 0 && !on);
       });

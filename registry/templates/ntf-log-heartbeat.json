@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ntf-log-heartbeat",
+  "name": "Heartbeat to Log File",
+  "description": "Append a timestamped line to a log — a simple \"am I still scheduled?\" check.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "notification",
+  "tags": [
+    "notification",
+    "windows",
+    "heartbeat",
+    "logs"
+  ],
+  "icon": "FileClock",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/10 * * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Add-Content -Path '{{logPath}}' -Value (Get-Date)\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\heartbeat.log",
+      "required": true,
+      "help": "Where to append the heartbeat timestamp."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

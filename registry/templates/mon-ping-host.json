@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-ping-host",
+  "name": "Ping Host & Log",
+  "description": "Check whether a host is reachable and append the result to a log.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "windows",
+    "network",
+    "uptime"
+  ],
+  "icon": "Activity",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/15 * * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Test-Connection -ComputerName '{{host}}' -Count 2 | Out-File -Append '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "host",
+      "label": "Host / IP",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The hostname or IP to ping."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\ping.log",
+      "required": true,
+      "help": "Where to append the ping result."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

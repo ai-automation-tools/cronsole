@@ -146,6 +146,11 @@ Invoke via `Skill` tool when the work matches.
 
 ### DevOps & Infra
 - **`senior-devops`** — Docker, ECS/Render, CI/CD pipelines, monitoring, secret management.
+- **`release-engineering`** — shipping to strangers: versioning across the four independently-versioned components (app / agent+protocol / MCP server / registry schema), WiX MSI, Authenticode signing, macOS notarization, agent auto-update & trust, the legal minimum. Covers four open roadmap items `senior-devops` doesn't: **Installer packages**, **Agent distribution & trust**, **Versioning & releases**, **Legal minimum**.
+
+### Diagnosis & consistency (custom commands)
+- **`/doctor`** — run this **before debugging your own code** when live behavior contradicts the source. Checks the **three things that run stale** (Dockerized backend, published agent, `mcp-server/dist/`), agent connectivity, and `TASKHUB_TOKEN` expansion. Most "impossible" behavior is one of those.
+- **`/sync-surfaces`** — the §11a mirror-surface check, mechanized: maps a diff onto the surfaces it obligates and reports what drifted. Run before committing anything non-trivial.
 
 ### MCP & AI Integration (Phase 6)
 - **`claude-api`** — building the MCP server / Anthropic SDK integration.
@@ -168,6 +173,9 @@ Invoke via `Agent` tool with `subagent_type`. Spawn in parallel when work is ind
 
 | Subagent | When to use |
 |---|---|
+| **`native-agent-engineer`** | Anything under `agent/`: .NET 10, Task Scheduler COM, `TriggerBuilder`, the WS+HMAC protocol, WiX. **The macOS/launchd agent (P3) lands here.** Owns the layer where a bug stops being cosmetic. |
+| **`template-curator`** | The catalog: `bundled.ts` → `registry:build` → publish, core vs extended, `normalize.ts`, `catalogSync` pruning, template packs, resolvability failures. |
+| **`test-engineer`** | Characterization / contract tests that pin down existing behavior before a rewrite. |
 | **`api-designer`** | Phase 1 deliverable: OpenAPI contracts. Phase 6: MCP tool schemas. |
 | **`backend-designer`** | Prisma schema, Express service layer, WebSocket server design, auth middleware. |
 | **`frontend-designer`** | Component architecture, design tokens, dark-theme CSS variables. |
@@ -209,22 +217,32 @@ Exposes 5 tools over stdio — `list_tasks`, `run_task`, `list_templates`, `crea
 
 ## 8a. Project-Local `.claude/` Layout
 
+**Only `agents/`, `commands/`, and `skills/` are tracked.** `.gitignore` denies `/.claude/*`
+and re-includes those three, so per-machine noise (`settings.local.json`, `temp/`, `images/`,
+`rules/`, IDE state) can never be committed by accident — the failure mode that once let four
+duplicate `" copy"` skill trees sit one `git add -A` away from the repo.
+
 ```
 .claude/
-├── agents/         # 7 subagent definitions (matches §7 above)
+├── agents/         # 10 subagent definitions (matches §7 above)
 │   ├── api-designer.md
 │   ├── backend-designer.md
 │   ├── frontend-designer.md
 │   ├── frontend-developer.md
 │   ├── fullstack-developer.md
+│   ├── native-agent-engineer.md      # .NET agent, Task Scheduler COM, launchd, WiX
 │   ├── project-manager.md
-│   └── technical-writer.md
-├── commands/       # 3 custom slash commands
+│   ├── technical-writer.md
+│   ├── template-curator.md           # catalog / registry / core-vs-extended
+│   └── test-engineer.md
+├── commands/       # 5 custom slash commands
 │   ├── create-architecture-documentation.md
+│   ├── doctor.md                     # diagnose the 3 stale processes + agent + MCP token
 │   ├── refactor-code.md
+│   ├── sync-surfaces.md              # mirror-surface drift check (§11a)
 │   └── update-docs.md
-├── rules/          # (empty — add project-specific rules as patterns emerge)
-└── skills/         # 16 locally-installed skills (mirrors §6 above)
+├── rules/          # (empty, untracked — add project-specific rules as patterns emerge)
+└── skills/         # 19 locally-installed skills (mirrors §6 above)
     │               #   + taskhub/ — a per-machine JUNCTION to the repo-root skills/taskhub
     │                     (gitignored; created by scripts/setup-skill-links.ps1)
     ├── agent-tool-builder/

@@ -119,6 +119,48 @@ namespace TaskHub.Agent.Tests
         }
 
         [Fact]
+        public void TaskCreate_Event_Failure_EchoesTheRealNameSoTheServerCanMatchIt()
+        {
+            // Regression: the failure path emitted name = "unknown" (the real name was
+            // scoped inside the try). The server matches task:created on payload.name,
+            // so NO failure ever matched — every create error was dropped and surfaced
+            // as a 15s "Agent creation timeout". That turned an honest, actionable
+            // message ("that folder does not exist") into one pointing at the agent
+            // instead of the request. Found by driving a real refusal end-to-end.
+            var ts = Now();
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\TaskHub", ts));
+
+            _mockScheduler
+                .Setup(s => s.CreateTask("MyTestTask", "0 * * * *", It.IsAny<AgentExecAction>(), null, "\\TaskHub"))
+                .Returns(new AgentTaskResult { Success = false, Name = "MyTestTask", Message = "Folder does not exist." });
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(Payload(new
+            {
+                name = "MyTestTask",
+                schedule = "0 * * * *",
+                command = "dir",
+                action = new { executable = "dir", args = new string[0] },
+                folder = "\\TaskHub",
+                ts,
+                sig
+            }));
+
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            _mockSocket.Verify(s => s.EmitAsync("task:created", It.Is<object>(o =>
+                // The real name, so the server's handler matches and the caller learns why...
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("MyTestTask") &&
+                !JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("unknown") &&
+                // ...and the actual reason survives, rather than a generic timeout.
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Folder does not exist")
+            )), Times.Once);
+        }
+
+        [Fact]
         public void TaskFolders_Event_EmitsCamelCaseKeysTheBackendCanRead()
         {
             // Regression: this shipped emitting List<AgentFolderInfo> directly, so the

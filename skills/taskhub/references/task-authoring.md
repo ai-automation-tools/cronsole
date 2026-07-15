@@ -116,9 +116,20 @@ step (`*/15 * * * *`), hour step (`0 */4 * * *`). Everything else hits the fallb
 | **Name must be unique per folder** | A collision returns **409** rather than letting Windows silently overwrite. `\Work\Backup` and `\TaskHub\Backup` are different tasks. |
 | **`folder` is inside the signature** | Every field the agent acts on is signed — an unsigned field would let an on-path attacker redirect the write. |
 
-There's no MCP tool to list folders yet, so you cannot discover a valid one from the agent
-side — either use the default `\TaskHub` or use a folder the user names. (`GET
-/api/tasks/folders` exists; a `list_folders` tool is on the roadmap.)
+**Use `list_folders` to find a valid one** (MCP) / `GET /api/tasks/folders` — it returns every
+real folder with its task count and whether you can create there. Don't guess a path: the only
+folder TaskHub will create is `\TaskHub`, so a guess that doesn't exist is an honest refusal,
+not a new folder.
+
+Two things about that listing that will otherwise mislead you:
+
+- **An unwritable folder is still listed** (`writable: false`, e.g. `\Microsoft\…`). That's
+  deliberate — *"exists but refused"* is a different fact from *"doesn't exist"*. Don't read
+  its presence as permission.
+- **The default `\TaskHub` is often absent from the list.** It's created lazily and **pruned
+  when its last task is deleted**, so on a clean machine it genuinely doesn't exist yet. That
+  is not a problem and not a reason to pick a different folder — omit `folder` and TaskHub
+  creates it. `list_folders` reports `defaultFolder` separately for exactly this reason.
 
 ---
 
@@ -130,6 +141,7 @@ the API — that asymmetry is real, not an oversight you should route around:
 | Action | MCP | REST |
 |:---|:---|:---|
 | List / inspect | ✅ `list_tasks` | `GET /api/tasks` |
+| Find a folder | ✅ `list_folders` | `GET /api/tasks/folders` |
 | Run now | ✅ `run_task` | `POST /api/tasks/:id/run` |
 | Create | ✅ `create_task`, `create_task_from_template` | `POST /api/tasks`, `POST /api/templates/:id/apply` |
 | Validate a schedule | ✅ `convert_schedule` | `POST /api/tasks/preview` |
@@ -188,7 +200,8 @@ Before you call `create_task` on a real machine:
 2. Cron is **UTC**, 5 fields.
 3. Command **tokenizes** the way you intend; a shell is **explicit** if you need one.
 4. `-NoProfile` on PowerShell; `-UseBasicParsing`/`Invoke-RestMethod` for HTTP.
-5. Folder **exists** (or default `\TaskHub`), not under `\Microsoft\`.
+5. Folder **exists and is writable** — check with **`list_folders`**, don't guess. Or omit it
+   and take the default `\TaskHub` (absent from the listing is fine — it's created on demand).
 6. Name won't collide in that folder.
 7. The command **terminates**. An unattended run has no console — a prompt or an unprinted
    error hangs forever.

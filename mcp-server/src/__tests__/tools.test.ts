@@ -97,6 +97,7 @@ describe('the tool surface', () => {
       'convert_schedule',
       'create_task',
       'create_task_from_template',
+      'list_folders',
       'list_tasks',
       'list_templates',
       'run_task'
@@ -286,6 +287,126 @@ describe('list_templates', () => {
   it('is honest when the limit truncates', async () => {
     const mcp = await connect(stubClient({ 'GET /templates': templates }).client);
     expect(text(await call(mcp, 'list_templates', { limit: 1 }))).toMatch(/Showing 1 of 2/);
+  });
+});
+
+describe('list_folders', () => {
+  const folders = {
+    folders: [
+      { path: '\\TaskHub', taskCount: 3, writable: true },
+      { path: '\\Work\\Backups', taskCount: 1, writable: true },
+      { path: '\\Microsoft\\Windows', taskCount: 12, writable: false },
+      { path: '\\Empty', taskCount: 0, writable: true }
+    ],
+    defaultFolder: '\\TaskHub'
+  };
+  const mk = () => stubClient({ 'GET /tasks/folders': folders });
+
+  it('lists folders with their task counts', async () => {
+    const mcp = await connect(mk().client);
+    const r = await call(mcp, 'list_folders');
+    expect(r.structuredContent?.matched).toBe(4);
+    expect(text(r)).toMatch(/\\Work\\Backups.*1 task/);
+  });
+
+  it('shows an unwritable folder AND says why, instead of hiding it', async () => {
+    // The route deliberately returns writable:false rather than filtering, so
+    // the caller can distinguish "exists but refused" from "does not exist".
+    // Hiding it here would undo that and leave an agent guessing why its
+    // perfectly real folder "doesn't exist".
+    const mcp = await connect(mk().client);
+    const out = text(await call(mcp, 'list_folders'));
+    expect(out).toMatch(/\\Microsoft\\Windows/);
+    expect(out).toMatch(/NOT writable/);
+  });
+
+  it('can narrow to writable folders on request', async () => {
+    const mcp = await connect(mk().client);
+    const r = await call(mcp, 'list_folders', { writableOnly: true });
+    expect(r.structuredContent?.matched).toBe(3);
+    expect(text(r)).not.toMatch(/\\Microsoft\\Windows/);
+  });
+
+  it('defaults to showing unwritable folders', async () => {
+    const mcp = await connect(mk().client);
+    expect((await call(mcp, 'list_folders')).structuredContent?.matched).toBe(4);
+  });
+
+  it('marks the default folder, since it needs no discovery', async () => {
+    const mcp = await connect(mk().client);
+    const r = await call(mcp, 'list_folders');
+    expect(text(r)).toMatch(/\\TaskHub \[default\]/);
+    expect(r.structuredContent?.defaultFolder).toBe('\\TaskHub');
+  });
+
+  it('states the default folder even when the filter excludes it', async () => {
+    // An agent that filtered to \Work must still learn it can just omit
+    // `folder` — otherwise it invents one.
+    const mcp = await connect(mk().client);
+    const out = text(await call(mcp, 'list_folders', { search: 'work' }));
+    expect(out).toMatch(/Default folder: \\TaskHub/);
+  });
+
+  it('still names the default folder when it does not currently exist', async () => {
+    // Observed live, not hypothesised: \TaskHub is created lazily and the agent
+    // PRUNES it when its last task is deleted, so the default folder is
+    // routinely absent from a real listing. An agent that read absence as
+    // "unusable" would go invent a folder — which TaskHub then refuses,
+    // because it only ever creates \TaskHub. The note must not depend on the
+    // folder being present.
+    const { client } = stubClient({
+      'GET /tasks/folders': {
+        folders: [{ path: '\\Task-Hub', taskCount: 3, writable: true }],
+        defaultFolder: '\\TaskHub'
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_folders');
+    expect(text(r)).not.toMatch(/\\TaskHub \[default\]/);
+    expect(text(r)).toMatch(/Default folder: \\TaskHub/);
+    expect(text(r)).toMatch(/TaskHub creates this one itself/);
+    expect(r.structuredContent?.defaultFolder).toBe('\\TaskHub');
+  });
+
+  it('filters by path, case-insensitively', async () => {
+    const mcp = await connect(mk().client);
+    expect((await call(mcp, 'list_folders', { search: 'microsoft' })).structuredContent?.matched).toBe(1);
+  });
+
+  it('keeps a zero-task folder (empty is not absent)', async () => {
+    const mcp = await connect(mk().client);
+    expect(text(await call(mcp, 'list_folders', { search: 'empty' }))).toMatch(/\\Empty.*0 task/);
+  });
+
+  it('is honest when the limit truncates', async () => {
+    // A real machine had 161 folders (troubleshooting #9) — truncation is the
+    // normal case here, not an edge case.
+    const mcp = await connect(mk().client);
+    const r = await call(mcp, 'list_folders', { limit: 2 });
+    expect(r.structuredContent?.matched).toBe(4);
+    expect(r.structuredContent?.returned).toBe(2);
+    expect(text(r)).toMatch(/Showing 2 of 4/);
+  });
+
+  it('reports an offline agent honestly rather than as "no folders"', async () => {
+    // The 502 exists precisely so this never renders as an empty list — that
+    // would read as "this machine has no folders", a confident lie.
+    const { client } = stubClient({
+      'GET /tasks/folders': () => new TaskHubApiError('Agent folders timeout', 502)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_folders');
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/HTTP 502/);
+    expect(text(r)).not.toMatch(/0 folder/);
+  });
+
+  it('survives a folders payload with no rows', async () => {
+    const { client } = stubClient({ 'GET /tasks/folders': { folders: [], defaultFolder: '\\TaskHub' } });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_folders');
+    expect(r.isError).toBeFalsy();
+    expect(text(r)).toMatch(/No folders match/);
   });
 });
 
@@ -578,6 +699,7 @@ describe('error handling across the surface', () => {
     const { client } = stubClient({
       'GET /tasks': boom,
       'GET /templates': boom,
+      'GET /tasks/folders': boom,
       'POST /tasks': boom,
       'POST /tasks/x/run': boom,
       'POST /tasks/preview': boom,
@@ -587,6 +709,7 @@ describe('error handling across the surface', () => {
     const cases: [string, Record<string, unknown>][] = [
       ['list_tasks', {}],
       ['list_templates', {}],
+      ['list_folders', {}],
       ['create_task', { name: 'n', command: 'c', schedule: '0 9 * * *' }],
       ['run_task', { taskId: 'x' }],
       ['convert_schedule', { schedule: '0 9 * * *' }],

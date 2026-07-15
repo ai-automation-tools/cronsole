@@ -70,7 +70,7 @@ mixing them up:
 | | **This skill** (`skills/taskhub/`) | **The MCP server** (`mcp-server/`) |
 |:---|:---|:---|
 | Audience | An agent **working on** TaskHub's codebase | An agent **using** a running TaskHub |
-| Surface | `SKILL.md` + `references/` | 6 tools over MCP/stdio |
+| Surface | `SKILL.md` + `references/` | 7 tools over MCP/stdio |
 | Needs | Nothing — it's just text | A running backend + a user JWT |
 | Canonical doc | [`skills/README.md`](../README.md) | [`docs/user-guides/guides/MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) |
 
@@ -80,7 +80,7 @@ A third thing shares the name and is neither: the **dev-tooling MCP servers** in
 The `taskhub` entry is the only one needing a backend and a token, so it's the only one that
 can fail to start.
 
-**The 6 tools** — `list_tasks`, `run_task`, `list_templates`, **`create_task`**,
+**The 7 tools** — `list_tasks`, `run_task`, `list_templates`, `list_folders`, **`create_task`**,
 `create_task_from_template` (incl. `folder`), `convert_schedule` — each map 1:1 onto a backend
 route. Details, wiring, and token minting:
 [MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md).

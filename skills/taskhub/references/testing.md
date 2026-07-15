@@ -47,7 +47,7 @@ Split by **the question each answers**, not by tooling — a single Playwright s
 `.github/workflows/ci.yml`, **5 jobs** on push to `main`/`mike_desktop` and every PR:
 `backend` (vitest + tsc), `backend-integration` (real `postgres:16-alpine` service),
 `frontend` (eslint + vitest + build), `windows-agent` (`dotnet build`/`test` on
-`windows-latest`), `mcp-server` (vitest 63 + tsc).
+`windows-latest`), `mcp-server` (vitest 75 + typecheck + tsc build).
 
 > **The E2E suite is NOT in CI.** It needs a live stack CI doesn't stand up. It's a **local
 > gate you must run by hand** — which makes it the suite most likely to rot unnoticed. Run it

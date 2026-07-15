@@ -89,7 +89,7 @@ cd ../mcp-server && npm test
 | `backend-integration` | Vitest integration suite against a real `postgres:16-alpine` service container |
 | `frontend` | ESLint + Vitest + Vite build |
 | `windows-agent` | `dotnet build` + `dotnet test` on `windows-latest` |
-| `mcp-server` | Vitest suite (63 tests) + `tsc` build |
+| `mcp-server` | Vitest suite (75 tests) + `tsc` typecheck (incl. tests) + build |
 
 > [!IMPORTANT]
 > **The E2E suite is not in CI.** Playwright needs a live stack (backend, frontend, and the

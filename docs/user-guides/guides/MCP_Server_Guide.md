@@ -38,6 +38,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`list_tasks`** | "List my Windows tasks", "which tasks failed?", "show tasks in the Backup category" | `GET /api/tasks` |
 | **`run_task`** | "Run the nightly backup now" | `POST /api/tasks/:id/run` |
 | **`list_templates`** | "What backup templates are there?", "show AI agent templates" | `GET /api/templates` |
+| **`list_folders`** | "Which Task Scheduler folders can I create a task in?" | `GET /api/tasks/folders` |
 | **`create_task`** | "Run `C:\jobs\nightly.ps1` every weekday at 6am" — any command you already know | `POST /api/tasks` |
 | **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?" | `POST /api/tasks/preview` |
@@ -56,7 +57,10 @@ you pass. Both create tools are gated to the platforms TaskHub can actually crea
 (**Windows Task Scheduler** + **TaskHub-native**), and their optional **`folder`** chooses the
 real Task Scheduler folder the task lands in — default `\TaskHub`, and it becomes the task's
 category in TaskHub. Any *other* folder must already exist: removing a Task Scheduler folder
-needs elevation, so TaskHub won't leave behind one you'd have to delete by hand.
+needs elevation, so TaskHub won't leave behind one you'd have to delete by hand. **`list_folders`
+is how your assistant finds one** — it shows every real folder, its task count, and whether a
+task can be created there. Folders it can't use (like `\Microsoft\…`) are shown as *not
+writable* rather than hidden, so you get "that one's refused" instead of a confusing silence.
 
 > [!NOTE]
 > **What you can't do over MCP yet.** Enable/disable, re-schedule, edit a command, delete, run

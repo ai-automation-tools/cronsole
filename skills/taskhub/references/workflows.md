@@ -120,22 +120,29 @@ route, which is what keeps owner scoping, no-shell `exec`, signed agent commands
 cron→trigger conversion in one tested place. **New behavior means a new backend route**, never
 cleverness in the wrapper.
 
-The 6 tools and their routes:
+The 7 tools and their routes:
 
 | Tool | Route |
 |:---|:---|
 | `list_tasks` | `GET /api/tasks` |
 | `run_task` | `POST /api/tasks/:id/run` |
 | `list_templates` | `GET /api/templates` |
+| `list_folders` | `GET /api/tasks/folders` |
 | `create_task` | `POST /api/tasks` |
 | `create_task_from_template` | `POST /api/templates/:id/apply` |
 | `convert_schedule` | `POST /api/tasks/preview` |
 
 Task **management** routes (`PATCH /api/tasks/:id/status`·`/schedule`·`/actions`,
-`DELETE /api/tasks/:id`, `GET /api/tasks/:id/executions`·`/export`, `GET /api/tasks/folders`)
-have **no tools yet** — see ROADMAP › P3 *MCP surface expansion*, which also holds the open
-questions worth settling before you add them (destructive-op gating, tool-count creep). The
-routes existing is not by itself a reason to expose them.
+`DELETE /api/tasks/:id`, `GET /api/tasks/:id/executions`·`/export`) have **no tools yet** — see
+ROADMAP › P3 *MCP surface expansion*, which also holds the open questions worth settling before
+you add them (destructive-op gating, tool-count creep). **The route existing is not by itself a
+reason to expose it** — that's why the read-only gap (`list_folders`) closed first while the
+mutating ones wait on a decision.
+
+**Adding a tool ships with**: the vitest suite (`src/__tests__/tools.test.ts` — its surface test
+pins the exact tool list and will fail, deliberately), both README tool tables, and the skill
+(§11a). Run `npm test && npm run typecheck && npm run build` — vitest does **not** typecheck, and
+`start` runs `dist/`.
 
 1. Tool registration + Zod input schema → `mcp-server/src/tools.ts`. HTTP + error
    normalization → `client.ts`. Bootstrap → `index.ts`.

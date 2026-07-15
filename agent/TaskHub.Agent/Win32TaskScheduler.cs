@@ -253,16 +253,21 @@ namespace TaskHub.Agent
         }
 
         /// <summary>
-        /// Get the folder at <paramref name="path"/>, creating it (and any missing
-        /// parents) if needed. Lazily created, same as \TaskHub always has been —
-        /// a folder only exists once something lives in it.
+        /// Find the EXISTING folder at <paramref name="path"/>, or null if any
+        /// segment is missing. Creates nothing.
+        ///
+        /// TaskHub deliberately does not create arbitrary folders: folder deletion
+        /// requires elevation, so anything it created would be permanent litter the
+        /// user has to remove by hand from Task Scheduler. The one exception is
+        /// \TaskHub itself (see ResolveDestination) — the only folder it creates,
+        /// and the only one it prunes. Never create what you cannot remove.
         ///
         /// Assumes the path already passed TaskFolderPath.Validate, so it cannot
-        /// contain traversal segments or reach \Microsoft\. Walks segment by
-        /// segment rather than trusting a single GetFolder call, so a partially
-        /// existing path (\Work exists, \Work\Backups does not) resolves cleanly.
+        /// contain traversal segments or reach \Microsoft\. Walks segment by segment
+        /// so a partially existing path (\Work exists, \Work\Backups does not)
+        /// resolves to null rather than silently creating the tail.
         /// </summary>
-        private static TaskFolder ResolveOrCreateFolder(TaskService ts, string path)
+        private static TaskFolder? ResolveFolder(TaskService ts, string path)
         {
             var segments = TaskFolderPath.Split(path);
             TaskFolder current = ts.RootFolder;
@@ -271,10 +276,30 @@ namespace TaskHub.Agent
             {
                 TaskFolder? next = null;
                 try { next = current.SubFolders[segment]; } catch { /* not found */ }
-                current = next ?? current.CreateFolder(segment);
+                if (next == null) return null;
+                current = next;
             }
 
             return current;
+        }
+
+        /// <summary>
+        /// Resolve the destination folder for a create. \TaskHub is created lazily
+        /// (it is ours, and TryPruneTaskHubFolder removes it again when the last
+        /// task goes); any other folder must already exist.
+        /// </summary>
+        private static TaskFolder? ResolveDestination(TaskService ts, string path)
+        {
+            var existing = ResolveFolder(ts, path);
+            if (existing != null) return existing;
+
+            if (TaskFolderPath.IsDefault(path))
+            {
+                // Our own folder: lazily created, and pruned again when emptied.
+                return ts.RootFolder.CreateFolder(TaskFolderPath.Default.TrimStart('\\'));
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -379,7 +404,23 @@ namespace TaskHub.Agent
                     };
                 }
 
-                TaskFolder destination = ResolveOrCreateFolder(ts, targetFolder);
+                TaskFolder? destination = ResolveDestination(ts, targetFolder);
+                if (destination == null)
+                {
+                    // Refuse honestly rather than create it. TaskHub only creates
+                    // \TaskHub (which it also prunes) — folder deletion needs
+                    // elevation, so any other folder it created would be permanent
+                    // litter only the user could clear.
+                    return new AgentTaskResult
+                    {
+                        Success = false,
+                        Name = name,
+                        Message = $"Task Scheduler folder '{TaskFolderPath.Normalize(targetFolder)}' does not exist. " +
+                                  "TaskHub only creates its own \\TaskHub folder — create the folder in Task Scheduler " +
+                                  "first, or choose an existing one."
+                    };
+                }
+
                 var task = destination.RegisterTaskDefinition(name, td);
 
                 return new AgentTaskResult

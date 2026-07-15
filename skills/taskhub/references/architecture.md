@@ -106,6 +106,14 @@ converts a missing capability into a lie. Leaving it undefined *is* the design.
   `RegisterTaskDefinition` (which **silently overwrites** a same-named task in the same
   folder), so `TaskFolderPath` duplicates the backend's folder rules on purpose. A signed
   command is proof of *origin*, not of *correctness*.
+- **⚠️ The agent's socket serializer does NOT camelCase. Project every emit explicitly.**
+  `EmitAsync("x", new[] { new { foo = obj } })` where `obj` is a C# class puts **PascalCase**
+  keys on the wire (`Path`, `TaskCount`), and the backend reads `f.path` → `undefined` for
+  every field. Nothing throws: you get a well-formed payload of empty values, which is a
+  *confident lie*. Follow `task:full_list` — project into an anonymous type with explicit
+  lowercase names (`path = f.Path`). **Mocked tests cannot catch this**: the agent's tests
+  mock the scheduler and the backend's mock the socket, so neither crosses the real JSON
+  boundary. Assert the **serialized** shape (see `TaskFolders_Event_EmitsCamelCaseKeys…`).
 - **One agent socket per user** (single-user MVP). This is why a transient test agent strands
   the real one — see troubleshooting.
 

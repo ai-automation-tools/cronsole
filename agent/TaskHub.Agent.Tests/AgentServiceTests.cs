@@ -119,6 +119,60 @@ namespace TaskHub.Agent.Tests
         }
 
         [Fact]
+        public void TaskFolders_Event_EmitsCamelCaseKeysTheBackendCanRead()
+        {
+            // Regression: this shipped emitting List<AgentFolderInfo> directly, so the
+            // wire carried PascalCase Path/TaskCount/Writable. The backend reads
+            // f.path, so EVERY field came back undefined — 161 folders, all with an
+            // empty path and writable:false. Nothing threw; it just quietly reported
+            // that no folder on the machine was usable.
+            //
+            // The mocked-scheduler + mocked-socket tests could not catch it: neither
+            // crosses the real JSON boundary. So assert the SERIALIZED shape, which is
+            // what the backend actually parses.
+            _mockScheduler.Setup(s => s.ListFolders()).Returns(new List<AgentFolderInfo>
+            {
+                new AgentFolderInfo { Path = "\\TaskHub", TaskCount = 2, Writable = true },
+                new AgentFolderInfo { Path = "\\Microsoft\\Windows", TaskCount = 214, Writable = false }
+            });
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(Payload(new { }));
+
+            _socketHandlers["task:folders"].Invoke(mockResponse.Object);
+
+            _mockSocket.Verify(s => s.EmitAsync("task:folders_list", It.Is<object>(o =>
+                // The keys the backend reads must be present, lowercase...
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"path\"") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"taskCount\"") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"writable\"") &&
+                // ...and the PascalCase form must NOT be what goes out.
+                !JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"Path\"") &&
+                !JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"TaskCount\"") &&
+                !JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"Writable\"") &&
+                // The values must survive too, not just the keys.
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("TaskHub") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("214")
+            )), Times.Once);
+        }
+
+        [Fact]
+        public void TaskFolders_Event_IsReadOnly_NoSignatureRequired()
+        {
+            // Mirrors task:list / task:export: enumerating folders reveals nothing the
+            // task list does not already, so it is unsigned — but it must still work.
+            _mockScheduler.Setup(s => s.ListFolders()).Returns(new List<AgentFolderInfo>());
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(Payload(new { }));
+
+            _socketHandlers["task:folders"].Invoke(mockResponse.Object);
+
+            _mockScheduler.Verify(s => s.ListFolders(), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:folders_list", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
         public void TaskExport_Event_ReturnsNativeXml()
         {
             // Arrange — read-only, so no signature required (mirrors task:list).

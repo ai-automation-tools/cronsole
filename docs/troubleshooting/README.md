@@ -28,7 +28,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
 | 6 | A `.ps1` fails to parse under `powershell` (5.1) with `Unexpected token '}'` / `The string is missing the terminator` — but runs fine under `pwsh` (7) | A non-ASCII char (e.g. an em-dash `—`) in a BOM-less UTF-8 script; Windows PowerShell 5.1 reads it as ANSI and decodes it into a curly quote it treats as a string delimiter | [→](#6-ps1-parse-errors-under-windows-powershell-51-only) |
 | 7 | A newly added agent command (e.g. a new `task:*` socket op) returns `502` with `... timeout` after ~15s, even though the backend route exists | The **.NET agent is a host process running the old published exe** — it doesn't hot-reload, so it has no handler for the new command and never answers; the backend times out | [→](#7-new-agent-command-502-times-out-until-the-agent-is-republished) |
-| 8 | **Every** MCP tool returns `403 Invalid or expired token`, but the dashboard and `curl` with a real token work fine | `TASKHUB_TOKEN` is unset, so Claude Code passed the **literal** `${TASKHUB_TOKEN}` through to the API — nothing is actually expired | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
+| 8 | **Every** MCP tool returns `403 Invalid or expired token` — or the `taskhub` tools are **missing entirely** — while the dashboard and `curl` with a real token work fine | `TASKHUB_TOKEN` is unset, so Claude Code passed the **literal** `${TASKHUB_TOKEN}` through to the API — nothing is actually expired. Since the server now refuses to start on a literal, the tools go *missing* rather than 403 | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
+| 8a | …and the token **is** set at the User level, you restarted, and it's *still* invisible | A new terminal is not a new environment. A VS Code integrated terminal inherits `Code.exe`'s environment block, snapshotted when VS Code launched — new tabs and host restarts re-inherit the same stale one | [→](#8a-and-restart-from-a-fresh-terminal-does-nothing-under-vs-code) |
 | 9 | A new agent command returns a well-formed payload where **every field is empty/false** — no error, no exception, the counts are even right | The agent emitted a C# object directly; the socket serializer does **not** camelCase, so the wire carries `Path`/`TaskCount` while the backend reads `f.path` → `undefined` for every field | [→](#9-agent-payload-arrives-with-every-field-empty) |
 | 10 | `DeleteFolder` on a Task Scheduler folder fails with `Access is denied. (0x80070005 (E_ACCESSDENIED))` | Task Scheduler folder deletion requires **elevation**, even for a folder you created and even when it is empty | [→](#10-cannot-delete-a-task-scheduler-folder-e_accessdenied) |
 | 11 | After a **System Restore**, `Start-ScheduledTask` says the republish task doesn't exist **and/or** the `taskhub` MCP tools vanish — while the repo, `git status`, and the build are all perfectly clean | Both live on `C:` as per-machine state git can't protect: the scheduled-task registration and the `TASKHUB_TOKEN` **User** env var. A restore of `C:` wipes them; a repo on another drive survives, so nothing *looks* wrong | [→](#11-after-a-system-restore-the-republish-task-and-mcp-tools-are-gone) |
@@ -416,8 +417,54 @@ $token = (docker exec taskhub-backend-1 node -e "console.log(require('jsonwebtok
 Since 2026-07-14 `configFromEnv()` detects an unexpanded `${...}` literal and refuses
 to start with an explicit message, so this now fails loudly at launch rather than as a
 403 on every call. If you see that startup error, the fix above is still the answer.
+**Note the symptom moved:** because the server now refuses to start, the tools go
+*missing* rather than 403ing. `/mcp` showing no `taskhub`, or a `ToolSearch` for
+`mcp__taskhub__*` finding nothing, is this same bug wearing a quieter mask.
 
-*First hit: 2026-07-14.*
+### 8a. …and "restart from a fresh terminal" does nothing under VS Code
+
+**A new terminal is not a new environment.** A process inherits its parent's environment
+block *at spawn*, and the parent of a VS Code integrated terminal is `Code.exe` — which
+snapshotted its environment whenever VS Code launched, possibly days ago. Opening a new
+tab, or even restarting Claude Code, re-inherits that same stale block. The token is set
+at the User level and *still* invisible. The advice above ("restart from a fresh
+terminal") is only true for a terminal launched fresh from Explorer or the Start menu.
+
+**Diagnose it — don't guess which process is stale.** Walk the ancestry and compare start
+times against when you set the variable:
+
+```powershell
+$cur = $PID
+for ($i=0; $i -lt 7 -and $cur; $i++) {
+  $p = Get-CimInstance Win32_Process -Filter "ProcessId = $cur"; if (-not $p) { break }
+  "$($p.Name) (pid $cur) started $((Get-Process -Id $cur -EA SilentlyContinue).StartTime)"
+  $cur = $p.ParentProcessId
+}
+```
+
+Any ancestor that started **before** you set the variable is the culprit — everything
+below it inherits the old block. Confirm the variable is genuinely persisted, and that
+the process just can't see it:
+
+```powershell
+[Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')   # persisted value
+$env:TASKHUB_TOKEN                                              # what this process sees
+```
+
+**Fix — inject it into the current shell, then relaunch the host from that shell.** This
+works without closing VS Code and losing your window state:
+
+```powershell
+$env:TASKHUB_TOKEN = [Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')
+claude
+```
+
+The alternative is to fully quit VS Code (**all** windows — one lingering window keeps
+the old `Code.exe` alive) and reopen it. Same for Windows Terminal: a new tab inherits
+from the running `WindowsTerminal.exe`, so tabs don't refresh the environment either.
+
+*First hit: 2026-07-14. Entry 8a added 2026-07-15, after a correct restart failed to fix
+it — Claude Code was genuinely fresh, but its VS Code grandparent was 7 hours old.*
 
 ---
 

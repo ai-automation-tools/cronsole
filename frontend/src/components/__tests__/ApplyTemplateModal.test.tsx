@@ -7,7 +7,8 @@ import type { Template } from '../../types';
 
 vi.mock('../../api', () => ({
   api: {
-    post: vi.fn()
+    post: vi.fn(),
+    get: vi.fn()
   }
 }));
 
@@ -45,6 +46,21 @@ describe('ApplyTemplateModal Component', () => {
       },
     });
     vi.clearAllMocks();
+    // The Windows folder selector reads the machine's real Task Scheduler
+    // folders. \Microsoft\Windows comes back writable: false — the backend
+    // reports unwritable folders honestly rather than hiding them, and the
+    // modal is what filters them out of the picker.
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        defaultFolder: '\\TaskHub',
+        folders: [
+          { path: '\\', taskCount: 3, writable: true },
+          { path: '\\TaskHub', taskCount: 1, writable: true },
+          { path: '\\Work', taskCount: 2, writable: true },
+          { path: '\\Microsoft\\Windows', taskCount: 214, writable: false }
+        ]
+      }
+    });
   });
 
   it('renders template information, input fields, and pre-populates defaults', () => {
@@ -104,12 +120,50 @@ describe('ApplyTemplateModal Component', () => {
           srcDir: 'C:\\data',
           destDir: 'D:\\backup',
           options: '--fast'
-        }
+        },
+        // Windows tasks carry their destination folder; untouched, it is the
+        // default — so existing behavior is unchanged unless you pick one.
+        folder: '\\TaskHub'
       });
     });
 
     expect(toastMock).toHaveBeenCalledWith('Task created on Windows from "Daily Cron Backup".', 'success');
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('applies into a chosen Task Scheduler folder, and never offers \\Microsoft\\', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    const destInput = screen.getAllByPlaceholderText('C:\\path\\to\\file')[1];
+    fireEvent.change(destInput, { target: { value: 'D:\\backup' } });
+
+    // Target the folder select by its accessible name — the template's own
+    // `options` parameter is also a combobox, and the folder one only appears
+    // once the query resolves, so an unqualified findByRole grabs the wrong node.
+    const select = await screen.findByRole('combobox', { name: 'Task Scheduler folder' });
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /\\Work/ })).toBeInTheDocument();
+    });
+
+    // \Microsoft\Windows came back writable:false — it must never be selectable.
+    // Windows keeps its own tasks there and a collision silently overwrites one.
+    expect(screen.queryByRole('option', { name: /Microsoft/ })).not.toBeInTheDocument();
+
+    fireEvent.change(select, { target: { value: '\\Work' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create Task/ }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/templates/template-cron-backup/apply',
+        expect.objectContaining({ folder: '\\Work' })
+      );
+    });
   });
 
   it('prefills the task name, sends an edited name, and blocks an empty one', async () => {

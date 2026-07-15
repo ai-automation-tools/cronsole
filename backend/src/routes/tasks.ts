@@ -16,6 +16,12 @@ import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-
 import { toStructuredAction } from '../utils/commandParser.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { assertWindowsTaskNameAvailable } from '../utils/windowsTaskName.js';
+import {
+  DEFAULT_TASK_FOLDER,
+  normalizeWindowsTaskFolder,
+  windowsTaskFolderError,
+  windowsTaskPath
+} from '../utils/windowsTaskFolder.js';
 import { validateBody } from '../middleware/validate.js';
 import { importTemplates } from '../catalog/importCatalog.js';
 import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateFromTask.js';
@@ -328,13 +334,19 @@ const createTaskSchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
   platform: platformSchema,
   category: z.string().trim().min(1).optional(),
+  /**
+   * Windows only: the native Task Scheduler folder to create the task in
+   * (default \TaskHub). Validated with windowsTaskFolderError — it is signed
+   * into the agent command, and the agent re-validates before registering.
+   */
+  folder: z.string().optional(),
   schedule: z.string().trim().min(1, 'schedule is required'),
   command: z.string().trim().min(1, 'command is required')
 });
 
 // Create a new task (New Task modal Windows path, cloning, custom creation)
 router.post('/', validateBody(createTaskSchema), async (req: Request, res: Response) => {
-  const { name, platform, category, schedule, command } = req.body;
+  const { name, platform, category, schedule, command, folder } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   if (!isValidCron(schedule)) {
@@ -345,10 +357,20 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
   // conversion path as the template apply route (Templates.md §6).
   let trigger: WindowsTrigger | null = null;
   let conversionWarnings: string[] = [];
+  let finalFolder = DEFAULT_TASK_FOLDER;
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
-    // Invalid name → 400; name colliding with a tracked \TaskHub\ task → 409
-    // (RegisterTaskDefinition would silently overwrite the existing task).
-    await assertWindowsTaskNameAvailable(userId, name);
+    // Invalid folder or name → 400; name colliding with a tracked task IN THAT
+    // FOLDER → 409 (RegisterTaskDefinition would silently overwrite it). The
+    // collision is per-folder: \Work\Backup and \TaskHub\Backup are different
+    // tasks, while two \Work\Backup are the same one.
+    if (typeof folder === 'string' && folder.trim()) {
+      const folderProblem = windowsTaskFolderError(folder);
+      if (folderProblem) {
+        throw new HttpError(400, folderProblem);
+      }
+      finalFolder = normalizeWindowsTaskFolder(folder);
+    }
+    await assertWindowsTaskNameAvailable(userId, name, finalFolder);
 
     const conversion = convertCronToWindowsTrigger(schedule);
     if (!conversion.trigger) {
@@ -377,7 +399,7 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     schedule,
     command,
     { ...deserializeConfig(connection.config), userId },
-    { trigger }
+    { trigger, folder: finalFolder }
   );
 
   if (!result.success) {
@@ -386,9 +408,11 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
 
   // Upsert the created task right away so the frontend shows it immediately
   // (sync would pick it up later otherwise).
-  // Fallback must match where the agent actually registers (\TaskHub\<name>) —
-  // a wrong guess here would also blind the duplicate-name guard to this row.
-  const externalId = result.externalId || `\\TaskHub\\${name}`;
+  // Fallback must match where the agent actually registers — built from
+  // finalFolder, not a hardcoded \TaskHub, or a task created in \Work would be
+  // tracked under the wrong externalId (blinding the duplicate-name guard to
+  // this row, and every later run/delete/edit).
+  const externalId = result.externalId || windowsTaskPath(finalFolder, name);
   const upserted = await TaskService.upsertTasks(userId, platform, [{
     externalId,
     name,
@@ -468,6 +492,49 @@ router.post('/native', validateBody(createNativeSchema), async (req: Request, re
 });
 
 // Get health for all connectors
+/**
+ * Real native folders a task can be created in, for the Apply/New Task pickers.
+ * Windows only today — a platform without a native folder hierarchy gets an
+ * honest 400 rather than a made-up list.
+ *
+ * Read-only. Unwritable folders (\Microsoft\…) are returned with
+ * `writable: false` rather than filtered out, so the UI can say WHY instead of
+ * silently omitting them and leaving the user wondering where their folder went.
+ */
+router.get('/folders', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const platform = (req.query.platform as string) || PlatformType.WINDOWS_TASK_SCHEDULER;
+
+  if (platform !== PlatformType.WINDOWS_TASK_SCHEDULER) {
+    throw new HttpError(400, `${platform} has no native task folders.`);
+  }
+
+  const connection = await prisma.platformConnection.findUnique({
+    where: { userId_platform: { userId, platform: platform as PlatformType } }
+  });
+  if (!connection) {
+    throw new HttpError(400, `No connection found for platform ${platform}`);
+  }
+
+  const connector = connectorRegistry.getConnector(platform as PlatformType);
+  if (!connector?.listFolders) {
+    throw new HttpError(400, `${platform} does not support listing folders.`);
+  }
+
+  const result = await connector.listFolders({
+    ...deserializeConfig(connection.config),
+    userId
+  });
+
+  if (!result.success) {
+    // The agent being offline is not a server fault — say so honestly rather
+    // than returning an empty list the UI would render as "no folders exist".
+    return res.status(502).json({ error: result.message || 'Could not list folders' });
+  }
+
+  res.json({ folders: result.folders, defaultFolder: DEFAULT_TASK_FOLDER });
+});
+
 router.get('/health', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
   let connections = await prisma.platformConnection.findMany({

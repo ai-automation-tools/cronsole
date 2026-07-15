@@ -1,9 +1,10 @@
 import { PlatformType, HealthState } from '@prisma/client';
-import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput } from './platform.interface.js';
+import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, PlatformFolder } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { emitSignedCommand } from '../ws/agentAuth.js';
 import { toStructuredAction } from '../utils/commandParser.js';
 import { convertWindowsTriggerToCron, WindowsTrigger } from '../utils/scheduler-conversion.js';
+import { DEFAULT_TASK_FOLDER, normalizeWindowsTaskFolder } from '../utils/windowsTaskFolder.js';
 
 /**
  * Convert an agent-supplied Windows trigger to a 5-field cron string. Only
@@ -119,6 +120,45 @@ export class WindowsAgentConnector implements PlatformConnector {
       setTimeout(() => {
         socket.off('task:deleted', handler);
         resolve({ success: false, message: 'Agent delete timeout' });
+      }, 15000);
+    });
+  }
+
+  /**
+   * Enumerate the machine's real Task Scheduler folders. Read-only, like
+   * syncTasks — no per-command signature (the socket is authenticated at the
+   * handshake, and this reveals nothing the task list doesn't already).
+   */
+  async listFolders(config: any): Promise<{ success: boolean; folders: PlatformFolder[]; message?: string }> {
+    const userId = config.userId;
+    const socket = agentManager.getSocket(userId);
+
+    if (!socket) {
+      return { success: false, folders: [], message: 'Agent offline' };
+    }
+
+    return new Promise((resolve) => {
+      const handler = (payload: any) => {
+        socket.off('task:folders_list', handler);
+        resolve({
+          success: !!payload?.success,
+          folders: Array.isArray(payload?.folders)
+            ? payload.folders.map((f: any): PlatformFolder => ({
+                path: String(f.path ?? ''),
+                taskCount: Number(f.taskCount ?? 0),
+                writable: !!f.writable
+              }))
+            : [],
+          message: payload?.message
+        });
+      };
+
+      socket.on('task:folders_list', handler);
+      socket.emit('task:folders', {});
+
+      setTimeout(() => {
+        socket.off('task:folders_list', handler);
+        resolve({ success: false, folders: [], message: 'Agent folder list timeout' });
       }, 15000);
     });
   }
@@ -292,13 +332,19 @@ export class WindowsAgentConnector implements PlatformConnector {
       const trigger = options?.trigger ?? null;
 
       socket.on('task:created', handler);
+      // The folder is signed: it decides WHERE the task lands, and Windows
+      // silently overwrites a same-named task in the same folder — so an
+      // unsigned folder would let an on-path attacker redirect a create onto an
+      // existing task. Normalized here so the string the agent verifies is
+      // byte-identical to the one we signed.
       emitSignedCommand(socket, {
         event: 'task:create',
         name,
         schedule,
         command,
         action,
-        trigger
+        trigger,
+        folder: normalizeWindowsTaskFolder(options?.folder ?? DEFAULT_TASK_FOLDER)
       });
 
       setTimeout(() => {

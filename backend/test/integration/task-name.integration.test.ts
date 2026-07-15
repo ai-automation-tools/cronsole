@@ -15,14 +15,16 @@ import { createUser } from './helpers.js';
 
 const app = createApp();
 
-async function createTrackedWindowsTask(userId: string, name: string) {
+async function createTrackedWindowsTask(userId: string, name: string, folder = '\\TaskHub') {
   return prisma.task.create({
     data: {
       userId,
       platform: PlatformType.WINDOWS_TASK_SCHEDULER,
-      externalId: `\\TaskHub\\${name}`,
+      externalId: `${folder}\\${name}`,
       name,
-      category: 'TaskHub',
+      // Windows category is a projection of the real root folder — see
+      // TaskService.extractCategory.
+      category: folder.split('\\').filter(Boolean)[0] ?? 'Uncategorized',
       status: TaskStatus.ACTIVE
     }
   });
@@ -52,6 +54,115 @@ describe('Windows task-name guard', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/already exists/);
+  });
+
+  // --- Folder-aware collision (ROADMAP P2 "Windows folder selector on apply") ---
+  // The guard used to hardcode \TaskHub\<name>. Once a folder became selectable
+  // that assumption would have silently stopped matching — creating "Backup" in
+  // \Work would not have seen the tracked \Work\Backup, and Windows would have
+  // overwritten it with no error. Worse than no guard: the UI still implies
+  // you're protected. These pin the per-folder behavior.
+
+  it('POST /tasks 409s on a collision in a NON-TaskHub folder', async () => {
+    await createTrackedWindowsTask(owner.user.id, 'Backup', '\\Work');
+
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', owner.auth)
+      .send({
+        name: 'Backup',
+        folder: '\\Work',
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        schedule: '0 3 * * *',
+        command: 'echo hi'
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/already exists/);
+    // The message must name the folder it actually checked, not "TaskHub".
+    expect(res.body.error).toMatch(/\\Work/);
+  });
+
+  it('POST /tasks allows the same name in a DIFFERENT folder', async () => {
+    // \TaskHub\Backup and \Work\Backup are different Windows tasks — the guard
+    // must not block this, or folders would be pointless.
+    await createTrackedWindowsTask(owner.user.id, 'Backup', '\\TaskHub');
+
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', owner.auth)
+      .send({
+        name: 'Backup',
+        folder: '\\Work',
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        schedule: '0 3 * * *',
+        command: 'echo hi'
+      });
+
+    // Past the guard: no agent in this harness, so it fails at the connector.
+    // That it is NOT a 409 is the point.
+    expect(res.status).not.toBe(409);
+  });
+
+  it('POST /tasks 400s on a folder under \\Microsoft\\ (any case)', async () => {
+    for (const folder of ['\\Microsoft', '\\microsoft\\Windows', '\\MICROSOFT\\Windows\\SystemRestore']) {
+      const res = await request(app)
+        .post('/api/tasks')
+        .set('Authorization', owner.auth)
+        .send({
+          name: 'Sneaky',
+          folder,
+          platform: 'WINDOWS_TASK_SCHEDULER',
+          schedule: '0 3 * * *',
+          command: 'echo hi'
+        });
+
+      expect(res.status, folder).toBe(400);
+      expect(res.body.error, folder).toMatch(/Microsoft/i);
+    }
+  });
+
+  it('POST /tasks 400s on a traversal folder', async () => {
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', owner.auth)
+      .send({
+        name: 'Sneaky',
+        folder: '\\TaskHub\\..\\Microsoft\\Windows',
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        schedule: '0 3 * * *',
+        command: 'echo hi'
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /templates/:id/apply 400s on a \\Microsoft\\ folder', async () => {
+    // The apply path is what an AI reaches through the MCP tool, so it needs the
+    // same refusal as the direct create path — not just the modal's own gating.
+    const template = await prisma.template.create({
+      data: {
+        userId: owner.user.id,
+        name: 'PowerShell Starter',
+        sourcePlatform: PlatformType.WINDOWS_TASK_SCHEDULER,
+        targetPlatforms: [PlatformType.WINDOWS_TASK_SCHEDULER],
+        scheduleExpression: '0 3 * * *',
+        command: 'echo hi'
+      }
+    });
+
+    const res = await request(app)
+      .post(`/api/templates/${template.id}/apply`)
+      .set('Authorization', owner.auth)
+      .send({
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        name: 'Sneaky',
+        folder: '\\Microsoft\\Windows',
+        command: 'echo hi'
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Microsoft/i);
   });
 
   it('POST /tasks 400s on a name with Windows-invalid characters', async () => {

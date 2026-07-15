@@ -39,13 +39,13 @@ const VEC = {
   // 'C:\\x.ps1'] } -> canonical 'powershell.exe\x1f-File\x1fC:\\x.ps1', working
   // dir 'C:\\scripts', description 'Nightly job', runLevel 'highest'.
   updateSig: 'a11ff9024b5a5b0e590f8a6b55824f289dd26abba53d0ecb2d594d18b320c91f',
-  // task:create signs the structured action AND the trigger. Golden case:
-  // command 'dir', action { executable: 'dir', args: [] } -> canonical 'dir',
-  // trigger null -> canonical 'none'.
-  createSig: '4e04ffa6a881215d70a94ef84984898398567f7218d57f6cc3d9fa9264f9e0ba',
+  // task:create signs the structured action, the trigger, AND the destination
+  // folder. Golden case: command 'dir', action { executable: 'dir', args: [] }
+  // -> canonical 'dir', trigger null -> canonical 'none', folder '\TaskHub'.
+  createSig: 'ce9cada38d1540ce51aeb68c19b7d3b762039aa036a4bad1e0fa440d3f488da2',
   // Same command with a Weekly trigger -> canonical
   // 'trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D'.
-  createSigWithTrigger: 'e4bfa1a7b2c20bde20c72bf444b955dbad5c27c920af5fdddd5750191278643e',
+  createSigWithTrigger: '5feb965859a4ddfd62f7f928130a8d8b5326af494aed22ba70bea2ba7b25d051',
 };
 
 /** Build a valid, fresh handshake auth payload for the given nonce. */
@@ -91,6 +91,7 @@ describe('agentAuth cross-language vector', () => {
           command: 'dir',
           action: { executable: 'dir', args: [] },
           trigger: null,
+          folder: '\\TaskHub',
         },
         VEC.createSig,
       ],
@@ -107,6 +108,7 @@ describe('agentAuth cross-language vector', () => {
             daysOfWeek: ['Monday', 'Wednesday'],
             repetition: { interval: 'PT30M', duration: 'P1D' },
           },
+          folder: '\\TaskHub',
         },
         VEC.createSigWithTrigger,
       ],

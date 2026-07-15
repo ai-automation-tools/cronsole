@@ -318,17 +318,27 @@ export function registerTools(server: McpServer, client: TaskHubClient): void {
           .string()
           .optional()
           .describe("5-field UTC cron (min hour dom month dow). Defaults to the template's schedule."),
+        folder: z
+          .string()
+          .optional()
+          .describe(
+            'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\TaskHub" (default) or ' +
+            '"\\\\Work\\\\Backups". Created if it does not exist. This also becomes the task\'s category in TaskHub. ' +
+            'Folders under "\\\\Microsoft\\\\" are refused — Windows keeps its own scheduled tasks there and a ' +
+            'name collision would silently overwrite one.'
+          ),
         parameters: z
           .record(z.string(), z.string())
           .optional()
           .describe('Values for the template\'s {{placeholders}}, keyed by parameter name. Required params must be provided.')
       }
     },
-    async ({ templateId, platform, name, schedule, parameters }) => {
+    async ({ templateId, platform, name, schedule, folder, parameters }) => {
       try {
         const body: Record<string, unknown> = { platform };
         if (name) body.name = name;
         if (schedule) body.schedule = schedule;
+        if (folder) body.folder = folder;
         if (parameters) body.parameters = parameters;
 
         const result = await client.post<Record<string, unknown>>(

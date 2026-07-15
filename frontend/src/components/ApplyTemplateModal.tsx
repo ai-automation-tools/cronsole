@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2, FolderTree } from 'lucide-react';
 import type { Template } from '../types';
 import { api } from '../api';
 import { platformLabel, isCreatablePlatform } from '../platform';
@@ -15,6 +15,17 @@ import { Modal } from './ui/Modal';
 // value with quotes/spaces is always exactly one argument (templateCommand.ts).
 const resolveCommand = (tpl: string, values: Record<string, string>) =>
   tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in values ? values[k] : `{{${k}}}`));
+
+/** Mirrors DEFAULT_TASK_FOLDER in backend/src/utils/windowsTaskFolder.ts. */
+const DEFAULT_FOLDER = '\\TaskHub';
+/** Sentinel for the "type a new folder" option — not a real path. */
+const NEW_FOLDER = '__new__';
+
+interface AgentFolder {
+  path: string;
+  taskCount: number;
+  writable: boolean;
+}
 
 interface ApplyTemplateModalProps {
   template: Template;
@@ -35,6 +46,13 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const [platform, setPlatform] = useState(creatableTargets[0] ?? '');
   const [name, setName] = useState(template.name);
   const [schedule, setSchedule] = useState(template.scheduleExpression);
+  // Windows only: the REAL Task Scheduler folder the task lands in. For a
+  // Windows task the "category" is a projection of this folder
+  // (TaskService.extractCategory reads the root segment), so choosing a folder
+  // IS choosing the category — unlike native tasks, where categories are local.
+  const [folder, setFolder] = useState(DEFAULT_FOLDER);
+  const [newFolder, setNewFolder] = useState('');
+  const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const { settings: prefs } = useSettings();
 
   // Honest human reading of the cron (null when we can't describe it); local
@@ -72,13 +90,46 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
     retry: false
   });
 
+  // The machine's real Task Scheduler folders. Windows only, and only while the
+  // modal is open. A failure here is not fatal: the selector falls back to the
+  // default folder rather than blocking the apply — the backend and agent both
+  // validate the folder anyway, so an out-of-date list can't cause a bad write.
+  const { data: foldersData, isLoading: foldersLoading, isError: foldersError } = useQuery<{
+    folders: AgentFolder[];
+    defaultFolder: string;
+  } | null>({
+    queryKey: ['task-folders', platform],
+    queryFn: async () => {
+      const res = await api.get('/tasks/folders', { params: { platform } });
+      return res.data;
+    },
+    enabled: isWindows,
+    staleTime: 60_000,
+    retry: false
+  });
+
+  // Offer only writable folders, always including the default even if it does
+  // not exist yet (it is created lazily on first use). \Microsoft\ is excluded
+  // rather than shown-and-disabled: the reason is explained once, below, which
+  // is honest without cluttering the list with dozens of unusable system folders.
+  const writableFolders = (foldersData?.folders ?? []).filter(f => f.writable);
+  const folderOptions = Array.from(
+    new Set<string>([DEFAULT_FOLDER, ...writableFolders.map(f => f.path)])
+  ).sort((a, b) => (a === DEFAULT_FOLDER ? -1 : b === DEFAULT_FOLDER ? 1 : a.localeCompare(b)));
+
+  const effectiveFolder = folder === NEW_FOLDER ? newFolder.trim() : folder;
+  const folderReady = !isWindows || !!effectiveFolder;
+
   const applyMutation = useMutation({
     mutationFn: async () => {
       return api.post(`/templates/${template.id}/apply`, {
         platform,
         schedule,
         name: name.trim(),
-        parameters: values
+        parameters: values,
+        // Windows only — other platforms have no native folder hierarchy and
+        // the backend rejects the field for them.
+        ...(isWindows ? { folder: effectiveFolder } : {})
       });
     },
     onSuccess: () => {
@@ -96,7 +147,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   });
 
   const canApply =
-    !!platform && isCreatablePlatform(platform) && !!name.trim() && !!schedule.trim() && !incomplete && !applyMutation.isPending;
+    !!platform && isCreatablePlatform(platform) && !!name.trim() && !!schedule.trim() && !incomplete && folderReady && !applyMutation.isPending;
 
   return (
     <Modal
@@ -160,9 +211,63 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
               className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
             />
             <p className="text-[10px] text-subtle-foreground italic">
-              Reusing a template? Give each task its own name — a duplicate name is rejected instead of overwriting the existing task.
+              Reusing a template? Give each task its own name — a duplicate name is rejected instead of overwriting the existing task{isWindows ? ' in the same folder' : ''}.
             </p>
           </div>
+
+          {isWindows && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <FolderTree size={11} /> Task Scheduler folder
+              </label>
+
+              {foldersLoading ? (
+                <div className="flex items-center gap-2 text-[11px] text-subtle-foreground px-3 py-2.5">
+                  <Loader2 size={11} className="animate-spin" /> Reading folders from your machine…
+                </div>
+              ) : (
+                <select
+                  aria-label="Task Scheduler folder"
+                  value={folder}
+                  onChange={e => setFolder(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                >
+                  {folderOptions.map(path => {
+                    const meta = writableFolders.find(f => f.path === path);
+                    const count = meta ? ` (${meta.taskCount} task${meta.taskCount === 1 ? '' : 's'})` : '';
+                    return (
+                      <option key={path} value={path}>
+                        {path}{path === DEFAULT_FOLDER ? ' — default' : count}
+                      </option>
+                    );
+                  })}
+                  <option value={NEW_FOLDER}>+ New folder…</option>
+                </select>
+              )}
+
+              {folder === NEW_FOLDER && (
+                <input
+                  autoFocus
+                  value={newFolder}
+                  onChange={e => setNewFolder(e.target.value)}
+                  placeholder="\Work\Backups"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors font-mono"
+                />
+              )}
+
+              {foldersError ? (
+                <p className="text-[10px] text-amber-400 flex items-start gap-1.5">
+                  <AlertTriangle size={11} className="shrink-0 mt-0.5" />
+                  Couldn’t read your folders (the agent may be offline). You can still create the task in {DEFAULT_FOLDER}, or type a folder name.
+                </p>
+              ) : (
+                <p className="text-[10px] text-subtle-foreground italic">
+                  Where the task lives in Windows Task Scheduler — this also becomes its category in TaskHub. Folders are created when first used.
+                  {' '}<span className="not-italic">\Microsoft\ isn’t offered: Windows keeps its own tasks there, and a name collision would silently overwrite one.</span>
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">

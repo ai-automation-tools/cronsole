@@ -24,7 +24,7 @@ supply — its tasks are the tasks it can see, run, and create.
 | `list_tasks` | `GET /api/tasks` | List tracked tasks with schedule, status, next run, last result. Optional `platform` / `status` / `category` / `search` filters. |
 | `run_task` | `POST /api/tasks/:id/run` | Trigger a task now by its TaskHub id (Windows → signed agent run; native → backend runs it). |
 | `list_templates` | `GET /api/templates` | Browse the catalog with each template's id, tags, target platforms, default schedule, and declared `{{placeholder}}` parameters. |
-| `create_task_from_template` | `POST /api/templates/:id/apply` | Create a real task from a template — server fills placeholders from `parameters`, converts the cron, and registers it. Only Windows + TaskHub-native are creatable today. |
+| `create_task_from_template` | `POST /api/templates/:id/apply` | Create a real task from a template — server fills placeholders from `parameters`, converts the cron, and registers it. Optional `folder` picks the Windows Task Scheduler folder (default `\TaskHub`; `\Microsoft\` refused). Only Windows + TaskHub-native are creatable today. |
 | `convert_schedule` | `POST /api/tasks/preview` | Validate/convert a 5-field UTC cron to a platform-native trigger; returns a confidence score (0–1) + lossy-conversion warnings. |
 
 ## Configuration

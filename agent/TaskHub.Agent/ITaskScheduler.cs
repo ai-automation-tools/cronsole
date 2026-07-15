@@ -6,9 +6,17 @@ namespace TaskHub.Agent
     public interface ITaskScheduler
     {
         List<AgentTaskInfo> ListTasks();
+        // Every Task Scheduler folder that exists, so the UI can offer real
+        // folders instead of assuming \TaskHub. Read-only.
+        List<AgentFolderInfo> ListFolders();
         bool SetTaskStatus(string path, bool enabled);
         bool RunTask(string path);
-        AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null);
+        // `folder` is the Task Scheduler folder to register into (defaults to
+        // \TaskHub). It is validated HERE as well as server-side — this process
+        // holds the elevation and calls RegisterTaskDefinition, which silently
+        // overwrites a same-named task in the same folder, so it must not trust
+        // its caller. See TaskFolderPath.
+        AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null, string? folder = null);
         // Returns false when no task exists at the path (treated as an
         // idempotent success by the caller — the end state already holds).
         bool DeleteTask(string path);
@@ -64,6 +72,20 @@ namespace TaskHub.Agent
         public string? Path { get; set; }
         public string? Arguments { get; set; }
         public string? WorkingDirectory { get; set; }
+    }
+
+    // A real Task Scheduler folder. Reported honestly, including ones TaskHub
+    // will not write to: the UI shows WHY a folder is unavailable rather than
+    // hiding it and letting the user wonder, or offering it and failing late.
+    public class AgentFolderInfo
+    {
+        // Normalized path, e.g. "\", "\TaskHub", "\Microsoft\Windows".
+        public string Path { get; set; } = string.Empty;
+        // How many tasks live directly in this folder (not counting subfolders).
+        public int TaskCount { get; set; }
+        // False for \Microsoft\ and its descendants — Windows' own tasks live
+        // there and a name collision would silently overwrite one.
+        public bool Writable { get; set; }
     }
 
     public class AgentTaskResult

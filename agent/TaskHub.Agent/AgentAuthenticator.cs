@@ -172,8 +172,13 @@ namespace TaskHub.Agent
         public static string UpdateMessage(string taskPath, string actionCanonical, string workingDirectory, string description, string runLevel, long ts) =>
             $"task:update|{taskPath}|{actionCanonical}|{workingDirectory}|{description}|{runLevel}|{ts}";
 
-        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, long ts) =>
-            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{ts}";
+        // Matches the 'task:create' case in agentAuth.ts byte-for-byte. `folder`
+        // is signed and sits last before ts: it decides WHERE the task is
+        // registered, and RegisterTaskDefinition silently overwrites a
+        // same-named task in the same folder — so an unsigned folder would let
+        // an on-path attacker redirect a create onto an existing task.
+        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, string folder, long ts) =>
+            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{folder}|{ts}";
 
         // Canonical action string the create signature covers. MUST match the
         // backend's canonicalizeAction (utils/commandParser.ts): the executable and

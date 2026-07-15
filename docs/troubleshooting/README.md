@@ -28,11 +28,14 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
 | 6 | A `.ps1` fails to parse under `powershell` (5.1) with `Unexpected token '}'` / `The string is missing the terminator` — but runs fine under `pwsh` (7) | A non-ASCII char (e.g. an em-dash `—`) in a BOM-less UTF-8 script; Windows PowerShell 5.1 reads it as ANSI and decodes it into a curly quote it treats as a string delimiter | [→](#6-ps1-parse-errors-under-windows-powershell-51-only) |
 | 7 | A newly added agent command (e.g. a new `task:*` socket op) returns `502` with `... timeout` after ~15s, even though the backend route exists | The **.NET agent is a host process running the old published exe** — it doesn't hot-reload, so it has no handler for the new command and never answers; the backend times out | [→](#7-new-agent-command-502-times-out-until-the-agent-is-republished) |
-| 8 | **Every** MCP tool returns `403 Invalid or expired token`, but the dashboard and `curl` with a real token work fine | `TASKHUB_TOKEN` is unset, so Claude Code passed the **literal** `${TASKHUB_TOKEN}` through to the API — nothing is actually expired | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
+| 8 | **Every** MCP tool returns `403 Invalid or expired token` — or the `taskhub` tools are **missing entirely** — while the dashboard and `curl` with a real token work fine | `TASKHUB_TOKEN` is unset, so Claude Code passed the **literal** `${TASKHUB_TOKEN}` through to the API — nothing is actually expired. Since the server now refuses to start on a literal, the tools go *missing* rather than 403 | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
+| 8a | …and the token **is** set at the User level, you restarted, and it's *still* invisible | A new terminal is not a new environment. A VS Code integrated terminal inherits `Code.exe`'s environment block, snapshotted when VS Code launched — new tabs and host restarts re-inherit the same stale one | [→](#8a-and-restart-from-a-fresh-terminal-does-nothing-under-vs-code) |
 | 9 | A new agent command returns a well-formed payload where **every field is empty/false** — no error, no exception, the counts are even right | The agent emitted a C# object directly; the socket serializer does **not** camelCase, so the wire carries `Path`/`TaskCount` while the backend reads `f.path` → `undefined` for every field | [→](#9-agent-payload-arrives-with-every-field-empty) |
 | 10 | `DeleteFolder` on a Task Scheduler folder fails with `Access is denied. (0x80070005 (E_ACCESSDENIED))` | Task Scheduler folder deletion requires **elevation**, even for a folder you created and even when it is empty | [→](#10-cannot-delete-a-task-scheduler-folder-e_accessdenied) |
 | 11 | After a **System Restore**, `Start-ScheduledTask` says the republish task doesn't exist **and/or** the `taskhub` MCP tools vanish — while the repo, `git status`, and the build are all perfectly clean | Both live on `C:` as per-machine state git can't protect: the scheduled-task registration and the `TASKHUB_TOKEN` **User** env var. A restore of `C:` wipes them; a repo on another drive survives, so nothing *looks* wrong | [→](#11-after-a-system-restore-the-republish-task-and-mcp-tools-are-gone) |
 | 12 | A task created from a template sits in `Running` **forever** (`LastTaskResult` `267009`), burning no CPU — while TaskHub cheerfully reports `lastRunStatus: SUCCESS`, and every test passes | The command is broken **on the target**, which no test checks. Classic cause: `Invoke-WebRequest` without `-UseBasicParsing` needs the **IE engine Windows 11 removed** → `NullReferenceException`, and with no console to write it to, the process blocks instead of exiting | [→](#12-a-template-passes-every-test-and-still-hangs-on-the-target) |
+| 13 | The `taskhub` MCP tools are **missing** — and the token is fine: it's set, the host can see it, the backend is healthy, and `node mcp-server/dist/index.js` boots clean by hand | The server is **disabled in the host**, not broken. `disabledMcpjsonServers` in `.claude/settings.local.json` lists it — that's what Claude Code writes for **every** server in `.mcp.json` when you decline the "do you trust this project's MCP servers?" prompt | [→](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine) |
+| 14 | You picked a **deliberately rare** cron (annual, Feb 30, a specific date) so a test task couldn't fire on its own — and it fires **hourly, every day**, forever | Any cron the converter doesn't recognize falls back to a **hard-coded hourly** trigger. The lossy warning says times "might not align 100%", which reads like drift — but the schedule was *replaced*, and the fallback only ever runs **more** often, never less | [→](#14-a-rare-cron-becomes-an-hourly-trigger) |
 
 ---
 
@@ -416,8 +419,58 @@ $token = (docker exec taskhub-backend-1 node -e "console.log(require('jsonwebtok
 Since 2026-07-14 `configFromEnv()` detects an unexpanded `${...}` literal and refuses
 to start with an explicit message, so this now fails loudly at launch rather than as a
 403 on every call. If you see that startup error, the fix above is still the answer.
+**Note the symptom moved:** because the server now refuses to start, the tools go
+*missing* rather than 403ing. `/mcp` showing no `taskhub`, or a `ToolSearch` for
+`mcp__taskhub__*` finding nothing, can be this same bug wearing a quieter mask —
+but **missing tools do not identify the token as the cause**, because a server
+disabled in the host looks exactly the same. Rule that out first
+([#13](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine)); it's one
+command, and it's the cheaper hypothesis.
 
-*First hit: 2026-07-14.*
+### 8a. …and "restart from a fresh terminal" does nothing under VS Code
+
+**A new terminal is not a new environment.** A process inherits its parent's environment
+block *at spawn*, and the parent of a VS Code integrated terminal is `Code.exe` — which
+snapshotted its environment whenever VS Code launched, possibly days ago. Opening a new
+tab, or even restarting Claude Code, re-inherits that same stale block. The token is set
+at the User level and *still* invisible. The advice above ("restart from a fresh
+terminal") is only true for a terminal launched fresh from Explorer or the Start menu.
+
+**Diagnose it — don't guess which process is stale.** Walk the ancestry and compare start
+times against when you set the variable:
+
+```powershell
+$cur = $PID
+for ($i=0; $i -lt 7 -and $cur; $i++) {
+  $p = Get-CimInstance Win32_Process -Filter "ProcessId = $cur"; if (-not $p) { break }
+  "$($p.Name) (pid $cur) started $((Get-Process -Id $cur -EA SilentlyContinue).StartTime)"
+  $cur = $p.ParentProcessId
+}
+```
+
+Any ancestor that started **before** you set the variable is the culprit — everything
+below it inherits the old block. Confirm the variable is genuinely persisted, and that
+the process just can't see it:
+
+```powershell
+[Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')   # persisted value
+$env:TASKHUB_TOKEN                                              # what this process sees
+```
+
+**Fix — inject it into the current shell, then relaunch the host from that shell.** This
+works without closing VS Code and losing your window state:
+
+```powershell
+$env:TASKHUB_TOKEN = [Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')
+claude
+```
+
+The alternative is to fully quit VS Code (**all** windows — one lingering window keeps
+the old `Code.exe` alive) and reopen it. Same for Windows Terminal: a new tab inherits
+from the running `WindowsTerminal.exe`, so tabs don't refresh the environment either.
+
+*First hit: 2026-07-14. Entry 8a added 2026-07-15, after a correct restart failed to fix
+it — Claude Code was genuinely fresh, but its VS Code grandparent was 7 hours old.*
 
 ---
 
@@ -629,6 +682,142 @@ To clear a stuck one: `Stop-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name
 *First hit: 2026-07-15 (found by the first live end-to-end exercise of the MCP
 `create_task_from_template` + `run_task` tools — the read-only tests that preceded it could
 not have surfaced it).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 13. The `taskhub` MCP tools are missing while the token is fine
+
+**Symptom** — `mcp__taskhub__*` is absent from the tool list and `/mcp` doesn't list
+`taskhub` at all. Unlike [#8](#8-every-mcp-tool-returns-403-invalid-or-expired-token),
+**every downstream check passes**:
+
+```powershell
+[Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')   # set
+$env:TASKHUB_TOKEN                                              # the host sees it too
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health   # 200
+node ./mcp-server/dist/index.js                                 # boots clean by hand
+```
+
+That last one is the discriminator: **if the server answers `initialize` when you run it
+yourself, the server is not the problem** — the host never started it.
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}' \
+  | node ./mcp-server/dist/index.js
+# TaskHub MCP server running on stdio
+# {"result":{...,"serverInfo":{"name":"taskhub","version":"1.0.0"}},"jsonrpc":"2.0","id":1}
+```
+
+**Cause** — the server is **disabled in the host**, not broken. Claude Code prompts once
+per project: *"this project defines MCP servers, do you trust them?"* Declining writes
+**every** server in `.mcp.json` into `disabledMcpjsonServers` in
+`.claude/settings.local.json` — and that file is **gitignored per-machine state** (§8a of
+`CLAUDE.md`), so nothing in the repo hints that it happened:
+
+```json
+{
+  "disabledMcpjsonServers": [
+    "taskhub", "playwright", "nanobanana", "serper",
+    "github", "notion", "context7", "elevenlabs"
+  ]
+}
+```
+
+The tell: **all** of the project's MCP servers are missing at once, not just `taskhub`. One
+broken server fails alone; a declined trust prompt takes the whole file with it. If
+`context7` and `github` are gone too, stop debugging `taskhub`.
+
+**Fix** — remove the server from the list and **restart the host** (the list is read at
+launch):
+
+```powershell
+# check first — this is the one-line diagnosis
+node -e "console.log(require('./.claude/settings.local.json').disabledMcpjsonServers)"
+```
+
+Then delete the entry (or the whole key, to restore all of them) and relaunch. Re-approving
+via the trust prompt works too, but only fires on first encounter — once the answer is
+recorded, editing the file is the way back.
+
+> [!WARNING]
+> **This masks #8 and #8a completely.** A disabled server never runs, so a broken
+> `TASKHUB_TOKEN` produces the *identical* symptom — missing tools — and you can spend a
+> session fixing an environment variable that was never the blocker. **Check
+> `disabledMcpjsonServers` first**: it's one command, it's the cheaper hypothesis, and it
+> rules out the whole token branch before you touch it.
+
+*First hit: 2026-07-15, after #8a's env fix landed correctly and the tools were still gone.
+Both faults were real and stacked — the token was genuinely unset **and** the server was
+disabled — which is exactly why the missing-tools symptom can't be used to identify either
+one.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 14. A rare cron becomes an hourly trigger
+
+**Symptom** — you choose a deliberately infrequent schedule so a test task can't fire on its
+own, and it fires **every hour, every day** instead:
+
+```powershell
+# asked for: once a year, Jan 1 at 04:00 UTC
+create_task_from_template … schedule: '0 4 1 1 *'
+
+# got:
+DaysInterval : 1                       # <- daily
+Repetition   : PT1H / P1D              # <- repeating hourly, all day
+StartBoundary: 2026-07-14T17:00:00-07:00
+```
+
+The conversion *did* report itself as lossy — `confidence: 0.7` plus
+`"Complex cron expression will be converted to a fallback interval trigger; execution times
+might not align 100%."` — which is why it slips past: that phrasing reads like **drift** (the
+right schedule, slightly off), so you accept it and move on.
+
+**Cause** — the cron→trigger converter pattern-matches a handful of shapes (daily, weekly,
+monthly, minute step, hour step). Anything else hits a single **hard-coded fallback** in
+[`backend/src/utils/scheduler-conversion.ts`](../../backend/src/utils/scheduler-conversion.ts):
+
+```ts
+// Fallback / Complex cron
+warnings.push('Complex cron expression will be converted to a fallback interval trigger; …');
+return { confidence: 0.7, trigger: { type: 'Time', startBoundary: '00:00',
+  repetition: { interval: 'PT1H', duration: 'P1D' } }, warnings };
+```
+
+That fallback is **not derived from your cron at all** — it's the same hourly trigger for
+every unrecognized expression. So the schedule isn't approximated, it's **discarded**. For
+`0 4 1 1 *` that's 1 run/year → **8,760 runs/year**.
+
+The asymmetry is the dangerous part: **the fallback only ever runs more often than you asked,
+never less.** A "safe, rare" schedule is exactly the input most likely to miss the pattern
+list, so reaching for a rare cron *to be careful* is what triggers the surprise.
+
+**Fix** — for a task that genuinely must not self-fire, don't encode that in the cron. Use a
+schedule the converter recognizes and **disable** the task, or delete it when done:
+
+```powershell
+# confirm what you'll actually get, BEFORE creating it
+convert_schedule '0 4 1 1 *'    # score 0.7 -> read the trigger, not just the score
+
+# inspect what was really registered
+Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>' | Select-Object -Expand Triggers
+```
+
+> [!IMPORTANT]
+> **Read the returned `trigger`, not the confidence score.** `0.7` with a warning looks like
+> a rounding error and is in fact a different schedule. This is the same lesson as
+> [#12](#12-a-template-passes-every-test-and-still-hangs-on-the-target) and the Monday-only
+> `1-5` bug, one layer up: the system told the truth in a register quiet enough to ignore.
+> `convert_schedule` renders the trigger in its text output (2026-07-15) precisely so this is
+> visible — use it.
+
+*First hit: 2026-07-15 (picked `0 4 1 1 *` as a "can't possibly fire" schedule for a live MCP
+test task; it registered as daily-with-hourly-repetition and would have pinged every hour
+until deleted).*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

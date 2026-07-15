@@ -4,7 +4,8 @@ import { TaskHubClient, TaskHubApiError } from './client.js';
 
 /**
  * Tool surface for the TaskHub MCP server (docs/ROADMAP.md › P3):
- *   list_tasks · run_task · list_templates · create_task_from_template · convert_schedule
+ *   list_tasks · run_task · list_templates · list_folders · create_task ·
+ *   create_task_from_template · convert_schedule
  *
  * Each tool is a thin call through TaskHubClient into the REST API. Business
  * rules (owner scoping, no-shell command structuring, agent signing, cron→trigger
@@ -74,6 +75,14 @@ interface TemplateRow {
   scheduleExpression: string | null;
   targetPlatforms: string[];
   parameters: TemplateParameter[] | null;
+}
+
+// GET /api/tasks/folders. `writable: false` folders are returned rather than
+// filtered out, on purpose — see list_folders.
+interface FolderRow {
+  path: string;
+  taskCount: number;
+  writable: boolean;
 }
 
 // ---- helpers ----
@@ -315,6 +324,175 @@ export function registerTools(server: McpServer, client: TaskHubClient): void {
               .join('\n')
           : 'No templates match.';
         return ok(`${header}\n${summary}`, { matched, returned: rows.length, templates: rows });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // list_folders
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'list_folders',
+    {
+      title: 'List Windows Task Scheduler folders',
+      description:
+        'List the real Windows Task Scheduler folders on the machine, with how many tasks each holds and whether ' +
+        'a task can be created in it. Call this before create_task / create_task_from_template when you want a ' +
+        'folder other than the default: TaskHub creates ONLY its own "\\TaskHub" folder, so every other folder ' +
+        'must already exist — this is how you find out which do. Windows-only (no other platform has task folders). ' +
+        'Folders you cannot create in are listed with writable=false rather than hidden, so you can see that a ' +
+        'folder exists AND why it is refused.',
+      inputSchema: {
+        search: z
+          .string()
+          .optional()
+          .describe('Free-text filter matched against the folder path (case-insensitive substring).'),
+        writableOnly: z
+          .boolean()
+          .default(false)
+          .describe(
+            'Only folders a task can actually be created in. Default false — an unwritable folder is worth ' +
+            'seeing, because "it exists but is refused" is a different answer from "it does not exist".'
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(500)
+          .default(50)
+          .describe('Max folders to return (default 50). A real machine can have well over a hundred — filter rather than raise this.')
+      }
+    },
+    async ({ search, writableOnly, limit }) => {
+      try {
+        const result = await client.get<{ folders: FolderRow[]; defaultFolder: string }>(
+          '/tasks/folders'
+        );
+        let folders = result.folders ?? [];
+        if (writableOnly) folders = folders.filter(f => f.writable);
+        if (search) {
+          const q = search.toLowerCase();
+          folders = folders.filter(f => (f.path ?? '').toLowerCase().includes(q));
+        }
+        const matched = folders.length;
+        const rows = folders.slice(0, limit);
+        const header =
+          matched > rows.length
+            ? `Showing ${rows.length} of ${matched} folder(s) (limit ${limit} — filter to narrow):`
+            : `${matched} folder(s).`;
+        const summary = rows.length
+          ? rows
+              .map(f => {
+                const tag = f.path === result.defaultFolder ? ' [default]' : '';
+                // Say why, not just no: a bare omission reads as "does not exist".
+                const writable = f.writable ? '' : ' — NOT writable (cannot create here)';
+                return `• ${f.path}${tag} — ${f.taskCount} task(s)${writable}`;
+              })
+              .join('\n')
+          : 'No folders match.';
+        const note = `\nDefault folder: ${result.defaultFolder} (used when you omit \`folder\`; TaskHub creates this one itself).`;
+        return ok(`${header}\n${summary}${note}`, {
+          matched,
+          returned: rows.length,
+          defaultFolder: result.defaultFolder,
+          folders: rows
+        });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // create_task
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'create_task',
+    {
+      title: 'Create a task from a command',
+      description:
+        'Create a real scheduled task directly from a command — no template needed. Use this when you already ' +
+        'know the command to run; use create_task_from_template only when you want a catalog recipe. ' +
+        'The server converts the 5-field UTC cron to the platform\'s native trigger and registers the task ' +
+        '(a Windows task is created via the signed local agent, and the command is structured no-shell). ' +
+        `Only ${CREATABLE_PLATFORMS.join(' and ')} can be created today. ` +
+        'IMPORTANT: check the schedule with convert_schedule first and READ THE RETURNED TRIGGER, not just the ' +
+        'confidence score — a cron this converter cannot express natively is REPLACED with an hourly trigger ' +
+        '(it only ever runs more often than you asked), and that arrives as a mild-sounding warning.',
+      inputSchema: {
+        name: z
+          .string()
+          .describe(
+            'Task name. Must be unique among tracked Windows tasks in the same folder — a collision returns 409 ' +
+            'rather than letting Windows silently overwrite the existing task.'
+          ),
+        command: z
+          .string()
+          .describe(
+            'The command to run, e.g. `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\\\path\\\\job.ps1"` ' +
+            'or `C:\\\\Tools\\\\backup.exe --full`. For Windows this is tokenized into a structured no-shell ' +
+            '{executable, args[]} action, so a shell is NOT implied: to use shell features (pipes, redirection, ' +
+            '`&&`) you must opt in explicitly by invoking one, e.g. `cmd.exe /c "..."`. ' +
+            'For TASKHUB_NATIVE the command must be a URL (it becomes an HTTP GET job).'
+          ),
+        schedule: z
+          .string()
+          .describe(
+            '5-field cron in UTC: "min hour dom month dow". TaskHub stores all schedules as UTC cron and ' +
+            'displays them in local time — do not pass local time.'
+          ),
+        platform: z
+          .enum(CREATABLE_PLATFORMS)
+          .default('WINDOWS_TASK_SCHEDULER')
+          .describe('Where to create the task. Only Windows and TaskHub-native are creatable today.'),
+        category: z
+          .string()
+          .optional()
+          .describe('TaskHub category for grouping. For Windows this defaults to the folder name.'),
+        folder: z
+          .string()
+          .optional()
+          .describe(
+            'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\TaskHub" (default) or ' +
+            '"\\\\Work\\\\Backups". The folder MUST ALREADY EXIST — TaskHub creates only its own "\\\\TaskHub" ' +
+            'folder, because removing a folder needs elevation and it will not leave behind one the user has to ' +
+            'delete by hand. Folders under "\\\\Microsoft\\\\" are refused outright: Windows keeps its own ' +
+            'scheduled tasks there and a name collision would silently overwrite one.'
+          )
+      }
+    },
+    async ({ name, command, schedule, platform, category, folder }) => {
+      try {
+        const body: Record<string, unknown> = { name, command, schedule, platform };
+        if (category) body.category = category;
+        if (folder) body.folder = folder;
+
+        const result = await client.post<{
+          message?: string;
+          task?: TaskRow;
+          conversion?: { warnings?: string[] };
+        }>('/tasks', body);
+
+        // Surface lossy conversion at the same volume as success. The backend
+        // accepts a fallback trigger rather than refusing it, so a task can be
+        // created on a schedule that is not the one asked for — saying so here
+        // is the difference between an honest result and a confident lie.
+        const warnings = result.conversion?.warnings?.length
+          ? `\nSchedule conversion warnings: ${result.conversion.warnings.join('; ')}` +
+            '\nThe registered trigger may not match the cron you gave. Verify with convert_schedule.'
+          : '';
+        const task = result.task;
+        const created = task
+          ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})`
+          : '';
+        const msg = typeof result.message === 'string' ? result.message : 'Task created';
+        return ok(`${msg}${created}${warnings}`, {
+          platform,
+          task: task ? compactTask(task) : null,
+          conversion: result.conversion ?? { warnings: [] }
+        });
       } catch (err) {
         return toolError(err);
       }

@@ -1,0 +1,12 @@
+// Typechecks the test suite, which tsconfig.json deliberately excludes from the
+// build (emitting tests into dist/ would publish them). Vitest transpiles without
+// typechecking, so this is the only thing that catches a type error in a test.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

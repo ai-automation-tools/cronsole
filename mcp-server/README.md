@@ -24,8 +24,18 @@ supply — its tasks are the tasks it can see, run, and create.
 | `list_tasks` | `GET /api/tasks` | List tracked tasks with schedule, status, next run, last result. Optional `platform` / `status` / `category` / `search` filters. |
 | `run_task` | `POST /api/tasks/:id/run` | Trigger a task now by its TaskHub id (Windows → signed agent run; native → backend runs it). |
 | `list_templates` | `GET /api/templates` | Browse the catalog with each template's id, tags, target platforms, default schedule, and declared `{{placeholder}}` parameters. |
+| `list_folders` | `GET /api/tasks/folders` | List the real Windows Task Scheduler folders, with task counts and whether each is writable. **How you find a valid `folder`** before creating: TaskHub creates only its own `\TaskHub`, so any other folder must already exist. Unwritable folders (`\Microsoft\…`) are listed with `writable: false` rather than hidden — "exists but refused" is a different answer from "doesn't exist". Optional `search` / `writableOnly` / `limit` (a real machine can have 150+). |
+| `create_task` | `POST /api/tasks` | Create a real task straight from a `command` + `schedule` — **no template needed**. The template is the wrong unit when the caller already knows the command. Windows commands are structured **no-shell** (`{executable, args[]}`) server-side, so a shell must be opted into explicitly (`cmd.exe /c "…"`). Optional `folder` / `category`. `TASKHUB_NATIVE` accepts a URL (HTTP GET job) and honestly refuses anything else. |
 | `create_task_from_template` | `POST /api/templates/:id/apply` | Create a real task from a template — server fills placeholders from `parameters`, converts the cron, and registers it. Optional `folder` picks the Windows Task Scheduler folder (default `\TaskHub`; `\Microsoft\` refused). Only Windows + TaskHub-native are creatable today. |
 | `convert_schedule` | `POST /api/tasks/preview` | Validate/convert a 5-field UTC cron to a platform-native trigger; returns a confidence score (0–1), lossy-conversion warnings, and the resulting trigger — rendered in the text (`Weekly at 09:00 on Monday, …`) so a wrong conversion is visible without reading `structuredContent`. |
+
+**Not here yet** — enable/disable, re-schedule, edit, delete, run history, and export are
+**REST-only** today; the routes exist, the tools don't (ROADMAP › P3 *MCP surface expansion*).
+Note the split: the **read-only** gaps (`list_folders`) closed first precisely because they
+raise no such question.
+The gap is deliberate rather than pending: these mutate real Task Scheduler entries under an
+**elevated** agent, and an MCP host has no equivalent of the UI's confirm dialog, so "the route
+already exists" is not on its own an argument for exposing it.
 
 ## Configuration
 
@@ -69,10 +79,31 @@ node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'
 
 ```bash
 npm install
+npm test           # vitest — no backend or token needed
 npm run build      # tsc → dist/
 npm start          # runs dist/index.js over stdio (expects TASKHUB_TOKEN in env)
 npm run inspect    # open the MCP Inspector against the server
 ```
+
+> [!IMPORTANT]
+> **`npm start` runs `dist/`, not `src/`** — so an unbuilt change is invisible. This is the
+> **third thing that runs stale**, alongside the Dockerized backend and the published agent.
+> Build before you conclude a change didn't work.
+
+### What the tests cover — and what they can't
+
+`npm test` drives the **real registered tools** through a **real MCP client** over an
+in-memory transport, stubbing only the HTTP client; `client.ts` is tested against a real local
+HTTP server rather than a mocked axios (the thing under test *is* how axios reports failures,
+so a mock would only assert our belief about it). That covers everything the wrapper owns:
+tool registration, input-schema validation, filtering and limits, request-body shaping, error
+normalization, and honest rendering of lossy conversions.
+
+It **cannot** tell you the wrapper and the API still agree — the stub encodes the response
+shape we *think* the backend returns. If a route's shape moves, the suite stays green while
+the real tool breaks. That's the [#9](../docs/troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty)
+failure mode one layer up: *both sides green while disagreeing about the wire.* **After
+changing a wrapped route, drive the tool against a running backend by hand.**
 
 ## Wiring into an MCP host
 
@@ -140,9 +171,20 @@ for what an unset variable looks like from the outside.
   instead of throwing — the model sees a readable reason, not a stack trace.
 - **stdout is sacred.** All logging goes to `stderr` (`console.error`); stdout is the
   JSON-RPC stream.
-- **Read/preview vs. side-effecting.** `list_*` and `convert_schedule` are safe to call
-  freely; `run_task` and `create_task_from_template` cause real effects on the user's machine
-  (running / registering Windows tasks) — same guardrails as the dashboard.
+- **Read/preview vs. side-effecting.** `list_*` (incl. `list_folders`) and `convert_schedule`
+  are safe to call freely; `run_task`, `create_task`, and `create_task_from_template` cause
+  real effects on the user's machine (running / registering Windows tasks) — same guardrails
+  as the dashboard.
+- **Say why, not just no.** `list_folders` reports an unwritable folder rather than filtering
+  it out, because an omission reads as *"that folder doesn't exist"* and sends the caller
+  looking for a folder it can already see. The route made this choice for the UI; the wrapper
+  must not quietly undo it.
+- **Lossy conversions are surfaced at the volume of a success.** The backend *accepts* a
+  fallback trigger rather than refusing it, so a task can be created on a schedule that isn't
+  the one asked for. `create_task` prints the warnings next to the result and points at
+  `convert_schedule`. The wrapper does **not** re-derive the trigger to compensate for the
+  backend's mild warning text — that fix belongs in the route (ROADMAP), and a wrapper that
+  patches over a backend message has started owning logic.
 
 ## Layout
 
@@ -151,7 +193,8 @@ mcp-server/
 ├── src/
 │   ├── index.ts     # stdio bootstrap
 │   ├── client.ts    # thin axios client over the REST API + error normalization
-│   └── tools.ts     # the 5 tool registrations
+│   ├── tools.ts     # the 7 tool registrations
+│   └── __tests__/   # vitest — `npm test` (75 tests, no backend needed)
 ├── .env.example
 ├── package.json
 └── tsconfig.json

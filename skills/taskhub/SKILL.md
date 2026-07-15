@@ -1,6 +1,6 @@
 ---
 name: taskhub
-description: 'Expert knowledge of TaskHub, the unified scheduled-task management system — its architecture, the Windows .NET agent protocol, the template registry/catalog, the MCP server, the testing layers, and the traps that waste hours. Use when working anywhere in the TaskHub repo — adding or debugging templates, touching the agent WebSocket protocol or Windows Task Scheduler integration, editing the catalog (bundled.ts, registry/, catalogSync, normalize.ts), changing the MCP server or its tools (mcp-server/, list_tasks, run_task, create_task_from_template, convert_schedule) or wiring it into an MCP host, running or writing tests, publishing the registry or landing sites, or diagnosing setup and runtime failures (403 invalid token, unexpanded TASKHUB_TOKEN, missing taskhub MCP tools, agent OFFLINE, stale backend code, 502 agent timeouts, PowerShell parse errors).'
+description: 'Expert knowledge of TaskHub, the unified scheduled-task management system — its architecture, the Windows .NET agent protocol, the template registry/catalog, the MCP server, the testing layers, and the traps that waste hours. Use when working anywhere in the TaskHub repo — adding or debugging templates, touching the agent WebSocket protocol or Windows Task Scheduler integration, editing the catalog (bundled.ts, registry/, catalogSync, normalize.ts), creating or managing scheduled tasks through TaskHub, changing the MCP server or its tools (mcp-server/, list_tasks, run_task, create_task, create_task_from_template, convert_schedule) or wiring it into an MCP host, running or writing tests, publishing the registry or landing sites, or diagnosing setup and runtime failures (403 invalid token, unexpanded TASKHUB_TOKEN, missing taskhub MCP tools, agent OFFLINE, stale backend code, 502 agent timeouts, PowerShell parse errors).'
 ---
 
 # TaskHub
@@ -70,7 +70,7 @@ mixing them up:
 | | **This skill** (`skills/taskhub/`) | **The MCP server** (`mcp-server/`) |
 |:---|:---|:---|
 | Audience | An agent **working on** TaskHub's codebase | An agent **using** a running TaskHub |
-| Surface | `SKILL.md` + `references/` | 5 tools over MCP/stdio |
+| Surface | `SKILL.md` + `references/` | 7 tools over MCP/stdio |
 | Needs | Nothing — it's just text | A running backend + a user JWT |
 | Canonical doc | [`skills/README.md`](../README.md) | [`docs/user-guides/guides/MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) |
 
@@ -80,9 +80,22 @@ A third thing shares the name and is neither: the **dev-tooling MCP servers** in
 The `taskhub` entry is the only one needing a backend and a token, so it's the only one that
 can fail to start.
 
-**The 5 tools** — `list_tasks`, `run_task`, `list_templates`, `create_task_from_template`
-(incl. `folder`), `convert_schedule` — each map 1:1 onto a backend route. Details, wiring, and
-token minting: [MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md).
+**The 7 tools** — `list_tasks`, `run_task`, `list_templates`, `list_folders`, **`create_task`**,
+`create_task_from_template` (incl. `folder`), `convert_schedule` — each map 1:1 onto a backend
+route. Details, wiring, and token minting:
+[MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md).
+
+**The surface is deliberately narrower than the API, and that gap is load-bearing.** You can
+create, run, and list over MCP — but **enable/disable, re-schedule, edit, delete, history, and
+export are REST-only** today (roadmap). If a user asks for one over MCP, say the tool doesn't
+exist and offer the REST call or the UI. **Never improvise a substitute** — notably, never
+"disable" a task by rewriting its schedule to something you think won't fire; an unrecognized
+cron is replaced with an **hourly** trigger, so that move does the opposite (see the traps).
+
+**Creating a task on a real machine? Read
+[references/task-authoring.md](references/task-authoring.md) first** — the creation paths,
+command recipes per kind of work (script / exe / shell opt-in / HTTP / CLI agent), the
+quoting and folder rules, and how to verify a task actually ran.
 
 ## Non-negotiable invariants
 
@@ -116,9 +129,11 @@ These have each burned real hours. **Check these before debugging your own code.
 | **The .NET agent never hot-reloads** | New agent command 502s "Agent … timeout" after ~15s. Route **exists** (bad id → your handler's error, not "Cannot GET"), and only agent-backed paths hang — DB-only paths work. | Republish it from an **Administrator** prompt (it runs elevated; the exe is locked). |
 | **Transient test agent strands the real one** | Windows shows `OFFLINE` forever after you stop a second/dogfood agent, though the real agent is still running. | `docker compose restart backend`. One agent socket per user; the real agent only re-registers on reconnect. |
 | **403 Invalid or expired token** (dashboard/agent) | Dashboard empty, agent rejected at handshake. | Docker bakes **dev-only default secrets**. Create a root `.env` mirroring `backend/.env`, then `docker compose up -d --force-recreate backend`. |
-| **403 on _every_ MCP tool** — but the dashboard and `curl` work | Nothing is actually expired. `${TASKHUB_TOKEN}` was **unset**, so the host passed the *literal* text through and the API rejected it. Reads as an expired JWT and sends you debugging auth instead of your environment. | Export the var, then relaunch the host **from a fresh terminal** — a process inherits its parent's environment, so an already-open terminal keeps handing down the stale one. `configFromEnv()` now detects the literal and refuses to start. |
-| **The `taskhub` MCP tools are absent entirely** | Not an error — *absence*. `mcp__taskhub__*` simply isn't in the tool list. | The server exited at startup (usually the token case above) and the host dropped it. Check `/mcp` for the message; a failed-to-boot server is silent by design. |
+| **403 on _every_ MCP tool** — but the dashboard and `curl` work | Nothing is actually expired. `${TASKHUB_TOKEN}` was **unset**, so the host passed the *literal* text through and the API rejected it. Reads as an expired JWT and sends you debugging auth instead of your environment. | Set the var, then relaunch the host from a shell that can *see* it — see the next row, because "a fresh terminal" is not enough. `configFromEnv()` now detects the literal and refuses to start. |
+| **The token is set at User level and the host still can't see it** | You set it, you restarted, `[Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')` returns it — and `$env:TASKHUB_TOKEN` in the host is still empty. Restarting again doesn't help. | **A new terminal is not a new environment.** A process inherits its parent's env block *at spawn*; a VS Code integrated terminal inherits `Code.exe`'s, snapshotted when VS Code launched — so new tabs *and* host restarts re-inherit the stale one (same for tabs in a running Windows Terminal). Don't guess which ancestor is stale — walk the process tree and compare start times to when you set the var (see [troubleshooting 8a](../../docs/troubleshooting/README.md#8a-and-restart-from-a-fresh-terminal-does-nothing-under-vs-code)). Fix without losing window state: `$env:TASKHUB_TOKEN = [Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')` then relaunch the host **from that shell**. |
+| **The `taskhub` MCP tools are absent entirely** | Not an error — *absence*. `mcp__taskhub__*` simply isn't in the tool list. | **Two unrelated causes share this one symptom, so it identifies neither.** Check the cheap one first: `node -e "console.log(require('./.claude/settings.local.json').disabledMcpjsonServers)"` — declining Claude Code's "trust this project's MCP servers?" prompt disables **every** server in `.mcp.json`, in gitignored per-machine state, and a disabled server masks the token bug completely ([#13](../../docs/troubleshooting/README.md#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine)). **The tell:** all the project's servers are missing at once, not just `taskhub`. Only then suspect the token (the rows above) — the server exiting at startup is silent by design. Discriminator: if `node mcp-server/dist/index.js` answers `initialize` by hand, the server is fine and the host never started it. |
 | **A template passes every test and still hangs on the target** | Task sits `Running` forever (`267009`) with **flat CPU** — blocked, not working — while TaskHub reports `lastRunStatus: SUCCESS` and the suite is green. | **Resolvability proves tokenization, not correctness.** `Invoke-WebRequest` without `-UseBasicParsing` needs the **IE engine Windows 11 removed** → `NullReferenceException`; with no console to print it to, the process blocks instead of exiting. Always `-UseBasicParsing` (or `Invoke-RestMethod`) + `-NoProfile`. A green suite is not evidence a template works — apply it and watch it run. |
+| **A "rare" cron silently becomes an hourly trigger** | You pick an infrequent schedule (annual, a specific date) so a test task can't self-fire — and it registers as **daily, repeating hourly**. The tell is quiet: `confidence: 0.7` + "execution times might not align 100%", which reads like *drift* rather than *replacement*. | Any cron the converter doesn't pattern-match hits a **hard-coded** `PT1H`/`P1D` fallback that isn't derived from your expression — the schedule is discarded, not approximated (`scheduler-conversion.ts`). **It only ever runs more often than you asked, never less**, and a deliberately rare cron is the input most likely to miss the pattern list. **Read the returned `trigger`, not the score.** To keep a task from firing, use a recognized schedule and disable it. ([#14](../../docs/troubleshooting/README.md#14-a-rare-cron-becomes-an-hourly-trigger)) |
 | **A System Restore silently wiped per-machine state** | Several unrelated-looking things break at once while the repo is spotless: `Start-ScheduledTask` can't find `TaskHubRepublish`, and/or the MCP tools vanish. Nothing in git changed, so nothing *looks* wrong. | Scheduled-task registrations and the `TASKHUB_TOKEN` User env var live on **`C:`**, not in the repo — a restore takes them and leaves a repo on another drive untouched. Re-register (`Register-RepublishTask.ps1`, elevated) and re-mint the token. **The tell:** if the repo is clean but several things broke together, ask what lives on `C:` rather than in git. |
 | **Port LISTENING but `HTTP 000`** | curl connects, gets nothing. | Docker's port proxy holds the port while the app inside crashed. Read `docker logs`, don't chase the port. |
 | **`.ps1` parse errors under PowerShell 5.1 only** | `Unexpected token '}'`, errors point at EOF, but `pwsh` 7 runs it fine. | A **non-ASCII char (usually an em-dash `—`) in a BOM-less UTF-8 script**. 5.1 reads it as ANSI → decodes into a curly quote it treats as a string delimiter. **Keep PowerShell/VBScript pure ASCII.** |
@@ -154,6 +169,7 @@ Load these on demand — don't read them all up front:
 | Reference | When |
 |:---|:---|
 | [architecture.md](references/architecture.md) | Data model, connector pattern, agent protocol, API surface, request shapes |
+| [task-authoring.md](references/task-authoring.md) | **Creating a task on a real machine**: the creation paths, command recipes per kind of work, quoting, schedules, folders, what's manageable over MCP vs REST, and how to verify it actually ran |
 | [templates.md](references/templates.md) | The catalog/registry: core vs extended, adding a template, publishing |
 | [testing.md](references/testing.md) | Suites, commands, what CI does and doesn't enforce |
 | [troubleshooting.md](references/troubleshooting.md) | The traps in full, plus how to diagnose a new one |

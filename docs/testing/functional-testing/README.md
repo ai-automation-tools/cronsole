@@ -108,7 +108,9 @@ silent data loss lives.
 | F6.2 | **Agent config & auth** | Pairing config parses; authenticator derives the right token | ✅ `AgentConfigTests.cs`, `AgentAuthenticatorTests.cs` |
 | F6.3 | **Health diagnostics** | An invalid Claude key surfaces "Key authentication failed" **with** corrective instructions | ⬜ |
 | F6.4 | **Failure notifications** | Failed manual + scheduled native runs fire generic / Discord / ntfy webhooks | ✅ `FailureNotificationService.test.ts` |
-| F6.5 | **MCP tools** | All 5 tools (`list_tasks`, `run_task`, `list_templates`, `create_task_from_template`, `convert_schedule`) work over stdio | ⬜ **No suite** — manual only |
+| F6.5 | **MCP tool surface** | All 7 tools (`list_tasks`, `run_task`, `list_templates`, `list_folders`, `create_task`, `create_task_from_template`, `convert_schedule`) register, validate their inputs, filter, and render honestly — driven through a real MCP client over an in-memory transport | ✅ `mcp-server/src/__tests__/tools.test.ts` |
+| F6.6 | **MCP config & error normalization** | An unexpanded `${TASKHUB_TOKEN}` refuses to start; an API failure surfaces the backend's own message + status, never a stack trace | ✅ `mcp-server/src/__tests__/client.test.ts` |
+| F6.7 | **MCP tools against a *real* backend** | The stub and the API still agree on response shape (`conversion.warnings`, `task`, `score`) — the suite above can't prove this, since it stubs the client | 🟡 **Manual only** — hand-driven; see the note in [testing/README](../README.md#-known-coverage-gaps) |
 
 ## ✍️ Writing a good functional test
 

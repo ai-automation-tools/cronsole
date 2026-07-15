@@ -67,7 +67,7 @@ gets you a running stack and an auth token, which every runbook assumes.
 | **Frontend unit** | `npm test` | `frontend/` | Nothing (jsdom) |
 | **Frontend E2E** | `npm run test:e2e` | `frontend/` | **A live stack** (backend + frontend + mock agent) |
 | **Windows agent** | `dotnet test` | `agent/` | .NET 10 SDK; Windows for COM-backed paths |
-| **MCP server** | `npm run build` | `mcp-server/` | Nothing (build only — no test suite yet) |
+| **MCP server** | `npm test` | `mcp-server/` | Nothing (stubbed client + a local HTTP server) |
 
 Full sweep before a release (from the repo root):
 
@@ -75,6 +75,7 @@ Full sweep before a release (from the repo root):
 cd backend  && npm test && npm run test:integration
 cd ../frontend && npm run lint && npm test
 cd ../agent  && dotnet test
+cd ../mcp-server && npm test
 ```
 
 ## 🤖 What CI actually enforces
@@ -88,7 +89,7 @@ cd ../agent  && dotnet test
 | `backend-integration` | Vitest integration suite against a real `postgres:16-alpine` service container |
 | `frontend` | ESLint + Vitest + Vite build |
 | `windows-agent` | `dotnet build` + `dotnet test` on `windows-latest` |
-| `mcp-server` | Build only |
+| `mcp-server` | Vitest suite (75 tests) + `tsc` typecheck (incl. tests) + build |
 
 > [!IMPORTANT]
 > **The E2E suite is not in CI.** Playwright needs a live stack (backend, frontend, and the
@@ -103,7 +104,7 @@ Honest list. These are real holes, not aspirational polish:
 |:---|:---|:---|
 | **Login rate limit (`429`) not implemented** | The archived Test Plan's brute-force mitigation has no code behind it — so nothing to test | Go-public checklist in [ROADMAP](../ROADMAP.md) |
 | **E2E not wired into CI** | Regressions in full-stack flows only surface if someone runs it locally | This doc |
-| **MCP server has no test suite** | Its 5 tools are covered only by the REST endpoints underneath them | This doc |
+| **MCP tools are never exercised against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does* — not that the wrapper and the API still **agree**. If a route's response shape moves (`conversion.warnings`, `task`, `score`), the stub keeps passing while the real tool breaks. This is the [#9](../troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) failure mode one layer up: *both sides green while disagreeing about the wire.* Covered today only by driving the tools by hand (see the MCP runbook row below) | This doc |
 | **No visual regression** | Dark/light theme and layout breaks are caught by eye only | This doc |
 | **No performance gate** | A baseline exists as an artifact; nothing fails when we regress past it | This doc |
 

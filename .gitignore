@@ -93,6 +93,16 @@ logs/
 # --- Local-only docs (historical plans, engineering specs, research) ---
 docs/archive/
 
+# --- .claude/: track ONLY commands, skills, and agents ---
+# Deny by default, then re-include the three shared dirs. Everything else under
+# .claude/ is per-machine noise (settings.local.json, temp/, images/, rules/, IDE
+# state) and must never reach the repo. New junk added here is ignored by default
+# rather than requiring someone to notice it.
+/.claude/*
+!/.claude/agents/
+!/.claude/commands/
+!/.claude/skills/
+
 # --- Agent skill links (per-machine; created by scripts/setup-skill-links.ps1/.sh) ---
 # The canonical skill lives at the repo-root skills/ (tracked). Claude Code reads
 # it through a per-machine junction (Windows) / symlink (POSIX) at
@@ -100,6 +110,7 @@ docs/archive/
 # be ignored by name: git follows a junction and would commit the skill content a
 # second time (once under skills/, again under .claude/skills/).
 # Add a line here for every new folder in skills/ -- the setup script warns if you forget.
+# NOTE: must stay AFTER the !/.claude/skills/ re-include above -- last match wins.
 /.claude/skills/taskhub/
 
 # --- Local scratch / tooling artifacts ---

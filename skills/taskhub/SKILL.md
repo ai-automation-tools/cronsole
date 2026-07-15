@@ -98,6 +98,7 @@ security or honesty.
 | **Run commands are HMAC-signed per session** | Replay prevention. |
 | **`(platform, externalId)` is unique** | `externalId` is the platform's native id (Windows task path, Claude routine id). |
 | **TaskHub never writes under `\Microsoft\`** | `RegisterTaskDefinition` **silently overwrites** a same-named task in the same folder, and the agent runs **elevated** — so writing there could destroy a real Windows task with no error. Refused in the backend **and independently in the agent** (`TaskFolderPath`), because the agent holds the privilege and must not trust its caller. |
+| **TaskHub creates exactly one folder: its own `\TaskHub`** | The only one it also *prunes*. **Never create what you cannot remove** — deleting a Task Scheduler folder needs elevation, so any other folder TaskHub created would be a one-way door only the user could close by hand. Every other folder must already exist; a create into a missing one is refused honestly. A user's folder persisting is *correct* — it's theirs. |
 | **Every field the agent acts on is inside the signature** | Including the destination `folder` — an unsigned field on a signed command lets an on-path attacker redirect the write. |
 | **Registry files are content-addressed (sha256 over exact bytes)** | Keep them **LF** (`.gitattributes`); **never hand-edit `registry/`**. A CRLF flip breaks integrity. |
 | **`core` never reaches the DB** | `normalize.ts` whitelists Prisma fields. `core` is a distribution flag, registry-only. |

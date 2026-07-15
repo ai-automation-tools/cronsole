@@ -323,9 +323,11 @@ export function registerTools(server: McpServer, client: TaskHubClient): void {
           .optional()
           .describe(
             'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\TaskHub" (default) or ' +
-            '"\\\\Work\\\\Backups". Created if it does not exist. This also becomes the task\'s category in TaskHub. ' +
-            'Folders under "\\\\Microsoft\\\\" are refused — Windows keeps its own scheduled tasks there and a ' +
-            'name collision would silently overwrite one.'
+            '"\\\\Work\\\\Backups". This also becomes the task\'s category in TaskHub. The folder MUST ALREADY ' +
+            'EXIST — TaskHub creates only its own "\\\\TaskHub" folder, because removing a folder needs elevation ' +
+            'and it will not leave behind one the user has to delete by hand. Folders under "\\\\Microsoft\\\\" are ' +
+            'refused outright: Windows keeps its own scheduled tasks there and a name collision would silently ' +
+            'overwrite one.'
           ),
         parameters: z
           .record(z.string(), z.string())

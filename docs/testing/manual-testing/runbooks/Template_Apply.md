@@ -140,16 +140,29 @@ The user loses a task and is never told. A `200` here is a data-loss bug, not a 
 > older agent the create is *rejected* (the signature covers `folder`), which is the honest
 > failure — not a silent misplacement.
 
-Read the machine's real folders, then create into one:
+Read the machine's real folders. Unwritable ones (`\Microsoft\…`) come back with
+`writable: false` rather than hidden, so the UI can say *why*:
 
 ```powershell
-Invoke-RestMethod "http://localhost:3000/api/tasks/folders" -Headers $H | % folders | Select -First 8
+$f = Invoke-RestMethod "http://localhost:3000/api/tasks/folders" -Headers $H
+"writable: $(($f.folders | ? writable).Count)   refused: $(($f.folders | ? {-not $_.writable}).Count)"
+$f.folders | ? writable | Select -First 8 path, taskCount
+```
 
+**Expect:** your real folders with real task counts, every `\Microsoft\*` marked
+`writable: false`. **A blank `path` on every row** means the agent is emitting PascalCase keys
+the backend can't read — see the note at the end of this case.
+
+Pick an **existing, nested** folder from that list (make one in Task Scheduler by hand if you
+have none) and apply into it:
+
+```powershell
+$existing = '\Work\Backups'   # <-- must already exist
 $body = @{
   platform   = 'WINDOWS_TASK_SCHEDULER'
   name       = 'manual-test-folder'
-  folder     = '\ManualTest\Nested'
-  schedule   = '0 3 * * *'
+  folder     = $existing
+  schedule   = '0 9 * * 1-5'
   parameters = @{ }
 } | ConvertTo-Json
 
@@ -157,20 +170,42 @@ Invoke-RestMethod -Method Post "http://localhost:3000/api/templates/<template-id
   -Headers $H -ContentType 'application/json' -Body $body
 ```
 
-**Expect:** the nested folder is created lazily and the task is really there — ask Windows,
-not the API response:
+**Expect:** the task is really there — ask Windows, not the API response. The weekly trigger
+must list **all five** weekdays (`DaysOfWeek` = 62), not just Monday:
 
 ```powershell
-Get-ScheduledTask -TaskPath '\ManualTest\Nested\' -TaskName 'manual-test-folder'
+$t = Get-ScheduledTask -TaskPath "$existing\" -TaskName 'manual-test-folder'
+$t.Triggers[0] | Select StartBoundary, DaysOfWeek
 ```
 
-Confirm the category follows the **root** folder (`ManualTest`, not `Nested`), since a Windows
+Confirm the category follows the **root** folder (`Work`, not `Backups`), since a Windows
 task's category is a projection of its top-level folder:
 
 ```powershell
 Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H |
-  ? name -eq 'manual-test-folder' | Select name, category, externalId
+  ? { $_.name -like 'manual-test-folder' } | Select name, category, externalId
 ```
+
+Now the other half of the rule — a folder that does **not** exist must be **refused**, never
+created:
+
+```powershell
+$body = @{ platform='WINDOWS_TASK_SCHEDULER'; name='manual-test-nofolder'
+           folder='\NoSuchFolder\Nested'; schedule='0 3 * * *'; parameters=@{} } | ConvertTo-Json
+try {
+  Invoke-RestMethod -Method Post "http://localhost:3000/api/templates/<template-id>/apply" `
+    -Headers $H -ContentType 'application/json' -Body $body
+} catch { $_.ErrorDetails.Message }
+
+Get-ScheduledTask -TaskPath '\NoSuchFolder\*' -ErrorAction SilentlyContinue   # expect nothing
+```
+
+**Expect:** an honest failure naming the missing folder, and no `\NoSuchFolder` left behind.
+
+**Why:** TaskHub creates exactly one folder — its own `\TaskHub`, the same one it prunes when
+emptied. Deleting a Task Scheduler folder needs **elevation**, so any other folder TaskHub
+created would be a one-way door only the user could close by hand. *Never create what you
+cannot remove.*
 
 Now the guard. Each of these must return **400**:
 
@@ -191,15 +226,36 @@ same folder, and the agent runs **elevated**. A task named e.g. `SystemRestore` 
 `create_task_from_template` is reachable over MCP, so a sentence could trigger it. A `200` here
 is an OS-integrity bug, not a validation nit.
 
-Also confirm the same name in a **different** folder is *allowed* (they're genuinely different
-Windows tasks — blocking it would make folders pointless), and clean up:
+Then confirm the guard isn't a blanket deny — these are **not** `\Microsoft\` (the check
+matches the root *segment*, not a prefix) and must be **allowed**, given the folders exist:
 
 ```powershell
-Get-ScheduledTask -TaskPath '\ManualTest\Nested\' -TaskName 'manual-test-folder' | Unregister-ScheduledTask -Confirm:$false
+# \MicrosoftEdgeBackups is a different folder; \Work\Microsoft is yours, not the reserved root.
 ```
 
-> Note: TaskHub only auto-prunes an emptied `\TaskHub\`. `\ManualTest\` is **yours** and is
-> deliberately left behind — remove it by hand if you want it gone.
+Finally, the same name in a **different** folder must be *allowed* — `\TaskHub\Backup` and
+`\Work\Backup` are genuinely different Windows tasks, and blocking it would make folders
+pointless.
+
+Clean up (tasks only — see the note):
+
+```powershell
+Get-ScheduledTask -TaskPath "$existing\" -TaskName 'manual-test-folder' |
+  Unregister-ScheduledTask -Confirm:$false
+```
+
+> **Cleanup note.** TaskHub only auto-prunes an emptied `\TaskHub\`; every other folder is
+> **yours** and is deliberately left alone. That's why it also refuses to *create* one — a
+> folder it made would need **elevation** to delete, so it would be litter only you could
+> clear. If a dogfood ever leaves folders behind, remove them from an **elevated** prompt:
+> `(New-Object -ComObject Schedule.Service).Connect()` then
+> `$svc.GetFolder('\').DeleteFolder('Name', 0)` — an unelevated shell gets `E_ACCESSDENIED`.
+
+> **If every folder came back with a blank `path`:** the agent is emitting PascalCase
+> (`Path`/`TaskCount`) while the backend reads `f.path`. The socket serializer does **not**
+> camelCase — every emit must project explicitly (`path = f.Path`), the way `task:full_list`
+> does. Nothing throws; you just get a well-formed payload of empty values claiming no folder
+> is usable. Mocked tests can't catch it — see `TaskFolders_Event_EmitsCamelCaseKeys…`.
 
 ## 9. Applied task is tracked immediately
 

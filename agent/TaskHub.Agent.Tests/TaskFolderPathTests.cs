@@ -133,6 +133,36 @@ namespace TaskHub.Agent.Tests
             TaskFolderPath.Normalize("").Should().Be("\\");
         }
 
+        [Theory]
+        [InlineData("\\TaskHub")]
+        [InlineData("\\taskhub")]
+        [InlineData("\\TASKHUB")]
+        [InlineData("TaskHub")]
+        [InlineData("/TaskHub")]
+        [InlineData("\\TaskHub\\")]
+        public void IsDefault_RecognizesOurOwnFolderInAnyWrittenForm(string folder)
+        {
+            // \TaskHub is the ONLY folder the agent creates, because it is the only
+            // one it prunes. Missing a spelling here would make CreateTask refuse to
+            // create our own default folder on a fresh install.
+            TaskFolderPath.IsDefault(folder).Should().BeTrue();
+        }
+
+        [Theory]
+        [InlineData("\\Work")]
+        [InlineData("\\TaskHub\\Nested")]
+        [InlineData("\\TaskHubExtra")]
+        [InlineData("\\Task-Hub")]
+        [InlineData("\\")]
+        public void IsDefault_RejectsEverythingElse(string folder)
+        {
+            // These must NOT be auto-created: deleting a folder needs elevation, so
+            // anything TaskHub creates beyond its own is litter only the user can
+            // clear. Note \Task-Hub (the hyphenated self-heal infra folder) and
+            // \TaskHub\Nested are both distinct from \TaskHub.
+            TaskFolderPath.IsDefault(folder).Should().BeFalse();
+        }
+
         [Fact]
         public void Normalize_MatchesTheBackendForTheDefaultFolder()
         {

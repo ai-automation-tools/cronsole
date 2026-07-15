@@ -18,8 +18,6 @@ const resolveCommand = (tpl: string, values: Record<string, string>) =>
 
 /** Mirrors DEFAULT_TASK_FOLDER in backend/src/utils/windowsTaskFolder.ts. */
 const DEFAULT_FOLDER = '\\TaskHub';
-/** Sentinel for the "type a new folder" option — not a real path. */
-const NEW_FOLDER = '__new__';
 
 interface AgentFolder {
   path: string;
@@ -50,8 +48,10 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   // Windows task the "category" is a projection of this folder
   // (TaskService.extractCategory reads the root segment), so choosing a folder
   // IS choosing the category — unlike native tasks, where categories are local.
+  // Only EXISTING folders are offered: TaskHub creates just its own \TaskHub
+  // (the one folder it also prunes), because removing a folder needs elevation
+  // and anything else it created would be litter only the user could clear.
   const [folder, setFolder] = useState(DEFAULT_FOLDER);
-  const [newFolder, setNewFolder] = useState('');
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const { settings: prefs } = useSettings();
 
@@ -108,17 +108,18 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
     retry: false
   });
 
-  // Offer only writable folders, always including the default even if it does
-  // not exist yet (it is created lazily on first use). \Microsoft\ is excluded
-  // rather than shown-and-disabled: the reason is explained once, below, which
-  // is honest without cluttering the list with dozens of unusable system folders.
+  // Offer only writable folders that ALREADY EXIST — plus the default, which is
+  // the one folder TaskHub creates lazily (and prunes again when emptied), so it
+  // belongs here even on a fresh machine where it doesn't exist yet.
+  // \Microsoft\ is excluded rather than shown-and-disabled: the reason is
+  // explained once, below, which is honest without cluttering the list with
+  // dozens of unusable system folders.
   const writableFolders = (foldersData?.folders ?? []).filter(f => f.writable);
   const folderOptions = Array.from(
     new Set<string>([DEFAULT_FOLDER, ...writableFolders.map(f => f.path)])
   ).sort((a, b) => (a === DEFAULT_FOLDER ? -1 : b === DEFAULT_FOLDER ? 1 : a.localeCompare(b)));
 
-  const effectiveFolder = folder === NEW_FOLDER ? newFolder.trim() : folder;
-  const folderReady = !isWindows || !!effectiveFolder;
+  const folderReady = !isWindows || !!folder;
 
   const applyMutation = useMutation({
     mutationFn: async () => {
@@ -129,7 +130,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
         parameters: values,
         // Windows only — other platforms have no native folder hierarchy and
         // the backend rejects the field for them.
-        ...(isWindows ? { folder: effectiveFolder } : {})
+        ...(isWindows ? { folder } : {})
       });
     },
     onSuccess: () => {
@@ -241,28 +242,18 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
                       </option>
                     );
                   })}
-                  <option value={NEW_FOLDER}>+ New folder…</option>
                 </select>
-              )}
-
-              {folder === NEW_FOLDER && (
-                <input
-                  autoFocus
-                  value={newFolder}
-                  onChange={e => setNewFolder(e.target.value)}
-                  placeholder="\Work\Backups"
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors font-mono"
-                />
               )}
 
               {foldersError ? (
                 <p className="text-[10px] text-amber-400 flex items-start gap-1.5">
                   <AlertTriangle size={11} className="shrink-0 mt-0.5" />
-                  Couldn’t read your folders (the agent may be offline). You can still create the task in {DEFAULT_FOLDER}, or type a folder name.
+                  Couldn’t read your folders (the agent may be offline). You can still create the task in {DEFAULT_FOLDER}.
                 </p>
               ) : (
                 <p className="text-[10px] text-subtle-foreground italic">
-                  Where the task lives in Windows Task Scheduler — this also becomes its category in TaskHub. Folders are created when first used.
+                  Where the task lives in Windows Task Scheduler — this also becomes its category in TaskHub.
+                  {' '}<span className="not-italic">Only folders that already exist are listed. TaskHub creates just its own {DEFAULT_FOLDER} (and removes it again when empty) — deleting a folder needs admin rights, so it won’t leave one behind that only you could clear. To use a new folder, create it in Task Scheduler first.</span>
                   {' '}<span className="not-italic">\Microsoft\ isn’t offered: Windows keeps its own tasks there, and a name collision would silently overwrite one.</span>
                 </p>
               )}

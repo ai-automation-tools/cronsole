@@ -85,6 +85,16 @@ namespace TaskHub.Agent
         /// <summary>True when the folder is the root folder.</summary>
         public static bool IsRoot(string? folder) => Split(folder).Count == 0;
 
+        /// <summary>
+        /// True when this is TaskHub's own folder (\TaskHub) — the ONLY folder the
+        /// agent creates, because it is also the only one it prunes. Every other
+        /// folder must already exist: TaskHub must never create something it cannot
+        /// remove, since folder deletion needs elevation the user would have to
+        /// perform by hand.
+        /// </summary>
+        public static bool IsDefault(string? folder) =>
+            string.Equals(Normalize(folder), Default, StringComparison.OrdinalIgnoreCase);
+
         /// <summary>Path segments, separator-agnostic and empty-free.</summary>
         public static List<string> Split(string? folder)
         {

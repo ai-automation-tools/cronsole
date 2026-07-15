@@ -28,6 +28,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
 | 6 | A `.ps1` fails to parse under `powershell` (5.1) with `Unexpected token '}'` / `The string is missing the terminator` — but runs fine under `pwsh` (7) | A non-ASCII char (e.g. an em-dash `—`) in a BOM-less UTF-8 script; Windows PowerShell 5.1 reads it as ANSI and decodes it into a curly quote it treats as a string delimiter | [→](#6-ps1-parse-errors-under-windows-powershell-51-only) |
 | 7 | A newly added agent command (e.g. a new `task:*` socket op) returns `502` with `... timeout` after ~15s, even though the backend route exists | The **.NET agent is a host process running the old published exe** — it doesn't hot-reload, so it has no handler for the new command and never answers; the backend times out | [→](#7-new-agent-command-502-times-out-until-the-agent-is-republished) |
+| 8 | **Every** MCP tool returns `403 Invalid or expired token`, but the dashboard and `curl` with a real token work fine | `TASKHUB_TOKEN` is unset, so Claude Code passed the **literal** `${TASKHUB_TOKEN}` through to the API — nothing is actually expired | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
 
 ---
 
@@ -312,6 +313,58 @@ dotnet publish ".\agent\TaskHub.Agent" -c Release -r win-x64 --self-contained fa
 > handler to exist.
 
 *First hit: 2026-07-13.*
+
+---
+
+## 8. Every MCP tool returns `403 Invalid or expired token`
+
+**Symptom** — the backend is healthy and the dashboard works, but *every* TaskHub MCP
+tool call fails immediately:
+
+```
+TaskHub API error (HTTP 403): Invalid or expired token
+```
+
+**Cause** — `TASKHUB_TOKEN` is **not set in the environment the MCP host was launched
+from**, so it was never expanded. `.mcp.json` references the token as
+`"TASKHUB_TOKEN": "${TASKHUB_TOKEN}"`, and Claude Code
+[documents](https://code.claude.com/docs/en/mcp) that an unset variable is passed
+through as its **literal text** (`${TASKHUB_TOKEN}`) with only a warning. The server
+then sends `Authorization: Bearer ${TASKHUB_TOKEN}` and the API rejects it.
+
+The message is misleading: nothing is expired, and the JWT is not malformed — the
+variable is simply unset. Don't rotate secrets or re-mint a token before checking this.
+
+The tell that distinguishes it from [entry #2](#2-403-invalid-or-expired-token-or-agent-rejected)
+(Docker's secrets not matching `backend/.env`):
+
+- **Only the MCP server** 403s. The dashboard and `curl` with a real token both work —
+  entry #2 breaks *everything*, including the agent handshake.
+- A **missing** `Authorization` header returns `401 Access token required`, not `403`.
+  Getting `403` means a token *was* sent — it just wasn't a JWT. Reproduce the exact
+  failure with:
+
+  ```bash
+  curl -s -H 'Authorization: Bearer ${TASKHUB_TOKEN}' http://localhost:3000/api/tasks
+  # {"error":"Invalid or expired token"}  ← identical to what the MCP tools return
+  ```
+
+**Fix** — set the variable in your environment, then **restart the MCP host** (it
+expands `.mcp.json` at launch). Never paste the literal token into `.mcp.json` — the
+repo's convention is that it holds only `${ENV}` references.
+
+```powershell
+# Mint a token inside the backend container, so it's signed with the JWT_SECRET
+# the running backend actually uses (not whatever your shell has).
+$token = (docker exec taskhub-backend-1 node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'365d'}))").Trim()
+[Environment]::SetEnvironmentVariable('TASKHUB_TOKEN', $token, 'User')   # persistent
+```
+
+Since 2026-07-14 `configFromEnv()` detects an unexpanded `${...}` literal and refuses
+to start with an explicit message, so this now fails loudly at launch rather than as a
+403 on every call. If you see that startup error, the fix above is still the answer.
+
+*First hit: 2026-07-14.*
 
 ---
 

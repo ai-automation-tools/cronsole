@@ -181,7 +181,19 @@ namespace TaskHub.Agent
             {
                 try
                 {
-                    var folders = _scheduler.ListFolders();
+                    // Project to an anonymous type with explicit lowercase names, the
+                    // same way task:full_list does. The socket serializer does NOT
+                    // camelCase automatically, so emitting AgentFolderInfo directly
+                    // puts Path/TaskCount/Writable on the wire and the backend — which
+                    // reads f.path — silently sees undefined for every field.
+                    var folders = _scheduler.ListFolders()
+                        .Select(f => new
+                        {
+                            path = f.Path,
+                            taskCount = f.TaskCount,
+                            writable = f.Writable
+                        })
+                        .ToList();
                     Console.WriteLine($"Server requested task:folders -> {folders.Count} folders");
 
                     await _socket.EmitAsync("task:folders_list", new[] { new {
@@ -197,7 +209,7 @@ namespace TaskHub.Agent
                     {
                         await _socket.EmitAsync("task:folders_list", new[] { new {
                             success = false,
-                            folders = new List<AgentFolderInfo>(),
+                            folders = Array.Empty<object>(),
                             message = ex.Message
                         }});
                     }

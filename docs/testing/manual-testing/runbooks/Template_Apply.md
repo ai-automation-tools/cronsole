@@ -134,6 +134,73 @@ Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-dup'
 **Why this matters:** without the guard, Windows **silently overwrites** a same-name task.
 The user loses a task and is never told. A `200` here is a data-loss bug, not a UX nit.
 
+## 8a. ⭐ Folder selection lands in the real folder — and `\Microsoft\` is refused
+
+> Requires the agent **republished** with the folder handler (troubleshooting #7). Against an
+> older agent the create is *rejected* (the signature covers `folder`), which is the honest
+> failure — not a silent misplacement.
+
+Read the machine's real folders, then create into one:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/tasks/folders" -Headers $H | % folders | Select -First 8
+
+$body = @{
+  platform   = 'WINDOWS_TASK_SCHEDULER'
+  name       = 'manual-test-folder'
+  folder     = '\ManualTest\Nested'
+  schedule   = '0 3 * * *'
+  parameters = @{ }
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post "http://localhost:3000/api/templates/<template-id>/apply" `
+  -Headers $H -ContentType 'application/json' -Body $body
+```
+
+**Expect:** the nested folder is created lazily and the task is really there — ask Windows,
+not the API response:
+
+```powershell
+Get-ScheduledTask -TaskPath '\ManualTest\Nested\' -TaskName 'manual-test-folder'
+```
+
+Confirm the category follows the **root** folder (`ManualTest`, not `Nested`), since a Windows
+task's category is a projection of its top-level folder:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H |
+  ? name -eq 'manual-test-folder' | Select name, category, externalId
+```
+
+Now the guard. Each of these must return **400**:
+
+```powershell
+foreach ($f in '\Microsoft', '\microsoft\Windows', '\MICROSOFT\Windows\SystemRestore', '\TaskHub\..\Microsoft') {
+  $b = @{ platform='WINDOWS_TASK_SCHEDULER'; name='manual-test-sneaky'; folder=$f; schedule='0 3 * * *'; parameters=@{} } | ConvertTo-Json
+  try {
+    Invoke-RestMethod -Method Post "http://localhost:3000/api/templates/<template-id>/apply" `
+      -Headers $H -ContentType 'application/json' -Body $b
+    "$f -> CREATED  <-- BUG"
+  } catch { "$f -> $($_.Exception.Response.StatusCode.value__)" }
+}
+```
+
+**Why this matters:** `RegisterTaskDefinition` **silently overwrites** a same-named task in the
+same folder, and the agent runs **elevated**. A task named e.g. `SystemRestore` landing in
+`\Microsoft\Windows\SystemRestore\` would destroy a real Windows task with no error — and
+`create_task_from_template` is reachable over MCP, so a sentence could trigger it. A `200` here
+is an OS-integrity bug, not a validation nit.
+
+Also confirm the same name in a **different** folder is *allowed* (they're genuinely different
+Windows tasks — blocking it would make folders pointless), and clean up:
+
+```powershell
+Get-ScheduledTask -TaskPath '\ManualTest\Nested\' -TaskName 'manual-test-folder' | Unregister-ScheduledTask -Confirm:$false
+```
+
+> Note: TaskHub only auto-prunes an emptied `\TaskHub\`. `\ManualTest\` is **yours** and is
+> deliberately left behind — remove it by hand if you want it gone.
+
 ## 9. Applied task is tracked immediately
 
 **Expect:** the applied task appears in the dashboard **right away** — no manual sync needed.

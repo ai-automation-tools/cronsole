@@ -29,6 +29,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 6 | A `.ps1` fails to parse under `powershell` (5.1) with `Unexpected token '}'` / `The string is missing the terminator` — but runs fine under `pwsh` (7) | A non-ASCII char (e.g. an em-dash `—`) in a BOM-less UTF-8 script; Windows PowerShell 5.1 reads it as ANSI and decodes it into a curly quote it treats as a string delimiter | [→](#6-ps1-parse-errors-under-windows-powershell-51-only) |
 | 7 | A newly added agent command (e.g. a new `task:*` socket op) returns `502` with `... timeout` after ~15s, even though the backend route exists | The **.NET agent is a host process running the old published exe** — it doesn't hot-reload, so it has no handler for the new command and never answers; the backend times out | [→](#7-new-agent-command-502-times-out-until-the-agent-is-republished) |
 | 8 | **Every** MCP tool returns `403 Invalid or expired token`, but the dashboard and `curl` with a real token work fine | `TASKHUB_TOKEN` is unset, so Claude Code passed the **literal** `${TASKHUB_TOKEN}` through to the API — nothing is actually expired | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
+| 9 | A new agent command returns a well-formed payload where **every field is empty/false** — no error, no exception, the counts are even right | The agent emitted a C# object directly; the socket serializer does **not** camelCase, so the wire carries `Path`/`TaskCount` while the backend reads `f.path` → `undefined` for every field | [→](#9-agent-payload-arrives-with-every-field-empty) |
+| 10 | `DeleteFolder` on a Task Scheduler folder fails with `Access is denied. (0x80070005 (E_ACCESSDENIED))` | Task Scheduler folder deletion requires **elevation**, even for a folder you created and even when it is empty | [→](#10-cannot-delete-a-task-scheduler-folder-e_accessdenied) |
 
 ---
 
@@ -293,8 +295,39 @@ and only the **agent-backed** path (Windows tasks) times out — a DB-only path
 (TaskHub-native) works immediately.
 
 **Fix** — republish the agent. It runs at **RunLevel Highest**, so an unelevated
-shell can't stop it and `dotnet publish` can't overwrite the locked exe; run this
-in an **Administrator** PowerShell:
+shell can't stop it and `dotnet publish` can't overwrite the locked exe.
+
+### The easy way — the on-demand republish task (recommended)
+
+Register it **once** from an **Administrator** prompt:
+
+```powershell
+.\scripts\startup-task\Register-RepublishTask.ps1
+```
+
+After that, republish from **any** prompt — no elevation, no UAC:
+
+```powershell
+Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'
+Get-Content "$env:TEMP\taskhub-republish.log" -Tail 20   # it logs; read it, don't assume
+```
+
+`\Task-Hub\TaskHubRepublish` is a **no-trigger** task at RunLevel Highest that runs
+[`scripts/Republish-Agent.ps1`](../../scripts/Republish-Agent.ps1) (stop → publish →
+relaunch), hidden via `run-hidden.vbs`. It only ever runs when explicitly started.
+
+> [!NOTE]
+> This is a **dev tool** and is deliberately not registered by `Register-TaskHubStack.ps1`
+> or any installer. It is, by construction, a way to run code elevated without a UAC
+> prompt — but it runs one fixed script from this repo, and `\Task-Hub\TaskHubStack`
+> already runs `taskhub.ps1` elevated on a recurring trigger, so anyone who can write to
+> this repo already has elevated execution here. It adds an entry point, not a capability.
+> Don't register it on a machine where the repo is writable by someone who shouldn't have
+> admin. Remove with `Register-RepublishTask.ps1 -Unregister`.
+
+### The manual way
+
+In an **Administrator** PowerShell:
 
 ```powershell
 # 1. Stop the running agent so its exe can be replaced
@@ -304,6 +337,24 @@ dotnet publish ".\agent\TaskHub.Agent" -c Release -r win-x64 --self-contained fa
 # 3. Relaunch the stack (starts the new agent hidden)
 & ".\scripts\taskhub.ps1" up
 ```
+
+Step 1 is the one that matters: skip it and step 2 fails on the locked exe, or worse
+appears to succeed while the old process keeps running.
+
+### Verify it took — don't assume
+
+```powershell
+# The published dll must be NEWER than the newest source file.
+Get-Item ".\agent\publish\TaskHub.Agent.dll" | Select-Object LastWriteTime
+Get-ChildItem ".\agent\TaskHub.Agent" -Recurse -Filter *.cs |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1 LastWriteTime
+```
+
+> [!TIP]
+> An unelevated `Get-Process TaskHub.Agent` returning **nothing does not mean the agent is
+> down** — it runs elevated and can be invisible to your shell. Ask the backend instead:
+> `GET /api/tasks/health` should show `WINDOWS_TASK_SCHEDULER` as `HEALTHY` with a recent
+> `lastSync`. That is the authoritative signal.
 
 > [!NOTE]
 > Any change to the **backend** signature side of a signed command (e.g. a new
@@ -365,6 +416,97 @@ to start with an explicit message, so this now fails loudly at launch rather tha
 403 on every call. If you see that startup error, the fix above is still the answer.
 
 *First hit: 2026-07-14.*
+
+---
+
+## 9. Agent payload arrives with every field empty
+
+**Symptom** — you add a new agent command, republish, and the round trip *works*: no
+error, no timeout, no exception, and even the **count is right**. But every field is
+blank:
+
+```jsonc
+// GET /api/tasks/folders
+{ "folders": [ { "path": "", "taskCount": 0, "writable": false },   // x161
+               { "path": "", "taskCount": 0, "writable": false } ] }
+```
+
+**Cause** — the agent emitted a **C# object directly**:
+
+```csharp
+var folders = _scheduler.ListFolders();                    // List<AgentFolderInfo>
+await _socket.EmitAsync("task:folders_list", new[] { new { folders = folders } });
+```
+
+The socket serializer does **not** camelCase. So the wire carries the C# property names —
+`Path`, `TaskCount`, `Writable` — while the backend reads `f.path`, `f.taskCount`,
+`f.writable`. Every lookup is `undefined`, and the connector's defensive mapping
+(`String(f.path ?? '')`, `!!f.writable`) turns each one into a plausible empty value.
+
+Nothing throws. You get a **well-formed payload of empty values** — the confident lie, in
+its purest form. Worse, it reads as a *product* answer ("no folder on this machine is
+usable") rather than a bug.
+
+**Fix** — project every emit into an anonymous type with **explicit lowercase names**, the
+way `task:full_list` already does:
+
+```csharp
+var folders = _scheduler.ListFolders()
+    .Select(f => new { path = f.Path, taskCount = f.TaskCount, writable = f.Writable })
+    .ToList();
+```
+
+> [!WARNING]
+> **The mocked tests cannot catch this**, and that is the real lesson. The agent's tests
+> mock `ITaskScheduler`; the backend's mock the socket. Neither crosses the real JSON
+> boundary, so **both sides pass while disagreeing about the wire format**. Assert the
+> **serialized** shape instead — see `TaskFolders_Event_EmitsCamelCaseKeysTheBackendCanRead`,
+> which checks the lowercase keys are present, the PascalCase ones are not, and the values
+> survive. A green suite is not evidence that two processes agree.
+
+**The tell that separates this from a stale agent** ([#7](#7-new-agent-command-502-times-out-until-the-agent-is-republished)):
+a stale agent **times out** (no handler). This *answers* — instantly, and with the right
+row count. If the shape is right and the content is empty, suspect casing, not staleness.
+
+*First hit: 2026-07-14 (`task:folders`, found only by driving it against a real machine —
+161 folders, all blank).*
+
+---
+
+## 10. Cannot delete a Task Scheduler folder (`E_ACCESSDENIED`)
+
+**Symptom** — removing an **empty** Task Scheduler folder fails, even though you created it
+and even though your shell can see it:
+
+```
+Access is denied. (0x80070005 (E_ACCESSDENIED))
+```
+
+**Cause** — Task Scheduler **folder** deletion requires elevation. Task *deletion* through
+TaskHub works fine (the agent runs elevated and does it for you), but nothing hands your
+unelevated shell the right to remove the containing folder.
+
+**Fix** — from an **Administrator** prompt:
+
+```powershell
+$svc = New-Object -ComObject Schedule.Service; $svc.Connect()
+$svc.GetFolder('\Parent').DeleteFolder('Child', 0)   # deepest first
+$svc.GetFolder('\').DeleteFolder('Parent', 0)
+```
+
+The folder must be empty (no tasks **and** no subfolders) or the call fails for that reason
+instead.
+
+> [!NOTE]
+> **This is why TaskHub refuses to create folders.** It creates exactly one — its own
+> `\TaskHub`, the same one it prunes when the last task leaves. Any other folder it created
+> would be a **one-way door**: TaskHub could make it but never remove it, leaving litter only
+> you could clear from an elevated prompt. *Never create what you cannot remove.* A folder
+> you made is yours and is deliberately left alone — the fix was to stop creating them, not
+> to start deleting them.
+
+*First hit: 2026-07-14 (a dogfood left `\ManualTest`, `\MicrosoftEdgeBackups`, and `\Work`
+behind; they had to be removed by hand).*
 
 ---
 

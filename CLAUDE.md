@@ -334,14 +334,18 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 2. **Non-trivial change:** create a `TaskCreate` list, mark items `in_progress` / `completed` as you go.
 3. **Material design decision:** update `docs/ROADMAP.md` and the relevant spec doc *first*, then implement.
 4. **External library question:** `context7` before writing.
-5. **Every change: sync the mirror surfaces — in the same change, not a follow-up pass.** See §11a.
+5. **Every change updates the records — in the same change, not a follow-up pass:** [`ROADMAP.md`](docs/ROADMAP.md) (what shipped / what moved), [`CHANGELOG.md`](docs/CHANGELOG.md) (any user-visible change), [`troubleshooting/README.md`](docs/troubleshooting/README.md) (anything that took real digging), and the mirror surfaces (`mcp-server/`, the `taskhub` skill). **See §11a for which change obligates which.** None of them fails a test when it goes stale — that's exactly why the discipline has to be explicit. Run **`/sync-surfaces`** to check.
 6. **PR / large diff:** invoke the **`code-reviewer`** skill before declaring done.
-7. **End of session:** if any deliverable shipped or scope shifted, move/update the item in `docs/ROADMAP.md` (dated).
-8. **Setup / runtime error (won't build, boot, connect, or authenticate):** check [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) **first** — it's a symptom → cause → fix log of problems we've hit. When you resolve a *new* one that took real digging or is likely to recur, add an entry there.
+7. **End of session:** the records above should already be current (step 5). This is a *last check*, not the first time you write them.
+8. **Setup / runtime error (won't build, boot, connect, or authenticate):** check [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) **first** — it's a symptom → cause → fix log of problems we've hit. When you resolve a *new* one, **add an entry in the same change**. The bar is "it cost you time", not "it cost hours" — and a *wrong turn* is worth logging even when the eventual fix was small, because the next person will take the same wrong turn.
 
-### 11a. The mirror surfaces — `mcp-server/` and the `taskhub` skill
+### 11a. The record-keeping surfaces — update them **in the same change**
 
-Both **describe** TaskHub rather than implement it, so **neither breaks loudly when it drifts.** The suite stays green; the drift surfaces later as an agent (or a user) confidently doing the wrong thing — a *confident lie*, which §9's honesty rule treats as the worst failure mode there is. So they are **not** a cleanup task for later; they ship with the change that obsoletes them.
+**The three living records — [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/CHANGELOG.md`](docs/CHANGELOG.md), and [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) — plus the two mirror surfaces (`mcp-server/` and the `taskhub` skill), are part of the work, not a chore afterwards.** A change isn't done until they're true.
+
+Why this is a rule and not a nicety: every one of these **describes** TaskHub rather than implements it, so **none of them breaks loudly when it drifts.** The suite stays green, CI is happy, and the drift surfaces later as an agent — or a user, or you in three weeks — confidently doing the wrong thing. That's a *confident lie*, which §9's honesty rule treats as the worst failure mode there is, aimed at your future self.
+
+This has already bitten, repeatedly: the skill went months with **zero** MCP coverage while `mcp-server/` shipped; two READMEs insisted the server wasn't wired into `.mcp.json` long after it was, actively misdirecting a live debugging session; and a full day of work reached `ROADMAP.md` while `CHANGELOG.md` got **nothing** — because CHANGELOG wasn't in the table below. If it isn't listed, it gets forgotten. That's the whole reason the table exists.
 
 | You changed… | Also update, same change |
 |---|---|
@@ -349,8 +353,9 @@ Both **describe** TaskHub rather than implement it, so **neither breaks loudly w
 | Added / removed / renamed an MCP tool, or changed its params | Both tool tables above + the tool list in [`skills/taskhub/SKILL.md`](skills/taskhub/SKILL.md) › "The two AI surfaces" |
 | An MCP env var, or how it's read | [`mcp-server/.env.example`](mcp-server/.env.example) + the config table in **both** READMEs |
 | A new invariant or architectural rule | §9 here + the invariants table in `SKILL.md` |
-| A new trap that cost real hours | [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) **and** the traps table in `SKILL.md` |
+| **Anything that took real digging** — a wrong turn, a confusing symptom, a trap | [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) **and** the traps table in `SKILL.md`. **The bar is "it cost you time", not "it cost hours"** — if you had to work it out, the next person will too. |
 | A new platform / connector / catalog rule | §9 here + `SKILL.md` + the relevant `skills/taskhub/references/*.md` |
+| **Any user-visible change** — feature, fix, behavior change, removal | [`docs/CHANGELOG.md`](docs/CHANGELOG.md), under the right `[Unreleased]` heading (Added / Fixed / Changed / Removed / Security), dated |
 | Anything shipped, or scope moved | [`docs/ROADMAP.md`](docs/ROADMAP.md), dated |
 
 **The check, on every change:** *would an agent reading only the skill now be wrong? Does the wrapper still describe the API it wraps?* If either answer is bad, the change isn't done.

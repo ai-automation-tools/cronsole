@@ -34,6 +34,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 10 | `DeleteFolder` on a Task Scheduler folder fails with `Access is denied. (0x80070005 (E_ACCESSDENIED))` | Task Scheduler folder deletion requires **elevation**, even for a folder you created and even when it is empty | [→](#10-cannot-delete-a-task-scheduler-folder-e_accessdenied) |
 | 11 | After a **System Restore**, `Start-ScheduledTask` says the republish task doesn't exist **and/or** the `taskhub` MCP tools vanish — while the repo, `git status`, and the build are all perfectly clean | Both live on `C:` as per-machine state git can't protect: the scheduled-task registration and the `TASKHUB_TOKEN` **User** env var. A restore of `C:` wipes them; a repo on another drive survives, so nothing *looks* wrong | [→](#11-after-a-system-restore-the-republish-task-and-mcp-tools-are-gone) |
 | 12 | A task created from a template sits in `Running` **forever** (`LastTaskResult` `267009`), burning no CPU — while TaskHub cheerfully reports `lastRunStatus: SUCCESS`, and every test passes | The command is broken **on the target**, which no test checks. Classic cause: `Invoke-WebRequest` without `-UseBasicParsing` needs the **IE engine Windows 11 removed** → `NullReferenceException`, and with no console to write it to, the process blocks instead of exiting | [→](#12-a-template-passes-every-test-and-still-hangs-on-the-target) |
+| 13 | The `taskhub` MCP tools are **missing** — and the token is fine: it's set, the host can see it, the backend is healthy, and `node mcp-server/dist/index.js` boots clean by hand | The server is **disabled in the host**, not broken. `disabledMcpjsonServers` in `.claude/settings.local.json` lists it — that's what Claude Code writes for **every** server in `.mcp.json` when you decline the "do you trust this project's MCP servers?" prompt | [→](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine) |
 
 ---
 
@@ -419,7 +420,11 @@ to start with an explicit message, so this now fails loudly at launch rather tha
 403 on every call. If you see that startup error, the fix above is still the answer.
 **Note the symptom moved:** because the server now refuses to start, the tools go
 *missing* rather than 403ing. `/mcp` showing no `taskhub`, or a `ToolSearch` for
-`mcp__taskhub__*` finding nothing, is this same bug wearing a quieter mask.
+`mcp__taskhub__*` finding nothing, can be this same bug wearing a quieter mask —
+but **missing tools do not identify the token as the cause**, because a server
+disabled in the host looks exactly the same. Rule that out first
+([#13](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine)); it's one
+command, and it's the cheaper hypothesis.
 
 ### 8a. …and "restart from a fresh terminal" does nothing under VS Code
 
@@ -676,6 +681,76 @@ To clear a stuck one: `Stop-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name
 *First hit: 2026-07-15 (found by the first live end-to-end exercise of the MCP
 `create_task_from_template` + `run_task` tools — the read-only tests that preceded it could
 not have surfaced it).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 13. The `taskhub` MCP tools are missing while the token is fine
+
+**Symptom** — `mcp__taskhub__*` is absent from the tool list and `/mcp` doesn't list
+`taskhub` at all. Unlike [#8](#8-every-mcp-tool-returns-403-invalid-or-expired-token),
+**every downstream check passes**:
+
+```powershell
+[Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')   # set
+$env:TASKHUB_TOKEN                                              # the host sees it too
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health   # 200
+node ./mcp-server/dist/index.js                                 # boots clean by hand
+```
+
+That last one is the discriminator: **if the server answers `initialize` when you run it
+yourself, the server is not the problem** — the host never started it.
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}' \
+  | node ./mcp-server/dist/index.js
+# TaskHub MCP server running on stdio
+# {"result":{...,"serverInfo":{"name":"taskhub","version":"1.0.0"}},"jsonrpc":"2.0","id":1}
+```
+
+**Cause** — the server is **disabled in the host**, not broken. Claude Code prompts once
+per project: *"this project defines MCP servers, do you trust them?"* Declining writes
+**every** server in `.mcp.json` into `disabledMcpjsonServers` in
+`.claude/settings.local.json` — and that file is **gitignored per-machine state** (§8a of
+`CLAUDE.md`), so nothing in the repo hints that it happened:
+
+```json
+{
+  "disabledMcpjsonServers": [
+    "taskhub", "playwright", "nanobanana", "serper",
+    "github", "notion", "context7", "elevenlabs"
+  ]
+}
+```
+
+The tell: **all** of the project's MCP servers are missing at once, not just `taskhub`. One
+broken server fails alone; a declined trust prompt takes the whole file with it. If
+`context7` and `github` are gone too, stop debugging `taskhub`.
+
+**Fix** — remove the server from the list and **restart the host** (the list is read at
+launch):
+
+```powershell
+# check first — this is the one-line diagnosis
+node -e "console.log(require('./.claude/settings.local.json').disabledMcpjsonServers)"
+```
+
+Then delete the entry (or the whole key, to restore all of them) and relaunch. Re-approving
+via the trust prompt works too, but only fires on first encounter — once the answer is
+recorded, editing the file is the way back.
+
+> [!WARNING]
+> **This masks #8 and #8a completely.** A disabled server never runs, so a broken
+> `TASKHUB_TOKEN` produces the *identical* symptom — missing tools — and you can spend a
+> session fixing an environment variable that was never the blocker. **Check
+> `disabledMcpjsonServers` first**: it's one command, it's the cheaper hypothesis, and it
+> rules out the whole token branch before you touch it.
+
+*First hit: 2026-07-15, after #8a's env fix landed correctly and the tools were still gone.
+Both faults were real and stacked — the token was genuinely unset **and** the server was
+disabled — which is exactly why the missing-tools symptom can't be used to identify either
+one.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

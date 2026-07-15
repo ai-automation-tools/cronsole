@@ -439,6 +439,44 @@ describe('WindowsAgentConnector', () => {
     vi.useRealTimers();
   });
 
+  it('signs the chosen folder into task:create, normalized', async () => {
+    // The folder decides WHERE the task lands, and Windows silently overwrites a
+    // same-named task in the same folder — so it must be covered by the
+    // signature, and normalized first so the agent verifies the same bytes we
+    // signed (a trailing slash or forward slashes would otherwise break the HMAC).
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:created') {
+        setTimeout(() => {
+          handler({ name: 'NewTask', success: true, path: '\\Work\\Backups\\NewTask', message: 'Success' });
+        }, 10);
+      }
+    });
+
+    await connector.createTask(
+      'NewTask',
+      '0 3 * * *',
+      'echo hello',
+      { userId: 'test_user' },
+      { folder: '/Work/Backups/' }
+    );
+
+    expectSignedCommand(
+      mockSocket,
+      'task:create',
+      {
+        event: 'task:create',
+        name: 'NewTask',
+        schedule: '0 3 * * *',
+        command: 'echo hello',
+        action: { executable: 'echo', args: ['hello'] },
+        trigger: null,
+        folder: '\\Work\\Backups'
+      }
+    );
+  });
+
   it('should create a task successfully', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
 
@@ -466,7 +504,10 @@ describe('WindowsAgentConnector', () => {
         schedule: '0 3 * * *',
         command: 'echo hello',
         action: { executable: 'echo', args: ['hello'] },
-        trigger: null
+        trigger: null,
+        // No folder passed → the default. Asserted explicitly (not It.Any-style)
+        // so this proves existing callers still land in \TaskHub.
+        folder: '\\TaskHub'
       }
     );
     expect(result.success).toBe(true);
@@ -502,7 +543,8 @@ describe('WindowsAgentConnector', () => {
         schedule: '0 8 * * *',
         command: 'echo hello',
         action: { executable: 'echo', args: ['hello'] },
-        trigger
+        trigger,
+        folder: '\\TaskHub'
       }
     );
     expect(result.success).toBe(true);

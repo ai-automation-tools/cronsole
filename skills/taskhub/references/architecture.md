@@ -91,10 +91,21 @@ converts a missing capability into a lie. Leaving it undefined *is* the design.
 - **The agent always initiates.** Outbound from the user's machine. The server never connects
   in. The agent is a client — **no `0.0.0.0` binds.**
 - **Envelope:** `{ type: string, payload: object }`. Types are `noun:verb` — `task:run`,
-  `agent:hello`, `task:scan`, `agent:tasks:list`, `task:create`, `task:delete`, `task:export`.
+  `agent:hello`, `task:scan`, `agent:tasks:list`, `task:create`, `task:delete`, `task:export`,
+  `task:folders`.
 - **Heartbeat:** ping every 30s. Reconnect with exponential backoff, **1s → 5min cap**.
 - **Run commands are HMAC-signed** per session to prevent replay. Read-only commands (e.g.
-  `task:export`) aren't signed — but still need the agent republished for the handler to exist.
+  `task:export`, `task:folders`) aren't signed — but still need the agent republished for the
+  handler to exist.
+- **Everything the agent acts on is inside the signature.** `task:create` signs the name,
+  schedule, command, canonical action, canonical trigger, **and the destination folder** — an
+  unsigned field on a signed command lets an on-path attacker redirect the write. The message
+  strings in `agentAuth.ts` and `AgentAuthenticator.cs` must match **byte-for-byte**, and both
+  suites pin the same golden HMAC vectors; change one side alone and every command is rejected.
+- **The agent re-validates what it is told.** It holds the elevation and calls
+  `RegisterTaskDefinition` (which **silently overwrites** a same-named task in the same
+  folder), so `TaskFolderPath` duplicates the backend's folder rules on purpose. A signed
+  command is proof of *origin*, not of *correctness*.
 - **One agent socket per user** (single-user MVP). This is why a transient test agent strands
   the real one — see troubleshooting.
 

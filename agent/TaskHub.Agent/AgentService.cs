@@ -174,6 +174,37 @@ namespace TaskHub.Agent
                 }
             });
 
+            // Event: task:folders (Server requested the real Task Scheduler folder
+            // list so the UI can offer actual folders instead of assuming \TaskHub.
+            // Read-only, so no per-command signature, mirroring task:list.)
+            _socket.On("task:folders", async _ =>
+            {
+                try
+                {
+                    var folders = _scheduler.ListFolders();
+                    Console.WriteLine($"Server requested task:folders -> {folders.Count} folders");
+
+                    await _socket.EmitAsync("task:folders_list", new[] { new {
+                        success = true,
+                        folders = folders,
+                        message = "OK"
+                    }});
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error listing folders: {ex.Message}");
+                    try
+                    {
+                        await _socket.EmitAsync("task:folders_list", new[] { new {
+                            success = false,
+                            folders = new List<AgentFolderInfo>(),
+                            message = ex.Message
+                        }});
+                    }
+                    catch { /* socket gone — server's timeout covers it */ }
+                }
+            });
+
             // Event: task:export (Server requested a task's native XML — read-only,
             // so no per-command signature, mirroring task:list).
             _socket.On("task:export", async response =>
@@ -379,16 +410,27 @@ namespace TaskHub.Agent
                     }
                     string triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(trigger);
 
+                    // The destination folder is part of the signed message: it decides
+                    // WHERE the task lands, and RegisterTaskDefinition silently
+                    // overwrites a same-named task in the same folder. An older server
+                    // that doesn't send it signs the old message shape, so verification
+                    // fails and the create is refused — an honest failure rather than a
+                    // task quietly landing somewhere it shouldn't.
+                    string folder = data.TryGetProperty("folder", out var folderElement) &&
+                                    folderElement.ValueKind == JsonValueKind.String
+                        ? folderElement.GetString() ?? TaskFolderPath.Default
+                        : TaskFolderPath.Default;
+
                     if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, triggerCanonical, ts), ts, sig))
+                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, triggerCanonical, folder, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:create for {name}");
                         return;
                     }
 
-                    Console.WriteLine($"Server command: task:create -> {name} (exe={action.Executable}, args={action.Args.Count}, trigger={(trigger?.Type ?? "none")})");
+                    Console.WriteLine($"Server command: task:create -> {name} (exe={action.Executable}, args={action.Args.Count}, trigger={(trigger?.Type ?? "none")}, folder={folder})");
 
-                    var result = _scheduler.CreateTask(name, schedule, action, trigger);
+                    var result = _scheduler.CreateTask(name, schedule, action, trigger, folder);
 
                     if (result.Success)
                     {

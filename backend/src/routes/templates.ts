@@ -20,6 +20,12 @@ import {
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
 import { assertWindowsTaskNameAvailable } from '../utils/windowsTaskName.js';
+import {
+  DEFAULT_TASK_FOLDER,
+  normalizeWindowsTaskFolder,
+  windowsTaskFolderError,
+  windowsTaskPath
+} from '../utils/windowsTaskFolder.js';
 import { TaskService } from '../services/TaskService.js';
 import { exportCatalog } from '../catalog/exportCatalog.js';
 import { importTemplates } from '../catalog/importCatalog.js';
@@ -185,6 +191,12 @@ router.post('/:id/preview', validateBody(previewSchema), async (req: Request, re
 const applySchema = z.object({
   platform: platformSchema,
   name: z.string().optional(),
+  /**
+   * Windows only: the native Task Scheduler folder to create the task in
+   * (default \TaskHub). Validated with windowsTaskFolderError — it is signed
+   * into the agent command, and the agent re-validates before registering.
+   */
+  folder: z.string().optional(),
   schedule: z.string().optional(),
   scheduleExpression: z.string().optional(),
   /** Deprecated: pre-substituted command string (legacy clients). */
@@ -200,7 +212,7 @@ const applySchema = z.object({
 // Apply a template to a platform
 router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { platform, command, schedule, scheduleExpression, name, parameters } = req.body;
+  const { platform, command, schedule, scheduleExpression, name, parameters, folder } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   const template = await prisma.template.findUnique({
@@ -215,11 +227,21 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   const finalName =
     typeof name === 'string' && name.trim() ? name.trim() : template.name;
 
-  // Windows: reject invalid names (400) and names that collide with a task
-  // TaskHub already tracks under \TaskHub\ (409) — RegisterTaskDefinition
-  // would otherwise silently overwrite the existing task.
+  // Windows: resolve the destination folder, then reject an invalid folder or
+  // name (400) and a name that collides with a task TaskHub already tracks IN
+  // THAT FOLDER (409) — RegisterTaskDefinition would otherwise silently
+  // overwrite it. The collision is per-folder because that is how Windows'
+  // overwrite works: \Work\Backup and \TaskHub\Backup are different tasks.
+  let finalFolder = DEFAULT_TASK_FOLDER;
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
-    await assertWindowsTaskNameAvailable(userId, finalName);
+    if (typeof folder === 'string' && folder.trim()) {
+      const folderProblem = windowsTaskFolderError(folder);
+      if (folderProblem) {
+        throw new HttpError(400, folderProblem);
+      }
+      finalFolder = normalizeWindowsTaskFolder(folder);
+    }
+    await assertWindowsTaskNameAvailable(userId, finalName, finalFolder);
   }
 
   const finalSchedule =
@@ -289,7 +311,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
     finalSchedule,
     finalCommand,
     { ...deserializeConfig(connection.config), userId },
-    { trigger: conversion.trigger, action: structuredAction }
+    { trigger: conversion.trigger, action: structuredAction, folder: finalFolder }
   );
 
   if (!result.success) {
@@ -304,7 +326,11 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   // metadata.job — an upsert here would wipe it and break the task), and no
   // other connector can succeed today.
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
-    const externalId = result.externalId || `\\TaskHub\\${finalName}`;
+    // Prefer the path the agent actually registered; fall back to the folder we
+    // asked for. The fallback must use finalFolder, not a hardcoded \TaskHub —
+    // otherwise a task created in \Work would be tracked under the wrong
+    // externalId and every later run/delete/edit would miss it.
+    const externalId = result.externalId || windowsTaskPath(finalFolder, finalName);
     const upserted = await TaskService.upsertTasks(userId, platform, [{
       externalId,
       name: finalName,

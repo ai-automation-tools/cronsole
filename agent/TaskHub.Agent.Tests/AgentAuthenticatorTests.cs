@@ -31,10 +31,10 @@ namespace TaskHub.Agent.Tests
         private const string ExpectedUpdateSig = "a11ff9024b5a5b0e590f8a6b55824f289dd26abba53d0ecb2d594d18b320c91f";
         // task:create signs the structured action AND the trigger. Golden action is
         // { executable: "dir", args: [] } -> canonical "dir"; trigger null -> "none".
-        private const string ExpectedCreateSig = "4e04ffa6a881215d70a94ef84984898398567f7218d57f6cc3d9fa9264f9e0ba";
+        private const string ExpectedCreateSig = "ce9cada38d1540ce51aeb68c19b7d3b762039aa036a4bad1e0fa440d3f488da2";
         // Same command with a Weekly trigger -> canonical
         // "trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D".
-        private const string ExpectedCreateSigWithTrigger = "e4bfa1a7b2c20bde20c72bf444b955dbad5c27c920af5fdddd5750191278643e";
+        private const string ExpectedCreateSigWithTrigger = "5feb965859a4ddfd62f7f928130a8d8b5326af494aed22ba70bea2ba7b25d051";
 
         [Fact]
         public void Hmac_MatchesGoldenVector_HandshakeAndSession()
@@ -63,7 +63,7 @@ namespace TaskHub.Agent.Tests
 
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var nullTrigger = AgentAuthenticator.CanonicalizeTrigger(null);
-            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, Ts))
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, "\\TaskHub", Ts))
                 .Should().Be(ExpectedCreateSig);
 
             var weekly = new TriggerSpec
@@ -74,7 +74,7 @@ namespace TaskHub.Agent.Tests
                 Repetition = new RepetitionSpec { Interval = "PT30M", Duration = "P1D" }
             };
             var weeklyCanonical = AgentAuthenticator.CanonicalizeTrigger(weekly);
-            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, weeklyCanonical, Ts))
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, weeklyCanonical, "\\TaskHub", Ts))
                 .Should().Be(ExpectedCreateSigWithTrigger);
         }
 

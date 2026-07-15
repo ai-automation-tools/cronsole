@@ -16,6 +16,27 @@ export interface CreateTaskOptions {
    * parameter value can never split into extra arguments.
    */
   action?: StructuredAction;
+  /**
+   * Normalized native folder to create the task in — Windows Task Scheduler
+   * only (e.g. `\TaskHub`, `\Work\Backups`). Defaults to `\TaskHub` when unset.
+   * Must already have passed windowsTaskFolderError: it is part of the signed
+   * command, and the agent re-validates it before registering.
+   */
+  folder?: string;
+}
+
+/**
+ * A real native folder a task can live in. Reported honestly, including ones
+ * TaskHub will not write to — the UI shows WHY a folder is unavailable rather
+ * than hiding it (leaving the user wondering) or offering it and failing late.
+ */
+export interface PlatformFolder {
+  /** Normalized native path, e.g. `\`, `\TaskHub`, `\Microsoft\Windows`. */
+  path: string;
+  /** Tasks directly in this folder, excluding subfolders. */
+  taskCount: number;
+  /** False for `\Microsoft\` and descendants — Windows' own tasks live there. */
+  writable: boolean;
 }
 
 /**
@@ -87,6 +108,14 @@ export interface PlatformConnector {
    * from the route. `trigger` is the structured form produced by
    * convertCronToWindowsTrigger for the new cron.
    */
+  /**
+   * List the platform's real task folders, so the UI can offer actual
+   * destinations instead of assuming one. Optional — only platforms with a
+   * native folder hierarchy (Windows Task Scheduler) implement it; others get
+   * an honest 400 from the route. Read-only.
+   */
+  listFolders?(config: any): Promise<{ success: boolean; folders: PlatformFolder[]; message?: string }>;
+
   updateSchedule?(externalId: string, trigger: WindowsTrigger, config: any): Promise<{ success: boolean; message?: string }>;
 
   /**

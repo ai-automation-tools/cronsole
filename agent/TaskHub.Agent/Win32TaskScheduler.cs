@@ -252,7 +252,70 @@ namespace TaskHub.Agent
             }
         }
 
-        public AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null)
+        /// <summary>
+        /// Get the folder at <paramref name="path"/>, creating it (and any missing
+        /// parents) if needed. Lazily created, same as \TaskHub always has been —
+        /// a folder only exists once something lives in it.
+        ///
+        /// Assumes the path already passed TaskFolderPath.Validate, so it cannot
+        /// contain traversal segments or reach \Microsoft\. Walks segment by
+        /// segment rather than trusting a single GetFolder call, so a partially
+        /// existing path (\Work exists, \Work\Backups does not) resolves cleanly.
+        /// </summary>
+        private static TaskFolder ResolveOrCreateFolder(TaskService ts, string path)
+        {
+            var segments = TaskFolderPath.Split(path);
+            TaskFolder current = ts.RootFolder;
+
+            foreach (var segment in segments)
+            {
+                TaskFolder? next = null;
+                try { next = current.SubFolders[segment]; } catch { /* not found */ }
+                current = next ?? current.CreateFolder(segment);
+            }
+
+            return current;
+        }
+
+        /// <summary>
+        /// Every Task Scheduler folder, depth-first from the root. Read-only.
+        /// Reports unwritable folders (\Microsoft\…) rather than hiding them, so
+        /// the UI can say WHY instead of failing late or silently omitting them.
+        /// </summary>
+        public List<AgentFolderInfo> ListFolders()
+        {
+            using (TaskService ts = new TaskService())
+            {
+                var results = new List<AgentFolderInfo>();
+                Walk(ts.RootFolder, results);
+                return results;
+            }
+        }
+
+        private static void Walk(TaskFolder folder, List<AgentFolderInfo> into)
+        {
+            // A folder's own tasks/subfolders can throw on access-denied; report
+            // what we can see and keep walking rather than failing the whole
+            // enumeration because one system folder is locked down.
+            int taskCount = 0;
+            try { taskCount = folder.Tasks.Count; } catch { /* unreadable */ }
+
+            var path = string.IsNullOrEmpty(folder.Path) ? "\\" : folder.Path;
+            into.Add(new AgentFolderInfo
+            {
+                Path = path,
+                TaskCount = taskCount,
+                Writable = TaskFolderPath.Validate(path) == null
+            });
+
+            try
+            {
+                foreach (var sub in folder.SubFolders) Walk(sub, into);
+            }
+            catch { /* unreadable subfolder list */ }
+        }
+
+        public AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null, string? folder = null)
         {
             using (TaskService ts = new TaskService())
             {
@@ -290,14 +353,34 @@ namespace TaskHub.Agent
                     string.IsNullOrEmpty(argString) ? null : argString,
                     string.IsNullOrWhiteSpace(action.WorkingDirectory) ? null : action.WorkingDirectory));
 
-                // TaskHub-created tasks live under \TaskHub\ so they're identifiable
-                // and cleanly removable (and category-extract as "TaskHub" on sync).
-                // Created lazily — the folder only exists while it holds tasks.
-                TaskFolder? folder = null;
-                try { folder = ts.GetFolder(TaskHubFolder); } catch { /* not found */ }
-                folder ??= ts.RootFolder.CreateFolder(TaskHubFolder);
+                // Resolve the destination folder. Defaults to \TaskHub, which keeps
+                // TaskHub-created tasks identifiable and cleanly removable (and
+                // category-extracts as "TaskHub" on sync). Created lazily — a
+                // folder only exists while it holds tasks.
+                //
+                // Re-validated HERE even though the backend validated and SIGNED
+                // it: this process holds the elevation and is the one calling
+                // RegisterTaskDefinition, which silently OVERWRITES a same-named
+                // task in the same folder. A backend bug must not be able to
+                // land a task under \Microsoft\Windows\ and destroy a real system
+                // task. Refuse honestly rather than degrade.
+                var targetFolder = string.IsNullOrWhiteSpace(folder)
+                    ? TaskFolderPath.Default
+                    : folder;
 
-                var task = folder.RegisterTaskDefinition(name, td);
+                var folderProblem = TaskFolderPath.Validate(targetFolder);
+                if (folderProblem != null)
+                {
+                    return new AgentTaskResult
+                    {
+                        Success = false,
+                        Name = name,
+                        Message = folderProblem
+                    };
+                }
+
+                TaskFolder destination = ResolveOrCreateFolder(ts, targetFolder);
+                var task = destination.RegisterTaskDefinition(name, td);
 
                 return new AgentTaskResult
                 {

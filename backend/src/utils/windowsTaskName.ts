@@ -1,6 +1,7 @@
 import { PlatformType } from '@prisma/client';
 import { prisma } from '../db.js';
 import { HttpError } from '../middleware/errorHandler.js';
+import { DEFAULT_TASK_FOLDER, normalizeWindowsTaskFolder, windowsTaskPath } from './windowsTaskFolder.js';
 
 /**
  * Validation + collision guard for Windows task names.
@@ -8,11 +9,19 @@ import { HttpError } from '../middleware/errorHandler.js';
  * Task Scheduler stores each task as a file under
  * C:\Windows\System32\Tasks\<folder>\<name>, so names follow filename rules.
  * More importantly, RegisterTaskDefinition silently OVERWRITES an existing
- * task with the same name in the same folder — so before creating under
- * \TaskHub\ we refuse names that collide with a task TaskHub already tracks
- * (409). Untracked same-name tasks can still be overwritten (the agent can't
- * cheaply enumerate pre-register), but every TaskHub-created task is tracked,
- * so the common self-collision is closed.
+ * task with the same name in the same folder — so before creating we refuse
+ * names that collide with a task TaskHub already tracks (409). Untracked
+ * same-name tasks can still be overwritten (the agent can't cheaply enumerate
+ * pre-register), but every TaskHub-created task is tracked, so the common
+ * self-collision is closed.
+ *
+ * The collision is **per folder**, because that is how Task Scheduler's
+ * overwrite works: \Work\Backup and \TaskHub\Backup are different tasks, while
+ * two \Work\Backup are the same one. So the guard takes the target folder — it
+ * used to assume \TaskHub\, and once folders became selectable that assumption
+ * would have made it silently stop matching, which is worse than having no
+ * guard at all: the UI would still imply you were protected while Windows
+ * overwrote the task without an error.
  */
 
 // Characters Windows rejects in task (file) names (control chars are
@@ -46,11 +55,15 @@ function hasControlChar(s: string): boolean {
 
 /**
  * Throw a 400 for an invalid name or a 409 when a tracked task already owns
- * \TaskHub\<name> (Windows names are case-insensitive, so match that way).
+ * <folder>\<name> (Windows names are case-insensitive, so match that way).
+ *
+ * `folder` defaults to \TaskHub for callers that haven't opted into choosing
+ * one; it is assumed to have already passed windowsTaskFolderError.
  */
 export async function assertWindowsTaskNameAvailable(
   userId: string,
-  name: string
+  name: string,
+  folder: string = DEFAULT_TASK_FOLDER
 ): Promise<void> {
   const problem = windowsTaskNameError(name);
   if (problem) {
@@ -69,12 +82,13 @@ export async function assertWindowsTaskNameAvailable(
     },
     select: { id: true, name: true, externalId: true }
   });
-  const target = `\\taskhub\\${name.toLowerCase()}`;
+  const target = windowsTaskPath(folder, name).toLowerCase();
   const existing = candidates.find(t => t.externalId.toLowerCase() === target);
   if (existing) {
+    const where = normalizeWindowsTaskFolder(folder);
     throw new HttpError(
       409,
-      `A Windows task named "${existing.name}" already exists in TaskHub — creating another would overwrite it. Choose a different name or delete the existing task first.`
+      `A Windows task named "${existing.name}" already exists in ${where} — creating another would overwrite it. Choose a different name, a different folder, or delete the existing task first.`
     );
   }
 }

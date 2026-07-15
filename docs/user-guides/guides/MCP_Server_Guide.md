@@ -38,14 +38,23 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`list_tasks`** | "List my Windows tasks", "which tasks failed?", "show tasks in the Backup category" | `GET /api/tasks` |
 | **`run_task`** | "Run the nightly backup now" | `POST /api/tasks/:id/run` |
 | **`list_templates`** | "What backup templates are there?", "show AI agent templates" | `GET /api/templates` |
-| **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am" | `POST /api/templates/:id/apply` |
+| **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?" | `POST /api/tasks/preview` |
 
 `list_tasks` and `list_templates` accept optional filters (`platform`, `status`, `category`,
 `search`) and are bounded (default 50 results, with an honest "showing N of M" note).
 `create_task_from_template` fills the template's `{{placeholder}}` parameters from the values
 you pass and is gated to the platforms TaskHub can actually create on today
-(**Windows Task Scheduler** + **TaskHub-native**).
+(**Windows Task Scheduler** + **TaskHub-native**). Its optional **`folder`** chooses the real
+Task Scheduler folder the task lands in — default `\TaskHub`, created if it doesn't exist, and
+it becomes the task's category in TaskHub.
+
+> [!IMPORTANT]
+> **`\Microsoft\` and its descendants are refused.** Windows keeps its own scheduled tasks
+> there, and registering a same-named task in the same folder **silently overwrites** the
+> existing one — so a plausible-sounding request could destroy a real system task with no
+> error. The refusal is enforced in the backend *and* independently in the agent, which is the
+> process that holds the elevation.
 
 > [!IMPORTANT]
 > `list_*` and `convert_schedule` are read-only and safe to call freely. **`run_task`** and

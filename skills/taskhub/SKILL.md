@@ -80,9 +80,9 @@ A third thing shares the name and is neither: the **dev-tooling MCP servers** in
 The `taskhub` entry is the only one needing a backend and a token, so it's the only one that
 can fail to start.
 
-**The 5 tools** — `list_tasks`, `run_task`, `list_templates`, `create_task_from_template`,
-`convert_schedule` — each map 1:1 onto a backend route. Details, wiring, and token minting:
-[MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md).
+**The 5 tools** — `list_tasks`, `run_task`, `list_templates`, `create_task_from_template`
+(incl. `folder`), `convert_schedule` — each map 1:1 onto a backend route. Details, wiring, and
+token minting: [MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md).
 
 ## Non-negotiable invariants
 
@@ -97,6 +97,8 @@ security or honesty.
 | **Agent always initiates the WebSocket** | It lives on the user's machine behind their NAT. Inbound = a different (worse) product. |
 | **Run commands are HMAC-signed per session** | Replay prevention. |
 | **`(platform, externalId)` is unique** | `externalId` is the platform's native id (Windows task path, Claude routine id). |
+| **TaskHub never writes under `\Microsoft\`** | `RegisterTaskDefinition` **silently overwrites** a same-named task in the same folder, and the agent runs **elevated** — so writing there could destroy a real Windows task with no error. Refused in the backend **and independently in the agent** (`TaskFolderPath`), because the agent holds the privilege and must not trust its caller. |
+| **Every field the agent acts on is inside the signature** | Including the destination `folder` — an unsigned field on a signed command lets an on-path attacker redirect the write. |
 | **Registry files are content-addressed (sha256 over exact bytes)** | Keep them **LF** (`.gitattributes`); **never hand-edit `registry/`**. A CRLF flip breaks integrity. |
 | **`core` never reaches the DB** | `normalize.ts` whitelists Prisma fields. `core` is a distribution flag, registry-only. |
 | **Prune-on-sync never touches `managed: false`** | Imported / saved-as-template rows are the user's. Only auto-synced (`managed: true`) rows outside core are pruned. Guarded against an empty core wiping the catalog. |

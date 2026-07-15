@@ -76,10 +76,31 @@ node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'
 
 ```bash
 npm install
+npm test           # vitest — no backend or token needed
 npm run build      # tsc → dist/
 npm start          # runs dist/index.js over stdio (expects TASKHUB_TOKEN in env)
 npm run inspect    # open the MCP Inspector against the server
 ```
+
+> [!IMPORTANT]
+> **`npm start` runs `dist/`, not `src/`** — so an unbuilt change is invisible. This is the
+> **third thing that runs stale**, alongside the Dockerized backend and the published agent.
+> Build before you conclude a change didn't work.
+
+### What the tests cover — and what they can't
+
+`npm test` drives the **real registered tools** through a **real MCP client** over an
+in-memory transport, stubbing only the HTTP client; `client.ts` is tested against a real local
+HTTP server rather than a mocked axios (the thing under test *is* how axios reports failures,
+so a mock would only assert our belief about it). That covers everything the wrapper owns:
+tool registration, input-schema validation, filtering and limits, request-body shaping, error
+normalization, and honest rendering of lossy conversions.
+
+It **cannot** tell you the wrapper and the API still agree — the stub encodes the response
+shape we *think* the backend returns. If a route's shape moves, the suite stays green while
+the real tool breaks. That's the [#9](../docs/troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty)
+failure mode one layer up: *both sides green while disagreeing about the wire.* **After
+changing a wrapped route, drive the tool against a running backend by hand.**
 
 ## Wiring into an MCP host
 
@@ -164,7 +185,8 @@ mcp-server/
 ├── src/
 │   ├── index.ts     # stdio bootstrap
 │   ├── client.ts    # thin axios client over the REST API + error normalization
-│   └── tools.ts     # the 6 tool registrations
+│   ├── tools.ts     # the 6 tool registrations
+│   └── __tests__/   # vitest — `npm test` (63 tests, no backend needed)
 ├── .env.example
 ├── package.json
 └── tsconfig.json

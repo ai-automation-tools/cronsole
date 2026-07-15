@@ -103,7 +103,7 @@ Honest list. These are real holes, not aspirational polish:
 |:---|:---|:---|
 | **Login rate limit (`429`) not implemented** | The archived Test Plan's brute-force mitigation has no code behind it — so nothing to test | Go-public checklist in [ROADMAP](../ROADMAP.md) |
 | **E2E not wired into CI** | Regressions in full-stack flows only surface if someone runs it locally | This doc |
-| **MCP server has no test suite** | Its 5 tools are covered only by the REST endpoints underneath them | This doc |
+| **MCP server has no test suite** | Its 6 tools are covered only by the REST endpoints underneath them | This doc |
 | **No visual regression** | Dark/light theme and layout breaks are caught by eye only | This doc |
 | **No performance gate** | A baseline exists as an artifact; nothing fails when we regress past it | This doc |
 

@@ -60,7 +60,7 @@ Honest list — real holes, not polish:
 |:---|:---|
 | **Login rate limit (`429`) not implemented** | The archived Test Plan's brute-force mitigation has no code behind it. Tracked in the Go-public checklist. **Don't "fix the test" — the feature is missing.** |
 | **E2E not in CI** | Full-stack regressions only surface locally |
-| **MCP server has no tests** | Its 5 tools are covered only by the REST endpoints beneath them |
+| **MCP server has no tests** | Its 6 tools are covered only by the REST endpoints beneath them |
 | **No visual regression** | Theme/layout breaks caught by eye only |
 | **No performance gate** | A baseline exists in `artifacts/`; nothing fails on drift |
 

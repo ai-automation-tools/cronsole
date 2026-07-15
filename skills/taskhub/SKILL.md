@@ -1,6 +1,6 @@
 ---
 name: taskhub
-description: 'Expert knowledge of TaskHub, the unified scheduled-task management system — its architecture, the Windows .NET agent protocol, the template registry/catalog, the MCP server, the testing layers, and the traps that waste hours. Use when working anywhere in the TaskHub repo — adding or debugging templates, touching the agent WebSocket protocol or Windows Task Scheduler integration, editing the catalog (bundled.ts, registry/, catalogSync, normalize.ts), changing the MCP server or its tools (mcp-server/, list_tasks, run_task, create_task_from_template, convert_schedule) or wiring it into an MCP host, running or writing tests, publishing the registry or landing sites, or diagnosing setup and runtime failures (403 invalid token, unexpanded TASKHUB_TOKEN, missing taskhub MCP tools, agent OFFLINE, stale backend code, 502 agent timeouts, PowerShell parse errors).'
+description: 'Expert knowledge of TaskHub, the unified scheduled-task management system — its architecture, the Windows .NET agent protocol, the template registry/catalog, the MCP server, the testing layers, and the traps that waste hours. Use when working anywhere in the TaskHub repo — adding or debugging templates, touching the agent WebSocket protocol or Windows Task Scheduler integration, editing the catalog (bundled.ts, registry/, catalogSync, normalize.ts), creating or managing scheduled tasks through TaskHub, changing the MCP server or its tools (mcp-server/, list_tasks, run_task, create_task, create_task_from_template, convert_schedule) or wiring it into an MCP host, running or writing tests, publishing the registry or landing sites, or diagnosing setup and runtime failures (403 invalid token, unexpanded TASKHUB_TOKEN, missing taskhub MCP tools, agent OFFLINE, stale backend code, 502 agent timeouts, PowerShell parse errors).'
 ---
 
 # TaskHub
@@ -70,7 +70,7 @@ mixing them up:
 | | **This skill** (`skills/taskhub/`) | **The MCP server** (`mcp-server/`) |
 |:---|:---|:---|
 | Audience | An agent **working on** TaskHub's codebase | An agent **using** a running TaskHub |
-| Surface | `SKILL.md` + `references/` | 5 tools over MCP/stdio |
+| Surface | `SKILL.md` + `references/` | 6 tools over MCP/stdio |
 | Needs | Nothing — it's just text | A running backend + a user JWT |
 | Canonical doc | [`skills/README.md`](../README.md) | [`docs/user-guides/guides/MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) |
 
@@ -80,9 +80,22 @@ A third thing shares the name and is neither: the **dev-tooling MCP servers** in
 The `taskhub` entry is the only one needing a backend and a token, so it's the only one that
 can fail to start.
 
-**The 5 tools** — `list_tasks`, `run_task`, `list_templates`, `create_task_from_template`
-(incl. `folder`), `convert_schedule` — each map 1:1 onto a backend route. Details, wiring, and
-token minting: [MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md).
+**The 6 tools** — `list_tasks`, `run_task`, `list_templates`, **`create_task`**,
+`create_task_from_template` (incl. `folder`), `convert_schedule` — each map 1:1 onto a backend
+route. Details, wiring, and token minting:
+[MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md).
+
+**The surface is deliberately narrower than the API, and that gap is load-bearing.** You can
+create, run, and list over MCP — but **enable/disable, re-schedule, edit, delete, history, and
+export are REST-only** today (roadmap). If a user asks for one over MCP, say the tool doesn't
+exist and offer the REST call or the UI. **Never improvise a substitute** — notably, never
+"disable" a task by rewriting its schedule to something you think won't fire; an unrecognized
+cron is replaced with an **hourly** trigger, so that move does the opposite (see the traps).
+
+**Creating a task on a real machine? Read
+[references/task-authoring.md](references/task-authoring.md) first** — the creation paths,
+command recipes per kind of work (script / exe / shell opt-in / HTTP / CLI agent), the
+quoting and folder rules, and how to verify a task actually ran.
 
 ## Non-negotiable invariants
 
@@ -156,6 +169,7 @@ Load these on demand — don't read them all up front:
 | Reference | When |
 |:---|:---|
 | [architecture.md](references/architecture.md) | Data model, connector pattern, agent protocol, API surface, request shapes |
+| [task-authoring.md](references/task-authoring.md) | **Creating a task on a real machine**: the creation paths, command recipes per kind of work, quoting, schedules, folders, what's manageable over MCP vs REST, and how to verify it actually ran |
 | [templates.md](references/templates.md) | The catalog/registry: core vs extended, adding a template, publishing |
 | [testing.md](references/testing.md) | Suites, commands, what CI does and doesn't enforce |
 | [troubleshooting.md](references/troubleshooting.md) | The traps in full, plus how to diagnose a new one |

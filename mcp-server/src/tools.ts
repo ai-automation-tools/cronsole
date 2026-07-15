@@ -4,7 +4,8 @@ import { TaskHubClient, TaskHubApiError } from './client.js';
 
 /**
  * Tool surface for the TaskHub MCP server (docs/ROADMAP.md › P3):
- *   list_tasks · run_task · list_templates · create_task_from_template · convert_schedule
+ *   list_tasks · run_task · list_templates · create_task · create_task_from_template ·
+ *   convert_schedule
  *
  * Each tool is a thin call through TaskHubClient into the REST API. Business
  * rules (owner scoping, no-shell command structuring, agent signing, cron→trigger
@@ -315,6 +316,100 @@ export function registerTools(server: McpServer, client: TaskHubClient): void {
               .join('\n')
           : 'No templates match.';
         return ok(`${header}\n${summary}`, { matched, returned: rows.length, templates: rows });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // create_task
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'create_task',
+    {
+      title: 'Create a task from a command',
+      description:
+        'Create a real scheduled task directly from a command — no template needed. Use this when you already ' +
+        'know the command to run; use create_task_from_template only when you want a catalog recipe. ' +
+        'The server converts the 5-field UTC cron to the platform\'s native trigger and registers the task ' +
+        '(a Windows task is created via the signed local agent, and the command is structured no-shell). ' +
+        `Only ${CREATABLE_PLATFORMS.join(' and ')} can be created today. ` +
+        'IMPORTANT: check the schedule with convert_schedule first and READ THE RETURNED TRIGGER, not just the ' +
+        'confidence score — a cron this converter cannot express natively is REPLACED with an hourly trigger ' +
+        '(it only ever runs more often than you asked), and that arrives as a mild-sounding warning.',
+      inputSchema: {
+        name: z
+          .string()
+          .describe(
+            'Task name. Must be unique among tracked Windows tasks in the same folder — a collision returns 409 ' +
+            'rather than letting Windows silently overwrite the existing task.'
+          ),
+        command: z
+          .string()
+          .describe(
+            'The command to run, e.g. `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\\\path\\\\job.ps1"` ' +
+            'or `C:\\\\Tools\\\\backup.exe --full`. For Windows this is tokenized into a structured no-shell ' +
+            '{executable, args[]} action, so a shell is NOT implied: to use shell features (pipes, redirection, ' +
+            '`&&`) you must opt in explicitly by invoking one, e.g. `cmd.exe /c "..."`. ' +
+            'For TASKHUB_NATIVE the command must be a URL (it becomes an HTTP GET job).'
+          ),
+        schedule: z
+          .string()
+          .describe(
+            '5-field cron in UTC: "min hour dom month dow". TaskHub stores all schedules as UTC cron and ' +
+            'displays them in local time — do not pass local time.'
+          ),
+        platform: z
+          .enum(CREATABLE_PLATFORMS)
+          .default('WINDOWS_TASK_SCHEDULER')
+          .describe('Where to create the task. Only Windows and TaskHub-native are creatable today.'),
+        category: z
+          .string()
+          .optional()
+          .describe('TaskHub category for grouping. For Windows this defaults to the folder name.'),
+        folder: z
+          .string()
+          .optional()
+          .describe(
+            'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\TaskHub" (default) or ' +
+            '"\\\\Work\\\\Backups". The folder MUST ALREADY EXIST — TaskHub creates only its own "\\\\TaskHub" ' +
+            'folder, because removing a folder needs elevation and it will not leave behind one the user has to ' +
+            'delete by hand. Folders under "\\\\Microsoft\\\\" are refused outright: Windows keeps its own ' +
+            'scheduled tasks there and a name collision would silently overwrite one.'
+          )
+      }
+    },
+    async ({ name, command, schedule, platform, category, folder }) => {
+      try {
+        const body: Record<string, unknown> = { name, command, schedule, platform };
+        if (category) body.category = category;
+        if (folder) body.folder = folder;
+
+        const result = await client.post<{
+          message?: string;
+          task?: TaskRow;
+          conversion?: { warnings?: string[] };
+        }>('/tasks', body);
+
+        // Surface lossy conversion at the same volume as success. The backend
+        // accepts a fallback trigger rather than refusing it, so a task can be
+        // created on a schedule that is not the one asked for — saying so here
+        // is the difference between an honest result and a confident lie.
+        const warnings = result.conversion?.warnings?.length
+          ? `\nSchedule conversion warnings: ${result.conversion.warnings.join('; ')}` +
+            '\nThe registered trigger may not match the cron you gave. Verify with convert_schedule.'
+          : '';
+        const task = result.task;
+        const created = task
+          ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})`
+          : '';
+        const msg = typeof result.message === 'string' ? result.message : 'Task created';
+        return ok(`${msg}${created}${warnings}`, {
+          platform,
+          task: task ? compactTask(task) : null,
+          conversion: result.conversion ?? { warnings: [] }
+        });
       } catch (err) {
         return toolError(err);
       }

@@ -38,16 +38,32 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`list_tasks`** | "List my Windows tasks", "which tasks failed?", "show tasks in the Backup category" | `GET /api/tasks` |
 | **`run_task`** | "Run the nightly backup now" | `POST /api/tasks/:id/run` |
 | **`list_templates`** | "What backup templates are there?", "show AI agent templates" | `GET /api/templates` |
+| **`create_task`** | "Run `C:\jobs\nightly.ps1` every weekday at 6am" — any command you already know | `POST /api/tasks` |
 | **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?" | `POST /api/tasks/preview` |
+
+**`create_task` vs. `create_task_from_template`:** use `create_task` when you already know the
+command to run — it's the direct path, and it's what the dashboard's New Task modal has always
+done. Use the template version when you want a *tested recipe* for a known use case (database
+backup, git fetch, webhook ping), including a sane default schedule and declared parameters.
+Asking for "a task that runs this script" through a template means inventing a template to fit,
+which is backwards.
 
 `list_tasks` and `list_templates` accept optional filters (`platform`, `status`, `category`,
 `search`) and are bounded (default 50 results, with an honest "showing N of M" note).
 `create_task_from_template` fills the template's `{{placeholder}}` parameters from the values
-you pass and is gated to the platforms TaskHub can actually create on today
-(**Windows Task Scheduler** + **TaskHub-native**). Its optional **`folder`** chooses the real
-Task Scheduler folder the task lands in — default `\TaskHub`, created if it doesn't exist, and
-it becomes the task's category in TaskHub.
+you pass. Both create tools are gated to the platforms TaskHub can actually create on today
+(**Windows Task Scheduler** + **TaskHub-native**), and their optional **`folder`** chooses the
+real Task Scheduler folder the task lands in — default `\TaskHub`, and it becomes the task's
+category in TaskHub. Any *other* folder must already exist: removing a Task Scheduler folder
+needs elevation, so TaskHub won't leave behind one you'd have to delete by hand.
+
+> [!NOTE]
+> **What you can't do over MCP yet.** Enable/disable, re-schedule, edit a command, delete, run
+> history, and export are **not** tools today — use the dashboard or the REST API. If your
+> assistant offers to "disable" a task by changing its schedule, don't let it: a cron TaskHub
+> can't express natively is replaced with an **hourly** trigger, so that makes it run *more*,
+> not less. Expanding this surface is on the roadmap.
 
 > [!IMPORTANT]
 > **`\Microsoft\` and its descendants are refused.** Windows keeps its own scheduled tasks
@@ -57,9 +73,10 @@ it becomes the task's category in TaskHub.
 > process that holds the elevation.
 
 > [!IMPORTANT]
-> `list_*` and `convert_schedule` are read-only and safe to call freely. **`run_task`** and
-> **`create_task_from_template`** cause real effects on your machine (running / registering
-> Windows tasks) — the same guardrails as clicking **Run Now** or **Apply** in the dashboard.
+> `list_*` and `convert_schedule` are read-only and safe to call freely. **`run_task`**,
+> **`create_task`**, and **`create_task_from_template`** cause real effects on your machine
+> (running / registering Windows tasks) — the same guardrails as clicking **Run Now** or
+> **Apply** in the dashboard.
 
 ## Prerequisites
 
@@ -176,11 +193,21 @@ Once connected, natural-language prompts map onto the tools:
 - *"Which of my tasks last failed?"* → `list_tasks` then filters on the last-run status.
 - *"Show me the Developer Pack templates."* → `list_templates(search: "dev")`
 - *"Does `*/15 9-17 * * 1-5` convert cleanly for Windows?"* → `convert_schedule(...)`
+- *"Run `C:\jobs\nightly.ps1` every weekday at 6am."* →
+  `create_task(name: "Nightly", command: "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\jobs\\nightly.ps1\"", schedule: "0 13 * * 1-5")`
+  — note the cron is **UTC**; 6am local is a different number.
 - *"Create a task from `dev-git-fetch-prune` for `C:\repos\taskhub`, hourly."* →
   `create_task_from_template(templateId: "dev-git-fetch-prune", parameters: { repoPath: "C:\\repos\\taskhub" }, schedule: "0 * * * *")`
 
 The assistant discovers a template's required parameters from `list_templates` (each template
 lists its params, required ones marked) before calling `create_task_from_template`.
+
+> [!TIP]
+> **Ask it to check the schedule first.** `convert_schedule` shows the trigger your cron
+> actually becomes — *"Weekly at 09:00 on Monday, Tuesday, …"* — which is worth reading, not
+> just the confidence number next to it. A cron TaskHub can't express as a native Windows
+> trigger is **replaced** with an hourly one rather than rejected, and that arrives as a
+> mild-sounding warning. Rare schedules are the ones this bites.
 
 ## Troubleshooting
 

@@ -120,15 +120,22 @@ route, which is what keeps owner scoping, no-shell `exec`, signed agent commands
 cron→trigger conversion in one tested place. **New behavior means a new backend route**, never
 cleverness in the wrapper.
 
-The 5 tools and their routes:
+The 6 tools and their routes:
 
 | Tool | Route |
 |:---|:---|
 | `list_tasks` | `GET /api/tasks` |
 | `run_task` | `POST /api/tasks/:id/run` |
 | `list_templates` | `GET /api/templates` |
+| `create_task` | `POST /api/tasks` |
 | `create_task_from_template` | `POST /api/templates/:id/apply` |
 | `convert_schedule` | `POST /api/tasks/preview` |
+
+Task **management** routes (`PATCH /api/tasks/:id/status`·`/schedule`·`/actions`,
+`DELETE /api/tasks/:id`, `GET /api/tasks/:id/executions`·`/export`, `GET /api/tasks/folders`)
+have **no tools yet** — see ROADMAP › P3 *MCP surface expansion*, which also holds the open
+questions worth settling before you add them (destructive-op gating, tool-count creep). The
+routes existing is not by itself a reason to expose them.
 
 1. Tool registration + Zod input schema → `mcp-server/src/tools.ts`. HTTP + error
    normalization → `client.ts`. Bootstrap → `index.ts`.

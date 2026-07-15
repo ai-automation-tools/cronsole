@@ -108,7 +108,7 @@ silent data loss lives.
 | F6.2 | **Agent config & auth** | Pairing config parses; authenticator derives the right token | ✅ `AgentConfigTests.cs`, `AgentAuthenticatorTests.cs` |
 | F6.3 | **Health diagnostics** | An invalid Claude key surfaces "Key authentication failed" **with** corrective instructions | ⬜ |
 | F6.4 | **Failure notifications** | Failed manual + scheduled native runs fire generic / Discord / ntfy webhooks | ✅ `FailureNotificationService.test.ts` |
-| F6.5 | **MCP tools** | All 5 tools (`list_tasks`, `run_task`, `list_templates`, `create_task_from_template`, `convert_schedule`) work over stdio | ⬜ **No suite** — manual only |
+| F6.5 | **MCP tools** | All 6 tools (`list_tasks`, `run_task`, `list_templates`, `create_task`, `create_task_from_template`, `convert_schedule`) work over stdio | ⬜ **No suite** — manual only |
 
 ## ✍️ Writing a good functional test
 

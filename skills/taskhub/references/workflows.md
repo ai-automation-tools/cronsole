@@ -44,6 +44,27 @@ Decisions to make: **tier** (`core: true` only if it earns a slot in the 5-templ
 **tags** (free-form, distinct from `category`), and **shell** (keep `exec` no-shell unless it
 genuinely needs one). Detail: [templates.md](templates.md).
 
+## Republish the agent (do this after ANY `agent/` change)
+
+The agent **never hot-reloads** — it's a host process running the published exe. Testing an
+agent change without republishing means testing the *old* build, which is
+[trap #7](../../../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished).
+
+**Easy way** (register once, elevated; then no elevation ever again):
+
+```powershell
+.\scripts\startup-task\Register-RepublishTask.ps1        # ONE time, Administrator
+Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'   # any prompt
+Get-Content "$env:TEMP\taskhub-republish.log" -Tail 20   # it logs — read it
+```
+
+**Manual way** — Administrator prompt, `Get-Process TaskHub.Agent | Stop-Process -Force`
+then `dotnet publish` then `taskhub.ps1 up`. The stop is the step that matters.
+
+**Verify it took.** The published dll must be newer than the newest `.cs`. And an unelevated
+`Get-Process TaskHub.Agent` returning nothing does **not** mean it's down — it runs elevated
+and may be invisible to you. Ask `GET /api/tasks/health` instead; that's authoritative.
+
 ## Add a new agent command
 
 The one most likely to waste your afternoon — **two processes must ship together.**

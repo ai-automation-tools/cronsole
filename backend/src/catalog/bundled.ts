@@ -633,7 +633,14 @@ const starters: RegistryTemplate[] = [
     icon: 'Globe',
     isStarter: true,
     trigger: sched('*/15 * * * *'),
-    commandTemplate: 'powershell.exe -Command "Invoke-WebRequest -Uri \'{{url}}\' -Method {{method}}"',
+    // -UseBasicParsing is mandatory, not stylistic: without it Windows PowerShell
+    // 5.1 parses the response with the Internet Explorer engine, which Windows 11
+    // no longer ships. The call then dies on a NullReferenceException — and under
+    // Task Scheduler it hangs indefinitely instead of exiting, so the default
+    // */15 trigger would strand a powershell.exe every 15 minutes. -NoProfile
+    // keeps an unattended run independent of the user's profile.
+    commandTemplate:
+      'powershell.exe -NoProfile -Command "Invoke-WebRequest -Uri \'{{url}}\' -Method {{method}} -UseBasicParsing"',
     parameters: [P.url, P.method],
     compatibleTargets: ['windows']
   },

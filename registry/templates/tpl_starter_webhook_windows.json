@@ -19,7 +19,7 @@
     "kind": "schedule",
     "cron": "*/15 * * * *"
   },
-  "commandTemplate": "powershell.exe -Command \"Invoke-WebRequest -Uri '{{url}}' -Method {{method}}\"",
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri '{{url}}' -Method {{method}} -UseBasicParsing\"",
   "parameters": [
     {
       "key": "url",

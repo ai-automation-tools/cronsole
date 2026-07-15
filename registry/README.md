@@ -6,10 +6,16 @@
 > content-addressed — a manual edit breaks the `sha256` checksums and the drift
 > test fails in CI. Change the catalog in `bundled.ts`, then regenerate.
 
-This directory is the **static template registry**: the decoupled catalog the
-TaskHub backend fetches at runtime instead of reading its compiled-in snapshot.
-It's this repo's **source of truth** for the registry, and the artifact that gets
-mirrored to the separate public repo (see [Publishing](#publishing)).
+This directory is the **static template registry**: the decoupled catalog a TaskHub
+backend can fetch at runtime instead of reading its compiled-in snapshot. It's this
+repo's **source of truth** for the registry artifact, and what gets mirrored to the
+separate public repo (see [Publishing](#publishing)).
+
+> [!NOTE]
+> **Remote fetching is opt-in.** `TEMPLATE_REGISTRY_URL` now defaults to **unset**, so a
+> backend reads the compiled-in `bundled.ts` unless you point it at a hosted registry.
+> Nothing reads *this folder* directly — it exists to be served or published. Defaulting to
+> the hosted URL made a local template edit invisible until it was published publicly.
 
 ```
 registry/

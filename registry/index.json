@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-14T19:21:48.738Z",
+  "updatedAt": "2026-07-15T21:09:14.869Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -531,7 +531,7 @@
         "windows"
       ],
       "path": "templates/tpl_starter_webhook_windows.json",
-      "sha256": "e26ef9a1d57e9caf7ce22c2ff821acb50fc8c66ebaabca6d6ca355aa7c428c70"
+      "sha256": "b17c8e2308c14cfce4ea557c9df0dbde8d43a77c4ebce1c02a912f1af16abf7a"
     },
     {
       "id": "tpl_starter_vbscript",

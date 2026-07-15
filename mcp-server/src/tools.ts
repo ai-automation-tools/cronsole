@@ -54,6 +54,15 @@ interface TemplateParameter {
   help?: string;
 }
 
+// Mirrors backend WindowsTrigger (backend/src/utils/scheduler-conversion.ts).
+interface WindowsTrigger {
+  type: 'Daily' | 'Weekly' | 'Monthly' | 'Time';
+  startBoundary: string;
+  daysInterval?: number;
+  daysOfWeek?: string[];
+  repetition?: { interval: string; duration?: string };
+}
+
 interface TemplateRow {
   id: string;
   name: string;
@@ -83,6 +92,26 @@ function toolError(err: unknown) {
     content: [{ type: 'text' as const, text: message }],
     isError: true
   };
+}
+
+/**
+ * One-line rendering of the trigger the conversion produced. A bare "confidence
+ * 1" reads identically whether the conversion was right or silently wrong: the
+ * multi-day weekly bug turned "1-5" into a Monday-only trigger and still scored
+ * 1.0 with no warnings. Spelling the days out is what makes that visible to a
+ * host that shows only text. Durations stay ISO-8601 — that's what Task
+ * Scheduler itself displays, so it stays checkable against the real trigger.
+ */
+function describeTrigger(t: WindowsTrigger): string {
+  const parts: string[] = [t.type];
+  if (t.startBoundary) parts.push(`at ${t.startBoundary}`);
+  if (t.daysOfWeek?.length) parts.push(`on ${t.daysOfWeek.join(', ')}`);
+  if (t.daysInterval && t.daysInterval > 1) parts.push(`every ${t.daysInterval} days`);
+  if (t.repetition?.interval) {
+    const dur = t.repetition.duration ? ` for ${t.repetition.duration}` : '';
+    parts.push(`repeating every ${t.repetition.interval}${dur}`);
+  }
+  return parts.join(' ');
 }
 
 /** A successful tool result carrying both a readable summary and structured data. */
@@ -382,14 +411,16 @@ export function registerTools(server: McpServer, client: TaskHubClient): void {
     },
     async ({ schedule, platform }) => {
       try {
-        const result = await client.post<{ score: number; warnings: string[]; trigger: unknown }>(
-          '/tasks/preview',
-          { platform, schedule }
-        );
+        const result = await client.post<{
+          score: number;
+          warnings: string[];
+          trigger: WindowsTrigger | null;
+        }>('/tasks/preview', { platform, schedule });
         const warnings = result.warnings?.length ? `\nWarnings: ${result.warnings.join('; ')}` : '';
+        const trigger = result.trigger ? `\nTrigger: ${describeTrigger(result.trigger)}` : '';
         const text =
           result.score > 0
-            ? `Convertible for ${platform} (confidence ${result.score}).${warnings}`
+            ? `Convertible for ${platform} (confidence ${result.score}).${trigger}${warnings}`
             : `Not convertible for ${platform} (score 0).${warnings}`;
         return ok(text, { platform, schedule, ...result });
       } catch (err) {

@@ -95,6 +95,17 @@ Two guardrails that must never break:
 
 ## Adding or changing a template
 
+> [!IMPORTANT]
+> **Your dev backend probably syncs from the *public* CDN, not your edit.** `registry/` is a
+> **generated artifact** — nothing reads it at runtime. `buildCatalogSource()` picks exactly
+> two sources: **unset `TEMPLATE_REGISTRY_URL` → the compiled-in `bundled.ts`**, or **set →
+> fetched over HTTP**. `backend/.env.example` ships the hosted URL as the **default**, so out
+> of the box a local template change is invisible until it's published *publicly* — you'd have
+> to ship a broken template to the world to test its fix. For the authoring loop, comment
+> `TEMPLATE_REGISTRY_URL` out of `backend/.env` and `docker compose restart backend`; a healthy
+> boot logs `[catalog] synced 5 core templates from "bundled"`. Re-enable it to exercise the
+> real fetch + sha256 + cache path.
+
 1. **Edit `backend/src/catalog/bundled.ts`.** Never `seed.ts`. Never `registry/`.
 2. Decide the tier: `core: true` only if it earns a slot in the **5**-template fresh-install
    sampler. Default is extended.
@@ -107,6 +118,26 @@ Two guardrails that must never break:
    `bundled.ts`.
 7. **Commit `registry/` with your `bundled.ts` change** — they must stay in lockstep.
 8. Publish: `pwsh scripts/publish-registry.ps1`
+
+> [!WARNING]
+> **Resolvability is not correctness.** The sweep in step 6 proves a `commandTemplate`
+> *tokenizes and substitutes* — **not that the command works on the target**. A template can
+> pass every test and still be broken on a real machine. The only proof is applying it and
+> watching the task run. This shipped a broken **core** template: the webhook starter used
+> `Invoke-WebRequest` without `-UseBasicParsing`, which Windows PowerShell 5.1 parses with the
+> **Internet Explorer engine that Windows 11 no longer ships** — so it died on a
+> `NullReferenceException`, and under Task Scheduler **hung forever** instead of exiting (its
+> `*/15` default would strand a `powershell.exe` every 15 minutes). See
+> [troubleshooting #12](../../../docs/troubleshooting/README.md#12-a-template-passes-every-test-and-still-hangs-on-the-target).
+>
+> Authoring rules that follow from it:
+> - **`Invoke-WebRequest` → always `-UseBasicParsing`.** Prefer `Invoke-RestMethod` for
+>   JSON/XML — it parses directly and never touches IE.
+> - **`powershell.exe` → always `-NoProfile`.** An unattended run must not depend on the
+>   user's profile.
+> - **A scheduled run has no console.** A command that merely *errors* interactively can
+>   *block* under Task Scheduler, where the task sits `Running` forever and TaskHub reports
+>   `lastRunStatus: SUCCESS` — because "started" is all it can observe.
 
 ## Publishing
 

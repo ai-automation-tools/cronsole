@@ -31,6 +31,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 8 | **Every** MCP tool returns `403 Invalid or expired token`, but the dashboard and `curl` with a real token work fine | `TASKHUB_TOKEN` is unset, so Claude Code passed the **literal** `${TASKHUB_TOKEN}` through to the API — nothing is actually expired | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
 | 9 | A new agent command returns a well-formed payload where **every field is empty/false** — no error, no exception, the counts are even right | The agent emitted a C# object directly; the socket serializer does **not** camelCase, so the wire carries `Path`/`TaskCount` while the backend reads `f.path` → `undefined` for every field | [→](#9-agent-payload-arrives-with-every-field-empty) |
 | 10 | `DeleteFolder` on a Task Scheduler folder fails with `Access is denied. (0x80070005 (E_ACCESSDENIED))` | Task Scheduler folder deletion requires **elevation**, even for a folder you created and even when it is empty | [→](#10-cannot-delete-a-task-scheduler-folder-e_accessdenied) |
+| 11 | After a **System Restore**, `Start-ScheduledTask` says the republish task doesn't exist **and/or** the `taskhub` MCP tools vanish — while the repo, `git status`, and the build are all perfectly clean | Both live on `C:` as per-machine state git can't protect: the scheduled-task registration and the `TASKHUB_TOKEN` **User** env var. A restore of `C:` wipes them; a repo on another drive survives, so nothing *looks* wrong | [→](#11-after-a-system-restore-the-republish-task-and-mcp-tools-are-gone) |
+| 12 | A task created from a template sits in `Running` **forever** (`LastTaskResult` `267009`), burning no CPU — while TaskHub cheerfully reports `lastRunStatus: SUCCESS`, and every test passes | The command is broken **on the target**, which no test checks. Classic cause: `Invoke-WebRequest` without `-UseBasicParsing` needs the **IE engine Windows 11 removed** → `NullReferenceException`, and with no console to write it to, the process blocks instead of exiting | [→](#12-a-template-passes-every-test-and-still-hangs-on-the-target) |
 
 ---
 
@@ -507,6 +509,128 @@ instead.
 
 *First hit: 2026-07-14 (a dogfood left `\ManualTest`, `\MicrosoftEdgeBackups`, and `\Work`
 behind; they had to be removed by hand).*
+
+---
+
+## 11. After a System Restore, the republish task and MCP tools are gone
+
+**Symptom** — one or both, with a repo that looks completely healthy (`git status` clean, the
+build fine, the agent running):
+
+```
+Start-ScheduledTask : No MSFT_ScheduledTask objects found with property 'TaskName' equal to
+'TaskHubRepublish'
+```
+
+...and/or every `taskhub` MCP tool is simply **missing** from the host — not erroring, not
+403-ing (that's [#8](#8-every-mcp-tool-returns-403-invalid-or-expired-token)), just absent.
+
+**Cause** — both are **per-machine state on `C:` that git cannot protect**:
+
+| Wiped | Where it actually lives |
+|:---|:---|
+| `\Task-Hub\TaskHubRepublish` (and the other `\Task-Hub\` tasks) | Task Scheduler store on `C:` |
+| `TASKHUB_TOKEN` | `HKCU\Environment` (User env var) on `C:` |
+
+The *scripts* that register the task are committed and survive; only the **registration** is
+lost. Likewise the MCP server, its `dist/`, and `.mcp.json` all survive — only the token is
+gone. So a restore of `C:` leaves a repo on `D:` untouched and every symptom points somewhere
+other than the real cause. The token loss is silent by design: since the 2026-07-14 hardening,
+`configFromEnv()` **refuses to start** rather than forward a literal `${TASKHUB_TOKEN}`, so the
+tools disappear instead of returning a misleading 403.
+
+**Fix** — re-register the task (once, **elevated** — a UAC prompt is expected):
+
+```powershell
+.\scripts\startup-task\Register-RepublishTask.ps1
+```
+
+Re-mint the token and persist it. Mint it **inside the running container** so it's signed with
+the secret the live backend actually uses, rather than a file that may not be what's loaded:
+
+```powershell
+$token = docker exec -w /app taskhub-backend-1 node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'30d'}))"
+[Environment]::SetEnvironmentVariable('TASKHUB_TOKEN', $token.Trim(), 'User')
+```
+
+Confirm it authenticates *before* blaming MCP — this separates an auth problem from an MCP one:
+
+```powershell
+Invoke-RestMethod -Uri 'http://localhost:3000/api/tasks' -Headers @{ Authorization = "Bearer $token" }
+```
+
+Then **restart your MCP host from a fresh terminal**. Setting a User env var does not reach an
+already-running process, so restarting the host inside an old terminal won't pick it up.
+
+> [!TIP]
+> **The tell:** if several unrelated-looking things broke at once and the repo is clean, ask
+> what lives on `C:` rather than in git. Scheduled tasks, User env vars, and anything under
+> `%TEMP%` are all outside the repo's blast radius — and outside its protection.
+
+*First hit: 2026-07-15 (a System Restore took `\Task-Hub\TaskHubRepublish` and `TASKHUB_TOKEN`
+with it; the repo on `D:` was untouched, so the two failures looked unrelated).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 12. A template passes every test and still hangs on the target
+
+**Symptom** — a task created from a template never finishes. It sits in `Running`
+indefinitely while consuming no CPU, and TaskHub's UI reports the run as **`SUCCESS`**:
+
+```
+state       : Running
+last result : 267009   (0x00041301 = SCHED_S_TASK_RUNNING)
+cpu(s)      : 0.484375   <- frozen; it is blocked, not working
+```
+
+Meanwhile `npm test` is green — including the whole-catalog **resolvability** sweep.
+
+**Cause** — two things compounding:
+
+1. **The command is broken on the target.** Resolvability proves a `commandTemplate`
+   *tokenizes and substitutes*; it does **not** prove the command runs. The concrete case:
+   `Invoke-WebRequest` in **Windows PowerShell 5.1** parses responses with the **Internet
+   Explorer engine**, which **Windows 11 no longer ships**. The call dies on
+   `Invoke-WebRequest : Object reference not set to an instance of an object.`
+   (`System.NullReferenceException`).
+2. **A scheduled run has no console.** Interactively that error prints and the process
+   exits. Under Task Scheduler there is nowhere to write it, so the process **blocks
+   forever** rather than failing. `TaskHub` reports `SUCCESS` because the agent only
+   observes that the task *started* — it never claimed the command *worked*.
+
+The tell: `Running` + flat CPU = blocked. A task that is genuinely working accrues CPU.
+
+**Fix** — for this class of command:
+
+```powershell
+# broken on Windows 11 — needs the IE engine
+powershell.exe -Command "Invoke-WebRequest -Uri 'https://…' -Method GET"
+
+# correct
+powershell.exe -NoProfile -Command "Invoke-WebRequest -Uri 'https://…' -Method GET -UseBasicParsing"
+```
+
+- **`Invoke-WebRequest` → always `-UseBasicParsing`.** Prefer **`Invoke-RestMethod`** for
+  JSON/XML: it parses directly and never touches IE (verified working on 5.1 here).
+- **`powershell.exe` → always `-NoProfile`** so an unattended run doesn't depend on the
+  user's profile.
+
+To clear a stuck one: `Stop-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>'`.
+
+> [!IMPORTANT]
+> **A green suite is not evidence a template works.** The only proof is applying it and
+> watching the task actually run to completion. This bug shipped in a **core** template —
+> one of the 5 every fresh install gets — on a `*/15 * * * *` default, so it would have
+> stranded a `powershell.exe` every 15 minutes on a new user's machine, forever, while the
+> dashboard showed `SUCCESS`.
+
+*First hit: 2026-07-15 (found by the first live end-to-end exercise of the MCP
+`create_task_from_template` + `run_task` tools — the read-only tests that preceded it could
+not have surfaced it).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
 ---
 

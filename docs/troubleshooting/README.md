@@ -35,6 +35,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 11 | After a **System Restore**, `Start-ScheduledTask` says the republish task doesn't exist **and/or** the `taskhub` MCP tools vanish — while the repo, `git status`, and the build are all perfectly clean | Both live on `C:` as per-machine state git can't protect: the scheduled-task registration and the `TASKHUB_TOKEN` **User** env var. A restore of `C:` wipes them; a repo on another drive survives, so nothing *looks* wrong | [→](#11-after-a-system-restore-the-republish-task-and-mcp-tools-are-gone) |
 | 12 | A task created from a template sits in `Running` **forever** (`LastTaskResult` `267009`), burning no CPU — while TaskHub cheerfully reports `lastRunStatus: SUCCESS`, and every test passes | The command is broken **on the target**, which no test checks. Classic cause: `Invoke-WebRequest` without `-UseBasicParsing` needs the **IE engine Windows 11 removed** → `NullReferenceException`, and with no console to write it to, the process blocks instead of exiting | [→](#12-a-template-passes-every-test-and-still-hangs-on-the-target) |
 | 13 | The `taskhub` MCP tools are **missing** — and the token is fine: it's set, the host can see it, the backend is healthy, and `node mcp-server/dist/index.js` boots clean by hand | The server is **disabled in the host**, not broken. `disabledMcpjsonServers` in `.claude/settings.local.json` lists it — that's what Claude Code writes for **every** server in `.mcp.json` when you decline the "do you trust this project's MCP servers?" prompt | [→](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine) |
+| 14 | You picked a **deliberately rare** cron (annual, Feb 30, a specific date) so a test task couldn't fire on its own — and it fires **hourly, every day**, forever | Any cron the converter doesn't recognize falls back to a **hard-coded hourly** trigger. The lossy warning says times "might not align 100%", which reads like drift — but the schedule was *replaced*, and the fallback only ever runs **more** often, never less | [→](#14-a-rare-cron-becomes-an-hourly-trigger) |
 
 ---
 
@@ -751,6 +752,72 @@ recorded, editing the file is the way back.
 Both faults were real and stacked — the token was genuinely unset **and** the server was
 disabled — which is exactly why the missing-tools symptom can't be used to identify either
 one.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 14. A rare cron becomes an hourly trigger
+
+**Symptom** — you choose a deliberately infrequent schedule so a test task can't fire on its
+own, and it fires **every hour, every day** instead:
+
+```powershell
+# asked for: once a year, Jan 1 at 04:00 UTC
+create_task_from_template … schedule: '0 4 1 1 *'
+
+# got:
+DaysInterval : 1                       # <- daily
+Repetition   : PT1H / P1D              # <- repeating hourly, all day
+StartBoundary: 2026-07-14T17:00:00-07:00
+```
+
+The conversion *did* report itself as lossy — `confidence: 0.7` plus
+`"Complex cron expression will be converted to a fallback interval trigger; execution times
+might not align 100%."` — which is why it slips past: that phrasing reads like **drift** (the
+right schedule, slightly off), so you accept it and move on.
+
+**Cause** — the cron→trigger converter pattern-matches a handful of shapes (daily, weekly,
+monthly, minute step, hour step). Anything else hits a single **hard-coded fallback** in
+[`backend/src/utils/scheduler-conversion.ts`](../../backend/src/utils/scheduler-conversion.ts):
+
+```ts
+// Fallback / Complex cron
+warnings.push('Complex cron expression will be converted to a fallback interval trigger; …');
+return { confidence: 0.7, trigger: { type: 'Time', startBoundary: '00:00',
+  repetition: { interval: 'PT1H', duration: 'P1D' } }, warnings };
+```
+
+That fallback is **not derived from your cron at all** — it's the same hourly trigger for
+every unrecognized expression. So the schedule isn't approximated, it's **discarded**. For
+`0 4 1 1 *` that's 1 run/year → **8,760 runs/year**.
+
+The asymmetry is the dangerous part: **the fallback only ever runs more often than you asked,
+never less.** A "safe, rare" schedule is exactly the input most likely to miss the pattern
+list, so reaching for a rare cron *to be careful* is what triggers the surprise.
+
+**Fix** — for a task that genuinely must not self-fire, don't encode that in the cron. Use a
+schedule the converter recognizes and **disable** the task, or delete it when done:
+
+```powershell
+# confirm what you'll actually get, BEFORE creating it
+convert_schedule '0 4 1 1 *'    # score 0.7 -> read the trigger, not just the score
+
+# inspect what was really registered
+Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>' | Select-Object -Expand Triggers
+```
+
+> [!IMPORTANT]
+> **Read the returned `trigger`, not the confidence score.** `0.7` with a warning looks like
+> a rounding error and is in fact a different schedule. This is the same lesson as
+> [#12](#12-a-template-passes-every-test-and-still-hangs-on-the-target) and the Monday-only
+> `1-5` bug, one layer up: the system told the truth in a register quiet enough to ignore.
+> `convert_schedule` renders the trigger in its text output (2026-07-15) precisely so this is
+> visible — use it.
+
+*First hit: 2026-07-15 (picked `0 4 1 1 *` as a "can't possibly fire" schedule for a live MCP
+test task; it registered as daily-with-hourly-repetition and would have pinged every hour
+until deleted).*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -1,5 +1,25 @@
 {
+  "//": [
+    "Copy to .mcp.json (gitignored) on a fresh clone: cp .mcp.json.example .mcp.json",
+    "Which MCP servers your CLI loads is a per-machine choice, so the real file is not tracked.",
+    "All secrets are ${ENV} references - never paste a literal token here or in .mcp.json.",
+    "",
+    "taskhub: this repo's own MCP server (mcp-server/). Needs `cd mcp-server && npm run build`",
+    "first, a running backend, and TASKHUB_TOKEN set in your environment.",
+    "See docs/user-guides/guides/MCP_Server_Guide.md and mcp-server/.env.example."
+  ],
   "mcpServers": {
+    "taskhub": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "./mcp-server/dist/index.js"
+      ],
+      "env": {
+        "TASKHUB_TOKEN": "${TASKHUB_TOKEN}",
+        "TASKHUB_API_URL": "http://localhost:3000/api"
+      }
+    },
       "playwright": {
       "type": "stdio",
       "command": "cmd",

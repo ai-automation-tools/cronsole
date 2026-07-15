@@ -14,6 +14,7 @@ Load when touching the data model, connectors, the agent protocol, or the API su
 | **Postgres** | Docker | `5432` | v16 |
 | **Redis** | Docker | — | Optional for MVP; required for multi-instance WebSocket |
 | **Agent** | Host `.exe` (**never** Docker) | — | .NET 10 + `Microsoft.Win32.TaskScheduler`; needs COM access |
+| **MCP server** | On-demand, **launched by your AI host** (stdio) | — | `mcp-server/dist/index.js`; a REST client with a bearer token. Not part of `taskhub.ps1`; the host starts and stops it |
 
 Control the whole stack with `pwsh scripts/taskhub.ps1 <up|down|restart|status|logs>`
 (`down -All` also stops the Docker db/redis). It exists so you stop wondering which part is

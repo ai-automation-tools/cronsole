@@ -49,6 +49,50 @@ export interface ReverseResult {
   warnings: string[];
 }
 
+/** Cron day-of-week index → the day name a Windows Weekly trigger expects. */
+const CRON_DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday'
+];
+
+/**
+ * Parses a cron day-of-week field into Windows day names, handling the forms a
+ * weekly schedule actually uses: a single day (`1`), a list (`1,3,5`), a range
+ * (`1-5`), or a mix (`1-3,5`). Cron accepts both `0` and `7` for Sunday, so both
+ * fold onto one Sunday.
+ *
+ * Returns `null` — never a guess — when any part is unparseable, so the caller
+ * falls through to the warned fallback instead of inventing a day. This must not
+ * use `parseInt` on the whole field: `parseInt('1-5')` is `1`, which silently
+ * turned "every weekday" into "Mondays only" at full confidence.
+ */
+function parseCronDaysOfWeek(dow: string): string[] | null {
+  const indices = new Set<number>();
+
+  for (const part of dow.split(',')) {
+    const range = part.match(/^(\d+)-(\d+)$/);
+    if (range) {
+      const start = Number(range[1]);
+      const end = Number(range[2]);
+      if (start > 7 || end > 7 || start > end) return null;
+      for (let day = start; day <= end; day++) indices.add(day % 7); // 7 → Sunday
+      continue;
+    }
+    if (!/^\d+$/.test(part)) return null;
+    const day = Number(part);
+    if (day > 7) return null;
+    indices.add(day % 7);
+  }
+
+  if (indices.size === 0) return null;
+  return [...indices].sort((a, b) => a - b).map(index => CRON_DAY_NAMES[index]);
+}
+
 /**
  * Converts a 5-field cron string to a Windows Task Scheduler trigger configuration.
  */
@@ -92,28 +136,17 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
     };
   }
 
-  // 2. Weekly at a specific hour/minute/day of week: "M H * * D"
-  const dowNum = parseInt(dow, 10);
-  if (isSpecificTime && dom === '*' && month === '*' && !isNaN(dowNum)) {
-    const timeStr = `${hour.padStart(2, '0')}:${min.padStart(2, '0')}`;
-    const dayMap: Record<number, string> = {
-      0: 'Sunday',
-      1: 'Monday',
-      2: 'Tuesday',
-      3: 'Wednesday',
-      4: 'Thursday',
-      5: 'Friday',
-      6: 'Saturday',
-      7: 'Sunday' // Cron 7 is also Sunday
-    };
-    const targetDay = dayMap[dowNum];
-    if (targetDay) {
+  // 2. Weekly at a specific hour/minute on one or more days: "M H * * D[,D|-D]"
+  if (isSpecificTime && dom === '*' && month === '*') {
+    const targetDays = parseCronDaysOfWeek(dow);
+    if (targetDays) {
+      const timeStr = `${hour.padStart(2, '0')}:${min.padStart(2, '0')}`;
       return {
         confidence: 1.0,
         trigger: {
           type: 'Weekly',
           startBoundary: timeStr,
-          daysOfWeek: [targetDay]
+          daysOfWeek: targetDays
         },
         warnings
       };
@@ -140,9 +173,21 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   // 4. Periodic minutes: "*/M * * * *"
   if (min.startsWith('*/') && hour === '*' && dom === '*' && month === '*' && dow === '*') {
     const intervalMins = parseInt(min.substring(2), 10);
-    if (!isNaN(intervalMins)) {
+    if (!isNaN(intervalMins) && intervalMins > 0) {
+      // Windows repeats on a fixed interval from the start boundary; cron restarts
+      // its cycle every hour. They only agree when the step divides 60 evenly —
+      // "*/7" fires at :00,:07…:56 then :00 under cron (a 4-minute seam), but
+      // rolls straight across the hour under Windows.
+      const divides = intervalMins < 60 && 60 % intervalMins === 0;
+      if (!divides) {
+        warnings.push(
+          `A ${intervalMins}-minute step does not divide 60 evenly, so Windows repeats it ` +
+          'continuously from midnight while cron realigns every hour; run times drift apart ' +
+          'after the first hour.'
+        );
+      }
       return {
-        confidence: 1.0,
+        confidence: divides ? 1.0 : 0.7,
         trigger: {
           type: 'Time',
           startBoundary: '00:00',
@@ -159,9 +204,19 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   // 5. Periodic hours: "0 */H * * *"
   if (minNum === 0 && hour.startsWith('*/') && dom === '*' && month === '*' && dow === '*') {
     const intervalHours = parseInt(hour.substring(2), 10);
-    if (!isNaN(intervalHours)) {
+    if (!isNaN(intervalHours) && intervalHours > 0) {
+      // Same seam as the minute step, against a 24-hour day: cron realigns at
+      // midnight, Windows does not.
+      const divides = intervalHours < 24 && 24 % intervalHours === 0;
+      if (!divides) {
+        warnings.push(
+          `A ${intervalHours}-hour step does not divide 24 evenly, so Windows repeats it ` +
+          'continuously from midnight while cron realigns each day; run times drift apart ' +
+          'after the first day.'
+        );
+      }
       return {
-        confidence: 1.0,
+        confidence: divides ? 1.0 : 0.7,
         trigger: {
           type: 'Time',
           startBoundary: '00:00',
@@ -217,18 +272,14 @@ export function convertWindowsTriggerToCron(trigger: WindowsTrigger): ReverseRes
     if (parts.length >= 2) {
       const hour = parseInt(parts[0], 10);
       const min = parseInt(parts[1], 10);
-      const dayMap: Record<string, number> = {
-        sunday: 0,
-        monday: 1,
-        tuesday: 2,
-        wednesday: 3,
-        thursday: 4,
-        friday: 5,
-        saturday: 6
-      };
-      const firstDay = trigger.daysOfWeek[0].toLowerCase();
-      const dow = dayMap[firstDay];
-      if (!isNaN(hour) && !isNaN(min) && dow !== undefined) {
+      // Every named day becomes a cron day — a Windows Weekly trigger routinely
+      // names several, and keeping only the first would drop the rest silently.
+      const days = trigger.daysOfWeek.map(day => CRON_DAY_NAMES.indexOf(
+        day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()
+      ));
+      const allRecognized = days.every(index => index !== -1);
+      if (!isNaN(hour) && !isNaN(min) && allRecognized) {
+        const dow = [...new Set(days)].sort((a, b) => a - b).join(',');
         return {
           confidence: 1.0,
           cron: `${min} ${hour} * * ${dow}`,

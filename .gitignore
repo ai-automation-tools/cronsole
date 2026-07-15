@@ -5,6 +5,11 @@
 *.pem
 *.key
 
+# --- MCP host config (per-machine; may carry tokens/absolute paths) ---
+# Which MCP servers your CLI loads is a local choice, not a repo fact. Commit the
+# example instead: `cp .mcp.json.example .mcp.json` on a fresh clone.
+.mcp.json
+
 # --- Node / JS ---
 node_modules/
 dist/

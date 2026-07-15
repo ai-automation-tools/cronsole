@@ -88,6 +88,40 @@ pwsh .\scripts\taskhub.ps1 up
    same PR** — reads *and* mutations.
 5. Index any new `WHERE`/`JOIN`/`ORDER BY` column.
 6. `docker restart taskhub-backend-1` before testing live, or you'll debug a stale process.
+7. **Does an MCP tool map to this route?** (`/api/tasks`, `/api/tasks/:id/run`, `/api/templates`,
+   `/api/templates/:id/apply`, `/api/tasks/preview` — see [Change the MCP server](#change-the-mcp-server).)
+   If so, the wrapper and its two tool tables move **in this change**, not later.
+
+## Change the MCP server
+
+`mcp-server/` is a **thin wrapper — it owns no logic.** Every tool is a call to a backend
+route, which is what keeps owner scoping, no-shell `exec`, signed agent commands, and
+cron→trigger conversion in one tested place. **New behavior means a new backend route**, never
+cleverness in the wrapper.
+
+The 5 tools and their routes:
+
+| Tool | Route |
+|:---|:---|
+| `list_tasks` | `GET /api/tasks` |
+| `run_task` | `POST /api/tasks/:id/run` |
+| `list_templates` | `GET /api/templates` |
+| `create_task_from_template` | `POST /api/templates/:id/apply` |
+| `convert_schedule` | `POST /api/tasks/preview` |
+
+1. Tool registration + Zod input schema → `mcp-server/src/tools.ts`. HTTP + error
+   normalization → `client.ts`. Bootstrap → `index.ts`.
+2. **stdout is sacred** — it's the JSON-RPC stream. All logging goes to `stderr`
+   (`console.error`). A stray `console.log` corrupts the protocol.
+3. **Return `isError: true` with a readable reason; never throw.** The model should see
+   `Task not found`, not a stack trace. An honest refusal beats a broken task.
+4. Update **both** tool tables — [`mcp-server/README.md`](../../../mcp-server/README.md) and
+   [`MCP_Server_Guide.md`](../../../docs/user-guides/guides/MCP_Server_Guide.md) — plus the tool
+   list in `SKILL.md` › "The two AI surfaces".
+5. `npm run build` (tsc → `dist/`). **The host runs `dist/`, not `src/`** — an unbuilt change
+   is invisible, and this is a third thing that runs stale.
+6. Restart your MCP host to reload the server. `npm run inspect` drives it standalone via the
+   MCP Inspector without a host in the way.
 
 ## Publish the sites
 
@@ -118,7 +152,10 @@ Before a release, also work the [manual runbooks](../../../docs/testing/manual-t
 2. Non-trivial change → track it with a task list.
 3. External library → **`context7` before writing**.
 4. Write the test with the change. A bug fix ships with a test that failed before it.
-5. Large diff → invoke the **`code-reviewer`** skill before declaring done.
-6. Commit: conventional prefix, imperative subject.
-7. **End of session:** if a deliverable shipped or scope shifted, update `docs/ROADMAP.md`
+5. **Sync the mirror surfaces in this change** — `mcp-server/` and the skill. Neither fails a
+   test when it drifts; it just starts lying. See `SKILL.md` › "Keeping the mirror surfaces in
+   sync" for which change obligates which surface.
+6. Large diff → invoke the **`code-reviewer`** skill before declaring done.
+7. Commit: conventional prefix, imperative subject.
+8. **End of session:** if a deliverable shipped or scope shifted, update `docs/ROADMAP.md`
    (dated). New setup/runtime trap → add to `docs/troubleshooting/README.md`.

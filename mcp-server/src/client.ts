@@ -26,17 +26,33 @@ export interface TaskHubClientConfig {
 }
 
 /**
+ * An `${VAR}` / `${VAR:-default}` that the MCP host never expanded. Claude Code
+ * documents that an unset variable referenced from `.mcp.json` is passed through
+ * as its *literal* text, so a bare emptiness check isn't enough: the literal is
+ * non-empty, sails past the guard, and the backend rejects it as `403 Invalid or
+ * expired token` — which reads as an expired JWT and sends you debugging auth
+ * instead of your config. Treat it as unset.
+ */
+const UNEXPANDED_PLACEHOLDER = /^\$\{[^}]*\}$/;
+
+/**
  * Read config from the environment and fail fast with an actionable message if
  * it's missing — an MCP server that boots without credentials would only fail
  * later, one confusing tool call at a time.
  */
 export function configFromEnv(): TaskHubClientConfig {
   const baseUrl = (process.env.TASKHUB_API_URL || 'http://localhost:3000/api').replace(/\/+$/, '');
-  const token = process.env.TASKHUB_TOKEN || '';
+  const rawToken = (process.env.TASKHUB_TOKEN || '').trim();
+  const token = UNEXPANDED_PLACEHOLDER.test(rawToken) ? '' : rawToken;
   if (!token) {
     throw new Error(
-      'TASKHUB_TOKEN is not set. The MCP server needs a user JWT to call the TaskHub API. ' +
-      'See mcp-server/.env.example for how to mint one.'
+      (rawToken
+        ? `TASKHUB_TOKEN was passed through unexpanded as the literal "${rawToken}", which means the ` +
+          'variable is not set in the environment your MCP host was launched from. '
+        : 'TASKHUB_TOKEN is not set. ') +
+      'The MCP server needs a user JWT to call the TaskHub API. Export it in the environment ' +
+      'you launch the MCP host from — .mcp.json references it as ${TASKHUB_TOKEN} and never ' +
+      'holds the literal secret. See mcp-server/.env.example for how to mint one.'
     );
   }
   const timeoutMs = process.env.TASKHUB_TIMEOUT_MS

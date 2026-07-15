@@ -48,6 +48,58 @@ namespace TaskHub.Agent.Tests
         }
 
         [Fact]
+        public void Weekly_WithSeveralDays_KeepsEveryDay()
+        {
+            // The server sends every day a weekly cron names ("0 9 * * 1-5" =>
+            // Monday..Friday). Registering only the first would run a weekday task
+            // on Mondays alone, while the dashboard still claims Mon-Fri.
+            var trigger = TriggerBuilder.Build(new TriggerSpec
+            {
+                Type = "Weekly",
+                StartBoundary = "08:00",
+                DaysOfWeek = new List<string> { "Monday", "Wednesday", "Friday" }
+            });
+
+            var weekly = trigger.Should().BeOfType<WeeklyTrigger>().Subject;
+
+            // Each UTC day converts to local independently, but they all shift by
+            // the same amount, so exactly three distinct days must survive.
+            var days = weekly.DaysOfWeek.ToString().Split(", ", StringSplitOptions.RemoveEmptyEntries);
+            days.Should().HaveCount(3);
+
+            // The start boundary must be one of the days in the mask, and upcoming.
+            days.Should().Contain(weekly.StartBoundary.DayOfWeek.ToString());
+            weekly.StartBoundary.Should().BeOnOrAfter(DateTime.Now.AddDays(-1));
+        }
+
+        [Fact]
+        public void Weekly_WithDuplicateDays_DoesNotDoubleRegisterADay()
+        {
+            var trigger = TriggerBuilder.Build(new TriggerSpec
+            {
+                Type = "Weekly",
+                StartBoundary = "08:00",
+                DaysOfWeek = new List<string> { "Tuesday", "Tuesday" }
+            });
+
+            var weekly = trigger.Should().BeOfType<WeeklyTrigger>().Subject;
+            weekly.DaysOfWeek.ToString().Split(", ", StringSplitOptions.RemoveEmptyEntries)
+                .Should().HaveCount(1);
+        }
+
+        [Fact]
+        public void Weekly_WithUnknownDay_ThrowsRatherThanSkippingIt()
+        {
+            var act = () => TriggerBuilder.Build(new TriggerSpec
+            {
+                Type = "Weekly",
+                StartBoundary = "08:00",
+                DaysOfWeek = new List<string> { "Monday", "Funday" }
+            });
+            act.Should().Throw<ArgumentException>();
+        }
+
+        [Fact]
         public void TimeWithRepetition_BuildsDailyTriggerSoRepetitionRecurs()
         {
             var trigger = TriggerBuilder.Build(new TriggerSpec

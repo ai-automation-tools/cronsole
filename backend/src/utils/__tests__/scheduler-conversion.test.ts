@@ -61,6 +61,71 @@ describe('Schedule Conversion Utility', () => {
       expect(res.warnings).toHaveLength(0);
     });
 
+    // A weekly cron may name several days, as a list ("1,3,5"), a range ("1-5"),
+    // or a mix. Dropping any of them silently would report a Mon–Fri task as a
+    // full-confidence success while it only ever runs on Monday.
+    it('converts a day-of-week list to every named day', () => {
+      const res = convertCronToWindowsTrigger('15 10 * * 1,3,5');
+      expect(res.confidence).toBe(1.0);
+      expect(res.trigger).toEqual({
+        type: 'Weekly',
+        startBoundary: '10:15',
+        daysOfWeek: ['Monday', 'Wednesday', 'Friday']
+      });
+      expect(res.warnings).toHaveLength(0);
+    });
+
+    it('converts a day-of-week range to every day it spans', () => {
+      const res = convertCronToWindowsTrigger('0 9 * * 1-5');
+      expect(res.confidence).toBe(1.0);
+      expect(res.trigger).toEqual({
+        type: 'Weekly',
+        startBoundary: '09:00',
+        daysOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+      });
+      expect(res.warnings).toHaveLength(0);
+    });
+
+    it('normalizes cron 7 and 0 to a single Sunday without duplicating it', () => {
+      const res = convertCronToWindowsTrigger('30 8 * * 6,0');
+      expect(res.confidence).toBe(1.0);
+      expect(res.trigger).toEqual({
+        type: 'Weekly',
+        startBoundary: '08:30',
+        daysOfWeek: ['Sunday', 'Saturday']
+      });
+      expect(res.warnings).toHaveLength(0);
+
+      // 0 and 7 both mean Sunday — naming both must not yield it twice.
+      const both = convertCronToWindowsTrigger('30 8 * * 0,7');
+      expect(both.trigger?.daysOfWeek).toEqual(['Sunday']);
+    });
+
+    it('emits every day of a wildcard-equivalent range exactly once', () => {
+      const res = convertCronToWindowsTrigger('0 6 * * 0-6');
+      expect(res.trigger?.daysOfWeek).toEqual([
+        'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+      ]);
+      expect(res.confidence).toBe(1.0);
+    });
+
+    it('refuses a day-of-week it cannot parse rather than guessing a day', () => {
+      // parseInt('MON') is NaN, but parseInt('8xyz') is 8 — neither may silently
+      // become a real weekday.
+      for (const bad of ['0 9 * * 8', '0 9 * * 1-99', '0 9 * * 1,,3']) {
+        const res = convertCronToWindowsTrigger(bad);
+        expect(res.trigger?.type, `${bad} must not produce a Weekly trigger`).not.toBe('Weekly');
+      }
+    });
+
+    // Windows repeats a Time trigger on a fixed interval from the start boundary,
+    // so it only reproduces cron's per-hour restart when the step divides 60.
+    it('warns that a minute step which does not divide 60 drifts from cron', () => {
+      const res = convertCronToWindowsTrigger('*/7 * * * *');
+      expect(res.confidence).toBeLessThan(1.0);
+      expect(res.warnings.join(' ')).toMatch(/60|drift|align/i);
+    });
+
     it('converts periodic minutes cron correctly', () => {
       const res = convertCronToWindowsTrigger('*/30 * * * *');
       expect(res.confidence).toBe(1.0);
@@ -108,6 +173,36 @@ describe('Schedule Conversion Utility', () => {
   });
 
   describe('convertWindowsTriggerToCron', () => {
+    // The read path: WindowsAgentConnector reverses a real task's trigger to store
+    // it as cron. Keeping only the first day would import a Mon/Wed/Fri task and
+    // display it as Mondays-only, at full confidence.
+    it('reverses a multi-day weekly trigger to every day it names', () => {
+      const res = convertWindowsTriggerToCron({
+        type: 'Weekly',
+        startBoundary: '09:00',
+        daysOfWeek: ['Monday', 'Wednesday', 'Friday']
+      });
+      expect(res.confidence).toBe(1.0);
+      expect(res.cron).toBe('0 9 * * 1,3,5');
+      expect(res.warnings).toHaveLength(0);
+    });
+
+    it('round-trips a multi-day weekly schedule without losing days', () => {
+      const forward = convertCronToWindowsTrigger('0 9 * * 1-5');
+      const back = convertWindowsTriggerToCron(forward.trigger!);
+      expect(back.cron).toBe('0 9 * * 1,2,3,4,5');
+    });
+
+    it('refuses an unrecognized day name rather than guessing', () => {
+      const res = convertWindowsTriggerToCron({
+        type: 'Weekly',
+        startBoundary: '09:00',
+        daysOfWeek: ['Funday']
+      });
+      expect(res.confidence).toBeLessThan(1.0);
+      expect(res.warnings.length).toBeGreaterThan(0);
+    });
+
     it('reverses daily trigger correctly', () => {
       const trigger = {
         type: 'Daily' as const,

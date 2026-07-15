@@ -93,8 +93,14 @@ taskhub/
 │   │   ├── TaskSchedulerWrapper.cs
 │   │   └── WebSocketClient.cs
 │   └── installer/             # WiX
-├── mcp-server/                # MCP server (shipped) — thin stdio wrapper over the REST API
-│   └── src/                    #   index.ts (stdio bootstrap) · client.ts (axios) · tools.ts (5 tools)
+├── mcp-server/                # TaskHub's own MCP server (shipped) — thin stdio wrapper over the
+│   │                          #   REST API; owns NO logic. Runs dist/, so an unbuilt change is
+│   │                          #   invisible. Lets an agent USE a running TaskHub. See §8.
+│   └── src/                   #   index.ts (stdio bootstrap) · client.ts (axios) · tools.ts (5 tools)
+├── skills/                    # Agent Skills — TRACKED source of truth. Surfaced to Claude Code via
+│   └── taskhub/               #   a per-machine junction at .claude/skills/ (§8a). ALWAYS edit here.
+│       ├── SKILL.md           #   Mental model, invariants, traps, routing. Teaches an agent to
+│       └── references/        #   WORK ON the codebase (the mirror image of mcp-server/).
 └── docker-compose.yml
 ```
 
@@ -116,6 +122,9 @@ The phase lifecycle (0–6) is complete and archived. Planning now runs through 
 ## 6. Available Skills (use these proactively)
 
 Invoke via `Skill` tool when the work matches.
+
+### TaskHub itself — start here
+- **`taskhub`** — **this project's own skill**: the mental model, the non-negotiable invariants, the traps that cost real hours, and a routing table to the canonical docs. Use it for work **anywhere in this repo**. It lives canonically at [`skills/taskhub/`](skills/README.md) (tracked) and reaches Claude Code through a per-machine junction — **always edit `skills/taskhub/`, never through the link** (see §8a). It **routes rather than duplicates**: when the skill and a doc disagree, **the doc wins — fix the skill**. Not to be confused with the `taskhub` **MCP server** (§8), which *uses* a running TaskHub rather than teaching you about the codebase.
 
 ### Planning & PM
 - **`init`** — scaffold/refresh project-level CLAUDE.md if structure changes drastically.
@@ -173,10 +182,15 @@ Invoke via `Agent` tool with `subagent_type`. Spawn in parallel when work is ind
 
 ## 8. Relevant MCP Servers
 
-Configured in [`.mcp.json`](.mcp.json) at the project root (no extra setup needed):
+> [!IMPORTANT]
+> **Two different MCP surfaces share [`.mcp.json`](.mcp.json)** (gitignored; seeded from [`.mcp.json.example`](.mcp.json.example)). Don't conflate them:
+> - **Dev tooling** — servers that help you *build* TaskHub. Nothing to set up.
+> - **`taskhub`** — TaskHub's **own product MCP server** ([`mcp-server/`](mcp-server/README.md)), which lets an agent *use* a running TaskHub. It's the only entry needing a built `dist/`, a running backend, and a token — and so the only one that can fail to start.
+
+**Dev tooling** (no extra setup needed):
 
 - **`context7`** — fetch current docs for React, Prisma, Express, Socket.io, Tailwind, .NET, WiX. Use **before** writing code that touches an external library.
-- **`github`** — once the repo is on GitHub, use for PR creation, reviews, issue tracking.
+- **`github`** — PR creation, reviews, issue tracking.
 - **`playwright`** — Phase 4 E2E browser testing.
 - **`serper`** — research for Phase 0 / Phase 6 (e.g., "does ChatGPT have a documented automations endpoint?").
 - **`notion`** — optional: mirror phase docs / risk register to a Notion workspace.
@@ -184,6 +198,12 @@ Configured in [`.mcp.json`](.mcp.json) at the project root (no extra setup neede
 - **`elevenlabs`** — voice generation (likely unused for this project).
 
 Also available from the user environment: `mermaid-chart` (Phase 2 architecture diagrams), `ide` (diagnostics + code execution), `windows` (UI automation if any flow needs it).
+
+**TaskHub's own MCP server** — `taskhub` (dogfooding):
+
+Exposes 5 tools over stdio — `list_tasks`, `run_task`, `list_templates`, `create_task_from_template`, `convert_schedule` — each a 1:1 call to a backend route. Requires `cd mcp-server && npm run build`, a running backend, and `TASKHUB_TOKEN` exported in the environment **the host was launched from** (`.mcp.json` references it as `${TASKHUB_TOKEN}` so the committed config never holds the secret). On Windows, a newly set variable needs a **fresh terminal** — a process inherits its parent's environment, so restarting Claude Code inside an old terminal won't pick it up. If the variable is unset the host forwards the literal `${TASKHUB_TOKEN}`, the API returns a misleading `403 Invalid or expired token`, and the server refuses to start — so the tools go *missing* rather than erroring. See [troubleshooting #8](docs/troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token) and the [MCP Server Guide](docs/user-guides/guides/MCP_Server_Guide.md).
+
+**It is a thin wrapper and owns no logic** — new behavior belongs in a backend route, never in `mcp-server/`. It runs `dist/`, not `src/`, so an unbuilt change is invisible: it's a **third thing that runs stale**, alongside the Dockerized backend and the published agent.
 
 ---
 
@@ -296,9 +316,30 @@ Inherited from the parent `CLAUDE.md`. Key points worth repeating:
 2. **Non-trivial change:** create a `TaskCreate` list, mark items `in_progress` / `completed` as you go.
 3. **Material design decision:** update `docs/ROADMAP.md` and the relevant spec doc *first*, then implement.
 4. **External library question:** `context7` before writing.
-5. **PR / large diff:** invoke the **`code-reviewer`** skill before declaring done.
-6. **End of session:** if any deliverable shipped or scope shifted, move/update the item in `docs/ROADMAP.md` (dated).
-7. **Setup / runtime error (won't build, boot, connect, or authenticate):** check [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) **first** — it's a symptom → cause → fix log of problems we've hit. When you resolve a *new* one that took real digging or is likely to recur, add an entry there.
+5. **Every change: sync the mirror surfaces — in the same change, not a follow-up pass.** See §11a.
+6. **PR / large diff:** invoke the **`code-reviewer`** skill before declaring done.
+7. **End of session:** if any deliverable shipped or scope shifted, move/update the item in `docs/ROADMAP.md` (dated).
+8. **Setup / runtime error (won't build, boot, connect, or authenticate):** check [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) **first** — it's a symptom → cause → fix log of problems we've hit. When you resolve a *new* one that took real digging or is likely to recur, add an entry there.
+
+### 11a. The mirror surfaces — `mcp-server/` and the `taskhub` skill
+
+Both **describe** TaskHub rather than implement it, so **neither breaks loudly when it drifts.** The suite stays green; the drift surfaces later as an agent (or a user) confidently doing the wrong thing — a *confident lie*, which §9's honesty rule treats as the worst failure mode there is. So they are **not** a cleanup task for later; they ship with the change that obsoletes them.
+
+| You changed… | Also update, same change |
+|---|---|
+| A backend route an MCP tool maps to — `/api/tasks`, `/api/tasks/:id/run`, `/api/templates`, `/api/templates/:id/apply`, `/api/tasks/preview` | `mcp-server/src/tools.ts` + `client.ts`; the tool tables in [`mcp-server/README.md`](mcp-server/README.md) **and** [`MCP_Server_Guide.md`](docs/user-guides/guides/MCP_Server_Guide.md) |
+| Added / removed / renamed an MCP tool, or changed its params | Both tool tables above + the tool list in [`skills/taskhub/SKILL.md`](skills/taskhub/SKILL.md) › "The two AI surfaces" |
+| An MCP env var, or how it's read | [`mcp-server/.env.example`](mcp-server/.env.example) + the config table in **both** READMEs |
+| A new invariant or architectural rule | §9 here + the invariants table in `SKILL.md` |
+| A new trap that cost real hours | [`docs/troubleshooting/README.md`](docs/troubleshooting/README.md) **and** the traps table in `SKILL.md` |
+| A new platform / connector / catalog rule | §9 here + `SKILL.md` + the relevant `skills/taskhub/references/*.md` |
+| Anything shipped, or scope moved | [`docs/ROADMAP.md`](docs/ROADMAP.md), dated |
+
+**The check, on every change:** *would an agent reading only the skill now be wrong? Does the wrapper still describe the API it wraps?* If either answer is bad, the change isn't done.
+
+Two asymmetries to hold onto:
+- **The repo wins.** When the skill and a doc disagree, the doc is right — fix the skill. The skill routes; it must not become a second, staler copy of the docs.
+- **`mcp-server/` owns no logic.** If syncing it tempts you to add behavior there, that behavior belongs in a **backend route** — that's what keeps owner scoping, no-shell `exec`, signed agent commands, and cron→trigger conversion in one tested place. A wrapper that grows logic stops being a wrapper, and the guarantees quietly fork.
 
 ---
 

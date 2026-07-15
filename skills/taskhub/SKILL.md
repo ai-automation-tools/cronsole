@@ -1,6 +1,6 @@
 ---
 name: taskhub
-description: Expert knowledge of TaskHub, the unified scheduled-task management system — its architecture, the Windows .NET agent protocol, the template registry/catalog, the testing layers, and the traps that waste hours. Use when working anywhere in the TaskHub repo: adding or debugging templates, touching the agent WebSocket protocol or Windows Task Scheduler integration, editing the catalog (bundled.ts, registry/, catalogSync, normalize.ts), running or writing tests, publishing the registry or landing sites, or diagnosing setup and runtime failures (403 invalid token, agent OFFLINE, stale backend code, 502 agent timeouts, PowerShell parse errors).
+description: Expert knowledge of TaskHub, the unified scheduled-task management system — its architecture, the Windows .NET agent protocol, the template registry/catalog, the MCP server, the testing layers, and the traps that waste hours. Use when working anywhere in the TaskHub repo: adding or debugging templates, touching the agent WebSocket protocol or Windows Task Scheduler integration, editing the catalog (bundled.ts, registry/, catalogSync, normalize.ts), changing the MCP server or its tools (mcp-server/, list_tasks, run_task, create_task_from_template, convert_schedule) or wiring it into an MCP host, running or writing tests, publishing the registry or landing sites, or diagnosing setup and runtime failures (403 invalid token, unexpanded TASKHUB_TOKEN, missing taskhub MCP tools, agent OFFLINE, stale backend code, 502 agent timeouts, PowerShell parse errors).
 ---
 
 # TaskHub
@@ -31,17 +31,20 @@ target offers "copy to set up manually" rather than silently no-op'ing.
 
 ## Architecture at a glance
 
-Four processes plus Redis. The **agent always dials out** — the server never connects in.
+Four long-running processes plus Redis, and an on-demand `mcp-server` your AI host launches.
+The **agent always dials out** — the server never connects in.
 
 ```
 ┌─ Frontend ──┐  REST/JWT + Socket.io   ┌─ Backend ──┐   Prisma    ┌──────────┐
 │  React 19   │ ──────────────────────► │  Express 5 │ ──────────► │ Postgres │
 │  :5173      │                         │  :3000     │             │  :5432   │
-└─────────────┘                         └────────────┘             └──────────┘
-                                          ▲       │  HTTP (sha256-verified)
-                       WS + HMAC          │       └──────────────► Registry / Webhooks
-                       (outbound only)    │
-                                    ┌─────┴──────┐   COM    ┌──────────────────┐
+└─────────────┘                         └──────┬─────┘             └──────────┘
+                                        ▲  ▲   │  HTTP (sha256-verified)
+┌─ MCP host ──┐  MCP/  ┌────────────┐   │  │   └──────────────► Registry / Webhooks
+│ Claude/Codex│ stdio  │ mcp-server │   │  │
+│   Cursor    │ ─────► │ REST+Bearer│ ──┘  │
+└─────────────┘        └────────────┘      │ WS + HMAC (outbound only)
+                                    ┌──────┴─────┐   COM    ┌──────────────────┐
                                     │ .NET Agent │ ───────► │ Win Task Sched.  │
                                     │ host .exe  │          └──────────────────┘
                                     └────────────┘
@@ -51,7 +54,35 @@ The agent is a **client, not a server** — it never binds `0.0.0.0`. It can't b
 containerized because it needs Task Scheduler COM access, which is why it's a host process
 and why it **never hot-reloads** (see Traps).
 
+The **`mcp-server` is a peer of the frontend, not a layer of its own** — another REST client
+holding a bearer token. That's the whole design: it owns **no logic**, so every guarantee
+(owner scoping, no-shell `exec`, signed agent commands, cron→trigger conversion) stays in the
+backend where it's already tested. A tool that needs new behavior needs a **backend route**,
+not cleverness in `mcp-server/`.
+
 Details: [references/architecture.md](references/architecture.md)
+
+## The two AI surfaces — don't conflate them
+
+TaskHub has two, with different audiences and lifecycles. Most confusion here starts with
+mixing them up:
+
+| | **This skill** (`skills/taskhub/`) | **The MCP server** (`mcp-server/`) |
+|:---|:---|:---|
+| Audience | An agent **working on** TaskHub's codebase | An agent **using** a running TaskHub |
+| Surface | `SKILL.md` + `references/` | 5 tools over MCP/stdio |
+| Needs | Nothing — it's just text | A running backend + a user JWT |
+| Canonical doc | [`skills/README.md`](../README.md) | [`docs/user-guides/guides/MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) |
+
+A third thing shares the name and is neither: the **dev-tooling MCP servers** in the root
+`.mcp.json` (context7, playwright, serper, …) that help you *build* TaskHub. That file holds
+**both** — the dev tooling *and* a `taskhub` entry pointing at this repo's own product server.
+The `taskhub` entry is the only one needing a backend and a token, so it's the only one that
+can fail to start.
+
+**The 5 tools** — `list_tasks`, `run_task`, `list_templates`, `create_task_from_template`,
+`convert_schedule` — each map 1:1 onto a backend route. Details, wiring, and token minting:
+[MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md).
 
 ## Non-negotiable invariants
 
@@ -81,7 +112,9 @@ These have each burned real hours. **Check these before debugging your own code.
 | **Backend edits don't hot-reload in Docker** | Offline suites pass, but a live request disagrees with the source. A new route 404s. | `docker restart taskhub-backend-1`. Windows→Linux bind mounts don't propagate inotify, so `tsx watch` never fires. |
 | **The .NET agent never hot-reloads** | New agent command 502s "Agent … timeout" after ~15s. Route **exists** (bad id → your handler's error, not "Cannot GET"), and only agent-backed paths hang — DB-only paths work. | Republish it from an **Administrator** prompt (it runs elevated; the exe is locked). |
 | **Transient test agent strands the real one** | Windows shows `OFFLINE` forever after you stop a second/dogfood agent, though the real agent is still running. | `docker compose restart backend`. One agent socket per user; the real agent only re-registers on reconnect. |
-| **403 Invalid or expired token** | Dashboard empty, agent rejected at handshake. | Docker bakes **dev-only default secrets**. Create a root `.env` mirroring `backend/.env`, then `docker compose up -d --force-recreate backend`. |
+| **403 Invalid or expired token** (dashboard/agent) | Dashboard empty, agent rejected at handshake. | Docker bakes **dev-only default secrets**. Create a root `.env` mirroring `backend/.env`, then `docker compose up -d --force-recreate backend`. |
+| **403 on _every_ MCP tool** — but the dashboard and `curl` work | Nothing is actually expired. `${TASKHUB_TOKEN}` was **unset**, so the host passed the *literal* text through and the API rejected it. Reads as an expired JWT and sends you debugging auth instead of your environment. | Export the var, then relaunch the host **from a fresh terminal** — a process inherits its parent's environment, so an already-open terminal keeps handing down the stale one. `configFromEnv()` now detects the literal and refuses to start. |
+| **The `taskhub` MCP tools are absent entirely** | Not an error — *absence*. `mcp__taskhub__*` simply isn't in the tool list. | The server exited at startup (usually the token case above) and the host dropped it. Check `/mcp` for the message; a failed-to-boot server is silent by design. |
 | **Port LISTENING but `HTTP 000`** | curl connects, gets nothing. | Docker's port proxy holds the port while the app inside crashed. Read `docker logs`, don't chase the port. |
 | **`.ps1` parse errors under PowerShell 5.1 only** | `Unexpected token '}'`, errors point at EOF, but `pwsh` 7 runs it fine. | A **non-ASCII char (usually an em-dash `—`) in a BOM-less UTF-8 script**. 5.1 reads it as ANSI → decodes into a curly quote it treats as a string delimiter. **Keep PowerShell/VBScript pure ASCII.** |
 | **`ts-node` can't parse TypeScript 6** | Opaque `[Object: null prototype]` crash-loop; `npm run build && npm start` works. | Already fixed — dev runs through **`tsx`**. Any bare null-prototype crash from a TS entrypoint is the *runner*, not your code. |
@@ -103,7 +136,10 @@ Canonical, with full symptom/cause/fix: [`docs/troubleshooting/README.md`](../..
 | Template registry schema + decisions | [`docs/reports/templates/Registry_Schema_v1.md`](../../docs/reports/templates/Registry_Schema_v1.md), [`docs/adr/0001-template-registry-schema.md`](../../docs/adr/0001-template-registry-schema.md) |
 | Catalog spec | [`docs/reports/templates/Templates.md`](../../docs/reports/templates/Templates.md) |
 | Env vars / config | [`docs/setup/README.md`](../../docs/setup/README.md) |
-| Using the app / agent / MCP | [`docs/user-guides/`](../../docs/user-guides/README.md) |
+| Using the app / agent | [`docs/user-guides/`](../../docs/user-guides/README.md) |
+| **The MCP server** — tools, wiring, tokens, its troubleshooting | [`docs/user-guides/guides/MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) — **the canonical doc** |
+| **MCP package internals** — source layout, design notes, `npm run inspect` | [`mcp-server/README.md`](../../mcp-server/README.md) |
+| This skill itself — install, design rules | [`skills/README.md`](../README.md) |
 | An external library's API | **`context7` MCP** — before writing code, not after |
 
 ## Deep dives
@@ -128,5 +164,34 @@ Load these on demand — don't read them all up front:
 6. **A material change ships with its test.** A bug fix ships with a test that failed before it.
 7. **Two things run stale**: the Dockerized backend and the published agent. When live behavior contradicts source, suspect these before your logic.
 8. **Prefer the honest refusal** over the graceful lie. See "The one thing to understand."
-9. **Commits**: conventional prefix, imperative subject (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`).
-10. **Never commit** `.env*`, `node_modules/`, `dist/`, `bin/`, `obj/`, `*.msi`.
+9. **The MCP server and this skill are mirror surfaces — update them in the same change.** See below.
+10. **Commits**: conventional prefix, imperative subject (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`).
+11. **Never commit** `.env*`, `node_modules/`, `dist/`, `bin/`, `obj/`, `*.msi`.
+
+## Keeping the mirror surfaces in sync
+
+`mcp-server/` and this skill both **describe** TaskHub rather than implement it, so neither
+breaks loudly when it drifts — the tests stay green, and the drift surfaces later as an agent
+confidently doing the wrong thing. That's "the confident lie" aimed at your future self.
+**They don't get a follow-up pass; they ship in the same change.**
+
+| You changed… | Also update, same change |
+|:---|:---|
+| A backend route a tool maps to — `/api/tasks`, `/api/tasks/:id/run`, `/api/templates`, `/api/templates/:id/apply`, `/api/tasks/preview` | `mcp-server/src/tools.ts` + `client.ts`; the tool tables in [`mcp-server/README.md`](../../mcp-server/README.md) + [`MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) |
+| Added / removed / renamed an MCP tool, or changed its params | Both tool tables above, **and** the tool list in "The two AI surfaces" here |
+| An MCP env var, or how it's read | [`mcp-server/.env.example`](../../mcp-server/.env.example) + the config table in **both** READMEs |
+| A new invariant or architectural rule | The invariants table here |
+| A new trap that cost real hours | [`docs/troubleshooting/README.md`](../../docs/troubleshooting/README.md) **and** the traps table here |
+| A new platform / connector / catalog rule | The invariants table here + the relevant `references/*.md` |
+| Anything shipped, or scope moved | [`docs/ROADMAP.md`](../../docs/ROADMAP.md), dated |
+
+**Ask on every change: "would an agent reading only this skill now be wrong?"** If yes, the
+change isn't finished. Same question for the wrapper: a route whose shape moved leaves
+`mcp-server/` lying about the API it wraps.
+
+Two asymmetries worth holding onto:
+
+- **The repo wins.** When this skill and a doc disagree, the doc is right — fix the skill.
+- **`mcp-server/` holds no logic.** If syncing it tempts you to add behavior there, that
+  behavior belongs in a backend route. A wrapper that grows logic stops being a wrapper, and
+  the guarantees quietly fork.

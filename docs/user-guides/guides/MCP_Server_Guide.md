@@ -77,6 +77,22 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 | `TASKHUB_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `TASKHUB_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
 
+> [!IMPORTANT]
+> The server reads its **process environment only** — it loads no `.env` file, so copying
+> `.env.example` to `.env.local` does nothing by itself. Either set the vars in your host's
+> `env` block (below), or export `TASKHUB_TOKEN` in the environment you launch the host from:
+>
+> ```powershell
+> [Environment]::SetEnvironmentVariable('TASKHUB_TOKEN', '<jwt>', 'User')   # Windows, persistent
+> ```
+> ```bash
+> export TASKHUB_TOKEN='<jwt>'                                              # POSIX
+> ```
+>
+> **On Windows, a fresh terminal is required** — a process inherits its environment from its
+> parent, so an already-open terminal keeps handing the *old* environment to everything it
+> launches. Restarting your MCP host inside that terminal won't pick up a newly set variable.
+
 ### Minting a token
 
 The MCP server acts as one TaskHub user — mint a JWT the same way the frontend dev token is
@@ -87,9 +103,9 @@ node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'
 ```
 
 > [!WARNING]
-> The token is a real credential — keep it in a gitignored `.env.local` or your host's env
-> block, never in committed files. A proper per-user pairing flow replaces this hand-minted
-> token once the account system lands (see the [Roadmap](../../ROADMAP.md) › Go-public).
+> The token is a real credential — keep it in your environment or your host's env block,
+> never in a committed file. A proper per-user pairing flow replaces this hand-minted token
+> once the account system lands (see the [Roadmap](../../ROADMAP.md) › Go-public).
 
 ## Wire it into your assistant
 
@@ -129,9 +145,19 @@ Any host that launches a stdio MCP server works — point it at
 `node .../mcp-server/dist/index.js` with the same two env vars. The tools appear under the
 `taskhub` server once it connects.
 
-> This server is intentionally **not** wired into the repo's root
-> [`.mcp.json`](../../../.mcp.json) — that file is Claude Code's *dev tooling* for building
-> TaskHub (context7, playwright, …). This is a *product component* you point your own host at.
+### Working inside the TaskHub repo
+
+If you're developing TaskHub itself, the root `.mcp.json` (seeded from
+[`.mcp.json.example`](../../../.mcp.json.example)) already carries a `taskhub` entry pointing at
+`./mcp-server/dist/index.js`, with `TASKHUB_TOKEN` referenced as `${TASKHUB_TOKEN}` so the
+committed config never holds the secret. Build the server, export the variable, and open a
+**fresh terminal** — then the tools appear automatically.
+
+> [!NOTE]
+> That file mixes two different MCP surfaces. The other servers (context7, playwright, …) are
+> **dev tooling** for *building* TaskHub. `taskhub` is a **product component** for *using* it —
+> the only entry that needs a running backend and a token, and so the only one that can fail
+> to start.
 
 ## Try it
 
@@ -152,7 +178,9 @@ lists its params, required ones marked) before calling `create_task_from_templat
 | Symptom | Likely cause / fix |
 |:---|:---|
 | `TASKHUB_TOKEN is not set` on startup | The env var is missing in the host's config for this server. |
-| `HTTP 403: Invalid or expired token` | The JWT is wrong or expired, or was signed with a different `JWT_SECRET` than the running backend. Re-mint. |
+| `TASKHUB_TOKEN was passed through unexpanded as the literal "${TASKHUB_TOKEN}"` | Your host resolved `${TASKHUB_TOKEN}` against an environment where it isn't set, so it forwarded the raw text. Export it and start the host from a **fresh terminal**. See [troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token). |
+| **The `taskhub` tools don't appear at all** | The server exited on startup — almost always the unexpanded-token case above. A host drops a server that fails to boot, so the symptom is *absence*, not an error. Check your host's MCP status (`/mcp` in Claude Code) for the message. |
+| `HTTP 403: Invalid or expired token` | Check the token is *real* before assuming it expired: an unexpanded `${TASKHUB_TOKEN}` literal produces this same 403. If it is a real JWT, it's wrong, expired, or signed with a different `JWT_SECRET` than the running backend — re-mint. |
 | `Could not reach the TaskHub backend … ECONNREFUSED` | The backend isn't running, or `TASKHUB_API_URL` is wrong (remember the `/api` suffix). |
 | `HTTP 409` when creating | A Windows task with that name already exists — pass a different `name`. |
 | `HTTP 400: Schedule cannot be converted…` | The cron isn't Windows-convertible; check it with `convert_schedule` first. |

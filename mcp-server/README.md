@@ -37,6 +37,22 @@ Set via environment (see [`.env.example`](.env.example)):
 | `TASKHUB_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `TASKHUB_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
 
+> [!IMPORTANT]
+> The server reads its **process environment only** — it does not load a `.env` file, so
+> copying `.env.example` to `.env.local` accomplishes nothing on its own. Export
+> `TASKHUB_TOKEN` in the environment your MCP host is **launched from**:
+>
+> ```powershell
+> [Environment]::SetEnvironmentVariable('TASKHUB_TOKEN', '<jwt>', 'User')   # Windows, persistent
+> ```
+> ```bash
+> export TASKHUB_TOKEN='<jwt>'                                              # POSIX
+> ```
+>
+> On Windows a process inherits its environment from its parent, so a **already-open terminal
+> won't see a newly set variable** — close it and open a fresh one, then relaunch the host.
+> Restarting the host alone is not enough.
+
 **Minting a token** (the same kind the frontend dev token is): run from `backend/` with the
 backend's `JWT_SECRET` in scope —
 
@@ -44,9 +60,10 @@ backend's `JWT_SECRET` in scope —
 node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'30d'}))"
 ```
 
-> ⚠️ The token is a real credential. Keep it in a gitignored `.env.local` or the host's env
-> block — never commit it. A per-user pairing flow replaces this hand-minted token once the
-> Go-public account system lands (see the roadmap).
+> ⚠️ The token is a real credential — keep it in your environment, never in a committed file.
+> `.mcp.json` references it as `${TASKHUB_TOKEN}` precisely so the literal secret never lands
+> in the repo. A per-user pairing flow replaces this hand-minted token once the Go-public
+> account system lands (see the roadmap).
 
 ## Build & run
 
@@ -87,10 +104,34 @@ claude mcp add taskhub \
 }
 ```
 
-> This server is **not** wired into the repo's root [`.mcp.json`](../.mcp.json) on purpose —
-> that file is Claude Code's *dev tooling* for building TaskHub (context7, playwright, …),
-> whereas this is a *product component* that end users point their own MCP host at. Adding it
-> there would fail to start whenever a token/backend isn't present.
+**This repo (dogfooding)**
+
+The root [`.mcp.json`](../.mcp.json) — seeded from
+[`.mcp.json.example`](../.mcp.json.example) — carries a `taskhub` entry alongside the dev
+tooling (context7, playwright, …), so a Claude Code session in this repo can drive a running
+TaskHub while building it:
+
+```json
+"taskhub": {
+  "type": "stdio",
+  "command": "node",
+  "args": ["./mcp-server/dist/index.js"],
+  "env": {
+    "TASKHUB_TOKEN": "${TASKHUB_TOKEN}",
+    "TASKHUB_API_URL": "http://localhost:3000/api"
+  }
+}
+```
+
+The `${TASKHUB_TOKEN}` reference is deliberate: the config is committed, the secret is not.
+It also means the entry is **inert until you export the variable** — see the Configuration
+note above, and [troubleshooting #8](../docs/troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)
+for what an unset variable looks like from the outside.
+
+> [!NOTE]
+> Two different MCP surfaces share that one file. The other servers are **dev tooling** for
+> *building* TaskHub; `taskhub` is a **product component** for *using* it. Only the latter
+> needs a backend and a token, which is why it's the only entry that can fail to start.
 
 ## Design notes
 

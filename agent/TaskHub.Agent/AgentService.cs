@@ -399,10 +399,15 @@ namespace TaskHub.Agent
             // Event: task:create (Server commanded us to create a new task)
             _socket.On("task:create", async response =>
             {
+                // Hoisted out of the try so the failure path can echo the REAL name.
+                // The server matches task:created on payload.name; emitting "unknown"
+                // means no failure ever matches, so every create error surfaced as a
+                // 15s "Agent creation timeout" instead of the actual reason.
+                var name = "unknown";
                 try
                 {
                     var data = response.GetValue<JsonElement>(0);
-                    string name = data.GetProperty("name").GetString() ?? "Unnamed Task";
+                    name = data.GetProperty("name").GetString() ?? "Unnamed Task";
                     string schedule = data.GetProperty("schedule").GetString() ?? "0 3 * * *";
                     string command = data.GetProperty("command").GetString() ?? "echo Hello";
 
@@ -463,9 +468,14 @@ namespace TaskHub.Agent
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error creating task: {ex.Message}");
+                    // Echo the requested name: the server's handler matches on it, so
+                    // "unknown" here means the failure is dropped and the caller waits
+                    // out the 15s timeout — turning an honest, actionable message
+                    // ("that folder does not exist") into a misleading "Agent creation
+                    // timeout" that points at the agent instead of the request.
                     await _socket.EmitAsync("task:created", new[] { new {
                         success = false,
-                        name = "unknown",
+                        name = name,
                         message = ex.Message
                     }});
                 }

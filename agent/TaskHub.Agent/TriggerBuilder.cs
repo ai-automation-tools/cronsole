@@ -39,12 +39,31 @@ namespace TaskHub.Agent
                     // The UTC day/time pair can land on a different local day
                     // (e.g. Sunday 00:30 UTC is Saturday evening in the US), so
                     // resolve the next UTC occurrence and convert the whole
-                    // datetime, day included.
-                    var localStart = NextUtcOccurrenceAsLocal(spec.DaysOfWeek[0], utcTime);
+                    // datetime, day included — for *every* day the server sent.
+                    // A weekly cron routinely names several ("0 9 * * 1-5"), and
+                    // keeping only the first would run a weekday task on Mondays
+                    // alone while the server still reported Mon-Fri.
+                    var localStarts = new List<DateTime>();
+                    foreach (var dayName in spec.DaysOfWeek)
+                    {
+                        localStarts.Add(NextUtcOccurrenceAsLocal(dayName, utcTime));
+                    }
+
+                    // OR the flags together; a day named twice collapses to one.
+                    DaysOfTheWeek days = 0;
+                    var earliest = localStarts[0];
+                    foreach (var localStart in localStarts)
+                    {
+                        days |= ToDaysOfTheWeek(localStart.DayOfWeek);
+                        if (localStart < earliest) earliest = localStart;
+                    }
+
+                    // All the occurrences share a local time-of-day, so the
+                    // earliest one anchors the boundary and the mask carries the rest.
                     var trigger = new WeeklyTrigger
                     {
-                        StartBoundary = localStart,
-                        DaysOfWeek = ToDaysOfTheWeek(localStart.DayOfWeek)
+                        StartBoundary = earliest,
+                        DaysOfWeek = days
                     };
                     ApplyRepetition(trigger, spec.Repetition);
                     return trigger;

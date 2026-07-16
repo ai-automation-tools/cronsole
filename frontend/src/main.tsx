@@ -6,6 +6,8 @@ import Dashboard from './Dashboard.tsx'
 import BackendStatusBanner from './components/BackendStatusBanner.tsx'
 import { ToastProvider } from './hooks/ToastProvider.tsx'
 import { ConfirmProvider } from './hooks/ConfirmProvider.tsx'
+import { AuthProvider } from './hooks/AuthProvider.tsx'
+import { AuthGate } from './components/AuthGate.tsx'
 import './index.css'
 
 const queryClient = new QueryClient()
@@ -16,8 +18,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <ConfirmProvider>
-            <BackendStatusBanner />
-            <Dashboard />
+            <AuthProvider>
+              <BackendStatusBanner />
+              <AuthGate>
+                <Dashboard />
+              </AuthGate>
+            </AuthProvider>
           </ConfirmProvider>
         </ToastProvider>
       </QueryClientProvider>

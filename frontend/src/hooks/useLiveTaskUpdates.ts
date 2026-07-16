@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { io, type Socket } from 'socket.io-client';
-import { API_ORIGIN, subscribeApiOrigin } from '../api';
-
-const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
+import { API_ORIGIN, subscribeApiOrigin, getAuthToken } from '../api';
 
 /**
  * Subscribe to the backend's live task-update channel over Socket.IO and refresh
@@ -21,10 +19,11 @@ export function useLiveTaskUpdates(): void {
   useEffect(() => subscribeApiOrigin(setApiOriginState), []);
 
   useEffect(() => {
-    if (!DEV_TOKEN) return;
+    const token = getAuthToken();
+    if (!token) return;
 
     const socket: Socket = io(`${apiOrigin}/ui`, {
-      auth: { token: DEV_TOKEN },
+      auth: { token },
       transports: ['websocket'], // skip the HTTP long-poll handshake
       reconnectionDelayMax: 30_000, // gentle backoff if the backend is down
     });

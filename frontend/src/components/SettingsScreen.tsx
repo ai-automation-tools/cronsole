@@ -22,10 +22,13 @@ import {
   Plug,
   RefreshCw,
   Loader2,
+  KeyRound,
+  LogOut,
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useSettings, DEFAULT_SETTINGS, type Settings, type DashboardView } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { platformLabel } from '../platform';
 import { formatDateTime } from '../utils/datetime';
@@ -246,6 +249,79 @@ const ConnectionsSection = ({ timezone }: { timezone: Settings['timezone'] }) =>
   );
 };
 
+// ---- Account (single-user local login) -------------------------------------
+
+function errorMessage(err: unknown, fallback: string): string {
+  const anyErr = err as { response?: { data?: { error?: string } }; message?: string };
+  return anyErr?.response?.data?.error || anyErr?.message || fallback;
+}
+
+const AccountSection = () => {
+  const { user, logout, changePassword } = useAuth();
+  const { toast } = useToast();
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (next.length < 8) {
+      toast('New password must be at least 8 characters.', 'error');
+      return;
+    }
+    if (next !== confirm) {
+      toast('New passwords do not match.', 'error');
+      return;
+    }
+    setBusy(true);
+    try {
+      await changePassword(current, next);
+      setCurrent(''); setNext(''); setConfirm('');
+      toast('Password changed.', 'success');
+    } catch (err) {
+      toast(errorMessage(err, 'Could not change the password.'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inputClass =
+    'w-full sm:w-64 bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground outline-none focus:border-primary shadow-sm';
+
+  return (
+    <Section icon={KeyRound} title="Account" subtitle="The single owner account for this TaskHub instance.">
+      <Row label="Signed in as">
+        <span className="text-xs font-mono text-muted-foreground">{user?.email ?? 'this device'}</span>
+      </Row>
+      <Row label="Change password" description="Requires your current password. There's no email reset on a local install.">
+        <div className="flex flex-col gap-2">
+          <input type="password" autoComplete="current-password" placeholder="Current password"
+            value={current} onChange={e => setCurrent(e.target.value)} className={inputClass} />
+          <input type="password" autoComplete="new-password" placeholder="New password (min 8)"
+            value={next} onChange={e => setNext(e.target.value)} className={inputClass} />
+          <input type="password" autoComplete="new-password" placeholder="Confirm new password"
+            value={confirm} onChange={e => setConfirm(e.target.value)} className={inputClass} />
+          <button
+            onClick={submit}
+            disabled={busy || !current || !next || !confirm}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+          >
+            {busy && <Loader2 size={14} className="animate-spin" />} Update password
+          </button>
+        </div>
+      </Row>
+      <Row label="Sign out" description="End this session on this device.">
+        <button
+          onClick={logout}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
+        >
+          <LogOut size={14} /> Sign out
+        </button>
+      </Row>
+    </Section>
+  );
+};
+
 // ---- Screen ----------------------------------------------------------------
 
 export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
@@ -344,6 +420,9 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
         <h2 className="text-2xl font-bold mb-1">Settings</h2>
         <p className="text-muted-foreground">Preferences are saved in this browser.</p>
       </div>
+
+      {/* Account */}
+      <AccountSection />
 
       {/* Connections */}
       <ConnectionsSection timezone={settings.timezone} />

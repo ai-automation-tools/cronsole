@@ -63,18 +63,90 @@ export function resetApiOrigin(): string {
   return API_ORIGIN;
 }
 
-// Dev/MVP auth token, injected from the environment (see frontend/.env.example).
-// There is intentionally NO committed fallback: a hardcoded token is a leaked
-// credential, and it's invalid anyway once JWT_SECRET is rotated. A real
-// login/account flow replaces this before the app is hosted (ROADMAP Go-public
-// › "Real account system").
+// --- Auth token store ---
+// The bearer token is the one minted by the local login (stored per-browser),
+// falling back to the dev/E2E token from the environment when no one has logged
+// in. There is intentionally NO committed dev fallback — a hardcoded token is a
+// leaked credential, and invalid once JWT_SECRET rotates. The dev token exists
+// only to keep the E2E suite and local dev working without the login flow; a
+// real login token always wins.
+const AUTH_TOKEN_STORAGE_KEY = 'taskhub.token';
 const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
+
+function readStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+let loginToken: string | null = readStoredToken();
+const tokenListeners = new Set<(token: string | undefined) => void>();
+
+/** The bearer token sent on REST + socket auth: the login token, else the dev fallback. */
+export function getAuthToken(): string | undefined {
+  return loginToken ?? DEV_TOKEN;
+}
+
+/** True when a real login token is present (ignores the dev fallback). */
+export function hasLoginToken(): boolean {
+  return loginToken !== null;
+}
+
+/** Subscribe to token changes (login / logout). Fires immediately with the current value. */
+export function subscribeAuthToken(cb: (token: string | undefined) => void): () => void {
+  tokenListeners.add(cb);
+  cb(getAuthToken());
+  return () => { tokenListeners.delete(cb); };
+}
+
+function notifyToken(): void {
+  const token = getAuthToken();
+  tokenListeners.forEach(l => l(token));
+}
+
+export function setAuthToken(token: string): void {
+  loginToken = token;
+  if (typeof window !== 'undefined') {
+    try { window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token); } catch { /* private mode */ }
+  }
+  notifyToken();
+}
+
+export function clearAuthToken(): void {
+  loginToken = null;
+  if (typeof window !== 'undefined') {
+    try { window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY); } catch { /* private mode */ }
+  }
+  notifyToken();
+}
+
 api.interceptors.request.use(config => {
-  if (DEV_TOKEN) {
-    config.headers.Authorization = `Bearer ${DEV_TOKEN}`;
+  const token = getAuthToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// --- Session-expiry handling ---
+// A 401/403 from a *protected* route means the token is missing/expired — bounce
+// the user to login. Requests to /auth/* are excluded: a 401 from /login is
+// "wrong password", not an expired session, and clearing the token there would
+// fight the login screen it's about to show.
+const authFailureListeners = new Set<() => void>();
+
+/** Subscribe to session-expiry events (a protected request returned 401/403). */
+export function subscribeAuthFailure(cb: () => void): () => void {
+  authFailureListeners.add(cb);
+  return () => { authFailureListeners.delete(cb); };
+}
+
+function isAuthEndpoint(url: string | undefined): boolean {
+  return typeof url === 'string' && url.includes('/auth/');
+}
 
 // --- Backend connectivity status (tiny pub/sub so the UI can surface outages) ---
 export type BackendStatus = 'ok' | 'unreachable';
@@ -100,8 +172,18 @@ function setBackendStatus(status: BackendStatus): void {
 api.interceptors.response.use(
   response => { setBackendStatus('ok'); return response; },
   error => {
-    if (!error?.response) setBackendStatus('unreachable');
-    else setBackendStatus('ok'); // reached the server, it just returned an error status
+    if (!error?.response) {
+      setBackendStatus('unreachable');
+    } else {
+      setBackendStatus('ok'); // reached the server, it just returned an error status
+      const status = error.response.status;
+      if ((status === 401 || status === 403) && !isAuthEndpoint(error.config?.url)) {
+        // Session expired/invalid on a protected route → clear it and notify the
+        // app so it shows login. Skip /auth/* (a 401 there is a bad password).
+        clearAuthToken();
+        authFailureListeners.forEach(l => l());
+      }
+    }
     return Promise.reject(error);
   }
 );

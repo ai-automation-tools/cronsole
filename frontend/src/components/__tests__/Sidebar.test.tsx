@@ -14,6 +14,12 @@ vi.mock('../../hooks/useConnections', () => ({
   healthMeta: (state: string) => ({ label: state, dot: '', text: '' }),
 }));
 
+// Sidebar reads the signed-in user + logout from useAuth; stub it so these unit
+// tests don't need an AuthProvider or a backend.
+vi.mock('../../hooks/useAuth', () => ({
+  useAuth: () => ({ user: { id: 'u1', email: 'me@example.com' }, logout: vi.fn() }),
+}));
+
 import { Sidebar } from '../Sidebar';
 
 describe('Sidebar Component', () => {

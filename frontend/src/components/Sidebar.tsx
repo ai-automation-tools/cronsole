@@ -5,10 +5,12 @@ import {
   Settings,
   Cpu,
   Library,
+  LogOut,
   X
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useConnections, healthMeta } from '../hooks/useConnections';
+import { useAuth } from '../hooks/useAuth';
 import { platformLabel } from '../platform';
 
 interface SidebarProps {
@@ -31,6 +33,7 @@ const NAV = [
 
 export const Sidebar = ({ activeTab, setActiveTab, open = false, onClose }: SidebarProps) => {
   const { data: connections, isLoading } = useConnections();
+  const { user, logout } = useAuth();
 
   // Escape closes the mobile drawer.
   useEffect(() => {
@@ -91,6 +94,23 @@ export const Sidebar = ({ activeTab, setActiveTab, open = false, onClose }: Side
           <div>
             <div className="px-2 mb-2 text-[10px] uppercase font-bold text-subtle-foreground">Appearance</div>
             <ThemeToggle />
+          </div>
+
+          <div className="flex items-center gap-2 px-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase font-bold text-subtle-foreground">Signed in</div>
+              <div className="text-xs text-muted-foreground truncate" title={user?.email ?? undefined}>
+                {user?.email ?? 'this device'}
+              </div>
+            </div>
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg text-subtle-foreground hover:text-foreground hover:bg-surface transition-colors"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
 
           <div className="p-4 bg-surface/40 rounded-2xl border border-border/50">

@@ -12,6 +12,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  repo-hygiene:
+    name: Repo hygiene (no binary-classified text)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # A stray control byte (NUL, 0x1f, …) makes git treat a text file as
+      # binary, so its diff can't be reviewed — a silent failure that only bites
+      # the reviewer. This guard makes the class impossible to reintroduce.
+      - name: Check for literal control bytes in text files
+        run: node scripts/check-control-bytes.mjs
+
   backend:
     name: Backend tests and build
     runs-on: ubuntu-latest

@@ -206,6 +206,14 @@ enum TaskStatus {
   DISABLED
   UNKNOWN
   DELETED
+  // Tracked in TaskHub but absent from the platform on the last full sync — a
+  // native delete, or (indistinguishably from here) an offline agent / an
+  // unreadable ACL'd folder. Set by reconciliation, never by a user: it is
+  // self-healing (the next sync that sees the task restores ACTIVE/DISABLED)
+  // and honest (the dashboard stops claiming a vanished task is active + due)
+  // instead of the old silent hard-delete. See docs/ROADMAP.md › "Reconcile
+  // tracked tasks that no longer exist on the platform".
+  MISSING
 }
 
 enum ExecutionStatus {

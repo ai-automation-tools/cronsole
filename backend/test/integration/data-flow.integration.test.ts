@@ -170,26 +170,50 @@ describe('TaskService.upsertTasks batching', () => {
     expect(await prisma.task.count({ where: { userId: user.id } })).toBe(250);
   });
 
-  it('removeStaleTasks prunes tasks missing from the current platform list', async () => {
+  it('reconcileMissingTasks marks absent tasks MISSING (keeping the rows) and self-heals on re-sync', async () => {
     const { user } = await createUser('stale@example.com');
     const tasks: NormalizedTask[] = Array.from({ length: 5 }, (_, i) => ({
       externalId: `\\S\\Task${i}`,
       name: `Task ${i}`,
-      status: 'ACTIVE' as const
+      status: 'ACTIVE' as const,
+      nextRunTime: new Date('2026-07-20T03:00:00Z')
     }));
     await TaskService.upsertTasks(user.id, PlatformType.WINDOWS_TASK_SCHEDULER, tasks);
 
     // Only the first two still exist on the platform.
-    const removed = await TaskService.removeStaleTasks(
+    const missing = await TaskService.reconcileMissingTasks(
       user.id,
       PlatformType.WINDOWS_TASK_SCHEDULER,
       ['\\S\\Task0', '\\S\\Task1']
     );
-    expect(removed).toBe(3);
-    expect(await prisma.task.count({ where: { userId: user.id } })).toBe(2);
+    expect(missing).toBe(3);
+    // Nothing is deleted — the honest end state keeps the rows.
+    expect(await prisma.task.count({ where: { userId: user.id } })).toBe(5);
+    const gone = await prisma.task.findMany({
+      where: { userId: user.id, status: 'MISSING' },
+      orderBy: { externalId: 'asc' }
+    });
+    expect(gone.map(t => t.externalId)).toEqual(['\\S\\Task2', '\\S\\Task3', '\\S\\Task4']);
+    // A MISSING task must not still claim it is due.
+    expect(gone.every(t => t.nextRunTime === null)).toBe(true);
+
+    // Re-marking is idempotent: an already-MISSING row is excluded, so a second
+    // reconcile against the same list flips nothing new.
+    expect(
+      await TaskService.reconcileMissingTasks(user.id, PlatformType.WINDOWS_TASK_SCHEDULER, ['\\S\\Task0', '\\S\\Task1'])
+    ).toBe(0);
+
+    // Self-heal: a later sync that sees Task2 again upserts it back to ACTIVE.
+    await TaskService.upsertTasks(user.id, PlatformType.WINDOWS_TASK_SCHEDULER, [
+      { externalId: '\\S\\Task2', name: 'Task 2', status: 'ACTIVE' as const }
+    ]);
+    const healed = await prisma.task.findUnique({
+      where: { platform_externalId: { platform: PlatformType.WINDOWS_TASK_SCHEDULER, externalId: '\\S\\Task2' } }
+    });
+    expect(healed?.status).toBe('ACTIVE');
   });
 
-  it('removeStaleTasks preserves rows when a large platform returns a suspicious partial list', async () => {
+  it('reconcileMissingTasks preserves rows when a large platform returns a suspicious partial list', async () => {
     const { user } = await createUser('partial-stale@example.com');
     const tasks: NormalizedTask[] = Array.from({ length: 30 }, (_, i) => ({
       externalId: `\\Partial\\Task${i}`,
@@ -198,13 +222,15 @@ describe('TaskService.upsertTasks batching', () => {
     }));
     await TaskService.upsertTasks(user.id, PlatformType.WINDOWS_TASK_SCHEDULER, tasks);
 
-    const removed = await TaskService.removeStaleTasks(
+    const missing = await TaskService.reconcileMissingTasks(
       user.id,
       PlatformType.WINDOWS_TASK_SCHEDULER,
       ['\\Partial\\Task0']
     );
 
-    expect(removed).toBe(0);
+    expect(missing).toBe(0);
     expect(await prisma.task.count({ where: { userId: user.id } })).toBe(30);
+    // Nothing was flipped — the whole dashboard stays ACTIVE.
+    expect(await prisma.task.count({ where: { userId: user.id, status: 'MISSING' } })).toBe(0);
   });
 });

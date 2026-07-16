@@ -216,9 +216,13 @@ export function registerTools(
           .optional()
           .describe('Only tasks on this platform.'),
         status: z
-          .enum(['ACTIVE', 'DISABLED', 'UNKNOWN', 'DELETED'])
+          .enum(['ACTIVE', 'DISABLED', 'UNKNOWN', 'DELETED', 'MISSING'])
           .optional()
-          .describe('Only tasks with this status.'),
+          .describe(
+            'Only tasks with this status. MISSING = tracked by TaskHub but absent from the platform on the last ' +
+            'sync (a native delete, or an offline agent / unreadable folder — indistinguishable from here); it ' +
+            'self-heals to ACTIVE/DISABLED when the task reappears. Use it to answer "what did I lose?".'
+          ),
         category: z
           .string()
           .optional()
@@ -508,15 +512,24 @@ export function registerTools(
         const result = await client.post<{
           message?: string;
           task?: TaskRow;
-          conversion?: { warnings?: string[] };
+          conversion?: { warnings?: string[]; lossy?: 'approximated' | 'replaced' };
         }>('/tasks', body);
 
         // Surface lossy conversion at the same volume as success. The backend
         // accepts a fallback trigger rather than refusing it, so a task can be
         // created on a schedule that is not the one asked for — saying so here
-        // is the difference between an honest result and a confident lie.
+        // is the difference between an honest result and a confident lie. Lead
+        // with the register: 'replaced' means the schedule was thrown away, not
+        // rounded, and the caller should almost certainly delete and re-create.
+        const lossyLead =
+          result.conversion?.lossy === 'replaced'
+            ? '\nThe schedule was REPLACED — the cron you gave was discarded for an hourly trigger, so this task runs far more often than you asked. Delete it and use a schedule Windows can express, or create it disabled.'
+            : result.conversion?.lossy === 'approximated'
+              ? '\nThe schedule was approximated — the trigger is built from your cron but drifts after the first cycle.'
+              : '';
         const warnings = result.conversion?.warnings?.length
-          ? `\nSchedule conversion warnings: ${result.conversion.warnings.join('; ')}` +
+          ? lossyLead +
+            `\nSchedule conversion warnings: ${result.conversion.warnings.join('; ')}` +
             '\nThe registered trigger may not match the cron you gave. Verify with convert_schedule.'
           : '';
         const task = result.task;
@@ -590,9 +603,13 @@ export function registerTools(
           `/templates/${encodeURIComponent(templateId)}/apply`,
           body
         );
-        const conv = result.conversion as { warnings?: string[] } | undefined;
+        const conv = result.conversion as { warnings?: string[]; lossy?: 'approximated' | 'replaced' } | undefined;
+        const lossyLead =
+          conv?.lossy === 'replaced'
+            ? '\nThe schedule was REPLACED — the cron was discarded for an hourly trigger, so this runs far more often than the template asked. '
+            : '';
         const warnings = conv?.warnings?.length
-          ? `\nSchedule conversion warnings: ${conv.warnings.join('; ')}`
+          ? lossyLead + `\nSchedule conversion warnings: ${conv.warnings.join('; ')}`
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Template applied';
         return ok(`${msg}${warnings}`, { templateId, platform, result });
@@ -611,8 +628,12 @@ export function registerTools(
       title: 'Convert / validate a cron schedule',
       description:
         'Check how a 5-field UTC cron expression converts to a target platform\'s native trigger before creating a task. ' +
-        'Returns a confidence score (0–1), any lossy-conversion warnings, and the resulting Windows trigger. ' +
-        'A score of 0 means the expression is invalid or not convertible.',
+        'Returns a confidence score (0–1), any lossy-conversion warnings, the resulting Windows trigger, and a machine-readable ' +
+        '`lossy` field. A score of 0 means the expression is invalid or not convertible. ' +
+        'IMPORTANT: 0.7 is returned for TWO different risks the score alone cannot distinguish — read `lossy`: ' +
+        '"approximated" means the trigger IS built from your cron but drifts (an uneven */N step), while "replaced" means your ' +
+        'cron was DISCARDED for a fixed hourly trigger (it then runs about 24×/day no matter what you asked). Trust `lossy` and ' +
+        'the trigger, not the number.',
       inputSchema: {
         schedule: z
           .string()
@@ -629,12 +650,21 @@ export function registerTools(
           score: number;
           warnings: string[];
           trigger: WindowsTrigger | null;
+          lossy?: 'approximated' | 'replaced';
         }>('/tasks/preview', { platform, schedule });
         const warnings = result.warnings?.length ? `\nWarnings: ${result.warnings.join('; ')}` : '';
         const trigger = result.trigger ? `\nTrigger: ${describeTrigger(result.trigger)}` : '';
+        // Name the register the 0.7 score hides. 'replaced' is the dangerous one:
+        // the schedule you asked for was thrown away, not merely rounded.
+        const lossy =
+          result.lossy === 'replaced'
+            ? '\nLossy: REPLACED — your cron was discarded for the trigger above (it runs far MORE often than asked).'
+            : result.lossy === 'approximated'
+              ? '\nLossy: approximated — the trigger is built from your cron but drifts after the first cycle.'
+              : '';
         const text =
           result.score > 0
-            ? `Convertible for ${platform} (confidence ${result.score}).${trigger}${warnings}`
+            ? `Convertible for ${platform} (confidence ${result.score}).${trigger}${lossy}${warnings}`
             : `Not convertible for ${platform} (score 0).${warnings}`;
         return ok(text, { platform, schedule, ...result });
       } catch (err) {

@@ -590,6 +590,7 @@ describe('create_task', () => {
       'POST /tasks': {
         ...created,
         conversion: {
+          lossy: 'replaced',
           warnings: ['This cron expression cannot be expressed as a Windows trigger, so the schedule will be REPLACED — not approximated — with a fixed hourly trigger: every hour from 00:00, about 24 runs a day (~8,760 a year).']
         }
       }
@@ -599,7 +600,33 @@ describe('create_task', () => {
     expect(text(r)).toMatch(/Schedule conversion warnings/);
     expect(text(r)).toMatch(/REPLACED/);
     expect(text(r)).toMatch(/may not match the cron you gave/);
+    // The machine-readable discriminator leads the text with the actionable verb:
+    // 'replaced' tells the model to delete and re-create, not shrug at a warning.
+    expect(text(r)).toMatch(/schedule was REPLACED/);
+    expect(text(r)).toMatch(/Delete it and use a schedule Windows can express/);
+    expect(r.structuredContent?.conversion.lossy).toBe('replaced');
     expect(r.structuredContent?.conversion.warnings).toHaveLength(1);
+  });
+
+  it('names an approximated (drifting) conversion without the delete-and-recreate push', async () => {
+    // The other 0.7 register: the trigger IS built from the cron, so the honest
+    // guidance is "it drifts", not "throw it away". Same score, different verb —
+    // the whole reason `lossy` exists.
+    const { client } = stubClient({
+      'POST /tasks': {
+        ...created,
+        conversion: {
+          lossy: 'approximated',
+          warnings: ['A 7-minute step does not divide 60 evenly, so run times drift apart after the first hour.']
+        }
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'create_task', { name: 'x', command: 'c.exe', schedule: '*/7 * * * *' });
+    expect(text(r)).toMatch(/schedule was approximated/);
+    expect(text(r)).not.toMatch(/REPLACED/);
+    expect(text(r)).not.toMatch(/Delete it/);
+    expect(r.structuredContent?.conversion.lossy).toBe('approximated');
   });
 
   it('surfaces a duplicate-name 409 honestly', async () => {
@@ -710,7 +737,8 @@ describe('convert_schedule', () => {
     const { client } = stubClient({
       'POST /tasks/preview': preview({
         score: 0.7,
-        warnings: ['Complex cron expression will be converted to a fallback interval trigger; execution times might not align 100%.'],
+        lossy: 'replaced',
+        warnings: ['This cron expression cannot be expressed as a Windows trigger, so the schedule will be REPLACED with a fixed hourly trigger.'],
         trigger: { type: 'Time', startBoundary: '00:00', repetition: { interval: 'PT1H', duration: 'P1D' } }
       })
     });
@@ -720,6 +748,29 @@ describe('convert_schedule', () => {
     expect(out).toMatch(/repeating every PT1H/);
     expect(out).toMatch(/for P1D/);
     expect(out).toMatch(/Warnings:/);
+    // The score is 0.7 for two different risks; `lossy` is what tells them apart.
+    // 'replaced' must read as danger, not a rounding note.
+    expect(out).toMatch(/Lossy: REPLACED/);
+    expect(out).toMatch(/discarded/);
+  });
+
+  it('names an approximated conversion distinctly from a replaced one', async () => {
+    // Same 0.7 score, opposite meaning: the trigger IS derived from the cron and
+    // merely drifts. The rendered line must not say REPLACED — that would tell
+    // the model to throw away a schedule that is actually being honored.
+    const { client } = stubClient({
+      'POST /tasks/preview': preview({
+        score: 0.7,
+        lossy: 'approximated',
+        warnings: ['A 7-minute step does not divide 60 evenly; run times drift apart after the first hour.'],
+        trigger: { type: 'Time', startBoundary: '00:00', repetition: { interval: 'PT7M', duration: 'P1D' } }
+      })
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'convert_schedule', { schedule: '*/7 * * * *' }));
+    expect(out).toMatch(/Lossy: approximated/);
+    expect(out).toMatch(/drifts/);
+    expect(out).not.toMatch(/REPLACED/);
   });
 
   it('renders a daily trigger', async () => {
@@ -804,7 +855,7 @@ describe('set_task_status', () => {
     expect(out).toMatch(/2026-07-16T03:00:00.000Z/);
   });
 
-  it.each([['DELETED'], ['UNKNOWN'], ['PAUSED'], ['active']])(
+  it.each([['DELETED'], ['UNKNOWN'], ['PAUSED'], ['active'], ['MISSING']])(
     'rejects %s before reaching the API — only ACTIVE/DISABLED are settable',
     async bad => {
       // The route accepts exactly two values; sending anything else would be a
@@ -1084,14 +1135,16 @@ describe('export_task', () => {
   });
 
   it('decodes a UTF-16 Windows export back to real XML', async () => {
-    // The bug this prevents: reading UTF-16 bytes as UTF-8 gives "< ? x …",
-    // which the model would faithfully relay as the task definition.
+    // The bug this prevents: reading UTF-16 LE bytes as UTF-8 yields the XML
+    // interleaved with NUL bytes ("<\x00?\x00x\x00m\x00l..."), which the model
+    // would then faithfully relay as the task definition. The final assertion
+    // guards exactly that — the decoded text must contain no NUL.
     const { client } = stubClient({ 'GET /tasks/id1/export': utf16WithBom });
     const mcp = await connect(client);
     const r = await call(mcp, 'export_task', { taskId: 'id1' });
     expect(r.structuredContent?.xml).toBe(xml);
     expect(text(r)).toMatch(/<Task><Actions\/><\/Task>/);
-    expect(text(r)).not.toMatch(/ /);
+    expect(text(r)).not.toMatch(/\x00/);
   });
 
   it('strips the BOM rather than leaving it in the XML', async () => {

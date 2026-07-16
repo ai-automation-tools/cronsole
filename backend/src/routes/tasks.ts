@@ -326,7 +326,11 @@ router.post('/preview', validateBody(previewSchema), async (req: Request, res: R
   res.json({
     score: conversion.confidence,
     warnings: conversion.warnings,
-    trigger: conversion.trigger
+    trigger: conversion.trigger,
+    // Discriminates the two 0.7 registers the score alone conflates: a derived
+    // step that drifts ('approximated') vs. a discarded cron replaced with an
+    // hourly default ('replaced'). Absent on an exact or invalid schedule.
+    lossy: conversion.lossy
   });
 });
 
@@ -357,6 +361,7 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
   // conversion path as the template apply route (Templates.md §6).
   let trigger: WindowsTrigger | null = null;
   let conversionWarnings: string[] = [];
+  let conversionLossy: 'approximated' | 'replaced' | undefined;
   let finalFolder = DEFAULT_TASK_FOLDER;
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
     // Invalid folder or name → 400; name colliding with a tracked task IN THAT
@@ -380,6 +385,7 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     }
     trigger = conversion.trigger;
     conversionWarnings = conversion.warnings;
+    conversionLossy = conversion.lossy;
   }
 
   const connection = await prisma.platformConnection.findUnique({
@@ -437,7 +443,7 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
   res.json({
     message: 'Task created successfully',
     task: upserted[0],
-    conversion: { warnings: conversionWarnings }
+    conversion: { warnings: conversionWarnings, lossy: conversionLossy }
   });
 });
 
@@ -611,15 +617,18 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
 
         await TaskService.upsertTasks(userId, conn.platform, tasks);
 
-        // Remove tasks deleted natively on the platform. Skip TASKHUB_NATIVE
-        // (its connector returns [] — the DB itself is the source of truth)
-        // and skip empty lists as a safety net against wiping a platform.
-        let removed = 0;
+        // Reconcile tasks absent from the platform: flip them to MISSING (not
+        // delete — absence isn't proof they're gone; see reconcileMissingTasks).
+        // Upsert ran first, so a task that reappeared this sync is already back
+        // to ACTIVE/DISABLED and won't be re-marked. Skip TASKHUB_NATIVE (its
+        // connector returns [] — the DB itself is the source of truth) and skip
+        // empty lists as a safety net against flipping a whole platform.
+        let missing = 0;
         if (conn.platform !== 'TASKHUB_NATIVE' && allExternalIds.length > 0) {
-          removed = await TaskService.removeStaleTasks(userId, conn.platform, allExternalIds);
+          missing = await TaskService.reconcileMissingTasks(userId, conn.platform, allExternalIds);
         }
 
-        results.push({ platform: conn.platform, count: tasks.length, removed });
+        results.push({ platform: conn.platform, count: tasks.length, missing });
       } catch (err: any) {
         results.push({ platform: conn.platform, error: err.message });
       }

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Folder, Plus, Play, CopyPlus, XOctagon } from 'lucide-react';
+import { Folder, Plus, Play, CopyPlus, XOctagon, Power, Loader2 } from 'lucide-react';
 import type { Task } from '../types';
 import { platformLabel, platformBadgeClass } from '../platform';
+import { isRunnable, runButtonTitle, canToggleStatus, toggleStatusTitle } from '../utils/taskActions';
 
 interface TaskCardProps {
   task: Task;
@@ -9,9 +10,11 @@ interface TaskCardProps {
   onRun: (task: Task) => void;
   onCategoryUpdate: (taskId: string, category: string) => void;
   onClone: (task: Task) => void;
+  onToggleStatus: (task: Task) => void;
+  isTogglingStatus?: boolean;
 }
 
-export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone }: TaskCardProps) => {
+export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone, onToggleStatus, isTogglingStatus }: TaskCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
 
@@ -73,17 +76,28 @@ export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone }: T
           Last updated: <span className="text-foreground">{new Date(task.updatedAt).toLocaleTimeString()}</span>
         </div>
         <div className="flex gap-2">
-          <button 
-            onClick={(e) => { e.stopPropagation(); onClone(task); }} 
+          <button
+            onClick={(e) => { e.stopPropagation(); onClone(task); }}
             className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground shadow-md transition-all active:scale-90"
             title="Clone Task"
           >
             <CopyPlus size={18} />
           </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onRun(task); }} 
-            className="bg-success hover:bg-success-hover p-2 rounded-lg text-success-foreground shadow-lg shadow-success/20 transition-all active:scale-90"
-            title="Run Task"
+          {canToggleStatus(task) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleStatus(task); }}
+              disabled={isTogglingStatus}
+              className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground shadow-md transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={toggleStatusTitle(task)}
+            >
+              {isTogglingStatus ? <Loader2 size={18} className="animate-spin" /> : <Power size={18} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); if (isRunnable(task)) onRun(task); }}
+            disabled={!isRunnable(task)}
+            className="bg-success hover:bg-success-hover p-2 rounded-lg text-success-foreground shadow-lg shadow-success/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
+            title={runButtonTitle(task)}
           >
             <Play size={18} fill="currentColor" />
           </button>

@@ -41,7 +41,14 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`list_folders`** | "Which Task Scheduler folders can I create a task in?" | `GET /api/tasks/folders` |
 | **`create_task`** | "Run `C:\jobs\nightly.ps1` every weekday at 6am" — any command you already know | `POST /api/tasks` |
 | **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
+| **`create_native_task`** | "Ping my health endpoint every 15 minutes and POST this JSON to the webhook" | `POST /api/tasks/native` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?" | `POST /api/tasks/preview` |
+| **`get_task_history`** | "Did last night's backup work?", "why did the report task fail?" | `GET /api/tasks/:id/executions` |
+| **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" | `GET /api/tasks/:id/export` |
+| **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
+| **`update_task_schedule`** | "Move the digest to 7am on weekdays" | `PATCH /api/tasks/:id/schedule` |
+| **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
+| **`delete_task`** ⚠️ | "Delete the old test task" — **off by default**, see below | `DELETE /api/tasks/:id` |
 
 **`create_task` vs. `create_task_from_template`:** use `create_task` when you already know the
 command to run — it's the direct path, and it's what the dashboard's New Task modal has always
@@ -63,11 +70,15 @@ task can be created there. Folders it can't use (like `\Microsoft\…`) are show
 writable* rather than hidden, so you get "that one's refused" instead of a confusing silence.
 
 > [!NOTE]
-> **What you can't do over MCP yet.** Enable/disable, re-schedule, edit a command, delete, run
-> history, and export are **not** tools today — use the dashboard or the REST API. If your
-> assistant offers to "disable" a task by changing its schedule, don't let it: a cron TaskHub
-> can't express natively is replaced with an **hourly** trigger, so that makes it run *more*,
-> not less. Expanding this surface is on the roadmap.
+> **Stopping a task: disable it, don't re-schedule it.** If your assistant offers to "pause" a
+> task by giving it a rare cron (once a year, Feb 30), don't let it — a cron TaskHub can't
+> express natively is replaced with an **hourly** trigger, so that makes it run *more*, not
+> less. `set_task_status` with `DISABLED` is the honest way, and it's fully reversible.
+
+> [!NOTE]
+> **What you still can't do over MCP.** Importing/exporting *templates*, saving a task as a
+> template, syncing, and pairing an agent are dashboard/REST only. Task **management** —
+> enable/disable, re-schedule, edit, history, export, delete — is now covered by the tools above.
 
 > [!IMPORTANT]
 > **`\Microsoft\` and its descendants are refused.** Windows keeps its own scheduled tasks
@@ -77,10 +88,24 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 > process that holds the elevation.
 
 > [!IMPORTANT]
-> `list_*` and `convert_schedule` are read-only and safe to call freely. **`run_task`**,
-> **`create_task`**, and **`create_task_from_template`** cause real effects on your machine
-> (running / registering Windows tasks) — the same guardrails as clicking **Run Now** or
-> **Apply** in the dashboard.
+> **What's safe, what's real, and what's off by default.**
+> - **Read-only, call freely:** `list_*`, `get_task_history`, `export_task`, `convert_schedule`.
+> - **Real effects on your machine:** `run_task`, `create_task`, `create_native_task`,
+>   `create_task_from_template` (running / registering tasks) and `set_task_status`,
+>   `update_task_schedule`, `update_task_action` (changing them). Same guardrails as clicking
+>   **Run Now**, **Apply**, or **Edit** in the dashboard — and all of them are reversible.
+> - **`delete_task` is OFF unless you turn it on.** Deleting removes the real Task Scheduler
+>   entry through an elevated agent, with no trash and no restore. Set
+>   `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true` in your host's environment to expose it; otherwise your
+>   assistant won't even see the tool. That switch is deliberately *yours* — a tool parameter
+>   like "confirm: true" would just be the assistant reassuring itself.
+
+> [!TIP]
+> **A `SUCCESS` in `get_task_history` means "TaskHub dispatched it and it reported success"** —
+> a task that hangs forever reports exactly the same thing. If you suspect a hang, check
+> Windows' own `LastTaskResult` rather than trusting TaskHub's report of itself. Equally, an
+> **empty** history doesn't mean the task never ran: TaskHub records manual runs and native
+> fires, while a Windows task firing on its own trigger is recorded by Windows.
 
 ## Prerequisites
 
@@ -106,6 +131,7 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 | `TASKHUB_TOKEN` | ✅ | — | A user JWT sent as `Authorization: Bearer <token>`. |
 | `TASKHUB_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `TASKHUB_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
+| `TASKHUB_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** tool. Deleting is permanent — no trash, no restore — so it's off unless you set this to exactly `true` (anything else, including a typo, leaves it off). When off, your assistant doesn't see the tool at all. Prefer disabling a task to deleting it. |
 
 > [!IMPORTANT]
 > The server reads its **process environment only** — it loads no `.env` file, so copying

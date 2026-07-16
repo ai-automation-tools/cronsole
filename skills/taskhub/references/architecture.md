@@ -97,6 +97,27 @@ converts a missing capability into a lie. Leaving it undefined *is* the design.
 - **Run commands are HMAC-signed** per session to prevent replay. Read-only commands (e.g.
   `task:export`, `task:folders`) aren't signed — but still need the agent republished for the
   handler to exist.
+- **An accepted command ALWAYS answers, and a failure answer carries the reason.** The backend
+  waits ~15s for a matching reply and then resolves with `Agent trigger timeout` — a message
+  that names the *transport*. So an agent handler that returns without emitting doesn't produce
+  "no result", it produces **a confident lie about a different subsystem**, pointing you at the
+  socket while the real cause (a disabled task) is one click away. `task:run` did exactly this
+  until 2026-07-15: it emitted only on success, and logged failures to a console nobody reads
+  (the agent is launched hidden). ([#15](../../docs/troubleshooting/README.md#15-run_task-times-out-instead-of-saying-the-task-is-disabled))
+  - **The one deliberate silence** is a command that fails signature verification: a forger
+    should learn nothing, and the server's timeout is the correct outcome there.
+- **⚠️ `ts` is second-granular, so two identical commands in one second are byte-identical** —
+  and therefore indistinguishable from a replay, so the guard drops the second one silently.
+  Same misleading `Agent trigger timeout`, entirely different cause. This bites test scripts
+  hardest (they fire faster than a human clicks); leave >1s between identical commands. The fix
+  (open) is a **nonce in the signed message** — make legitimate re-sends unique; do **not**
+  make the agent answer rejected commands. ([#16](../../docs/troubleshooting/README.md#16-a-second-identical-agent-command-within-one-second-is-dropped))
+  - **Corollary for debugging:** `Agent trigger timeout` has at least three causes — a stale
+    agent with no handler ([#7](../../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)),
+    a silent failure path (#15), and the replay guard (#16). It is the backend's *default*, not
+    a diagnosis. **To see what the agent actually did, run `agent/publish/TaskHub.Agent.exe` in
+    the foreground** — it replaces the hidden elevated instance in the backend's registry, so it
+    handles your commands and you can read its console. Republish afterwards to restore.
 - **Everything the agent acts on is inside the signature.** `task:create` signs the name,
   schedule, command, canonical action, canonical trigger, **and the destination folder** — an
   unsigned field on a signed command lets an on-path attacker redirect the write. The message

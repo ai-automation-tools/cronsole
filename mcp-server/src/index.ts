@@ -11,18 +11,27 @@ import { registerTools } from './tools.js';
  * MUST go to stderr (console.error) so it doesn't corrupt the protocol.
  */
 async function main(): Promise<void> {
-  const client = new TaskHubClient(configFromEnv());
+  const config = configFromEnv();
+  const client = new TaskHubClient(config);
 
   const server = new McpServer({
     name: 'taskhub',
     version: '1.0.0'
   });
 
-  registerTools(server, client);
+  registerTools(server, client, { allowDestructive: config.allowDestructive });
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('TaskHub MCP server running on stdio');
+  // Say which surface is live, on stderr. The irreversible tools are absent
+  // rather than erroring when the gate is closed, and a silently smaller tool
+  // list is the kind of thing you debug for twenty minutes (troubleshooting #13
+  // was exactly that shape) — so state it at boot instead.
+  console.error(
+    'TaskHub MCP server running on stdio ' +
+    `(destructive tools ${config.allowDestructive ? 'ENABLED' : 'disabled'} — ` +
+    'set TASKHUB_MCP_ALLOW_DESTRUCTIVE=true to expose delete_task)'
+  );
 }
 
 main().catch(err => {

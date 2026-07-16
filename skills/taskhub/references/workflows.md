@@ -120,24 +120,30 @@ route, which is what keeps owner scoping, no-shell `exec`, signed agent commands
 cron→trigger conversion in one tested place. **New behavior means a new backend route**, never
 cleverness in the wrapper.
 
-The 7 tools and their routes:
+The 14 tools and their routes:
 
-| Tool | Route |
-|:---|:---|
-| `list_tasks` | `GET /api/tasks` |
-| `run_task` | `POST /api/tasks/:id/run` |
-| `list_templates` | `GET /api/templates` |
-| `list_folders` | `GET /api/tasks/folders` |
-| `create_task` | `POST /api/tasks` |
-| `create_task_from_template` | `POST /api/templates/:id/apply` |
-| `convert_schedule` | `POST /api/tasks/preview` |
+| Tool | Route | |
+|:---|:---|:---|
+| `list_tasks` | `GET /api/tasks` | |
+| `list_templates` | `GET /api/templates` | |
+| `list_folders` | `GET /api/tasks/folders` | |
+| `get_task_history` | `GET /api/tasks/:id/executions` | |
+| `export_task` | `GET /api/tasks/:id/export` | raw bytes — UTF-16 LE + BOM |
+| `convert_schedule` | `POST /api/tasks/preview` | |
+| `create_task` | `POST /api/tasks` | |
+| `create_native_task` | `POST /api/tasks/native` | full job spec, not a command string |
+| `create_task_from_template` | `POST /api/templates/:id/apply` | |
+| `run_task` | `POST /api/tasks/:id/run` | |
+| `set_task_status` | `PATCH /api/tasks/:id/status` | reversible → ungated |
+| `update_task_schedule` | `PATCH /api/tasks/:id/schedule` | reversible → ungated |
+| `update_task_action` | `PATCH /api/tasks/:id/actions` | replaces, doesn't patch |
+| `delete_task` | `DELETE /api/tasks/:id` | **gated** by `TASKHUB_MCP_ALLOW_DESTRUCTIVE` |
 
-Task **management** routes (`PATCH /api/tasks/:id/status`·`/schedule`·`/actions`,
-`DELETE /api/tasks/:id`, `GET /api/tasks/:id/executions`·`/export`) have **no tools yet** — see
-ROADMAP › P3 *MCP surface expansion*, which also holds the open questions worth settling before
-you add them (destructive-op gating, tool-count creep). **The route existing is not by itself a
-reason to expose it** — that's why the read-only gap (`list_folders`) closed first while the
-mutating ones wait on a decision.
+**The gating rule, if you add more** (settled 2026-07-15): irreversible verbs are gated and
+**absent** from `tools/list` when off; reversible ones are not. The gate is an **env var, not a
+tool param** — a param is filled in by the model, so it's the caller assuring itself it's sure.
+**The route existing is not by itself a reason to expose it.** Still REST-only: template
+import/export, save-as-template, sync, agent pairing.
 
 **Adding a tool ships with**: the vitest suite (`src/__tests__/tools.test.ts` — its surface test
 pins the exact tool list and will fail, deliberately), both README tool tables, and the skill

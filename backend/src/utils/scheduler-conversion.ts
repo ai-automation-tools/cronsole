@@ -230,8 +230,27 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
     }
   }
 
-  // Fallback / Complex cron
-  warnings.push('Complex cron expression will be converted to a fallback interval trigger; execution times might not align 100%.');
+  // Fallback / Complex cron.
+  //
+  // This trigger is NOT derived from the input — the expression is discarded and
+  // replaced wholesale with a fixed hourly repetition. So the warning must say
+  // "replaced", not "might not align": the previous wording described *drift*,
+  // which made `0 4 1 1 *` (once a year) becoming ~8,760 runs a year read like a
+  // rounding error. Naming the resulting frequency is the whole point — a caller
+  // can't weigh a cost nobody stated.
+  //
+  // Two asymmetries worth keeping in the text, because they invert the usual
+  // intuition: the fallback only ever runs MORE often than asked (never less),
+  // and a deliberately *rare* schedule is the input most likely to miss the
+  // pattern list above — so being careful is exactly what triggers this.
+  warnings.push(
+    'This cron expression cannot be expressed as a Windows trigger, so the schedule will be ' +
+    'REPLACED — not approximated — with a fixed hourly trigger: every hour from 00:00, about ' +
+    '24 runs a day (~8,760 a year). The original expression is discarded entirely, and the ' +
+    'replacement only ever runs MORE often than you asked. Use a schedule Windows can express ' +
+    '(a daily/weekly time, or an even */N step), or create it disabled and enable it when needed ' +
+    '— do not encode "rarely" in the cron.'
+  );
   return {
     confidence: 0.7,
     trigger: {

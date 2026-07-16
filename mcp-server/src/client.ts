@@ -19,10 +19,31 @@ export class TaskHubApiError extends Error {
   }
 }
 
+/** What the HTTP client needs. Deliberately nothing about tool policy. */
 export interface TaskHubClientConfig {
   baseUrl: string;
   token: string;
   timeoutMs?: number;
+}
+
+/**
+ * What the server needs: the client's config plus the tool-surface policy. Kept
+ * separate because the HTTP client has no business knowing which tools exist —
+ * it would be a field it never reads.
+ */
+export interface TaskHubServerConfig extends TaskHubClientConfig {
+  /**
+   * Whether the irreversible tools (delete_task) are registered at all. Off by
+   * default: an MCP host may call a tool with far less deliberation than a user
+   * clicking through the UI's confirm dialog, and the agent that carries the
+   * deletion out runs elevated.
+   *
+   * This is deliberately an ENV setting rather than a tool parameter. A
+   * `confirm: true` argument is not a gate — the model fills it in itself, so it
+   * is the caller asserting to itself that it is sure. An env var is out-of-band:
+   * the human sets it, and no amount of agent reasoning reaches it.
+   */
+  allowDestructive: boolean;
 }
 
 /**
@@ -40,7 +61,7 @@ const UNEXPANDED_PLACEHOLDER = /^\$\{[^}]*\}$/;
  * it's missing — an MCP server that boots without credentials would only fail
  * later, one confusing tool call at a time.
  */
-export function configFromEnv(): TaskHubClientConfig {
+export function configFromEnv(): TaskHubServerConfig {
   const baseUrl = (process.env.TASKHUB_API_URL || 'http://localhost:3000/api').replace(/\/+$/, '');
   const rawToken = (process.env.TASKHUB_TOKEN || '').trim();
   const token = UNEXPANDED_PLACEHOLDER.test(rawToken) ? '' : rawToken;
@@ -58,7 +79,20 @@ export function configFromEnv(): TaskHubClientConfig {
   const timeoutMs = process.env.TASKHUB_TIMEOUT_MS
     ? Number(process.env.TASKHUB_TIMEOUT_MS)
     : 15000;
-  return { baseUrl, token, timeoutMs };
+  return { baseUrl, token, timeoutMs, allowDestructive: readAllowDestructive() };
+}
+
+/**
+ * Opt in to the irreversible tools. Strict on purpose: only an explicit, exact
+ * "true"/"1" (case/space-insensitive) opens the gate, so a typo, an empty
+ * string, or the unexpanded `${TASKHUB_MCP_ALLOW_DESTRUCTIVE}` literal all fail
+ * CLOSED. The asymmetry is intentional — a false negative costs a missing tool
+ * and an obvious error message, while a false positive hands an agent a deletion
+ * verb the user never meant to grant.
+ */
+function readAllowDestructive(): boolean {
+  const raw = (process.env.TASKHUB_MCP_ALLOW_DESTRUCTIVE || '').trim().toLowerCase();
+  return raw === 'true' || raw === '1';
 }
 
 export class TaskHubClient {
@@ -83,8 +117,42 @@ export class TaskHubClient {
     return this.request<T>('post', path, body);
   }
 
+  async patch<T = unknown>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>('patch', path, body);
+  }
+
+  async delete<T = unknown>(path: string): Promise<T> {
+    return this.request<T>('delete', path);
+  }
+
+  /**
+   * GET a response as raw bytes, for a route whose body is not JSON or UTF-8.
+   *
+   * `GET /tasks/:id/export` is the reason this exists: a Windows task exports as
+   * Task Scheduler XML delivered **UTF-16 LE + BOM**, because that is the only
+   * encoding every Windows re-import path accepts (a UTF-8 declaration is
+   * rejected outright with "unable to switch the encoding"). Axios would decode
+   * those bytes as UTF-8 and hand back mojibake, so the caller needs the buffer
+   * and decodes it itself.
+   */
+  async getBuffer(path: string): Promise<{ data: Buffer; contentType: string }> {
+    try {
+      const res = await this.http.request<ArrayBuffer>({
+        method: 'get',
+        url: path,
+        responseType: 'arraybuffer'
+      });
+      return {
+        data: Buffer.from(res.data),
+        contentType: String(res.headers['content-type'] ?? '')
+      };
+    } catch (err) {
+      throw this.normalizeError(err);
+    }
+  }
+
   private async request<T>(
-    method: 'get' | 'post',
+    method: 'get' | 'post' | 'patch' | 'delete',
     path: string,
     body?: unknown,
     params?: Record<string, unknown>
@@ -107,12 +175,12 @@ export class TaskHubClient {
     if (isAxiosError(err)) {
       if (err.response) {
         const status = err.response.status;
-        const data = err.response.data as { error?: string; message?: string } | undefined;
+        const data = this.decodeErrorBody(err.response.data);
         const message =
           data?.error ||
           data?.message ||
           `TaskHub API returned HTTP ${status}`;
-        return new TaskHubApiError(message, status, err.response.data);
+        return new TaskHubApiError(message, status, data ?? err.response.data);
       }
       if (err.code === 'ECONNREFUSED' || err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
         return new TaskHubApiError(
@@ -123,5 +191,36 @@ export class TaskHubClient {
       return new TaskHubApiError(err.message);
     }
     return new TaskHubApiError(err instanceof Error ? err.message : String(err));
+  }
+
+  /**
+   * Recover the API's `{ error }` body regardless of how axios decoded it.
+   *
+   * A failed `getBuffer` request carries its error body as raw BYTES, because
+   * responseType is per-request and applies to the error path too. Reading
+   * `data.error` off a Buffer yields undefined, so the honest backend message
+   * ("Task not found", "The agent could not export this task") would be replaced
+   * by a generic "HTTP 502" — the client would lose exactly the thing it exists
+   * to preserve. Anything undecodable falls through to null and the caller's
+   * status-based fallback.
+   */
+  private decodeErrorBody(raw: unknown): { error?: string; message?: string } | null {
+    if (raw === null || raw === undefined) return null;
+    if (Buffer.isBuffer(raw) || raw instanceof ArrayBuffer) {
+      try {
+        return JSON.parse(Buffer.from(raw as Buffer).toString('utf8'));
+      } catch {
+        return null;
+      }
+    }
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+    if (typeof raw === 'object') return raw as { error?: string; message?: string };
+    return null;
   }
 }

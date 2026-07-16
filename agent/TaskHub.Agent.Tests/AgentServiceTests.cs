@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
@@ -569,9 +570,98 @@ namespace TaskHub.Agent.Tests
             // Act
             _socketHandlers["task:run"].Invoke(mockResponse.Object);
 
-            // Assert — scheduler untouched, no result emitted.
+            // Assert — scheduler untouched, no result emitted. The silence here is
+            // deliberate and is the ONE case that stays silent: a forger learns
+            // nothing. Every ACCEPTED command must answer (see the tests below).
             _mockScheduler.Verify(s => s.RunTask(It.IsAny<string>()), Times.Never);
             _mockSocket.Verify(s => s.EmitAsync("task:executed", It.IsAny<object>()), Times.Never);
+        }
+
+        // Regression: task:run emitted ONLY on success. Every failure — task
+        // missing, disabled, ACL — wrote to the console and emitted nothing, so
+        // the server waited out its 15s window and told the user "Agent trigger
+        // timeout": a message that blames the transport while the agent is
+        // healthy and the real cause (a disabled task) is one click away.
+        // An accepted command must always answer, and the answer must carry why.
+
+        [Fact]
+        public void TaskRun_Event_Failure_EmitsFailureInsteadOfGoingSilent()
+        {
+            // Arrange — RunTask returns false: nothing exists at that path.
+            var taskPath = "\\Mikes\\Gone";
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig }));
+
+            _mockScheduler.Setup(s => s.RunTask(taskPath)).Returns(false);
+
+            // Act
+            _socketHandlers["task:run"].Invoke(mockResponse.Object);
+
+            // Assert — an answer, flagged as failure, naming the path so the
+            // server's handler matches it rather than timing out.
+            _mockSocket.Verify(s => s.EmitAsync("task:executed", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"success\":false") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\\\\Mikes\\\\Gone") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("No task exists at this path")
+            )), Times.Once);
+        }
+
+        [Fact]
+        public void TaskRun_Event_WhenTheSchedulerThrows_EmitsTheRealReason()
+        {
+            // Arrange — task.Run() throws for a disabled task; that used to be
+            // swallowed by the catch with no emit at all.
+            var taskPath = "\\Mikes\\Disabled";
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig }));
+
+            _mockScheduler.Setup(s => s.RunTask(taskPath))
+                .Throws(new InvalidOperationException("some COM failure"));
+
+            // Act
+            _socketHandlers["task:run"].Invoke(mockResponse.Object);
+
+            // Assert — the real message survives rather than becoming a timeout.
+            _mockSocket.Verify(s => s.EmitAsync("task:executed", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"success\":false") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("some COM failure")
+            )), Times.Once);
+        }
+
+        [Fact]
+        public void TaskRun_Event_DisabledTask_SaysHowToFixIt()
+        {
+            // The most common reason a run fails, and the one Windows' own error
+            // ("The task is disabled.") does not tell you how to resolve. The
+            // HRESULT is what Windows actually returns: SCHED_E_TASK_DISABLED.
+            var taskPath = "\\Mikes\\Disabled";
+            var ts = Now();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, ts, sig }));
+
+            _mockScheduler.Setup(s => s.RunTask(taskPath))
+                .Throws(new COMException("The task is disabled. (0x80041326)", unchecked((int)0x80041326)));
+
+            // Act
+            _socketHandlers["task:run"].Invoke(mockResponse.Object);
+
+            // Assert — names the cause AND the fix.
+            _mockSocket.Verify(s => s.EmitAsync("task:executed", It.Is<object>(o =>
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("\"success\":false") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("disabled") &&
+                JsonSerializer.Serialize(o, (JsonSerializerOptions?)null).Contains("Enable the task first")
+            )), Times.Once);
         }
 
         [Fact]

@@ -35,7 +35,9 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 11 | After a **System Restore**, `Start-ScheduledTask` says the republish task doesn't exist **and/or** the `taskhub` MCP tools vanish — while the repo, `git status`, and the build are all perfectly clean | Both live on `C:` as per-machine state git can't protect: the scheduled-task registration and the `TASKHUB_TOKEN` **User** env var. A restore of `C:` wipes them; a repo on another drive survives, so nothing *looks* wrong | [→](#11-after-a-system-restore-the-republish-task-and-mcp-tools-are-gone) |
 | 12 | A task created from a template sits in `Running` **forever** (`LastTaskResult` `267009`), burning no CPU — while TaskHub cheerfully reports `lastRunStatus: SUCCESS`, and every test passes | The command is broken **on the target**, which no test checks. Classic cause: `Invoke-WebRequest` without `-UseBasicParsing` needs the **IE engine Windows 11 removed** → `NullReferenceException`, and with no console to write it to, the process blocks instead of exiting | [→](#12-a-template-passes-every-test-and-still-hangs-on-the-target) |
 | 13 | The `taskhub` MCP tools are **missing** — and the token is fine: it's set, the host can see it, the backend is healthy, and `node mcp-server/dist/index.js` boots clean by hand | The server is **disabled in the host**, not broken. `disabledMcpjsonServers` in `.claude/settings.local.json` lists it — that's what Claude Code writes for **every** server in `.mcp.json` when you decline the "do you trust this project's MCP servers?" prompt | [→](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine) |
-| 14 | You picked a **deliberately rare** cron (annual, Feb 30, a specific date) so a test task couldn't fire on its own — and it fires **hourly, every day**, forever | Any cron the converter doesn't recognize falls back to a **hard-coded hourly** trigger. The lossy warning says times "might not align 100%", which reads like drift — but the schedule was *replaced*, and the fallback only ever runs **more** often, never less | [→](#14-a-rare-cron-becomes-an-hourly-trigger) |
+| 14 | You picked a **deliberately rare** cron (annual, Feb 30, a specific date) so a test task couldn't fire on its own — and it fires **hourly, every day**, forever | Any cron the converter doesn't recognize falls back to a **hard-coded hourly** trigger. The schedule is *replaced*, not approximated, and the fallback only ever runs **more** often, never less. The warning now says so outright (fixed 2026-07-15) — but the **score is still `0.7`**, the same as a genuinely-approximate step | [→](#14-a-rare-cron-becomes-an-hourly-trigger) |
+| 15 | `run_task` on a **disabled** task hangs ~15s then fails `Agent trigger timeout` — while the agent is connected and healthy, and every other command works | The agent's `task:run` only replied on **success**: any failure (disabled, missing, ACL) wrote to a console nobody reads and emitted nothing, so the backend could only time out and blame the transport. Fixed 2026-07-15 — **needs an agent republish** | [→](#15-run_task-times-out-instead-of-saying-the-task-is-disabled) |
+| 16 | The **second** of two identical agent commands within one second is silently dropped — 15s, then `Agent trigger timeout`. A second later, the same command works | Signed commands carry a **second-granular** `ts`, so two identical commands in the same second are byte-identical — and the agent's **replay guard** can't distinguish your re-send from an attack | [→](#16-a-second-identical-agent-command-within-one-second-is-dropped) |
 
 ---
 
@@ -772,18 +774,31 @@ Repetition   : PT1H / P1D              # <- repeating hourly, all day
 StartBoundary: 2026-07-14T17:00:00-07:00
 ```
 
-The conversion *did* report itself as lossy — `confidence: 0.7` plus
-`"Complex cron expression will be converted to a fallback interval trigger; execution times
-might not align 100%."` — which is why it slips past: that phrasing reads like **drift** (the
+The conversion *did* report itself as lossy — `confidence: 0.7` — but until 2026-07-15 the text
+read `"Complex cron expression will be converted to a fallback interval trigger; execution times
+might not align 100%."`, which is why it slipped past: that phrasing describes **drift** (the
 right schedule, slightly off), so you accept it and move on.
+
+> [!NOTE]
+> **Fixed 2026-07-15 — the warning now names the cost**, because a warning nobody acts on isn't
+> a warning:
+>
+> > *"This cron expression cannot be expressed as a Windows trigger, so the schedule will be
+> > **REPLACED** — not approximated — with a fixed hourly trigger: every hour from 00:00, about
+> > 24 runs a day (~8,760 a year). The original expression is discarded entirely, and the
+> > replacement only ever runs **MORE** often than you asked."*
+>
+> **The score is still `0.7`, and that remains a trap**: it's the *same* score as a `*/7` step,
+> which really is approximate (its trigger *is* derived from your input). Wording distinguishes
+> them; the number doesn't. So a caller thresholding on `>= 0.7` still accepts a replacement —
+> **read the trigger, not the score.**
 
 **Cause** — the cron→trigger converter pattern-matches a handful of shapes (daily, weekly,
 monthly, minute step, hour step). Anything else hits a single **hard-coded fallback** in
 [`backend/src/utils/scheduler-conversion.ts`](../../backend/src/utils/scheduler-conversion.ts):
 
 ```ts
-// Fallback / Complex cron
-warnings.push('Complex cron expression will be converted to a fallback interval trigger; …');
+// Fallback / Complex cron — NOT derived from the input.
 return { confidence: 0.7, trigger: { type: 'Time', startBoundary: '00:00',
   repetition: { interval: 'PT1H', duration: 'P1D' } }, warnings };
 ```
@@ -818,6 +833,121 @@ Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>' | Select-Object -Expa
 *First hit: 2026-07-15 (picked `0 4 1 1 *` as a "can't possibly fire" schedule for a live MCP
 test task; it registered as daily-with-hourly-repetition and would have pinged every hour
 until deleted).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 15. `run_task` times out instead of saying the task is disabled
+
+**Symptom** — running a **disabled** task hangs for ~15 seconds and then fails with a message
+about the *agent*, while the agent is connected, healthy, and handling everything else fine:
+
+```
+run_task → (15013ms) HTTP 500: Agent trigger timeout
+```
+
+So you go and debug the agent connection. The agent is not the problem. The task is disabled.
+
+**Cause** — `task:run` in
+[`agent/TaskHub.Agent/AgentService.cs`](../../agent/TaskHub.Agent/AgentService.cs) only replied on
+**success**. Every failure path emitted nothing at all:
+
+```csharp
+bool success = _scheduler.RunTask(taskPath);
+if (success) { /* emit task:executed */ }
+else { Console.WriteLine($"Task {taskPath} not found for running."); }   // <- no emit
+// ...and the catch (a disabled task makes task.Run() throw) also just logged.
+```
+
+The agent writes that to a console **nobody is attached to** (it's launched hidden). With no
+reply, the backend's `runTask` can only hit its own 15s timeout and resolve with the only thing
+it knows: `Agent trigger timeout`. That message names the **transport** as the culprit for what
+is actually a **task-state** problem with a one-click fix.
+
+Windows itself is perfectly clear about it — `task.Run()` on a disabled task throws
+`COMException 0x80041326 "The task is disabled."` in ~7ms. The information existed the whole
+time; the agent just dropped it on the floor.
+
+**Fix** *(shipped 2026-07-15)* — `task:run` now answers on every accepted path, like
+`task:delete` and `task:set_status` already did:
+
+```
+run_task → (23ms) The task is disabled, so Windows refused to run it.
+                  Enable the task first, then run it again.
+```
+
+**The rule this encodes:** *an accepted command always answers, and a failure answer carries the
+reason.* The **one** case that stays silent is a command that fails signature verification — a
+forger should learn nothing, and the server's timeout is the correct outcome there.
+
+> [!IMPORTANT]
+> **Needs an agent republish** to take effect — see [#7](#7-new-agent-command-502-times-out-until-the-agent-is-republished).
+> `Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'`
+
+> [!TIP]
+> **Getting the agent's console when it's launched hidden.** This was only diagnosable by
+> *seeing what the agent printed*, and the elevated instance discards stdout. Run the published
+> exe in the foreground yourself — it connects and **replaces** the elevated one in the backend's
+> agent registry, so it handles your commands and you can read its output:
+> ```bash
+> cd agent/publish && ./TaskHub.Agent.exe   # Ctrl+C, then republish to restore the real one
+> ```
+
+*First hit: 2026-07-15 (found by driving the new `set_task_status` + `run_task` MCP tools live —
+disabling a task and then running it is a sequence the UI never made easy).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 16. A second identical agent command within one second is dropped
+
+**Symptom** — run the same task twice quickly (a double-click, a loop, a script) and the
+**second** call hangs 15s and fails `Agent trigger timeout`. Wait a second and it works:
+
+```
+run #1  (39ms)     Started successfully
+run #2  (15032ms)  HTTP 500: Agent trigger timeout     # <- same task, 0.3s later
+run #3  (21ms)     Started successfully                # <- same task, 1.5s later
+```
+
+Nothing about the task changed between #2 and #3. Only the clock did.
+
+**Cause** — the agent's console gives it away:
+
+```
+REJECTED unsigned/invalid task:run for \TaskHub\<name>
+```
+
+Signed agent commands carry a **second-granular** `ts`, and the signature is over
+`(message, ts)`. Two identical commands inside the same second are therefore **byte-identical**
+— same `ts`, same `sig` — which is indistinguishable from a captured packet being replayed. The
+agent's replay guard does its job and drops it, silently and correctly. The silence is right for
+a forgery and wrong for you, and the backend once again reports the only thing it can: a timeout.
+
+**This bites hardest when you're testing**, because a test script fires commands back-to-back far
+faster than a human clicks — so it looks like "the second call is broken" rather than "the clock
+didn't tick".
+
+**Workaround** — leave >1s between two *identical* commands to the same task. (Different tasks
+are unaffected: the task path is part of the signed message, so the commands differ.)
+
+**Real fix (open, roadmap)** — put a **nonce** in the signed message so a legitimate re-send is
+never byte-identical, while a true replay (same nonce) is still caught. That's a protocol change:
+backend `emitSignedCommand`, the C# `AgentAuthenticator` message builders, the cross-language
+golden HMAC vectors, and the agent's replay cache all move together.
+
+> [!WARNING]
+> **Don't "fix" this by making the agent reply to a rejected command.** The silence on an
+> unverifiable command is a deliberate security property, not an oversight. The bug is that a
+> *legitimate* command can be byte-identical to a replay — fix the uniqueness, not the silence.
+
+*First hit: 2026-07-15 (a probe fired `run_task` twice ~0.3s apart while isolating #15, and the
+replay guard ate the second — which I initially misread as "running a disabled task hangs",
+because "disabled" was the variable I had changed. It wasn't the cause. Two bugs, one symptom:
+both surface as `Agent trigger timeout`, which is why that message deserves suspicion rather
+than belief.)*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

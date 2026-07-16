@@ -170,6 +170,45 @@ describe('Schedule Conversion Utility', () => {
       expect(res.trigger?.type).toBe('Time');
       expect(res.warnings.length).toBeGreaterThan(0);
     });
+
+    // The fallback trigger is not derived from the input at all — the expression
+    // is dropped and replaced with a fixed hourly repetition. Counting warnings
+    // (above) cannot tell an honest warning from a misleading one, and the old
+    // wording ("might not align 100%") described drift, so a once-a-year cron
+    // becoming ~8,760 runs a year read as a rounding error (troubleshooting #14).
+    // These pin the substance a caller needs to make a decision.
+    it('says the schedule is REPLACED, not approximated, and names the frequency', () => {
+      const res = convertCronToWindowsTrigger('0 4 1 1 *'); // once a year → hourly
+      const warning = res.warnings.join(' ');
+
+      expect(warning).toMatch(/REPLACED/);
+      expect(warning).toMatch(/hourly/i);
+      // The cost, stated as a number. "Might not align" never said this.
+      expect(warning).toMatch(/8,760|24 runs a day/);
+      // The asymmetry that inverts the usual intuition about an approximation.
+      expect(warning).toMatch(/MORE often/);
+      // The honest alternative, so the warning isn't a dead end.
+      expect(warning).toMatch(/disabled|do not encode/i);
+    });
+
+    it('does not describe the replacement as mere drift', () => {
+      // Guards the regression directly: this phrasing is what let #14 slip past.
+      const res = convertCronToWindowsTrigger('0 4 1 1 *');
+      expect(res.warnings.join(' ')).not.toMatch(/might not align/i);
+    });
+
+    // The two 0.7 paths must not be confused: a */7 step really IS approximate
+    // (the trigger is derived from the input and drifts), while an unrecognized
+    // cron is discarded. They share a score, so the WORDING is the only thing
+    // telling them apart — asserting the step path keeps its drift language is
+    // what stops a future edit from collapsing both into one vague message.
+    it('still describes an uneven step as drift, not replacement', () => {
+      const res = convertCronToWindowsTrigger('*/7 * * * *');
+      const warning = res.warnings.join(' ');
+      expect(res.confidence).toBe(0.7);
+      expect(warning).toMatch(/drift/i);
+      expect(warning).not.toMatch(/REPLACED/);
+    });
   });
 
   describe('convertWindowsTriggerToCron', () => {

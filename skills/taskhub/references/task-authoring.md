@@ -18,7 +18,7 @@ a scheduled task is durable, runs unattended, and runs **elevated** on Windows.
 | **A command you already know** | **`create_task`** (MCP) / `POST /api/tasks` | The direct path. The template is the wrong unit when you already know the command. |
 | **A recognizable use case** (DB backup, git fetch, webhook) | **`create_task_from_template`** (MCP) / `POST /api/templates/:id/apply` | Inherits a tested command, sane default schedule, declared params. `list_templates` first for the id + params. |
 | **A URL to poll** | `create_task` with `platform: TASKHUB_NATIVE` | Becomes a backend-run HTTP GET job. **No agent, no Windows task.** Command must be a URL — anything else is honestly refused. |
-| **A richer native job** (non-GET, headers, body) | `POST /api/tasks/native` with a `job` spec | **No MCP tool yet.** The connector's command-string path only builds HTTP GET. |
+| **A richer native job** (non-GET, headers, body) | **`create_native_task`** (MCP) / `POST /api/tasks/native` | Takes a full `job` spec. Separate from `create_task` because the connector's command-string path only builds HTTP GET. |
 | **A task that already exists and is good** | `POST /api/tasks/:id/save-as-template` | Turns a real task into a catalog template. One of two non-reseed ways the catalog grows. |
 | **A template JSON from the gallery** | `POST /api/templates/import` | The other one. Same schema + `{{placeholder}}` validation as any catalog content. |
 
@@ -89,7 +89,7 @@ convert_schedule '0 9 * * 1-5'
 | Score | Means | Do |
 |:---|:---|:---|
 | **1.0** | Native trigger, exact | Still read it. The Monday-only bug scored **1.0 with no warnings** while dropping four days. |
-| **0.7** | Lossy **or replaced** | **Read the trigger.** A `*/7` step really is approximate — but an unrecognized cron is **discarded** and replaced with a **hard-coded hourly** trigger. The warning says "might not align 100%", which badly undersells it. |
+| **0.7** | Lossy **or replaced** — two very different things sharing one score | **Read the trigger.** A `*/7` step really is approximate (the trigger *is* derived from your input and drifts). An unrecognized cron is **discarded** and replaced with a **hard-coded hourly** trigger. Since 2026-07-15 the warning text distinguishes them — "REPLACED — not approximated … ~8,760 runs a year" vs. drift language — but **the score does not**, so a threshold like `>= 0.7` accepts both. |
 | **0** | Invalid / not convertible | Fix the expression. |
 
 > [!WARNING]
@@ -135,31 +135,41 @@ Two things about that listing that will otherwise mislead you:
 
 ## 5. Managing a task afterwards
 
-**Know what you can and can't do over MCP today.** The surface is deliberately narrower than
-the API — that asymmetry is real, not an oversight you should route around:
+**Task management is fully covered over MCP as of 2026-07-15** — with exactly one verb gated:
 
 | Action | MCP | REST |
 |:---|:---|:---|
 | List / inspect | ✅ `list_tasks` | `GET /api/tasks` |
 | Find a folder | ✅ `list_folders` | `GET /api/tasks/folders` |
 | Run now | ✅ `run_task` | `POST /api/tasks/:id/run` |
-| Create | ✅ `create_task`, `create_task_from_template` | `POST /api/tasks`, `POST /api/templates/:id/apply` |
+| Create | ✅ `create_task`, `create_native_task`, `create_task_from_template` | `POST /api/tasks`, `POST /api/tasks/native`, `POST /api/templates/:id/apply` |
 | Validate a schedule | ✅ `convert_schedule` | `POST /api/tasks/preview` |
-| **Enable / disable** | ❌ *(roadmap)* | `PATCH /api/tasks/:id/status` |
-| **Re-schedule** | ❌ *(roadmap)* | `PATCH /api/tasks/:id/schedule` |
-| **Edit the command** | ❌ *(roadmap)* | `PATCH /api/tasks/:id/actions` |
-| **Delete** | ❌ *(roadmap)* | `DELETE /api/tasks/:id` |
-| Run history | ❌ *(roadmap)* | `GET /api/tasks/:id/executions` |
-| Export | ❌ *(roadmap)* | `GET /api/tasks/:id/export` (Windows→XML, native→JSON) |
+| **Enable / disable** | ✅ `set_task_status` | `PATCH /api/tasks/:id/status` |
+| **Re-schedule** | ✅ `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
+| **Edit the command** | ✅ `update_task_action` | `PATCH /api/tasks/:id/actions` |
+| Run history | ✅ `get_task_history` | `GET /api/tasks/:id/executions` |
+| Export | ✅ `export_task` | `GET /api/tasks/:id/export` (Windows→XML, native→JSON) |
+| **Delete** | ⚠️ `delete_task` — **only** with `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
+| Template import/export, save-as-template, sync, pairing | ❌ | REST / UI only |
 
-**Disable is how you park a task** — not a weird cron. **Delete** removes the real Task
-Scheduler entry via a signed agent command, and the DB row goes **only after the platform
-confirms**; an admin-ACL'd task gets an honest "needs elevation" refusal rather than a fake
-success.
+**Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
+reversible and ungated precisely so the safe move is the easy one.
 
-If a user asks you to disable or delete over MCP, say the tool doesn't exist yet and offer the
-UI or the REST call. Don't improvise a substitute — e.g. never "disable" a task by rewriting
-its schedule to something you think won't fire (§3 explains why that backfires).
+**`delete_task` is absent unless the human opted in.** If it isn't in your tool list, that is the
+answer, not an obstacle: say so and offer `set_task_status: DISABLED`, the UI, or the REST call.
+Don't route around it. Delete removes the real Task Scheduler entry via a signed agent command,
+and the DB row goes **only after the platform confirms**; an admin-ACL'd task gets an honest
+"needs elevation" refusal rather than a fake success.
+
+**Two behaviors worth knowing before you use these:**
+
+- **`update_task_action` REPLACES the action, it does not patch it.** `command` and `runLevel` are
+  both required. Read the task's current values (`list_tasks` / `export_task`) before changing
+  one field, or you will silently reset the other.
+- **`get_task_history` is not a complete record.** TaskHub logs manual runs it triggered and
+  native scheduler fires; a Windows task firing on its **own** trigger is recorded by Windows.
+  So an empty history means "TaskHub has nothing", never "it never ran". And a `SUCCESS` means
+  *dispatched and reported success* — a hung task reports exactly that (§6, and trap #12).
 
 ---
 

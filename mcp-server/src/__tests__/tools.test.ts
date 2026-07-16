@@ -20,38 +20,54 @@ import { TaskHubClient, TaskHubApiError } from '../client.js';
 
 // ---- a TaskHubClient stub that records calls ------------------------------
 
+type Method = 'get' | 'post' | 'patch' | 'delete' | 'getBuffer';
+
 interface Call {
-  method: 'get' | 'post';
+  method: Method;
   path: string;
   body?: unknown;
 }
 
 function stubClient(routes: Record<string, unknown | (() => unknown)>) {
   const calls: Call[] = [];
-  const resolve = (method: 'get' | 'post', path: string) => {
-    const key = `${method.toUpperCase()} ${path}`;
+  const resolve = (method: Method, path: string) => {
+    // getBuffer is a GET as far as the route table is concerned — the buffer is
+    // a decoding detail, not a different endpoint.
+    const verb = method === 'getBuffer' ? 'GET' : method.toUpperCase();
+    const key = `${verb} ${path}`;
     if (!(key in routes)) throw new TaskHubApiError(`no stub for ${key}`, 404);
     const v = routes[key];
     const out = typeof v === 'function' ? (v as () => unknown)() : v;
     if (out instanceof Error) throw out;
     return out;
   };
+  const record = (method: Method, path: string, body?: unknown) => {
+    calls.push({ method, path, body });
+    return resolve(method, path);
+  };
   const client = {
     async get(path: string) {
-      calls.push({ method: 'get', path });
-      return resolve('get', path);
+      return record('get', path);
     },
     async post(path: string, body?: unknown) {
-      calls.push({ method: 'post', path, body });
-      return resolve('post', path);
+      return record('post', path, body);
+    },
+    async patch(path: string, body?: unknown) {
+      return record('patch', path, body);
+    },
+    async delete(path: string) {
+      return record('delete', path);
+    },
+    async getBuffer(path: string) {
+      return record('getBuffer', path);
     }
   } as unknown as TaskHubClient;
   return { client, calls };
 }
 
-async function connect(client: TaskHubClient) {
+async function connect(client: TaskHubClient, allowDestructive = false) {
   const server = new McpServer({ name: 'taskhub-test', version: '0.0.0' });
-  registerTools(server, client);
+  registerTools(server, client, { allowDestructive });
   const mcp = new Client({ name: 'test-client', version: '0.0.0' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), mcp.connect(clientTransport)]);
@@ -87,7 +103,7 @@ const task = (over: Partial<Record<string, unknown>> = {}) => ({
 // ===========================================================================
 
 describe('the tool surface', () => {
-  it('registers exactly the six documented tools', async () => {
+  it('registers exactly the documented non-destructive tools', async () => {
     // Pins the surface itself: adding or renaming a tool obligates the two
     // README tool tables and the skill (CLAUDE.md 11a). This is the tripwire.
     const { client } = stubClient({});
@@ -95,21 +111,76 @@ describe('the tool surface', () => {
     const names = (await mcp.listTools()).tools.map(t => t.name).sort();
     expect(names).toEqual([
       'convert_schedule',
+      'create_native_task',
       'create_task',
       'create_task_from_template',
+      'export_task',
+      'get_task_history',
       'list_folders',
       'list_tasks',
       'list_templates',
-      'run_task'
+      'run_task',
+      'set_task_status',
+      'update_task_action',
+      'update_task_schedule'
     ]);
+  });
+
+  it('adds delete_task, and only delete_task, when destructive ops are allowed', async () => {
+    const { client } = stubClient({});
+    const guarded = (await connect(client, false)).listTools();
+    const allowed = (await connect(client, true)).listTools();
+    const before = (await guarded).tools.map(t => t.name);
+    const after = (await allowed).tools.map(t => t.name);
+    // The gate must open exactly one door — not quietly change the rest.
+    expect(after.filter(n => !before.includes(n))).toEqual(['delete_task']);
+    expect(before.filter(n => !after.includes(n))).toEqual([]);
   });
 
   it('describes every tool (a host shows these to the model)', async () => {
     const { client } = stubClient({});
-    const mcp = await connect(client);
+    const mcp = await connect(client, true);
     for (const t of (await mcp.listTools()).tools) {
       expect(t.description, `${t.name} has no description`).toBeTruthy();
     }
+  });
+});
+
+describe('the destructive-op gate', () => {
+  // The gate's whole value is that an agent cannot reach it: it is set by a human
+  // in the environment, out of band. These pin BOTH directions, because a gate
+  // that never opens is a bug too — and a false positive here hands an agent a
+  // deletion verb the user never granted.
+
+  it('does not register delete_task by default', async () => {
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const names = (await mcp.listTools()).tools.map(t => t.name);
+    expect(names).not.toContain('delete_task');
+  });
+
+  it('makes delete_task ABSENT rather than present-and-erroring', async () => {
+    // The distinction matters: a tool the model can see is a tool it will plan
+    // around. A capability that announces itself then refuses is worse than one
+    // that was never offered — the model retries, reasons about permissions, and
+    // burns turns on a door that does not exist.
+    //
+    // Calling it anyway is refused by the SDK as an unknown tool ("not found"),
+    // NOT by a handler saying "not allowed" — which is the point: there is no
+    // handler. The gate is the absence.
+    const { client, calls } = stubClient({ 'DELETE /tasks/id1': { message: 'Task deleted' } });
+    const mcp = await connect(client, false);
+    const r = await call(mcp, 'delete_task', { taskId: 'id1' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/delete_task.*not found/i);
+    // And nothing reached the API on the way to that refusal.
+    expect(calls).toHaveLength(0);
+  });
+
+  it('registers delete_task when allowed', async () => {
+    const { client } = stubClient({});
+    const mcp = await connect(client, true);
+    expect((await mcp.listTools()).tools.map(t => t.name)).toContain('delete_task');
   });
 });
 
@@ -519,14 +590,14 @@ describe('create_task', () => {
       'POST /tasks': {
         ...created,
         conversion: {
-          warnings: ['Complex cron expression will be converted to a fallback interval trigger; execution times might not align 100%.']
+          warnings: ['This cron expression cannot be expressed as a Windows trigger, so the schedule will be REPLACED — not approximated — with a fixed hourly trigger: every hour from 00:00, about 24 runs a day (~8,760 a year).']
         }
       }
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'create_task', { name: 'x', command: 'c.exe', schedule: '0 4 1 1 *' });
     expect(text(r)).toMatch(/Schedule conversion warnings/);
-    expect(text(r)).toMatch(/fallback interval trigger/);
+    expect(text(r)).toMatch(/REPLACED/);
     expect(text(r)).toMatch(/may not match the cron you gave/);
     expect(r.structuredContent?.conversion.warnings).toHaveLength(1);
   });
@@ -690,6 +761,518 @@ describe('convert_schedule', () => {
   });
 });
 
+describe('set_task_status', () => {
+  const row = (over: Record<string, unknown> = {}) => task({ ...over });
+
+  it('patches the status route', async () => {
+    const { client, calls } = stubClient({
+      'PATCH /tasks/id1/status': row({ status: 'DISABLED', nextRunTime: null })
+    });
+    const mcp = await connect(client);
+    await call(mcp, 'set_task_status', { taskId: 'id1', status: 'DISABLED' });
+    expect(calls[0]).toMatchObject({
+      method: 'patch',
+      path: '/tasks/id1/status',
+      body: { status: 'DISABLED' }
+    });
+  });
+
+  it('url-encodes the task id', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/a%2Fb/status': row() });
+    const mcp = await connect(client);
+    await call(mcp, 'set_task_status', { taskId: 'a/b', status: 'ACTIVE' });
+    expect(calls[0].path).toBe('/tasks/a%2Fb/status');
+  });
+
+  it('reports disabling in words, not just a status code', async () => {
+    const { client } = stubClient({
+      'PATCH /tasks/id1/status': row({ status: 'DISABLED', nextRunTime: null })
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'set_task_status', { taskId: 'id1', status: 'DISABLED' }));
+    expect(out).toMatch(/disabled/i);
+    expect(out).toMatch(/Nightly Backup/);
+  });
+
+  it('reports the next run time when a task is enabled', async () => {
+    const { client } = stubClient({
+      'PATCH /tasks/id1/status': row({ status: 'ACTIVE', nextRunTime: '2026-07-16T03:00:00.000Z' })
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'set_task_status', { taskId: 'id1', status: 'ACTIVE' }));
+    expect(out).toMatch(/enabled/i);
+    expect(out).toMatch(/2026-07-16T03:00:00.000Z/);
+  });
+
+  it.each([['DELETED'], ['UNKNOWN'], ['PAUSED'], ['active']])(
+    'rejects %s before reaching the API — only ACTIVE/DISABLED are settable',
+    async bad => {
+      // The route accepts exactly two values; sending anything else would be a
+      // 400 the tool should never have produced.
+      const { client, calls } = stubClient({ 'PATCH /tasks/id1/status': row() });
+      const mcp = await connect(client);
+      const r = await call(mcp, 'set_task_status', { taskId: 'id1', status: bad });
+      expect(r.isError).toBe(true);
+      expect(calls).toHaveLength(0);
+    }
+  );
+
+  it('tells an agent to disable rather than cron a task into silence', async () => {
+    // The #14 trap in reverse: this tool exists so an agent has an honest way to
+    // park a task. If the description stops saying so, the tool loses the reason
+    // it shipped ungated.
+    //
+    // Each clause is asserted separately, NOT as an alternation: /a|b|c/ passes
+    // while two thirds of the guidance is missing, which is exactly what it did
+    // when this was mutation-tested. The instruction and the reason are both
+    // load-bearing — an agent that reads "don't" without "why" tends to argue.
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'set_task_status');
+    expect(tool!.description, 'lost the instruction').toMatch(/do NOT try to park a task/i);
+    expect(tool!.description, 'lost the rare-cron case').toMatch(/rare cron/i);
+    expect(tool!.description, 'lost the consequence').toMatch(/REPLACED/);
+    expect(tool!.description, 'lost the resulting frequency').toMatch(/hourly/i);
+    expect(tool!.description, 'lost the reversibility promise').toMatch(/reversible/i);
+  });
+
+  it('surfaces an agent-offline 502 honestly', async () => {
+    const { client } = stubClient({
+      'PATCH /tasks/id1/status': () =>
+        new TaskHubApiError('The platform failed to update the task status', 502)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'set_task_status', { taskId: 'id1', status: 'DISABLED' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/HTTP 502/);
+    expect(text(r)).toMatch(/failed to update/);
+  });
+});
+
+describe('update_task_schedule', () => {
+  it('patches the schedule route with the cron', async () => {
+    const { client, calls } = stubClient({
+      'PATCH /tasks/id1/schedule': task({ schedule: '0 6 * * *' })
+    });
+    const mcp = await connect(client);
+    await call(mcp, 'update_task_schedule', { taskId: 'id1', schedule: '0 6 * * *' });
+    expect(calls[0]).toMatchObject({
+      method: 'patch',
+      path: '/tasks/id1/schedule',
+      body: { schedule: '0 6 * * *' }
+    });
+  });
+
+  it('reports the new schedule and next run', async () => {
+    const { client } = stubClient({
+      'PATCH /tasks/id1/schedule': task({
+        schedule: '0 6 * * *',
+        nextRunTime: '2026-07-16T06:00:00.000Z'
+      })
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'update_task_schedule', { taskId: 'id1', schedule: '0 6 * * *' }));
+    expect(out).toMatch(/0 6 \* \* \*/);
+    expect(out).toMatch(/2026-07-16T06:00:00.000Z/);
+  });
+
+  it('warns about the hourly replacement in its description', async () => {
+    // This tool can silently re-schedule a task to run 8,760x/year via the
+    // fallback. If the description stops saying "read the trigger, not the
+    // score", the trap is unguarded on this path (#14).
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'update_task_schedule');
+    expect(tool!.description).toMatch(/REPLACED/);
+    expect(tool!.description).toMatch(/convert_schedule/);
+  });
+
+  it('surfaces the refusal for a non-cron trigger as the backend worded it', async () => {
+    // A boot/logon/event-triggered Windows task has no cron form. The honest
+    // answer is the backend's own 400, not a wrapper-invented one.
+    const { client } = stubClient({
+      'PATCH /tasks/id1/schedule': () =>
+        new TaskHubApiError('Editing schedules is not supported for CLAUDE_CODE yet.', 400)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'update_task_schedule', { taskId: 'id1', schedule: '0 6 * * *' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/not supported for CLAUDE_CODE/);
+  });
+
+  it('requires a schedule', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/id1/schedule': task() });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'update_task_schedule', { taskId: 'id1' });
+    expect(r.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe('update_task_action', () => {
+  const updated = task();
+
+  it('patches the actions route with command and runLevel', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/id1/actions': updated });
+    const mcp = await connect(client);
+    await call(mcp, 'update_task_action', {
+      taskId: 'id1',
+      command: 'powershell.exe -File "C:\\jobs\\x.ps1"',
+      runLevel: 'least'
+    });
+    expect(calls[0]).toMatchObject({
+      method: 'patch',
+      path: '/tasks/id1/actions',
+      body: { command: 'powershell.exe -File "C:\\jobs\\x.ps1"', runLevel: 'least' }
+    });
+  });
+
+  it('omits optional fields rather than sending undefined', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/id1/actions': updated });
+    const mcp = await connect(client);
+    await call(mcp, 'update_task_action', { taskId: 'id1', command: 'c.exe', runLevel: 'least' });
+    expect(Object.keys(calls[0].body as object).sort()).toEqual(['command', 'runLevel']);
+  });
+
+  it('passes an explicitly empty workingDirectory through, to clear it', async () => {
+    // '' is a real instruction ("clear the working directory"), distinct from
+    // absent. Dropping it with a truthiness check would make clearing impossible.
+    const { client, calls } = stubClient({ 'PATCH /tasks/id1/actions': updated });
+    const mcp = await connect(client);
+    await call(mcp, 'update_task_action', {
+      taskId: 'id1',
+      command: 'c.exe',
+      runLevel: 'least',
+      workingDirectory: ''
+    });
+    expect(calls[0].body).toMatchObject({ workingDirectory: '' });
+  });
+
+  it('requires runLevel, because the route replaces rather than merges', async () => {
+    // The route's zod schema makes runLevel mandatory: the action is REPLACED,
+    // so omitting it would silently reset a task's elevation. Better to demand it.
+    const { client, calls } = stubClient({ 'PATCH /tasks/id1/actions': updated });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'update_task_action', { taskId: 'id1', command: 'c.exe' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/runLevel/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects a runLevel the route does not accept', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/id1/actions': updated });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'update_task_action', {
+      taskId: 'id1',
+      command: 'c.exe',
+      runLevel: 'admin'
+    });
+    expect(r.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('says the action is replaced, not merged', async () => {
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'update_task_action');
+    expect(tool!.description).toMatch(/REPLACES/);
+  });
+
+  it('reports that the schedule and identity were preserved', async () => {
+    const { client } = stubClient({ 'PATCH /tasks/id1/actions': updated });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'update_task_action', {
+      taskId: 'id1',
+      command: 'c.exe',
+      runLevel: 'highest'
+    }));
+    expect(out).toMatch(/preserved/i);
+    expect(out).toMatch(/highest/);
+  });
+});
+
+describe('get_task_history', () => {
+  const run = (over: Record<string, unknown> = {}) => ({
+    id: 'e1',
+    status: 'SUCCESS',
+    triggeredAt: '2026-07-15T03:00:00.000Z',
+    durationMs: 1200,
+    log: null,
+    platformRunId: null,
+    ...over
+  });
+
+  it('reads the executions route', async () => {
+    const { client, calls } = stubClient({ 'GET /tasks/id1/executions': [run()] });
+    const mcp = await connect(client);
+    await call(mcp, 'get_task_history', { taskId: 'id1' });
+    expect(calls[0]).toMatchObject({ method: 'get', path: '/tasks/id1/executions' });
+  });
+
+  it('renders each run with its status and duration', async () => {
+    const { client } = stubClient({
+      'GET /tasks/id1/executions': [
+        run({ status: 'SUCCESS', durationMs: 1200 }),
+        run({ id: 'e2', status: 'FAILED', triggeredAt: '2026-07-14T03:00:00.000Z', durationMs: 90 })
+      ]
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'get_task_history', { taskId: 'id1' }));
+    expect(out).toMatch(/SUCCESS/);
+    expect(out).toMatch(/FAILED/);
+    expect(out).toMatch(/1200ms/);
+    expect(out).toMatch(/2 recent run/);
+  });
+
+  it('includes the captured log for a failed run', async () => {
+    const { client } = stubClient({
+      'GET /tasks/id1/executions': [run({ status: 'FAILED', log: 'Access is denied.' })]
+    });
+    const mcp = await connect(client);
+    expect(text(await call(mcp, 'get_task_history', { taskId: 'id1' }))).toMatch(/Access is denied/);
+  });
+
+  it('does not claim a task never ran when there is simply no history', async () => {
+    // The honesty case. TaskHub records manual runs and native fires; a Windows
+    // task firing on its OWN trigger is recorded by Windows. Reporting "no runs"
+    // as "never ran" would be a confident lie about someone else's records.
+    const { client } = stubClient({ 'GET /tasks/id1/executions': [] });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'get_task_history', { taskId: 'id1' }));
+    expect(out).toMatch(/does NOT necessarily mean the task never ran/i);
+    expect(out).toMatch(/recorded by Windows/i);
+  });
+
+  it('warns that SUCCESS is not proof against a hang', async () => {
+    // #12's lesson, on the tool that most looks like proof: TaskHub's own
+    // SUCCESS is exactly what the hung webhook template reported.
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'get_task_history');
+    expect(tool!.description).toMatch(/hang/i);
+    expect(tool!.description).toMatch(/LastTaskResult/);
+  });
+
+  it('caps the limit at the 20 the route actually returns', async () => {
+    // Offering limit: 100 would imply a history the API will never serve.
+    const { client, calls } = stubClient({ 'GET /tasks/id1/executions': [run()] });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_task_history', { taskId: 'id1', limit: 50 });
+    expect(r.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('surfaces a 404 for someone else\'s task', async () => {
+    const { client } = stubClient({
+      'GET /tasks/nope/executions': () => new TaskHubApiError('Task not found', 404)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_task_history', { taskId: 'nope' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/Task not found/);
+  });
+});
+
+describe('export_task', () => {
+  // A Windows export arrives as UTF-16 LE + BOM bytes — the only encoding
+  // Windows re-imports. Decoding it as UTF-8 yields mojibake, so these fixtures
+  // are real buffers in that encoding, not strings.
+  const xml = '<?xml version="1.0" encoding="UTF-16"?><Task><Actions/></Task>';
+  const utf16WithBom = () => ({
+    data: Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(xml, 'utf16le')]),
+    contentType: 'application/xml; charset=utf-16le'
+  });
+
+  it('decodes a UTF-16 Windows export back to real XML', async () => {
+    // The bug this prevents: reading UTF-16 bytes as UTF-8 gives "< ? x …",
+    // which the model would faithfully relay as the task definition.
+    const { client } = stubClient({ 'GET /tasks/id1/export': utf16WithBom });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'export_task', { taskId: 'id1' });
+    expect(r.structuredContent?.xml).toBe(xml);
+    expect(text(r)).toMatch(/<Task><Actions\/><\/Task>/);
+    expect(text(r)).not.toMatch(/ /);
+  });
+
+  it('strips the BOM rather than leaving it in the XML', async () => {
+    const { client } = stubClient({ 'GET /tasks/id1/export': utf16WithBom });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'export_task', { taskId: 'id1' });
+    expect(r.structuredContent?.xml.startsWith('<?xml')).toBe(true);
+    expect(r.structuredContent?.xml).not.toMatch(/^﻿/);
+  });
+
+  it('tells the caller the file must be saved as UTF-16 to re-import', async () => {
+    // The tool hands back a string; the encoding is lost the moment an agent
+    // writes it. Saying so is the difference between a usable export and a file
+    // Windows rejects with "unable to switch the encoding".
+    const { client } = stubClient({ 'GET /tasks/id1/export': utf16WithBom });
+    const mcp = await connect(client);
+    expect(text(await call(mcp, 'export_task', { taskId: 'id1' }))).toMatch(/UTF-16 LE with a BOM/);
+  });
+
+  it('exports a TaskHub-native task as JSON', async () => {
+    const bundle = {
+      taskhubTaskVersion: '1.0',
+      exportedAt: '2026-07-15T00:00:00.000Z',
+      task: { name: 'Ping', platform: 'TASKHUB_NATIVE', job: { url: 'https://x' } }
+    };
+    const { client } = stubClient({
+      'GET /tasks/id2/export': {
+        data: Buffer.from(JSON.stringify(bundle), 'utf8'),
+        contentType: 'application/json; charset=utf-8'
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'export_task', { taskId: 'id2' });
+    expect(r.structuredContent?.format).toBe('taskhub-json');
+    expect(r.structuredContent?.definition).toEqual(bundle);
+  });
+
+  it('surfaces an agent-offline export failure honestly', async () => {
+    const { client } = stubClient({
+      'GET /tasks/id1/export': () =>
+        new TaskHubApiError('The agent could not export this task', 502)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'export_task', { taskId: 'id1' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/agent could not export/);
+    expect(text(r)).toMatch(/HTTP 502/);
+  });
+});
+
+describe('create_native_task', () => {
+  const created = { message: 'Native task created', task: task({ id: 'n1', platform: 'TASKHUB_NATIVE' }) };
+
+  it('nests the HTTP job the way the route expects', async () => {
+    const { client, calls } = stubClient({ 'POST /tasks/native': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_native_task', {
+      name: 'Health ping',
+      url: 'https://example.com/health',
+      schedule: '*/15 * * * *'
+    });
+    expect(calls[0].path).toBe('/tasks/native');
+    expect(calls[0].body).toEqual({
+      name: 'Health ping',
+      schedule: '*/15 * * * *',
+      job: { url: 'https://example.com/health', method: 'GET' }
+    });
+  });
+
+  it('carries method, headers, and body into the job spec', async () => {
+    // This is the whole reason the tool is separate from create_task, whose
+    // native path takes only a URL.
+    const { client, calls } = stubClient({ 'POST /tasks/native': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_native_task', {
+      name: 'Webhook',
+      url: 'https://example.com/hook',
+      schedule: '0 9 * * *',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"ok":true}'
+    });
+    expect((calls[0].body as any).job).toEqual({
+      url: 'https://example.com/hook',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"ok":true}'
+    });
+  });
+
+  it('omits absent optional job fields rather than sending undefined', async () => {
+    const { client, calls } = stubClient({ 'POST /tasks/native': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_native_task', { name: 'n', url: 'https://x', schedule: '0 9 * * *' });
+    expect(Object.keys((calls[0].body as any).job).sort()).toEqual(['method', 'url']);
+  });
+
+  it('rejects a method the executor does not support', async () => {
+    const { client, calls } = stubClient({ 'POST /tasks/native': created });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'create_native_task', {
+      name: 'n',
+      url: 'https://x',
+      schedule: '0 9 * * *',
+      method: 'TRACE'
+    });
+    expect(r.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('reports the created task and its next run', async () => {
+    const { client } = stubClient({ 'POST /tasks/native': created });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'create_native_task', {
+      name: 'n',
+      url: 'https://x',
+      schedule: '0 9 * * *'
+    }));
+    expect(out).toMatch(/Native task created/);
+    expect(out).toMatch(/id: n1/);
+    expect(out).toMatch(/Next run/);
+  });
+
+  it('surfaces an invalid-job 400 from the backend', async () => {
+    const { client } = stubClient({
+      'POST /tasks/native': () => new TaskHubApiError('job.url must be an absolute URL', 400)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'create_native_task', {
+      name: 'n',
+      url: 'notaurl',
+      schedule: '0 9 * * *'
+    });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/absolute URL/);
+  });
+});
+
+describe('delete_task', () => {
+  it('calls DELETE on the task route', async () => {
+    const { client, calls } = stubClient({ 'DELETE /tasks/id1': { message: 'Task deleted' } });
+    const mcp = await connect(client, true);
+    await call(mcp, 'delete_task', { taskId: 'id1' });
+    expect(calls[0]).toMatchObject({ method: 'delete', path: '/tasks/id1' });
+  });
+
+  it('url-encodes the task id', async () => {
+    const { client, calls } = stubClient({ 'DELETE /tasks/a%2Fb': { message: 'Task deleted' } });
+    const mcp = await connect(client, true);
+    await call(mcp, 'delete_task', { taskId: 'a/b' });
+    expect(calls[0].path).toBe('/tasks/a%2Fb');
+  });
+
+  it('says plainly that the deletion cannot be undone', async () => {
+    const { client } = stubClient({ 'DELETE /tasks/id1': { message: 'Task deleted' } });
+    const mcp = await connect(client, true);
+    expect(text(await call(mcp, 'delete_task', { taskId: 'id1' }))).toMatch(/cannot be undone/i);
+  });
+
+  it('points at disabling as the reversible alternative', async () => {
+    const { client } = stubClient({});
+    const mcp = await connect(client, true);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'delete_task');
+    expect(tool!.description).toMatch(/set_task_status/);
+    expect(tool!.description).toMatch(/CANNOT be undone/);
+  });
+
+  it('surfaces a needs-elevation refusal honestly', async () => {
+    // An admin-ACL'd task refuses; the honest answer is the agent's own words,
+    // not a wrapper guess about why.
+    const { client } = stubClient({
+      'DELETE /tasks/id1': () =>
+        new TaskHubApiError('The platform failed to delete the task: needs elevation', 502)
+    });
+    const mcp = await connect(client, true);
+    const r = await call(mcp, 'delete_task', { taskId: 'id1' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/needs elevation/);
+  });
+});
+
 describe('error handling across the surface', () => {
   it('returns isError rather than throwing, for every tool', async () => {
     // A thrown handler surfaces as a protocol error; the model sees a stack
@@ -700,21 +1283,40 @@ describe('error handling across the surface', () => {
       'GET /tasks': boom,
       'GET /templates': boom,
       'GET /tasks/folders': boom,
+      'GET /tasks/x/executions': boom,
+      'GET /tasks/x/export': boom,
       'POST /tasks': boom,
+      'POST /tasks/native': boom,
       'POST /tasks/x/run': boom,
       'POST /tasks/preview': boom,
-      'POST /templates/t/apply': boom
+      'POST /templates/t/apply': boom,
+      'PATCH /tasks/x/status': boom,
+      'PATCH /tasks/x/schedule': boom,
+      'PATCH /tasks/x/actions': boom,
+      'DELETE /tasks/x': boom
     });
-    const mcp = await connect(client);
+    const mcp = await connect(client, true);
     const cases: [string, Record<string, unknown>][] = [
       ['list_tasks', {}],
       ['list_templates', {}],
       ['list_folders', {}],
       ['create_task', { name: 'n', command: 'c', schedule: '0 9 * * *' }],
+      ['create_native_task', { name: 'n', url: 'https://x', schedule: '0 9 * * *' }],
       ['run_task', { taskId: 'x' }],
       ['convert_schedule', { schedule: '0 9 * * *' }],
-      ['create_task_from_template', { templateId: 't' }]
+      ['create_task_from_template', { templateId: 't' }],
+      ['get_task_history', { taskId: 'x' }],
+      ['export_task', { taskId: 'x' }],
+      ['set_task_status', { taskId: 'x', status: 'DISABLED' }],
+      ['update_task_schedule', { taskId: 'x', schedule: '0 9 * * *' }],
+      ['update_task_action', { taskId: 'x', command: 'c', runLevel: 'least' }],
+      ['delete_task', { taskId: 'x' }]
     ];
+    // Every registered tool must appear above — a new tool that skips this guard
+    // would be free to throw a stack trace at the model.
+    const registered = (await mcp.listTools()).tools.map(t => t.name).sort();
+    expect(cases.map(([n]) => n).sort()).toEqual(registered);
+
     for (const [name, args] of cases) {
       const r = await call(mcp, name, args);
       expect(r.isError, `${name} did not flag isError`).toBe(true);

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -18,6 +19,59 @@ namespace TaskHub.Agent
             _auth = auth ?? throw new ArgumentNullException(nameof(auth));
 
             SetupSocketEvents();
+        }
+
+        // Windows' own error for running a task that is switched off. The COM
+        // layer's text ("The task is disabled.") is already honest, so this is
+        // only used to add the fix — which the raw error doesn't state.
+        private const int SCHED_E_TASK_DISABLED = unchecked((int)0x80041326);
+
+        /// <summary>
+        /// Report that an ACCEPTED task:run could not be carried out.
+        ///
+        /// This exists because silence was a lie. task:run used to emit only on
+        /// success: any failure (task missing, disabled, ACL) just wrote to the
+        /// console, the server waited out its 15s window, and the user was told
+        /// "Agent trigger timeout" — which names the TRANSPORT as the problem
+        /// while the agent is sitting there healthy. That sends you to debug
+        /// connectivity for a task you could have fixed with one click.
+        ///
+        /// The rule the other verbs already follow: a command we accepted always
+        /// answers, and a failure answer carries the reason. Only an unverifiable
+        /// command is met with silence.
+        /// </summary>
+        private async Task EmitRunFailedAsync(string taskPath, string message)
+        {
+            try
+            {
+                await _socket.EmitAsync("task:executed", new[] { new {
+                    taskExternalId = taskPath,
+                    success = false,
+                    output = message
+                }});
+            }
+            catch
+            {
+                // Socket gone — the server's timeout is the honest outcome now,
+                // and there is nothing left to report it through.
+            }
+        }
+
+        /// <summary>
+        /// Turn a Task Scheduler failure into something the caller can act on.
+        /// Windows' own message leads (it is accurate); we only prepend the fix
+        /// for the disabled case, which is both the most common reason a run
+        /// fails and the one the raw error doesn't tell you how to resolve.
+        /// Anything unrecognized still surfaces its real message rather than a
+        /// guess — an unhelpful truth beats a confident invention.
+        /// </summary>
+        private static string DescribeRunFailure(Exception ex)
+        {
+            if (ex is COMException com && com.HResult == SCHED_E_TASK_DISABLED)
+            {
+                return "The task is disabled, so Windows refused to run it. Enable the task first, then run it again.";
+            }
+            return $"Windows could not start the task: {ex.Message}";
         }
 
         // Pull the shared { ts, sig } off a signed command payload. Returns false
@@ -312,14 +366,19 @@ namespace TaskHub.Agent
             {
                 // Parse inside the try: this is an async-void handler, so an
                 // exception on a malformed frame would otherwise tear down the process.
+                var taskPath = "";
                 try
                 {
                     var data = response.GetValue<JsonElement>(0);
-                    var taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
+                    taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
 
                     if (!TryReadSignature(data, out var ts, out var sig) ||
                         !_auth.VerifyCommand(AgentAuthenticator.RunMessage(taskPath, ts), ts, sig))
                     {
+                        // Deliberately silent: an unverifiable command gets no
+                        // reply at all, so a forger learns nothing (the server
+                        // times out). Every path BELOW this point is a command we
+                        // accepted, and an accepted command must always answer.
                         Console.WriteLine($"REJECTED unsigned/invalid task:run for {taskPath}");
                         return;
                     }
@@ -340,12 +399,18 @@ namespace TaskHub.Agent
                     }
                     else
                     {
+                        // RunTask returns false only when nothing exists at the path.
                         Console.WriteLine($"Task {taskPath} not found for running.");
+                        await EmitRunFailedAsync(
+                            taskPath,
+                            "No task exists at this path on the machine. It may have been deleted or renamed " +
+                            "outside TaskHub — run a sync to reconcile.");
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error running task: {ex.Message}");
+                    await EmitRunFailedAsync(taskPath, DescribeRunFailure(ex));
                 }
             });
 

@@ -4,13 +4,34 @@ import { TaskHubClient, TaskHubApiError } from './client.js';
 
 /**
  * Tool surface for the TaskHub MCP server (docs/ROADMAP.md › P3):
- *   list_tasks · run_task · list_templates · list_folders · create_task ·
- *   create_task_from_template · convert_schedule
+ *
+ *   read      list_tasks · list_templates · list_folders · get_task_history ·
+ *             export_task · convert_schedule
+ *   create    create_task · create_native_task · create_task_from_template
+ *   act       run_task
+ *   modify    set_task_status · update_task_schedule · update_task_action
+ *   destroy   delete_task            (only when allowDestructive — see below)
  *
  * Each tool is a thin call through TaskHubClient into the REST API. Business
  * rules (owner scoping, no-shell command structuring, agent signing, cron→trigger
  * conversion) all stay server-side — this layer only shapes input/output.
+ *
+ * Gating (decided 2026-07-15, docs/ROADMAP.md › MCP surface expansion): the
+ * irreversible verb is gated, the reversible ones are not. `set_task_status` in
+ * particular ships ungated ON PURPOSE — it is the honest way to park a task, and
+ * gating it would push an agent toward encoding "don't run" in the cron, which
+ * is troubleshooting #14 exactly. A gate that makes the safe path harder than the
+ * unsafe one is worse than no gate.
  */
+
+export interface ToolOptions {
+  /**
+   * Register the irreversible tools (delete_task). Sourced from an env var, not
+   * a tool parameter: a `confirm: true` argument is not a gate, because the model
+   * fills it in itself. See TaskHubClientConfig.allowDestructive.
+   */
+  allowDestructive: boolean;
+}
 
 // The platforms TaskHub can actually create on today (the honesty pass gated the
 // UI to these too). Others are catalog-only until their agent/connector exists.
@@ -83,6 +104,17 @@ interface FolderRow {
   path: string;
   taskCount: number;
   writable: boolean;
+}
+
+// GET /api/tasks/:id/executions — mirrors Prisma's ExecutionLog. The route
+// returns the 20 most recent, newest first; that cap is the API's, not ours.
+interface ExecutionRow {
+  id: string;
+  status: string;
+  triggeredAt: string;
+  durationMs: number | null;
+  log: string | null;
+  platformRunId: string | null;
 }
 
 // ---- helpers ----
@@ -163,7 +195,11 @@ const compactTemplate = (t: TemplateRow) => ({
   }))
 });
 
-export function registerTools(server: McpServer, client: TaskHubClient): void {
+export function registerTools(
+  server: McpServer,
+  client: TaskHubClient,
+  options: ToolOptions = { allowDestructive: false }
+): void {
   // -------------------------------------------------------------------------
   // list_tasks
   // -------------------------------------------------------------------------
@@ -606,4 +642,370 @@ export function registerTools(server: McpServer, client: TaskHubClient): void {
       }
     }
   );
+
+  // -------------------------------------------------------------------------
+  // create_native_task
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'create_native_task',
+    {
+      title: 'Create a TaskHub-native HTTP task',
+      description:
+        'Create a TaskHub-native task that makes an HTTP request on a schedule — run by the TaskHub backend ' +
+        'itself, with no agent and no machine to be logged into. Use this instead of create_task when the job ' +
+        'IS an HTTP call and you need more than a plain GET: this takes a full job spec (method, headers, body), ' +
+        'where create_task with platform=TASKHUB_NATIVE only accepts a URL. ' +
+        'Good for pinging a health endpoint, triggering a webhook, or poking a deploy hook.',
+      inputSchema: {
+        name: z.string().describe('Task name.'),
+        url: z.string().describe('The URL to request. Must be absolute, e.g. "https://example.com/health".'),
+        schedule: z
+          .string()
+          .describe(
+            '5-field cron in UTC: "min hour dom month dow". Native tasks are run by the backend\'s own cron ' +
+            'scheduler, so the expression is used AS GIVEN — no Windows trigger conversion, and none of the ' +
+            'hourly-fallback risk that applies to Windows tasks.'
+          ),
+        method: z
+          .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'])
+          .default('GET')
+          .describe('HTTP method. Defaults to GET.'),
+        headers: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe('Request headers, e.g. {"Authorization": "Bearer …", "Content-Type": "application/json"}.'),
+        body: z
+          .string()
+          .optional()
+          .describe('Request body as a string. For JSON, pass the serialized JSON and set a Content-Type header.'),
+        category: z.string().optional().describe('TaskHub category for grouping. Defaults to "TaskHub".')
+      }
+    },
+    async ({ name, url, schedule, method, headers, body, category }) => {
+      try {
+        // The route takes the job as a nested spec and validates it with the same
+        // validateJob the executor uses — so the shape is the backend's, not ours.
+        const job: Record<string, unknown> = { url, method };
+        if (headers) job.headers = headers;
+        if (body) job.body = body;
+
+        const payload: Record<string, unknown> = { name, schedule, job };
+        if (category) payload.category = category;
+
+        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/native', payload);
+        const task = result.task;
+        const created = task
+          ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
+            (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
+          : '';
+        const msg = typeof result.message === 'string' ? result.message : 'Native task created';
+        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // get_task_history
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'get_task_history',
+    {
+      title: 'Get a task\'s recent run history',
+      description:
+        'Show the recent execution history for a task — when it ran, whether it succeeded, how long it took, ' +
+        'and any captured output. This is how you answer "did last night\'s job actually work?". ' +
+        'Returns at most the 20 most recent runs (a server-side cap), newest first. ' +
+        'IMPORTANT: history only covers runs TaskHub knows about — manual runs it triggered and TaskHub-native ' +
+        'scheduler fires. A Windows task that ran on its own trigger is recorded by Windows, not here, so an ' +
+        'empty history does NOT mean the task never ran. Note too that a SUCCESS here means the run was ' +
+        'dispatched and reported success — a task that hangs forever can still report SUCCESS, so for a ' +
+        'suspected hang check Windows\' own LastTaskResult rather than trusting this.',
+      inputSchema: {
+        taskId: z.string().describe('The TaskHub task id (from list_tasks).'),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(20)
+          .default(20)
+          .describe('Max runs to return (default 20, which is also the server-side maximum).')
+      }
+    },
+    async ({ taskId, limit }) => {
+      try {
+        const runs = await client.get<ExecutionRow[]>(
+          `/tasks/${encodeURIComponent(taskId)}/executions`
+        );
+        const rows = (runs ?? []).slice(0, limit);
+        if (rows.length === 0) {
+          // Say what the emptiness does and does not mean. "No runs" read as
+          // "never ran" would be a confident lie for a Windows task firing on
+          // its own trigger — those runs are recorded by Windows, not TaskHub.
+          return ok(
+            'No run history recorded for this task.\n' +
+            'This means TaskHub has not recorded a run — it does NOT necessarily mean the task never ran: ' +
+            'a Windows task firing on its own trigger is recorded by Windows, not by TaskHub. ' +
+            'TaskHub records manual runs it triggered and TaskHub-native scheduler fires.',
+            { taskId, returned: 0, runs: [] }
+          );
+        }
+        const summary = rows
+          .map(r => {
+            const dur = r.durationMs !== null && r.durationMs !== undefined ? ` — ${r.durationMs}ms` : '';
+            const log = r.log ? `\n    ${r.log.replace(/\s+/g, ' ').slice(0, 300)}` : '';
+            return `• ${r.triggeredAt} — ${r.status}${dur}${log}`;
+          })
+          .join('\n');
+        return ok(`${rows.length} recent run(s), newest first:\n${summary}`, {
+          taskId,
+          returned: rows.length,
+          runs: rows
+        });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // export_task
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'export_task',
+    {
+      title: 'Export a task\'s definition',
+      description:
+        'Export a task\'s full definition. A Windows task exports as native Task Scheduler XML (the same thing ' +
+        'Export-ScheduledTask and the Task Scheduler UI produce, so it re-imports into any Windows machine); ' +
+        'a TaskHub-native task exports as TaskHub JSON. Useful for inspecting exactly what is registered, ' +
+        'backing a task up before changing it, or moving it to another machine. ' +
+        'IMPORTANT if you save the XML to a file: Windows requires it as UTF-16 LE with a BOM. Writing it as ' +
+        'UTF-8 (the default almost everywhere) produces a file Windows refuses with "unable to switch the ' +
+        'encoding" — the text below is correct, but the encoding you save it in is on you.',
+      inputSchema: {
+        taskId: z.string().describe('The TaskHub task id (from list_tasks).')
+      }
+    },
+    async ({ taskId }) => {
+      try {
+        // Must go through getBuffer: a Windows export is UTF-16 LE + BOM bytes,
+        // and letting axios decode them as UTF-8 yields mojibake.
+        const { data, contentType } = await client.getBuffer(
+          `/tasks/${encodeURIComponent(taskId)}/export`
+        );
+        const isXml = contentType.includes('xml');
+
+        if (isXml) {
+          // Strip the BOM and decode from the encoding the route actually sends,
+          // so the model reads real XML rather than every-other-byte garbage.
+          const utf16 = contentType.toLowerCase().includes('utf-16');
+          const hasBom = data.length >= 2 && data[0] === 0xff && data[1] === 0xfe;
+          const body = hasBom ? data.subarray(2) : data;
+          const xml = utf16 ? body.toString('utf16le') : body.toString('utf8');
+          return ok(
+            `Windows Task Scheduler XML for task ${taskId}:\n\n${xml}\n\n` +
+            'Note: to re-import this into Windows, it must be saved as UTF-16 LE with a BOM — ' +
+            'a UTF-8 file is rejected with "unable to switch the encoding".',
+            { taskId, format: 'windows-xml', xml }
+          );
+        }
+
+        // TaskHub-native: JSON straight from the DB row.
+        const json = JSON.parse(data.toString('utf8'));
+        return ok(
+          `TaskHub-native task definition for ${taskId}:\n\n${JSON.stringify(json, null, 2)}`,
+          { taskId, format: 'taskhub-json', definition: json }
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // set_task_status
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'set_task_status',
+    {
+      title: 'Enable or disable a task',
+      description:
+        'Enable or disable a scheduled task. This is THE right way to stop a task from running without deleting ' +
+        'it — do NOT try to park a task by giving it a rare cron schedule (an expression Windows cannot express ' +
+        'is silently REPLACED with an hourly trigger, so "once a year" becomes "every hour"). ' +
+        'Disabling keeps the task and its definition intact and is fully reversible: enable it again to resume. ' +
+        'For a Windows task this sends a signed command to the local agent; the change is written to TaskHub ' +
+        'only after the platform confirms it.',
+      inputSchema: {
+        taskId: z.string().describe('The TaskHub task id (from list_tasks).'),
+        status: z
+          .enum(['ACTIVE', 'DISABLED'])
+          .describe('ACTIVE enables the task; DISABLED stops it running without deleting it.')
+      }
+    },
+    async ({ taskId, status }) => {
+      try {
+        const task = await client.patch<TaskRow>(
+          `/tasks/${encodeURIComponent(taskId)}/status`,
+          { status }
+        );
+        const verb = status === 'ACTIVE' ? 'enabled' : 'disabled';
+        const next = task.nextRunTime ? ` — next run ${task.nextRunTime}` : '';
+        return ok(`Task ${verb}: ${task.name} [${task.platform}]${next}`, {
+          taskId,
+          status,
+          task: compactTask(task)
+        });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // update_task_schedule
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'update_task_schedule',
+    {
+      title: 'Change a task\'s schedule',
+      description:
+        'Change when an existing task runs, without deleting and recreating it. For a Windows task the agent ' +
+        'rebuilds only the trigger — the command, working directory, and permissions are preserved — and ' +
+        'TaskHub records the change only after the platform confirms it. ' +
+        'IMPORTANT: check the new schedule with convert_schedule FIRST and read the returned trigger, not just ' +
+        'the confidence score. A cron Windows cannot express natively is REPLACED with an hourly trigger rather ' +
+        'than refused, and it only ever runs MORE often than you asked. ' +
+        'Only tasks whose trigger is expressible as cron can be re-scheduled: a Windows task that runs at boot, ' +
+        'logon, or on an event has no cron form and is refused honestly.',
+      inputSchema: {
+        taskId: z.string().describe('The TaskHub task id (from list_tasks).'),
+        schedule: z
+          .string()
+          .describe(
+            '5-field cron in UTC: "min hour dom month dow". TaskHub stores all schedules as UTC and displays ' +
+            'them in local time — do not pass local time.'
+          )
+      }
+    },
+    async ({ taskId, schedule }) => {
+      try {
+        const task = await client.patch<TaskRow>(
+          `/tasks/${encodeURIComponent(taskId)}/schedule`,
+          { schedule }
+        );
+        const next = task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '';
+        return ok(
+          `Schedule updated: ${task.name} [${task.platform}] now runs on "${task.schedule ?? schedule}" (UTC cron).${next}`,
+          { taskId, schedule, task: compactTask(task) }
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // update_task_action
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'update_task_action',
+    {
+      title: 'Change what a task runs',
+      description:
+        'Change an existing task\'s command, working directory, description, or run level. The agent replaces ' +
+        'the task\'s action while preserving its trigger and the account it runs as, and TaskHub records the ' +
+        'change only after the platform confirms it. ' +
+        'The command is structured server-side into a no-shell {executable, args[]} action, exactly as on create ' +
+        '— so a shell is NOT implied: to use pipes, redirection, or `&&` you must invoke one explicitly, ' +
+        'e.g. cmd.exe /c "…". ' +
+        'NOTE: this REPLACES the action rather than patching it — `command` and `runLevel` are both required, ' +
+        'so pass the full command you want even if you are only changing the working directory, and read the ' +
+        'task\'s current values first (list_tasks / export_task) rather than guessing.',
+      inputSchema: {
+        taskId: z.string().describe('The TaskHub task id (from list_tasks).'),
+        command: z
+          .string()
+          .describe(
+            'The full command to run, e.g. `powershell.exe -NoProfile -File "C:\\\\jobs\\\\backup.ps1"`. ' +
+            'Replaces the existing action entirely — it is not merged with it.'
+          ),
+        runLevel: z
+          .enum(['least', 'highest'])
+          .describe(
+            "'least' runs with the user's normal rights; 'highest' runs elevated. Required — pass the task's " +
+            'current level unless you intend to change it. Prefer least unless the job genuinely needs elevation.'
+          ),
+        workingDirectory: z
+          .string()
+          .optional()
+          .describe('Directory to run the command in. Omit to clear it.'),
+        description: z
+          .string()
+          .optional()
+          .describe('Free-text description shown in Task Scheduler. Omit to clear it. Max 1024 characters.')
+      }
+    },
+    async ({ taskId, command, runLevel, workingDirectory, description }) => {
+      try {
+        const body: Record<string, unknown> = { command, runLevel };
+        if (workingDirectory !== undefined) body.workingDirectory = workingDirectory;
+        if (description !== undefined) body.description = description;
+
+        const task = await client.patch<TaskRow>(
+          `/tasks/${encodeURIComponent(taskId)}/actions`,
+          body
+        );
+        return ok(
+          `Action updated: ${task.name} [${task.platform}] now runs \`${command}\`` +
+          `${workingDirectory ? ` in ${workingDirectory}` : ''} at run level "${runLevel}".` +
+          '\nThe task\'s schedule and the account it runs as were preserved.',
+          { taskId, command, runLevel, task: compactTask(task) }
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // delete_task — registered ONLY when explicitly allowed.
+  // -------------------------------------------------------------------------
+  //
+  // Absent, not present-and-erroring, when the gate is closed: a tool the model
+  // can see is a tool it will plan around, and a capability that announces itself
+  // then refuses is worse than one that was never offered. `tools/list` is the
+  // honest statement of what this server can do.
+  if (options.allowDestructive) {
+    server.registerTool(
+      'delete_task',
+      {
+        title: 'Delete a task permanently',
+        description:
+          'PERMANENTLY delete a scheduled task. For a Windows task this removes the real Task Scheduler entry ' +
+          'via the local agent (which runs elevated), and the TaskHub record is only removed after the platform ' +
+          'confirms the deletion. This CANNOT be undone — there is no trash and no restore. ' +
+          'Prefer set_task_status with DISABLED unless the task is genuinely meant to be gone: disabling stops ' +
+          'the task running and is fully reversible. ' +
+          'If you did not create the task in this session, export_task first so the definition can be rebuilt, ' +
+          'and confirm with the user before calling this.',
+        inputSchema: {
+          taskId: z.string().describe('The TaskHub task id (from list_tasks).')
+        }
+      },
+      async ({ taskId }) => {
+        try {
+          const result = await client.delete<{ message?: string }>(
+            `/tasks/${encodeURIComponent(taskId)}`
+          );
+          const msg = typeof result.message === 'string' ? result.message : 'Task deleted';
+          return ok(`${msg} (id: ${taskId}). This cannot be undone.`, { taskId, deleted: true });
+        } catch (err) {
+          return toolError(err);
+        }
+      }
+    );
+  }
 }

@@ -67,9 +67,11 @@ io.on('connection', (socket: Socket) => {
 // --- Initialization ---
 
 async function main() {
-  // MVP Placeholder User
+  // MVP Placeholder User. Key the upsert on the stable primary key, not email:
+  // the single-user login flow lets the user change this row's email, which would
+  // orphan an email-keyed upsert and make it try to re-create the fixed id (P2002).
   await prisma.user.upsert({
-    where: { email: 'mike@example.com' },
+    where: { id: 'cli_user_placeholder' },
     update: {},
     create: {
       id: 'cli_user_placeholder', email: 'mike@example.com',

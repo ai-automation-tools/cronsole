@@ -106,12 +106,19 @@ converts a missing capability into a lie. Leaving it undefined *is* the design.
   (the agent is launched hidden). ([#15](../../docs/troubleshooting/README.md#15-run_task-times-out-instead-of-saying-the-task-is-disabled))
   - **The one deliberate silence** is a command that fails signature verification: a forger
     should learn nothing, and the server's timeout is the correct outcome there.
-- **⚠️ `ts` is second-granular, so two identical commands in one second are byte-identical** —
-  and therefore indistinguishable from a replay, so the guard drops the second one silently.
-  Same misleading `Agent trigger timeout`, entirely different cause. This bites test scripts
-  hardest (they fire faster than a human clicks); leave >1s between identical commands. The fix
-  (open) is a **nonce in the signed message** — make legitimate re-sends unique; do **not**
-  make the agent answer rejected commands. ([#16](../../docs/troubleshooting/README.md#16-a-second-identical-agent-command-within-one-second-is-dropped))
+- **Every signed command carries a per-command `nonce`, inside the message, just before `ts`.**
+  `ts` is only second-granular, so without it two identical commands in one second were
+  byte-identical — indistinguishable from a replay, and the guard dropped the second silently
+  (fixed 2026-07-15; [#16](../../docs/troubleshooting/README.md#16-a-second-identical-agent-command-within-one-second-is-dropped)).
+  It is **inside** the signature for the same reason `folder` and `trigger` are: an unsigned
+  nonce could be rewritten in flight to turn a captured frame into a "fresh" command.
+  - **Signed AND sent.** The agent rebuilds the message locally, so it needs the exact nonce.
+    Signing one and forgetting to emit it makes every command unverifiable — and the rejection is
+    silent, so it looks like the agent died.
+  - The replay cache still keys on `(ts, sig)` and needed no change: the signature is now unique
+    per instance, so it stops colliding on its own. The `*Message` helpers take the nonce as a
+    **required** parameter — that's the enforcement that one always exists.
+  - Anything else that signs commands (`agent/test-server/index.js`) must add it too.
   - **Corollary for debugging:** `Agent trigger timeout` has at least three causes — a stale
     agent with no handler ([#7](../../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)),
     a silent failure path (#15), and the replay guard (#16). It is the backend's *default*, not

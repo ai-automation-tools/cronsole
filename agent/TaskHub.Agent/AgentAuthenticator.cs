@@ -38,6 +38,15 @@ namespace TaskHub.Agent
         // Seen (ts|sig) command signatures -> expiry (unix seconds): a valid
         // command is accepted at most once within its freshness window, so a
         // captured command frame can't be replayed on a plaintext connection.
+        //
+        // This guard assumes every distinct command has a distinct signature.
+        // That assumption was FALSE until the per-command nonce landed: `ts` is
+        // second-granular, so two legitimate identical commands within one second
+        // hashed to the same sig and the second was dropped as a "replay" —
+        // silently, leaving the server to time out and blame the transport
+        // (troubleshooting #16). The nonce inside every *Message restores the
+        // assumption, which is why this cache needs no key change: a legitimate
+        // re-send now differs, a replayed frame is still byte-identical.
         private readonly object _replayLock = new();
         private readonly Dictionary<string, long> _seenCommands = new();
 
@@ -151,34 +160,43 @@ namespace TaskHub.Agent
         }
 
         // Canonical command messages — must match commandMessage() in agentAuth.ts.
-        public static string RunMessage(string taskPath, long ts) =>
-            $"task:run|{taskPath}|{ts}";
+        //
+        // `nonce` sits immediately before `ts` in every message and is REQUIRED:
+        // it is what makes each command instance unique. Without it, `ts` is
+        // second-granular, so two legitimate identical commands inside one second
+        // signed to the SAME signature — indistinguishable from a replayed frame,
+        // so RegisterCommandUse silently dropped the second and the server timed
+        // out blaming the transport (troubleshooting #16). Taking it as a required
+        // parameter is the enforcement point: you cannot build a signed message
+        // without one.
+        public static string RunMessage(string taskPath, string nonce, long ts) =>
+            $"task:run|{taskPath}|{nonce}|{ts}";
 
-        public static string DeleteMessage(string taskPath, long ts) =>
-            $"task:delete|{taskPath}|{ts}";
+        public static string DeleteMessage(string taskPath, string nonce, long ts) =>
+            $"task:delete|{taskPath}|{nonce}|{ts}";
 
-        public static string SetStatusMessage(string taskPath, bool enabled, long ts) =>
-            $"task:set_status|{taskPath}|{(enabled ? 1 : 0)}|{ts}";
+        public static string SetStatusMessage(string taskPath, bool enabled, string nonce, long ts) =>
+            $"task:set_status|{taskPath}|{(enabled ? 1 : 0)}|{nonce}|{ts}";
 
         // The trigger IS the change, so it's part of the signed message (mirrors
         // the task:create trigger coverage).
-        public static string UpdateScheduleMessage(string taskPath, string triggerCanonical, long ts) =>
-            $"task:update_schedule|{taskPath}|{triggerCanonical}|{ts}";
+        public static string UpdateScheduleMessage(string taskPath, string triggerCanonical, string nonce, long ts) =>
+            $"task:update_schedule|{taskPath}|{triggerCanonical}|{nonce}|{ts}";
 
         // The action (executable + args), working dir, description, and run level
         // ARE the change here, so all are part of the signed message. Fields are
         // pre-normalized (empty string for unset) — must match commandMessage()'s
         // 'task:update' case in agentAuth.ts byte-for-byte.
-        public static string UpdateMessage(string taskPath, string actionCanonical, string workingDirectory, string description, string runLevel, long ts) =>
-            $"task:update|{taskPath}|{actionCanonical}|{workingDirectory}|{description}|{runLevel}|{ts}";
+        public static string UpdateMessage(string taskPath, string actionCanonical, string workingDirectory, string description, string runLevel, string nonce, long ts) =>
+            $"task:update|{taskPath}|{actionCanonical}|{workingDirectory}|{description}|{runLevel}|{nonce}|{ts}";
 
         // Matches the 'task:create' case in agentAuth.ts byte-for-byte. `folder`
-        // is signed and sits last before ts: it decides WHERE the task is
-        // registered, and RegisterTaskDefinition silently overwrites a
+        // is signed and sits last among the payload fields: it decides WHERE the
+        // task is registered, and RegisterTaskDefinition silently overwrites a
         // same-named task in the same folder — so an unsigned folder would let
         // an on-path attacker redirect a create onto an existing task.
-        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, string folder, long ts) =>
-            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{folder}|{ts}";
+        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, string folder, string nonce, long ts) =>
+            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{folder}|{nonce}|{ts}";
 
         // Canonical action string the create signature covers. MUST match the
         // backend's canonicalizeAction (utils/commandParser.ts): the executable and

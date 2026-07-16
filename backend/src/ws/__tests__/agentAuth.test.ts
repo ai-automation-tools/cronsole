@@ -9,6 +9,7 @@ process.env.AGENT_PAIRING_SECRET = SECRET;
 import {
   verifyHandshake,
   signCommand,
+  emitSignedCommand,
   getPairingSecret,
   _resetNonceCache,
   type SignableCommand,
@@ -22,30 +23,43 @@ const hmac = (key: string, msg: string) =>
 // Cross-language golden vector — the C# AgentAuthenticatorTests asserts these
 // exact hex strings. If either side changes the HMAC message format, BOTH test
 // suites break, which is the point.
+//
+// Regenerated 2026-07-15 for the per-command nonce, which sits immediately
+// before `ts` in every message. The regeneration was validated by first
+// reproducing the PREVIOUS committed vectors from the old format — a generator
+// that can't reproduce what's already in the repo would emit new values that are
+// confidently wrong and then get pinned by both suites, i.e. a lie agreed on
+// twice.
 const VEC = {
   secret: 'test-pairing-secret-value',
   agentId: 'test-agent',
+  // The HANDSHAKE nonce (derives the session key). Distinct from commandNonce
+  // below — they do different jobs and are deliberately not shared.
   nonce: 'abc123',
+  // The PER-COMMAND nonce: what makes two otherwise-identical commands in the
+  // same second sign differently (troubleshooting #16). Fixed here so the
+  // vectors stay deterministic; random in production.
+  commandNonce: 'd1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6',
   ts: 1700000000,
   sessionKey: '67d80428fd79e26dd92269f97474031860185d325df6c731cda179e22b53ff14',
-  runSig: 'e76700fc1e7c6f8e6a9d85e76f17713c7e47c0b8b4b2e1b93b5866886ac02c48',
-  deleteSig: 'ac32ed9af3b1904803cc54a7667e109e25e79c068f420c386c054374fd23d61f',
-  statusSig: '9a01e71e17bba19ffadfa229be77c04d85ec4b92f2493cff9b1b107f13075133',
+  runSig: '1b05698c29c1761cccca0831edea73ee4de990024294056f39a037819f2fbc92',
+  deleteSig: '895b3da37ada2786afc47a0aa16404a395fd1ac9404b28f1597f451b2e76b36f',
+  statusSig: '0ed95b89b34854fa0e99f2813d5049a542b883332a5f572e033820081ede0d2b',
   // task:update_schedule signs the trigger. Golden case: Daily 03:00,
   // daysInterval 1 -> canonical 'trigger|Daily|03:00|1|||'.
-  updateScheduleSig: '65333bec21e6e67657195befd02cd7178309cbcb4404e0ce7ed99ff912ae686b',
+  updateScheduleSig: 'f2d3877a970941645fc82da9d1bf1e829593a7b9b73e7cc1cd3739c89859ac83',
   // task:update signs the structured action, working dir, description, and run
   // level. Golden case: action { executable: 'powershell.exe', args: ['-File',
   // 'C:\\x.ps1'] } -> canonical 'powershell.exe\x1f-File\x1fC:\\x.ps1', working
   // dir 'C:\\scripts', description 'Nightly job', runLevel 'highest'.
-  updateSig: 'a11ff9024b5a5b0e590f8a6b55824f289dd26abba53d0ecb2d594d18b320c91f',
+  updateSig: '1032132b7efe16c1f45773d628783f4a0ea82f1a73f03f891ee91359f5a7e135',
   // task:create signs the structured action, the trigger, AND the destination
   // folder. Golden case: command 'dir', action { executable: 'dir', args: [] }
   // -> canonical 'dir', trigger null -> canonical 'none', folder '\TaskHub'.
-  createSig: 'ce9cada38d1540ce51aeb68c19b7d3b762039aa036a4bad1e0fa440d3f488da2',
+  createSig: '99585bc2d9d95a8ed507be30c41af062cce5636bd83428885c36ee0c72f98d8e',
   // Same command with a Weekly trigger -> canonical
   // 'trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D'.
-  createSigWithTrigger: '5feb965859a4ddfd62f7f928130a8d8b5326af494aed22ba70bea2ba7b25d051',
+  createSigWithTrigger: '1c8108cea06ef53db192436d82229a1fe0a5d18a74bd202df9eb639ecd68ce37',
 };
 
 /** Build a valid, fresh handshake auth payload for the given nonce. */
@@ -114,8 +128,101 @@ describe('agentAuth cross-language vector', () => {
       ],
     ];
     for (const [cmd, expected] of cases) {
-      expect(signCommand(VEC.sessionKey, cmd, VEC.ts).sig).toBe(expected);
+      expect(signCommand(VEC.sessionKey, cmd, VEC.ts, VEC.commandNonce).sig).toBe(expected);
     }
+  });
+
+  // The bug the nonce exists for (troubleshooting #16). `ts` is second-granular,
+  // so before this, two legitimate identical commands inside one second produced
+  // a byte-identical signature — indistinguishable from a replayed frame, so the
+  // agent's replay guard silently dropped the second one and the backend timed
+  // out blaming the transport. These pin BOTH halves of the property: distinct
+  // instances differ, and a genuine replay still collides.
+  it('signs two identical commands in the SAME second differently', () => {
+    const cmd: SignableCommand = { event: 'task:run', taskPath: 'MyTask' };
+    const a = signCommand(VEC.sessionKey, cmd, VEC.ts, 'a'.repeat(32));
+    const b = signCommand(VEC.sessionKey, cmd, VEC.ts, 'b'.repeat(32));
+    expect(a.sig).not.toBe(b.sig);
+  });
+
+  it('still signs a replayed frame (same nonce, same ts) identically', () => {
+    // The replay guard keys on (ts, sig), so this MUST stay stable — otherwise
+    // the nonce would have fixed the false-reject by breaking replay detection.
+    const cmd: SignableCommand = { event: 'task:run', taskPath: 'MyTask' };
+    const a = signCommand(VEC.sessionKey, cmd, VEC.ts, VEC.commandNonce);
+    const b = signCommand(VEC.sessionKey, cmd, VEC.ts, VEC.commandNonce);
+    expect(a.sig).toBe(b.sig);
+  });
+
+  it('covers the nonce with the signature, so it cannot be swapped in flight', () => {
+    // The nonce is INSIDE the signed message, not merely alongside it. If it
+    // were unsigned, an on-path attacker could rewrite it and turn a replayed
+    // frame into a "fresh" command — the same reasoning that puts `folder` and
+    // `trigger` inside the signature.
+    const cmd: SignableCommand = { event: 'task:run', taskPath: 'MyTask' };
+    const signed = signCommand(VEC.sessionKey, cmd, VEC.ts, VEC.commandNonce);
+    const tampered = signCommand(VEC.sessionKey, cmd, VEC.ts, 'f'.repeat(32));
+    expect(tampered.sig).not.toBe(signed.sig);
+  });
+});
+
+describe('emitSignedCommand', () => {
+  // A fake authenticated socket that records what went on the wire.
+  function fakeSocket() {
+    const sent: Array<{ event: string; payload: any }> = [];
+    return {
+      sent,
+      socket: {
+        data: { sessionKey: VEC.sessionKey },
+        emit: (event: string, payload: any) => sent.push({ event, payload }),
+      } as any,
+    };
+  }
+
+  it('puts the nonce ON THE WIRE, not only in the signature', () => {
+    // Load-bearing: the agent rebuilds the signed message locally, so it needs
+    // the exact nonce. Signing with a nonce and forgetting to emit it would make
+    // EVERY command unverifiable — and the agent's rejection is silent, so it
+    // would surface as the same 15s "Agent trigger timeout" this change exists
+    // to eliminate (#16), only permanently.
+    const { socket, sent } = fakeSocket();
+    emitSignedCommand(socket, { event: 'task:run', taskPath: 'MyTask' });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].event).toBe('task:run');
+    expect(typeof sent[0].payload.nonce).toBe('string');
+    expect(sent[0].payload.nonce.length).toBeGreaterThan(0);
+    expect(sent[0].payload).toMatchObject({ taskPath: 'MyTask' });
+    expect(typeof sent[0].payload.ts).toBe('number');
+    expect(typeof sent[0].payload.sig).toBe('string');
+  });
+
+  it('emits a nonce the emitted signature actually verifies against', () => {
+    // Ties the two halves together: the nonce on the wire must be the one that
+    // was signed. A mismatch (e.g. generating it twice) passes the shape check
+    // above and still rejects every command on the agent.
+    const { socket, sent } = fakeSocket();
+    emitSignedCommand(socket, { event: 'task:run', taskPath: 'MyTask' });
+    const { nonce, ts, sig } = sent[0].payload;
+    expect(hmac(VEC.sessionKey, `task:run|MyTask|${nonce}|${ts}`)).toBe(sig);
+  });
+
+  it('uses a DIFFERENT nonce for each emit, even within the same second', () => {
+    // The actual fix for #16, at the layer that ships it.
+    const { socket, sent } = fakeSocket();
+    emitSignedCommand(socket, { event: 'task:run', taskPath: 'MyTask' });
+    emitSignedCommand(socket, { event: 'task:run', taskPath: 'MyTask' });
+    expect(sent[0].payload.ts).toBe(sent[1].payload.ts); // same second — the trap
+    expect(sent[0].payload.nonce).not.toBe(sent[1].payload.nonce);
+    expect(sent[0].payload.sig).not.toBe(sent[1].payload.sig); // ...but distinct
+  });
+
+  it('refuses to sign for an unauthenticated socket', () => {
+    expect(() =>
+      emitSignedCommand({ data: {}, emit: () => {} } as any, {
+        event: 'task:run',
+        taskPath: 'MyTask',
+      })
+    ).toThrow(/not authenticated/);
   });
 });
 

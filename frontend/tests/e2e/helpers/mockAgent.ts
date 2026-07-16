@@ -17,6 +17,10 @@ export interface MockAgentTask {
 
 export interface MockRunCommand {
   taskPath: string;
+  // Per-command nonce: signed and sent by emitSignedCommand so two identical
+  // commands in the same second stay distinguishable (troubleshooting #16).
+  // The mock does not verify signatures, so this is descriptive, not enforced.
+  nonce?: string;
   ts?: number;
   sig?: string;
 }
@@ -30,6 +34,10 @@ export interface MockCreateCommand {
     args?: string[];
   };
   trigger?: unknown;
+  // Per-command nonce: signed and sent by emitSignedCommand so two identical
+  // commands in the same second stay distinguishable (troubleshooting #16).
+  // The mock does not verify signatures, so this is descriptive, not enforced.
+  nonce?: string;
   ts?: number;
   sig?: string;
 }
@@ -37,6 +45,10 @@ export interface MockCreateCommand {
 export interface MockUpdateScheduleCommand {
   taskPath: string;
   trigger?: unknown;
+  // Per-command nonce: signed and sent by emitSignedCommand so two identical
+  // commands in the same second stay distinguishable (troubleshooting #16).
+  // The mock does not verify signatures, so this is descriptive, not enforced.
+  nonce?: string;
   ts?: number;
   sig?: string;
 }
@@ -50,6 +62,10 @@ export interface MockUpdateCommand {
   workingDirectory?: string;
   description?: string;
   runLevel?: string;
+  // Per-command nonce: signed and sent by emitSignedCommand so two identical
+  // commands in the same second stay distinguishable (troubleshooting #16).
+  // The mock does not verify signatures, so this is descriptive, not enforced.
+  nonce?: string;
   ts?: number;
   sig?: string;
 }

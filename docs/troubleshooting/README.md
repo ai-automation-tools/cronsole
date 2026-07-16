@@ -37,7 +37,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 13 | The `taskhub` MCP tools are **missing** — and the token is fine: it's set, the host can see it, the backend is healthy, and `node mcp-server/dist/index.js` boots clean by hand | The server is **disabled in the host**, not broken. `disabledMcpjsonServers` in `.claude/settings.local.json` lists it — that's what Claude Code writes for **every** server in `.mcp.json` when you decline the "do you trust this project's MCP servers?" prompt | [→](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine) |
 | 14 | You picked a **deliberately rare** cron (annual, Feb 30, a specific date) so a test task couldn't fire on its own — and it fires **hourly, every day**, forever | Any cron the converter doesn't recognize falls back to a **hard-coded hourly** trigger. The schedule is *replaced*, not approximated, and the fallback only ever runs **more** often, never less. The warning now says so outright (fixed 2026-07-15) — but the **score is still `0.7`**, the same as a genuinely-approximate step | [→](#14-a-rare-cron-becomes-an-hourly-trigger) |
 | 15 | `run_task` on a **disabled** task hangs ~15s then fails `Agent trigger timeout` — while the agent is connected and healthy, and every other command works | The agent's `task:run` only replied on **success**: any failure (disabled, missing, ACL) wrote to a console nobody reads and emitted nothing, so the backend could only time out and blame the transport. Fixed 2026-07-15 — **needs an agent republish** | [→](#15-run_task-times-out-instead-of-saying-the-task-is-disabled) |
-| 16 | The **second** of two identical agent commands within one second is silently dropped — 15s, then `Agent trigger timeout`. A second later, the same command works | Signed commands carry a **second-granular** `ts`, so two identical commands in the same second are byte-identical — and the agent's **replay guard** can't distinguish your re-send from an attack | [→](#16-a-second-identical-agent-command-within-one-second-is-dropped) |
+| 16 | The **second** of two identical agent commands within one second is silently dropped — 15s, then `Agent trigger timeout`. A second later, the same command works | Signed commands carried a **second-granular** `ts` and nothing else unique, so two identical commands in the same second were byte-identical — and the agent's **replay guard** couldn't distinguish your re-send from an attack. **Fixed 2026-07-15** with a per-command nonce; needs backend + agent shipped together | [→](#16-a-second-identical-agent-command-within-one-second-is-dropped) |
 
 ---
 
@@ -930,18 +930,42 @@ a forgery and wrong for you, and the backend once again reports the only thing i
 faster than a human clicks — so it looks like "the second call is broken" rather than "the clock
 didn't tick".
 
-**Workaround** — leave >1s between two *identical* commands to the same task. (Different tasks
-are unaffected: the task path is part of the signed message, so the commands differ.)
+**Fix** *(shipped 2026-07-15)* — every signed command now carries a **per-command nonce**, inside
+the signed message, immediately before `ts`:
 
-**Real fix (open, roadmap)** — put a **nonce** in the signed message so a legitimate re-send is
-never byte-identical, while a true replay (same nonce) is still caught. That's a protocol change:
-backend `emitSignedCommand`, the C# `AgentAuthenticator` message builders, the cross-language
-golden HMAC vectors, and the agent's replay cache all move together.
+```
+task:run|\TaskHub\MyTask|3f9a…c2|1700000000
+                         ^^^^^^ fresh 16 random bytes per emit
+```
+
+That restores the property the replay guard always assumed: **a legitimate re-send is never
+byte-identical, while a replayed frame still is.** Verified live — five back-to-back `run_task`
+calls now complete in 27–60ms each, where the second used to hang 15s.
+
+The nonce is **inside** the signature, not merely alongside it, for the same reason `folder` and
+`trigger` are: an unsigned nonce could be rewritten in flight, letting an attacker turn a captured
+frame into a "fresh" command and defeating the guard entirely.
+
+**The agent's replay cache did not change.** It keys on `(ts, sig)`, and once the nonce is in the
+message the signature is already unique per instance — so its existing key stops colliding on its
+own. The enforcement that a nonce always exists lives in the `*Message` helpers, which take it as
+a **required** parameter: you cannot build a signed message without one.
+
+> [!IMPORTANT]
+> **Backend and agent must ship together** — a message-string change on one side alone rejects
+> every command. Restart the backend *and* republish the agent
+> ([#7](#7-new-agent-command-502-times-out-until-the-agent-is-republished)). There is deliberately
+> no back-compat shim: an optional nonce would mean two valid message forms, weakening the
+> guarantee to serve a version skew the project doesn't support. A skewed agent fails closed.
+>
+> If you write anything that signs commands (`agent/test-server/index.js` is one), it must add the
+> nonce too — the agent's rejection is **silent**, so a stub that forgets it just looks like the
+> agent stopped responding.
 
 > [!WARNING]
 > **Don't "fix" this by making the agent reply to a rejected command.** The silence on an
-> unverifiable command is a deliberate security property, not an oversight. The bug is that a
-> *legitimate* command can be byte-identical to a replay — fix the uniqueness, not the silence.
+> unverifiable command is a deliberate security property, not an oversight. The bug was that a
+> *legitimate* command could be byte-identical to a replay — the fix is uniqueness, not chattiness.
 
 *First hit: 2026-07-15 (a probe fired `run_task` twice ~0.3s apart while isolating #15, and the
 replay guard ate the second — which I initially misread as "running a disabled task hangs",

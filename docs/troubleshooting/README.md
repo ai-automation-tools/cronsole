@@ -39,6 +39,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 15 | `run_task` on a **disabled** task hangs ~15s then fails `Agent trigger timeout` — while the agent is connected and healthy, and every other command works | The agent's `task:run` only replied on **success**: any failure (disabled, missing, ACL) wrote to a console nobody reads and emitted nothing, so the backend could only time out and blame the transport. Fixed 2026-07-15 — **needs an agent republish** | [→](#15-run_task-times-out-instead-of-saying-the-task-is-disabled) |
 | 16 | The **second** of two identical agent commands within one second is silently dropped — 15s, then `Agent trigger timeout`. A second later, the same command works | Signed commands carried a **second-granular** `ts` and nothing else unique, so two identical commands in the same second were byte-identical — and the agent's **replay guard** couldn't distinguish your re-send from an attack. **Fixed 2026-07-15** with a per-command nonce; needs backend + agent shipped together | [→](#16-a-second-identical-agent-command-within-one-second-is-dropped) |
 | 17 | A source file's **diff won't render** / `grep` reports it as `Binary file … matches` — though it looks like normal text | A **literal control byte** (a NUL, a `0x1f`) was pasted into the file (usually a comment or a regex describing that byte), so git classifies it binary and its diff is unreviewable. **Fixed 2026-07-16**: write the byte as an escape (`\x00`); guarded by `scripts/check-control-bytes.mjs` in CI | [→](#17-a-source-file-is-binary-to-git-because-of-a-stray-control-byte) |
+| 18 | After adding an **npm dependency**, `docker restart taskhub-backend-1` crash-loops with `ERR_MODULE_NOT_FOUND: Cannot find package 'X'` — even though it's in `package.json` and installed on the host | The compose stack bind-mounts `./backend:/app` **but keeps an anonymous volume for `/app/node_modules`**, so the container's `node_modules` is isolated from the host's. A host `npm install` never reaches it, and `docker restart` re-runs the same missing-dep tree | [→](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart) |
 
 ---
 
@@ -1026,6 +1027,56 @@ NULs) are on an explicit allowlist in the script.
 read). Repo-wide sweep 2026-07-16 found two more — `mcp-server/src/__tests__/tools.test.ts` and
 `agent/TaskHub.Agent.Tests/AgentAuthenticatorTests.cs` — and added the CI guard. The failure is
 silent and only bites the reviewer, which is why it survived so long.)*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 18. New npm dependency: MODULE_NOT_FOUND in the container after a restart
+
+**Symptom** — you add a backend dependency (`npm install express-rate-limit`), it's in
+`package.json` and works in the host's tests, but the Dockerized backend crash-loops:
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'express-rate-limit'
+  imported from /app/src/middleware/authLimiter.ts
+```
+
+Confusingly, **code** changes on the same restart *are* picked up ([#4](#4-backend-source-edits-not-picked-up-in-docker) / a plain
+`docker restart` normally loads new source) — it's only the new *dependency* that's missing.
+
+**Cause** — the compose service bind-mounts the source but **shadows `node_modules` with an
+anonymous volume** so the container's dependencies stay independent of the host's:
+
+```yaml
+volumes:
+  - ./backend:/app          # your source, live
+  - /app/node_modules       # ← container's own node_modules, NOT the host's
+```
+
+That second line is deliberate (host and Linux-container native modules differ), but it means a
+**host `npm install` never reaches the container**. `docker restart` re-runs the same image
+`node_modules`, which predates your new package.
+
+**Fix** — install *inside* the container, then restart:
+
+```bash
+docker compose exec backend npm install      # syncs to the updated package.json
+docker restart taskhub-backend-1
+```
+
+Or rebuild the image (its build step runs `npm install`, so a fresh build never hits this):
+
+```bash
+docker compose build backend && docker compose up -d backend
+```
+
+The same applies to the **frontend** container for a new frontend dependency. This only bites
+when adding a dep to an **already-running** stack — a from-scratch `docker compose up --build`
+is fine.
+
+*First hit: 2026-07-16 (adding `express-rate-limit` for the login rate-limiter — the backend
+restarted into a crash-loop until the dep was installed in the container).*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

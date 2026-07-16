@@ -58,7 +58,11 @@ Asking for "a task that runs this script" through a template means inventing a t
 which is backwards.
 
 `list_tasks` and `list_templates` accept optional filters (`platform`, `status`, `category`,
-`search`) and are bounded (default 50 results, with an honest "showing N of M" note).
+`search`) and are bounded (default 50 results, with an honest "showing N of M" note). A task's
+`status` can be **`MISSING`** — tracked by TaskHub but gone from the platform on the last sync
+(a native delete, or an offline agent / unreadable folder — the same from here); it self-heals
+to ACTIVE/DISABLED when the task reappears, so `list_tasks(status: "MISSING")` answers "what did
+I lose?".
 `create_task_from_template` fills the template's `{{placeholder}}` parameters from the values
 you pass. Both create tools are gated to the platforms TaskHub can actually create on today
 (**Windows Task Scheduler** + **TaskHub-native**), and their optional **`folder`** chooses the

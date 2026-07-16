@@ -15,6 +15,22 @@ export interface ConversionResult {
   confidence: number;
   trigger: WindowsTrigger | null;
   warnings: string[];
+  /**
+   * Machine-readable companion to `confidence`, because `0.7` alone is a lie by
+   * omission: it is returned for two *different* risks that a caller thresholding
+   * on `>= 0.7` cannot tell apart.
+   *   - `'approximated'` — a trigger that IS derived from the input but drifts
+   *     (an uneven step, e.g. every 7 minutes: fires on time, then Windows and
+   *     cron disagree after the first cycle).
+   *   - `'replaced'` — the input was DISCARDED for a fixed hourly trigger not
+   *     derived from it at all (any cron the pattern list doesn't match). It
+   *     only ever runs MORE often than asked.
+   * Absent on an exact (confidence 1.0) conversion and on a null-trigger refusal
+   * (confidence 0 / 0.5) — there is no imperfect trigger to describe in either.
+   * The wording in `warnings` distinguishes the two registers; this is the same
+   * distinction as a value a program can branch on without re-tuning the score.
+   */
+  lossy?: 'approximated' | 'replaced';
 }
 
 /**
@@ -188,6 +204,9 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
       }
       return {
         confidence: divides ? 1.0 : 0.7,
+        // 'approximated', not 'replaced': the trigger below IS built from the
+        // step you gave — it merely drifts against cron's hourly realignment.
+        lossy: divides ? undefined : 'approximated',
         trigger: {
           type: 'Time',
           startBoundary: '00:00',
@@ -217,6 +236,9 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
       }
       return {
         confidence: divides ? 1.0 : 0.7,
+        // 'approximated', not 'replaced': the trigger below IS built from the
+        // hour step you gave — it merely drifts against cron's daily realignment.
+        lossy: divides ? undefined : 'approximated',
         trigger: {
           type: 'Time',
           startBoundary: '00:00',
@@ -253,6 +275,10 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   );
   return {
     confidence: 0.7,
+    // 'replaced', NOT 'approximated': the trigger below is a fixed hourly default
+    // with no relation to the input — the same 0.7 an uneven step scores, which is
+    // exactly why the number can't be trusted alone. See the `lossy` doc above.
+    lossy: 'replaced',
     trigger: {
       type: 'Time',
       startBoundary: '00:00',

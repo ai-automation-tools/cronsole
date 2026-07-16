@@ -89,7 +89,7 @@ convert_schedule '0 9 * * 1-5'
 | Score | Means | Do |
 |:---|:---|:---|
 | **1.0** | Native trigger, exact | Still read it. The Monday-only bug scored **1.0 with no warnings** while dropping four days. |
-| **0.7** | Lossy **or replaced** — two very different things sharing one score | **Read the trigger.** A `*/7` step really is approximate (the trigger *is* derived from your input and drifts). An unrecognized cron is **discarded** and replaced with a **hard-coded hourly** trigger. Since 2026-07-15 the warning text distinguishes them — "REPLACED — not approximated … ~8,760 runs a year" vs. drift language — but **the score does not**, so a threshold like `>= 0.7` accepts both. |
+| **0.7** | Lossy **or replaced** — two very different things sharing one score | **Read the trigger, or the `lossy` field.** A `*/7` step really is approximate (the trigger *is* derived from your input and drifts). An unrecognized cron is **discarded** and replaced with a **hard-coded hourly** trigger. The `0.7` score can't tell them apart — but since 2026-07-16 the response carries a machine-readable **`lossy: 'approximated' \| 'replaced'`** (and `convert_schedule` prints a `Lossy:` line, `create_task` leads its warning with the verb). `'replaced'` = delete and re-create; `'approximated'` = honored but drifts. The score stays `0.7` for both by design, so branch on `lossy`, not the number. |
 | **0** | Invalid / not convertible | Fix the expression. |
 
 > [!WARNING]

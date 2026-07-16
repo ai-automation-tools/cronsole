@@ -124,6 +124,8 @@ describe('Schedule Conversion Utility', () => {
       const res = convertCronToWindowsTrigger('*/7 * * * *');
       expect(res.confidence).toBeLessThan(1.0);
       expect(res.warnings.join(' ')).toMatch(/60|drift|align/i);
+      // The machine-readable half of the wording assertion below: a derived step.
+      expect(res.lossy).toBe('approximated');
     });
 
     it('converts periodic minutes cron correctly', () => {
@@ -138,6 +140,8 @@ describe('Schedule Conversion Utility', () => {
         }
       });
       expect(res.warnings).toHaveLength(0);
+      // An exact conversion carries no lossy tag — nothing was traded away.
+      expect(res.lossy).toBeUndefined();
     });
 
     it('converts periodic hours cron correctly', () => {
@@ -169,6 +173,9 @@ describe('Schedule Conversion Utility', () => {
       expect(res.confidence).toBe(0.7);
       expect(res.trigger?.type).toBe('Time');
       expect(res.warnings.length).toBeGreaterThan(0);
+      // The score is 0.7 for BOTH registers; only `lossy` says which. This one
+      // is the discarded fallback, not a derived step.
+      expect(res.lossy).toBe('replaced');
     });
 
     // The fallback trigger is not derived from the input at all — the expression
@@ -208,6 +215,25 @@ describe('Schedule Conversion Utility', () => {
       expect(res.confidence).toBe(0.7);
       expect(warning).toMatch(/drift/i);
       expect(warning).not.toMatch(/REPLACED/);
+    });
+
+    // `lossy` is the machine-readable half of the wording split above: the score
+    // (0.7) is identical for a derived-but-drifting step and a discarded-and-
+    // replaced cron, so a program thresholding on the number cannot tell them
+    // apart — only this field can. Pin all three registers in one place so a
+    // future edit can't quietly merge them (troubleshooting #14).
+    it('sets `lossy` to distinguish the two 0.7 registers from an exact conversion', () => {
+      // Exact (score 1.0) — nothing traded away.
+      expect(convertCronToWindowsTrigger('30 9 * * *').lossy).toBeUndefined();
+      expect(convertCronToWindowsTrigger('0 9 * * 1-5').lossy).toBeUndefined();
+      // Approximated (0.7) — trigger derived from the input, drifts.
+      expect(convertCronToWindowsTrigger('*/7 * * * *').lossy).toBe('approximated');
+      expect(convertCronToWindowsTrigger('0 */5 * * *').lossy).toBe('approximated');
+      // Replaced (0.7) — input discarded for a fixed hourly trigger.
+      expect(convertCronToWindowsTrigger('0 4 1 1 *').lossy).toBe('replaced');
+      // Null-trigger refusals carry no lossy tag — there is no trigger to describe.
+      expect(convertCronToWindowsTrigger('0 0 * *').lossy).toBeUndefined();
+      expect(convertCronToWindowsTrigger('0 0 * * ?').lossy).toBeUndefined();
     });
   });
 

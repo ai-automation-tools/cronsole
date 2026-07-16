@@ -47,12 +47,12 @@ const isValidCron = (cron: string) => cron.trim().split(/\s+/).length === 5;
 const resolveTrigger = (
   platform: PlatformType,
   schedule: string
-): { trigger: WindowsTrigger | null; confidence: number; warnings: string[] } => {
+): { trigger: WindowsTrigger | null; confidence: number; warnings: string[]; lossy?: 'approximated' | 'replaced' } => {
   if (platform !== PlatformType.WINDOWS_TASK_SCHEDULER) {
     return { trigger: null, confidence: 1.0, warnings: [] };
   }
   const result = convertCronToWindowsTrigger(schedule);
-  return { trigger: result.trigger, confidence: result.confidence, warnings: result.warnings };
+  return { trigger: result.trigger, confidence: result.confidence, warnings: result.warnings, lossy: result.lossy };
 };
 
 // List all templates (starters first, then alphabetical — the frontend re-sorts
@@ -184,7 +184,8 @@ router.post('/:id/preview', validateBody(previewSchema), async (req: Request, re
   res.json({
     score: Math.min(compat.score, conversion.confidence),
     warnings: [...new Set([...compat.warnings, ...conversion.warnings])],
-    trigger: conversion.trigger
+    trigger: conversion.trigger,
+    lossy: conversion.lossy
   });
 });
 
@@ -349,7 +350,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   res.json({
     message: 'Template applied successfully',
     externalId: result.externalId,
-    conversion: { confidence: conversion.confidence, warnings: conversion.warnings }
+    conversion: { confidence: conversion.confidence, warnings: conversion.warnings, lossy: conversion.lossy }
   });
 });
 

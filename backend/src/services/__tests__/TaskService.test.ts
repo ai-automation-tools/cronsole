@@ -7,7 +7,8 @@ const { mockPrisma } = vi.hoisted(() => ({
       upsert: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
-      deleteMany: vi.fn()
+      deleteMany: vi.fn(),
+      updateMany: vi.fn()
     },
     executionLog: {
       deleteMany: vi.fn()
@@ -30,7 +31,8 @@ vi.mock('@prisma/client', () => {
     },
     TaskStatus: {
       ACTIVE: 'ACTIVE',
-      DISABLED: 'DISABLED'
+      DISABLED: 'DISABLED',
+      MISSING: 'MISSING'
     }
   };
 });
@@ -120,71 +122,73 @@ describe('TaskService', () => {
     expect(results[249]).toEqual({ externalId: '\\Batch\\Task249' });
   });
 
-  it('should delete tasks missing from the current platform list', async () => {
+  it('marks tasks absent from the platform as MISSING instead of deleting them', async () => {
+    // The honesty fix: absence from one sync is not proof a task is gone (an
+    // offline agent looks identical), so the row and its execution history are
+    // KEPT and flipped to MISSING with nextRunTime cleared — never deleted.
     mockPrisma.task.count.mockResolvedValue(3);
-    mockPrisma.task.findMany.mockResolvedValue([{ id: 'stale-1' }, { id: 'stale-2' }]);
+    mockPrisma.task.updateMany.mockResolvedValue({ count: 2 });
 
-    const removed = await TaskService.removeStaleTasks(
+    const missing = await TaskService.reconcileMissingTasks(
       'user-1',
       'WINDOWS_TASK_SCHEDULER' as any,
       ['\\Mikes\\StillExists']
     );
 
-    expect(removed).toBe(2);
-    expect(mockPrisma.task.findMany).toHaveBeenCalledWith({
+    expect(missing).toBe(2);
+    expect(mockPrisma.task.updateMany).toHaveBeenCalledWith({
       where: {
         userId: 'user-1',
         platform: 'WINDOWS_TASK_SCHEDULER',
-        externalId: { notIn: ['\\Mikes\\StillExists'] }
+        externalId: { notIn: ['\\Mikes\\StillExists'] },
+        status: { not: 'MISSING' }
       },
-      select: { id: true }
+      data: { status: 'MISSING', nextRunTime: null }
     });
-    expect(mockPrisma.executionLog.deleteMany).toHaveBeenCalledWith({
-      where: { taskId: { in: ['stale-1', 'stale-2'] } }
-    });
-    expect(mockPrisma.task.deleteMany).toHaveBeenCalledWith({
-      where: { id: { in: ['stale-1', 'stale-2'] } }
-    });
+    // The row and its logs must survive — a MISSING task self-heals on re-sync.
+    expect(mockPrisma.task.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.executionLog.deleteMany).not.toHaveBeenCalled();
   });
 
-  it('should skip stale pruning when the platform snapshot is empty', async () => {
-    const removed = await TaskService.removeStaleTasks(
+  it('does not re-mark rows that are already MISSING (the where-clause excludes them)', async () => {
+    mockPrisma.task.count.mockResolvedValue(3);
+    mockPrisma.task.updateMany.mockResolvedValue({ count: 0 });
+
+    const missing = await TaskService.reconcileMissingTasks(
+      'user-1',
+      'WINDOWS_TASK_SCHEDULER' as any,
+      ['\\Mikes\\StillExists']
+    );
+
+    expect(missing).toBe(0);
+    expect(mockPrisma.task.updateMany.mock.calls[0][0].where.status).toEqual({ not: 'MISSING' });
+  });
+
+  it('skips reconciliation when the platform snapshot is empty', async () => {
+    const missing = await TaskService.reconcileMissingTasks(
       'user-1',
       'WINDOWS_TASK_SCHEDULER' as any,
       []
     );
 
-    expect(removed).toBe(0);
+    expect(missing).toBe(0);
     expect(mockPrisma.task.count).not.toHaveBeenCalled();
-    expect(mockPrisma.task.findMany).not.toHaveBeenCalled();
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.task.updateMany).not.toHaveBeenCalled();
   });
 
-  it('should skip stale pruning when an established platform returns a suspicious partial snapshot', async () => {
+  it('skips reconciliation when an established platform returns a suspicious partial snapshot', async () => {
+    // A whole-dashboard flip to MISSING on a partial sync is alarming noise —
+    // preserve the DB and wait for a complete snapshot even though MISSING is
+    // reversible.
     mockPrisma.task.count.mockResolvedValue(100);
 
-    const removed = await TaskService.removeStaleTasks(
+    const missing = await TaskService.reconcileMissingTasks(
       'user-1',
       'WINDOWS_TASK_SCHEDULER' as any,
       ['\\Only\\OneTask']
     );
 
-    expect(removed).toBe(0);
-    expect(mockPrisma.task.findMany).not.toHaveBeenCalled();
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it('should not delete anything when no tasks are stale', async () => {
-    mockPrisma.task.count.mockResolvedValue(1);
-    mockPrisma.task.findMany.mockResolvedValue([]);
-
-    const removed = await TaskService.removeStaleTasks(
-      'user-1',
-      'WINDOWS_TASK_SCHEDULER' as any,
-      ['\\Mikes\\Task1']
-    );
-
-    expect(removed).toBe(0);
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(missing).toBe(0);
+    expect(mockPrisma.task.updateMany).not.toHaveBeenCalled();
   });
 });

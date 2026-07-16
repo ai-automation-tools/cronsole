@@ -17,10 +17,13 @@ export interface NormalizedTask {
 // one-round-trip-per-task chatter of sequential awaits.
 const UPSERT_BATCH_SIZE = 100;
 
-// Stale pruning is destructive. A complete Windows snapshot is usually hundreds
-// of rows; if an established platform suddenly reports a tiny non-empty subset,
-// treat it as a partial/bad sync and preserve the DB instead of deleting most
-// tracked tasks.
+// Reconciliation flips absent tasks to MISSING rather than deleting them, but a
+// suspicious snapshot is still handled conservatively: a complete Windows
+// snapshot is usually hundreds of rows, so if an established platform suddenly
+// reports a tiny non-empty subset, treat it as a partial/bad sync and change
+// nothing rather than flipping most of the dashboard to MISSING at once. (Even
+// though MISSING self-heals on the next good sync, a whole-dashboard flap is
+// alarming noise the guard cheaply avoids.)
 const STALE_PRUNE_MIN_TRACKED = 20;
 const STALE_PRUNE_MIN_RETAIN_RATIO = 0.5;
 
@@ -69,12 +72,27 @@ export class TaskService {
   }
 
   /**
-   * Delete DB tasks that no longer exist on the platform. `currentExternalIds`
-   * must be the connector's FULL task list (pre category-filtering) — a task
-   * absent from it was deleted natively, regardless of which categories the
-   * user chose to import.
+   * Reconcile DB tasks against the platform's FULL task list. A task tracked in
+   * TaskHub but absent from `currentExternalIds` is flipped to MISSING (and its
+   * nextRunTime cleared) — NOT deleted.
+   *
+   * Why not delete: absence from one sync is not proof a task is gone. An
+   * offline agent, or a folder the agent can't read (ACL), looks identical to a
+   * native delete from here — and deleting a user's tracked task (and its
+   * execution history) on that evidence is worse than showing it honestly as
+   * MISSING. MISSING self-heals: the next sync that sees the task upserts it
+   * back to ACTIVE/DISABLED. A user who truly wants it gone deletes it
+   * explicitly (DELETE /api/tasks/:id), which is the only path that removes the
+   * row and its logs.
+   *
+   * `currentExternalIds` must be the connector's FULL list (pre
+   * category-filtering) — a task the user simply didn't import into a selected
+   * category still exists on the platform and must not be marked MISSING.
+   *
+   * Returns the number of rows NEWLY flipped to MISSING (already-MISSING rows
+   * that stay absent are a no-op, so a quiet sync returns 0).
    */
-  static async removeStaleTasks(userId: string, platform: PlatformType, currentExternalIds: string[]) {
+  static async reconcileMissingTasks(userId: string, platform: PlatformType, currentExternalIds: string[]) {
     if (currentExternalIds.length === 0) return 0;
 
     const trackedCount = await prisma.task.count({ where: { userId, platform } });
@@ -83,24 +101,25 @@ export class TaskService {
       currentExternalIds.length / trackedCount < STALE_PRUNE_MIN_RETAIN_RATIO
     ) {
       console.warn(
-        `[TaskService] skipped stale pruning for ${platform}: partial snapshot suspected ` +
+        `[TaskService] skipped MISSING reconciliation for ${platform}: partial snapshot suspected ` +
         `(${currentExternalIds.length}/${trackedCount} IDs returned)`
       );
       return 0;
     }
 
-    const stale = await prisma.task.findMany({
-      where: { userId, platform, externalId: { notIn: currentExternalIds } },
-      select: { id: true }
+    // Only flip rows that are absent AND not already MISSING — so the return
+    // count is "newly gone this sync", and an already-marked row isn't rewritten
+    // (which would also churn updatedAt for no reason).
+    const result = await prisma.task.updateMany({
+      where: {
+        userId,
+        platform,
+        externalId: { notIn: currentExternalIds },
+        status: { not: TaskStatus.MISSING }
+      },
+      data: { status: TaskStatus.MISSING, nextRunTime: null }
     });
-    if (stale.length === 0) return 0;
-
-    const ids = stale.map(s => s.id);
-    await prisma.$transaction([
-      prisma.executionLog.deleteMany({ where: { taskId: { in: ids } } }),
-      prisma.task.deleteMany({ where: { id: { in: ids } } })
-    ]);
-    return ids.length;
+    return result.count;
   }
 
   public static extractCategory(externalId: string, platform: PlatformType): string {

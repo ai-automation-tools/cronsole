@@ -459,7 +459,7 @@ export const DashboardScreen = ({
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-1.5">
                               <span className="inline-flex items-center gap-1.5 bg-background px-2 py-1 rounded-lg border border-border text-[10px] font-bold text-muted-foreground">
-                                <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-muted'}`}></span>
+                                <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : task.status === 'MISSING' ? 'bg-amber-500' : 'bg-muted'}`}></span>
                                 {task.status}
                               </span>
                               {task.lastRunStatus === 'FAILURE' && (

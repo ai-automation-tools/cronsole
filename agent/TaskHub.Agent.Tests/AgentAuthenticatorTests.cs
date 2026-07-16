@@ -30,7 +30,7 @@ namespace TaskHub.Agent.Tests
         private const string ExpectedUpdateScheduleSig = "f2d3877a970941645fc82da9d1bf1e829593a7b9b73e7cc1cd3739c89859ac83";
         // task:update signs the structured action, working dir, description, and run
         // level. Golden case: action { executable: "powershell.exe", args: ["-File",
-        // "C:\\x.ps1"] } -> canonical "powershell.exe-FileC:\\x.ps1",
+        // "C:\\x.ps1"] } -> canonical "powershell.exe\x1f-File\x1fC:\\x.ps1",
         // working dir "C:\\scripts", description "Nightly job", runLevel "highest".
         private const string ExpectedUpdateSig = "1032132b7efe16c1f45773d628783f4a0ea82f1a73f03f891ee91359f5a7e135";
         // task:create signs the structured action AND the trigger. Golden action is

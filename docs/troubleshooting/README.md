@@ -38,6 +38,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 14 | You picked a **deliberately rare** cron (annual, Feb 30, a specific date) so a test task couldn't fire on its own — and it fires **hourly, every day**, forever | Any cron the converter doesn't recognize falls back to a **hard-coded hourly** trigger. The schedule is *replaced*, not approximated, and the fallback only ever runs **more** often, never less. The warning now says so outright (fixed 2026-07-15) — but the **score is still `0.7`**, the same as a genuinely-approximate step | [→](#14-a-rare-cron-becomes-an-hourly-trigger) |
 | 15 | `run_task` on a **disabled** task hangs ~15s then fails `Agent trigger timeout` — while the agent is connected and healthy, and every other command works | The agent's `task:run` only replied on **success**: any failure (disabled, missing, ACL) wrote to a console nobody reads and emitted nothing, so the backend could only time out and blame the transport. Fixed 2026-07-15 — **needs an agent republish** | [→](#15-run_task-times-out-instead-of-saying-the-task-is-disabled) |
 | 16 | The **second** of two identical agent commands within one second is silently dropped — 15s, then `Agent trigger timeout`. A second later, the same command works | Signed commands carried a **second-granular** `ts` and nothing else unique, so two identical commands in the same second were byte-identical — and the agent's **replay guard** couldn't distinguish your re-send from an attack. **Fixed 2026-07-15** with a per-command nonce; needs backend + agent shipped together | [→](#16-a-second-identical-agent-command-within-one-second-is-dropped) |
+| 17 | A source file's **diff won't render** / `grep` reports it as `Binary file … matches` — though it looks like normal text | A **literal control byte** (a NUL, a `0x1f`) was pasted into the file (usually a comment or a regex describing that byte), so git classifies it binary and its diff is unreviewable. **Fixed 2026-07-16**: write the byte as an escape (`\x00`); guarded by `scripts/check-control-bytes.mjs` in CI | [→](#17-a-source-file-is-binary-to-git-because-of-a-stray-control-byte) |
 
 ---
 
@@ -972,6 +973,59 @@ replay guard ate the second — which I initially misread as "running a disabled
 because "disabled" was the variable I had changed. It wasn't the cause. Two bugs, one symptom:
 both surface as `Agent trigger timeout`, which is why that message deserves suspicion rather
 than belief.)*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 17. A source file is binary to git because of a stray control byte
+
+**Symptom** — a file that is plainly source code won't show a diff, and tools treat it as binary:
+
+```
+$ grep -n "toMatch" mcp-server/src/__tests__/tools.test.ts
+Binary file mcp-server/src/__tests__/tools.test.ts matches
+```
+
+`git diff` on it shows `Binary files a/… and b/… differ` instead of line changes — so a review of
+that file (including a security-relevant one) sees **nothing**.
+
+**Cause** — a **literal control byte** somewhere in the file. git's heuristic: a NUL in the first
+few KB ⇒ binary. It gets there by pasting the *actual* byte where the code *describes* it — a NUL
+used as a separator, a `0x1f` (Unit Separator) in a comment showing a canonical format, or a raw
+NUL inside a regex like `.not.toMatch(/␀/)`. The runtime string is correct; the **source** is
+poisoned. The tell: `grep`/`git` call it binary while your editor renders it as normal text (the
+editor silently drops or glyph-substitutes the control byte).
+
+Find them across the repo:
+
+```bash
+node scripts/check-control-bytes.mjs        # exits 1 and lists file + line + byte
+```
+
+**Fix** *(swept + guarded 2026-07-16)* — write the byte as an **escape**, never raw. The string is
+byte-identical and the file stays text:
+
+```diff
+- expect(text(r)).not.toMatch(/<NUL>/);     // raw 0x00 → file is binary
++ expect(text(r)).not.toMatch(/\x00/);      // same regex, plain text
+```
+
+`\x00` in a JS/TS regex, `\x1f` in a C# string/comment, `\0` in a string literal. For a
+comment, just describe the byte in words. The guard `scripts/check-control-bytes.mjs` runs in CI
+(the `repo-hygiene` job) and fails on any control byte but TAB/LF/CR; genuinely-binary files are
+skipped by extension, and the two UTF-16 Task Scheduler XML exports (which legitimately carry
+NULs) are on an explicit allowlist in the script.
+
+> [!NOTE]
+> When rewriting the byte with a script, verify the byte is actually gone by **re-reading the file
+> and counting** — a naïve in-place edit can appear to succeed while the byte survives. `node -e`
+> that reads the file back and asserts zero control bytes is the reliable check.
+
+*First hit: 2026-07-15 (`backend/src/ws/agentAuth.ts`, a NUL separator whose diff couldn't be
+read). Repo-wide sweep 2026-07-16 found two more — `mcp-server/src/__tests__/tools.test.ts` and
+`agent/TaskHub.Agent.Tests/AgentAuthenticatorTests.cs` — and added the CI guard. The failure is
+silent and only bites the reviewer, which is why it survived so long.)*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

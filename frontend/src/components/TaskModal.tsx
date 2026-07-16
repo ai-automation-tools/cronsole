@@ -438,21 +438,30 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               <div>
                 <span className="text-xs text-subtle-foreground block mb-1">Status</span>
                 <span className="font-semibold text-foreground uppercase tracking-tighter text-sm flex items-center gap-2">
-                  <div className={`h-2.5 w-2.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-muted-foreground'}`}></div>
+                  <div className={`h-2.5 w-2.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : task.status === 'MISSING' ? 'bg-amber-500' : 'bg-muted-foreground'}`}></div>
                   {task.status}
                 </span>
               </div>
-              <button
-                onClick={() => {
-                  const nextStatus = task.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
-                  statusMutation.mutate(nextStatus);
-                }}
-                disabled={statusMutation.isPending}
-                className="bg-muted hover:bg-muted/80 text-foreground px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-border active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {statusMutation.isPending && <Loader2 size={12} className="animate-spin" />}
-                {task.status === 'ACTIVE' ? 'Disable' : 'Enable'}
-              </button>
+              {task.status === 'MISSING' ? (
+                // Nothing to enable/disable — the task is gone from the platform.
+                // Honest note instead of a toggle that would 502 against a task
+                // that isn't there. Re-sync heals it if the agent was just offline.
+                <span className="text-[11px] text-subtle-foreground text-right max-w-[11rem] leading-snug">
+                  Not found on the platform. Re-sync if the agent was offline, or delete to remove it.
+                </span>
+              ) : (
+                <button
+                  onClick={() => {
+                    const nextStatus = task.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+                    statusMutation.mutate(nextStatus);
+                  }}
+                  disabled={statusMutation.isPending}
+                  className="bg-muted hover:bg-muted/80 text-foreground px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-border active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {statusMutation.isPending && <Loader2 size={12} className="animate-spin" />}
+                  {task.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                </button>
+              )}
             </div>
             <div className="bg-background p-4 rounded-xl border border-border">
               <span className="text-xs text-subtle-foreground block mb-1">Last Result</span>

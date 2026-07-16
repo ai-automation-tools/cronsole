@@ -51,6 +51,13 @@ namespace TaskHub.Agent.Tests
 
         private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
+        // A fresh per-command nonce, as the backend's emitSignedCommand generates.
+        // Every signed command carries one: it is inside the signed message and
+        // is what keeps two identical commands in the same second distinguishable
+        // from a replay (troubleshooting #16). Unique per call so a test can never
+        // pass by accidentally colliding.
+        private static string TestNonce() => Guid.NewGuid().ToString("N");
+
         // Build a JsonElement command payload from an anonymous object, exactly as
         // it arrives over the wire from the backend.
         private static JsonElement Payload(object obj) =>
@@ -129,10 +136,11 @@ namespace TaskHub.Agent.Tests
             // message ("that folder does not exist") into one pointing at the agent
             // instead of the request. Found by driving a real refusal end-to-end.
             var ts = Now();
+            var nonce = TestNonce();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
             var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
-                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\TaskHub", ts));
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\TaskHub", nonce, ts));
 
             _mockScheduler
                 .Setup(s => s.CreateTask("MyTestTask", "0 * * * *", It.IsAny<AgentExecAction>(), null, "\\TaskHub"))
@@ -146,6 +154,7 @@ namespace TaskHub.Agent.Tests
                 command = "dir",
                 action = new { executable = "dir", args = new string[0] },
                 folder = "\\TaskHub",
+                nonce,
                 ts,
                 sig
             }));
@@ -261,11 +270,12 @@ namespace TaskHub.Agent.Tests
             var taskPath = "\\Mikes\\Backup";
             var enabled = false;
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, enabled, ts, sig }));
+                .Returns(Payload(new { taskPath, enabled, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.SetTaskStatus(taskPath, enabled)).Returns(true);
 
@@ -284,11 +294,12 @@ namespace TaskHub.Agent.Tests
             var taskPath = "\\Mikes\\Backup";
             var enabled = false;
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, enabled, ts, sig }));
+                .Returns(Payload(new { taskPath, enabled, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.SetTaskStatus(taskPath, enabled)).Returns(false);
 
@@ -308,11 +319,12 @@ namespace TaskHub.Agent.Tests
             var taskPath = "\\Mikes\\Backup";
             var enabled = false;
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.SetStatusMessage(taskPath, enabled, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, enabled, ts, sig }));
+                .Returns(Payload(new { taskPath, enabled, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.SetTaskStatus(taskPath, enabled))
                 .Throws(new UnauthorizedAccessException("Access is denied. (0x80070005 (E_ACCESSDENIED))"));
@@ -333,10 +345,11 @@ namespace TaskHub.Agent.Tests
             var taskPath = "\\Mikes\\Backup";
             var enabled = false;
             var ts = Now();
+            var nonce = TestNonce();
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, enabled, ts, sig = "deadbeef" }));
+                .Returns(Payload(new { taskPath, enabled, nonce, ts, sig = "deadbeef" }));
 
             // Act
             _socketHandlers["task:set_status"].Invoke(mockResponse.Object);
@@ -353,9 +366,10 @@ namespace TaskHub.Agent.Tests
             // The trigger is signed, so its canonical form is part of the message.
             var taskPath = "\\TaskHub\\Nightly";
             var ts = Now();
+            var nonce = TestNonce();
             var trigger = new TriggerSpec { Type = "Daily", StartBoundary = "03:00", DaysInterval = 1 };
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(trigger);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, ts));
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -363,6 +377,7 @@ namespace TaskHub.Agent.Tests
                 {
                     taskPath,
                     trigger = new { type = "Daily", startBoundary = "03:00", daysInterval = 1 },
+                    nonce,
                     ts,
                     sig
                 }));
@@ -385,9 +400,10 @@ namespace TaskHub.Agent.Tests
             // Arrange
             var taskPath = "\\TaskHub\\Ghost";
             var ts = Now();
+            var nonce = TestNonce();
             var trigger = new TriggerSpec { Type = "Daily", StartBoundary = "03:00", DaysInterval = 1 };
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(trigger);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, ts));
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -395,6 +411,7 @@ namespace TaskHub.Agent.Tests
                 {
                     taskPath,
                     trigger = new { type = "Daily", startBoundary = "03:00", daysInterval = 1 },
+                    nonce,
                     ts,
                     sig
                 }));
@@ -415,6 +432,7 @@ namespace TaskHub.Agent.Tests
             // Arrange — a forged schedule change must never touch the scheduler.
             var taskPath = "\\TaskHub\\Nightly";
             var ts = Now();
+            var nonce = TestNonce();
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -442,9 +460,10 @@ namespace TaskHub.Agent.Tests
             // level are all part of the signed message.
             var taskPath = "\\TaskHub\\Nightly";
             var ts = Now();
+            var nonce = TestNonce();
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("powershell.exe", new[] { "-File", "C:\\x.ps1" });
             var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
-                AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, "C:\\scripts", "Nightly job", "highest", ts));
+                AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, "C:\\scripts", "Nightly job", "highest", nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -455,6 +474,7 @@ namespace TaskHub.Agent.Tests
                     workingDirectory = "C:\\scripts",
                     description = "Nightly job",
                     runLevel = "highest",
+                    nonce,
                     ts,
                     sig
                 }));
@@ -479,9 +499,10 @@ namespace TaskHub.Agent.Tests
             // Arrange
             var taskPath = "\\TaskHub\\Ghost";
             var ts = Now();
+            var nonce = TestNonce();
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("cmd.exe", new string[0]);
             var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
-                AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, "", "", "least", ts));
+                AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, "", "", "least", nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -492,6 +513,7 @@ namespace TaskHub.Agent.Tests
                     workingDirectory = "",
                     description = "",
                     runLevel = "least",
+                    nonce,
                     ts,
                     sig
                 }));
@@ -512,6 +534,7 @@ namespace TaskHub.Agent.Tests
             // Arrange — a forged action change must never touch the scheduler.
             var taskPath = "\\TaskHub\\Nightly";
             var ts = Now();
+            var nonce = TestNonce();
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -540,11 +563,12 @@ namespace TaskHub.Agent.Tests
             // Arrange
             var taskPath = "\\Mikes\\CleanTemp";
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.RunTask(taskPath)).Returns(true);
 
@@ -562,10 +586,11 @@ namespace TaskHub.Agent.Tests
             // Arrange — a forged/tampered command must never execute.
             var taskPath = "\\Mikes\\CleanTemp";
             var ts = Now();
+            var nonce = TestNonce();
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig = "deadbeef" }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig = "deadbeef" }));
 
             // Act
             _socketHandlers["task:run"].Invoke(mockResponse.Object);
@@ -590,11 +615,12 @@ namespace TaskHub.Agent.Tests
             // Arrange — RunTask returns false: nothing exists at that path.
             var taskPath = "\\Mikes\\Gone";
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.RunTask(taskPath)).Returns(false);
 
@@ -617,11 +643,12 @@ namespace TaskHub.Agent.Tests
             // swallowed by the catch with no emit at all.
             var taskPath = "\\Mikes\\Disabled";
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.RunTask(taskPath))
                 .Throws(new InvalidOperationException("some COM failure"));
@@ -644,11 +671,12 @@ namespace TaskHub.Agent.Tests
             // HRESULT is what Windows actually returns: SCHED_E_TASK_DISABLED.
             var taskPath = "\\Mikes\\Disabled";
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.RunMessage(taskPath, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.RunTask(taskPath))
                 .Throws(new COMException("The task is disabled. (0x80041326)", unchecked((int)0x80041326)));
@@ -670,11 +698,12 @@ namespace TaskHub.Agent.Tests
             // Arrange
             var taskPath = "\\TaskHub\\OldJob";
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.DeleteTask(taskPath)).Returns(true);
 
@@ -693,11 +722,12 @@ namespace TaskHub.Agent.Tests
             // end state holds), so a stale DB row can be cleaned up server-side.
             var taskPath = "\\TaskHub\\Ghost";
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.DeleteTask(taskPath)).Returns(false);
 
@@ -717,11 +747,12 @@ namespace TaskHub.Agent.Tests
             // must carry an actionable message, not the raw HRESULT.
             var taskPath = "\\AI-Automation-Library\\LockedTask";
             var ts = Now();
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, ts));
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.DeleteMessage(taskPath, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig }));
 
             _mockScheduler.Setup(s => s.DeleteTask(taskPath))
                 .Throws(new UnauthorizedAccessException("Access is denied. (0x80070005 (E_ACCESSDENIED))"));
@@ -742,10 +773,11 @@ namespace TaskHub.Agent.Tests
             // attacker could otherwise remove backups/monitoring jobs).
             var taskPath = "\\Mikes\\NightlyBackup";
             var ts = Now();
+            var nonce = TestNonce();
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
-                .Returns(Payload(new { taskPath, ts, sig = "deadbeef" }));
+                .Returns(Payload(new { taskPath, nonce, ts, sig = "deadbeef" }));
 
             // Act
             _socketHandlers["task:delete"].Invoke(mockResponse.Object);
@@ -783,9 +815,10 @@ namespace TaskHub.Agent.Tests
         {
             // Arrange — no trigger field => trigger canonicalizes to "none"
             var ts = Now();
+            var nonce = TestNonce();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\TaskHub", ts));
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\TaskHub", nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -795,6 +828,7 @@ namespace TaskHub.Agent.Tests
                     schedule = "0 * * * *",
                     command = "dir",
                     action = new { executable = "dir", args = new string[0] },
+                    nonce,
                     ts,
                     sig
                 }));
@@ -822,6 +856,7 @@ namespace TaskHub.Agent.Tests
             // The signed trigger canonical must match what the agent derives from
             // the deserialized payload trigger.
             var ts = Now();
+            var nonce = TestNonce();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(new TriggerSpec
             {
@@ -829,7 +864,7 @@ namespace TaskHub.Agent.Tests
                 StartBoundary = "08:00",
                 DaysOfWeek = new List<string> { "Monday" }
             });
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", canonical, triggerCanonical, "\\TaskHub", ts));
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", canonical, triggerCanonical, "\\TaskHub", nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -840,6 +875,7 @@ namespace TaskHub.Agent.Tests
                     command = "dir",
                     action = new { executable = "dir", args = new string[0] },
                     trigger = new { type = "Weekly", startBoundary = "08:00", daysOfWeek = new[] { "Monday" } },
+                    nonce,
                     ts,
                     sig
                 }));
@@ -868,9 +904,10 @@ namespace TaskHub.Agent.Tests
         {
             // Arrange — server sends trigger: null when no conversion applies
             var ts = Now();
+            var nonce = TestNonce();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\TaskHub", ts));
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\TaskHub", nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -881,6 +918,7 @@ namespace TaskHub.Agent.Tests
                     command = "dir",
                     action = new { executable = "dir", args = new string[0] },
                     trigger = (object?)null,
+                    nonce,
                     ts,
                     sig
                 }));
@@ -902,10 +940,11 @@ namespace TaskHub.Agent.Tests
             // real trigger on the wire (an on-path attacker rewriting the schedule).
             // The trigger is now part of the signed message, so verification fails.
             var ts = Now();
+            var nonce = TestNonce();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var sigWithoutTrigger = AgentAuthenticator.Hmac(
                 _auth.SessionKey!,
-                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, AgentAuthenticator.CanonicalizeTrigger(null), "\\TaskHub", ts));
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, AgentAuthenticator.CanonicalizeTrigger(null), "\\TaskHub", nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))

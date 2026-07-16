@@ -47,11 +47,19 @@ io.use((socket, next) => {
 });
 
 // Sign and emit a command the same way emitSignedCommand does. `message` is the
-// canonical string minus the trailing |ts (added here).
+// canonical string minus the trailing |nonce|ts (added here).
+//
+// The per-command nonce is REQUIRED and must be both signed and sent: the agent
+// rebuilds the message locally and rejects anything it can't verify — silently,
+// so a stub that forgot it would just look like the agent had stopped
+// responding. It exists because `ts` is second-granular, so two identical
+// commands in one second would otherwise sign identically and the agent's replay
+// guard would drop the second (docs/troubleshooting/README.md #16).
 function emitSigned(socket, event, fields, message) {
   const ts = Math.floor(Date.now() / 1000);
-  const sig = hmac(socket.data.sessionKey, `${message}|${ts}`);
-  socket.emit(event, { ...fields, ts, sig });
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const sig = hmac(socket.data.sessionKey, `${message}|${nonce}|${ts}`);
+  socket.emit(event, { ...fields, nonce, ts, sig });
 }
 
 io.on("connection", (socket) => {

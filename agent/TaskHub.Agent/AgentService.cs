@@ -74,13 +74,25 @@ namespace TaskHub.Agent
             return $"Windows could not start the task: {ex.Message}";
         }
 
-        // Pull the shared { ts, sig } off a signed command payload. Returns false
-        // if either is absent/ill-typed so the caller can reject the command.
-        private static bool TryReadSignature(JsonElement data, out long ts, out string sig)
+        // Pull the shared { nonce, ts, sig } off a signed command payload. Returns
+        // false if any is absent/ill-typed so the caller can reject the command.
+        //
+        // `nonce` is REQUIRED, not optional-for-compat: it is part of every signed
+        // message, so a payload without one cannot produce a verifiable signature
+        // anyway. Failing here just makes the rejection honest and early. A
+        // backend too old to send one is a version skew the project doesn't
+        // support (backend and agent ship together) — it fails closed and loudly
+        // rather than silently accepting a weaker message form.
+        private static bool TryReadSignature(JsonElement data, out string nonce, out long ts, out string sig)
         {
+            nonce = string.Empty;
             ts = 0;
             sig = string.Empty;
             if (data.ValueKind != JsonValueKind.Object) return false;
+            if (!data.TryGetProperty("nonce", out var nonceEl) || nonceEl.ValueKind != JsonValueKind.String)
+                return false;
+            nonce = nonceEl.GetString() ?? string.Empty;
+            if (nonce.Length == 0) return false;
             if (!data.TryGetProperty("ts", out var tsEl) || !tsEl.TryGetInt64(out ts)) return false;
             if (!data.TryGetProperty("sig", out var sigEl) || sigEl.ValueKind != JsonValueKind.String)
                 return false;
@@ -317,8 +329,8 @@ namespace TaskHub.Agent
                     taskPath = data.GetProperty("taskPath").GetString() ?? "";
                     enabled = data.GetProperty("enabled").GetBoolean();
 
-                    if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.SetStatusMessage(taskPath, enabled, ts), ts, sig))
+                    if (!TryReadSignature(data, out var nonce, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.SetStatusMessage(taskPath, enabled, nonce, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:set_status for {taskPath}");
                         return;
@@ -372,8 +384,8 @@ namespace TaskHub.Agent
                     var data = response.GetValue<JsonElement>(0);
                     taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
 
-                    if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.RunMessage(taskPath, ts), ts, sig))
+                    if (!TryReadSignature(data, out var nonce, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.RunMessage(taskPath, nonce, ts), ts, sig))
                     {
                         // Deliberately silent: an unverifiable command gets no
                         // reply at all, so a forger learns nothing (the server
@@ -424,8 +436,8 @@ namespace TaskHub.Agent
                     var data = response.GetValue<JsonElement>(0);
                     taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
 
-                    if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.DeleteMessage(taskPath, ts), ts, sig))
+                    if (!TryReadSignature(data, out var nonce, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.DeleteMessage(taskPath, nonce, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:delete for {taskPath}");
                         return;
@@ -503,8 +515,8 @@ namespace TaskHub.Agent
                         ? folderElement.GetString() ?? TaskFolderPath.Default
                         : TaskFolderPath.Default;
 
-                    if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, triggerCanonical, folder, ts), ts, sig))
+                    if (!TryReadSignature(data, out var nonce, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, triggerCanonical, folder, nonce, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:create for {name}");
                         return;
@@ -568,8 +580,8 @@ namespace TaskHub.Agent
                     }
                     string triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(trigger);
 
-                    if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, ts), ts, sig))
+                    if (!TryReadSignature(data, out var nonce, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.UpdateScheduleMessage(taskPath, triggerCanonical, nonce, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:update_schedule for {taskPath}");
                         return;
@@ -635,8 +647,8 @@ namespace TaskHub.Agent
                         ? rl.GetString() ?? "least" : "least";
                     action.WorkingDirectory = workingDir;
 
-                    if (!TryReadSignature(data, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, workingDir, description, runLevel, ts), ts, sig))
+                    if (!TryReadSignature(data, out var nonce, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.UpdateMessage(taskPath, actionCanonical, workingDir, description, runLevel, nonce, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:update for {taskPath}");
                         return;

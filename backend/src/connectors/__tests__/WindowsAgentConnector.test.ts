@@ -18,14 +18,25 @@ function emitArgs(socket: any, event: string): any[] | undefined {
   return call?.slice(1);
 }
 
-/** Assert the emitted command carries a valid signature for `cmd`. */
+/**
+ * Assert the emitted command carries a valid signature for `cmd`.
+ *
+ * The signature is recomputed from the nonce and ts that were ACTUALLY emitted,
+ * then compared against the emitted sig — so this verifies the payload is
+ * internally consistent (the nonce on the wire is the one that was signed),
+ * which is what the agent will check. `toEqual` keeps it exact, so a new wire
+ * field fails here rather than silently reaching the agent.
+ */
 function expectSignedCommand(socket: any, event: string, cmd: SignableCommand) {
   const [payload] = emitArgs(socket, event) ?? [];
   expect(payload).toBeDefined();
   expect(typeof payload.ts).toBe('number');
-  const { sig } = signCommand(SESSION_KEY, cmd, payload.ts);
+  // Every signed command carries a fresh per-command nonce (troubleshooting #16).
+  expect(typeof payload.nonce).toBe('string');
+  expect(payload.nonce.length).toBeGreaterThan(0);
+  const { sig } = signCommand(SESSION_KEY, cmd, payload.ts, payload.nonce);
   const { event: _e, ...fields } = cmd;
-  expect(payload).toEqual({ ...fields, ts: payload.ts, sig });
+  expect(payload).toEqual({ ...fields, nonce: payload.nonce, ts: payload.ts, sig });
 }
 
 describe('WindowsAgentConnector', () => {

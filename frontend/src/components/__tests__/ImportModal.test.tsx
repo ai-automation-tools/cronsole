@@ -80,7 +80,11 @@ describe('ImportModal Component', () => {
     expect(screen.getByText('10 tasks')).toBeInTheDocument();
     expect(screen.getByText('1 tasks')).toBeInTheDocument();
 
-    expect(screen.getByText('Sync 3 Categories')).toBeInTheDocument();
+    // The default-selection effect (which excludes Microsoft/Uncategorized and
+    // sets this count) can settle a tick after the loading text clears, so wait
+    // for the button rather than sampling it synchronously — otherwise this
+    // races under load.
+    expect(await screen.findByText('Sync 3 Categories')).toBeInTheDocument();
   });
 
   it('allows toggling selected categories and fires onImport', async () => {

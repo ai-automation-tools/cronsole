@@ -90,6 +90,27 @@ const Dashboard = () => {
     }
   });
 
+  // Enable/disable a task. Wired here (not in each card) so every dashboard view
+  // — grid, list, kanban, schedule — shares one mutation and one pending state.
+  // For Windows tasks this drives the agent's task:set_status; native tasks are
+  // toggled by the connector directly.
+  const statusMutation = useMutation({
+    mutationFn: async (task: Task) => {
+      const nextStatus = task.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+      const res = await api.patch(`/tasks/${task.id}/status`, { status: nextStatus });
+      return { task, status: (res.data?.status ?? nextStatus) as string };
+    },
+    onSuccess: ({ task, status }) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      if (settings.toastOnSuccess) toast(`"${task.name}" is now ${status.toLowerCase()}.`, 'success');
+    },
+    onError: (error: unknown, task) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      const detail = err.response?.data?.error || err.message;
+      if (settings.toastOnFailure) toast(`Couldn't update "${task.name}": ${detail}`, 'error');
+    }
+  });
+
   const syncMutation = useMutation({
     mutationFn: async (categories: string[]) => {
       // 1. Ensure we have an active connection for Windows
@@ -204,6 +225,8 @@ const Dashboard = () => {
             onRun={runMutation.mutate}
             onCategoryUpdate={handleCategoryUpdate}
             onClone={setCloningTask}
+            onToggleStatus={statusMutation.mutate}
+            statusTogglingId={statusMutation.isPending ? statusMutation.variables?.id ?? null : null}
             onShowHelp={() => setShowHelp(true)}
             onNewTask={() => setShowCreateNative(true)}
             settings={settings}

@@ -9,6 +9,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import { Modal } from './ui/Modal';
 import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
+import { isRunnable, runButtonTitle } from '../utils/taskActions';
 import { EditScheduleModal } from './EditScheduleModal';
 import { EditActionModal } from './EditActionModal';
 
@@ -662,9 +663,11 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               </button>
             );
           })()}
-          <button 
-            onClick={() => { onRun(task); onClose(); }} 
-            className="flex-1 bg-success hover:bg-success-hover text-success-foreground py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-success/20 active:scale-95 text-sm"
+          <button
+            onClick={() => { if (isRunnable(task)) { onRun(task); onClose(); } }}
+            disabled={!isRunnable(task)}
+            title={isRunnable(task) ? undefined : runButtonTitle(task)}
+            className="flex-1 bg-success hover:bg-success-hover text-success-foreground py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-success/20 active:scale-95 text-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
           >
             <Play size={16} fill="currentColor" /> Run Now
           </button>

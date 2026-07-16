@@ -17,6 +17,7 @@ import {
   HelpCircle,
   CopyPlus,
   Play,
+  Power,
   Zap,
   Search,
   X,
@@ -25,6 +26,7 @@ import {
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { platformLabel, platformBadgeClass } from '../platform';
+import { isRunnable, runButtonTitle, canToggleStatus, toggleStatusTitle } from '../utils/taskActions';
 import { matchesTaskSearch } from '../utils/taskSearch';
 import type { Settings } from '../hooks/useSettings';
 import { useConnections } from '../hooks/useConnections';
@@ -43,6 +45,8 @@ export const DashboardScreen = ({
   isSyncing,
   onCategoryUpdate,
   onClone,
+  onToggleStatus,
+  statusTogglingId,
   onShowHelp,
   onNewTask,
   settings
@@ -56,6 +60,8 @@ export const DashboardScreen = ({
   isSyncing: boolean;
   onCategoryUpdate: (taskId: string, category: string) => void;
   onClone: (task: Task) => void;
+  onToggleStatus: (task: Task) => void;
+  statusTogglingId: string | null;
   onShowHelp: () => void;
   onNewTask: () => void;
   settings: Settings;
@@ -398,13 +404,15 @@ export const DashboardScreen = ({
                 </div>
               ) : (
                 filteredTasks.map(task => (
-                  <TaskCard 
-                    key={task.id} 
-                    task={task} 
-                    onSelect={onTaskSelect} 
-                    onRun={onRun} 
-                    onCategoryUpdate={onCategoryUpdate} 
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onSelect={onTaskSelect}
+                    onRun={onRun}
+                    onCategoryUpdate={onCategoryUpdate}
                     onClone={onClone}
+                    onToggleStatus={onToggleStatus}
+                    isTogglingStatus={statusTogglingId === task.id}
                   />
                 ))
               )}
@@ -474,17 +482,28 @@ export const DashboardScreen = ({
                           </td>
                           <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
                             <div className="flex gap-2">
-                              <button 
-                                onClick={() => onClone(task)} 
+                              <button
+                                onClick={() => onClone(task)}
                                 className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground border border-border transition-all active:scale-90"
                                 title="Clone Task"
                               >
                                 <CopyPlus size={16} />
                               </button>
-                              <button 
-                                onClick={() => onRun(task)} 
-                                className="bg-success hover:bg-success-hover p-2 rounded-lg text-success-foreground shadow-lg shadow-success/20 transition-all active:scale-90"
-                                title="Run Task"
+                              {canToggleStatus(task) && (
+                                <button
+                                  onClick={() => onToggleStatus(task)}
+                                  disabled={statusTogglingId === task.id}
+                                  className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground border border-border transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={toggleStatusTitle(task)}
+                                >
+                                  {statusTogglingId === task.id ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => isRunnable(task) && onRun(task)}
+                                disabled={!isRunnable(task)}
+                                className="bg-success hover:bg-success-hover p-2 rounded-lg text-success-foreground shadow-lg shadow-success/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
+                                title={runButtonTitle(task)}
                               >
                                 <Play size={16} fill="currentColor" />
                               </button>
@@ -538,17 +557,28 @@ export const DashboardScreen = ({
                             {formatTime(task.updatedAt, settings.timezone)}
                           </span>
                           <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                            <button 
-                              onClick={() => onClone(task)} 
+                            <button
+                              onClick={() => onClone(task)}
                               className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
                               title="Clone Task"
                             >
                               <CopyPlus size={12} />
                             </button>
-                            <button 
-                              onClick={() => onRun(task)} 
-                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10"
-                              title="Run Task"
+                            {canToggleStatus(task) && (
+                              <button
+                                onClick={() => onToggleStatus(task)}
+                                disabled={statusTogglingId === task.id}
+                                className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={toggleStatusTitle(task)}
+                              >
+                                {statusTogglingId === task.id ? <Loader2 size={12} className="animate-spin" /> : <Power size={12} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => isRunnable(task) && onRun(task)}
+                              disabled={!isRunnable(task)}
+                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                              title={runButtonTitle(task)}
                             >
                               <Play size={12} fill="currentColor" />
                             </button>
@@ -596,17 +626,28 @@ export const DashboardScreen = ({
                             {formatTime(task.updatedAt, settings.timezone)}
                           </span>
                           <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                            <button 
-                              onClick={() => onClone(task)} 
+                            <button
+                              onClick={() => onClone(task)}
                               className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
                               title="Clone Task"
                             >
                               <CopyPlus size={12} />
                             </button>
-                            <button 
-                              onClick={() => onRun(task)} 
-                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10"
-                              title="Run Task"
+                            {canToggleStatus(task) && (
+                              <button
+                                onClick={() => onToggleStatus(task)}
+                                disabled={statusTogglingId === task.id}
+                                className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={toggleStatusTitle(task)}
+                              >
+                                {statusTogglingId === task.id ? <Loader2 size={12} className="animate-spin" /> : <Power size={12} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => isRunnable(task) && onRun(task)}
+                              disabled={!isRunnable(task)}
+                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                              title={runButtonTitle(task)}
                             >
                               <Play size={12} fill="currentColor" />
                             </button>
@@ -666,17 +707,28 @@ export const DashboardScreen = ({
                                 </span>
                               </div>
                               <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                                <button 
-                                  onClick={() => onClone(task)} 
+                                <button
+                                  onClick={() => onClone(task)}
                                   className="p-2 rounded bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all active:scale-95"
                                   title="Clone Task"
                                 >
                                   <CopyPlus size={14} />
                                 </button>
-                                <button 
-                                  onClick={() => onRun(task)} 
-                                  className="p-2 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 active:scale-95"
-                                  title="Run Task"
+                                {canToggleStatus(task) && (
+                                  <button
+                                    onClick={() => onToggleStatus(task)}
+                                    disabled={statusTogglingId === task.id}
+                                    className="p-2 rounded bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title={toggleStatusTitle(task)}
+                                  >
+                                    {statusTogglingId === task.id ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => isRunnable(task) && onRun(task)}
+                                  disabled={!isRunnable(task)}
+                                  className="p-2 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
+                                  title={runButtonTitle(task)}
                                 >
                                   <Play size={14} fill="currentColor" />
                                 </button>

@@ -40,6 +40,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 16 | The **second** of two identical agent commands within one second is silently dropped — 15s, then `Agent trigger timeout`. A second later, the same command works | Signed commands carried a **second-granular** `ts` and nothing else unique, so two identical commands in the same second were byte-identical — and the agent's **replay guard** couldn't distinguish your re-send from an attack. **Fixed 2026-07-15** with a per-command nonce; needs backend + agent shipped together | [→](#16-a-second-identical-agent-command-within-one-second-is-dropped) |
 | 17 | A source file's **diff won't render** / `grep` reports it as `Binary file … matches` — though it looks like normal text | A **literal control byte** (a NUL, a `0x1f`) was pasted into the file (usually a comment or a regex describing that byte), so git classifies it binary and its diff is unreviewable. **Fixed 2026-07-16**: write the byte as an escape (`\x00`); guarded by `scripts/check-control-bytes.mjs` in CI | [→](#17-a-source-file-is-binary-to-git-because-of-a-stray-control-byte) |
 | 18 | After adding an **npm dependency**, `docker restart taskhub-backend-1` crash-loops with `ERR_MODULE_NOT_FOUND: Cannot find package 'X'` — even though it's in `package.json` and installed on the host | The compose stack bind-mounts `./backend:/app` **but keeps an anonymous volume for `/app/node_modules`**, so the container's `node_modules` is isolated from the host's. A host `npm install` never reaches it, and `docker restart` re-runs the same missing-dep tree | [→](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart) |
+| 19 | The dashboard can't reach the backend after you **log in**: the container is `Up` but requests get `Connection refused`, and `docker logs` ends with `prisma.user.upsert()` → `Unique constraint failed on the fields: (id)` (`P2002`) | The boot seed keyed the placeholder-user upsert on the **mutable `email`** while always creating the **fixed `id`** — the login flow changed that row's email, so the lookup missed and the upsert fell through to re-create the existing id, crashing `main()` before the HTTP server came up | [→](#19-backend-crash-loops-on-boot-with-p2002-after-you-log-in--frontend-cant-reach-it) |
 
 ---
 
@@ -1077,6 +1078,54 @@ is fine.
 
 *First hit: 2026-07-16 (adding `express-rate-limit` for the login rate-limiter — the backend
 restarted into a crash-loop until the dep was installed in the container).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 19. Backend crash-loops on boot with `P2002` after you log in — frontend can't reach it
+
+**Symptom** — the dashboard at `http://localhost:5173` can't reach the backend. The container
+shows `Up`, the port is mapped, but every request returns nothing (`curl` → `HTTP 000` /
+`Connection refused` even from *inside* the container). The backend log ends with:
+
+```
+Invalid `prisma.user.upsert()` invocation in /app/src/index.ts
+Unique constraint failed on the fields: (`id`)
+  code: 'P2002', meta: { modelName: 'User', target: [ 'id' ] }
+```
+
+**Cause** — the boot seed's placeholder-user upsert was keyed on the **mutable** `email`
+(`where: { email: 'mike@example.com' }`) while always creating the **fixed** `id:
+'cli_user_placeholder'`. The single-user login flow (2026, commit `2975fd3`) lets that row's
+email change to your real address. Once it does, the email lookup misses → the upsert falls
+through to *create* the fixed id → it already exists → `P2002` → `main()` throws → the HTTP
+server never comes up. The container stays `Up` (tsx is alive) but nothing serves.
+
+Check the DB to confirm the row's email drifted:
+
+```bash
+docker exec taskhub-db-1 psql -U taskhub -d taskhub -t \
+  -c 'SELECT id, email FROM "User";'
+# cli_user_placeholder | mikeschecht@gmail.com   ← not mike@example.com anymore
+```
+
+**Fix** — key the seed upsert on the stable primary key, not the user-editable email
+(`backend/src/index.ts`):
+
+```ts
+await prisma.user.upsert({
+  where: { id: 'cli_user_placeholder' },   // was: { email: 'mike@example.com' }
+  update: {},
+  create: { id: 'cli_user_placeholder', email: 'mike@example.com', name: 'Mike', password: '' },
+});
+```
+
+Then `docker compose restart backend`. General rule: **seed/upsert on the immutable identity,
+never on a field the app lets the user change** — otherwise the seed orphans itself on first edit.
+
+*First hit: 2026-07-16 (the login feature had changed the placeholder user's email; every boot
+crashed until the seed was re-keyed on `id`).*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

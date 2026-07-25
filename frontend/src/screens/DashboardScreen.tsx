@@ -125,6 +125,18 @@ export const DashboardScreen = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, viewMode, showDisabled, selectedPlatform, selectedCategory]);
 
+  // How many tasks the active-only filter is holding back. Deliberately counted
+  // across ALL tasks rather than the current category/platform selection: this
+  // answers "is anything being kept from me right now?", which is the question
+  // the toggle's own state can't answer. Note it covers MISSING and UNKNOWN too,
+  // not just DISABLED — the filter keeps only `ACTIVE`, so a natively-deleted
+  // task flagged MISSING is invisible in Active Only, which is exactly the kind
+  // of thing you don't want silently hidden.
+  const hiddenByActiveFilter = useMemo(
+    () => (tasks ?? []).filter(t => t.status !== 'ACTIVE').length,
+    [tasks]
+  );
+
   // The "All" chip counts every task visible under the current active/platform
   // constraints — i.e. the sum of the per-category counts.
   const totalVisibleCount = useMemo(
@@ -215,17 +227,46 @@ export const DashboardScreen = ({
             <HelpCircle size={16} /> Help Center
           </button>
 
+          {/*
+            Filter toggle. Both states carry a deliberate, saturated treatment
+            because the previous design differentiated them only by a `bg-primary/10`
+            tint and the eye's slash — at 10% opacity on a dark surface those read
+            as the same button, so you couldn't tell which state you were in.
+            Green = "only the live ones" (matching the ACTIVE dot on every task
+            card); amber = "this includes tasks that will never fire". Three
+            redundant signals — colour, icon, and the hidden-count — so meaning
+            never rests on colour alone.
+          */}
           {!isEmpty && viewMode !== 'kanban' && (
-            <button 
-              onClick={() => setShowDisabled(!showDisabled)} 
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border ${
-                showDisabled 
-                  ? 'bg-primary/10 border-primary/50 text-foreground' 
-                  : 'bg-surface border-border text-muted-foreground hover:border-foreground/20'
+            <button
+              onClick={() => setShowDisabled(!showDisabled)}
+              aria-pressed={!showDisabled}
+              title={
+                showDisabled
+                  ? `Showing all ${tasks?.length ?? 0} tasks, including disabled and missing ones. Click to show only active tasks.`
+                  : hiddenByActiveFilter > 0
+                    ? `Showing only active tasks — ${hiddenByActiveFilter} hidden (disabled, missing, or unknown). Click to show everything.`
+                    : 'Showing only active tasks. Nothing is hidden right now. Click to show everything.'
+              }
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
+                showDisabled
+                  ? 'bg-amber-500/10 border-amber-500/40 text-foreground hover:border-amber-500/70'
+                  : 'bg-green-500/10 border-green-500/40 text-foreground hover:border-green-500/70'
               }`}
             >
-              {showDisabled ? <Eye size={16} /> : <EyeOff size={16} />}
+              {showDisabled
+                ? <Eye size={16} className="text-amber-400" />
+                : <EyeOff size={16} className="text-green-400" />}
               {showDisabled ? 'Showing All' : 'Active Only'}
+              {/* The count is the part that actually removes the ambiguity: the
+                  label alone reads as either a state or an action. */}
+              {showDisabled ? (
+                <span className="text-[10px] font-bold text-amber-400/90 tabular-nums">{tasks?.length ?? 0}</span>
+              ) : hiddenByActiveFilter > 0 && (
+                <span className="text-[10px] font-bold text-green-400/90 tabular-nums whitespace-nowrap">
+                  {hiddenByActiveFilter} hidden
+                </span>
+              )}
             </button>
           )}
           

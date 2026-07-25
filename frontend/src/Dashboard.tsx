@@ -111,13 +111,18 @@ const Dashboard = () => {
     }
   });
 
+  // Two callers, two shapes. Import sends the categories the user ticked in the
+  // modal (path-derived names, straight from /discover). Sync Now sends
+  // `scope: 'tracked'` and lets the server work out which folders that means —
+  // it must NOT send `task.category`, which is a renameable label and would no
+  // longer match any folder, silently dropping it from the sync.
   const syncMutation = useMutation({
-    mutationFn: async (categories: string[]) => {
+    mutationFn: async (payload: { categories: string[] } | { scope: 'tracked' }) => {
       // 1. Ensure we have an active connection for Windows
-      await api.get('/tasks/health'); // This route is often used to probe/refresh connections, 
+      await api.get('/tasks/health'); // This route is often used to probe/refresh connections,
                                      // but let's be more explicit.
-      
-      return api.post('/tasks/sync', { categories });
+
+      return api.post('/tasks/sync', payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -216,10 +221,7 @@ const Dashboard = () => {
             tasks={tasks}
             isLoading={isLoading}
             onImport={() => setShowImport(true)}
-            onSyncNow={() => {
-              const cats = Array.from(new Set((tasks ?? []).map(t => t.category || 'Uncategorized')));
-              syncMutation.mutate(cats);
-            }}
+            onSyncNow={() => syncMutation.mutate({ scope: 'tracked' })}
             isSyncing={syncMutation.isPending}
             onTaskSelect={(t) => navigate(`/tasks/${t.id}`)}
             onRun={runMutation.mutate}
@@ -256,7 +258,7 @@ const Dashboard = () => {
       {showImport && (
         <ImportModal
           onClose={() => setShowImport(false)}
-          onImport={syncMutation.mutate}
+          onImport={(categories) => syncMutation.mutate({ categories })}
         />
       )}
       {showCreateNative && (

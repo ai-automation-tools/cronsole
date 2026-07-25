@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { PlatformType } from '@prisma/client';
-import { prisma } from './db.js';
+import { prisma, warnOnStaleGeneratedClient } from './db.js';
 import { createApp } from './app.js';
 import { agentManager } from './ws/AgentManager.js';
 import { agentAuthMiddleware, assertAgentAuthConfig } from './ws/agentAuth.js';
@@ -67,6 +67,11 @@ io.on('connection', (socket: Socket) => {
 // --- Initialization ---
 
 async function main() {
+  // Before anything reads or writes: a stale generated client silently drops
+  // enum values it doesn't know (troubleshooting #22), so say so loudly at boot
+  // rather than letting the first sync report work it didn't do.
+  warnOnStaleGeneratedClient();
+
   // MVP Placeholder User. Key the upsert on the stable primary key, not email:
   // the single-user login flow lets the user change this row's email, which would
   // orphan an email-keyed upsert and make it try to re-create the fixed id (P2002).

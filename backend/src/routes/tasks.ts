@@ -586,14 +586,26 @@ router.get('/health', async (req: Request, res: Response) => {
   res.json(results);
 });
 
-const syncSchema = z.object({
-  categories: z.array(z.string()).optional() // categories to INCLUDE
-});
+const syncSchema = z
+  .object({
+    // Explicit categories to INCLUDE — what the Import flow sends, straight from
+    // GET /discover, so these are already path-derived names.
+    categories: z.array(z.string()).optional(),
+    // 'tracked' = refresh the folders this user already tracks, resolved
+    // server-side from the stored tasks' native paths (TaskService
+    // .trackedCategories). This is what "Sync Now" sends: the caller must NOT
+    // echo back stored `category` values, because those are user-renameable and
+    // would silently drop a whole folder from the filter.
+    scope: z.literal('tracked').optional()
+  })
+  .refine(v => !(v.categories && v.scope), {
+    message: 'pass either `categories` or `scope`, not both'
+  });
 
-// Sync tasks from all platforms (Legacy - now selective)
+// Sync tasks from all platforms (selective: by category, by tracked scope, or all)
 router.post('/sync', validateBody(syncSchema), async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
-  const { categories } = req.body;
+  const { categories, scope } = req.body;
 
   const connections = await prisma.platformConnection.findMany({
     where: { userId, isActive: true }
@@ -609,9 +621,17 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
         let tasks = await connector.syncTasks({ ...deserializeConfig(conn.config), userId });
         const allExternalIds = tasks.map(t => t.externalId);
 
-        if (categories) {
+        // Resolve the include-set. `scope: 'tracked'` is computed per platform
+        // from the tasks already stored; an empty set legitimately means "sync
+        // nothing here", so it must still filter rather than fall through to
+        // "sync everything" — hence the `!== undefined` check, not truthiness.
+        const include = scope === 'tracked'
+          ? await TaskService.trackedCategories(userId, conn.platform)
+          : categories;
+
+        if (include !== undefined) {
           tasks = tasks.filter(t =>
-            categories.includes(TaskService.extractCategory(t.externalId, conn.platform))
+            include.includes(TaskService.extractCategory(t.externalId, conn.platform))
           );
         }
 

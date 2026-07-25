@@ -703,6 +703,56 @@ router.get('/discover', async (req: Request, res: Response) => {
   res.json(discovery);
 });
 
+// Bulk-remove every task the last sync found absent from its platform.
+//
+// MUST stay above `DELETE /:id` — Express matches in declaration order, so the
+// parameterised route would otherwise swallow "missing" as a task id and answer
+// 404.
+//
+// Unlike the single delete below this deliberately does NOT ask the platform to
+// delete anything: MISSING means the platform already reported the task gone, so
+// there is nothing left to remove and no confirmation to obtain. It only drops
+// TaskHub's own rows (and their logs). Benign in the race where a task came back
+// but no sync has run yet: the row is deleted, then the next sync re-imports it,
+// because reconciliation is what set MISSING in the first place.
+router.delete('/missing', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+
+  // Non-negotiable guard, and the reason this route is written defensively: a
+  // stale generated client makes `TaskStatus.MISSING` undefined, and Prisma
+  // *ignores* undefined in a `where` clause rather than erroring — so
+  // `{ userId, status: undefined }` would silently widen to EVERY task this user
+  // owns and delete the whole dashboard. Same root cause as troubleshooting #22,
+  // but where that one under-wrote a status, this one would over-delete rows.
+  if (TaskStatus.MISSING === undefined) {
+    throw new HttpError(
+      500,
+      'Generated Prisma client is stale: TaskStatus.MISSING is undefined, so this delete would ' +
+      'match every task instead of only the missing ones. Run: docker compose exec backend ' +
+      'npx prisma generate && docker restart taskhub-backend-1 (see docs/troubleshooting/README.md #22)'
+    );
+  }
+
+  const missing = await prisma.task.findMany({
+    where: { userId, status: TaskStatus.MISSING },
+    select: { id: true }
+  });
+
+  if (missing.length === 0) {
+    res.json({ message: 'No missing tasks to clear', deleted: 0 });
+    return;
+  }
+
+  const ids = missing.map(t => t.id);
+  await prisma.$transaction([
+    prisma.executionLog.deleteMany({ where: { taskId: { in: ids } } }),
+    prisma.task.deleteMany({ where: { id: { in: ids } } })
+  ]);
+
+  notifyTasksChanged(userId);
+  res.json({ message: `Cleared ${ids.length} missing task${ids.length === 1 ? '' : 's'}`, deleted: ids.length });
+});
+
 // Delete a task. TaskHub-native rows are backend-owned, so the DB delete is the
 // whole operation. For agent-backed platforms (Windows) the connector must
 // remove the real scheduler entry first (signed task:delete to the agent) — the

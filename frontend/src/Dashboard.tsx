@@ -111,6 +111,40 @@ const Dashboard = () => {
     }
   });
 
+  // Clear every task the last sync found absent from its platform. Bulk because
+  // the mess arrives in bulk — deleting a Task Scheduler folder flags all of its
+  // tasks MISSING at once, and clearing them one modal at a time doesn't scale.
+  // Safe without a per-task platform round-trip: MISSING means the platform
+  // already reported them gone, so there's nothing left to delete out there.
+  const clearMissingMutation = useMutation({
+    mutationFn: async (count: number) => {
+      const ok = await confirm({
+        title: `Clear ${count} missing task${count === 1 ? '' : 's'}?`,
+        message:
+          `These are tracked in TaskHub but were not found on their platform at the last sync — ` +
+          `usually because you deleted them natively. This removes TaskHub's records and their run ` +
+          `history. Nothing on your machine is touched. If one still exists, the next sync re-imports it.`,
+        confirmText: `Clear ${count}`,
+        tone: 'danger'
+      });
+      if (!ok) throw new Error('Cancelled');
+      const res = await api.delete('/tasks/missing');
+      return res.data as { deleted: number };
+    },
+    onSuccess: ({ deleted }) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      if (settings.toastOnSuccess) {
+        toast(`Cleared ${deleted} missing task${deleted === 1 ? '' : 's'}.`, 'success');
+      }
+    },
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      if (err.message === 'Cancelled') return;
+      const detail = err.response?.data?.error || err.message;
+      if (settings.toastOnFailure) toast(`Couldn't clear missing tasks: ${detail}`, 'error');
+    }
+  });
+
   // Two callers, two shapes. Import sends the categories the user ticked in the
   // modal (path-derived names, straight from /discover). Sync Now sends
   // `scope: 'tracked'` and lets the server work out which folders that means —
@@ -222,6 +256,8 @@ const Dashboard = () => {
             isLoading={isLoading}
             onImport={() => setShowImport(true)}
             onSyncNow={() => syncMutation.mutate({ scope: 'tracked' })}
+            onClearMissing={(count) => clearMissingMutation.mutate(count)}
+            isClearingMissing={clearMissingMutation.isPending}
             isSyncing={syncMutation.isPending}
             onTaskSelect={(t) => navigate(`/tasks/${t.id}`)}
             onRun={runMutation.mutate}

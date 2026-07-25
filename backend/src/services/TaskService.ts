@@ -93,6 +93,22 @@ export class TaskService {
    * that stay absent are a no-op, so a quiet sync returns 0).
    */
   static async reconcileMissingTasks(userId: string, platform: PlatformType, currentExternalIds: string[]) {
+    // Refuse rather than lie, and check this before anything else: "I cannot do
+    // this correctly" is a precondition on the operation, independent of what
+    // the snapshot happens to contain. If the generated client lacks MISSING (a
+    // stale container client — troubleshooting #22), `TaskStatus.MISSING` is
+    // `undefined`, Prisma drops the field from the payload, and updateMany still
+    // returns a non-zero count — so this function would report N tasks marked
+    // MISSING while marking none and merely clearing their nextRunTime. An error
+    // the caller surfaces is strictly better than a confident wrong number.
+    if (TaskStatus.MISSING === undefined) {
+      throw new Error(
+        'Generated Prisma client is stale: TaskStatus.MISSING is undefined, so the status write ' +
+        'would be silently dropped. Run: docker compose exec backend npx prisma generate ' +
+        '&& docker restart taskhub-backend-1 (see docs/troubleshooting/README.md #22)'
+      );
+    }
+
     if (currentExternalIds.length === 0) return 0;
 
     const trackedCount = await prisma.task.count({ where: { userId, platform } });
@@ -120,6 +136,31 @@ export class TaskService {
       data: { status: TaskStatus.MISSING, nextRunTime: null }
     });
     return result.count;
+  }
+
+  /**
+   * The categories a `scope: 'tracked'` sync should refresh — derived from the
+   * native paths of the tasks the user already tracks, NOT from their stored
+   * `category` values.
+   *
+   * Why derived and not stored: `category` is a user override (renaming it from
+   * a task card is supported, and `upsertTasks` deliberately preserves it), but
+   * the sync filter matches on `extractCategory(externalId)`. So a caller that
+   * echoes stored categories back sends names that no longer correspond to any
+   * folder, and that folder silently drops out of the sync — it stops refreshing
+   * AND stops picking up new tasks, with no error. Resolving the set here, from
+   * the paths, keeps the one definition of "category" (`extractCategory`) on the
+   * server and makes the caller immune to renames by construction.
+   *
+   * An empty result means "you track nothing on this platform", which correctly
+   * syncs nothing — never everything.
+   */
+  static async trackedCategories(userId: string, platform: PlatformType): Promise<string[]> {
+    const tracked = await prisma.task.findMany({
+      where: { userId, platform },
+      select: { externalId: true }
+    });
+    return Array.from(new Set(tracked.map(t => this.extractCategory(t.externalId, platform))));
   }
 
   public static extractCategory(externalId: string, platform: PlatformType): string {

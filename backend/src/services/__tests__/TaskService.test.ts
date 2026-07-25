@@ -191,4 +191,80 @@ describe('TaskService', () => {
     expect(missing).toBe(0);
     expect(mockPrisma.task.updateMany).not.toHaveBeenCalled();
   });
+
+  it('refuses to reconcile when the generated client lacks MISSING, instead of reporting a false count', async () => {
+    // The nine-day silent bug (troubleshooting #22): a stale container client
+    // makes TaskStatus.MISSING `undefined`, Prisma drops the field from `data`,
+    // and updateMany still returns a count — so the sync reported "56 marked
+    // MISSING" while marking none and merely clearing nextRunTime. Refusing is
+    // the only honest option; a wrong number is worse than an error.
+    const { TaskStatus } = await import('@prisma/client');
+    const saved = (TaskStatus as Record<string, string>).MISSING;
+    delete (TaskStatus as Record<string, string>).MISSING;
+    try {
+      mockPrisma.task.updateMany.mockResolvedValue({ count: 56 });
+
+      await expect(
+        TaskService.reconcileMissingTasks('user-1', 'WINDOWS_TASK_SCHEDULER' as any, ['\\Still\\Here'])
+      ).rejects.toThrow(/stale.*TaskStatus\.MISSING is undefined/s);
+
+      // Critically: it must not have written at all — a partial write that
+      // clears nextRunTime while leaving status alone is the corruption itself.
+      expect(mockPrisma.task.updateMany).not.toHaveBeenCalled();
+    } finally {
+      (TaskStatus as Record<string, string>).MISSING = saved;
+    }
+  });
+
+  describe('trackedCategories', () => {
+    it('derives the set from native paths, ignoring a renamed stored category', async () => {
+      // The regression this exists for: a caller that echoed stored `category`
+      // values back as the sync filter sent names matching no folder, so the
+      // folder silently stopped syncing — no new tasks, no refresh, no error.
+      mockPrisma.task.findMany.mockResolvedValue([
+        { externalId: '\\Edge-Radar\\NightlySettle', category: 'Betting' },
+        { externalId: '\\AI-Maintenance\\Update Guides', category: 'Chores' }
+      ]);
+
+      const cats = await TaskService.trackedCategories('user-1', 'WINDOWS_TASK_SCHEDULER' as any);
+
+      expect(cats.sort()).toEqual(['AI-Maintenance', 'Edge-Radar']);
+      expect(cats).not.toContain('Betting');
+      expect(cats).not.toContain('Chores');
+    });
+
+    it('deduplicates folders and maps root-level tasks to Uncategorized', async () => {
+      mockPrisma.task.findMany.mockResolvedValue([
+        { externalId: '\\Edge-Radar\\A' },
+        { externalId: '\\Edge-Radar\\B' },
+        { externalId: '\\Edge-Radar\\Nested\\C' },
+        { externalId: '\\RootLevelTask' }
+      ]);
+
+      const cats = await TaskService.trackedCategories('user-1', 'WINDOWS_TASK_SCHEDULER' as any);
+
+      expect(cats.sort()).toEqual(['Edge-Radar', 'Uncategorized']);
+    });
+
+    it('returns an empty set when nothing is tracked — sync nothing, not everything', async () => {
+      mockPrisma.task.findMany.mockResolvedValue([]);
+
+      const cats = await TaskService.trackedCategories('user-1', 'WINDOWS_TASK_SCHEDULER' as any);
+
+      // The route filters on `include !== undefined`, so [] must stay [] rather
+      // than becoming a falsy "no filter" that would sync all 399 Windows tasks.
+      expect(cats).toEqual([]);
+    });
+
+    it('scopes the lookup to the user and platform', async () => {
+      mockPrisma.task.findMany.mockResolvedValue([]);
+
+      await TaskService.trackedCategories('user-1', 'WINDOWS_TASK_SCHEDULER' as any);
+
+      expect(mockPrisma.task.findMany.mock.calls[0][0].where).toEqual({
+        userId: 'user-1',
+        platform: 'WINDOWS_TASK_SCHEDULER'
+      });
+    });
+  });
 });

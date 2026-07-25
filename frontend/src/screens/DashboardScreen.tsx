@@ -21,7 +21,8 @@ import {
   Zap,
   Search,
   X,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
@@ -43,6 +44,8 @@ export const DashboardScreen = ({
   onImport,
   onSyncNow,
   isSyncing,
+  onClearMissing,
+  isClearingMissing,
   onCategoryUpdate,
   onClone,
   onToggleStatus,
@@ -58,6 +61,8 @@ export const DashboardScreen = ({
   onImport: () => void;
   onSyncNow: () => void;
   isSyncing: boolean;
+  onClearMissing: (count: number) => void;
+  isClearingMissing: boolean;
   onCategoryUpdate: (taskId: string, category: string) => void;
   onClone: (task: Task) => void;
   onToggleStatus: (task: Task) => void;
@@ -134,6 +139,14 @@ export const DashboardScreen = ({
   // of thing you don't want silently hidden.
   const hiddenByActiveFilter = useMemo(
     () => (tasks ?? []).filter(t => t.status !== 'ACTIVE').length,
+    [tasks]
+  );
+
+  // Tasks the last sync couldn't find on their platform. Drives the bulk-clear
+  // affordance, which only exists when there's something to clear — a permanent
+  // "Clear missing (0)" button would be noise on a healthy dashboard.
+  const missingCount = useMemo(
+    () => (tasks ?? []).filter(t => t.status === 'MISSING').length,
     [tasks]
   );
 
@@ -270,6 +283,25 @@ export const DashboardScreen = ({
             </button>
           )}
           
+          {/*
+            Only rendered when something is actually missing: the mess arrives in
+            bulk (deleting a Task Scheduler folder flags every task under it at
+            once), so the way out has to be bulk too. Amber rather than red — it
+            deletes TaskHub's records for tasks the platform already lost, not
+            anything on the machine, and the confirm modal says exactly that.
+          */}
+          {missingCount > 0 && (
+            <button
+              onClick={() => onClearMissing(missingCount)}
+              disabled={isClearingMissing}
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-500/10 border border-amber-500/40 text-foreground hover:border-amber-500/70 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+              title={`${missingCount} tracked task${missingCount === 1 ? ' was' : 's were'} not found on their platform at the last sync. Remove TaskHub's records for them — nothing on your machine is touched.`}
+            >
+              <Trash2 size={16} className="text-amber-400" />
+              {isClearingMissing ? 'Clearing…' : `Clear ${missingCount} Missing`}
+            </button>
+          )}
+
           <button
             onClick={onNewTask}
             className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-violet-600/20 active:scale-95"

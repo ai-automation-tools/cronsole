@@ -41,6 +41,10 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 17 | A source file's **diff won't render** / `grep` reports it as `Binary file … matches` — though it looks like normal text | A **literal control byte** (a NUL, a `0x1f`) was pasted into the file (usually a comment or a regex describing that byte), so git classifies it binary and its diff is unreviewable. **Fixed 2026-07-16**: write the byte as an escape (`\x00`); guarded by `scripts/check-control-bytes.mjs` in CI | [→](#17-a-source-file-is-binary-to-git-because-of-a-stray-control-byte) |
 | 18 | After adding an **npm dependency**, `docker restart taskhub-backend-1` crash-loops with `ERR_MODULE_NOT_FOUND: Cannot find package 'X'` — even though it's in `package.json` and installed on the host | The compose stack bind-mounts `./backend:/app` **but keeps an anonymous volume for `/app/node_modules`**, so the container's `node_modules` is isolated from the host's. A host `npm install` never reaches it, and `docker restart` re-runs the same missing-dep tree | [→](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart) |
 | 19 | The dashboard can't reach the backend after you **log in**: the container is `Up` but requests get `Connection refused`, and `docker logs` ends with `prisma.user.upsert()` → `Unique constraint failed on the fields: (id)` (`P2002`) | The boot seed keyed the placeholder-user upsert on the **mutable `email`** while always creating the **fixed `id`** — the login flow changed that row's email, so the lookup missed and the upsert fell through to re-create the existing id, crashing `main()` before the HTTP server came up | [→](#19-backend-crash-loops-on-boot-with-p2002-after-you-log-in--frontend-cant-reach-it) |
+| 20 | A task you just created in Task Scheduler never appears, no matter how many times you press **Sync Now** — no error, agent online, other tasks refresh fine | **Sync Now can only refresh folders you already track, never discover a new one**: it built its category filter from the tasks already on screen, so a brand-new folder was excluded by the very filter meant to include it. Use **Import** (the only path that calls `/discover`). There is also **no automatic Windows sync** at all | [→](#20-sync-now-never-brings-in-a-task-you-just-created-in-task-scheduler) |
+| 20a | …and after you **rename a category**, that whole folder silently stops syncing — no new tasks, no refresh, no error | The server filters on `extractCategory(externalId)` (re-derived from the folder path) while the caller sent the **renameable** stored `category`, so the name matched no folder. **Fixed 2026-07-25**: Sync Now sends `{ scope: 'tracked' }` and the server resolves the folders itself | [→](#20a-and-a-renamed-category-silently-stops-syncing-its-folder) |
+| 21 | Templates never update — the registry has no effect and the count never moves — while the app is otherwise perfectly healthy; the log shows `[catalog] sync failed … P2002` on `prisma.user.upsert()` | #19's bug in a **second file the #19 fix missed**: `ensureCatalogOwner()` keyed on the mutable `CATALOG_OWNER_EMAIL` while creating the fixed id. Here the caller **catches** it instead of crashing, so the only symptom is a catalog that silently never changes | [→](#21-templates-never-update-catalog-sync-failed--p2002-on-every-boot) |
+| 22 | You delete a Windows task (or a whole folder), sync, and TaskHub **still lists it** — while the sync response reports `missing: 56`, i.e. claims it marked them | The container's **generated Prisma client is stale** and lacks the `MISSING` enum, so `TaskStatus.MISSING` is `undefined` — and **Prisma treats `undefined` in `data` as "leave this field alone"**, so only `nextRunTime` was written while `updateMany` still returned a count. A *wrong* enum value throws; a **missing** one silently no-ops. `prisma migrate` updates the DB, so DB and client drifted apart invisibly (#18's shadowed `node_modules`) | [→](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n) |
 
 ---
 
@@ -1126,6 +1130,227 @@ never on a field the app lets the user change** — otherwise the seed orphans i
 
 *First hit: 2026-07-16 (the login feature had changed the placeholder user's email; every boot
 crashed until the seed was re-keyed on `id`).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 20. "Sync Now" never brings in a task you just created in Task Scheduler
+
+**Symptom** — you create a task in Windows Task Scheduler, press **Sync Now** in the dashboard,
+and it doesn't appear. No error; the toast says `Tasks synced.` The agent is online, `/doctor` is
+clean, and other tasks refresh normally. Pressing it repeatedly changes nothing.
+
+The distinguishing detail: whether the new task shows up depends on **which folder** it's in.
+A new task in a folder you already track *does* arrive. A task in a **brand-new folder** never does.
+
+**Cause** — **Sync Now can only ever refresh folders you already track — it cannot discover a new
+one.** `POST /api/tasks/sync` filters the agent's full enumeration down to an include-set of
+categories, and Sync Now used to build that set from the tasks already on screen:
+
+```ts
+// frontend/src/Dashboard.tsx — the old onSyncNow
+const cats = Array.from(new Set((tasks ?? []).map(t => t.category || 'Uncategorized')));
+syncMutation.mutate(cats);
+```
+
+That's a closed loop: no task in `\IAM\` → `IAM` isn't in `cats` → the server filters `IAM` out
+→ still no task in `\IAM\`. The button's own tooltip says as much ("Re-pull status and schedules
+for the tasks you already track"), but the failure is silent, so it reads as a broken sync.
+
+Confirm it in one call — the agent sees the folder even though the dashboard doesn't:
+
+```bash
+curl -s -H "Authorization: Bearer $TASKHUB_TOKEN" localhost:3000/api/tasks/discover
+# WINDOWS_TASK_SCHEDULER → [... {"name":"IAM","count":1}, {"name":"Edge-Radar-MikesAILab","count":25} ...]
+```
+
+If the folder is listed there, nothing is broken: discovery works, the agent is fine, and the
+task simply hasn't been imported.
+
+**Fix** — use **Import**, not Sync Now. Import is the only path that calls `/discover` and lets
+you tick a category you don't yet have. Two things to know when you do:
+
+- `Microsoft` and `Uncategorized` are **unchecked by default** (`ImportModal.tsx`). Root-level
+  tasks (`\MyTask`, no folder) are `Uncategorized`, so they need an explicit tick.
+- Ticking is **all-or-nothing per category**. `Uncategorized` on a typical machine means ~38
+  tasks, most of them OS/vendor updaters (Opera, Zoom, OneDrive, AMD, Adobe). `Microsoft` means
+  ~257. Once tracked, they come back on **every** subsequent sync.
+
+There is **no automatic Windows sync** — no poll, no interval. `NativeScheduler` runs
+TaskHub-native jobs and `catalogSync` refreshes templates; neither touches Task Scheduler. A
+task created natively is invisible until *you* sync. That's deliberate (selective import), not
+a bug — but it means "I made it an hour ago and it's still not there" is expected, not a fault.
+
+### 20a. …and a *renamed* category silently stops syncing its folder
+
+A sharper edge of the same bug, fixed 2026-07-25. Categories are renameable (click the label on
+a task card) and `upsertTasks` deliberately preserves the override — but the server filters on
+`TaskService.extractCategory(externalId)`, which is re-derived from the **folder path** and knows
+nothing about your rename. So a Sync Now that echoed stored categories sent a name matching no
+folder, and that folder dropped out of the sync entirely: it stopped picking up new tasks **and**
+stopped refreshing, with no error. A folder holding a single renamed task went dark completely.
+
+**Fix** — Sync Now no longer sends category names at all. It sends `{ scope: 'tracked' }`, and the
+server resolves the include-set itself from the tracked tasks' native paths
+(`TaskService.trackedCategories`), which is immune to renames by construction:
+
+```bash
+curl -X POST -H "Authorization: Bearer $TASKHUB_TOKEN" -H 'Content-Type: application/json' \
+  localhost:3000/api/tasks/sync -d '{"scope":"tracked"}'
+```
+
+`categories` and `scope` are mutually exclusive (400 if you pass both). **General rule: a
+user-editable label must never be the key you filter or look up by** — the same shape as
+[#19](#19-backend-crash-loops-on-boot-with-p2002-after-you-log-in--frontend-cant-reach-it),
+where a mutable email was the key to an upsert.
+
+> [!WARNING]
+> There is **no "untrack"**. `DELETE /api/tasks/:id` on a Windows task deletes the **real Task
+> Scheduler entry** via a signed `task:delete` — so it is *not* a way to tidy up an over-broad
+> import. Removing rows you shouldn't have imported (e.g. the 257 `Microsoft` ones) means
+> deleting them straight from the DB, which leaves Windows untouched:
+> `docker exec taskhub-db-1 psql -U taskhub -d taskhub -c "DELETE FROM \"Task\" WHERE platform='WINDOWS_TASK_SCHEDULER' AND \"externalId\" LIKE '\\Microsoft\\%';"`
+
+*First hit: 2026-07-25 (new tasks in `\IAM\` and `\Edge-Radar-MikesAILab\` were invisible after
+repeated Sync Now; `/discover` showed the agent had been reporting all of them the whole time).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 21. Templates never update: `[catalog] sync failed … P2002` on every boot
+
+**Symptom** — the Templates tab is frozen: registry changes never arrive, a rebuilt/republished
+registry has no effect, and the template count never moves. The app is otherwise **completely
+healthy** — the dashboard works, tasks run, nothing crash-loops. Only visible in the log:
+
+```
+[catalog] sync failed: PrismaClientKnownRequestError:
+Invalid `prisma.user.upsert()` invocation in /app/src/catalog/catalogSync.ts:48:21
+Unique constraint failed on the fields: (`id`)
+  code: 'P2002', meta: { modelName: 'User', target: [ 'id' ] }
+```
+
+**Cause** — [#19](#19-backend-crash-loops-on-boot-with-p2002-after-you-log-in--frontend-cant-reach-it)
+in a **second file that the #19 fix didn't touch**. `ensureCatalogOwner()` keyed its upsert on
+the **mutable** `CATALOG_OWNER_EMAIL` (`mike@example.com`) while creating the **fixed**
+`CATALOG_OWNER_ID` (`cli_user_placeholder`) — the same row the single-user login flow renames to
+your real address. Once you log in, the email lookup misses, the upsert falls through to *create*
+an id that already exists, and `P2002` throws.
+
+The difference from #19 — and why this one hides for months — is that the caller **catches** it
+(`[catalog] sync failed:`) instead of crashing boot. So the backend comes up clean, everything
+looks fine, and the only symptom is a catalog that quietly never changes again. **A swallowed
+error on a background refresh is invisible in exactly the way a crash isn't.**
+
+Confirm the email drifted:
+
+```bash
+docker exec taskhub-db-1 psql -U taskhub -d taskhub -c 'SELECT id, email FROM "User";'
+# cli_user_placeholder | mikeschecht@gmail.com   ← not mike@example.com anymore
+```
+
+**Fix** — key on the immutable id (`backend/src/catalog/catalogSync.ts`):
+
+```ts
+await prisma.user.upsert({
+  where: { id: CATALOG_OWNER_ID },      // was: { email: CATALOG_OWNER_EMAIL }
+  update: {},
+  create: { id: CATALOG_OWNER_ID, email: CATALOG_OWNER_EMAIL, name: 'Mike' }
+});
+```
+
+Then `docker compose restart backend` and confirm the success line, which is the whole point of
+checking rather than assuming: `[catalog] synced 5 core templates from "bundled".`
+
+**When you fix a bug of this shape, grep for the pattern instead of fixing the one instance:**
+`grep -rn "upsert" backend/src | grep -v "where: { id"`. #19 shipped a correct fix to one call
+site and left an identical one live for nine days.
+
+*First hit: 2026-07-25 (found incidentally while restarting the backend for unrelated work —
+the catalog had been silently dead since the login feature first changed the placeholder email).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 22. Deleted a Windows task, synced, and TaskHub still shows it — while reporting `missing: N`
+
+**Symptom** — you delete tasks (or a whole folder) in Task Scheduler, press Sync, and they're
+**still listed** in TaskHub as `ACTIVE`/`DISABLED`. The sync response looks *correct*:
+
+```json
+{"platform":"WINDOWS_TASK_SCHEDULER","count":349,"missing":56}
+```
+
+`missing: 56` says 56 tasks were marked MISSING. The database says otherwise — **nothing changed**:
+
+```bash
+docker exec taskhub-db-1 psql -U taskhub -d taskhub -t \
+  -c "SELECT status, count(*) FROM \"Task\" WHERE platform='WINDOWS_TASK_SCHEDULER' GROUP BY 1;"
+#  ACTIVE   | 298      ← identical before and after the sync
+#  DISABLED | 107
+```
+
+Not a caching or UI problem: the API confidently reports work it did not do.
+
+**Cause** — the **generated Prisma client inside the container is stale** and predates the
+`MISSING` enum, so `TaskStatus.MISSING` is `undefined`. Then:
+
+> **Prisma treats `undefined` in a `data` payload as "leave this field alone."**
+
+So `data: { status: TaskStatus.MISSING, nextRunTime: null }` degraded to
+`data: { nextRunTime: null }` — it cleared `nextRunTime`, left `status` untouched, and
+`updateMany` still returned **56 matched rows**, which the route faithfully reported as
+`missing: 56`. A *wrong* enum value would have thrown; a **missing** one silently no-ops. That
+asymmetry is the whole trap.
+
+Why the client was stale is [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)'s
+mechanism: compose shadows `node_modules` with an anonymous volume, so a host `prisma generate`
+never reaches the container. `prisma migrate` talks to the **database**, so the DB enum gained
+`MISSING` while the container's client did not — the two drifted apart invisibly. Confirm by
+comparing them directly, which is the diagnostic worth remembering:
+
+```bash
+# what the DATABASE knows
+docker exec taskhub-db-1 psql -U taskhub -d taskhub -t -c 'SELECT unnest(enum_range(NULL::"TaskStatus"));'
+#  ACTIVE / DISABLED / UNKNOWN / DELETED / MISSING
+
+# what the CONTAINER'S CLIENT knows
+docker exec taskhub-backend-1 node -e "const {TaskStatus}=require('@prisma/client'); console.log(TaskStatus)"
+#  { ACTIVE, DISABLED, UNKNOWN, DELETED }   ← no MISSING
+```
+
+**Fix** — regenerate inside the container, then restart:
+
+```bash
+docker compose exec backend npx prisma generate
+docker restart taskhub-backend-1
+docker exec taskhub-backend-1 node -e "const {TaskStatus}=require('@prisma/client'); console.log(TaskStatus.MISSING)"  # MISSING
+```
+
+Verify against the **database**, not the response — the response looked right the whole time.
+The same sync then reported the same `missing: 56` *and* actually wrote it.
+
+**Guards added 2026-07-25** so it can't lie again: `missingTaskStatusMembers()` +
+`warnOnStaleGeneratedClient()` in `backend/src/db.ts` print a loud boot banner (non-fatal — a
+stale enum breaks the features that write it, not the whole app), and
+`TaskService.reconcileMissingTasks` now **throws** rather than performing a partial write, so the
+sync route surfaces an honest per-platform error instead of a false count. A unit test asserts
+the *real* generated client is current, which is the one check the mocked suites could never make.
+
+> [!IMPORTANT]
+> **Why every test stayed green for nine days:** the unit suites `vi.mock('@prisma/client')`, so
+> `TaskStatus.MISSING` was whatever the mock declared — always defined. The mock asserted the
+> code's intent while the container disagreed with it. **When a bug lives in the generated client,
+> a suite that mocks that client cannot see it** — the same shape as
+> [#9](#9-agent-payload-arrives-with-every-field-empty) and the MCP suite's stubbed HTTP client.
+> After a schema change, drive the real path once.
+
+*First hit: 2026-07-25 (a user deleted a whole Task Scheduler folder, synced repeatedly, and the
+tasks never left the dashboard — while the API reported them as marked MISSING every time. The
+MISSING feature had never once worked in this Docker stack since shipping 2026-07-16.)*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

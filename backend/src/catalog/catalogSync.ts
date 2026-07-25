@@ -45,8 +45,14 @@ export interface CatalogSyncResult {
  * resolves, regardless of call order (seed / boot / import). Idempotent.
  */
 export async function ensureCatalogOwner(): Promise<void> {
+  // Keyed on the immutable `id`, never the email. The single-user login flow lets
+  // this row's email change to the user's real address; an email lookup then
+  // misses and the upsert falls through to *create* an id that already exists →
+  // P2002, which here is swallowed by the caller's catch, so the catalog just
+  // silently stops syncing. Identical trap to troubleshooting #19, which fixed
+  // the same pattern in src/index.ts but not this second copy.
   await prisma.user.upsert({
-    where: { email: CATALOG_OWNER_EMAIL },
+    where: { id: CATALOG_OWNER_ID },
     update: {},
     create: { id: CATALOG_OWNER_ID, email: CATALOG_OWNER_EMAIL, name: 'Mike' }
   });

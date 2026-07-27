@@ -50,7 +50,7 @@ pwsh .\scripts\taskhub.ps1 status
 ```
 
 `status` should show every service up: Postgres, Redis, backend (`:3000`), frontend
-(`:5173`), and the agent.
+(`:7373`), and the agent.
 
 ### 2. Confirm the backend is alive
 

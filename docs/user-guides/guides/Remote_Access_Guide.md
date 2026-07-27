@@ -29,7 +29,7 @@ login screen** (a proper account system is still on the roadmap). So the rule is
 
 > [!WARNING]
 > **Never put TaskHub directly on the public internet** (no naked port-forwarding of `:3000`
-> or `:5173`). Until there's a real login, the **network layer must be your authentication** —
+> or `:7373`). Until there's a real login, the **network layer must be your authentication** —
 > use a private VPN (Tailscale) or an access-gated tunnel (Cloudflare Access). Both options
 > below do exactly that.
 
@@ -42,7 +42,7 @@ it remotely over a private connection.
 ```
    Your phone / laptop                Your Windows PC (everything runs here)
    ┌──────────────┐                   ┌───────────────────────────────────────┐
-   │  browser     │ ── private VPN ──►│  frontend :5173                        │
+   │  browser     │ ── private VPN ──►│  frontend :7373                        │
    │  (dashboard) │    or tunnel      │  backend  :3000 ── agent ── Task Sched. │
    └──────────────┘                   │  postgres                              │
                                       └───────────────────────────────────────┘
@@ -72,10 +72,10 @@ code-server," and the safest.
    origin to `ALLOWED_ORIGINS` (comma-separated) so CORS and the live-update socket accept it,
    then restart the backend:
    ```bash
-   ALLOWED_ORIGINS=http://my-pc.tailnet-name.ts.net:5173
+   ALLOWED_ORIGINS=http://my-pc.tailnet-name.ts.net:7373
    ```
 4. **Point the remote dashboard at the backend.** On the remote device, open
-   `http://my-pc.tailnet-name.ts.net:5173`, then in **Settings → About → API origin** set the
+   `http://my-pc.tailnet-name.ts.net:7373`, then in **Settings → About → API origin** set the
    backend origin to `http://my-pc.tailnet-name.ts.net:3000`. This uses the runtime
    API-origin override (stored per-device), so no rebuild is needed. *(Alternatively, build the
    frontend with `VITE_API_URL` set to that backend origin.)*
@@ -85,7 +85,7 @@ code-server," and the safest.
 
 > [!TIP]
 > Tailscale's **Serve** feature can put HTTPS in front of your local ports on the tailnet, so
-> you can use `https://…` addresses instead of `http://…:5173`. Optional, but nicer.
+> you can use `https://…` addresses instead of `http://…:7373`. Optional, but nicer.
 
 ## Option B — Cloudflare Tunnel
 

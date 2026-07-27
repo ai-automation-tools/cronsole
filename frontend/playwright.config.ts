@@ -9,7 +9,7 @@ import { defineConfig, devices } from '@playwright/test';
  * These are separate from the Vitest component tests (which are excluded from
  * this testDir and vice-versa) — different runner, different purpose.
  */
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:7373';
 
 export default defineConfig({
   testDir: './tests/e2e',

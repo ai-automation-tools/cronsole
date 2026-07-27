@@ -9,7 +9,7 @@ Load when touching the data model, connectors, the agent protocol, or the API su
 
 | Piece | Runs as | Port | Notes |
 |:---|:---|:--|:---|
-| **Frontend** | Vite dev server (host) | `5173` | React 19 + TS + Tailwind + TanStack Query + React Router |
+| **Frontend** | Vite dev server (host) | `7373` | React 19 + TS + Tailwind + TanStack Query + React Router |
 | **Backend** | Node/Express 5 (Docker or host) | `3000` | TypeScript, Socket.io, Prisma |
 | **Postgres** | Docker | `5432` | v16 |
 | **Redis** | Docker | — | Optional for MVP; required for multi-instance WebSocket |

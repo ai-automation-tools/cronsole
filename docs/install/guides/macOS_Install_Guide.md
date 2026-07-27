@@ -27,7 +27,7 @@ From the repo root:
 
 ```bash
 docker compose up --build
-#   → frontend  http://localhost:5173
+#   → frontend  http://localhost:7373
 #   → backend   http://localhost:3000   (GET /api/health to verify)
 ```
 

@@ -45,6 +45,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 20a | …and after you **rename a category**, that whole folder silently stops syncing — no new tasks, no refresh, no error | The server filters on `extractCategory(externalId)` (re-derived from the folder path) while the caller sent the **renameable** stored `category`, so the name matched no folder. **Fixed 2026-07-25**: Sync Now sends `{ scope: 'tracked' }` and the server resolves the folders itself | [→](#20a-and-a-renamed-category-silently-stops-syncing-its-folder) |
 | 21 | Templates never update — the registry has no effect and the count never moves — while the app is otherwise perfectly healthy; the log shows `[catalog] sync failed … P2002` on `prisma.user.upsert()` | #19's bug in a **second file the #19 fix missed**: `ensureCatalogOwner()` keyed on the mutable `CATALOG_OWNER_EMAIL` while creating the fixed id. Here the caller **catches** it instead of crashing, so the only symptom is a catalog that silently never changes | [→](#21-templates-never-update-catalog-sync-failed--p2002-on-every-boot) |
 | 22 | You delete a Windows task (or a whole folder), sync, and TaskHub **still lists it** — while the sync response reports `missing: 56`, i.e. claims it marked them | The container's **generated Prisma client is stale** and lacks the `MISSING` enum, so `TaskStatus.MISSING` is `undefined` — and **Prisma treats `undefined` in `data` as "leave this field alone"**, so only `nextRunTime` was written while `updateMany` still returned a count. A *wrong* enum value throws; a **missing** one silently no-ops. `prisma migrate` updates the DB, so DB and client drifted apart invisibly (#18's shadowed `node_modules`) | [→](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n) |
+| 23 | The dashboard shows a plain **network error** after a reboot / unclean shutdown. Everything looks `Up`, every request to `:3000` is `HTTP 000`, and a backend log ends with `prisma.user.upsert()` → `FATAL: the database system is starting up` (container) or `Can't reach database server at localhost:5432` (host, `logs/backend.err.log`) | **Nothing waited for Postgres to be *ready*, only to *exist*** — after an unclean shutdown it spends seconds in crash recovery refusing queries, and the boot seed dies on the refusal. It stays dead because **`tsx watch` survives the crash**, so the container never exits and `restart: unless-stopped` never fires. Compounded by **two stacks running at once** (host *and* containers) fighting over `:3000`, with `Test-Port` reporting the dead squatter as "backend already up". **Fixed 2026-07-27**: `pg_isready` healthcheck + `condition: service_healthy`, `Wait-Db` in `taskhub.ps1`, and backend/frontend moved behind `profiles: ["docker"]` | [→](#23-network-error-after-a-reboot--the-database-system-is-starting-up) |
 
 ---
 
@@ -1351,6 +1352,138 @@ the *real* generated client is current, which is the one check the mocked suites
 *First hit: 2026-07-25 (a user deleted a whole Task Scheduler folder, synced repeatedly, and the
 tasks never left the dashboard — while the API reported them as marked MISSING every time. The
 MISSING feature had never once worked in this Docker stack since shipping 2026-07-16.)*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 23. Network error after a reboot — `the database system is starting up`
+
+**Symptom** — the dashboard shows a plain **network error**; nothing loads. The stack looks
+fine: `docker ps` shows every container `Up`, port 3000 is mapped. But every request returns
+nothing:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/tasks   # → 000
+```
+
+`docker logs taskhub-backend-1` ends with:
+
+```
+PrismaClientInitializationError:
+Invalid `prisma.user.upsert()` invocation in /app/src/index.ts:78:21
+Error querying the database: FATAL: the database system is starting up
+```
+
+**Cause** — a **boot-order race**, not a code bug. Nothing waits for Postgres to be *ready*,
+only for it to *exist*. After an unclean shutdown (host reboot, `docker compose kill`, a hard
+power-off) Postgres runs crash recovery first — several seconds of `database system was not
+properly shut down; automatic recovery in progress` — during which it answers every connection
+with `FATAL: the database system is starting up`. The backend's boot seed (`main()`) queries
+immediately, gets that error, throws, and dies.
+
+**It bites in two places, with two different error strings — check both:**
+
+| Backend | Gate that was missing | Error in the log |
+|:---|:---|:---|
+| **Container** | `depends_on: [db]` waits for the container to **start**, not to be **healthy** | `FATAL: the database system is starting up` |
+| **Host** (`taskhub.ps1`) | `compose up -d db redis` returns immediately; the host backend was launched on the next line | `Can't reach database server at localhost:5432` (in `logs/backend.err.log`) |
+
+The reason it stays dead is the nastiest part: **`tsx watch` survives the crash**. The
+supervisor keeps running and waits for a file change, so the *container* never exits — which
+means `restart: unless-stopped` sees a healthy container and never restarts it. The port proxy
+holds `:3000` ([#3](#3-port-listening-but-http-000--eaddrinuse)), so the port looks alive with
+
+The reason it stays dead is the nastiest part: **`tsx watch` survives the crash**. The
+supervisor keeps running and waits for a file change, so the *container* never exits — which
+means `restart: unless-stopped` sees a healthy container and never restarts it. The port proxy
+holds `:3000` ([#3](#3-port-listening-but-http-000--eaddrinuse)), so the port looks alive with
+nothing behind it, indefinitely.
+
+Confirm it was recovery, not corruption:
+
+```bash
+docker logs taskhub-db-1 | grep -E "recovery|starting up|ready to accept"
+# ... database system was not properly shut down; automatic recovery in progress
+# ... FATAL:  the database system is starting up      ← the backend's query, refused
+# ... database system is ready to accept connections  ← ~9s later, too late
+```
+
+**Immediate fix** — the DB is healthy by the time you look, so a restart is all it takes:
+
+```bash
+docker restart taskhub-backend-1
+```
+
+**Durable fix (applied 2026-07-27)** — gate the backend on DB *readiness*, in
+`docker-compose.yml`:
+
+```yaml
+  db:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskhub -d taskhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  backend:
+    depends_on:
+      db:
+        condition: service_healthy   # was: - db
+      redis:
+        condition: service_started
+```
+
+Verify by reproducing the race deliberately — `kill` is an unclean stop, so the next boot
+really does run recovery:
+
+```bash
+docker compose kill db backend && docker compose --profile docker up -d
+#  Container taskhub-db-1  Waiting
+#  Container taskhub-db-1  Healthy      ← compose now blocks here
+#  Container taskhub-backend-1  Starting
+```
+
+For the **host** backend the same gate lives in `scripts/taskhub.ps1` as `Wait-Db`, which polls
+the db container's health before launching it. `taskhub up` now prints `db ready (accepting
+connections)` before `started backend` — if you don't see that line, you're on the old script.
+
+### The deeper cause: two stacks were running at once
+
+The race is what killed it, but **duplicate stacks are what made it confusing and hard to
+see.** This repo can run the backend/frontend two ways, and both were live:
+
+- **The design** (`scripts/taskhub.ps1`, and the sign-in Scheduled Task): Docker runs **db +
+  redis only**; backend, frontend, and agent are **host** processes.
+- **A stray `docker compose up -d`**, which used to start `backend` and `frontend` containers too.
+
+The container grabbed `:3000` first. The host backend then couldn't bind it and died. When the
+container *also* died on the DB race, the port was left held by a dead process — and because
+`taskhub.ps1` tested liveness with `Test-Port 3000`, it reported **`backend already up`** and
+refused to start the real one. Every layer was reporting something true and the sum was a lie.
+
+**Fixed 2026-07-27:** `backend` and `frontend` are now `profiles: ["docker"]`, so a plain
+`docker compose up -d` starts **db + redis only** and cannot collide with the host stack. The
+containerized variant is explicit: `docker compose --profile docker up -d`. `taskhub status`
+also now calls out the specific state that hid this — `:3000` bound while `/api/health` fails.
+
+> [!TIP]
+> **A crashed process behind a live supervisor never trips `restart:`.** Any dev container whose
+> command is a watcher (`tsx watch`, `nodemon`, `vite`) will sit `Up` and idle after the app
+> inside it dies. "Container is `Up`" is not "app is serving" — ask the app
+> ([#3](#3-port-listening-but-http-000--eaddrinuse)).
+
+> [!IMPORTANT]
+> **Never probe your own service with a bare port check.** A bound port proves *something*
+> holds it, not that your app is behind it — and the failure mode it hides is the one where a
+> dead process squats the port your live process needs. Probe the **health endpoint**.
+
+*First hit: 2026-07-27 (reported as "TaskHub is giving me a network error". The UI itself loaded
+fine — it's served by a **host** Vite dev server, independent of the dead backend — which is
+exactly why it presented as a network error rather than a blank page. The frontend moved off
+Vite's default `5173` to `7373` in the same change, since the two frontends had been fighting
+over it.)*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -12,7 +12,7 @@
       1. Docker engine  - started/awaited if not already up
       2. db + redis      - `docker compose up -d db redis`   (Postgres :5432, Redis :6379)
       3. backend         - `npm run dev`  (host)  -> http://localhost:3000
-      4. frontend        - `npm run dev`  (host)  -> http://localhost:5173
+      4. frontend        - `npm run dev`  (host)  -> http://localhost:7373
       5. agent           - TaskHub.Agent.exe (host, needs Windows Task Scheduler access)
 
     All child output is written to <repo>\logs\*.log.

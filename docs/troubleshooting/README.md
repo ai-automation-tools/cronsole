@@ -1183,6 +1183,22 @@ TaskHub-native jobs and `catalogSync` refreshes templates; neither touches Task 
 task created natively is invisible until *you* sync. That's deliberate (selective import), not
 a bug — but it means "I made it an hour ago and it's still not there" is expected, not a fault.
 
+> [!NOTE]
+> **Since 2026-07-27 the dashboard tells you this itself.** Sync Now no longer just says
+> `Tasks synced.` — when the platform reports tasks outside the folders you track, the toast
+> names them: *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."*
+> `POST /api/tasks/sync` carries the numbers per platform:
+>
+> ```jsonc
+> { "platform": "WINDOWS_TASK_SCHEDULER", "count": 352, "missing": 0,
+>   "untracked": { "count": 95, "folders": ["IAM", "…"], "systemCount": 257 } }
+> ```
+>
+> `systemCount` (the `\Microsoft\` tasks) is reported **separately and excluded from `count`**
+> on purpose: a real machine has ~257 of them, so counting them would pin the message at a
+> number that never moves — and a warning that never changes is one you stop reading. The fence
+> was always correct; only its invisibility was the defect.
+
 ### 20a. …and a *renamed* category silently stops syncing its folder
 
 A sharper edge of the same bug, fixed 2026-07-25. Categories are renameable (click the label on

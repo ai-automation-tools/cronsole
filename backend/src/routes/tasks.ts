@@ -635,6 +635,13 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
           );
         }
 
+        // What this sync deliberately left out. Selective import is the design,
+        // but its invisibility cost a full debugging session (troubleshooting
+        // #20): Sync Now cannot discover a new folder, so tasks can sit one
+        // fence away indefinitely while every sync reports success. Computed
+        // from the enumeration we already have — no extra agent round-trip.
+        const untracked = TaskService.summarizeUntracked(allExternalIds, include, conn.platform);
+
         await TaskService.upsertTasks(userId, conn.platform, tasks);
 
         // Reconcile tasks absent from the platform: flip them to MISSING (not
@@ -648,7 +655,7 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
           missing = await TaskService.reconcileMissingTasks(userId, conn.platform, allExternalIds);
         }
 
-        results.push({ platform: conn.platform, count: tasks.length, missing });
+        results.push({ platform: conn.platform, count: tasks.length, missing, untracked });
       } catch (err: any) {
         results.push({ platform: conn.platform, error: err.message });
       }

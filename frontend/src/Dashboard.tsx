@@ -18,6 +18,7 @@ import { useToast } from './hooks/useToast';
 import { useConfirm } from './hooks/useConfirm';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
+import { describeUntracked, type SyncResponse } from './utils/syncSummary';
 
 
 
@@ -156,13 +157,27 @@ const Dashboard = () => {
       await api.get('/tasks/health'); // This route is often used to probe/refresh connections,
                                      // but let's be more explicit.
 
-      return api.post('/tasks/sync', payload);
+      const res = await api.post('/tasks/sync', payload);
+      return res.data as SyncResponse;
     },
-    onSuccess: () => {
+    onSuccess: data => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['connections'] });
       setShowImport(false);
-      if (settings.toastOnSuccess) toast('Tasks synced.', 'success');
+
+      // Say what the sync left behind. Sync Now can only refresh folders you
+      // already track — it cannot discover a new one — so tasks can sit one
+      // fence away indefinitely while every sync cheerfully reports success.
+      // That silence cost a full debugging session (troubleshooting #20).
+      const untracked = describeUntracked(data);
+      if (untracked) {
+        // Deliberately NOT gated behind `toastOnSuccess`: that setting suppresses
+        // routine "it worked" noise, and this is the opposite — the one thing the
+        // sync did NOT do, and the only prompt the user gets that Import exists.
+        toast(untracked, 'info');
+      } else if (settings.toastOnSuccess) {
+        toast('Tasks synced.', 'success');
+      }
     },
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };

@@ -12,6 +12,16 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # The backend's boot seed runs a query immediately and dies if the DB refuses it
+    # (troubleshooting #23). After an unclean shutdown Postgres spends several seconds in
+    # crash recovery answering `FATAL: the database system is starting up`, so "container
+    # started" is not the signal the backend needs — "accepting connections" is.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskhub -d taskhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
@@ -19,7 +29,15 @@ services:
     ports:
       - "6379:6379"
 
+  # NOTE: backend and frontend are OPT-IN (`profiles: [docker]`), so a plain
+  # `docker compose up -d` starts db + redis ONLY. That matches the stack's actual
+  # design (scripts/taskhub.ps1): Postgres/Redis in Docker, backend + frontend + agent
+  # as host processes. Running both copies at once is what caused troubleshooting #23 —
+  # the container grabbed :3000, the host backend then couldn't bind it, and when the
+  # container crashed the port was held by a dead process. Run the containerized
+  # variant explicitly instead:  docker compose --profile docker up -d
   backend:
+    profiles: ["docker"]
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -43,12 +61,15 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev_encryption_key_32_chars_1234}
       AGENT_PAIRING_SECRET: ${AGENT_PAIRING_SECRET:-dev-pairing-secret-change-me}
       # Frontend origin(s) allowed to open the browser live-update socket.
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:7373}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   frontend:
+    profiles: ["docker"]
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -57,7 +78,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "5173:5173"
+      - "7373:7373"
     environment:
       VITE_API_URL: http://localhost:3000
     depends_on:

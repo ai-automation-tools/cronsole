@@ -1,7 +1,7 @@
 # TaskHub Startup Task
 
 Auto-starts the **entire local TaskHub stack** at Windows logon via a single
-Scheduled Task, so `http://localhost:5173` is live after you sign in — no manual
+Scheduled Task, so `http://localhost:7373` is live after you sign in — no manual
 `npm run dev` in three terminals.
 
 This replaced the old task, which only launched the .NET agent (which is why the
@@ -68,7 +68,7 @@ Host-process architecture (matches how the stack actually runs), dev mode:
 | 1 | Docker engine | starts Docker Desktop and waits if it's down | — |
 | 2 | Postgres + Redis | `docker compose up -d db redis` | `:5432` / `:6379` |
 | 3 | Backend | `npm run dev` (host) | `http://localhost:3000` |
-| 4 | Frontend | `npm run dev` (host, Vite) | `http://localhost:5173` |
+| 4 | Frontend | `npm run dev` (host, Vite) | `http://localhost:7373` |
 | 5 | Agent | `agent\publish\TaskHub.Agent.exe` (host) | outbound WebSocket → backend |
 
 The agent runs on the host (not in Docker) because it needs direct access to the
@@ -148,7 +148,7 @@ Register-ScheduledTask -TaskName "TaskHubAgent" -TaskPath "\Task-Hub\" `
 
 ```powershell
 # frontend + backend (by listening port)
-foreach ($port in 5173,3000) {
+foreach ($port in 7373,3000) {
   $procId = (Get-NetTCPConnection -State Listen -LocalPort $port -EA SilentlyContinue).OwningProcess | Select-Object -First 1
   if ($procId) { Stop-Process -Id $procId -Force }
 }

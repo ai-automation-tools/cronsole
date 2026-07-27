@@ -63,7 +63,7 @@ To confirm the agent process is running silently in the background:
 
 ### 3. Connection Check
 To verify that the agent has connected to the TaskHub server:
-- Open the TaskHub Dashboard ([http://localhost:5173/](http://localhost:5173/)).
+- Open the TaskHub Dashboard ([http://localhost:7373/](http://localhost:7373/)).
 - The **Windows Agent** status in the sidebar should display **Online**.
 - Verify that your local Windows scheduled tasks are successfully imported/synchronized.
 

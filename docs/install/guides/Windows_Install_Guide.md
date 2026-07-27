@@ -32,7 +32,7 @@ From the repo root:
 
 ```bash
 docker compose up --build
-#   → frontend  http://localhost:5173
+#   → frontend  http://localhost:7373
 #   → backend   http://localhost:3000   (GET /api/health to verify)
 ```
 
@@ -62,7 +62,7 @@ sign in — not just the agent — use the
 ## 4. Verify
 
 > [!TIP]
-> Open [localhost:5173](http://localhost:5173) — the **Windows Agent** status in the
+> Open [localhost:7373](http://localhost:7373) — the **Windows Agent** status in the
 > sidebar should read **Online** with your tasks imported.
 
 - Backend healthy: `GET http://localhost:3000/api/health` → `{ "status": "ok", ... }`.

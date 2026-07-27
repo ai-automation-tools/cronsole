@@ -17,7 +17,7 @@ assume `$H` holds your auth header.
 pwsh .\scripts\taskhub.ps1 status
 ```
 
-**Expect:** one table, every row up — Postgres, Redis, backend (`:3000`), frontend (`:5173`),
+**Expect:** one table, every row up — Postgres, Redis, backend (`:3000`), frontend (`:7373`),
 agent. The whole point of this script is that you don't have to wonder which part is down.
 
 > Anything down → `pwsh .\scripts\taskhub.ps1 up`, then re-check. Still down →
@@ -93,7 +93,7 @@ working: `sync` → server `task:scan` → agent scans → `agent:tasks:list` �
 
 ## 8. Frontend loads
 
-Open <http://localhost:5173>.
+Open <http://localhost:7373>.
 
 **Expect:**
 - Dashboard renders **dark** (dark is the default; light is the toggle).

@@ -126,7 +126,7 @@ so what you see is consistent no matter where a task actually lives.
 
    ```bash
    docker compose up --build
-   #   → frontend  http://localhost:5173
+   #   → frontend  http://localhost:7373
    #   → backend   http://localhost:3000   (GET /api/health to verify)
    ```
 
@@ -137,7 +137,7 @@ so what you see is consistent no matter where a task actually lives.
    Set-ExecutionPolicy Bypass -Scope Process -Force; .\setup-agent-startup.ps1
    ```
 
-4. Open [localhost:5173](http://localhost:5173) — the **Windows Agent** status in the sidebar should read **Online** with your tasks imported.
+4. Open [localhost:7373](http://localhost:7373) — the **Windows Agent** status in the sidebar should read **Online** with your tasks imported.
 
 <details>
 <summary><b>Prefer to run each piece manually (no Docker)?</b></summary>
@@ -158,7 +158,7 @@ npm start                   # http://localhost:3000
 cd frontend
 cp .env.example .env.local  # set VITE_DEV_TOKEN so the dashboard can reach the backend
 npm install
-npm run dev                 # http://localhost:5173
+npm run dev                 # http://localhost:7373
 
 # Windows agent — in a third terminal (Windows only)
 cd agent/TaskHub.Agent

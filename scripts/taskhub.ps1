@@ -77,7 +77,7 @@ function Invoke-Status {
         [pscustomobject]@{ Service = 'Postgres (db)';   Where = 'docker'; Up = (Test-Container 'db') }
         [pscustomobject]@{ Service = 'Redis';           Where = 'docker'; Up = (Test-Container 'redis') }
         [pscustomobject]@{ Service = 'Backend :3000';   Where = 'host';   Up = (Test-Port 3000) }
-        [pscustomobject]@{ Service = 'Frontend :5173';  Where = 'host';   Up = (Test-Port 5173) }
+        [pscustomobject]@{ Service = 'Frontend :7373';  Where = 'host';   Up = (Test-Port 7373) }
         [pscustomobject]@{ Service = 'Windows agent';   Where = 'host';   Up = (Test-Agent) }
     )
     $health = Test-Health
@@ -94,6 +94,20 @@ function Invoke-Status {
     $hcolor = if ($health) { 'Green' } else { 'Red' }
     Write-Host ('  {0}  {1}' -f $hmark, 'API /health') -ForegroundColor $hcolor
 
+    # The one combination that looks fine and isn't: something holds :3000 but nothing
+    # answers. Docker's port proxy keeps the port bound after the app inside it crashed,
+    # so "port listening" reads as UP while every request dies (troubleshooting #23/#3).
+    # Say it out loud - this is precisely the state that hid a 12-minute outage.
+    if ((Test-Port 3000) -and -not $health) {
+        Write-Host ''
+        Write-Host '  !! :3000 is bound but /api/health does not answer.' -ForegroundColor Red
+        Write-Host '     Something holds the port while the app behind it is dead -' -ForegroundColor Red
+        Write-Host '     usually a crashed backend CONTAINER (its proxy keeps the port).' -ForegroundColor Red
+        Write-Host '     Check:  docker logs taskhub-backend-1' -ForegroundColor Red
+        Write-Host '     This stack runs the backend on the HOST; the container should' -ForegroundColor Red
+        Write-Host '     not be running at all:  docker compose stop backend frontend' -ForegroundColor Red
+    }
+
     $upCount = ($rows | Where-Object Up).Count
     Write-Host ''
     if ($upCount -eq $rows.Count -and $health) {
@@ -104,6 +118,32 @@ function Invoke-Status {
         Write-Host "  => PARTIAL ($upCount/$($rows.Count) services) - run: taskhub up" -ForegroundColor Yellow
     }
     Write-Host ''
+}
+
+function Wait-Db([int]$TimeoutSec = 90) {
+    # `compose up -d` returns when the CONTAINER has started, NOT when Postgres will
+    # answer a query - and after an unclean shutdown Postgres spends seconds in crash
+    # recovery refusing every connection. The backend's boot seed queries immediately
+    # and dies on that refusal, leaving nothing on :3000 (troubleshooting #23).
+    # So gate on readiness, not existence.
+    $cid = & $Docker compose -f $Compose ps -q db 2>$null | Select-Object -First 1
+    if (-not $cid) {
+        Write-Host '  WARNING: db container not found - starting backend anyway' -ForegroundColor Yellow
+        return $false
+    }
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        $health = & $Docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' $cid 2>$null
+        if ($health -eq 'healthy') { Write-Host '  db ready (accepting connections)'; return $true }
+        if ($health -eq 'none') {
+            # Compose file predates the healthcheck - ask Postgres directly instead.
+            & $Docker compose -f $Compose exec -T db pg_isready -U taskhub -d taskhub *> $null
+            if ($LASTEXITCODE -eq 0) { Write-Host '  db ready (pg_isready)'; return $true }
+        }
+        Start-Sleep -Seconds 1
+    }
+    Write-Host "  WARNING: db not ready after ${TimeoutSec}s - starting backend anyway" -ForegroundColor Yellow
+    return $false
 }
 
 function Start-HostService([string]$Name, [string]$WorkDir) {
@@ -122,11 +162,16 @@ function Invoke-Up {
     if ($LASTEXITCODE -eq 0) { Write-Host '  db + redis up (docker)' }
     else { Write-Host '  WARNING: docker compose up for db/redis failed - is Docker running?' -ForegroundColor Yellow }
 
-    # 2. Backend
-    if (Test-Port 3000) { Write-Host '  backend already up' } else { Start-HostService 'backend' $BackendDir }
+    # 2. Backend - only once Postgres will actually answer (see Wait-Db).
+    if (Test-Port 3000) {
+        Write-Host '  backend already up'
+    } else {
+        Wait-Db | Out-Null
+        Start-HostService 'backend' $BackendDir
+    }
 
     # 3. Frontend
-    if (Test-Port 5173) { Write-Host '  frontend already up' } else { Start-HostService 'frontend' $FrontendDir }
+    if (Test-Port 7373) { Write-Host '  frontend already up' } else { Start-HostService 'frontend' $FrontendDir }
 
     # 4. Agent (host .exe - needs Task Scheduler access)
     if (Test-Agent) {
@@ -149,7 +194,7 @@ function Invoke-Down {
         Write-Host '  stopped agent'
     } else { Write-Host '  agent already stopped' }
     Stop-Port 3000 'backend'
-    Stop-Port 5173 'frontend'
+    Stop-Port 7373 'frontend'
 
     if ($All) {
         Write-Host 'Stopping data services (docker)...'

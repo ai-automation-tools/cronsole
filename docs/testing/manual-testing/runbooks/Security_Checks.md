@@ -164,7 +164,7 @@ curl.exe -s -o NUL -w "%{http_code}`n" -H "Origin: https://evil.example.com" `
 ```
 
 **Expect:** the browser-enforced CORS headers do **not** admit `evil.example.com`. Only
-`ALLOWED_ORIGINS` (default `http://localhost:5173`) should be echoed back.
+`ALLOWED_ORIGINS` (default `http://localhost:7373`) should be echoed back.
 
 ## 11. Login rate limit — ⬜ known gap
 

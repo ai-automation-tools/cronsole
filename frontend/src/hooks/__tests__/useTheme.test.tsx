@@ -1,5 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+// Vite's `?raw` rather than node:fs — this file is compiled by tsconfig.app.json,
+// whose `types` is `["vite/client"]`, so node builtins are not available here
+// (and shouldn't be: it's the browser project).
+import indexHtml from '../../../index.html?raw';
 import { renderHook, act } from '@testing-library/react';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 
@@ -96,13 +98,6 @@ describe('useTheme', () => {
     // The boot script in index.html stamps the theme before React exists. If the
     // two defaults drift, a fresh install renders one theme for a frame and the
     // other after hydration — the flash the script exists to prevent.
-    // Walk up from the working directory rather than resolving against
-    // import.meta.url — vitest rewrites that to a non-file URL.
-    let dir = process.cwd();
-    while (!existsSync(resolve(dir, 'index.html')) && dirname(dir) !== dir) {
-      dir = dirname(dir);
-    }
-    const indexHtml = readFileSync(resolve(dir, 'index.html'), 'utf8');
     expect(indexHtml).toContain("localStorage.getItem('taskhub.theme') || 'dark'");
   });
 });

@@ -135,6 +135,11 @@ model ExecutionLog {
   platformRunId String?
 
   @@index([taskId, triggeredAt(sort: Desc)])
+  // Cross-task history — "what failed this month?" reads a time range across
+  // every task the user owns, which the per-task index above cannot serve
+  // (its leading column is taskId). Ownership lives on Task, not here, so the
+  // query joins and then filters/sorts on this column.
+  @@index([triggeredAt(sort: Desc)])
 }
 
 model Template {

@@ -216,6 +216,12 @@ namespace TaskHub.Agent
                             enabled = t.Enabled,
                             lastRunTime = t.LastRunTime,
                             nextRunTime = t.NextRunTime,
+                            // camelCase, like every other field here: the socket
+                            // serializer preserves member names, so a PascalCase
+                            // property arrives as undefined on the backend and
+                            // produces a well-formed payload of blanks (#9).
+                            lastTaskResult = t.LastTaskResult,
+                            numberOfMissedRuns = t.NumberOfMissedRuns,
                             description = t.Description,
                             author = t.Author,
                             userId = t.UserId,

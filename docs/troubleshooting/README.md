@@ -50,6 +50,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
 | 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
+| 30 | A route 500s on real data while `tsc` is green | A **cast on a query result** (`row as SomeInterface`) silenced the compiler at the one boundary that had drifted — a Prisma `select` missing a field the consumer now requires. Delete the cast; Prisma's generated select type is already the strongest check there is. *A cast at a data boundary is a promise the query cannot keep* | [→](#30-a-route-500s-on-real-data-while-tsc-is-green--a-cast-on-a-query-result) |
+| 29 | `prisma migrate` refuses to run — "migration was modified after it was applied" — and the only remedy it offers drops the database | Prisma checksums each migration **file**; editing an applied one (even adding a comment) breaks the hash. **Never `migrate reset`** on a local-first app — that is the user's real data. Verify the DB already matches the SQL, re-record the checksum, then use `--create-only` + `migrate deploy` (which also skips `generate`, dodging [#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)) | [→](#29-prisma-migrate-refuses-to-run-migration-was-modified-after-it-was-applied--and-offers-to-drop-your-database) |
 | 28 | A **restored** task, or the folder it landed in, refuses to delete with `Access is denied` — though you created the original yourself, unelevated | The restore ran through the **elevated agent**, so Windows gave the task (and any folder created for it) an administrator ACE. Delete the task **through TaskHub** (import the folder, then Delete from Windows) or from an elevated Task Scheduler; the folder has no in-app route and needs an elevated `DeleteFolder`. This is the concrete cost of restore's folder carve-out | [→](#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied) |
 | 27 | `PayloadTooLargeError: request entity too large` on an upload route; small selections work | `express.json()` caps bodies at **100 kB**. Don't raise it globally — that hands every endpoint a huge request budget. Mount a larger parser **scoped to the path and BEFORE the global one** (`body-parser` skips a request another parser already consumed, so mounting it after does nothing and looks identical to not adding it) | [→](#27-a-route-that-takes-an-upload-413s--and-raising-the-global-body-limit-is-the-wrong-fix) |
 
@@ -1832,6 +1834,105 @@ which only assumed the folder would be annoying to remove, not that it would nee
 UI says so on the checkbox and again in the plan, so it is a decision rather than a surprise.
 
 *First hit: 2026-07-28, live-verifying restore against real Task Scheduler.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 29. `prisma migrate` refuses to run: "migration was modified after it was applied" — and offers to drop your database
+
+**Symptom** — any `prisma migrate dev`, including one that adds a harmless index, stops before doing
+anything:
+
+```
+The migration `20260728203202_add_task_exclusions` was modified after it was applied.
+We need to reset the "public" schema at "localhost:5432"
+
+You may use prisma migrate reset to drop the development database.
+All data will be lost.
+```
+
+**Cause** — Prisma stores a **sha256 of each migration file** in `_prisma_migrations.checksum` and
+re-checks it on every run. Editing an applied migration file changes the hash. In our case the SQL
+was never touched: an explanatory comment header was added to the file *after* it ran, while
+documenting the feature. Different bytes, same behavior — and Prisma cannot tell those apart.
+
+**Do not run `prisma migrate reset`.** It is the only remedy Prisma suggests and it drops the
+development database. On a local-first app that is the user's real data: their tasks, their login,
+their history.
+
+**Fix — verify first, then re-record the checksum.** The safe move is to prove the database already
+matches what the file describes, and only then tell Prisma the file is the one that was applied:
+
+```bash
+# 1. Does the DB actually contain what this migration declares?
+docker exec taskhub-db-1 psql -U taskhub -d taskhub -c '\d "TaskExclusion"'
+docker exec taskhub-db-1 psql -U taskhub -d taskhub \
+  -c "SELECT indexname FROM pg_indexes WHERE tablename='TaskExclusion';"
+
+# 2. Only if it does — re-record the file's current hash.
+SUM=$(node -e "console.log(require('crypto').createHash('sha256')\
+  .update(require('fs').readFileSync('prisma/migrations/<name>/migration.sql')).digest('hex'))")
+docker exec taskhub-db-1 psql -U taskhub -d taskhub \
+  -c "UPDATE _prisma_migrations SET checksum='$SUM' WHERE migration_name='<name>';"
+
+npx prisma migrate status   # -> "Database schema is up to date!"
+```
+
+**Then avoid `migrate dev` for the new migration too.** `--create-only` writes the SQL without
+applying, and **`prisma migrate deploy` applies without running `generate`** — which also sidesteps
+[#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)'s
+EPERM entirely when the backend is running. An index needs no client regeneration anyway.
+
+**The rule worth keeping: an applied migration file is immutable, comments included.** If you want
+to explain a migration, explain it in the schema, the ADR, or the code — not by editing a file whose
+bytes are a checksum. And when a tool's only suggested remedy destroys data, that is the moment to
+verify the actual state by hand rather than take the suggestion.
+
+*First hit: 2026-07-28, adding an index for the run-history query.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 30. A route 500s on real data while `tsc` is green — a cast on a query result
+
+**Symptom** — an endpoint typechecks, passes its unit tests, and returns
+`{"error":"Internal server error"}` the first time it runs against the real database.
+
+**Cause** — a Prisma `select` that no longer supplies every field the consumer needs, hidden by a
+cast:
+
+```ts
+const tasks = await prisma.task.findMany({ select: { id: true, name: true, /* … */ } });
+//                                          ^ externalId was never added here
+const results = tasks.map(t => scoreTask(t as HealthInputTask, now));
+//                                         ^^^^^^^^^^^^^^^^^^ silences the compiler
+```
+
+`scoreTask` gained a required `externalId`; the `select` didn't. **The cast is the bug** — it told
+TypeScript to stop checking exactly the boundary that had drifted, so the missing field became a
+runtime `undefined` and threw inside the callee.
+
+**Fix** — delete the cast and let the query result type flow:
+
+```ts
+const results = tasks.map(t => scoreTask(t, now));   // now `tsc` names the missing field
+```
+
+Prisma generates a precise type for every `select`, so an un-cast result is *already* the strongest
+check available — assigning it to a hand-written interface proves the two agree. A cast throws that
+away.
+
+**Generalization: a cast on a query result is a promise the query cannot keep.** It is the same
+shape as [#22](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n)
+(a mock asserting the code's intent while the container disagreed) and
+[#25](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) (a check that
+cannot fail): **when you disable the thing that would have told you, the failure moves to
+production.** If a cast feels necessary at a data boundary, that is the signal the boundary is
+wrong, not the type.
+
+*First hit: 2026-07-28, wiring the system-task predicate into the health score.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -31,6 +31,27 @@ namespace TaskHub.Agent
                         NextRunTime = NullIfUnset(t.NextRunTime)
                     };
 
+                    // Windows' own verdict on the last run, read separately from
+                    // the definition block below: these live on the registered
+                    // Task rather than its TaskDefinition, so an ACL that hides
+                    // the definition does not have to cost us the run result too.
+                    //
+                    // A task that has never run reports LastTaskResult = 267011
+                    // (SCHED_S_TASK_HAS_NOT_RUN), which is emphatically not an
+                    // exit code — surface it as null, because "never ran" and
+                    // "ran and returned 267011" are different facts and only one
+                    // of them is true.
+                    try
+                    {
+                        info.LastTaskResult = info.LastRunTime == null ? (int?)null : t.LastTaskResult;
+                        info.NumberOfMissedRuns = t.NumberOfMissedRuns;
+                    }
+                    catch
+                    {
+                        // Unreadable — stays null, which the scorer reads as
+                        // "no evidence" rather than "healthy".
+                    }
+
                     // Definition access can throw (access denied) for some system
                     // tasks — read every definition-derived field under one guard so
                     // a locked-down task still surfaces its basic status honestly.

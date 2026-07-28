@@ -30,6 +30,34 @@ Each task is represented by a card showing:
 
 ---
 
+### Needs attention
+
+When something is wrong, a panel appears above your tasks listing the worst first. It is **silent
+when there's nothing to say** — no permanent "all good" banner to learn to ignore.
+
+Expand any row to see the **signals** behind it, each with the evidence it came from — *"Windows
+recorded exit code 2 for the run at 2026-07-27T03:00"*, *"Windows missed 2 scheduled starts as of
+the sync at …"*. The score shown there ranks the list; it is not a grade, and it never appears
+without the signals that produced it.
+
+Four states, and the third one matters:
+
+- **Critical** — the last run failed, several runs in a row failed, or the task has gone missing
+  from the platform.
+- **Attention** — missed starts, never run, overdue against its own schedule, a run stopped before
+  it finished, or a native job suddenly taking much longer than usual.
+- **Unknown** — TaskHub has **no evidence** about this task. Most often that means the Windows
+  agent predates run-result reporting: republish it and the tasks become measurable. Unmeasured is
+  deliberately not shown as healthy.
+- **Healthy** — counted in the header, not listed.
+
+Windows' own `\Microsoft\` tasks are **hidden by default**, the same way the dashboard's Personal
+filter hides them, with the count shown so you can bring them back. A **disabled** task is never
+counted as unhealthy — parking a task is a normal thing to do, and the panel says so rather than
+nagging about a task you switched off on purpose.
+
+---
+
 ## 2. Task Details
 
 Clicking a task card opens the **Task Details** modal, which has two tabs.
@@ -179,6 +207,23 @@ Puts them back. Feed it the `.zip`, the folder you exported to, or individual `.
   a file that isn't a task definition, or two files that would land on the same task path.
 - **Restoring a task does not add it to TaskHub.** It puts the task back on the machine; use
   **Import** on the Dashboard if you want TaskHub to track it too.
+
+### Export run history
+
+Downloads every recorded run across all your tasks as a CSV — the answer to *"what failed this
+month?"*, which the per-task history (20 rows at a time) can't give you. Pick a period, optionally
+narrow to failures, and the button tells you how many runs the file will hold before you download it.
+
+**Read the `runKind` column before you read `status`.** The history covers runs **TaskHub
+performed** — tasks you ran from the dashboard, and TaskHub-native jobs it runs itself:
+
+- `native-execution` — TaskHub ran the job, so `status` and `durationMs` describe the actual work.
+- `manual-trigger` — TaskHub asked the Windows agent to start the task. `SUCCESS` means Windows
+  accepted the start; the task's own outcome isn't in that row, and the duration is the round trip.
+
+A Windows task firing on its own schedule isn't recorded at all, so an empty period means TaskHub
+triggered nothing — **not** that nothing ran. (For "did this actually work?", the **Needs attention**
+panel below reads Windows' own result instead.)
 
 ### Connect an AI tool
 

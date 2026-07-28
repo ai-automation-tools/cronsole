@@ -6,7 +6,7 @@ Load when doing one of the common jobs. Each is the *sequence* — the docs have
 
 ```powershell
 pwsh scripts/taskhub.ps1 up        # idempotent — starts anything not running
-pwsh scripts/taskhub.ps1 status    # one table, every service + health (default)
+pwsh scripts/taskhub.ps1 status    # one table, every service + the signal used (default)
 pwsh scripts/taskhub.ps1 logs      # tail backend/frontend/launcher
 pwsh scripts/taskhub.ps1 down      # stop app tier (leaves db/redis)
 pwsh scripts/taskhub.ps1 down -All # also stop db/redis containers

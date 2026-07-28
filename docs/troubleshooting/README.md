@@ -46,7 +46,9 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 21 | Templates never update — the registry has no effect and the count never moves — while the app is otherwise perfectly healthy; the log shows `[catalog] sync failed … P2002` on `prisma.user.upsert()` | #19's bug in a **second file the #19 fix missed**: `ensureCatalogOwner()` keyed on the mutable `CATALOG_OWNER_EMAIL` while creating the fixed id. Here the caller **catches** it instead of crashing, so the only symptom is a catalog that silently never changes | [→](#21-templates-never-update-catalog-sync-failed--p2002-on-every-boot) |
 | 22 | You delete a Windows task (or a whole folder), sync, and TaskHub **still lists it** — while the sync response reports `missing: 56`, i.e. claims it marked them | The container's **generated Prisma client is stale** and lacks the `MISSING` enum, so `TaskStatus.MISSING` is `undefined` — and **Prisma treats `undefined` in `data` as "leave this field alone"**, so only `nextRunTime` was written while `updateMany` still returned a count. A *wrong* enum value throws; a **missing** one silently no-ops. `prisma migrate` updates the DB, so DB and client drifted apart invisibly (#18's shadowed `node_modules`) | [→](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n) |
 | 23 | The dashboard shows a plain **network error** after a reboot / unclean shutdown. Everything looks `Up`, every request to `:3000` is `HTTP 000`, and a backend log ends with `prisma.user.upsert()` → `FATAL: the database system is starting up` (container) or `Can't reach database server at localhost:5432` (host, `logs/backend.err.log`) | **Nothing waited for Postgres to be *ready*, only to *exist*** — after an unclean shutdown it spends seconds in crash recovery refusing queries, and the boot seed dies on the refusal. It stays dead because **`tsx watch` survives the crash**, so the container never exits and `restart: unless-stopped` never fires. Compounded by **two stacks running at once** (host *and* containers) fighting over `:3000`, with `Test-Port` reporting the dead squatter as "backend already up". **Fixed 2026-07-27**: `pg_isready` healthcheck + `condition: service_healthy`, `Wait-Db` in `taskhub.ps1`, and backend/frontend moved behind `profiles: ["docker"]` | [→](#23-network-error-after-a-reboot--the-database-system-is-starting-up) |
+| 23a | `taskhub status` prints `[DOWN]` for Postgres, Redis, backend **and** frontend — while `/api/health` returns 200 and the frontend serves 200 | The **same port check as #23, wrong in the other direction**: `Get-NetTCPConnection` needs the NetTCPIP CIM provider and the container check needs a resolvable docker CLI; both were wrapped in `catch { $false }`, so *"the probe could not run"* printed as *"the service is down"*. **Fixed 2026-07-28**: every service is probed by asking the service (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP `PING`), the port is corroboration only, and present-but-unconfirmable reports **`WARN`** with the signal named | [→](#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving) |
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
+| 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
 
 ---
 
@@ -1531,6 +1533,59 @@ over it.)*
 
 ---
 
+### 23a. …and the same probe reported four services DOWN while all four were serving
+
+**Symptom** — `taskhub status` prints `[DOWN]` for Postgres, Redis, the backend **and** the
+frontend, and `=> DOWN` at the bottom — while `curl http://localhost:3000/api/health` returns
+**200** and the frontend returns **200** in a browser. Everything works; the control surface
+says nothing does.
+
+**Cause** — the same one as #23, pointing the other way. Every row was a **port check**, and a
+port check has two ways to be wrong:
+
+| | What the probe saw | What it printed | Truth |
+|:---|:---|:---|:---|
+| #23 | `:3000` is bound | "backend already up" | a dead container's proxy held it |
+| #23a | `Get-NetTCPConnection` threw | "backend is DOWN" | the backend was serving fine |
+
+`Get-NetTCPConnection` needs the **NetTCPIP CIM provider**, and `Test-Container` needs a
+resolvable **docker CLI**. Neither is available in every shell or sandbox. Both probes were
+wrapped in `catch { $false }` — so *"I could not run the probe"* and *"the service is down"*
+came out as the same word. Four services reported down, none of them was.
+
+**Fix (shipped 2026-07-28)** — ask the service, not the port:
+
+| Service | Probe | Corroboration |
+|:---|:---|:---|
+| Backend | `GET /api/health` | TCP connect to `:3000` |
+| Frontend | `GET /` | TCP connect to `:7373` |
+| Postgres | docker healthcheck, else `pg_isready` | TCP connect to `:5432` |
+| Redis | **RESP `PING` over the socket** (no docker needed) | TCP connect to `:6379` |
+| Agent | the `TaskHub.Agent` process | — (it binds nothing; it dials **out**) |
+
+Three things make this honest rather than just different:
+
+1. **A third state.** Present-but-unconfirmable is `[WARN]`, never a confident UP or DOWN.
+2. **The signal is printed next to every row** (`GET /api/health -> 200`). A claim without its
+   evidence is useless exactly when the claim is wrong.
+3. **The port probe attempts a real TCP connect** before falling back to the listener table, so
+   a missing CIM provider no longer looks like an absent service.
+
+> [!IMPORTANT]
+> **A control surface that is wrong in both directions is worse than no control surface**,
+> because it is consulted first and believed. If a probe can fail for reasons unrelated to the
+> service, it must be able to say *"I don't know"* — collapsing that into "down" (or "up") is
+> the confident lie, aimed at the person debugging.
+
+*First hit: 2026-07-28, found by an outside review pass whose shell had neither the CIM provider
+nor a resolvable docker path. Worth noting the generalization from #23 — "never probe your own
+service with a bare port check" — was already written down; the script just hadn't been changed
+to follow it. A rule in a doc is not a rule in the code.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
 ## 24. `showDirectoryPicker()` throws "must be handling a user gesture" after an `await`
 
 **Symptom** — the bulk export's folder picker never opens. The console shows:
@@ -1584,6 +1639,54 @@ Also worth knowing while working on this path:
   pretending the path is covered.
 
 *First hit: 2026-07-28, building the Tools tab's bulk export.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 25. `npx tsc --noEmit` in `frontend/` passes while CI's build fails on a type error
+
+**Symptom** — you typecheck the frontend locally, it exits **0**, you push, and CI's
+`Frontend lint and build` job fails on `tsc -b` with type errors in the very code you just
+"checked". The errors are real and reproduce instantly with `npm run build`.
+
+**Cause** — **`npx tsc --noEmit` in `frontend/` checks nothing at all.** The root
+`tsconfig.json` is a solution file:
+
+```json
+{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }
+```
+
+`files: []` means zero root files, and a plain `tsc --noEmit` invocation **does not follow
+project references** — so it compiles an empty program and exits 0. Every time. Verified by
+planting `const x: number = 'nope';` in `src/hooks/useTheme.ts`: `npx tsc --noEmit` → exit 0,
+`npx tsc -b` → `TS2322`.
+
+**Fix** — typecheck the way CI does:
+
+```powershell
+cd frontend
+npm run build      # tsc -b && vite build  <- the real check
+# or just the type half:
+npx tsc -b
+```
+
+**The concrete class of bug this hides:** the two projects have *different* `types`.
+`tsconfig.app.json` is `["vite/client"]` (browser) and `tsconfig.node.json` is `["node"]`.
+A test file under `src/` that imports `node:fs` compiles fine under a config that checks
+nothing and fails under the app project. Read a repo file from a frontend test with Vite's
+`?raw` import instead — `import html from '../../../index.html?raw'` — which needs no node
+types and is what the bundler does anyway.
+
+> [!IMPORTANT]
+> **A verification command that can't fail isn't verification.** This is the same rule the
+> catalog learned in [#12](#12-a-template-passes-every-test-and-still-hangs-on-the-target) and
+> the MCP suite learned by mutation testing, aimed one level up — at the *command you check
+> with* rather than the tests it runs. If a check has never failed for you, break something on
+> purpose once and confirm it goes red.
+
+*First hit: 2026-07-28, clearing P1 — the local typecheck was green and CI was not, on the same
+tree. Cheap to hit and cheap to avoid, but it costs a full CI round-trip every time.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -12,7 +12,15 @@ import {
 import { ThemeToggle } from './ThemeToggle';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { useAuth } from '../hooks/useAuth';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { platformLabel } from '../platform';
+
+/**
+ * Tailwind's `md` breakpoint (768px) — the width at which this sidebar stops
+ * being an off-canvas drawer and becomes a static column. Keep it in step with
+ * the `md:` classes below; a Tailwind breakpoint can't be read from JS.
+ */
+const DESKTOP_QUERY = '(min-width: 768px)';
 
 interface SidebarProps {
   activeTab: string;
@@ -36,6 +44,14 @@ const NAV = [
 export const Sidebar = ({ activeTab, setActiveTab, open = false, onClose }: SidebarProps) => {
   const { data: connections, isLoading } = useConnections();
   const { user, logout } = useAuth();
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+
+  // `-translate-x-full` slides the closed drawer out of *sight* only — its nav
+  // buttons stay in the DOM, in the tab order, and in role queries, so a keyboard
+  // or screen-reader user walks an invisible menu before reaching the page. Take
+  // it out of the accessibility tree too, but *only* below `md`: at and above it
+  // the very same element is the real, visible navigation and must stay reachable.
+  const offCanvas = !isDesktop && !open;
 
   // Escape closes the mobile drawer.
   useEffect(() => {
@@ -65,6 +81,8 @@ export const Sidebar = ({ activeTab, setActiveTab, open = false, onClose }: Side
       )}
 
       <aside
+        inert={offCanvas}
+        aria-hidden={offCanvas || undefined}
         className={`fixed md:static inset-y-0 left-0 z-40 w-64 shrink-0 border-r border-border bg-background flex flex-col gap-2 p-4 transition-transform duration-200 md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="mb-8 px-2 flex items-center gap-2">

@@ -21,10 +21,16 @@ Full sweep:
 
 ```bash
 cd backend  && npm test && npm run test:integration
-cd ../frontend && npm run lint && npm test
+cd ../frontend && npm run lint && npm test && npm run build
 cd ../agent  && dotnet test
 cd ../mcp-server && npm test
 ```
+
+> **`npm run build` is the frontend's typecheck, and it is not optional.**
+> `npx tsc --noEmit` in `frontend/` **always passes** — the root `tsconfig.json` is a solution
+> file (`files: []` + `references`) and a plain `tsc` invocation doesn't follow references, so
+> it compiles an empty program. Only `tsc -b` (what `npm run build` runs, and what CI runs)
+> actually checks the app. [#25](../../../docs/troubleshooting/README.md#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error)
 
 Integration setup: `test/integration/globalSetup.ts` creates + migrates `taskhub_test` on the
 server named by `TEST_DATABASE_URL`; `setupEach.ts` gives each test a clean slate.

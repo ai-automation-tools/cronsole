@@ -1,6 +1,6 @@
 ---
 name: taskhub
-description: 'Expert knowledge of TaskHub, the unified scheduled-task management system — its architecture, the Windows .NET agent protocol, the template registry/catalog, the MCP server, the testing layers, and the traps that waste hours. Use when working anywhere in the TaskHub repo — adding or debugging templates, touching the agent WebSocket protocol or Windows Task Scheduler integration, editing the catalog (bundled.ts, registry/, catalogSync, normalize.ts), creating or managing scheduled tasks through TaskHub, changing the MCP server or its tools (mcp-server/, list_tasks, run_task, create_task, create_native_task, create_task_from_template, list_folders, convert_schedule, get_task_history, export_task, set_task_status, update_task_schedule, update_task_action, delete_task) or wiring it into an MCP host, running or writing tests, publishing the registry or landing sites, or diagnosing setup and runtime failures (403 invalid token, unexpanded TASKHUB_TOKEN, missing taskhub MCP tools, agent OFFLINE, stale backend code, 502 agent timeouts, PowerShell parse errors).'
+description: 'Expert knowledge of TaskHub, the unified scheduled-task management system — its architecture, the Windows .NET agent protocol, the template registry/catalog, the MCP server, the testing layers, and the traps that waste hours. Use when working anywhere in the TaskHub repo — adding or debugging templates, touching the agent WebSocket protocol or Windows Task Scheduler integration, editing the catalog (bundled.ts, registry/, catalogSync, normalize.ts), creating or managing scheduled tasks through TaskHub, changing the MCP server or its tools (mcp-server/, list_tasks, run_task, create_task, create_native_task, create_task_from_template, list_folders, convert_schedule, get_task_history, export_task, set_task_status, update_task_schedule, update_task_action, untrack_task, delete_task) or wiring it into an MCP host, running or writing tests, publishing the registry or landing sites, or diagnosing setup and runtime failures (403 invalid token, unexpanded TASKHUB_TOKEN, missing taskhub MCP tools, agent OFFLINE, stale backend code, 502 agent timeouts, PowerShell parse errors).'
 ---
 
 # TaskHub
@@ -70,7 +70,7 @@ mixing them up:
 | | **This skill** (`skills/taskhub/`) | **The MCP server** (`mcp-server/`) |
 |:---|:---|:---|
 | Audience | An agent **working on** TaskHub's codebase | An agent **using** a running TaskHub |
-| Surface | `SKILL.md` + `references/` | 14 tools over MCP/stdio |
+| Surface | `SKILL.md` + `references/` | 15 tools over MCP/stdio |
 | Needs | Nothing — it's just text | A running backend + a user JWT |
 | Canonical doc | [`skills/README.md`](../README.md) | [`docs/user-guides/guides/MCP_Server_Guide.md`](../../docs/user-guides/guides/MCP_Server_Guide.md) |
 
@@ -80,7 +80,7 @@ A third thing shares the name and is neither: the **dev-tooling MCP servers** in
 The `taskhub` entry is the only one needing a backend and a token, so it's the only one that
 can fail to start.
 
-**The 14 tools**, each mapping 1:1 onto a backend route (details, wiring, token minting:
+**The 15 tools**, each mapping 1:1 onto a backend route (details, wiring, token minting:
 [MCP_Server_Guide.md](../../docs/user-guides/guides/MCP_Server_Guide.md)):
 
 | Tier | Tools |
@@ -88,7 +88,7 @@ can fail to start.
 | **Read** | `list_tasks`, `list_templates`, `list_folders`, `get_task_history`, `export_task`, `convert_schedule` |
 | **Create** | **`create_task`**, `create_native_task`, `create_task_from_template` (all take `folder`) |
 | **Act** | `run_task` |
-| **Modify** (reversible) | `set_task_status`, `update_task_schedule`, `update_task_action` |
+| **Modify** (reversible) | `set_task_status`, `update_task_schedule`, `update_task_action`, **`untrack_task`** (removes the task from TaskHub, **leaves the platform entry running**; refuses `TASKHUB_NATIVE`) |
 | **Destroy** (gated) | `delete_task` — registered **only** when `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`; otherwise **absent from `tools/list`**, not present-and-erroring |
 | **REST-only** (no MCP tool) | bulk export `POST /api/tools/export/tasks`, connect-pack downloads `GET /api/tools/downloads[/:id]`, plus template import/export, save-as-template, sync, pairing |
 
@@ -98,7 +98,9 @@ park a task, and gating it would push you toward cronning a task into silence �
 #14 exactly. **A gate that makes the safe path harder than the unsafe one is worse than no gate.**
 The gate is an **env var, not a `confirm: true` param**, because a param is filled in by the
 model — the caller assuring itself it's sure, which is the missing deliberation, not a substitute
-for it.
+for it. `untrack_task` (2026-07-28) is the same argument applied to *removal*: gating deletion is
+only honest once a **safe** way to remove a task from the dashboard exists ungated — otherwise an
+agent asked to "clean this up" has one tool for the job and it's the irreversible one.
 
 **Still REST-only:** template import/export, save-as-template, sync, agent pairing. If a user asks
 for one over MCP, say the tool doesn't exist and offer the REST call or the UI — **never

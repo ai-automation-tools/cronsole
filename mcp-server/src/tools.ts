@@ -9,7 +9,8 @@ import { TaskHubClient, TaskHubApiError } from './client.js';
  *             export_task · convert_schedule
  *   create    create_task · create_native_task · create_task_from_template
  *   act       run_task
- *   modify    set_task_status · update_task_schedule · update_task_action
+ *   modify    set_task_status · update_task_schedule · update_task_action ·
+ *             untrack_task
  *   destroy   delete_task            (only when allowDestructive — see below)
  *
  * Each tool is a thin call through TaskHubClient into the REST API. Business
@@ -1001,6 +1002,62 @@ export function registerTools(
   );
 
   // -------------------------------------------------------------------------
+  // untrack_task — the reversible removal. Deliberately UNGATED.
+  // -------------------------------------------------------------------------
+  //
+  // Before this existed the only removal on the surface was `delete_task`, which
+  // destroys the real scheduler entry and is gated. So an agent asked to "clean
+  // up my dashboard" had exactly one tool for the job, and it was the
+  // irreversible one — the same gate-makes-the-safe-path-harder failure that
+  // keeps `set_task_status` ungated (see the header). Adding the safe verb is
+  // what makes gating the dangerous one honest.
+  //
+  // Ungated because the scheduled task itself is untouched and the row can be
+  // re-imported: nothing is destroyed that the platform doesn't still hold. The
+  // TaskHub-only loss is the run history, which is stated in the description
+  // rather than glossed over.
+  server.registerTool(
+    'untrack_task',
+    {
+      title: 'Remove a task from TaskHub, keeping it on the platform',
+      description:
+        'Stop tracking a task in TaskHub WITHOUT deleting it. The real scheduled task is left alone — it stays ' +
+        'on the machine and keeps running on its own schedule; only TaskHub\'s record of it (and its TaskHub run ' +
+        'history) is removed, and future syncs will not re-import it. ' +
+        'This is the right tool for cleaning up a dashboard, undoing an over-broad import, or hiding tasks the ' +
+        'user does not care about — use it instead of delete_task for anything that is not genuinely meant to ' +
+        'stop existing. ' +
+        'Reversible: importing that category again in the TaskHub UI starts tracking the task once more. ' +
+        'Not available for TASKHUB_NATIVE tasks, which exist only inside TaskHub and therefore have nothing to ' +
+        'be kept — disable or delete those instead.',
+      inputSchema: {
+        taskId: z.string().describe('The TaskHub task id (from list_tasks).')
+      }
+    },
+    async ({ taskId }) => {
+      try {
+        const result = await client.post<{ message?: string; externalId?: string; detail?: string }>(
+          `/tasks/${encodeURIComponent(taskId)}/untrack`,
+          {}
+        );
+        const detail = typeof result.detail === 'string'
+          ? result.detail
+          : 'Removed from TaskHub. The scheduled task still exists on its platform.';
+        return ok(detail, {
+          taskId,
+          untracked: true,
+          externalId: result.externalId,
+          // Named explicitly so a caller reading only the structured payload
+          // cannot mistake this for a delete.
+          platformEntryKept: true
+        });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // delete_task — registered ONLY when explicitly allowed.
   // -------------------------------------------------------------------------
   //
@@ -1019,6 +1076,8 @@ export function registerTools(
           'confirms the deletion. This CANNOT be undone — there is no trash and no restore. ' +
           'Prefer set_task_status with DISABLED unless the task is genuinely meant to be gone: disabling stops ' +
           'the task running and is fully reversible. ' +
+          'If the goal is to tidy the TaskHub dashboard rather than to destroy a scheduled task, use ' +
+          'untrack_task instead — it removes the task from TaskHub and leaves it running on the machine. ' +
           'If you did not create the task in this session, export_task first so the definition can be rebuilt, ' +
           'and confirm with the user before calling this.',
         inputSchema: {

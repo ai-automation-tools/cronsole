@@ -24,7 +24,8 @@ Each task is represented by a card showing:
 ### Views, Search & Filters
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
-- **Active Only:** Toggle to hide disabled tasks.
+- **Active Only:** Toggle to hide disabled tasks. It shows how many it's holding back (`12 hidden`) — that count includes **missing** and unknown-state tasks too, not just disabled ones.
+- **Personal / Incl. System:** Windows keeps hundreds of its own scheduled tasks under `\Microsoft\` — on a typical machine they outnumber yours roughly 3:1 — so once they're imported they drown out everything you actually care about. TaskHub hides them by default and says how many (`257 system hidden`); click to include them. The choice is remembered between visits, and the button only appears if you've actually imported some. This is **independent of Active Only**, so the normal view is *personal **and** active* — either can be turned off without touching the other.
 - **Category & platform chips:** Filter to a single category or platform. These chips are **faceted** — they only show categories/platforms that actually have tasks *under the current filters* (with a live count), so turning on **Active Only** or a platform filter drops any now-empty tags instead of showing zero-count noise.
 
 ---
@@ -47,11 +48,35 @@ The second tab lists recorded runs with their status, timestamp, duration, and a
 ### Editing a schedule
 The modal footer shows **Edit Schedule** for TaskHub-native tasks and Windows tasks whose trigger can be represented as a cron expression. TaskHub-native edits update the backend scheduler immediately; Windows edits require the local agent because TaskHub changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until TaskHub has a dedicated safe editor for those trigger types.
 
-### Deleting a task
-The modal footer has a **Delete** button for TaskHub-native and Windows tasks:
-- **TaskHub-native:** removes the task and its run history from TaskHub (nothing exists outside TaskHub).
-- **Windows:** removes the real Task Scheduler entry via the local agent first, then the TaskHub record — TaskHub never claims a task is gone while it still exists on your machine. If the agent is offline, the delete is refused and the task stays.
-- Some Windows tasks were registered by an elevated process and carry admin-only permissions; TaskHub will tell you when a task can only be deleted from an elevated Task Scheduler (or by running the agent elevated).
+### Removing a task — two very different buttons
+The modal footer offers **two** ways to make a task go away, and they are not interchangeable.
+
+**Remove from TaskHub** *(the safe one)* — takes the task off your dashboard and forgets its
+TaskHub run history. **The scheduled task itself is not touched:** it stays on the machine and
+keeps running on its own schedule. Use this when you imported a folder you didn't mean to, or
+when you simply don't want to look at a task any more.
+- Future syncs **won't** pull it back — TaskHub remembers that you removed it, so a routine
+  **Sync Now** can't silently undo your choice.
+- To get it back, run **Import** and re-select its category. The Import modal shows an amber
+  **+N removed** badge on any category that would bring removed tasks back, so you see the
+  number before you commit, and the toast afterwards tells you how many returned.
+- Not offered for TaskHub-native tasks — those exist only inside TaskHub, so there's nothing
+  left to keep.
+
+**Delete from Windows** *(the irreversible one, styled red)* — deletes the real Task Scheduler
+entry. The task stops existing and will never run again.
+- The real entry goes **first**, via the local agent; the TaskHub record only goes once the
+  platform confirms — TaskHub never claims a task is gone while it still exists on your machine.
+  If the agent is offline the delete is refused and the task stays.
+- Some Windows tasks were registered by an elevated process and carry admin-only permissions;
+  TaskHub will tell you when a task can only be deleted from an elevated Task Scheduler (or by
+  running the agent elevated).
+- For a **TaskHub-native** task the button is just **Delete** — it removes the task and its run
+  history, and nothing exists outside TaskHub to clean up.
+
+> [!TIP]
+> If your goal is a tidier dashboard, you almost always want **Remove from TaskHub**. Deleting
+> to clean up a view destroys automation that may have been running for years.
 
 > **Note on schedule times:** the recurring clock time in the Schedule panel follows your **Settings → Behavior → schedule-time display** choice — your local time by default, or UTC. Absolute timestamps (next/last run) are always shown in your local time.
 

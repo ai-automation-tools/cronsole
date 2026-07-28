@@ -34,7 +34,8 @@ supply — its tasks are the tasks it can see, run, and create.
 | `set_task_status` | `PATCH /api/tasks/:id/status` | Enable / disable. **The honest way to park a task** — never encode "don't run" in the cron; an expression Windows can't express is silently replaced with an *hourly* trigger ([#14](../docs/troubleshooting/README.md#14-a-rare-cron-becomes-an-hourly-trigger)). Reversible, so it ships ungated. |
 | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` | Re-schedule without delete+recreate; the agent rebuilds only the trigger, preserving command and permissions. Same hourly-fallback caveat as create: **read the returned trigger, not the score**. |
 | `update_task_action` | `PATCH /api/tasks/:id/actions` | Change command / working dir / description / run level. **Replaces** the action rather than patching it, so `command` and `runLevel` are both required — read the current values first. Structured no-shell, same as create. |
-| `delete_task` | `DELETE /api/tasks/:id` | **Permanent** — no trash, no restore. Only registered when `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`; otherwise the tool is **absent** from `tools/list`, not present-and-erroring. Prefer `set_task_status: DISABLED`. |
+| `untrack_task` | `POST /api/tasks/:id/untrack` | Remove a task from TaskHub **without deleting it** — the scheduled task stays on the machine and keeps running; only TaskHub's record and its TaskHub run history go, and future syncs won't re-import it. The right verb for tidying a dashboard or undoing an over-broad import. Reversible by re-importing the category. Refuses `TASKHUB_NATIVE`, which exists only inside TaskHub and so has nothing to keep. Ungated. |
+| `delete_task` | `DELETE /api/tasks/:id` | **Permanent** — no trash, no restore. Only registered when `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`; otherwise the tool is **absent** from `tools/list`, not present-and-erroring. Prefer `set_task_status: DISABLED` to stop it running, or `untrack_task` to stop *tracking* it. |
 
 ### Why `delete_task` is gated and the rest are not
 
@@ -44,10 +45,13 @@ dialog — so "the route already exists" is not on its own an argument for expos
 therefore **tiered**, not blanket:
 
 - **Read-only** (`list_*`, `get_task_history`, `export_task`, `convert_schedule`) — always on.
-- **Reversible** (`set_task_status`, `update_task_*`) — always on. `set_task_status` especially:
-  it is the *safe* way to stop a task, and gating it would push a caller toward the unsafe
-  workaround of cronning a task into silence ([#14](../docs/troubleshooting/README.md#14-a-rare-cron-becomes-an-hourly-trigger)).
+- **Reversible** (`set_task_status`, `update_task_*`, `untrack_task`) — always on.
+  `set_task_status` especially: it is the *safe* way to stop a task, and gating it would push a
+  caller toward the unsafe workaround of cronning a task into silence ([#14](../docs/troubleshooting/README.md#14-a-rare-cron-becomes-an-hourly-trigger)).
   A gate that makes the safe path harder than the unsafe one is worse than no gate.
+  `untrack_task` is the same argument applied to *removal*: gating deletion is only honest if a
+  safe way to remove a task from the dashboard exists without the gate, or an agent asked to
+  "clean this up" has exactly one tool for the job and it is the irreversible one.
 - **Irreversible** (`delete_task`) — off unless you opt in.
 
 Why an **env var** and not a `confirm: true` parameter: the model fills a parameter in itself, so

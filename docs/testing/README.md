@@ -89,7 +89,7 @@ cd ../mcp-server && npm test
 | `backend-integration` | Vitest integration suite against a real `postgres:16-alpine` service container |
 | `frontend` | ESLint + Vitest + Vite build |
 | `windows-agent` | `dotnet build` + `dotnet test` on `windows-latest` |
-| `mcp-server` | Vitest suite (75 tests) + `tsc` typecheck (incl. tests) + build |
+| `mcp-server` | Vitest suite + `tsc` typecheck (incl. tests) + build |
 
 > [!IMPORTANT]
 > **The E2E suite is not in CI.** Playwright needs a live stack (backend, frontend, and the
@@ -105,6 +105,8 @@ Honest list. These are real holes, not aspirational polish:
 | **Login rate limit (`429`) not implemented** | The archived Test Plan's brute-force mitigation has no code behind it — so nothing to test | Go-public checklist in [ROADMAP](../ROADMAP.md) |
 | **E2E not wired into CI** | Regressions in full-stack flows only surface if someone runs it locally | This doc |
 | **MCP tools are never exercised against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does* — not that the wrapper and the API still **agree**. If a route's response shape moves (`conversion.warnings`, `task`, `score`), the stub keeps passing while the real tool breaks. This is the [#9](../troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) failure mode one layer up: *both sides green while disagreeing about the wire.* Covered today only by driving the tools by hand (see the MCP runbook row below) | This doc |
+| **The sync route's exclusion wiring has no suite** | `TaskService.excludedExternalIds` / `filterExcluded` / `clearExclusionsForCategories` are unit-tested, and the untrack route is integration-tested — but the **order they run in inside `POST /tasks/sync`** (clear before read, so an import isn't skipped for one more cycle) is proven only by the live round-trip done at ship time. A reordering would pass every suite and make untrack look broken one sync later | This doc |
+| **The `<375px` mobile layout is unverified in a browser** | The drawer's `inert` behavior is unit-tested and confirmed live at desktop width, but the narrow viewport itself was never rendered: the browser window will not resize in this environment (it reports success while `innerWidth` stays 2124). Worth a real device check | This doc + [ROADMAP](../ROADMAP.md) |
 | **No visual regression** | Dark/light theme and layout breaks are caught by eye only | This doc |
 | **No performance gate** | A baseline exists as an artifact; nothing fails when we regress past it | This doc |
 

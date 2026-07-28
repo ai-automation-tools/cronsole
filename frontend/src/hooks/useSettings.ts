@@ -14,6 +14,16 @@ export interface Settings {
   defaultShowDisabled: boolean;
   defaultCategory: string;
   defaultPlatform: string;
+  /**
+   * Show OS-owned tasks (`\Microsoft\…`) on the dashboard.
+   *
+   * Off by default because on a real machine they are the overwhelming majority
+   * — 257 of 352 on the box this was built against — so every headline number,
+   * category chip and view is dominated by rows the user will never act on.
+   * Persisted, unlike the old import-time exclusion, which fired once and then
+   * left nothing distinguishing an OS task from one the user wrote.
+   */
+  showSystemTasks: boolean;
   // Templates tab: persisted view mode (the toggle writes here directly)
   templateView: TemplateView;
   // Behavior
@@ -32,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultShowDisabled: false,
   defaultCategory: 'All',
   defaultPlatform: 'All',
+  showSystemTasks: false,
   templateView: 'grid',
   confirmBeforeRun: true,
   timezone: 'local',

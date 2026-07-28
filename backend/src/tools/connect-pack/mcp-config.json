@@ -1,6 +1,6 @@
 {
   "//": [
-    "TaskHub Connect Pack v1.0 - MCP server wiring.",
+    "TaskHub Connect Pack v1.1 - MCP server wiring.",
     "Newer copy: https://taskhub.mikesailab.com",
     "",
     "Merge the `taskhub` entry below into your host's MCP config:",

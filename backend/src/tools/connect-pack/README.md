@@ -1,6 +1,6 @@
 # TaskHub Connect Pack
 
-**v1.0** · canonical copy: <https://taskhub.mikesailab.com>
+**v1.1** · canonical copy: <https://taskhub.mikesailab.com>
 
 Teach any AI tool — Claude Code, Claude Desktop, Cursor, Codex, or your own agent — to create
 and manage scheduled tasks through **your** running TaskHub.

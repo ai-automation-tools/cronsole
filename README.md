@@ -85,7 +85,8 @@ so what you see is consistent no matter where a task actually lives.
 | **Template library** | 40 ready-to-use script starters and use-case patterns — including the **Developer Pack** and AI CLI packs for Claude Code + Codex; fill in the blanks and TaskHub creates a real scheduled task. Backed by a versioned, hosted [template registry](docs/reports/templates/Registry_Schema_v1.md) so the catalog updates independently of the app. **Grow it without a reseed**: export/import templates as JSON, or **Save as template** straight from a real task. |
 | **AI-native control (MCP)** | Drive TaskHub from Claude, Codex, or Cursor in plain language — list, run, and create tasks through the [MCP server](docs/user-guides/guides/MCP_Server_Guide.md), a thin wrapper over the same API the dashboard uses. |
 | **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
-| **Search & organize** | Free-text search plus local categories to keep a big task list navigable. |
+| **Search & organize** | Free-text search plus local categories to keep a big task list navigable. Windows' own `\Microsoft\` tasks — which outnumber yours roughly 3:1 on a real machine — are hidden by default, and the filter tells you how many it's holding back. |
+| **Remove without destroying** | **Remove from TaskHub** takes a task off your dashboard and leaves it running on the machine; **Delete from Windows** is the separate, clearly-marked verb that actually destroys the scheduled task. Undoing an over-broad import never costs you an automation. |
 | **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
 
 

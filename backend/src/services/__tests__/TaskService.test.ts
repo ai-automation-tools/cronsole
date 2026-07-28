@@ -13,6 +13,10 @@ const { mockPrisma } = vi.hoisted(() => ({
     executionLog: {
       deleteMany: vi.fn()
     },
+    taskExclusion: {
+      findMany: vi.fn(),
+      deleteMany: vi.fn()
+    },
     // Real $transaction resolves the batched operations; mirror that so
     // upsertTasks gets values back, not promises.
     $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops))
@@ -36,6 +40,8 @@ vi.mock('@prisma/client', () => {
     }
   };
 });
+
+const WIN = 'WINDOWS_TASK_SCHEDULER' as any;
 
 describe('TaskService', () => {
   beforeEach(() => {
@@ -269,7 +275,6 @@ describe('TaskService', () => {
   });
 
   describe('summarizeUntracked', () => {
-    const WIN = 'WINDOWS_TASK_SCHEDULER' as any;
 
     it('reports tasks sitting in folders the sync did not include', () => {
       // The exact scenario from troubleshooting #20: two folders of real tasks
@@ -319,7 +324,7 @@ describe('TaskService', () => {
         WIN
       );
 
-      expect(result).toEqual({ count: 0, folders: [], systemCount: 0 });
+      expect(result).toEqual({ count: 0, folders: [], systemCount: 0, excludedCount: 0 });
     });
 
     it('deduplicates folders and maps root-level tasks to Uncategorized', () => {
@@ -339,7 +344,8 @@ describe('TaskService', () => {
       expect(TaskService.summarizeUntracked([], [], WIN)).toEqual({
         count: 0,
         folders: [],
-        systemCount: 0
+        systemCount: 0,
+        excludedCount: 0
       });
     });
 
@@ -350,7 +356,107 @@ describe('TaskService', () => {
         WIN
       );
 
-      expect(result).toEqual({ count: 0, folders: [], systemCount: 0 });
+      expect(result).toEqual({ count: 0, folders: [], systemCount: 0, excludedCount: 0 });
+    });
+
+    it('counts a deliberately untracked task separately, even inside a tracked folder', () => {
+      // The load-bearing case: an untracked task lives in a folder the user DOES
+      // sync, so the include-set check would swallow it before any counter saw
+      // it. It must be reported as excluded, not silently vanish from the
+      // summary — and it must NOT inflate `count`, which would nag the user
+      // about a removal they performed on purpose.
+      const result = TaskService.summarizeUntracked(
+        ['\\IAM\\RotateKeys', '\\IAM\\Noisy', '\\Edge-Radar\\Settle'],
+        ['IAM'],
+        WIN,
+        new Set(['\\IAM\\Noisy'])
+      );
+
+      expect(result.excludedCount).toBe(1);
+      expect(result.count).toBe(1);            // only Edge-Radar, the un-imported folder
+      expect(result.folders).toEqual(['Edge-Radar']);
+    });
+  });
+
+  describe('exclusions (untrack)', () => {
+    it('reads the excluded ids for the platform as a set', async () => {
+      mockPrisma.taskExclusion.findMany.mockResolvedValue([
+        { externalId: '\\IAM\\Noisy' },
+        { externalId: '\\Work\\Chatty' }
+      ]);
+
+      const excluded = await TaskService.excludedExternalIds('u1', WIN);
+
+      expect(excluded.has('\\IAM\\Noisy')).toBe(true);
+      expect(excluded.size).toBe(2);
+      expect(mockPrisma.taskExclusion.findMany).toHaveBeenCalledWith({
+        where: { userId: 'u1', platform: WIN },
+        select: { externalId: true }
+      });
+    });
+
+    it('drops excluded tasks from a sync batch and leaves the rest alone', () => {
+      const tasks = [
+        { externalId: '\\IAM\\RotateKeys' },
+        { externalId: '\\IAM\\Noisy' }
+      ];
+
+      expect(TaskService.filterExcluded(tasks, new Set(['\\IAM\\Noisy'])))
+        .toEqual([{ externalId: '\\IAM\\RotateKeys' }]);
+    });
+
+    it('is a no-op when nothing is excluded', () => {
+      const tasks = [{ externalId: '\\IAM\\RotateKeys' }];
+      expect(TaskService.filterExcluded(tasks, new Set())).toBe(tasks);
+    });
+
+    it('clears only the exclusions inside the imported categories', async () => {
+      // Importing \IAM must forget the untracks in \IAM and NOT touch \Work —
+      // an import of one folder silently resurrecting another folder's removals
+      // would be the surprise this feature is built to avoid.
+      mockPrisma.taskExclusion.findMany.mockResolvedValue([
+        { id: 'x1', externalId: '\\IAM\\Noisy' },
+        { id: 'x2', externalId: '\\Work\\Chatty' }
+      ]);
+      mockPrisma.taskExclusion.deleteMany.mockResolvedValue({ count: 1 });
+
+      const cleared = await TaskService.clearExclusionsForCategories('u1', WIN, ['IAM']);
+
+      expect(cleared).toBe(1);
+      expect(mockPrisma.taskExclusion.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['x1'] } }
+      });
+    });
+
+    it('does not touch the table when no category is requested', async () => {
+      expect(await TaskService.clearExclusionsForCategories('u1', WIN, [])).toBe(0);
+      expect(mockPrisma.taskExclusion.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.taskExclusion.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('does not issue a delete when nothing in those categories is excluded', async () => {
+      mockPrisma.taskExclusion.findMany.mockResolvedValue([
+        { id: 'x2', externalId: '\\Work\\Chatty' }
+      ]);
+
+      expect(await TaskService.clearExclusionsForCategories('u1', WIN, ['IAM'])).toBe(0);
+      expect(mockPrisma.taskExclusion.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isSystemTask', () => {
+    it('identifies OS-owned tasks by their root folder', () => {
+      expect(TaskService.isSystemTask('\\Microsoft\\Windows\\Defender\\Scan', WIN)).toBe(true);
+      expect(TaskService.isSystemTask('\\Microsoft\\Anything', WIN)).toBe(true);
+    });
+
+    it('does not claim the user\'s own tasks', () => {
+      expect(TaskService.isSystemTask('\\IAM\\RotateKeys', WIN)).toBe(false);
+      expect(TaskService.isSystemTask('\\LooseTask', WIN)).toBe(false);
+      // Not a substring match: a user folder that merely starts with the same
+      // letters is theirs, and hiding it would be the filter silently eating
+      // real work.
+      expect(TaskService.isSystemTask('\\MicrosoftStuffOfMine\\Task', WIN)).toBe(false);
     });
   });
 });

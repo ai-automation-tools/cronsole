@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, Download } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, Download, EyeOff } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
@@ -279,6 +279,25 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
     onError: (error: unknown) => {
       const err = error as Error & { response?: { data?: { error?: string } } };
       toast(`Delete failed: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  });
+
+  // Untrack: stop tracking the task here, leave it running on the platform.
+  //
+  // Deliberately a separate mutation from deleteMutation rather than a flag on
+  // it. These two operations differ only in blast radius and one of them is
+  // irreversible, so the code path, the copy, and the styling are kept apart —
+  // a shared handler with a boolean is how the wrong one eventually fires.
+  const untrackMutation = useMutation({
+    mutationFn: async () => api.post(`/tasks/${task!.id}/untrack`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast(`"${task!.name}" removed from TaskHub. It still exists on its platform.`, 'success');
+      onClose();
+    },
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      toast(`Remove failed: ${err.response?.data?.error || err.message}`, 'error');
     }
   });
 
@@ -586,18 +605,51 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
         </div>
         )}
         <footer className="p-6 bg-background border-t border-border flex flex-wrap gap-3">
+          {/*
+            Two removals, and the entire design is in telling them apart.
+            "Remove from TaskHub" keeps the scheduled task and forgets it here;
+            "Delete from Windows" destroys the real thing. They differ only in
+            blast radius and one is irreversible, so they get different verbs,
+            different icons, different colours, and confirm copy that names what
+            SURVIVES rather than what goes. A single "Delete" with a checkbox is
+            the version of this that eventually erases someone's backup job.
+          */}
+          {task.platform !== 'TASKHUB_NATIVE' && (
+            <button
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Remove from TaskHub?',
+                  message:
+                    `"${task.name}" will disappear from this dashboard along with its TaskHub run history.\n\n` +
+                    'The scheduled task itself is NOT deleted — it stays on the machine and keeps running ' +
+                    'on its own schedule. TaskHub just stops tracking it, and will not re-import it on the ' +
+                    'next sync. Import its category again to bring it back.',
+                  confirmText: 'Remove from TaskHub',
+                  tone: 'default'
+                });
+                if (ok) {
+                  untrackMutation.mutate();
+                }
+              }}
+              disabled={untrackMutation.isPending}
+              className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
+              title="Stop tracking this task in TaskHub. The scheduled task stays on the machine and keeps running."
+            >
+              {untrackMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <EyeOff size={16} />} Remove from TaskHub
+            </button>
+          )}
           {(task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && (() => {
             const isWindowsTask = task.platform === 'WINDOWS_TASK_SCHEDULER';
             return (
               <button
                 onClick={async () => {
                   const scope = isWindowsTask
-                    ? `Delete "${task.name}" from Windows Task Scheduler and remove its TaskHub run history? This cannot be undone.`
-                    : `Delete "${task.name}" and its run history? This cannot be undone.`;
+                    ? `"${task.name}" will be deleted from Windows Task Scheduler itself, along with its TaskHub run history. The scheduled task will stop existing and will never run again.\n\nThis cannot be undone. To keep the task and only stop tracking it here, use "Remove from TaskHub" instead.`
+                    : `Delete "${task.name}" and its run history? This task exists only inside TaskHub, so this cannot be undone.`;
                   const ok = await confirm({
-                    title: 'Delete task?',
+                    title: isWindowsTask ? 'Delete from Windows?' : 'Delete task?',
                     message: scope,
-                    confirmText: 'Delete',
+                    confirmText: isWindowsTask ? 'Delete from Windows' : 'Delete',
                     tone: 'danger'
                   });
                   if (ok) {
@@ -607,10 +659,11 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
                 disabled={deleteMutation.isPending}
                 className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-3 rounded-xl font-bold transition-all border border-red-500/30 active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
                 title={isWindowsTask
-                  ? 'Delete this task from Windows Task Scheduler (via the agent)'
+                  ? 'Permanently delete this task from Windows Task Scheduler (via the agent)'
                   : 'Delete this TaskHub-native task'}
               >
-                {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Delete
+                {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                {isWindowsTask ? 'Delete from Windows' : 'Delete'}
               </button>
             );
           })()}

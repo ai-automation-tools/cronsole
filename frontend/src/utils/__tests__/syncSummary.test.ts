@@ -56,4 +56,38 @@ describe('describeUntracked', () => {
     expect(describeUntracked({})).toBeNull();
     expect(describeUntracked({ results: [] })).toBeNull();
   });
+
+  describe('re-imported exclusions', () => {
+    it('says when an import brought back tasks the user had removed', () => {
+      // Importing a folder forgets the untracks inside it — correct, since
+      // importing IS the request for that folder, but a row reappearing with no
+      // explanation is indistinguishable from untrack being broken.
+      expect(describeUntracked({
+        results: [{ platform: 'WINDOWS_TASK_SCHEDULER', exclusionsCleared: 3, untracked: { count: 0, folders: [], systemCount: 0 } }]
+      })).toBe('Re-imported 3 tasks you had removed from TaskHub.');
+    });
+
+    it('reads correctly for a single restored task', () => {
+      expect(describeUntracked({
+        results: [{ platform: 'WINDOWS_TASK_SCHEDULER', exclusionsCleared: 1 }]
+      })).toBe('Re-imported 1 task you had removed from TaskHub.');
+    });
+
+    it('leads with the restore note and still reports what was left out', () => {
+      expect(describeUntracked({
+        results: [{ ...win(4, ['IAM']), exclusionsCleared: 2 }]
+      })).toBe(
+        'Re-imported 2 tasks you had removed from TaskHub. ' +
+        "Synced. 4 tasks in 1 folder aren't imported — use Import to add them."
+      );
+    });
+
+    it('stays silent when a plain Sync Now restored nothing', () => {
+      // Sync Now must never clear exclusions, so this is the common case and it
+      // must not gain a sentence about something that didn't happen.
+      expect(describeUntracked({
+        results: [{ ...win(0, []), exclusionsCleared: 0 }]
+      })).toBeNull();
+    });
+  });
 });

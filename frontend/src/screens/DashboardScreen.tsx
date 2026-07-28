@@ -22,14 +22,17 @@ import {
   Search,
   X,
   Download,
-  Trash2
+  Trash2,
+  Cpu,
+  User
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { isRunnable, runButtonTitle, canToggleStatus, toggleStatusTitle } from '../utils/taskActions';
 import { matchesTaskSearch } from '../utils/taskSearch';
-import type { Settings } from '../hooks/useSettings';
+import { applySystemLens } from '../utils/systemTasks';
+import { useSettings, type Settings } from '../hooks/useSettings';
 import { useConnections } from '../hooks/useConnections';
 import { formatDateTime, formatTime, timeAgo } from '../utils/datetime';
 
@@ -39,7 +42,7 @@ type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | 
 export const DashboardScreen = ({
   onTaskSelect,
   onRun,
-  tasks,
+  tasks: allTasks,
   isLoading,
   onImport,
   onSyncNow,
@@ -80,6 +83,12 @@ export const DashboardScreen = ({
       .sort();
     return stamps.length ? stamps[stamps.length - 1] : null;
   }, [connections]);
+  // The system/personal split is a persisted preference rather than local state:
+  // it is a standing answer to "whose machine is this dashboard about", not a
+  // per-visit choice, and re-hiding 257 rows on every page load is the thing this
+  // filter exists to stop.
+  const { update } = useSettings();
+
   // Initialize view/filter state from the user's saved dashboard defaults.
   const [selectedCategory, setSelectedTaskCategory] = useState<string>(settings.defaultCategory);
   const [selectedPlatform, setSelectedPlatform] = useState<string>(settings.defaultPlatform);
@@ -106,6 +115,23 @@ export const DashboardScreen = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // The system/personal split is the OUTERMOST lens: every count, chip, facet and
+  // view below works from `tasks`, so hiding OS-owned tasks here hides them
+  // everywhere at once rather than in each place separately (and the places that
+  // got missed are how a filter ends up lying about its own totals).
+  //
+  // It composes with — and is independent of — the active/disabled toggle: the
+  // real default view is "personal AND active", and either can be turned off
+  // without touching the other.
+  //
+  // `isSystem` is the server's verdict, not a rule re-derived here (see types.ts).
+  // The two rules — outermost lens, count over ALL tasks — live in applySystemLens
+  // so they are pinned by tests instead of by whoever reads this component next.
+  const { visible: tasks, hidden: hiddenBySystemFilter } = useMemo(
+    () => applySystemLens(allTasks, settings.showSystemTasks),
+    [allTasks, settings.showSystemTasks]
+  );
+
   // Apply the active/disabled filter the same way the task grid does (kanban
   // shows both columns, so it never hides disabled tasks).
   const applyActiveFilter = (list: Task[]) =>
@@ -130,10 +156,13 @@ export const DashboardScreen = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, viewMode, showDisabled, selectedPlatform, selectedCategory]);
 
-  // How many tasks the active-only filter is holding back. Deliberately counted
-  // across ALL tasks rather than the current category/platform selection: this
-  // answers "is anything being kept from me right now?", which is the question
-  // the toggle's own state can't answer. Note it covers MISSING and UNKNOWN too,
+  // How many tasks the active-only filter is holding back. Counted across every
+  // task the system lens lets through — not the category/platform selection, and
+  // deliberately NOT the raw list either: in Personal mode it must report what
+  // *this view* is withholding (12), not what both filters withhold together
+  // (56), or the number describes a view the user isn't looking at. This answers
+  // "is anything being kept from me right now?", which is the question the
+  // toggle's own state can't answer. Note it covers MISSING and UNKNOWN too,
   // not just DISABLED — the filter keeps only `ACTIVE`, so a natively-deleted
   // task flagged MISSING is invisible in Active Only, which is exactly the kind
   // of thing you don't want silently hidden.
@@ -282,7 +311,44 @@ export const DashboardScreen = ({
               )}
             </button>
           )}
-          
+
+          {/*
+            The system/personal split. Rendered only when the machine actually has
+            OS-owned tasks — a "0 system hidden" toggle on a clean install is noise
+            for a problem that user doesn't have.
+
+            Deliberately a SEPARATE control from Active Only rather than a mode
+            they share: they answer different questions ("whose task is this?" vs
+            "will it ever fire?") and the useful default is both at once. Same
+            three redundant signals as its neighbour, and the same rule — it says
+            what it is hiding, because a filter that silently withholds 257 of 352
+            rows is the invisible fence again.
+          */}
+          {!isEmpty && hiddenBySystemFilter > 0 && (
+            <button
+              onClick={() => update('showSystemTasks', !settings.showSystemTasks)}
+              aria-pressed={!settings.showSystemTasks}
+              title={
+                settings.showSystemTasks
+                  ? `Showing Windows' own scheduled tasks alongside yours (${hiddenBySystemFilter} of them). Click to hide them.`
+                  : `Hiding ${hiddenBySystemFilter} tasks owned by Windows itself (under \\Microsoft\\). They still exist and still run — this only affects what the dashboard shows. Click to include them.`
+              }
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
+                settings.showSystemTasks
+                  ? 'bg-sky-500/10 border-sky-500/40 text-foreground hover:border-sky-500/70'
+                  : 'bg-violet-500/10 border-violet-500/40 text-foreground hover:border-violet-500/70'
+              }`}
+            >
+              {settings.showSystemTasks
+                ? <Cpu size={16} className="text-sky-400" />
+                : <User size={16} className="text-violet-400" />}
+              {settings.showSystemTasks ? 'Incl. System' : 'Personal'}
+              <span className={`text-[10px] font-bold tabular-nums whitespace-nowrap ${settings.showSystemTasks ? 'text-sky-400/90' : 'text-violet-400/90'}`}>
+                {settings.showSystemTasks ? `${hiddenBySystemFilter} system` : `${hiddenBySystemFilter} system hidden`}
+              </span>
+            </button>
+          )}
+
           {/*
             Only rendered when something is actually missing: the mess arrives in
             bulk (deleting a Task Scheduler folder flags every task under it at

@@ -27,7 +27,7 @@ Desktop, …) that has the matching surface available.
 
 | Folder | You're talking to… | Reach for it when… |
 |:---|:---|:---|
-| [**🧩 mcp-server/**](mcp-server/README.md) | An assistant wired to the **TaskHub MCP server** (14 tools) | You want to **list, create, run, and manage real tasks** on your machine in plain English — the way most people will use TaskHub day to day. |
+| [**🧩 mcp-server/**](mcp-server/README.md) | An assistant wired to the **TaskHub MCP server** (15 tools) | You want to **list, create, run, and manage real tasks** on your machine in plain English — the way most people will use TaskHub day to day. |
 | [**🧠 skills/**](skills/README.md) | An assistant loaded with the **`taskhub` Agent Skill** | You're **working on TaskHub's codebase** — adding a template, touching the agent protocol, debugging a trap, changing the MCP server. |
 | [**🌐 rest-api/**](rest-api/README.md) | An assistant driving the **REST API directly** (curl / scripts) | You have **no MCP host**, or you need a **REST-only operation** the MCP server doesn't expose (template import/export, save-as-template, sync, agent pairing). |
 

@@ -58,8 +58,14 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               <h2 id="confirm-dialog-title" className="text-lg font-bold text-foreground">
                 {options.title}
               </h2>
+              {/*
+                `whitespace-pre-line` so a message can use blank lines to separate
+                "what happens" from "what survives". A confirm for an irreversible
+                action that runs together into one grey block is a confirm nobody
+                reads. Existing single-line messages are unaffected.
+              */}
               {options.message && (
-                <p id="confirm-dialog-message" className="mt-2 text-sm text-muted-foreground">
+                <p id="confirm-dialog-message" className="mt-2 text-sm text-muted-foreground whitespace-pre-line">
                   {options.message}
                 </p>
               )}

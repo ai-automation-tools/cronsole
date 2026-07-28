@@ -49,6 +49,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 23a | `taskhub status` prints `[DOWN]` for Postgres, Redis, backend **and** frontend — while `/api/health` returns 200 and the frontend serves 200 | The **same port check as #23, wrong in the other direction**: `Get-NetTCPConnection` needs the NetTCPIP CIM provider and the container check needs a resolvable docker CLI; both were wrapped in `catch { $false }`, so *"the probe could not run"* printed as *"the service is down"*. **Fixed 2026-07-28**: every service is probed by asking the service (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP `PING`), the port is corroboration only, and present-but-unconfirmable reports **`WARN`** with the signal named | [→](#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving) |
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
+| 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
 
 ---
 
@@ -1687,6 +1688,54 @@ types and is what the bundler does anyway.
 
 *First hit: 2026-07-28, clearing P1 — the local typecheck was green and CI was not, on the same
 tree. Cheap to hit and cheap to avoid, but it costs a full CI round-trip every time.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 26. `prisma generate` fails with `EPERM: operation not permitted, rename … query_engine-windows.dll.node`
+
+**Symptom** — after a schema change, `npx prisma migrate dev` applies the migration and then dies
+on the generate step:
+
+```
+EPERM: operation not permitted, rename
+'…\node_modules\.prisma\client\query_engine-windows.dll.node.tmp37704' ->
+'…\node_modules\.prisma\client\query_engine-windows.dll.node'
+```
+
+**Cause** — the **running backend has the query engine DLL open**, and Windows won't let Prisma
+rename over a loaded file. Nothing is corrupt; the write simply didn't happen.
+
+**Why it matters more than a failed command** — the migration already ran. So the **database has
+the new schema and the generated client does not**, which is the same drift that made the MISSING
+feature a silent no-op for nine days ([#22](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n)).
+Here the failure is at least loud, and the new-model case fails loudly at runtime too
+(`prisma.taskExclusion` is `undefined` → `TypeError`). A new **enum value** would not — Prisma
+drops `undefined` from a `data` payload and reports success.
+
+**Fix** — stop the backend, generate, restart:
+
+```powershell
+# host stack (scripts/taskhub.ps1 runs backend/frontend on the host)
+Get-NetTCPConnection -State Listen -LocalPort 3000 | Select-Object -First 1 |
+  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+cd backend; npx prisma generate
+pwsh scripts\taskhub.ps1 up
+```
+
+In the **containerized** variant the DLL lives inside the container and `node_modules` is a
+shadowed volume, so the host command never reaches it — see [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)
+and use `docker compose exec backend npx prisma generate && docker restart taskhub-backend-1`.
+
+> [!TIP]
+> **After any schema change, prove the client actually regenerated** rather than assuming the
+> command that printed an error didn't matter:
+> `node -e "console.log(Object.keys(require('@prisma/client').PrismaClient.prototype))"`, or just
+> touch the new model/enum once. "Migration applied" and "client regenerated" are two events, and
+> only one of them is loud when it fails.
+
+*First hit: 2026-07-28, adding the `TaskExclusion` model for untrack.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

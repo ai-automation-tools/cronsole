@@ -45,6 +45,8 @@ The core loop. If any of this lies, the product has no reason to exist.
 | F1.6 | **Local categorization** | User categories and overrides persist and survive a re-sync | 🟡 |
 | F1.7 | **Search & filter** | Query matching, view tabs, active/disabled filters | ✅ `taskSearch.test.ts` |
 | F1.8 | **Export a task** | Windows → native Task Scheduler XML (**UTF-16 LE + BOM**); TaskHub-native → JSON | ✅ `task-export.integration.test.ts` |
+| F1.9 | **Untrack ≠ delete** | Untrack removes TaskHub's row **and makes no platform call** — the scheduled task survives; the two verbs are distinct in label, styling and confirm copy, and the confirm names **what survives**; `TASKHUB_NATIVE` is refused rather than silently deleted | ✅ `task-untrack.integration.test.ts`, `TaskModal.test.tsx` |
+| F1.10 | **An untrack survives the next sync** | `scope: 'tracked'` sync does **not** re-import an untracked task (that re-import is correct by the sync's logic and reads as "untrack is broken"); an explicit **category import** clears the exclusion, and both `/discover` and the sync response say how many rows that moves | ✅ `TaskService.test.ts`, `syncSummary.test.ts` · 🟡 the sync-route wiring itself is covered live, not by a suite |
 
 ## ⏰ Schedules & conversion
 
@@ -95,7 +97,9 @@ silent data loss lives.
 | F5.2 | **Confirm gates** | Destructive actions prompt; cancel truly cancels, accept truly executes | ✅ `ConfirmProvider.test.tsx` |
 | F5.3 | **Mobile viewport** | Primary dashboard stays usable and actionable below **375px** | ✅ E2E `mock-agent.spec.ts` |
 | F5.4 | **Routing & deep links** | Bookmarkable sections; `/tasks/:id` and `/templates/:id` resolve cold | 🟡 |
-| F5.5 | **Dark theme default** | Dark is default (light is the toggle); persists via `localStorage` key `taskhub.theme` | ⬜ |
+| F5.5 | **Dark theme default** | Dark is default on a fresh install **even when the OS prefers light** (`system` is an explicit third choice, not the fallback); persists via `localStorage` key `taskhub.theme`; `index.html`'s pre-paint fallback matches the hook's, so the first frame agrees with the app | ✅ `useTheme.test.tsx` |
+| F5.9 | **Closed mobile drawer is inert** | Below `md` a closed sidebar is out of the tab order **and** the accessibility tree (a transform hides it visually only); at and above `md` the same element is the real nav and must stay reachable | ✅ `Sidebar.test.tsx` |
+| F5.10 | **System/personal split** | OS-owned tasks are hidden by default from **every** count, chip, facet and view (one outermost lens, not per-place filtering); the toggle **says what it hides** and persists; the hidden count is taken over all tasks so it can't read 0 while hiding 257; `isSystem` is the server's verdict, never re-derived in the browser | ✅ `systemTasks.test.ts`, `TaskService.test.ts` |
 | F5.6 | **Live updates** | A WebSocket `task:updated` invalidates the TanStack Query cache and repaints | ✅ E2E `smoke.spec.ts` |
 | F5.7 | **Agent offline guard** | Socket drops → badge flips to Offline and Run Now disables | ✅ E2E `mock-agent.spec.ts` |
 | F5.8 | **Onboarding surfaces** | Help Center walkthrough renders; first-run banner dismisses and stays dismissed | ✅ `HelpModal.test.tsx` |
@@ -108,8 +112,8 @@ silent data loss lives.
 | F6.2 | **Agent config & auth** | Pairing config parses; authenticator derives the right token | ✅ `AgentConfigTests.cs`, `AgentAuthenticatorTests.cs` |
 | F6.3 | **Health diagnostics** | An invalid Claude key surfaces "Key authentication failed" **with** corrective instructions | ⬜ |
 | F6.4 | **Failure notifications** | Failed manual + scheduled native runs fire generic / Discord / ntfy webhooks | ✅ `FailureNotificationService.test.ts` |
-| F6.5 | **MCP tool surface** | All 13 ungated tools (`list_tasks`, `run_task`, `list_templates`, `list_folders`, `create_task`, `create_native_task`, `create_task_from_template`, `convert_schedule`, `get_task_history`, `export_task`, `set_task_status`, `update_task_schedule`, `update_task_action`) register, validate their inputs, filter, and render honestly — driven through a real MCP client over an in-memory transport | ✅ `mcp-server/src/__tests__/tools.test.ts` |
-| F6.6 | **MCP destructive-op gate** | `delete_task` is registered **only** when `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, and is **absent** from `tools/list` otherwise (not present-and-erroring); the gate opens exactly one tool and changes nothing else | ✅ `mcp-server/src/__tests__/tools.test.ts` |
+| F6.5 | **MCP tool surface** | All 14 ungated tools (`list_tasks`, `run_task`, `list_templates`, `list_folders`, `create_task`, `create_native_task`, `create_task_from_template`, `convert_schedule`, `get_task_history`, `export_task`, `set_task_status`, `update_task_schedule`, `update_task_action`, `untrack_task`) register, validate their inputs, filter, and render honestly — driven through a real MCP client over an in-memory transport. The exact name list is a deliberate tripwire: changing it obligates both README tool tables and the skill (CLAUDE.md §11a) | ✅ `mcp-server/src/__tests__/tools.test.ts` |
+| F6.6 | **MCP destructive-op gate** | `delete_task` is registered **only** when `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, and is **absent** from `tools/list` otherwise (not present-and-erroring); the gate opens exactly one tool and changes nothing else; **`untrack_task` is available without the gate**, so gating deletion never leaves a tidy-up with only the irreversible verb | ✅ `mcp-server/src/__tests__/tools.test.ts` |
 | F6.6 | **MCP config & error normalization** | An unexpanded `${TASKHUB_TOKEN}` refuses to start; an API failure surfaces the backend's own message + status, never a stack trace | ✅ `mcp-server/src/__tests__/client.test.ts` |
 | F6.7 | **MCP tools against a *real* backend** | The stub and the API still agree on response shape (`conversion.warnings`, `task`, `score`) — the suite above can't prove this, since it stubs the client | 🟡 **Manual only** — hand-driven; see the note in [testing/README](../README.md#-known-coverage-gaps) |
 

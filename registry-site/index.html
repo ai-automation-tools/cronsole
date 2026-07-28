@@ -271,6 +271,34 @@
     .browse-head p { margin: 0; color: var(--ink-2); font-size: 15px; }
     .browse-layout { display: grid; grid-template-columns: 244px 1fr; gap: 30px; align-items: start; padding-bottom: 70px; }
     .rail { position: sticky; top: 78px; }
+    /* Global search — lives in the nav, so it is present on every view and,
+       crucially, sits OUTSIDE #app: route() replaces #app.innerHTML on every
+       render, which would blow away focus and the caret mid-keystroke if the
+       input lived inside it. */
+    .nav-search { position: relative; flex: 1; max-width: 340px; margin: 0 18px; }
+    .nav-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--ink-3); pointer-events: none; }
+    .nav-search input {
+      width: 100%; padding: 8px 34px 8px 34px; font-size: 13px; font-family: inherit;
+      background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-sm); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .nav-search input::placeholder { color: var(--ink-3); }
+    .nav-search input:focus { border-color: var(--violet); box-shadow: 0 0 0 3px var(--violet-soft); }
+    .nav-search-kbd {
+      position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+      font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+      border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; pointer-events: none;
+    }
+    .nav-search input:focus ~ .nav-search-kbd { opacity: 0; }
+    @media (max-width: 900px) { .nav-search { max-width: none; margin: 0 10px; } .nav-search-kbd { display: none; } }
+    /* Below 620px the brand + icon buttons eat ~240px of a 375px row, leaving
+       the search box barely 110px — an input too narrow to read what you typed.
+       Give it its own full-width row instead of letting it be squeezed. */
+    @media (max-width: 620px) {
+      .nav-inner { flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 10px; row-gap: 10px; }
+      .nav-search { order: 10; flex-basis: 100%; margin: 0; }
+    }
+
     .search-box { position: relative; margin-bottom: 18px; }
     .search-box svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--ink-3); pointer-events: none; }
     .search-box input {
@@ -440,6 +468,11 @@
         <span class="nav-link" data-nav="#/collections">Collections</span>
         <span class="nav-link" id="nav-import">Import guide</span>
       </div>
+      <div class="nav-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="search" id="gsearch" placeholder="Search templates…" autocomplete="off" aria-label="Search templates">
+        <kbd class="nav-search-kbd">/</kbd>
+      </div>
       <div class="nav-right">
         <button class="ibtn nav-toggle" id="navtoggle" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
         <button class="ibtn" id="theme" aria-label="Toggle theme"></button>
@@ -597,7 +630,10 @@
 
     // ---------- state ----------
     var TEMPLATES = [], FULL = {}, LOADED = false, LOAD_ERR = null;
-    var browseState = { search: "", availability: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
+    // `search` narrows TEMPLATES (driven by the header box, global to every view).
+    // `optionSearch` narrows the FILTER OPTIONS in the rail — a different job,
+    // deliberately a different field, so neither silently resets the other.
+    var browseState = { search: "", optionSearch: "", availability: [], pack: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
 
     // ---------- helpers ----------
     function $(id) { return document.getElementById(id); }
@@ -775,6 +811,7 @@
         ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">' +
             '<button class="btn primary" data-dlpack="' + esc(c.key) + '">' + I.dl + ' Download all ' + list.length + '</button>' +
             '<button class="btn" data-copypack="' + esc(c.key) + '">' + I.copy + ' Copy pack JSON</button>' +
+            '<button class="btn" data-nav="#/browse?pack=' + encodeURIComponent(c.key) + '">' + I.filter + ' Filter &amp; search this pack</button>' +
           '</div>' +
           '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:10px">' +
             'One file — import it in TaskHub → Templates → Import.</p>'
@@ -796,6 +833,15 @@
           if (!q.split(/\s+/).every(function (w) { return hay.indexOf(w) !== -1; })) return false;
         }
         if (except !== "availability" && browseState.availability.length && browseState.availability.indexOf(availOf(t)) === -1) return false;
+        // Pack is OR within the dimension (like availability/category), not AND:
+        // selecting two packs means "in either", which is what a shopper means.
+        if (except !== "pack" && browseState.pack.length) {
+          var inAny = browseState.pack.some(function (k) {
+            var c = collByKey(k);
+            return !!c && c.templateIds.indexOf(t.id) !== -1;
+          });
+          if (!inAny) return false;
+        }
         if (except !== "category" && browseState.category.length && browseState.category.indexOf(t.category) === -1) return false;
         if (except !== "os" && browseState.os.length && browseState.os.indexOf(t.os) === -1) return false;
         if (except !== "runtime" && browseState.runtime.length && browseState.runtime.indexOf(t.runtime) === -1) return false;
@@ -821,6 +867,12 @@
       var oc = counts(browseFiltered("os"), function (t) { return t.os; });
       var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
       var tc = counts(browseFiltered("tags"), function (t) { return t.tags || []; });
+      // Cross-faceted pack counts, same rule as every other dimension: count
+      // against everything EXCEPT this facet, so a pack's number tells you what
+      // selecting it would give you rather than what is already selected.
+      var pc = counts(browseFiltered("pack"), function (t) {
+        return COLLECTIONS.filter(function (c) { return c.templateIds.indexOf(t.id) !== -1; }).map(function (c) { return c.key; });
+      });
       var cats = uniq(TEMPLATES.map(function (t) { return t.category; })).sort();
       var oses = uniq(TEMPLATES.map(function (t) { return t.os; })).sort();
       var rts = uniq(TEMPLATES.map(function (t) { return t.runtime; })).sort();
@@ -832,19 +884,56 @@
         return '<div class="fopt' + (on ? " on" : "") + (cnt === 0 && !on ? " dim" : "") + '" data-fdim="' + dim + '" data-fval="' + esc(v) + '">' +
           '<span class="box">' + I.check + '</span><span class="fname">' + esc(txt) + '</span><span class="fcnt">' + cnt + '</span></div>';
       }
+      // Narrows the filter OPTIONS themselves — distinct from the header search,
+      // which narrows templates. With 40+ tags plus five other facets, finding
+      // the filter you want was its own search problem.
+      var fq = (browseState.optionSearch || "").toLowerCase().trim();
+      var hit = function (txt, val) {
+        if (!fq) return true;
+        return (txt + " " + val).toLowerCase().indexOf(fq) !== -1;
+      };
+      // A facet renders only if something in it matches, so searching collapses
+      // the rail to the relevant part instead of leaving empty headings.
+      function facet(title, optsHtml) {
+        return optsHtml ? '<div class="facet"><div class="facet-title">' + title + '</div><div class="facet-opts">' + optsHtml + '</div></div>' : "";
+      }
+      function optsFor(dim, values, labelMap, cnts) {
+        return values.filter(function (v) { return hit(lab(labelMap, v), v); })
+          .map(function (v) { return opt(dim, v, lab(labelMap, v), cnts[v] || 0); }).join("");
+      }
+
       var html = "";
       html += '<div class="rail-close"><h3>Filters</h3><button class="ibtn" id="railx">' + I.x + '</button></div>';
-      html += '<div class="search-box">' + I.search + '<input type="search" id="bsearch" placeholder="Search templates…" autocomplete="off" value="' + esc(browseState.search) + '"></div>';
-      html += '<div class="facet"><div class="facet-title">Availability</div><div class="facet-opts">' +
-        opt("availability", "core", "Built-in", ac.core || 0) +
-        opt("availability", "extended", "Import on demand", ac.extended || 0) + '</div></div>';
-      html += '<div class="facet"><div class="facet-title">Category</div><div class="facet-opts">' + cats.map(function (v) { return opt("category", v, lab(CAT, v), cc[v] || 0); }).join("") + '</div></div>';
-      html += '<div class="facet"><div class="facet-title">Platform</div><div class="facet-opts">' + oses.map(function (v) { return opt("os", v, lab(OS, v), oc[v] || 0); }).join("") + '</div></div>';
-      html += '<div class="facet"><div class="facet-title">Runtime</div><div class="facet-opts">' + rts.map(function (v) { return opt("runtime", v, lab(RT, v), rc[v] || 0); }).join("") + '</div></div>';
-      var tagHtml = shown.map(function (v) { var on = browseState.tags.indexOf(v) !== -1; return '<span class="tag' + (on ? " on" : "") + '" data-ftag="' + esc(v) + '">' + esc(v) + '</span>'; }).join("");
-      if (allTags.length > 14) tagHtml += '<button class="tag-more" id="tagmore">' + (browseState.showAllTags ? "− less" : "+" + (allTags.length - shown.length) + " more") + '</button>';
-      html += '<div class="facet"><div class="facet-title">Tags</div><div class="tag-cloud">' + tagHtml + '</div></div>';
-      var anyActive = browseState.availability.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
+      html += '<div class="search-box">' + I.filter + '<input type="search" id="fsearch" placeholder="Search filters…" autocomplete="off" value="' + esc(browseState.optionSearch || "") + '"></div>';
+
+      var availOpts = [
+        hit("Built-in", "core") ? opt("availability", "core", "Built-in", ac.core || 0) : "",
+        hit("Import on demand", "extended") ? opt("availability", "extended", "Import on demand", ac.extended || 0) : ""
+      ].join("");
+      html += facet("Availability", availOpts);
+
+      // Pack — the dimension packs introduced that Browse previously couldn't
+      // see. Membership comes from the registry, so this stays correct without
+      // a second definition of what a pack contains.
+      html += facet("Pack", COLLECTIONS.filter(function (c) { return hit(c.title, c.key); })
+        .map(function (c) { return opt("pack", c.key, c.title, pc[c.key] || 0); }).join(""));
+
+      html += facet("Category", optsFor("category", cats, CAT, cc));
+      html += facet("Platform", optsFor("os", oses, OS, oc));
+      html += facet("Runtime", optsFor("runtime", rts, RT, rc));
+
+      // When searching options, show every matching tag — truncating to 14
+      // would hide the exact tag being searched for.
+      var tagPool = fq ? allTags.filter(function (v) { return hit(v, v); }) : shown;
+      var tagHtml = tagPool.map(function (v) { var on = browseState.tags.indexOf(v) !== -1; return '<span class="tag' + (on ? " on" : "") + '" data-ftag="' + esc(v) + '">' + esc(v) + '</span>'; }).join("");
+      if (!fq && allTags.length > 14) tagHtml += '<button class="tag-more" id="tagmore">' + (browseState.showAllTags ? "− less" : "+" + (allTags.length - shown.length) + " more") + '</button>';
+      if (tagHtml) html += '<div class="facet"><div class="facet-title">Tags</div><div class="tag-cloud">' + tagHtml + '</div></div>';
+
+      if (fq && !availOpts && !tagPool.length && !optsFor("category", cats, CAT, cc) && !optsFor("os", oses, OS, oc) && !optsFor("runtime", rts, RT, rc)) {
+        html += '<div class="facet"><div class="facet-title" style="color:var(--ink-3);font-weight:400">No filter matches “' + esc(fq) + '”.</div></div>';
+      }
+
+      var anyActive = browseState.availability.length || browseState.pack.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
       if (anyActive) html += '<button class="clear-all" id="clearall">' + I.x + ' Clear all filters</button>';
       rail.innerHTML = html;
     }
@@ -852,6 +941,7 @@
       var pills = $("pills"); if (!pills) return;
       var out = [];
       browseState.availability.forEach(function (v) { out.push(pill("availability", v, lab(AVAIL, v))); });
+      browseState.pack.forEach(function (v) { var c = collByKey(v); out.push(pill("pack", v, c ? c.title : v)); });
       browseState.category.forEach(function (v) { out.push(pill("category", v, lab(CAT, v))); });
       browseState.os.forEach(function (v) { out.push(pill("os", v, lab(OS, v))); });
       browseState.runtime.forEach(function (v) { out.push(pill("runtime", v, lab(RT, v))); });
@@ -975,9 +1065,17 @@
     // ======================================================
     function parseHash() {
       var h = (location.hash || "#/").replace(/^#/, "");
-      var parts = h.split("/").filter(Boolean); // e.g. ["t","dev-git-fetch-prune"]
+      // Split the PATH only. Splitting the raw hash made "/browse?pack=x" parse
+      // as the single segment "browse?pack=x", which matched no view and fell
+      // through to Home — so every query-string deep link silently 404'd to the
+      // landing page. (The pre-existing ?tag= link had the same bug; it was
+      // never noticed because the tag chips navigate to a bare "#/browse" and
+      // set the filter in JS instead of going through the URL.)
+      var qi = h.indexOf("?");
+      var path = qi === -1 ? h : h.slice(0, qi);
+      var parts = path.split("/").filter(Boolean); // e.g. ["t","dev-git-fetch-prune"]
       if (!parts.length) return { view: "home" };
-      if (parts[0] === "browse") return { view: "browse", tag: parseQuery(h).tag };
+      if (parts[0] === "browse") { var q = parseQuery(h); return { view: "browse", tag: q.tag, pack: q.pack }; }
       if (parts[0] === "collections") return { view: "collections" };
       if (parts[0] === "collection") return { view: "collection", key: parts[1] };
       if (parts[0] === "t") return { view: "detail", id: decodeURIComponent(parts[1] || "") };
@@ -1005,6 +1103,7 @@
       else if (r.view === "collection") { $("app").innerHTML = viewCollection(r.key); }
       else if (r.view === "browse") {
         if (r.tag && browseState.tags.indexOf(r.tag) === -1) browseState.tags.push(r.tag);
+        if (r.pack && collByKey(r.pack) && browseState.pack.indexOf(r.pack) === -1) browseState.pack.push(r.pack);
         $("app").innerHTML = viewBrowse(); wireBrowse();
       } else if (r.view === "detail") {
         var entry = byId(r.id);
@@ -1032,7 +1131,13 @@
       var open = e.target.closest("[data-open]");
       if (open) { location.hash = "#/t/" + encodeURIComponent(open.getAttribute("data-open")); return; }
       var tag = e.target.closest("[data-tag]");
-      if (tag) { browseState.tags = [tag.getAttribute("data-tag")]; browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.search = ""; location.hash = "#/browse"; return; }
+      if (tag) {
+        browseState.tags = [tag.getAttribute("data-tag")];
+        browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.pack = [];
+        browseState.search = "";
+        var gs = $("gsearch"); if (gs) gs.value = "";   // the header box owns `search`
+        location.hash = "#/browse"; return;
+      }
 
       // Pack actions — delegated (like the rail) so they keep working after a
       // re-render, and checked BEFORE [data-nav] would swallow the click.
@@ -1047,7 +1152,15 @@
       var ftag = e.target.closest("[data-ftag]");
       if (ftag) { toggleArr(browseState.tags, ftag.getAttribute("data-ftag")); refreshBrowse(); return; }
       if (e.target.closest("#tagmore")) { browseState.showAllTags = !browseState.showAllTags; renderRail(); return; }
-      if (e.target.closest("#clearall")) { browseState.availability = []; browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.tags = []; browseState.search = ""; refreshBrowse(); return; }
+      if (e.target.closest("#clearall")) {
+        browseState.availability = []; browseState.pack = []; browseState.category = [];
+        browseState.os = []; browseState.runtime = []; browseState.tags = [];
+        browseState.search = "";
+        // Clear the header box too — it is the live source of `search`, so
+        // leaving text in it would show "cleared" filters while still filtering.
+        var g = $("gsearch"); if (g) g.value = "";
+        refreshBrowse(); return;
+      }
       if (e.target.closest("#railx")) { browseState.railOpen = false; var rl = $("rail"); if (rl) rl.classList.remove("open"); document.body.style.overflow = ""; return; }
       var pb = e.target.closest("[data-pdim]");
       if (pb) { toggleArr(browseState[pb.getAttribute("data-pdim")], pb.getAttribute("data-pval")); refreshBrowse(); return; }
@@ -1055,10 +1168,54 @@
       if (e.target.closest("#nav-import")) { importModal(); return; }
       if (e.target.closest("#navtoggle")) { toggleNavMenu(); return; }
     });
-    // browse search (delegated input)
     document.addEventListener("input", function (e) {
-      if (e.target && e.target.id === "bsearch") { browseState.search = e.target.value; renderPills(); renderBrowseGrid(); // keep focus: only re-render counts, not whole rail
-        renderRailCountsOnly(); }
+      if (!e.target) return;
+
+      // Global template search (header). Works from any view: typing on Home or
+      // a pack page lands you in filtered Browse results.
+      //
+      // The rail is deliberately NOT rebuilt on each keystroke — only its counts
+      // are patched — because renderRail() replaces the rail's innerHTML, and
+      // the mobile drawer's own focus would go with it.
+      if (e.target.id === "gsearch") {
+        browseState.search = e.target.value;
+        if (parseHash().view !== "browse") {
+          // Jump to Browse, but keep the caret in the header box: the header is
+          // outside #app, so route()'s innerHTML swap never touches it.
+          location.hash = "#/browse";
+          return;
+        }
+        renderPills(); renderBrowseGrid(); renderRailCountsOnly();
+        return;
+      }
+
+      // Rail search — narrows the filter OPTIONS, not the templates. Rebuilding
+      // the rail is required here (options appear/disappear), so focus and caret
+      // are restored explicitly afterwards.
+      if (e.target.id === "fsearch") {
+        browseState.optionSearch = e.target.value;
+        var caret = e.target.selectionStart;
+        renderRail();
+        var again = $("fsearch");
+        if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (err) {} }
+        return;
+      }
+    });
+
+    // "/" focuses search from anywhere — but never while the user is already
+    // typing into a field, where "/" is just a character.
+    document.addEventListener("keydown", function (e) {
+      var tag = (e.target && e.target.tagName) || "";
+      var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target && e.target.isContentEditable);
+      if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        var g = $("gsearch"); if (g) { e.preventDefault(); g.focus(); g.select(); }
+        return;
+      }
+      if (e.key === "Escape" && e.target && e.target.id === "gsearch") {
+        e.target.value = ""; browseState.search = "";
+        if (parseHash().view === "browse") { renderPills(); renderBrowseGrid(); renderRailCountsOnly(); }
+        e.target.blur();
+      }
     });
     function renderRailCountsOnly() {
       // update facet counts + tag counts without rebuilding the search input (preserves focus)
@@ -1066,9 +1223,12 @@
       var cc = counts(browseFiltered("category"), function (t) { return t.category; });
       var oc = counts(browseFiltered("os"), function (t) { return t.os; });
       var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
+      var pc = counts(browseFiltered("pack"), function (t) {
+        return COLLECTIONS.filter(function (c) { return c.templateIds.indexOf(t.id) !== -1; }).map(function (c) { return c.key; });
+      });
       document.querySelectorAll(".fopt[data-fdim]").forEach(function (el) {
         var dim = el.getAttribute("data-fdim"), val = el.getAttribute("data-fval");
-        var m = dim === "availability" ? ac : dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
+        var m = dim === "availability" ? ac : dim === "pack" ? pc : dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
         var c = el.querySelector(".fcnt"); if (c) c.textContent = n;
         var on = browseState[dim].indexOf(val) !== -1; el.classList.toggle("dim", n === 0 && !on);
       });

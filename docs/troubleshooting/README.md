@@ -1030,10 +1030,35 @@ NULs) are on an explicit allowlist in the script.
 > and counting** — a naïve in-place edit can appear to succeed while the byte survives. `node -e`
 > that reads the file back and asserts zero control bytes is the reliable check.
 
+### It recurred — and the fix has the same trap inside it
+
+**2026-07-28**: `backend/src/services/bulkExport.ts` shipped with a literal NUL and `0x1f` in a
+filename-sanitizing regex, written as `[…|<NUL>-<0x1F>]` where `[…|\x00-\x1f]` was intended. CI's
+`repo-hygiene` job caught it — **the guard works** — but it went unnoticed for six commits because
+the local test suites were green and nobody looked at Actions. *Run the hygiene check locally, or
+watch CI, before assuming a green `npm test` means a green build.*
+
+The instructive part is the fix. Three attempts "succeeded" (exit 0, file rewritten) and changed
+nothing, because **the `\\x00` in the replacement collapsed to a real NUL** somewhere in the
+shell/tool pipeline — so each pass replaced the control bytes with identical control bytes. It
+looks exactly like a failed write, and sends you hunting for file locks and watchers.
+
+The reliable move is to **never type a backslash escape into the pipeline at all** — build it from
+its code point:
+
+```python
+BS = bytes([92])                 # backslash, immune to escape collapsing
+repl = BS + b'x00-' + BS + b'x1f'   # the TEXT  \x00-\x1f
+```
+
+Then re-read the file and assert zero control bytes. A replacement that can be silently rewritten
+in transit is not a replacement you can trust.
+
 *First hit: 2026-07-15 (`backend/src/ws/agentAuth.ts`, a NUL separator whose diff couldn't be
 read). Repo-wide sweep 2026-07-16 found two more — `mcp-server/src/__tests__/tools.test.ts` and
-`agent/TaskHub.Agent.Tests/AgentAuthenticatorTests.cs` — and added the CI guard. The failure is
-silent and only bites the reviewer, which is why it survived so long.)*
+`agent/TaskHub.Agent.Tests/AgentAuthenticatorTests.cs` — and added the CI guard. Recurred
+2026-07-28 in `bulkExport.ts` (above). The failure is silent and only bites the reviewer, which is
+why it survived so long.)*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

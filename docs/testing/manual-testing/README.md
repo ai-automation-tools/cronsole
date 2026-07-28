@@ -112,6 +112,9 @@ requires the `Authorization: Bearer` header.
 | `DELETE` | `/api/tasks/:id` | Delete |
 | `POST` | `/api/tasks/native` | Create a TaskHub-native task |
 | `POST` | `/api/tasks/:id/save-as-template` | Save task as template |
+| `POST` | `/api/tasks/:id/untrack` | Remove from TaskHub, leave the platform entry running |
+| `POST` | `/api/tools/export/tasks` | **Bulk** export — the whole machine or one folder (`format: 'zip' \| 'files'`) |
+| `POST` | `/api/tools/restore/tasks` | Restore from a backup. **Send `dryRun: true` first** — it returns the plan and writes nothing |
 | `GET` | `/api/templates` · `/api/templates/discover` | List / browse catalog |
 | `POST` | `/api/templates/:id/preview` | Score the schedule→trigger conversion → `{ score, warnings, trigger }` |
 | `POST` | `/api/templates/:id/apply` | Apply → create a real task |

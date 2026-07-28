@@ -82,8 +82,14 @@ createTask(name, schedule, command, config, options?): Promise<{ success, extern
 updateSchedule?(externalId, trigger, config)
 updateActions?(externalId, input, config)
 deleteTask?(externalId, config)
+listFolders?(config): Promise<{ success, folders, message? }>
 exportTask?(externalId, config): Promise<{ success, xml?, message? }>
+importTask?(externalId, xml, { overwrite, createFolders }, config): Promise<ImportTaskResult>
 ```
+
+`importTask` is `exportTask`'s write twin, and its result is **four-state**
+(`created | replaced | exists | refused`) rather than a boolean — `exists` is neither a success
+nor a failure, and every boolean shape collapses it into a lie in one direction.
 
 A connector that can't delete **doesn't implement `deleteTask`** — so the route can tell the
 user honestly instead of pretending. Don't add a stub that returns `{ success: true }`; that
@@ -114,13 +120,13 @@ converts a missing capability into a lie. Leaving it undefined *is* the design.
   "no result", it produces **a confident lie about a different subsystem**, pointing you at the
   socket while the real cause (a disabled task) is one click away. `task:run` did exactly this
   until 2026-07-15: it emitted only on success, and logged failures to a console nobody reads
-  (the agent is launched hidden). ([#15](../../docs/troubleshooting/README.md#15-run_task-times-out-instead-of-saying-the-task-is-disabled))
+  (the agent is launched hidden). ([#15](../../../docs/troubleshooting/README.md#15-run_task-times-out-instead-of-saying-the-task-is-disabled))
   - **The one deliberate silence** is a command that fails signature verification: a forger
     should learn nothing, and the server's timeout is the correct outcome there.
 - **Every signed command carries a per-command `nonce`, inside the message, just before `ts`.**
   `ts` is only second-granular, so without it two identical commands in one second were
   byte-identical — indistinguishable from a replay, and the guard dropped the second silently
-  (fixed 2026-07-15; [#16](../../docs/troubleshooting/README.md#16-a-second-identical-agent-command-within-one-second-is-dropped)).
+  (fixed 2026-07-15; [#16](../../../docs/troubleshooting/README.md#16-a-second-identical-agent-command-within-one-second-is-dropped)).
   It is **inside** the signature for the same reason `folder` and `trigger` are: an unsigned
   nonce could be rewritten in flight to turn a captured frame into a "fresh" command.
   - **Signed AND sent.** The agent rebuilds the message locally, so it needs the exact nonce.
@@ -131,7 +137,7 @@ converts a missing capability into a lie. Leaving it undefined *is* the design.
     **required** parameter — that's the enforcement that one always exists.
   - Anything else that signs commands (`agent/test-server/index.js`) must add it too.
   - **Corollary for debugging:** `Agent trigger timeout` has at least three causes — a stale
-    agent with no handler ([#7](../../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)),
+    agent with no handler ([#7](../../../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)),
     a silent failure path (#15), and the replay guard (#16). It is the backend's *default*, not
     a diagnosis. **To see what the agent actually did, run `agent/publish/TaskHub.Agent.exe` in
     the foreground** — it replaces the hidden elevated instance in the backend's registry, so it

@@ -86,6 +86,7 @@ so what you see is consistent no matter where a task actually lives.
 | **AI-native control (MCP)** | Drive TaskHub from Claude, Codex, or Cursor in plain language — list, run, and create tasks through the [MCP server](docs/user-guides/guides/MCP_Server_Guide.md), a thin wrapper over the same API the dashboard uses. |
 | **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
 | **Search & organize** | Free-text search plus local categories to keep a big task list navigable. Windows' own `\Microsoft\` tasks — which outnumber yours roughly 3:1 on a real machine — are hidden by default, and the filter tells you how many it's holding back. |
+| **Back up & restore** | Save every scheduled task on the machine as native Task Scheduler XML — including the ones you never imported, which are the ones nothing else is holding — then put them back. Restore **shows you a plan first**: what it would create, replace, skip, or refuse, checked against what is really on the machine, before anything is written. |
 | **Remove without destroying** | **Remove from TaskHub** takes a task off your dashboard and leaves it running on the machine; **Delete from Windows** is the separate, clearly-marked verb that actually destroys the scheduled task. Undoing an over-broad import never costs you an automation. |
 | **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
 

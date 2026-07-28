@@ -1,7 +1,7 @@
 # 🪟 Windows Task Lifecycle
 
-> **Covers:** F1.3, F1.4, F1.5, F1.8, F2.8 · I4.1, I4.2, I4.3, I4.4, I4.6 · U2.2, U4.2
-> **Time:** ~25 min · **Needs:** the stack + **real Windows Task Scheduler**
+> **Covers:** F1.3, F1.4, F1.5, F1.8, F1.8b, F1.8c, F1.9, F2.8 · I4.1, I4.2, I4.3, I4.4, I4.4a, I4.4b, I4.6 · U2.2, U4.2
+> **Time:** ~30 min · **Needs:** the stack + **real Windows Task Scheduler**
 
 This is the runbook that earns TaskHub's core promise. Every automated test of this path uses
 a **mock agent** — which proves the protocol, not the platform. Only this runbook proves a
@@ -213,6 +213,44 @@ Also check `GET /api/tasks/discover` between 3 and 4: the `TaskHub` category sho
 `excludedCount: 1`, which is the amber **+1 removed** badge in the Import modal. The number has
 to arrive **before** the click.
 
+## 12b. Restore — put it back, and check with Windows
+
+Step 12 proves the XML is *importable by Windows*. This proves **TaskHub can do the importing**,
+which is a different claim and the one the Tools tab makes.
+
+```powershell
+# Base64 the exported bytes — never send the XML as a JSON string, or the UTF-16 is lost
+$b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:TEMP\manual-test-lifecycle.xml"))
+$body = @{ files = @(@{ relativePath = 'TaskHub/manual-test-lifecycle.xml'; contentBase64 = $b64 })
+           dryRun = $true } | ConvertTo-Json -Depth 5
+Invoke-RestMethod -Method Post "http://localhost:3000/api/tools/restore/tasks" `
+  -Headers $H -ContentType 'application/json' -Body $body |
+  Select-Object -ExpandProperty plan | Select-Object counts, foldersToCreate
+```
+
+**Expect** while the task still exists: `skip: 1`. Restore refuses to overwrite by default, and
+the plan says so *before* anything is written.
+
+Now delete the task in Windows and re-run the dry run with `createFolders = $true`. **Expect:**
+`create: 1`. Then commit it (`dryRun = $false`) and take the evidence from **Windows**:
+
+```powershell
+$t = Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle'
+$t.State; $t.Actions[0].Execute; $t.Principal.UserId; $t.Principal.LogonType; $t.Principal.RunLevel
+```
+
+**Expect:** the action, the trigger, **and the principal** match what you exported. The principal
+is the one worth staring at — a restore that silently re-registers the task as a different account
+is a restore that changed what it claimed to reproduce.
+
+Then run it once more with `overwrite = $false`. **Expect:** `exists`, and the task's registration
+date **unchanged** — "left alone" has to mean untouched, not rewritten identically.
+
+> **Heads-up for cleanup:** the restore ran through the **elevated** agent, so the restored task
+> (and any folder it created) now carry an administrator ACE. An unelevated
+> `Unregister-ScheduledTask` will fail with `Access is denied` — delete it through TaskHub, or
+> from an elevated Task Scheduler. See [#28](../../../troubleshooting/README.md#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied).
+
 ## 13. Delete, and verify it's really gone
 
 ```powershell
@@ -257,6 +295,7 @@ error — the user now trusts a dashboard that's wrong.
 - [ ] Disable/enable changes **Windows** state (11)
 - [ ] Export is UTF-16 LE + BOM and **re-imports** (12)
 - [ ] Untrack drops the row while **Windows still has the task**; a tracked sync leaves it out; an explicit import brings it back and says so (12a)
+- [ ] Restore's dry run says `skip` while the task exists, `create` once it's gone, and the commit puts back the action, trigger **and principal** — read from Windows (12b)
 - [ ] Delete removes the real entry; folder auto-prunes (13–14)
 - [ ] Elevation refusal is honest (15)
 

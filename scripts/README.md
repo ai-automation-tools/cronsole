@@ -33,7 +33,7 @@ The local stack is five pieces: **Postgres + Redis** (Docker, auto-restart), the
 
 ```powershell
 # from anywhere
-pwsh scripts\taskhub.ps1 status     # one table: every service + an API health check
+pwsh scripts\taskhub.ps1 status     # one table: every service, and how it was checked
 pwsh scripts\taskhub.ps1 up         # start whatever's down (idempotent — safe to re-run)
 pwsh scripts\taskhub.ps1 restart    # stop the app tier, then bring it back
 pwsh scripts\taskhub.ps1 down       # stop backend + frontend + agent (leaves db/redis up)
@@ -41,10 +41,23 @@ pwsh scripts\taskhub.ps1 down -All  # ...also stop the Docker db/redis container
 pwsh scripts\taskhub.ps1 logs       # tail the backend/frontend logs
 ```
 
-`status` prints **ALL UP**, **PARTIAL (n/5)**, or **DOWN** so you can tell at a
-glance. Docker db/redis carry `restart: unless-stopped`, so they recover from a
-crash or reboot on their own; the backend/frontend recover on the next auto-start
-self-heal (or immediately with `taskhub up`).
+`status` prints **ALL UP**, **DEGRADED**, **PARTIAL (n/5)**, or **DOWN** so you can
+tell at a glance. Docker db/redis carry `restart: unless-stopped`, so they recover
+from a crash or reboot on their own; the backend/frontend recover on the next
+auto-start self-heal (or immediately with `taskhub up`).
+
+> [!IMPORTANT]
+> **Every service is checked by asking the service, never by checking whether a port
+> is bound** — `GET /api/health` for the backend, an HTTP `GET /` for the frontend,
+> the docker healthcheck or `pg_isready` for Postgres, a RESP `PING` for Redis. The
+> port is corroboration only, and each row prints **the signal it used**. A port
+> check alone has been wrong in both directions here: it once reported a dead
+> container's held port as *"backend already up"* and refused to start the real one
+> ([#23](../docs/troubleshooting/README.md#23-network-error-after-a-reboot--the-database-system-is-starting-up)),
+> and later reported four services **down** while all four were serving HTTP
+> ([#23a](../docs/troubleshooting/README.md#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving)).
+> Where something is present but cannot be confirmed to be serving, `status` says
+> **`WARN`** — not a confident UP or DOWN.
 
 > [!IMPORTANT]
 > Paths in these scripts are **machine-specific** — `Start-TaskHub.ps1` and the task XMLs

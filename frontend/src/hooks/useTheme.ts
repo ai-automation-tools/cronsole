@@ -4,6 +4,17 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'taskhub.theme';
 
+/**
+ * Dark is TaskHub's default, not an opt-in (CLAUDE.md §9) — the token set, the
+ * design system, and both public sites are built dark-first, so "follow the OS"
+ * would ship a first paint the product was never designed in. `system` stays
+ * available, but only as a mode the user picks on purpose.
+ *
+ * The pre-paint script in `index.html` hard-codes the same fallback; if this
+ * changes, change that too or the first frame disagrees with the app.
+ */
+const DEFAULT_MODE: ThemeMode = 'dark';
+
 function systemPrefersDark(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -12,9 +23,9 @@ function systemPrefersDark(): boolean {
 }
 
 function readStored(): ThemeMode {
-  if (typeof window === 'undefined') return 'system';
+  if (typeof window === 'undefined') return DEFAULT_MODE;
   const v = window.localStorage.getItem(STORAGE_KEY);
-  return v === 'light' || v === 'dark' || v === 'system' ? v : 'system';
+  return v === 'light' || v === 'dark' || v === 'system' ? v : DEFAULT_MODE;
 }
 
 /** Resolve a mode to a concrete theme and stamp it on <html>. */

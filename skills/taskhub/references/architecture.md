@@ -18,7 +18,10 @@ Load when touching the data model, connectors, the agent protocol, or the API su
 
 Control the whole stack with `pwsh scripts/taskhub.ps1 <up|down|restart|status|logs>`
 (`down -All` also stops the Docker db/redis). It exists so you stop wondering which part is
-down.
+down. `status` asks each service directly (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP
+`PING`) and prints the signal it used; a bare port check is corroboration only, having been
+wrong in both directions ([#23](../../../docs/troubleshooting/README.md#23-network-error-after-a-reboot--the-database-system-is-starting-up)
+/ [#23a](../../../docs/troubleshooting/README.md#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving)).
 
 ## Data model
 

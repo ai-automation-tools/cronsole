@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { vi, describe, it, expect } from 'vitest';
+import { vi, describe, it, expect, afterEach } from 'vitest';
 
 // Sidebar reads live connection health via useConnections (TanStack Query).
 // Mock it so these unit tests don't need a QueryClientProvider or network.
@@ -99,5 +99,72 @@ describe('Sidebar Component', () => {
     const settingsBtn = screen.getByText('Settings').closest('button');
     expect(newDashboardBtn).not.toHaveClass('bg-primary/10');
     expect(settingsBtn).toHaveClass('bg-primary/10');
+  });
+});
+
+describe('Sidebar accessibility of the mobile drawer', () => {
+  const originalMatchMedia = window.matchMedia;
+
+  /** Answer `(min-width: 768px)` — i.e. put the test on desktop or on mobile. */
+  function setViewport(desktop: boolean) {
+    window.matchMedia = ((query: string) =>
+      ({
+        matches: query.includes('min-width: 768px') ? desktop : false,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as unknown as MediaQueryList) as typeof window.matchMedia;
+  }
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it('takes the closed drawer out of the tab order and the a11y tree on mobile', () => {
+    // The drawer is hidden with a transform, which is purely visual — without
+    // `inert` its buttons stay focusable and a keyboard user tabs through an
+    // invisible menu before reaching the page. `byRole` only sees accessible
+    // elements, so this asserts the behavior, not just the attribute.
+    setViewport(false);
+    const { container } = render(
+      <Sidebar activeTab="dashboard" setActiveTab={vi.fn()} open={false} onClose={vi.fn()} />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Templates' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
+
+    const aside = container.querySelector('aside')!;
+    expect(aside).toHaveAttribute('aria-hidden', 'true');
+    expect(aside).toHaveAttribute('inert');
+  });
+
+  it('makes the drawer reachable again once it is open', () => {
+    setViewport(false);
+    const { container } = render(
+      <Sidebar activeTab="dashboard" setActiveTab={vi.fn()} open onClose={vi.fn()} />
+    );
+
+    expect(screen.getByRole('button', { name: 'Templates' })).toBeInTheDocument();
+    const aside = container.querySelector('aside')!;
+    expect(aside).not.toHaveAttribute('aria-hidden');
+    expect(aside).not.toHaveAttribute('inert');
+  });
+
+  it('never hides the desktop sidebar, where `open` is meaningless', () => {
+    // At `md` and up the same element is the real, always-visible navigation and
+    // `open` stays false — inerting on that signal alone would hide the whole nav.
+    setViewport(true);
+    const { container } = render(
+      <Sidebar activeTab="dashboard" setActiveTab={vi.fn()} open={false} onClose={vi.fn()} />
+    );
+
+    expect(screen.getByRole('button', { name: 'Templates' })).toBeInTheDocument();
+    const aside = container.querySelector('aside')!;
+    expect(aside).not.toHaveAttribute('aria-hidden');
+    expect(aside).not.toHaveAttribute('inert');
   });
 });

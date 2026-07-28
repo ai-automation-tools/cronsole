@@ -8,14 +8,14 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/surface-MCP_server-8B5CF6?style=for-the-badge" alt="MCP server">
-  <img src="https://img.shields.io/badge/tools-14-2ea44f?style=for-the-badge" alt="14 tools">
+  <img src="https://img.shields.io/badge/tools-15-2ea44f?style=for-the-badge" alt="15 tools">
 </p>
 
 ---
 
 These prompts are for an assistant (Claude Code, Cursor, Codex, Claude Desktop, …) that has the
 **TaskHub MCP server** connected. The server is a thin wrapper over the REST API exposing
-**14 tools** — so the assistant can operate your real Windows Task Scheduler and TaskHub-native
+**15 tools** — so the assistant can operate your real Windows Task Scheduler and TaskHub-native
 tasks by calling them for you.
 
 > [!IMPORTANT]
@@ -32,7 +32,7 @@ tasks by calling them for you.
 | **Read** | `list_tasks`, `list_templates`, `list_folders`, `get_task_history`, `export_task`, `convert_schedule` |
 | **Create** | `create_task`, `create_native_task`, `create_task_from_template` |
 | **Act** | `run_task` |
-| **Manage** (reversible) | `set_task_status`, `update_task_schedule`, `update_task_action` |
+| **Manage** (reversible) | `set_task_status`, `update_task_schedule`, `update_task_action`, `untrack_task` |
 | **Destroy** (gated) | `delete_task` — only if `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true` |
 
 ---
@@ -156,6 +156,26 @@ D:\AI_Agents\_maintenance\update-repos.ps1 — keep everything else the same.
 > assistant to read the current command first (it will), so it doesn't silently reset the run
 > level.
 
+## 🧹 Tidy the dashboard (without deleting anything)
+
+```text
+Using TaskHub, I imported the whole \Microsoft\ folder by mistake. Stop tracking
+those in TaskHub — but do NOT delete any of them, they're Windows' own tasks.
+```
+
+```text
+Using TaskHub, remove "SoftLandingDeferralTask" from my dashboard. I don't care
+about it, but leave the scheduled task alone.
+```
+
+> [!TIP]
+> `untrack_task` is the verb for *"get this out of my dashboard"*. It drops TaskHub's record
+> and its TaskHub run history; the scheduled task stays on the machine and keeps running, and
+> future syncs won't pull it back. Reversible — re-import that category in the dashboard to
+> track it again. It is **ungated**, on purpose: gating deletion is only honest if there's a
+> safe way to remove something without the gate, or the only tool for a tidy-up is the one that
+> destroys real tasks.
+
 ## 🗑️ Delete (gated)
 
 ```text
@@ -165,9 +185,12 @@ a one-off check.
 
 > [!NOTE]
 > If `delete_task` isn't enabled (`TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`), the assistant won't
-> see the tool at all and will offer to **disable** the task instead, or point you to the
-> dashboard / REST. That's intentional — an irreversible verb stays behind an out-of-band
-> switch the model can't flip for itself.
+> see the tool at all and will offer to **disable** or **untrack** the task instead, or point
+> you to the dashboard / REST. That's intentional — an irreversible verb stays behind an
+> out-of-band switch the model can't flip for itself.
+>
+> **If you only want it off your dashboard, don't reach for delete at all** — that's
+> `untrack_task` above, and it leaves the scheduled task running.
 
 ## 🧾 What the MCP server can't do
 

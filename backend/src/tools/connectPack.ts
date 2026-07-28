@@ -25,7 +25,11 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
  * current, so it must at least be able to tell its reader how old it is.
  * `connectPack.test.ts` asserts every artifact's text carries this string.
  */
-export const CONNECT_PACK_VERSION = '1.0';
+// Bump whenever the pack's *content* changes — the tool surface, an invariant, a
+// trap. A downloaded copy lives on someone else's machine and can never be
+// updated in place, so the stamp is the only way it can say how old it is.
+// 1.1 (2026-07-28): untrack_task added to the surface (15 tools).
+export const CONNECT_PACK_VERSION = '1.1';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://taskhub.mikesailab.com';

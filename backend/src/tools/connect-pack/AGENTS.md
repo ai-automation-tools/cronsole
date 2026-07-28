@@ -1,6 +1,6 @@
 # TaskHub — operating rules for an AI assistant
 
-> TaskHub Connect Pack **v1.0** · canonical copy: <https://taskhub.mikesailab.com>
+> TaskHub Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
 
 Paste this into your tool's system prompt, `AGENTS.md`, `CLAUDE.md`, custom instructions, or
 whatever single-file convention it uses. It is the condensed form of the full skill in this

@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> TaskHub Connect Pack **v1.0** · canonical copy: <https://taskhub.mikesailab.com>
+> TaskHub Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
 
 Every way to **create** a scheduled task through TaskHub, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs

@@ -170,6 +170,49 @@ Register-ScheduledTask -Xml (Get-Content "$env:TEMP\manual-test-lifecycle.xml" -
 
 **Expect:** it registers without error. That's what "exportable" actually means.
 
+## 12a. Untrack — the row goes, the task stays
+
+The whole safety claim of untrack is that it makes **no platform call**. TaskHub reporting
+"Removed from TaskHub" is not evidence of that; Windows is.
+
+```powershell
+# Untrack it (the dashboard button is "Remove from TaskHub")
+Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/<task-id>/untrack" -Headers $H
+
+# 1. Gone from TaskHub?
+(Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H |
+  Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' }).Count   # -> 0
+
+# 2. THE check — does Windows still have it?
+Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle'      # -> State: Ready
+```
+
+**Expect:** the row is gone from TaskHub and the scheduled task is **still there and still
+`Ready`**. If Windows lost the task, untrack silently performed a delete — the single worst
+outcome this feature can have, because it wore a reversible label while being irreversible.
+
+Then prove the exclusion holds and that the way back works:
+
+```powershell
+# 3. A routine sync must NOT bring it back
+Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
+  -ContentType 'application/json' -Body '{"scope":"tracked"}'
+#    -> untracked.excludedCount = 1, and the task does NOT reappear
+
+# 4. An explicit category import IS the way back
+Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
+  -ContentType 'application/json' -Body '{"categories":["TaskHub"]}'
+#    -> exclusionsCleared = 1, and the task returns
+```
+
+**Expect:** step 3 leaves it out (a sync that re-imported it would look identical to "untrack is
+broken"), step 4 brings it back and **says so** — `exclusionsCleared` is what the toast turns
+into *"Re-imported 1 task you had removed from TaskHub."*
+
+Also check `GET /api/tasks/discover` between 3 and 4: the `TaskHub` category should report
+`excludedCount: 1`, which is the amber **+1 removed** badge in the Import modal. The number has
+to arrive **before** the click.
+
 ## 13. Delete, and verify it's really gone
 
 ```powershell
@@ -213,6 +256,7 @@ error — the user now trusts a dashboard that's wrong.
 - [ ] Schedule edit lands in Windows (10)
 - [ ] Disable/enable changes **Windows** state (11)
 - [ ] Export is UTF-16 LE + BOM and **re-imports** (12)
+- [ ] Untrack drops the row while **Windows still has the task**; a tracked sync leaves it out; an explicit import brings it back and says so (12a)
 - [ ] Delete removes the real entry; folder auto-prunes (13–14)
 - [ ] Elevation refusal is honest (15)
 

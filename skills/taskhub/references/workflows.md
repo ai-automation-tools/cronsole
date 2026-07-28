@@ -120,7 +120,7 @@ route, which is what keeps owner scoping, no-shell `exec`, signed agent commands
 cron→trigger conversion in one tested place. **New behavior means a new backend route**, never
 cleverness in the wrapper.
 
-The 14 tools and their routes:
+The 15 tools and their routes:
 
 | Tool | Route | |
 |:---|:---|:---|
@@ -137,6 +137,7 @@ The 14 tools and their routes:
 | `set_task_status` | `PATCH /api/tasks/:id/status` | reversible → ungated |
 | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` | reversible → ungated |
 | `update_task_action` | `PATCH /api/tasks/:id/actions` | replaces, doesn't patch |
+| `untrack_task` | `POST /api/tasks/:id/untrack` | drops TaskHub's row, **no platform call** → ungated |
 | `delete_task` | `DELETE /api/tasks/:id` | **gated** by `TASKHUB_MCP_ALLOW_DESTRUCTIVE` |
 
 **The gating rule, if you add more** (settled 2026-07-15): irreversible verbs are gated and

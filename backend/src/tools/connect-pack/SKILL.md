@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running TaskHub i
 
 # TaskHub
 
-> TaskHub Connect Pack **v1.0** · canonical copy: <https://taskhub.mikesailab.com>
+> TaskHub Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
 > If this file is older than your TaskHub install, the install wins — re-download the pack.
 
 TaskHub is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -26,14 +26,15 @@ Two surfaces, same backend:
 
 | Surface | Use when |
 |:---|:---|
-| **MCP server** (`taskhub`) | Your host supports MCP. 14 tools, 1:1 with API routes. Preferred. |
+| **MCP server** (`taskhub`) | Your host supports MCP. 15 tools, 1:1 with API routes. Preferred. |
 | **REST API** (`http://localhost:3000/api`) | No MCP support, or you need something MCP doesn't expose (template import/export, save-as-template, sync, agent pairing). Bearer token in `Authorization`. |
 
 Both need the backend running and a token. See `README.md` in this pack for wiring.
 
 **If a tool you expect is missing, that is an answer, not an obstacle.** `delete_task` is
 absent unless the human set `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`. Say so and offer the safe
-alternative (disable it, or the dashboard). Do not route around a gate.
+alternative — **disable** it (stops it running), **untrack** it (removes it from TaskHub but
+leaves it running), or the dashboard. Do not route around a gate.
 
 ---
 
@@ -71,6 +72,7 @@ alternative (disable it, or the dashboard). Do not route around a gate.
 | **A folder must already exist** | The only folder TaskHub creates is `\TaskHub` — and the only one it removes. Deleting a folder needs elevation, so it will not create litter it cannot clean up. A create into a missing folder is refused honestly. |
 | **Names are unique per folder** | A collision returns **409** instead of letting Windows silently overwrite. |
 | **Disable is how you park a task** | Never encode "don't run" in the cron — see §5. |
+| **Untrack is how you tidy the dashboard** | `untrack_task` removes TaskHub's record and leaves the scheduled task running. Deleting to clean up a view destroys someone's automation. |
 
 ---
 

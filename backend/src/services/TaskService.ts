@@ -196,22 +196,37 @@ export class TaskService {
    * it, and a signal you've learned to ignore is worse than no signal. Excluding
    * them silently would be the other failure, so they are surfaced, just not
    * counted.
+   *
+   * `excludedCount` is split off for the same reason and one stronger: a task the
+   * user **deliberately untracked** is the one case where "you didn't import
+   * this" is not news. Counting it would nag someone about a choice they made on
+   * purpose, which is the fastest way to teach them to ignore the banner. It is
+   * still reported, because an exclusion you cannot see is a fence of its own.
    */
   static summarizeUntracked(
     externalIds: string[],
     included: string[] | undefined,
-    platform: PlatformType
-  ): { count: number; folders: string[]; systemCount: number } {
-    const empty = { count: 0, folders: [] as string[], systemCount: 0 };
+    platform: PlatformType,
+    excluded: Set<string> = new Set()
+  ): { count: number; folders: string[]; systemCount: number; excludedCount: number } {
+    const empty = { count: 0, folders: [] as string[], systemCount: 0, excludedCount: 0 };
     if (included === undefined || externalIds.length === 0) return empty;
 
     const includedSet = new Set(included);
     const folders = new Set<string>();
     let count = 0;
     let systemCount = 0;
+    let excludedCount = 0;
 
     for (const externalId of externalIds) {
       const category = this.extractCategory(externalId, platform);
+      // Order matters: an untracked task inside an INCLUDED category is exactly
+      // the case this counter exists for, so it must be tested before the
+      // include-set short-circuit or it would never be counted at all.
+      if (excluded.has(externalId)) {
+        excludedCount++;
+        continue;
+      }
       if (includedSet.has(category)) continue;
       if (SYSTEM_CATEGORIES.has(category)) {
         systemCount++;
@@ -224,7 +239,82 @@ export class TaskService {
     // Not capped: these are the user's own folders, so the list is short in
     // practice — and a silent truncation here would reintroduce exactly the
     // "it didn't tell me" failure this function exists to fix.
-    return { count, folders: Array.from(folders).sort(), systemCount };
+    return { count, folders: Array.from(folders).sort(), systemCount, excludedCount };
+  }
+
+  /**
+   * The platform-native ids this user has explicitly untracked on `platform`.
+   *
+   * Untrack removes TaskHub's row while leaving the real scheduler entry alone,
+   * so without this the next sync including that category re-imports it — right
+   * by the sync's logic, and identical from the outside to "untrack is broken".
+   */
+  static async excludedExternalIds(userId: string, platform: PlatformType): Promise<Set<string>> {
+    const rows = await prisma.taskExclusion.findMany({
+      where: { userId, platform },
+      select: { externalId: true }
+    });
+    return new Set(rows.map(r => r.externalId));
+  }
+
+  /**
+   * Drop excluded tasks from a sync batch.
+   *
+   * Deliberately applied at the sync boundary and nowhere else: an exclusion
+   * must never block a task the user is explicitly asking for. Creating a task,
+   * applying a template, and importing a category are all direct requests, and
+   * a fence that silently swallowed one of those would be the same
+   * invisible-fence failure pointing the other way.
+   */
+  static filterExcluded<T extends { externalId: string }>(tasks: T[], excluded: Set<string>): T[] {
+    return excluded.size === 0 ? tasks : tasks.filter(t => !excluded.has(t.externalId));
+  }
+
+  /**
+   * Forget exclusions for whole categories — the way back.
+   *
+   * Called when the user explicitly imports those categories, which is the same
+   * gesture that started tracking them in the first place. An exclusion that
+   * could only ever be added would be a one-way door, and this project's rule is
+   * to never create what you cannot remove.
+   *
+   * Returns the number of exclusions cleared, so the caller can *say* what it
+   * did rather than quietly resurrecting rows the user removed on purpose.
+   */
+  static async clearExclusionsForCategories(
+    userId: string,
+    platform: PlatformType,
+    categories: string[]
+  ): Promise<number> {
+    if (categories.length === 0) return 0;
+
+    // Filtered in JS rather than SQL because "which category is this?" is
+    // `extractCategory`'s answer alone — deriving it a second time in a query
+    // would be the second definition that #20a punished.
+    const rows = await prisma.taskExclusion.findMany({
+      where: { userId, platform },
+      select: { id: true, externalId: true }
+    });
+    const wanted = new Set(categories);
+    const ids = rows
+      .filter(r => wanted.has(this.extractCategory(r.externalId, platform)))
+      .map(r => r.id);
+
+    if (ids.length === 0) return 0;
+    const result = await prisma.taskExclusion.deleteMany({ where: { id: { in: ids } } });
+    return result.count;
+  }
+
+  /**
+   * Is this task owned by the OS rather than the user?
+   *
+   * One definition, on the server, deliberately: the dashboard needs the same
+   * answer `summarizeUntracked` already uses, and re-deriving it in the browser
+   * would be a second definition of a rule that decides what a user sees — the
+   * shape of #20a. Callers get the verdict, never the predicate.
+   */
+  static isSystemTask(externalId: string, platform: PlatformType): boolean {
+    return SYSTEM_CATEGORIES.has(this.extractCategory(externalId, platform));
   }
 
   public static extractCategory(externalId: string, platform: PlatformType): string {

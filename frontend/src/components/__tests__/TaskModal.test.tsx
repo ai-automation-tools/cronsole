@@ -203,7 +203,7 @@ describe('TaskModal Component', () => {
       onClose
     });
 
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText('Delete from Windows'));
 
     // The confirm copy must say the real scheduler entry goes too, and be flagged
     // as a destructive action.
@@ -223,10 +223,67 @@ describe('TaskModal Component', () => {
     confirmMock.mockResolvedValue(false);
     renderModal({ task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' } });
 
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText('Delete from Windows'));
 
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
     expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  describe('untrack vs delete — two removals that must never be confusable', () => {
+    it('untracks without ever calling delete, and says what survives', async () => {
+      vi.mocked(api.post).mockResolvedValue({ data: { message: 'Removed from TaskHub' } });
+      const onClose = vi.fn();
+
+      renderModal({ task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' }, onClose });
+      fireEvent.click(screen.getByText('Remove from TaskHub'));
+
+      // The confirm must name what SURVIVES. "Are you sure?" on the reversible
+      // action is what trains people to click through the irreversible one.
+      expect(confirmMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Remove from TaskHub?',
+          confirmText: 'Remove from TaskHub',
+          message: expect.stringContaining('NOT deleted')
+        })
+      );
+      // And it must NOT be styled or flagged as destructive.
+      expect(confirmMock.mock.calls[0][0].tone).not.toBe('danger');
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith('/tasks/task-123/untrack');
+      });
+      // The load-bearing assertion of this whole feature.
+      expect(api.delete).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it('does not untrack when the confirmation is cancelled', async () => {
+      confirmMock.mockResolvedValue(false);
+      renderModal({ task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' } });
+
+      fireEvent.click(screen.getByText('Remove from TaskHub'));
+
+      await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+      expect(api.post).not.toHaveBeenCalled();
+    });
+
+    it('offers both verbs on a Windows task, with different labels', () => {
+      renderModal({ task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' } });
+
+      expect(screen.getByText('Remove from TaskHub')).toBeInTheDocument();
+      expect(screen.getByText('Delete from Windows')).toBeInTheDocument();
+      // A bare "Delete" would be the ambiguous label this design rejects.
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    });
+
+    it('does not offer untrack for a TaskHub-native task', () => {
+      // A native task exists nowhere else, so "remove but keep it" cannot be
+      // true — offering it would be a destructive action under a safe label.
+      renderModal({ task: { ...mockTask, platform: 'TASKHUB_NATIVE' } });
+
+      expect(screen.queryByText('Remove from TaskHub')).not.toBeInTheDocument();
+      expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
   });
 
   it('deletes a TaskHub-native task after confirmation', async () => {

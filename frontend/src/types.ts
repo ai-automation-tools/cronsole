@@ -8,6 +8,15 @@ export interface Task {
   updatedAt: string;
   schedule?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Is this task owned by the OS rather than the user? Decided **server-side**
+   * (TaskService.isSystemTask) and sent as a verdict, deliberately: re-deriving
+   * "is this `\Microsoft\`?" in the browser would be a second definition of a
+   * rule that decides what the user sees — the shape of troubleshooting #20a.
+   * Optional so a response from an older backend degrades to "not system"
+   * rather than hiding everything.
+   */
+  isSystem?: boolean;
   // Flattened last-execution summary from GET /api/tasks
   lastRunStatus?: string | null;
   lastRunAt?: string | null;

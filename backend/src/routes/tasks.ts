@@ -54,7 +54,13 @@ router.get('/', async (req: Request, res: Response) => {
     ...task,
     lastRunStatus: executions[0]?.status ?? null,
     lastRunAt: executions[0]?.triggeredAt ?? null,
-    lastRunDurationMs: executions[0]?.durationMs ?? null
+    lastRunDurationMs: executions[0]?.durationMs ?? null,
+    // Server-owned verdict, not a rule the browser re-derives. "Is this the OS's
+    // task or mine?" already has exactly one definition here (the same one
+    // summarizeUntracked uses), and a second copy in the frontend is the shape
+    // that let a renamed category silently stop syncing (#20a). The dashboard
+    // gets the answer; it never gets the predicate.
+    isSystem: TaskService.isSystemTask(task.externalId, task.platform)
   })));
 });
 
@@ -636,12 +642,32 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
           );
         }
 
+        // An explicit `categories` import is the user asking for those folders by
+        // name — the same gesture that started tracking them — so it forgets any
+        // prior untracks inside them. Doing this BEFORE reading the exclusion set
+        // is what makes import the honest way back; if it ran after, the import
+        // would clear the fence and still skip the tasks this one time, which
+        // reads as "import didn't work" one sync later.
+        //
+        // `scope: 'tracked'` (Sync Now) deliberately does NOT clear: it is a
+        // refresh, not a request for anything new, and having a routine refresh
+        // undo a deliberate removal is the invisible-fence failure exactly.
+        let exclusionsCleared = 0;
+        if (scope !== 'tracked' && categories !== undefined) {
+          exclusionsCleared = await TaskService.clearExclusionsForCategories(
+            userId, conn.platform, categories
+          );
+        }
+
+        const excluded = await TaskService.excludedExternalIds(userId, conn.platform);
+        tasks = TaskService.filterExcluded(tasks, excluded);
+
         // What this sync deliberately left out. Selective import is the design,
         // but its invisibility cost a full debugging session (troubleshooting
         // #20): Sync Now cannot discover a new folder, so tasks can sit one
         // fence away indefinitely while every sync reports success. Computed
         // from the enumeration we already have — no extra agent round-trip.
-        const untracked = TaskService.summarizeUntracked(allExternalIds, include, conn.platform);
+        const untracked = TaskService.summarizeUntracked(allExternalIds, include, conn.platform, excluded);
 
         await TaskService.upsertTasks(userId, conn.platform, tasks);
 
@@ -656,7 +682,7 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
           missing = await TaskService.reconcileMissingTasks(userId, conn.platform, allExternalIds);
         }
 
-        results.push({ platform: conn.platform, count: tasks.length, missing, untracked });
+        results.push({ platform: conn.platform, count: tasks.length, missing, untracked, exclusionsCleared });
       } catch (err: any) {
         results.push({ platform: conn.platform, error: err.message });
       }
@@ -693,11 +719,22 @@ router.get('/discover', async (req: Request, res: Response) => {
 
         const categories = Array.from(new Set(tasks.map(t => TaskService.extractCategory(t.externalId, conn.platform))));
 
+        // Importing a category forgets the untracks inside it (see POST /sync),
+        // so the count of what would come back is reported per category — the
+        // number arrives BEFORE the action rather than as a surprise after it.
+        // Deliberately not silent: silently resurrecting rows a user removed on
+        // purpose is the same class of failure as silently withholding them.
+        const excluded = await TaskService.excludedExternalIds(userId, conn.platform);
+
         discovery.push({
           platform: conn.platform,
           categories: categories.map(name => ({
             name,
-            count: tasks.filter(t => TaskService.extractCategory(t.externalId, conn.platform) === name).length
+            count: tasks.filter(t => TaskService.extractCategory(t.externalId, conn.platform) === name).length,
+            excludedCount: tasks.filter(t =>
+              TaskService.extractCategory(t.externalId, conn.platform) === name &&
+              excluded.has(t.externalId)
+            ).length
           }))
         });
       } catch (err: any) {
@@ -759,6 +796,74 @@ router.delete('/missing', async (req: Request, res: Response) => {
 
   notifyTasksChanged(userId);
   res.json({ message: `Cleared ${ids.length} missing task${ids.length === 1 ? '' : 's'}`, deleted: ids.length });
+});
+
+// Untrack: remove a task from TaskHub while LEAVING IT ON THE PLATFORM.
+//
+// MUST stay above `DELETE /:id`'s sibling routes only in spirit — it is a POST
+// on a distinct path, so declaration order doesn't bite here the way it does for
+// `DELETE /missing`. It is placed next to the deletes deliberately, because the
+// two operations must be read together to be understood.
+//
+// This is the *other* removal, and the whole point is that it is not a delete:
+// `DELETE /api/tasks/:id` removes the real Task Scheduler entry via a signed
+// agent command, which was the only removal a user had. So an over-import — a
+// folder imported by accident, which the Import modal makes one click away — had
+// no undo that didn't destroy someone's actual scheduled tasks.
+//
+// It makes NO platform call at all (the mechanism `DELETE /missing` already
+// proved), and it records a TaskExclusion so the next sync doesn't quietly
+// re-import what the user just removed.
+router.post('/:id/untrack', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  // TASKHUB_NATIVE tasks live nowhere else: the DB row IS the task, so
+  // "untrack but keep it" is not a thing that can be true. Refuse honestly
+  // rather than silently doing a delete under a gentler name — that would be a
+  // destructive action wearing a reversible label, which is the one mistake
+  // this feature exists to prevent.
+  if (task.platform === PlatformType.TASKHUB_NATIVE) {
+    throw new HttpError(
+      400,
+      'TaskHub-native tasks exist only inside TaskHub, so there is nothing to keep. ' +
+      'Use Delete to remove it, or disable it to stop it running.'
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.executionLog.deleteMany({ where: { taskId: id } }),
+    prisma.task.delete({ where: { id } }),
+    // Upsert, not create: re-untracking a task that was re-imported and removed
+    // again must not 409 on the unique key.
+    prisma.taskExclusion.upsert({
+      where: {
+        userId_platform_externalId: {
+          userId,
+          platform: task.platform,
+          externalId: task.externalId
+        }
+      },
+      create: { userId, platform: task.platform, externalId: task.externalId },
+      update: {}
+    })
+  ]);
+
+  notifyTasksChanged(userId);
+  res.json({
+    message: 'Removed from TaskHub',
+    // Said out loud in the response, not just in the button copy: the caller
+    // (including an MCP client with no UI to read) must be able to tell this
+    // apart from a delete.
+    externalId: task.externalId,
+    platformEntryKept: true,
+    detail: `"${task.name}" is no longer tracked by TaskHub. It still exists on its platform and will keep running on its own schedule. Re-import its category to track it again.`
+  });
 });
 
 // Delete a task. TaskHub-native rows are backend-owned, so the DB delete is the

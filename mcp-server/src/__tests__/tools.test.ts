@@ -121,9 +121,22 @@ describe('the tool surface', () => {
       'list_templates',
       'run_task',
       'set_task_status',
+      'untrack_task',
       'update_task_action',
       'update_task_schedule'
     ]);
+  });
+
+  it('offers the reversible removal without the gate', async () => {
+    // The point of gating delete_task is only honest if a safe way to remove a
+    // task from the dashboard exists without the gate. Otherwise an agent asked
+    // to tidy up has exactly one tool for the job and it is the irreversible
+    // one — the failure mode that keeps set_task_status ungated too.
+    const { client } = stubClient({});
+    const guarded = await connect(client, false);
+    const names = (await guarded.listTools()).tools.map(t => t.name);
+    expect(names).toContain('untrack_task');
+    expect(names).not.toContain('delete_task');
   });
 
   it('adds delete_task, and only delete_task, when destructive ops are allowed', async () => {
@@ -1283,7 +1296,86 @@ describe('create_native_task', () => {
   });
 });
 
+describe('untrack_task', () => {
+  it('POSTs to the untrack route', async () => {
+    const { client, calls } = stubClient({
+      'POST /tasks/id1/untrack': { message: 'Removed from TaskHub', externalId: '\\IAM\\Rotate' }
+    });
+    const mcp = await connect(client);
+    await call(mcp, 'untrack_task', { taskId: 'id1' });
+    expect(calls[0]).toMatchObject({ method: 'post', path: '/tasks/id1/untrack' });
+  });
+
+  it('url-encodes the task id', async () => {
+    const { client, calls } = stubClient({ 'POST /tasks/a%2Fb/untrack': { message: 'ok' } });
+    const mcp = await connect(client);
+    await call(mcp, 'untrack_task', { taskId: 'a/b' });
+    expect(calls[0].path).toBe('/tasks/a%2Fb/untrack');
+  });
+
+  it('reports that the platform entry survived, in text and in structure', async () => {
+    // A caller reading only the structured payload must not be able to mistake
+    // this for a delete — that confusion is the whole risk of the feature.
+    const { client } = stubClient({
+      'POST /tasks/id1/untrack': {
+        message: 'Removed from TaskHub',
+        externalId: '\\IAM\\Rotate',
+        detail: '"Rotate" is no longer tracked by TaskHub. It still exists on its platform.'
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'untrack_task', { taskId: 'id1' });
+
+    expect(text(r)).toMatch(/still exists on its platform/i);
+    expect(r.structuredContent).toMatchObject({
+      taskId: 'id1',
+      untracked: true,
+      platformEntryKept: true,
+      externalId: '\\IAM\\Rotate'
+    });
+  });
+
+  it('still says the task survived when the API omits the detail line', async () => {
+    const { client } = stubClient({ 'POST /tasks/id1/untrack': { message: 'ok' } });
+    const mcp = await connect(client);
+    expect(text(await call(mcp, 'untrack_task', { taskId: 'id1' })))
+      .toMatch(/still exists on its platform/i);
+  });
+
+  it('is described as the non-destructive alternative to deleting', async () => {
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'untrack_task');
+    expect(tool!.description).toMatch(/WITHOUT deleting/i);
+    expect(tool!.description).toMatch(/keeps running/i);
+    // And it must name the one platform it refuses, or an agent will try it on
+    // a native task and read the 400 as a bug.
+    expect(tool!.description).toMatch(/TASKHUB_NATIVE/);
+  });
+
+  it('surfaces the native-task refusal instead of retrying as a delete', async () => {
+    const { client } = stubClient({
+      'POST /tasks/n1/untrack': new TaskHubApiError(
+        'TaskHub-native tasks exist only inside TaskHub, so there is nothing to keep.',
+        400
+      )
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'untrack_task', { taskId: 'n1' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/exist only inside TaskHub/i);
+  });
+});
+
 describe('delete_task', () => {
+  it('names untrack_task as the tidy-up alternative', async () => {
+    // The dangerous tool must point at the safe one where it is read.
+    const { client } = stubClient({});
+    const mcp = await connect(client, true);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'delete_task');
+    expect(tool!.description).toMatch(/untrack_task/);
+  });
+
   it('calls DELETE on the task route', async () => {
     const { client, calls } = stubClient({ 'DELETE /tasks/id1': { message: 'Task deleted' } });
     const mcp = await connect(client, true);
@@ -1341,6 +1433,7 @@ describe('error handling across the surface', () => {
       'POST /tasks': boom,
       'POST /tasks/native': boom,
       'POST /tasks/x/run': boom,
+      'POST /tasks/x/untrack': boom,
       'POST /tasks/preview': boom,
       'POST /templates/t/apply': boom,
       'PATCH /tasks/x/status': boom,
@@ -1363,6 +1456,7 @@ describe('error handling across the surface', () => {
       ['set_task_status', { taskId: 'x', status: 'DISABLED' }],
       ['update_task_schedule', { taskId: 'x', schedule: '0 9 * * *' }],
       ['update_task_action', { taskId: 'x', command: 'c', runLevel: 'least' }],
+      ['untrack_task', { taskId: 'x' }],
       ['delete_task', { taskId: 'x' }]
     ];
     // Every registered tool must appear above — a new tool that skips this guard

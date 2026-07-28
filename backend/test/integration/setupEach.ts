@@ -6,7 +6,7 @@ import { prisma } from '../../src/db.js';
 // for readability (CASCADE makes the order immaterial).
 beforeEach(async () => {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "ExecutionLog", "Task", "PlatformConnection", "Template", "User" RESTART IDENTITY CASCADE'
+    'TRUNCATE TABLE "ExecutionLog", "Task", "TaskExclusion", "PlatformConnection", "Template", "User" RESTART IDENTITY CASCADE'
   );
 });
 

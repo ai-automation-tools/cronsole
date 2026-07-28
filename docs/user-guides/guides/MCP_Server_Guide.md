@@ -48,6 +48,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
 | **`update_task_schedule`** | "Move the digest to 7am on weekdays" | `PATCH /api/tasks/:id/schedule` |
 | **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
+| **`untrack_task`** | "Stop showing all those Microsoft tasks", "I imported that folder by mistake" — removes it from TaskHub, **leaves the scheduled task running** | `POST /api/tasks/:id/untrack` |
 | **`delete_task`** ⚠️ | "Delete the old test task" — **off by default**, see below | `DELETE /api/tasks/:id` |
 
 **`create_task` vs. `create_task_from_template`:** use `create_task` when you already know the
@@ -98,6 +99,10 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 >   `create_task_from_template` (running / registering tasks) and `set_task_status`,
 >   `update_task_schedule`, `update_task_action` (changing them). Same guardrails as clicking
 >   **Run Now**, **Apply**, or **Edit** in the dashboard — and all of them are reversible.
+> - **`untrack_task` removes a task from TaskHub but not from your machine.** The scheduled task
+>   stays where it is and keeps running; TaskHub just stops tracking it (and forgets its TaskHub
+>   run history). Use this to tidy a cluttered dashboard or undo an import you didn't mean to do
+>   — importing that folder again brings it back.
 > - **`delete_task` is OFF unless you turn it on.** Deleting removes the real Task Scheduler
 >   entry through an elevated agent, with no trash and no restore. Set
 >   `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true` in your host's environment to expose it; otherwise your

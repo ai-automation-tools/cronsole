@@ -7,6 +7,12 @@ import { Modal } from './ui/Modal';
 interface DiscoveredCategory {
   name: string;
   count: number;
+  /**
+   * Tasks in this category the user removed from TaskHub, which importing it
+   * will bring back. Reported so the number arrives BEFORE the action — a row
+   * you deliberately removed reappearing with no warning reads as a bug.
+   */
+  excludedCount?: number;
 }
 
 interface DiscoveredPlatform {
@@ -102,6 +108,21 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/*
+                            Importing a category forgets the untracks inside it,
+                            so tasks the user removed on purpose come back. That
+                            is correct — importing IS asking for the folder — but
+                            it has to be said before the click, not discovered
+                            after it.
+                          */}
+                          {!!cat.excludedCount && (
+                            <span
+                              className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-400"
+                              title={`${cat.excludedCount} task${cat.excludedCount === 1 ? '' : 's'} you removed from TaskHub will be tracked again if you import this category.`}
+                            >
+                              +{cat.excludedCount} removed
+                            </span>
+                          )}
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-colors ${selected.includes(cat.name) ? 'bg-primary/20 border-primary/20 text-foreground' : 'bg-surface border-border text-subtle-foreground'}`}>{cat.count} tasks</span>
                         </div>
                         <input type="checkbox" className="hidden" checked={selected.includes(cat.name)} onChange={() => toggle(cat.name)} />

@@ -133,10 +133,25 @@ you:
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
+| **Untrack** (remove from TaskHub, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | **Delete** | `delete_task` — **only** when the human set `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.
+
+**Untrack is how you tidy the dashboard** — not delete. `untrack_task` removes TaskHub's record of
+a task (and its TaskHub run history) while leaving the real scheduled task exactly where it is,
+still running on its own schedule; future syncs won't pull it back. Reach for it when someone
+imported a folder by mistake, or wants OS-owned tasks out of their view. It refuses TaskHub-native
+tasks, which exist only inside TaskHub and so have nothing to keep.
+
+**Three verbs, three blast radii — never substitute one for another:**
+
+| Goal | Verb | What survives |
+|:---|:---|:---|
+| Stop it running, keep everything | `set_task_status: DISABLED` | the task, its schedule, its history |
+| Stop *seeing* it, keep it running | `untrack_task` | the real scheduled task |
+| Make it stop existing | `delete_task` (gated) | nothing |
 
 **If `delete_task` isn't in your tool list, that is the answer.** Say so and offer
 `set_task_status: DISABLED`, the dashboard, or the REST call. Don't route around it. Delete

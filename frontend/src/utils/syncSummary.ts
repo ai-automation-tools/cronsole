@@ -14,7 +14,9 @@
 export interface SyncPlatformResult {
   platform: string;
   error?: string;
-  untracked?: { count: number; folders: string[]; systemCount: number };
+  untracked?: { count: number; folders: string[]; systemCount: number; excludedCount?: number };
+  /** Untracks forgotten because the user explicitly re-imported those folders. */
+  exclusionsCleared?: number;
 }
 
 export interface SyncResponse {
@@ -31,8 +33,18 @@ export interface SyncResponse {
  */
 export function describeUntracked(data: SyncResponse | undefined): string | null {
   const results = data?.results ?? [];
+
+  // An import that forgot exclusions brought back tasks the user had removed on
+  // purpose. That is the correct behavior — importing a folder is asking for the
+  // folder — but it must be *stated*, or a row reappears with no explanation and
+  // untrack looks broken. Said first, because it is the surprising part.
+  const restored = results.reduce((n, r) => n + (r.exclusionsCleared ?? 0), 0);
+  const restoredNote = restored > 0
+    ? `Re-imported ${restored} task${restored === 1 ? '' : 's'} you had removed from TaskHub. `
+    : '';
+
   const count = results.reduce((n, r) => n + (r.untracked?.count ?? 0), 0);
-  if (count <= 0) return null;
+  if (count <= 0) return restoredNote ? restoredNote.trimEnd() : null;
 
   const folders = new Set(results.flatMap(r => r.untracked?.folders ?? [])).size;
 
@@ -42,7 +54,7 @@ export function describeUntracked(data: SyncResponse | undefined): string | null
   const object = count === 1 ? 'it' : 'them';
 
   return (
-    `Synced. ${count} ${tasksWord} in ${folders} ${foldersWord} ${verb} imported — ` +
+    `${restoredNote}Synced. ${count} ${tasksWord} in ${folders} ${foldersWord} ${verb} imported — ` +
     `use Import to add ${object}.`
   );
 }

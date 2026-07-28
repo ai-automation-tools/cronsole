@@ -18,10 +18,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  platforms PlatformConnection[]
-  tasks     Task[]
-  templates Template[]
-  favorites TemplateFavorite[]
+  platforms  PlatformConnection[]
+  tasks      Task[]
+  templates  Template[]
+  favorites  TemplateFavorite[]
+  exclusions TaskExclusion[]
 
   @@index([email])
 }
@@ -80,6 +81,41 @@ model Task {
   @@index([userId, platform])
   @@index([nextRunTime])
   @@index([category])
+}
+
+/// A task the user removed from TaskHub while it still exists on the platform.
+///
+/// Untrack deletes the Task row (TaskHub's own record) but never touches the
+/// real scheduler entry — so without this table the very next sync that includes
+/// its category would re-import it, correctly by the sync's logic and yet
+/// indistinguishable from "untrack didn't work". Silently undoing a user's
+/// action on a timer is the invisible-fence failure this project keeps paying
+/// for, so the exclusion is remembered.
+///
+/// Keyed on `externalId`, the platform's native identity — the same key
+/// `Task.@@unique([platform, externalId])` uses — and deliberately NOT on
+/// `Task.category`, which the user can rename (troubleshooting #20a: never look
+/// up by a user-editable label).
+///
+/// This is a second place that answers "which tasks do we track", which is
+/// exactly the shape that caused #20a. It is kept safe by being subtractive
+/// only: it can remove a task from a sync, never add one, so the include-set
+/// still has a single definition in `extractCategory`.
+model TaskExclusion {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  platform   PlatformType
+
+  /// Platform-native id of the excluded task (e.g. the Windows task path).
+  externalId String
+
+  /// Kept for the UI: "removed 3 days ago" is the difference between a
+  /// deliberate exclusion and a mystery absence.
+  createdAt  DateTime     @default(now())
+
+  @@unique([userId, platform, externalId])
+  @@index([userId, platform])
 }
 
 model ExecutionLog {

@@ -150,11 +150,28 @@ Two things about that listing that will otherwise mislead you:
 | Run history | ✅ `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export | ✅ `export_task` | `GET /api/tasks/:id/export` (Windows→XML, native→JSON) |
 | **Bulk export / backup** | ❌ | `POST /api/tools/export/tasks` — all folders or one, as native XML. Exports what is **on the machine**, not just tracked tasks; `\Microsoft\` excluded unless `includeSystem: true`. Dashboard: **Tools** tab |
+| **Untrack** (remove from TaskHub, keep it running) | ✅ `untrack_task` — ungated | `POST /api/tasks/:id/untrack` |
 | **Delete** | ⚠️ `delete_task` — **only** with `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
 | Template import/export, save-as-template, sync, pairing | ❌ | REST / UI only |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.
+
+**Untrack is how you tidy the dashboard** — not delete. `untrack_task` drops TaskHub's row (and
+its TaskHub run history) while leaving the real scheduled task exactly where it is, still running
+on its own schedule, and records an exclusion so the next sync doesn't quietly re-import it. Use
+it for an over-broad import, a folder full of OS tasks, or anything the user just doesn't want to
+see. It refuses `TASKHUB_NATIVE` tasks, which exist **only** inside TaskHub and therefore have
+nothing to keep — that 400 is correct, not a bug to route around. The way back is re-importing
+the category in the UI.
+
+**Three verbs, three blast radii — do not substitute one for another:**
+
+| Goal | Verb | What survives |
+|:---|:---|:---|
+| Stop it running, keep everything | `set_task_status: DISABLED` | the task, its schedule, its history |
+| Stop *seeing* it, keep it running | `untrack_task` | the real scheduled task (TaskHub's history goes) |
+| Make it stop existing | `delete_task` (gated) | nothing |
 
 **`delete_task` is absent unless the human opted in.** If it isn't in your tool list, that is the
 answer, not an obstacle: say so and offer `set_task_status: DISABLED`, the UI, or the REST call.

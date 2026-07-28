@@ -54,6 +54,7 @@ alternative (disable it, or the dashboard). Do not route around a gate.
 | Edit the command | `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` |
+| Remove from TaskHub, keep it running | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
 | Template import/export, sync, pairing | — | REST / dashboard only |

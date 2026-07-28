@@ -77,6 +77,123 @@ namespace TaskHub.Agent.Tests
             _socketHandlers.Should().ContainKey("task:delete");
             _socketHandlers.Should().ContainKey("task:update_schedule");
             _socketHandlers.Should().ContainKey("task:update");
+            _socketHandlers.Should().ContainKey("task:import");
+        }
+
+        // --- task:import (restore) --------------------------------------------
+        //
+        // The XML is inside the signature by hash, so these cases are really about
+        // one property: the agent registers exactly the definition that was signed,
+        // and nothing else.
+
+        private const string RestoreXml =
+            "<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>";
+
+        private (Mock<ISocketResponse> Response, string Xml) SignedImport(
+            string taskPath, bool overwrite = false, bool createFolders = false, string? xmlOnTheWire = null)
+        {
+            var signedXml = RestoreXml;
+            var ts = Now();
+            var nonce = TestNonce();
+            var sig = AgentAuthenticator.Hmac(
+                _auth.SessionKey!,
+                AgentAuthenticator.ImportMessage(taskPath, AgentAuthenticator.Sha256Hex(signedXml), overwrite, createFolders, nonce, ts));
+
+            // xmlOnTheWire lets a test send something OTHER than what was signed.
+            var xml = xmlOnTheWire ?? signedXml;
+            var response = new Mock<ISocketResponse>();
+            response.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath, xml, overwrite, createFolders, nonce, ts, sig }));
+            return (response, xml);
+        }
+
+        [Fact]
+        public void TaskImport_Event_RegistersTheTaskAndAcks()
+        {
+            var taskPath = "\\Work\\Job";
+            _mockScheduler.Setup(s => s.ImportTaskXml(taskPath, RestoreXml, false, true))
+                .Returns(new AgentImportResult { Success = true, Outcome = "created", Path = taskPath, Message = "Task restored" });
+
+            var (response, _) = SignedImport(taskPath, overwrite: false, createFolders: true);
+            _socketHandlers["task:import"].Invoke(response.Object);
+
+            _mockScheduler.Verify(s => s.ImportTaskXml(taskPath, RestoreXml, false, true), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:imported", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public void TaskImport_Event_PassesBothFlagsThroughExactly()
+        {
+            // Each flag decides what the command may destroy or create, so a handler
+            // that dropped one would quietly widen or narrow the operation the user
+            // authorized.
+            var taskPath = "\\Work\\Job";
+            _mockScheduler.Setup(s => s.ImportTaskXml(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()))
+                .Returns(new AgentImportResult { Success = true, Outcome = "replaced" });
+
+            var (response, _) = SignedImport(taskPath, overwrite: true, createFolders: false);
+            _socketHandlers["task:import"].Invoke(response.Object);
+
+            _mockScheduler.Verify(s => s.ImportTaskXml(taskPath, RestoreXml, true, false), Times.Once);
+        }
+
+        [Fact]
+        public void TaskImport_Event_RejectsUnsignedCommandSilently()
+        {
+            // Deliberately silent, like every other write verb: a forger learns
+            // nothing and the server's timeout is the honest outcome.
+            var response = new Mock<ISocketResponse>();
+            response.Setup(r => r.GetValue<JsonElement>(0))
+                .Returns(Payload(new { taskPath = "\\Work\\Job", xml = RestoreXml, overwrite = true, createFolders = true }));
+
+            _socketHandlers["task:import"].Invoke(response.Object);
+
+            _mockScheduler.Verify(s => s.ImportTaskXml(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+            _mockSocket.Verify(s => s.EmitAsync("task:imported", It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public void TaskImport_Event_RejectsASwappedDefinition()
+        {
+            // The whole reason the XML is hashed into the signature: the path and
+            // both flags are untouched here, and only the definition changed — an
+            // action rewritten to run something else. It must not register.
+            var taskPath = "\\Work\\Job";
+            var tampered = "<Task><Actions><Exec><Command>evil.exe</Command></Exec></Actions></Task>";
+            var (response, _) = SignedImport(taskPath, xmlOnTheWire: tampered);
+
+            _socketHandlers["task:import"].Invoke(response.Object);
+
+            _mockScheduler.Verify(s => s.ImportTaskXml(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
+        public void TaskImport_Event_AcksAnAlreadyExistingTaskWithoutClaimingSuccess()
+        {
+            // The third state: nothing went wrong, and nothing was restored. Both
+            // halves have to survive to the wire or the UI has to guess.
+            var taskPath = "\\Work\\Job";
+            _mockScheduler.Setup(s => s.ImportTaskXml(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()))
+                .Returns(new AgentImportResult { Success = false, Outcome = "exists", Message = "A task already exists at this path." });
+
+            var (response, _) = SignedImport(taskPath);
+            _socketHandlers["task:import"].Invoke(response.Object);
+
+            _mockSocket.Verify(s => s.EmitAsync("task:imported", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public void TaskImport_Event_SchedulerThrows_StillAcks()
+        {
+            // An accepted command always answers — silence would leave the caller
+            // waiting out a 15s timeout and blaming the transport.
+            _mockScheduler.Setup(s => s.ImportTaskXml(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()))
+                .Throws(new UnauthorizedAccessException("denied"));
+
+            var (response, _) = SignedImport("\\Work\\Job");
+            _socketHandlers["task:import"].Invoke(response.Object);
+
+            _mockSocket.Verify(s => s.EmitAsync("task:imported", It.IsAny<object>()), Times.Once);
         }
 
         [Fact]

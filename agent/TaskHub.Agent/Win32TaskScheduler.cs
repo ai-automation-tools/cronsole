@@ -182,6 +182,150 @@ namespace TaskHub.Agent
             }
         }
 
+        /// <summary>
+        /// Register a task from its native Task Scheduler XML — the inverse of
+        /// ExportTaskXml, and the only write path that accepts a whole task
+        /// definition authored outside TaskHub.
+        ///
+        /// Everything is re-validated here rather than trusted from the command.
+        /// This process holds the elevation and calls RegisterTaskDefinition, which
+        /// silently OVERWRITES a same-named task in the same folder — so a backend
+        /// bug, or a signed command built from a bad path, must still be refused at
+        /// the boundary that holds the privilege. Same reasoning as CreateTask.
+        /// </summary>
+        public AgentImportResult ImportTaskXml(string path, string xml, bool overwrite, bool createFolders)
+        {
+            var normalizedPath = TaskFolderPath.Normalize(path);
+            var result = new AgentImportResult { Path = normalizedPath };
+
+            if (string.IsNullOrWhiteSpace(xml))
+            {
+                result.Message = "No task XML supplied.";
+                return result;
+            }
+
+            var name = TaskFolderPath.LeafOf(path);
+            var nameProblem = TaskFolderPath.ValidateTaskName(name);
+            if (nameProblem != null)
+            {
+                result.Message = nameProblem;
+                return result;
+            }
+
+            var folder = TaskFolderPath.ParentOf(path);
+            var folderProblem = TaskFolderPath.Validate(folder);
+            if (folderProblem != null)
+            {
+                result.Message = folderProblem;
+                return result;
+            }
+
+            using (TaskService ts = new TaskService())
+            {
+                // Parse BEFORE touching the machine: a malformed definition should
+                // fail without having created a folder for it to land in.
+                TaskDefinition td;
+                try
+                {
+                    td = ts.NewTask();
+                    td.XmlText = xml;
+                }
+                catch (Exception ex)
+                {
+                    result.Message = $"Windows could not read this task XML: {ex.Message}";
+                    return result;
+                }
+
+                // An existing task is refused unless the caller asked for an
+                // overwrite. Checked here so the message can say WHY; Windows
+                // enforces it independently below via TaskCreation.Create, so a
+                // task created between this check and the register still can't be
+                // clobbered.
+                Microsoft.Win32.TaskScheduler.Task? existing = null;
+                try { existing = ts.GetTask(normalizedPath); } catch { /* treat as absent */ }
+                if (existing != null && !overwrite)
+                {
+                    result.Outcome = "exists";
+                    result.Message = "A task already exists at this path. It was left exactly as it is.";
+                    return result;
+                }
+
+                TaskFolder? destination = ResolveFolder(ts, folder);
+                if (destination == null)
+                {
+                    if (!createFolders)
+                    {
+                        result.Message = $"Task Scheduler folder '{folder}' does not exist. " +
+                                         "Turn on \"Recreate missing folders\" to restore the folder tree, " +
+                                         "or create the folder in Task Scheduler first.";
+                        return result;
+                    }
+
+                    try
+                    {
+                        destination = CreateFolderChain(ts, folder, result.FoldersCreated);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Message = $"Could not create folder '{folder}': {ex.Message}";
+                        return result;
+                    }
+                }
+
+                // TaskLogonType.None means "do not override the definition" — the
+                // principal in the XML (its run-as account and logon type) is the
+                // one that gets registered. A task that was registered with a stored
+                // password cannot be restored without that password, and Windows
+                // says so; that error is surfaced verbatim rather than retried under
+                // a different identity, which would silently change who the task
+                // runs as.
+                var createType = overwrite ? TaskCreation.CreateOrUpdate : TaskCreation.Create;
+                destination.RegisterTaskDefinition(name, td, createType, null, null, TaskLogonType.None, null);
+
+                result.Success = true;
+                result.Outcome = existing != null ? "replaced" : "created";
+                result.Message = existing != null ? "Task replaced" : "Task restored";
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Create every missing folder along <paramref name="path"/>, recording each
+        /// one it actually created into <paramref name="created"/>.
+        ///
+        /// This is the single carve-out to "TaskHub creates only its own \TaskHub":
+        /// a restore is the user asking for their own folder tree back by name. The
+        /// created list is not optional bookkeeping — folder deletion needs
+        /// elevation, so a folder created here is a door only the user can close,
+        /// and it must never be created silently.
+        /// </summary>
+        private static TaskFolder CreateFolderChain(TaskService ts, string path, List<string> created)
+        {
+            TaskFolder current = ts.RootFolder;
+            var walked = "";
+
+            foreach (var segment in TaskFolderPath.Split(path))
+            {
+                walked += "\\" + segment;
+
+                TaskFolder? next = null;
+                try { next = current.SubFolders[segment]; } catch { /* not found */ }
+
+                if (next == null)
+                {
+                    // exceptionOnExists: false — another process (or a concurrent
+                    // restore of a sibling task) may have created it between the
+                    // lookup and here, which is not an error.
+                    next = current.CreateFolder(segment, (string?)null, false);
+                    created.Add(walked);
+                }
+
+                current = next;
+            }
+
+            return current;
+        }
+
         public bool UpdateTaskSchedule(string path, TriggerSpec trigger)
         {
             if (trigger == null) throw new ArgumentNullException(nameof(trigger));

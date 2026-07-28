@@ -190,6 +190,34 @@ namespace TaskHub.Agent
         public static string UpdateMessage(string taskPath, string actionCanonical, string workingDirectory, string description, string runLevel, string nonce, long ts) =>
             $"task:update|{taskPath}|{actionCanonical}|{workingDirectory}|{description}|{runLevel}|{nonce}|{ts}";
 
+        // Matches the 'task:import' case in agentAuth.ts byte-for-byte.
+        //
+        // The XML enters as a HASH rather than by value. It is not a size
+        // optimization: the XML IS the task — its action, its trigger, and its
+        // principal (including RunLevel Highest and the account it runs as) — so
+        // leaving it out of the signature would make the signature decorative,
+        // and embedding it raw would put arbitrary '|' bytes inside a
+        // pipe-delimited message. A fixed-width digest is unambiguous on both
+        // sides of the language boundary, the same reason CanonicalizeAction and
+        // CanonicalizeTrigger exist.
+        //
+        // `overwrite` and `createFolders` are signed because each one widens what
+        // the command is allowed to destroy or create: flipping overwrite turns a
+        // refusal into an overwrite of a task the user still has, which is
+        // exactly the redirection `folder` is signed to prevent.
+        public static string ImportMessage(string taskPath, string xmlSha256, bool overwrite, bool createFolders, string nonce, long ts) =>
+            $"task:import|{taskPath}|{xmlSha256}|{(overwrite ? 1 : 0)}|{(createFolders ? 1 : 0)}|{nonce}|{ts}";
+
+        /// <summary>
+        /// Lowercase-hex SHA-256 over the UTF-8 bytes of <paramref name="value"/>.
+        /// Must match the backend's sha256Hex — same bytes in, same string out.
+        /// </summary>
+        public static string Sha256Hex(string value)
+        {
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value ?? string.Empty));
+            return Convert.ToHexString(hash).ToLowerInvariant();
+        }
+
         // Matches the 'task:create' case in agentAuth.ts byte-for-byte. `folder`
         // is signed and sits last among the payload fields: it decides WHERE the
         // task is registered, and RegisterTaskDefinition silently overwrites a

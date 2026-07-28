@@ -50,6 +50,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
 | 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
+| 28 | A **restored** task, or the folder it landed in, refuses to delete with `Access is denied` — though you created the original yourself, unelevated | The restore ran through the **elevated agent**, so Windows gave the task (and any folder created for it) an administrator ACE. Delete the task **through TaskHub** (import the folder, then Delete from Windows) or from an elevated Task Scheduler; the folder has no in-app route and needs an elevated `DeleteFolder`. This is the concrete cost of restore's folder carve-out | [→](#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied) |
+| 27 | `PayloadTooLargeError: request entity too large` on an upload route; small selections work | `express.json()` caps bodies at **100 kB**. Don't raise it globally — that hands every endpoint a huge request budget. Mount a larger parser **scoped to the path and BEFORE the global one** (`body-parser` skips a request another parser already consumed, so mounting it after does nothing and looks identical to not adding it) | [→](#27-a-route-that-takes-an-upload-413s--and-raising-the-global-body-limit-is-the-wrong-fix) |
 
 ---
 
@@ -1736,6 +1738,100 @@ and use `docker compose exec backend npx prisma generate && docker restart taskh
 > only one of them is loud when it fails.
 
 *First hit: 2026-07-28, adding the `TaskExclusion` model for untrack.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 27. A route that takes an upload 413s — and raising the global body limit is the wrong fix
+
+**Symptom** — a restore of a real backup (95 tasks of Task Scheduler XML, base64-encoded) is
+rejected before the route runs:
+
+```
+PayloadTooLargeError: request entity too large
+```
+
+Small selections work fine, which makes it look like a bug in the feature rather than a ceiling.
+
+**Cause** — `express.json()` defaults to a **100 kB** limit. That is generous for every other
+route in this API and nowhere near enough for one that uploads files.
+
+**The wrong fix, and why** — raising the *global* parser (`express.json({ limit: '32mb' })` in
+`createApp`) makes the error go away and hands **every endpoint in the API** a 32 MB request
+budget, including unauthenticated ones. A body cap is a cheap denial-of-service control; widening
+it for all routes to unblock one is trading a real guard for convenience, and nothing will ever
+fail to tell you that you did.
+
+**Fix** — mount a second, larger parser **scoped to the one path**, *before* the global one:
+
+```ts
+// backend/src/app.ts
+app.use('/api/tools/restore', express.json({ limit: '32mb' }));
+app.use(express.json());
+```
+
+**The ordering is load-bearing and non-obvious.** `body-parser` short-circuits on a request another
+parser already consumed (it checks `req._body`), so the scoped parser must run **first** — put it
+after the global one and it never fires, because the 100 kB parser has already read the stream and
+thrown. The symptom of getting this backwards is identical to not having added it at all, which is
+what makes it worth a note: you will have written the right code and still see the same 413.
+
+**Generalization** — *a limit that exists for security should be relaxed at the narrowest scope that
+unblocks the work, never at the widest one that makes the error stop.* And when middleware order
+decides whether your code runs at all, assert it: the integration test posts a body over 100 kB and
+requires a `502` (agent offline — the route ran) rather than a `413`, so the wiring cannot silently
+regress.
+
+*First hit: 2026-07-28, building the restore route.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 28. A restored task (or the folder it landed in) can't be deleted: "Access is denied"
+
+**Symptom** — you restore a task from a backup, then try to remove it the way you created it:
+
+```powershell
+Unregister-ScheduledTask -TaskPath '\MyFolder\' -TaskName 'Probe'
+# Unregister-ScheduledTask : Access is denied.
+
+$svc.GetFolder('\').DeleteFolder('MyFolder', 0)
+# Access is denied. (0x80070005 (E_ACCESSDENIED))
+```
+
+The confusing part: **you created the original task yourself, unelevated, and could delete it fine.**
+The restored copy looks identical in Task Scheduler and refuses.
+
+**Cause** — the restore is performed by the **TaskHub agent, which runs elevated**. Windows adds an
+ACE for the registering context, so the task — and any folder created for it — end up owned by an
+administrator. An unelevated prompt can read them and cannot remove them. This is the same
+condition [`FriendlyDeleteError`](../../agent/TaskHub.Agent/AgentService.cs) already explains for
+`task:delete`; restore just makes it reachable for tasks you used to own outright.
+
+**Fix — for the task:** delete it *through TaskHub*, which routes the delete back through the same
+elevated agent that created it. Import the folder (Dashboard → Import), then Delete from Windows.
+Or open Task Scheduler **as administrator** and delete it there.
+
+**Fix — for the folder:** there is no in-app route. TaskHub only ever prunes its own `\TaskHub`, on
+purpose ("never delete what isn't yours"), so a folder restore created has to go from an elevated
+prompt:
+
+```powershell
+# Run as Administrator
+$svc = New-Object -ComObject Schedule.Service; $svc.Connect()
+$svc.GetFolder('\').DeleteFolder('MyFolder', 0)
+```
+
+**Worth knowing before you restore** — this is the concrete cost of restore's carve-out to *"TaskHub
+creates exactly one folder"*. Recreating a folder tree is the right call for a restore (the
+alternative refuses every task in the archive on a reinstalled machine), but **a folder created that
+way is a one-way door for anyone without elevation** — a sharper version of the original rationale,
+which only assumed the folder would be annoying to remove, not that it would need admin. The restore
+UI says so on the checkbox and again in the plan, so it is a decision rather than a surprise.
+
+*First hit: 2026-07-28, live-verifying restore against real Task Scheduler.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

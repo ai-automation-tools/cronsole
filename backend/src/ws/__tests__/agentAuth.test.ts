@@ -11,6 +11,7 @@ import {
   signCommand,
   emitSignedCommand,
   getPairingSecret,
+  sha256Hex,
   _resetNonceCache,
   type SignableCommand,
 } from '../agentAuth.js';
@@ -60,6 +61,11 @@ const VEC = {
   // Same command with a Weekly trigger -> canonical
   // 'trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D'.
   createSigWithTrigger: '1c8108cea06ef53db192436d82229a1fe0a5d18a74bd202df9eb639ecd68ce37',
+  // task:import signs the XML BY HASH, plus both blast-radius flags. Golden
+  // case: the XML below, overwrite false, createFolders true.
+  importXml: '<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>',
+  importXmlSha256: 'dfd743c7a30868f6f2d62e3b9ceb16fb77c8a72c1509b1726dfc646072170281',
+  importSig: 'c6a8e92c11599c98dac759094220d8d6826c9a457e4f3ce9f83172b3144130a4',
 };
 
 /** Build a valid, fresh handshake auth payload for the given nonce. */
@@ -126,10 +132,52 @@ describe('agentAuth cross-language vector', () => {
         },
         VEC.createSigWithTrigger,
       ],
+      [
+        {
+          event: 'task:import',
+          taskPath: 'MyTask',
+          xml: VEC.importXml,
+          overwrite: false,
+          createFolders: true,
+        },
+        VEC.importSig,
+      ],
     ];
     for (const [cmd, expected] of cases) {
       expect(signCommand(VEC.sessionKey, cmd, VEC.ts, VEC.commandNonce).sig).toBe(expected);
     }
+  });
+
+  it('hashes the import XML to the golden digest', () => {
+    // Pinned separately from the signature so a mismatch says WHICH half moved:
+    // the digest agreement between Node and .NET, or the message format around it.
+    expect(sha256Hex(VEC.importXml)).toBe(VEC.importXmlSha256);
+  });
+
+  // The XML *is* the task — its action, its trigger, and the account it runs as.
+  // If it were outside the signed message, an on-path attacker could leave the
+  // path and flags intact and swap the definition, and the signature would still
+  // verify. Same for the two flags: each one widens what the command may destroy
+  // or create.
+  it('signs the XML and both blast-radius flags, so tampering with any of them breaks the signature', () => {
+    const base = {
+      event: 'task:import' as const,
+      taskPath: 'MyTask',
+      xml: VEC.importXml,
+      overwrite: false,
+      createFolders: true,
+    };
+    const sign = (cmd: SignableCommand) => signCommand(VEC.sessionKey, cmd, VEC.ts, VEC.commandNonce).sig;
+
+    // Compared against a FRESHLY signed baseline, not the golden constant: if a
+    // field were dropped from the message entirely, every mutation would still
+    // differ from the stale golden value and this test would pass while proving
+    // nothing. Against a live baseline, a dropped field makes the pair collide.
+    const baseline = sign(base);
+    expect(sign({ ...base, xml: VEC.importXml + ' ' })).not.toBe(baseline);
+    expect(sign({ ...base, overwrite: true })).not.toBe(baseline);
+    expect(sign({ ...base, createFolders: false })).not.toBe(baseline);
+    expect(sign({ ...base, taskPath: 'OtherTask' })).not.toBe(baseline);
   });
 
   // The bug the nonce exists for (troubleshooting #16). `ts` is second-granular,

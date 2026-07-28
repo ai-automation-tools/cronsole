@@ -145,4 +145,35 @@ export interface PlatformConnector {
    * as JSON directly from the DB by the route, so this stays connector-specific.
    */
   exportTask?(externalId: string, config: any): Promise<{ success: boolean; xml?: string; message?: string }>;
+
+  /**
+   * Register a task from its native definition — the inverse of exportTask, and
+   * the restore half of the backup story. Optional for the same reason export is:
+   * only platforms with a portable native format can do it.
+   *
+   * Unlike export this WRITES, so the whole input (path, XML, and both flags) is
+   * covered by the command signature and re-validated by the agent, which holds
+   * the elevation. Implementations must NOT overwrite an existing task unless
+   * `overwrite` is set — that refusal is the feature, not a limitation.
+   */
+  importTask?(
+    externalId: string,
+    xml: string,
+    options: { overwrite: boolean; createFolders: boolean },
+    config: any
+  ): Promise<ImportTaskResult>;
+}
+
+/**
+ * Outcome of restoring one task. Four states rather than a boolean, because
+ * collapsing them lies in both directions: `exists` is not a failure (nothing
+ * went wrong and the user's task is intact) and not a success (nothing was
+ * restored). `foldersCreated` is always reported — TaskHub creating a folder is
+ * a carve-out to a standing invariant, so it may never be silent.
+ */
+export interface ImportTaskResult {
+  success: boolean;
+  outcome: 'created' | 'replaced' | 'exists' | 'refused';
+  message?: string;
+  foldersCreated: string[];
 }

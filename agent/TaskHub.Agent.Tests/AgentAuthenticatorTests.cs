@@ -39,6 +39,11 @@ namespace TaskHub.Agent.Tests
         // Same command with a Weekly trigger -> canonical
         // "trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D".
         private const string ExpectedCreateSigWithTrigger = "1c8108cea06ef53db192436d82229a1fe0a5d18a74bd202df9eb639ecd68ce37";
+        // task:import signs the task's whole XML BY HASH, plus both blast-radius
+        // flags. Golden case: the XML below, overwrite false, createFolders true.
+        private const string ImportXml = "<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>";
+        private const string ExpectedImportXmlSha256 = "dfd743c7a30868f6f2d62e3b9ceb16fb77c8a72c1509b1726dfc646072170281";
+        private const string ExpectedImportSig = "c6a8e92c11599c98dac759094220d8d6826c9a457e4f3ce9f83172b3144130a4";
 
         [Fact]
         public void Hmac_MatchesGoldenVector_HandshakeAndSession()
@@ -80,6 +85,38 @@ namespace TaskHub.Agent.Tests
             var weeklyCanonical = AgentAuthenticator.CanonicalizeTrigger(weekly);
             AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, weeklyCanonical, "\\TaskHub", CommandNonce, Ts))
                 .Should().Be(ExpectedCreateSigWithTrigger);
+
+            AgentAuthenticator.Hmac(ExpectedSessionKey,
+                AgentAuthenticator.ImportMessage("MyTask", AgentAuthenticator.Sha256Hex(ImportXml), false, true, CommandNonce, Ts))
+                .Should().Be(ExpectedImportSig);
+        }
+
+        // Pinned separately from the signature so a mismatch says WHICH half moved:
+        // the digest agreement between .NET and Node, or the message format around it.
+        [Fact]
+        public void Sha256Hex_MatchesBackendDigest()
+        {
+            AgentAuthenticator.Sha256Hex(ImportXml).Should().Be(ExpectedImportXmlSha256);
+            // Lowercase hex, like Node's digest('hex') — an uppercase digest would
+            // verify against nothing while looking correct in a log.
+            AgentAuthenticator.Sha256Hex("").Should()
+                .Be("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        }
+
+        // The XML is the task: its action, its trigger, and the account it runs as.
+        // If any of these three were outside the signed message, an on-path attacker
+        // could keep the path intact and change what actually gets registered.
+        [Fact]
+        public void ImportMessage_CoversTheXmlAndBothFlags()
+        {
+            var hash = AgentAuthenticator.Sha256Hex(ImportXml);
+            var baseline = AgentAuthenticator.ImportMessage("MyTask", hash, false, true, CommandNonce, Ts);
+
+            AgentAuthenticator.ImportMessage("MyTask", AgentAuthenticator.Sha256Hex(ImportXml + " "), false, true, CommandNonce, Ts)
+                .Should().NotBe(baseline);
+            AgentAuthenticator.ImportMessage("MyTask", hash, true, true, CommandNonce, Ts).Should().NotBe(baseline);
+            AgentAuthenticator.ImportMessage("MyTask", hash, false, false, CommandNonce, Ts).Should().NotBe(baseline);
+            AgentAuthenticator.ImportMessage("Other", hash, false, true, CommandNonce, Ts).Should().NotBe(baseline);
         }
 
         [Fact]

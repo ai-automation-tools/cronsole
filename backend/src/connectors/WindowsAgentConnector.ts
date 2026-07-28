@@ -1,5 +1,5 @@
 import { PlatformType, HealthState } from '@prisma/client';
-import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, PlatformFolder } from './platform.interface.js';
+import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, PlatformFolder, ImportTaskResult } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { emitSignedCommand } from '../ws/agentAuth.js';
 import { toStructuredAction } from '../utils/commandParser.js';
@@ -16,6 +16,9 @@ function deriveCron(trigger: unknown): string | null {
   const result = convertWindowsTriggerToCron(trigger as WindowsTrigger);
   return result.confidence >= 1 ? result.cron : null;
 }
+
+/** The outcome verbs the agent is allowed to report for an import. */
+const IMPORT_OUTCOMES: ImportTaskResult['outcome'][] = ['created', 'replaced', 'exists', 'refused'];
 
 /** Parse an agent-supplied timestamp, rejecting nulls and pre-2000 sentinels. */
 function parseNextRun(value: unknown): Date | null {
@@ -191,6 +194,67 @@ export class WindowsAgentConnector implements PlatformConnector {
       setTimeout(() => {
         socket.off('task:exported', handler);
         resolve({ success: false, message: 'Agent export timeout' });
+      }, 15000);
+    });
+  }
+
+  /**
+   * Restore a task from its native XML. The write counterpart of exportTask, so
+   * unlike export it goes out as a SIGNED command — the XML carries the task's
+   * action, trigger, and principal, i.e. everything the P0 guarantees exist to
+   * protect.
+   *
+   * A timeout resolves as `refused` rather than throwing: the caller is restoring
+   * a batch, and one unanswered task must be reported and stepped over, not turned
+   * into a failure of the whole restore.
+   */
+  async importTask(
+    externalId: string,
+    xml: string,
+    options: { overwrite: boolean; createFolders: boolean },
+    config: any
+  ): Promise<ImportTaskResult> {
+    const userId = config.userId;
+    const socket = agentManager.getSocket(userId);
+
+    if (!socket) {
+      return { success: false, outcome: 'refused', message: 'Agent offline', foldersCreated: [] };
+    }
+
+    return new Promise((resolve) => {
+      const handler = (payload: any) => {
+        if (payload.taskExternalId === externalId) {
+          socket.off('task:imported', handler);
+          resolve({
+            success: !!payload.success,
+            // Trust the agent's own verb, but never let an unrecognized one read
+            // as success: an outcome we can't interpret is a refusal we can.
+            outcome: IMPORT_OUTCOMES.includes(payload.outcome) ? payload.outcome : 'refused',
+            message: payload.message,
+            foldersCreated: Array.isArray(payload.foldersCreated)
+              ? payload.foldersCreated.map(String)
+              : []
+          });
+        }
+      };
+
+      socket.on('task:imported', handler);
+      emitSignedCommand(socket, {
+        event: 'task:import',
+        taskPath: externalId,
+        xml,
+        overwrite: options.overwrite,
+        createFolders: options.createFolders
+      });
+
+      setTimeout(() => {
+        socket.off('task:imported', handler);
+        resolve({
+          success: false,
+          outcome: 'refused',
+          message: 'Agent restore timeout',
+          foldersCreated: []
+        });
       }, 15000);
     });
   }

@@ -95,11 +95,19 @@ converts a missing capability into a lie. Leaving it undefined *is* the design.
   in. The agent is a client — **no `0.0.0.0` binds.**
 - **Envelope:** `{ type: string, payload: object }`. Types are `noun:verb` — `task:run`,
   `agent:hello`, `task:scan`, `agent:tasks:list`, `task:create`, `task:delete`, `task:export`,
-  `task:folders`.
+  `task:import`, `task:folders`.
 - **Heartbeat:** ping every 30s. Reconnect with exponential backoff, **1s → 5min cap**.
 - **Run commands are HMAC-signed** per session to prevent replay. Read-only commands (e.g.
   `task:export`, `task:folders`) aren't signed — but still need the agent republished for the
   handler to exist.
+- **`task:import` (restore, 2026-07-28) is the export verb's write twin, and is signed** —
+  including the task's whole XML, folded in as a **sha256 of its UTF-8 bytes** rather than by
+  value. The XML *is* the task (action, trigger, and the account it runs as), so leaving it out
+  would make the signature decorative; embedding it raw would put arbitrary `|` bytes inside a
+  pipe-delimited message. Its two flags — `overwrite` and `createFolders` — are signed for the
+  same reason `folder` is: each widens what the command may destroy or create. It answers
+  `task:imported` with a **four-state** outcome (`created` / `replaced` / `exists` / `refused`),
+  because `exists` is neither a success nor a failure and collapsing it lies both ways.
 - **An accepted command ALWAYS answers, and a failure answer carries the reason.** The backend
   waits ~15s for a matching reply and then resolves with `Agent trigger timeout` — a message
   that names the *transport*. So an agent handler that returns without emitting doesn't produce

@@ -133,6 +133,7 @@ you:
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
+| Restore from a backup | — | `POST /api/tools/restore/tasks` |
 | **Untrack** (remove from TaskHub, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | **Delete** | `delete_task` — **only** when the human set `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
 
@@ -213,6 +214,32 @@ you write it anywhere, write it as **raw bytes**, never re-encoded as UTF-8. Tas
 `\Microsoft\` are excluded unless you pass `includeSystem: true`.
 
 Re-import on Windows with `Register-ScheduledTask -Xml (Get-Content -Raw file.xml)`.
+
+### Restoring one back
+
+TaskHub can put them back itself:
+
+```
+POST /api/tools/restore/tasks
+  { "files": [{ "relativePath": "Work/Nightly.xml", "contentBase64": "..." }],
+    "dryRun": true }
+```
+
+**Always run `dryRun: true` first and read what comes back.** It returns a *plan* — one of
+`create` / `overwrite` / `skip` / `refuse` for every file, worked out against what is really on
+the machine — and writes nothing. That is the only honest way to find out what an archive
+contains before it lands, because Windows replaces a same-named task without asking.
+
+Two flags, both `false` by default, both deliberate:
+
+- `overwrite` — off means a task that already exists is **left exactly as it is** and reported
+  as skipped. Turn it on only when replacing the live task is the actual intent.
+- `createFolders` — off means a task whose Task Scheduler folder is missing is refused by name.
+  Turn it on when restoring a folder tree onto a machine that no longer has it.
+
+Send the file's **raw bytes** base64-encoded (or the whole `.zip` as `archiveBase64`) — never
+the XML as a JSON string, or the UTF-16 encoding is lost. Restoring a task puts it on the
+machine; it does **not** make TaskHub track it. Import it from the dashboard for that.
 
 ---
 

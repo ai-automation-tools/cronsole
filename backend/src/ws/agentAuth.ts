@@ -56,6 +56,18 @@ function hmacHex(key: string, message: string): string {
   return crypto.createHmac('sha256', key).update(message, 'utf8').digest('hex');
 }
 
+/**
+ * Lowercase-hex SHA-256 over a string's UTF-8 bytes. Must match the agent's
+ * AgentAuthenticator.Sha256Hex — same bytes in, same string out.
+ *
+ * Used to fold a task's whole XML definition into a signed command without
+ * putting arbitrary bytes inside a pipe-delimited message. Exported so tests can
+ * pin the cross-language agreement directly rather than only through a signature.
+ */
+export function sha256Hex(value: string): string {
+  return crypto.createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
 function timingSafeEqualHex(a: string, b: string): boolean {
   const ba = Buffer.from(a, 'utf8');
   const bb = Buffer.from(b, 'utf8');
@@ -174,6 +186,16 @@ export type SignableCommand =
   | { event: 'task:set_status'; taskPath: string; enabled: boolean }
   | { event: 'task:update_schedule'; taskPath: string; trigger: WindowsTrigger }
   | {
+      event: 'task:import';
+      taskPath: string;
+      /** The task's full native Task Scheduler XML — signed by hash, see below. */
+      xml: string;
+      /** Replace a task that already exists at `taskPath` instead of refusing. */
+      overwrite: boolean;
+      /** Recreate a missing folder chain instead of refusing. */
+      createFolders: boolean;
+    }
+  | {
       event: 'task:update';
       taskPath: string;
       action: StructuredAction;
@@ -235,6 +257,19 @@ function commandMessage(cmd: SignableCommand, nonce: string, ts: number): string
       // what privileges) in flight. Fields are pre-normalized (empty string for
       // unset) so this matches AgentAuthenticator.UpdateMessage byte-for-byte.
       return `task:update|${cmd.taskPath}|${canonicalizeAction(cmd.action)}|${cmd.workingDirectory}|${cmd.description}|${cmd.runLevel}|${nonce}|${ts}`;
+    case 'task:import':
+      // The XML enters as a HASH, not by value. It is not a size optimization:
+      // the XML IS the task — its action, its trigger, and its principal
+      // (including RunLevel Highest and the account it runs as) — so leaving it
+      // unsigned would make this signature decorative, while embedding it raw
+      // would put arbitrary '|' bytes inside a pipe-delimited message. A
+      // fixed-width digest is unambiguous on both sides of the language
+      // boundary, the same reason canonicalizeAction/canonicalizeTrigger exist.
+      //
+      // `overwrite` and `createFolders` are signed because each widens what the
+      // command may destroy or create: flipping overwrite turns a refusal into
+      // the replacement of a task the user still has.
+      return `task:import|${cmd.taskPath}|${sha256Hex(cmd.xml)}|${cmd.overwrite ? 1 : 0}|${cmd.createFolders ? 1 : 0}|${nonce}|${ts}`;
     case 'task:create':
       // `folder` is signed and sits last among the payload fields: it decides
       // WHERE the task is registered, and RegisterTaskDefinition silently

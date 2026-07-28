@@ -70,6 +70,19 @@ export interface MockUpdateCommand {
   sig?: string;
 }
 
+export interface MockImportCommand {
+  taskPath: string;
+  xml?: string;
+  overwrite?: boolean;
+  createFolders?: boolean;
+  // Per-command nonce: signed and sent by emitSignedCommand so two identical
+  // commands in the same second stay distinguishable (troubleshooting #16).
+  // The mock does not verify signatures, so this is descriptive, not enforced.
+  nonce?: string;
+  ts?: number;
+  sig?: string;
+}
+
 function hmacHex(key: string, message: string): string {
   return crypto.createHmac('sha256', key).update(message, 'utf8').digest('hex');
 }
@@ -91,6 +104,9 @@ export class MockTaskHubAgent {
   readonly deletes: MockRunCommand[] = [];
   readonly scheduleUpdates: MockUpdateScheduleCommand[] = [];
   readonly actionUpdates: MockUpdateCommand[] = [];
+  readonly imports: MockImportCommand[] = [];
+  /** Folders the mock machine has. Restore refuses a task whose folder is missing. */
+  private folders = new Set<string>(['\\', '\\TaskHub', '\\E2E']);
   private socket: Socket | null = null;
 
   constructor(
@@ -108,6 +124,81 @@ export class MockTaskHubAgent {
 
     socket.on('task:list', () => {
       socket.emit('task:full_list', { tasks: this.tasks });
+    });
+
+    socket.on('task:folders', () => {
+      socket.emit('task:folders_list', {
+        success: true,
+        message: 'OK',
+        folders: [...this.folders].map((path) => ({
+          path,
+          taskCount: this.tasks.filter((t) => t.path.startsWith(path)).length,
+          writable: !path.toLowerCase().startsWith('\\microsoft')
+        }))
+      });
+    });
+
+    socket.on('task:import', (payload: MockImportCommand) => {
+      this.imports.push(payload);
+      const exists = this.tasks.some((t) => t.path.toLowerCase() === payload.taskPath.toLowerCase());
+      const folder = payload.taskPath.split('\\').slice(0, -1).join('\\') || '\\';
+      const foldersCreated: string[] = [];
+
+      // Mirrors the real agent's three refusals, in the same order, so an E2E
+      // run exercises the same decision tree rather than a friendlier one.
+      if (folder.toLowerCase().startsWith('\\microsoft')) {
+        socket.emit('task:imported', {
+          taskExternalId: payload.taskPath,
+          success: false,
+          outcome: 'refused',
+          message: 'Refusing to restore under \\Microsoft\\.',
+          foldersCreated
+        });
+        return;
+      }
+      if (exists && !payload.overwrite) {
+        socket.emit('task:imported', {
+          taskExternalId: payload.taskPath,
+          success: false,
+          outcome: 'exists',
+          message: 'A task already exists at this path. It was left exactly as it is.',
+          foldersCreated
+        });
+        return;
+      }
+      if (!this.folders.has(folder)) {
+        if (!payload.createFolders) {
+          socket.emit('task:imported', {
+            taskExternalId: payload.taskPath,
+            success: false,
+            outcome: 'refused',
+            message: `Task Scheduler folder '${folder}' does not exist.`,
+            foldersCreated
+          });
+          return;
+        }
+        this.folders.add(folder);
+        foldersCreated.push(folder);
+      }
+
+      this.tasks = [
+        ...this.tasks.filter((t) => t.path.toLowerCase() !== payload.taskPath.toLowerCase()),
+        {
+          path: payload.taskPath,
+          name: payload.taskPath.split('\\').pop() ?? payload.taskPath,
+          state: 'Ready',
+          enabled: true,
+          author: 'TaskHub E2E mock agent',
+          description: 'Restored by mock agent'
+        }
+      ];
+      socket.emit('task:imported', {
+        taskExternalId: payload.taskPath,
+        success: true,
+        outcome: exists ? 'replaced' : 'created',
+        message: exists ? 'Task replaced' : 'Task restored',
+        foldersCreated
+      });
     });
 
     socket.on('task:run', (payload: MockRunCommand) => {

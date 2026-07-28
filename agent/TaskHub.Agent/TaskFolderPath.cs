@@ -103,5 +103,49 @@ namespace TaskHub.Agent
                 .Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries)
                 .ToList();
         }
+
+        /// <summary>
+        /// The containing folder of a full task path. <c>\A\B\Task</c> → <c>\A\B</c>;
+        /// <c>\Task</c> → <c>\</c>. Feed the result to <see cref="Validate"/>: a task
+        /// path is only as safe as the folder it lands in.
+        /// </summary>
+        public static string ParentOf(string? taskPath)
+        {
+            var segments = Split(taskPath);
+            if (segments.Count <= 1) return "\\";
+            return "\\" + string.Join('\\', segments.Take(segments.Count - 1));
+        }
+
+        /// <summary>The task's own name — the last segment of its path.</summary>
+        public static string LeafOf(string? taskPath)
+        {
+            var segments = Split(taskPath);
+            return segments.Count == 0 ? string.Empty : segments[^1];
+        }
+
+        /// <summary>
+        /// Returns a problem description, or null when the task name is usable.
+        ///
+        /// Separate from <see cref="Validate"/> because a restore supplies a whole
+        /// task PATH rather than a folder plus a name — and the leaf half has its own
+        /// rules. RegisterTaskDefinition throws ArgumentOutOfRangeException for these,
+        /// which surfaces as an opaque failure; refusing here says what is wrong.
+        /// </summary>
+        public static string? ValidateTaskName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "Task name is required.";
+            if (name.Length > MaxSegmentLength) return $"Task name must be {MaxSegmentLength} characters or fewer.";
+            if (name == "." || name == "..") return "Task name cannot be . or ..";
+            if (name.IndexOfAny(InvalidSegmentChars) >= 0 || name.Any(char.IsControl))
+                return "Task names cannot contain : * ? \" < > | or control characters.";
+            // Task Scheduler stores tasks as files, and Windows silently strips a
+            // trailing dot or space from a filename — so the name you asked for is
+            // not the name you would get back.
+            if (name.StartsWith(" ") || name.EndsWith(" "))
+                return "Task names cannot start or end with a space.";
+            if (name.EndsWith("."))
+                return "Task names cannot end with a dot.";
+            return null;
+        }
     }
 }

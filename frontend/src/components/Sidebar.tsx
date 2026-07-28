@@ -6,6 +6,7 @@ import {
   Cpu,
   Library,
   LogOut,
+  Wrench,
   X
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
@@ -28,6 +29,7 @@ const NAV = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'templates', label: 'Templates', Icon: Library },
   { id: 'platforms', label: 'Platforms', Icon: Cpu },
+  { id: 'tools', label: 'Tools', Icon: Wrench },
   { id: 'settings', label: 'Settings', Icon: Settings }
 ] as const;
 

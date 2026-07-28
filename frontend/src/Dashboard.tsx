@@ -13,6 +13,7 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { PlatformsScreen } from './screens/PlatformsScreen';
 import { TemplatesScreen } from './screens/TemplatesScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
+import { ToolsScreen } from './screens/ToolsScreen';
 import { useSettings } from './hooks/useSettings';
 import { useToast } from './hooks/useToast';
 import { useConfirm } from './hooks/useConfirm';
@@ -26,12 +27,13 @@ const Dashboard = () => {
   // Section + open task detail come from the URL (bookmarkable, back/forward):
   //   /                → dashboard      /templates → templates
   //   /platforms       → platforms      /settings  → settings
+  //   /tools           → tools
   //   /tasks/:id       → dashboard with the task detail modal open
   const navigate = useNavigate();
   const location = useLocation();
   const segments = location.pathname.split('/').filter(Boolean);
   const section = segments[0] ?? '';
-  const activeTab = ['templates', 'platforms', 'settings'].includes(section) ? section : 'dashboard';
+  const activeTab = ['templates', 'platforms', 'tools', 'settings'].includes(section) ? section : 'dashboard';
   const setActiveTab = (tab: string) => navigate(tab === 'dashboard' ? '/' : `/${tab}`);
   const routeTaskId = section === 'tasks' ? segments[1] : undefined;
 
@@ -287,6 +289,7 @@ const Dashboard = () => {
         )}
         {activeTab === 'templates' && <TemplatesScreen />}
         {activeTab === 'platforms' && <PlatformsScreen />}
+        {activeTab === 'tools' && <ToolsScreen />}
         {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
       </main>
       <TaskModal

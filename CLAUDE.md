@@ -76,6 +76,9 @@ taskhub/
 │   ├── src/
 │   │   ├── catalog/           # template registry: v1 Zod schema, bundled snapshot, sources, sync
 │   │   ├── connectors/        # PlatformConnector implementations
+│   │   ├── tools/             # the Tools tab's API side: connect-pack/ (authored markdown,
+│   │   │                      #   USER-facing — compiled to connectPackBundled.ts by
+│   │   │                      #   `npm run connectpack:build`; never hand-edit the bundle)
 │   │   ├── routes/
 │   │   ├── ws/                # Socket.io agent server
 │   │   └── auth/
@@ -297,6 +300,13 @@ These are project-specific overrides on top of the parent workspace's general st
 - Tailwind `darkMode: 'class'`. Theme persists via `localStorage` keyed `taskhub.theme`.
 - Use TanStack Query for all server state. Invalidate on WebSocket `task:updated` events.
 - Mobile is a first-class target — every page must pass `<375px` viewport check.
+
+### Bulk export & the Connect Pack (the Tools tab)
+- **Bulk export reads the machine, not the tracked subset.** `POST /api/tools/export/tasks` enumerates every task the agent can see — the un-imported ones are precisely the ones nothing else is holding. Tasks under `\Microsoft\` are excluded **by default but counted out loud**; silently dropping them would repeat the invisible-fence failure that made un-imported tasks impossible to notice.
+- **Task Scheduler XML is UTF-16 LE + BOM, always** — the only encoding Windows re-imports. One definition of that format lives in `toTaskXmlBuffer` (`services/bulkExport.ts`), shared with the single-task route. It never crosses a JSON boundary as text: the browser path sends **base64**, the download path sends a server-built ZIP.
+- **The agent gets no file-write verb.** It is already elevated and already local, so "let it write where told" is the obvious shortcut — and it would convert a task-scheduler agent into a general elevated arbitrary-file-write primitive reachable from the backend. The browser's directory-picker limitation is the lesser cost.
+- **Two skills, two audiences.** `skills/taskhub/` teaches an agent to work **on** this codebase. `backend/src/tools/connect-pack/` teaches an end user's AI tool to **use** a running TaskHub. Repo internals (`catalogSync`, `normalize.ts`, `bundled.ts`, `registry:build`) and repo-relative links must never reach the pack — a test enforces it. Every pack artifact is version-stamped: a downloaded copy is a mirror surface that can never be updated, so it must at least be able to say how old it is.
+- **Cross-task routes live on `/api/tools`, not `/api/tasks`** — everything on `tasks.ts` competes with `/:id` in Express's declaration-order matching.
 
 ### Security
 - Secrets never in code. Use `.env.local` for dev, AWS Secrets Manager / Vault for prod.

@@ -149,6 +149,7 @@ Two things about that listing that will otherwise mislead you:
 | **Edit the command** | ✅ `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | Run history | ✅ `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export | ✅ `export_task` | `GET /api/tasks/:id/export` (Windows→XML, native→JSON) |
+| **Bulk export / backup** | ❌ | `POST /api/tools/export/tasks` — all folders or one, as native XML. Exports what is **on the machine**, not just tracked tasks; `\Microsoft\` excluded unless `includeSystem: true`. Dashboard: **Tools** tab |
 | **Delete** | ⚠️ `delete_task` — **only** with `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
 | Template import/export, save-as-template, sync, pairing | ❌ | REST / UI only |
 

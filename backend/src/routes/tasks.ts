@@ -25,6 +25,7 @@ import {
 import { validateBody } from '../middleware/validate.js';
 import { importTemplates } from '../catalog/importCatalog.js';
 import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateFromTask.js';
+import { toTaskXmlBuffer } from '../services/bulkExport.js';
 
 const router = Router();
 
@@ -896,7 +897,11 @@ router.get('/:id/export', async (req: Request, res: Response) => {
     // that exact format — declaring UTF-8 instead breaks the COM / `-Xml` string
     // import with "unable to switch the encoding" (verified against real Task
     // Scheduler). res.send(Buffer) writes raw bytes with no transcoding.
-    const body = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(result.xml, 'utf16le')]);
+    //
+    // Shared with the bulk export (`/api/tools/export/tasks`) so the format has
+    // exactly one definition — two copies would let one drift and produce
+    // archives Windows silently refuses to re-import.
+    const body = toTaskXmlBuffer(result.xml);
     res.setHeader('Content-Type', 'application/xml; charset=utf-16le');
     res.setHeader('Content-Disposition', `attachment; filename="${safeFilePart(task.name)}.xml"`);
     return res.send(body);

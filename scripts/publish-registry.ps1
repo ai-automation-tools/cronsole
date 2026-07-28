@@ -85,7 +85,12 @@ foreach ($dir in @('templates', 'packs')) {
 if (Test-Path (Join-Path $SiteDir 'index.html')) {
     # NB: the wildcard path (…\*) is required — `Get-ChildItem -Path <dir> -Exclude` on a
     # bare directory silently returns nothing.
-    Get-ChildItem -Path (Join-Path $SiteDir '*') -File -Exclude 'README.md' | ForEach-Object {
+    # CNAME is excluded defensively: it decides which domain a Pages repo answers
+    # on, so a stray one in registry-site/ would hand taskhub.mikesailab.com to
+    # the REGISTRY repo — moving the registry JSON off its documented URL and
+    # breaking catalog sync for every installed TaskHub. Domains belong to the
+    # target repo, never to mirrored content.
+    Get-ChildItem -Path (Join-Path $SiteDir '*') -File -Exclude 'README.md', 'CNAME' | ForEach-Object {
         Copy-Item $_.FullName (Join-Path $WorkDir $_.Name) -Force
     }
 } else {

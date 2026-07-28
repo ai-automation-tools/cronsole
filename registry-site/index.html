@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TaskHub Template Gallery</title>
-  <meta name="description" content="Browse and import automation templates for TaskHub — the unified scheduled-task manager. A curated catalog of cron jobs, scripts, and AI-agent workflows you can filter, download, and import." />
+  <title>TaskHub — local-first control plane for your scheduled tasks</title>
+  <meta name="description" content="TaskHub is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code and Codex routines, AI-agent jobs. Browse and import ready-to-run automation templates from the open registry." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%238B5CF6'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <style>
     /* ============================================================
@@ -467,6 +467,7 @@
         <span class="nav-link" data-nav="#/browse">Browse</span>
         <span class="nav-link" data-nav="#/collections">Collections</span>
         <span class="nav-link" id="nav-import">Import guide</span>
+        <a class="nav-link" href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">Get TaskHub</a>
       </div>
       <div class="nav-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -490,7 +491,7 @@
         <span>TaskHub Template Registry · content-addressed · served via GitHub Pages</span>
       </div>
       <div class="fr">
-        <a href="https://mikesailab.com" target="_blank" rel="noopener">TaskHub</a>
+        <a href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">TaskHub on GitHub</a>
         <a href="https://mikesailab.com/taskhub-registry/index.json" target="_blank" rel="noopener">index.json</a>
         <a href="https://github.com/michaelschecht/taskhub-registry/issues" target="_blank" rel="noopener">Request a template</a>
       </div>
@@ -504,7 +505,32 @@
   (function () {
     "use strict";
 
+    /**
+     * Where the registry actually lives.
+     *
+     * This one file is served from TWO places: taskhub.mikesailab.com (the
+     * front door) and mikesailab.com/taskhub-registry/ (alongside the JSON).
+     * Only the second has index.json next to it.
+     *
+     * The registry base is deliberately NOT moved to the new domain: it is the
+     * documented `TEMPLATE_REGISTRY_URL` that installed TaskHubs already fetch
+     * from, so changing it would break catalog sync for every existing install.
+     * Instead the page tries its own directory first and falls back to the
+     * canonical origin — GitHub Pages serves `Access-Control-Allow-Origin: *`,
+     * so the cross-origin fetch is allowed.
+     */
+    var REGISTRY_BASE = "https://mikesailab.com/taskhub-registry/";
     var INDEX_URL = "./index.json";
+    var ASSET_BASE = "./";           // set to REGISTRY_BASE if the local index is absent
+
+    var LINKS = {
+      appRepo: "https://github.com/michaelschecht/taskhub",
+      quickStart: "https://github.com/michaelschecht/taskhub#-quick-start",
+      registryRepo: "https://github.com/michaelschecht/taskhub-registry",
+      registryIssues: "https://github.com/michaelschecht/taskhub-registry/issues"
+    };
+
+    var QUICKSTART = "git clone https://github.com/michaelschecht/taskhub.git\ncd taskhub\ndocker compose up -d";
 
     // ---------- label maps ----------
     var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };
@@ -604,7 +630,7 @@
     // so it imports in one step.
     function downloadPack(coll) {
       if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
-      fetch("./" + coll.path).then(function (r) {
+      fetch(ASSET_BASE + coll.path).then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.text();
       }).then(function (text) {
@@ -620,7 +646,7 @@
 
     function copyPack(coll) {
       if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
-      fetch("./" + coll.path).then(function (r) {
+      fetch(ASSET_BASE + coll.path).then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.text();
       }).then(function (text) { return copyText(text); })
@@ -677,7 +703,7 @@
     // ---------- fetch full template ----------
     function fetchFull(entry) {
       if (FULL[entry.id]) return Promise.resolve(FULL[entry.id]);
-      return fetch("./" + entry.path).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      return fetch(ASSET_BASE + entry.path).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(function (j) { FULL[entry.id] = j; return j; });
     }
     function copyText(text) {
@@ -756,15 +782,27 @@
 
       return '<div class="wrap">' +
         '<section class="hero">' +
-          '<span class="hero-kicker kicker"><span class="pulse"></span>TaskHub · Template Registry</span>' +
-          '<h1>Automation templates,<br><span class="gr">ready to run.</span></h1>' +
-          '<p class="lede">A curated, open catalog of scheduled tasks — cron jobs, scripts, and unattended AI-agent workflows. Filter, preview, download, and import straight into your local TaskHub.</p>' +
-          '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse all templates' + I.arrow + '</button>' +
+          '<span class="hero-kicker kicker"><span class="pulse"></span>Local-first · open source</span>' +
+          '<h1>Your automations,<br><span class="gr">finally in one place.</span></h1>' +
+          '<p class="lede">TaskHub is a local-first control plane for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code and Codex routines, AI-agent jobs — in one dark, fast dashboard. View, trigger, edit and schedule them from a single place, and grow your catalog from the open template registry below.</p>' +
+          '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse ' + TEMPLATES.length + ' templates' + I.arrow + '</button>' +
+          '<a class="btn btn-ghost" href="' + LINKS.appRepo + '" target="_blank" rel="noopener">' + I.code + ' Get TaskHub</a>' +
           '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
           '<div class="stat-strip">' +
             stat(TEMPLATES.length, "Templates") + stat(coreCount, "Built-in") + stat(TEMPLATES.length - coreCount, "To import") + stat(cats, "Categories") +
           '</div>' +
         '</section>' +
+
+        // Why TaskHub — ported from the retired standalone landing page, which
+        // was a second front door saying things this one never did.
+        '<section class="band"><div class="band-head"><div><span class="kicker">Why TaskHub</span>' +
+          '<h2 style="margin-top:8px">One dashboard for work that never talks to itself</h2>' +
+          '<p>Scheduled work sprawls across tools that don\'t know about each other.</p></div></div>' +
+          '<div class="how-grid">' +
+            valueCard("One dashboard", "Windows Task Scheduler, Claude Code routines, and AI-agent jobs side by side — search, filter, and run any of them in seconds.") +
+            valueCard("Local-first &amp; safe", "The whole stack runs on your machine. Commands execute no-shell and signed — a template parameter can never inject a second command.") +
+            valueCard("Grow from templates", "An open, versioned registry of ready-to-run automations. Filter the gallery, import what you want, fill in the blanks, and schedule it.") +
+          '</div></section>' +
 
         '<section class="band"><div class="band-head"><div><h2>Browse by collection</h2><p>Hand-picked bundles for the things people automate most.</p></div>' +
           '<span class="see-all" data-nav="#/collections">All collections' + I.arrow + '</span></div>' +
@@ -781,10 +819,42 @@
             howStep("Validate & add", "TaskHub checks it against the same schema and {{placeholder}} rules as every built-in template.") +
             howStep("Apply & schedule", "Fill in the parameters, and it becomes a real scheduled task on your machine.") +
           '</div></div></section>' +
+
+        // Run it locally — the quick start the standalone landing page carried.
+        '<section class="band" id="sec-start"><div class="band-head"><div><span class="kicker">Get started</span>' +
+          '<h2 style="margin-top:8px">Run TaskHub locally</h2>' +
+          '<p>TaskHub is local-first — the whole stack runs on your machine.</p></div></div>' +
+          '<div class="code" style="position:relative">' +
+            '<button class="btn btn-sm" data-copytext="' + esc(QUICKSTART) + '" style="position:absolute;top:10px;right:10px">' + I.copy + ' Copy</button>' +
+            esc(QUICKSTART) +
+          '</div>' +
+          '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:12px">' +
+            'Then connect the Windows agent and open the dashboard. Full instructions in the ' +
+            '<a href="' + LINKS.quickStart + '" target="_blank" rel="noopener">repo quick start</a>.</p>' +
+        '</section>' +
+
+        // The project — where the code actually lives. Previously only reachable
+        // from the landing page, so retiring it without porting these would have
+        // orphaned every link to the source.
+        '<section class="band"><div class="band-head"><div><span class="kicker">The project</span>' +
+          '<h2 style="margin-top:8px">Built in the open</h2>' +
+          '<p>The app, the registry that feeds it, and this gallery.</p></div></div>' +
+          '<div class="coll-grid">' +
+            repoCard("App · Source", "TaskHub app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/michaelschecht/taskhub") +
+            repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/michaelschecht/taskhub-registry") +
+            repoCard("Feedback", "Request a template", "Missing an automation you\'d use? Open an issue and describe it — the catalog grows from real requests.", LINKS.registryIssues, "Open an issue") +
+          '</div></section>' +
         '</div>';
     }
     function stat(n, l) { return '<div class="stat"><div class="num">' + n + '</div><div class="lbl">' + esc(l) + '</div></div>'; }
     function howStep(h, p) { return '<div class="how-step"><div class="n"></div><h4>' + esc(h) + '</h4><p>' + esc(p) + '</p></div>'; }
+    function valueCard(h, p) { return '<div class="how-step"><h4 style="margin-top:0">' + h + '</h4><p>' + p + '</p></div>'; }
+    function repoCard(kicker, title, body, href, linkText) {
+      return '<a class="ccard" href="' + href + '" target="_blank" rel="noopener" style="--cglow:var(--violet-soft);text-decoration:none;display:block">' +
+        '<span class="kicker">' + esc(kicker) + '</span>' +
+        '<h3 style="margin-top:10px">' + esc(title) + '</h3><p>' + body + '</p>' +
+        '<div class="cnt">' + I.arrow + esc(linkText) + '</div></a>';
+    }
 
     // ---------- collections index ----------
     function viewCollections() {
@@ -1165,6 +1235,14 @@
       var pb = e.target.closest("[data-pdim]");
       if (pb) { toggleArr(browseState[pb.getAttribute("data-pdim")], pb.getAttribute("data-pval")); refreshBrowse(); return; }
 
+      var ct = e.target.closest("[data-copytext]");
+      if (ct) {
+        copyText(ct.getAttribute("data-copytext"))
+          .then(function () { toast("Copied"); })
+          .catch(function (err) { toast("Copy failed: " + err.message, "err"); });
+        return;
+      }
+
       if (e.target.closest("#nav-import")) { importModal(); return; }
       if (e.target.closest("#navtoggle")) { toggleNavMenu(); return; }
     });
@@ -1247,7 +1325,20 @@
     window.addEventListener("hashchange", route);
 
     // ---------- boot ----------
-    fetch(INDEX_URL, { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " fetching index.json"); return r.json(); })
+    // Try the co-located index first; if this copy of the page isn't sitting
+    // next to the registry, fall back to the canonical origin and point every
+    // later asset fetch (template files, pack bundles) at the same place.
+    function loadIndex() {
+      return fetch(INDEX_URL, { cache: "no-cache" })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .catch(function () {
+          ASSET_BASE = REGISTRY_BASE;
+          return fetch(REGISTRY_BASE + "index.json", { cache: "no-cache" })
+            .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " fetching index.json"); return r.json(); });
+        });
+    }
+
+    loadIndex()
       .then(function (data) {
         TEMPLATES = (data && data.templates) || [];
         // `packs` is optional in the index — a registry published before packs

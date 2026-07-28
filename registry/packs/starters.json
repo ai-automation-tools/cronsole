@@ -1,0 +1,785 @@
+{
+  "taskhubCatalogVersion": "1.0",
+  "pack": {
+    "id": "starters",
+    "name": "Script Starters",
+    "description": "Blank-slate primitives for PowerShell, Bash, Python, Node, executables and HTTP — the fastest way to schedule any command."
+  },
+  "templates": [
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_powershell_script",
+      "name": "PowerShell Script",
+      "description": "Run a .ps1 PowerShell script file on a schedule.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "other",
+      "tags": [
+        "windows",
+        "script",
+        "powershell"
+      ],
+      "icon": "Terminal",
+      "isStarter": true,
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{{scriptPath}}\"",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_powershell_inline",
+      "name": "PowerShell Inline Command",
+      "description": "Run an inline PowerShell command without a script file.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "other",
+      "tags": [
+        "windows",
+        "powershell"
+      ],
+      "icon": "Terminal",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"{{command}}\"",
+      "parameters": [
+        {
+          "key": "command",
+          "label": "Command",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The command/code to run inline."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_batch_script",
+      "name": "Batch / CMD Script",
+      "description": "Run a .bat or .cmd batch file via cmd.exe.",
+      "runtime": "batch",
+      "os": "windows",
+      "category": "other",
+      "tags": [
+        "windows",
+        "batch",
+        "script"
+      ],
+      "icon": "SquareTerminal",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 0 * * *"
+      },
+      "commandTemplate": "cmd.exe /c \"{{scriptPath}}\"",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_python_windows",
+      "name": "Python Script (Windows)",
+      "description": "Run a Python script with the Windows python interpreter.",
+      "runtime": "python",
+      "os": "windows",
+      "category": "other",
+      "tags": [
+        "windows",
+        "python",
+        "script"
+      ],
+      "icon": "FileCode",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * *"
+      },
+      "commandTemplate": "python \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_node_windows",
+      "name": "Node.js Script (Windows)",
+      "description": "Run a Node.js script with node on Windows.",
+      "runtime": "node",
+      "os": "windows",
+      "category": "other",
+      "tags": [
+        "windows",
+        "node",
+        "script"
+      ],
+      "icon": "Hexagon",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/30 * * * *"
+      },
+      "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_run_exe",
+      "name": "Run a Program / .exe",
+      "description": "Launch an executable or binary directly on a schedule.",
+      "runtime": "executable",
+      "os": "windows",
+      "category": "other",
+      "tags": [
+        "windows",
+        "executable"
+      ],
+      "icon": "AppWindow",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * 1"
+      },
+      "commandTemplate": "\"{{exePath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "exePath",
+          "label": "Executable path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the .exe / binary."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_webhook_windows",
+      "name": "Webhook / HTTP Ping (Windows)",
+      "description": "Call a URL on a schedule using Invoke-WebRequest.",
+      "runtime": "http",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "windows",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "icon": "Globe",
+      "isStarter": true,
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/15 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri '{{url}}' -Method {{method}} -UseBasicParsing\"",
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The endpoint to call."
+        },
+        {
+          "key": "method",
+          "label": "HTTP method",
+          "type": "select",
+          "default": "GET",
+          "required": true,
+          "options": [
+            "GET",
+            "POST"
+          ],
+          "help": "HTTP verb for the request."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_vbscript",
+      "name": "VBScript (legacy)",
+      "description": "Run a legacy .vbs script via cscript.",
+      "runtime": "vbscript",
+      "os": "windows",
+      "category": "other",
+      "tags": [
+        "windows",
+        "vbscript",
+        "legacy"
+      ],
+      "icon": "FileCode",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 6 * * *"
+      },
+      "commandTemplate": "cscript //nologo \"{{scriptPath}}\"",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_zsh_script",
+      "name": "Shell Script (zsh)",
+      "description": "Run a shell script with zsh, the macOS default shell.",
+      "runtime": "zsh",
+      "os": "macos",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell",
+        "zsh"
+      ],
+      "icon": "Terminal",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "commandTemplate": "/bin/zsh \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_bash_script",
+      "name": "Shell Script (bash)",
+      "description": "Run a shell script with bash on macOS or Linux.",
+      "runtime": "bash",
+      "os": "macos",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell",
+        "bash"
+      ],
+      "icon": "Terminal",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "commandTemplate": "/bin/bash \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_python_macos",
+      "name": "Python Script (macOS)",
+      "description": "Run a Python script with python3 on macOS.",
+      "runtime": "python",
+      "os": "macos",
+      "category": "other",
+      "tags": [
+        "macos",
+        "python",
+        "script"
+      ],
+      "icon": "FileCode",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * *"
+      },
+      "commandTemplate": "python3 \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_node_macos",
+      "name": "Node.js Script (macOS)",
+      "description": "Run a Node.js script with node on macOS.",
+      "runtime": "node",
+      "os": "macos",
+      "category": "other",
+      "tags": [
+        "macos",
+        "node",
+        "script"
+      ],
+      "icon": "Hexagon",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/30 * * * *"
+      },
+      "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_applescript",
+      "name": "AppleScript",
+      "description": "Run an AppleScript file via osascript.",
+      "runtime": "applescript",
+      "os": "macos",
+      "category": "other",
+      "tags": [
+        "macos",
+        "applescript"
+      ],
+      "icon": "Apple",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 18 * * *"
+      },
+      "commandTemplate": "osascript \"{{scriptPath}}\"",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_shell_inline_macos",
+      "name": "Inline Shell Command (macOS)",
+      "description": "Run an inline shell command via zsh.",
+      "runtime": "zsh",
+      "os": "macos",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell"
+      ],
+      "icon": "Terminal",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 * * * *"
+      },
+      "commandTemplate": "/bin/zsh -c \"{{command}}\"",
+      "parameters": [
+        {
+          "key": "command",
+          "label": "Command",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The command/code to run inline."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_webhook_macos",
+      "name": "Webhook / HTTP Ping (macOS)",
+      "description": "Call a URL on a schedule using curl.",
+      "runtime": "http",
+      "os": "macos",
+      "category": "monitoring",
+      "tags": [
+        "macos",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "icon": "Globe",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/15 * * * *"
+      },
+      "commandTemplate": "curl -fsS -X {{method}} \"{{url}}\"",
+      "parameters": [
+        {
+          "key": "method",
+          "label": "HTTP method",
+          "type": "select",
+          "default": "GET",
+          "required": true,
+          "options": [
+            "GET",
+            "POST"
+          ],
+          "help": "HTTP verb for the request."
+        },
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The endpoint to call."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_python_cross",
+      "name": "Python Script (cross-platform)",
+      "description": "Run a Python script on Windows or macOS (interpreter resolved at apply-time).",
+      "runtime": "python",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "python",
+        "script"
+      ],
+      "icon": "FileCode",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * *"
+      },
+      "commandTemplate": "python \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_node_cross",
+      "name": "Node.js Script (cross-platform)",
+      "description": "Run a Node.js script on Windows or macOS.",
+      "runtime": "node",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "node",
+        "script"
+      ],
+      "icon": "Hexagon",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * *"
+      },
+      "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the script on the target machine."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_git_sync",
+      "name": "Git Pull / Repo Sync",
+      "description": "Pull the latest commits for a local git repository on a schedule.",
+      "runtime": "bash",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "git",
+        "dev",
+        "sync"
+      ],
+      "icon": "GitBranch",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 */6 * * *"
+      },
+      "commandTemplate": "git -C \"{{repoPath}}\" pull",
+      "parameters": [
+        {
+          "key": "repoPath",
+          "label": "Repository path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the local git repository."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_claude_routine",
+      "name": "Claude Code Routine",
+      "description": "Run a natural-language Claude Code routine on a schedule.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "claude-code"
+      ],
+      "icon": "Sparkles",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "commandTemplate": "{{prompt}}",
+      "parameters": [
+        {
+          "key": "prompt",
+          "label": "Prompt",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The natural-language instruction for the agent."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_chatgpt_link",
+      "name": "ChatGPT Automation (link)",
+      "description": "Quick-link to create a ChatGPT automation (no public API — opens native UI).",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "chatgpt"
+      ],
+      "icon": "MessageSquare",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "commandTemplate": "{{prompt}}",
+      "parameters": [
+        {
+          "key": "prompt",
+          "label": "Prompt",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The natural-language instruction for the agent."
+        }
+      ],
+      "compatibleTargets": [
+        "chatgpt"
+      ]
+    }
+  ]
+}

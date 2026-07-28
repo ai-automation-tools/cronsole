@@ -20,10 +20,11 @@ real compilers today. A declared-but-uncompiled `compatibleTargets` entry is the
 ## The pipeline
 
 ```
-backend/src/catalog/bundled.ts     ← SOURCE OF TRUTH. Edit here.
+backend/src/catalog/bundled.ts     ← SOURCE OF TRUTH (templates). Edit here.
+backend/src/catalog/packs.ts       ← SOURCE OF TRUTH (pack membership). Edit here.
         │  npm run registry:build  (backend/)
         ▼
-registry/                          ← GENERATED. index.json + templates/*.json
+registry/                          ← GENERATED. index.json + templates/*.json + packs/*.json
         │                            content-addressed (sha256). NEVER hand-edit.
         │  pwsh scripts/publish-registry.ps1
         ▼
@@ -93,6 +94,35 @@ Two guardrails that must never break:
 }
 ```
 
+## Packs (`index.json` → `packs[]`)
+
+A **pack** is a curated set a user imports in one action. `index.json` carries an optional
+`packs[]`; each entry points at a self-contained bundle:
+
+```jsonc
+{
+  "id": "developer",                              // kebab; also packs/<id>.json
+  "name": "Developer Pack",
+  "description": "Keep repos fresh and toolchains healthy…",
+  "templateIds": ["dev-git-fetch-prune", "…"],    // DECLARED, not derived
+  "path": "packs/developer.json",
+  "sha256": "61092b23f86f…"                        // over the EXACT bundle bytes
+}
+```
+
+The bundle is `{ taskhubCatalogVersion, pack, templates[] }` — **the exact shape
+`POST /api/templates/import` accepts**, so a pack download is one file and one import. Import
+reads `.templates` and ignores the rest.
+
+| Rule | Why |
+|:---|:---|
+| **Membership is declared in `packs.ts`, never derived from tags** | The gallery used to infer collections from `tags.includes('dev')`. Tagging an unrelated template then silently changed what the pack contained — fine for a filtered view, **not** for a file that lands in someone's catalog. |
+| **`buildRegistry` throws on an unknown or duplicated id** | Turns silent drift into a broken build. That is the whole point of declaring. |
+| **`packs` is optional in both directions** | A pre-packs registry has no key and parses; a pre-packs app parses a registry that has one (`z.object()` strips unknown keys). No coordinated release needed. Omitted entirely when empty, so a pre-packs registry stays byte-identical. |
+| **No timestamp inside a bundle** | Registry files are hashed over exact bytes; a clock would change the hash every build and make the drift test meaningless. |
+| **Every template belongs to ≥1 pack; overlap is fine** | A template in no pack is unreachable by collection and makes "download every pack" less than the catalog. A test asserts 55/55. |
+| **The registry owns data; the gallery owns presentation** | Icons/colors are keyed by pack id in the site with a default — adding a pack needs no site change. |
+
 ## Adding or changing a template
 
 > [!IMPORTANT]
@@ -112,6 +142,10 @@ Two guardrails that must never break:
 3. Tag it (`tags: []`) — free-form, distinct from the single `category` enum.
 4. Keep `exec` **no-shell**: `{executable, args[]}`. Opt into a shell explicitly
    (`cmd.exe /c "…"`) only when the template genuinely needs one.
+4a. **Put it in at least one pack** — add its id to a pack in `backend/src/catalog/packs.ts`.
+   A template in no pack is unreachable by browsing the gallery's collections, and makes
+   "download every pack" quietly less than the catalog; a test asserts full coverage, so
+   skipping this **fails the build**. Overlap is fine — a template may be in several packs.
 5. Rebuild: `cd backend && npm run registry:build`
 6. Test: `npm test` — the **whole-catalog resolvability** test pushes every `commandTemplate`
    through the Apply pipeline, and the **drift test** fails if `registry/` doesn't match

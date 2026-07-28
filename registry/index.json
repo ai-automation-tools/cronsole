@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-15T21:09:14.869Z",
+  "updatedAt": "2026-07-28T18:26:33.185Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1061,6 +1061,126 @@
       ],
       "path": "templates/ntf-log-heartbeat.json",
       "sha256": "1bb767472b0cbf03a8df7c392bc23360e618eabd27e940c016a0ee94b669486a"
+    }
+  ],
+  "packs": [
+    {
+      "id": "starters",
+      "name": "Script Starters",
+      "description": "Blank-slate primitives for PowerShell, Bash, Python, Node, executables and HTTP — the fastest way to schedule any command.",
+      "templateIds": [
+        "tpl_starter_powershell_script",
+        "tpl_starter_powershell_inline",
+        "tpl_starter_batch_script",
+        "tpl_starter_python_windows",
+        "tpl_starter_node_windows",
+        "tpl_starter_run_exe",
+        "tpl_starter_webhook_windows",
+        "tpl_starter_vbscript",
+        "tpl_starter_zsh_script",
+        "tpl_starter_bash_script",
+        "tpl_starter_python_macos",
+        "tpl_starter_node_macos",
+        "tpl_starter_applescript",
+        "tpl_starter_shell_inline_macos",
+        "tpl_starter_webhook_macos",
+        "tpl_starter_python_cross",
+        "tpl_starter_node_cross",
+        "tpl_starter_git_sync",
+        "tpl_starter_claude_routine",
+        "tpl_starter_chatgpt_link"
+      ],
+      "path": "packs/starters.json",
+      "sha256": "5391df7eae8b5f7c03087755e587d6cb49fdd2c3f630ac0ed685c6776a0f4bb3"
+    },
+    {
+      "id": "developer",
+      "name": "Developer Pack",
+      "description": "Keep repos fresh and toolchains healthy: git hygiene, npm checks, builds, tests, Docker upkeep.",
+      "templateIds": [
+        "dev-git-fetch-prune",
+        "dev-git-maintenance",
+        "dev-git-autocommit-push",
+        "dev-npm-outdated-check",
+        "dev-npm-nightly-build",
+        "dev-npm-test-run",
+        "dev-dotnet-build",
+        "dev-docker-prune",
+        "dev-docker-compose-up",
+        "tpl_github_pr_triage",
+        "tpl_starter_git_sync"
+      ],
+      "path": "packs/developer.json",
+      "sha256": "61092b23f86f123c3325b21b5ed24684f18bef4b3f4c0d396091bcdc25d2d411"
+    },
+    {
+      "id": "ai-agents",
+      "name": "AI & Agents",
+      "description": "Run Claude Code and Codex unattended — headless prompts, repo digests, autofix — plus AI prompt patterns.",
+      "templateIds": [
+        "ai-claude-headless-run",
+        "ai-claude-repo-digest",
+        "ai-claude-autofix-commit",
+        "ai-claude-log-cleanup",
+        "ai-codex-headless-run",
+        "ai-codex-repo-digest",
+        "ai-codex-autofix-workspace",
+        "tpl_morning_news_digest",
+        "tpl_github_pr_triage",
+        "tpl_starter_claude_routine",
+        "tpl_starter_chatgpt_link"
+      ],
+      "path": "packs/ai-agents.json",
+      "sha256": "22b4af81f091aac120c74caa0a7f3eb66849be8d297eaf4858cdacc0ff7e9c2c"
+    },
+    {
+      "id": "backup-cleanup",
+      "name": "Backup & Cleanup",
+      "description": "Protect data and reclaim disk: scheduled database backups, folder mirrors, temp-file sweeps, and log rotation.",
+      "templateIds": [
+        "tpl_daily_database_backup",
+        "tpl_weekly_system_cleanup",
+        "bkp-folder-zip",
+        "bkp-robocopy-mirror",
+        "cln-old-files",
+        "cln-recycle-bin",
+        "dev-docker-prune",
+        "ai-claude-log-cleanup"
+      ],
+      "path": "packs/backup-cleanup.json",
+      "sha256": "53f9711365e58a1d14b3e5077efe99ef2b3dc56e785dcf6c1bc3eb5e5858085e"
+    },
+    {
+      "id": "monitoring",
+      "name": "Monitoring",
+      "description": "Watch what matters — health checks, webhooks, disk reports, and status pings on a schedule.",
+      "templateIds": [
+        "mon-disk-report",
+        "mon-ping-host",
+        "mon-service-health",
+        "dev-docker-compose-up",
+        "tpl_starter_webhook_windows",
+        "tpl_starter_webhook_macos"
+      ],
+      "path": "packs/monitoring.json",
+      "sha256": "1b514319e1ac15fb664af15c9655eb88664cf5bbf44e12a550d6828565820920"
+    },
+    {
+      "id": "system-utilities",
+      "name": "System & Utilities",
+      "description": "Windows housekeeping and plumbing: service restarts, DNS flushes, update scans, battery and event-log reports, cloud sync, and heartbeats.",
+      "templateIds": [
+        "sys-restart-service",
+        "sys-flush-dns",
+        "sys-update-scan",
+        "sys-battery-report",
+        "data-export-eventlog",
+        "data-rclone-sync",
+        "ntf-discord-heartbeat",
+        "ntf-log-heartbeat"
+      ],
+      "path": "packs/system-utilities.json",
+      "sha256": "76720b497892e1c29224d8315a8f6b5f4d5c1175755a2a39df0c8afd6c92eac6"
     }
   ]
 }

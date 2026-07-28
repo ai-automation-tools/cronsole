@@ -1,0 +1,296 @@
+{
+  "taskhubCatalogVersion": "1.0",
+  "pack": {
+    "id": "system-utilities",
+    "name": "System & Utilities",
+    "description": "Windows housekeeping and plumbing: service restarts, DNS flushes, update scans, battery and event-log reports, cloud sync, and heartbeats."
+  },
+  "templates": [
+    {
+      "schemaVersion": "1.0",
+      "id": "sys-restart-service",
+      "name": "Restart a Windows Service",
+      "description": "Restart a Windows service on a schedule (e.g. to recover a flaky one).",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "service"
+      ],
+      "icon": "RefreshCw",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 3 * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Restart-Service -Name '{{serviceName}}' -Force\"",
+      "parameters": [
+        {
+          "key": "serviceName",
+          "label": "Service name",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The service short name (Get-Service to list). Runs elevated for most services."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "sys-flush-dns",
+      "name": "Flush DNS Cache",
+      "description": "Clear the Windows DNS resolver cache.",
+      "runtime": "executable",
+      "os": "windows",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "network",
+        "dns"
+      ],
+      "icon": "Network",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 6 * * *"
+      },
+      "commandTemplate": "ipconfig /flushdns",
+      "parameters": [],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "sys-update-scan",
+      "name": "Trigger Windows Update Scan",
+      "description": "Kick off a Windows Update detection scan on a schedule.",
+      "runtime": "executable",
+      "os": "windows",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "updates"
+      ],
+      "icon": "DownloadCloud",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "commandTemplate": "usoclient StartScan",
+      "parameters": [],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "sys-battery-report",
+      "name": "Generate Battery Report",
+      "description": "Write a laptop battery health report to an HTML file.",
+      "runtime": "executable",
+      "os": "windows",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "power",
+        "report"
+      ],
+      "icon": "BatteryCharging",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * 1"
+      },
+      "commandTemplate": "powercfg /batteryreport /output \"{{outFile}}\"",
+      "parameters": [
+        {
+          "key": "outFile",
+          "label": "Report output path",
+          "type": "path",
+          "default": "C:\\reports\\battery-report.html",
+          "required": true,
+          "help": "Where to write the battery report (.html)."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "data-export-eventlog",
+      "name": "Export Windows Event Log",
+      "description": "Archive a Windows event log (System, Application, …) to an .evtx file.",
+      "runtime": "executable",
+      "os": "windows",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "windows",
+        "eventlog",
+        "archive"
+      ],
+      "icon": "FileArchive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 0 * * 0"
+      },
+      "commandTemplate": "wevtutil epl \"{{logName}}\" \"{{outFile}}\" /ow:true",
+      "parameters": [
+        {
+          "key": "logName",
+          "label": "Event log",
+          "type": "text",
+          "default": "System",
+          "required": true,
+          "help": "Log channel to export (System, Application, Security, …)."
+        },
+        {
+          "key": "outFile",
+          "label": "Output .evtx path",
+          "type": "path",
+          "default": "C:\\logs\\System.evtx",
+          "required": true,
+          "help": "Where to write the exported log. /ow:true overwrites."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "data-rclone-sync",
+      "name": "Sync Folder to Cloud (rclone)",
+      "description": "Sync a local folder to a configured rclone remote (S3, Drive, B2, …).",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "sync",
+        "cloud",
+        "rclone",
+        "backup"
+      ],
+      "icon": "CloudUpload",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 23 * * *"
+      },
+      "commandTemplate": "rclone sync \"{{source}}\" \"{{dest}}\" --log-file \"{{logFile}}\"",
+      "parameters": [
+        {
+          "key": "source",
+          "label": "Local source",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "Local path to sync from. Requires rclone installed + a configured remote."
+        },
+        {
+          "key": "dest",
+          "label": "Remote destination",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "rclone remote target, e.g. mydrive:backups/photos."
+        },
+        {
+          "key": "logFile",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\rclone.log",
+          "required": true,
+          "help": "Where rclone writes its run log."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "ntf-discord-heartbeat",
+      "name": "Discord Webhook Message",
+      "description": "Post a scheduled message to a Discord channel via a webhook.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "discord",
+        "webhook"
+      ],
+      "icon": "Bell",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-RestMethod -Uri '{{webhookUrl}}' -Method Post -ContentType 'application/json' -Body (@{ content = '{{message}}' } | ConvertTo-Json)\"",
+      "parameters": [
+        {
+          "key": "webhookUrl",
+          "label": "Discord webhook URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "Channel → Integrations → Webhooks → Copy URL."
+        },
+        {
+          "key": "message",
+          "label": "Message",
+          "type": "text",
+          "default": "TaskHub scheduled heartbeat",
+          "required": true,
+          "help": "The text to post. Avoid single quotes (they close the PowerShell string)."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "ntf-log-heartbeat",
+      "name": "Heartbeat to Log File",
+      "description": "Append a timestamped line to a log — a simple \"am I still scheduled?\" check.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "heartbeat",
+        "logs"
+      ],
+      "icon": "FileClock",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/10 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Add-Content -Path '{{logPath}}' -Value (Get-Date)\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\heartbeat.log",
+          "required": true,
+          "help": "Where to append the heartbeat timestamp."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    }
+  ]
+}

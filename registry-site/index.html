@@ -490,6 +490,7 @@
       arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
       back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
       dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>',
+      gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
       copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
       info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
       x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
@@ -519,15 +520,80 @@
       return I.code;
     }
 
-    // ---------- collections (curated) ----------
-    var COLLECTIONS = [
-      { key: "starters", title: "Script Starters", tagline: "Blank-slate primitives for PowerShell, Bash, Python, Node, executables and HTTP — the fastest way to schedule any command.", icon: I.spark, glow: "var(--violet-soft)", iconBg: "var(--violet-soft)", iconFg: "var(--violet-hi)", match: function (t) { return !!t.isStarter; } },
-      { key: "developer", title: "Developer Pack", tagline: "Keep repos fresh and toolchains healthy: git hygiene, npm checks, builds, tests, Docker upkeep.", icon: I.code, glow: "var(--cyan-soft)", iconBg: "var(--cyan-soft)", iconFg: "var(--cyan)", match: function (t) { return (t.tags || []).indexOf("dev") !== -1; } },
-      { key: "ai-agents", title: "AI & Agents", tagline: "Run Claude Code and Codex unattended — headless prompts, repo digests, autofix — plus AI prompt patterns.", icon: I.bot, glow: "var(--phosphor-soft)", iconBg: "var(--phosphor-soft)", iconFg: "var(--phosphor)", match: function (t) { return t.category === "ai-agent" || (t.tags || []).indexOf("ai") !== -1; } },
-      { key: "backup-cleanup", title: "Backup & Cleanup", tagline: "Protect data and reclaim disk: scheduled database backups, temp-file sweeps, and log rotation.", icon: I.shield, glow: "rgba(251,191,36,.14)", iconBg: "rgba(251,191,36,.14)", iconFg: "var(--amber)", match: function (t) { return t.category === "backup" || t.category === "cleanup"; } },
-      { key: "monitoring", title: "Monitoring", tagline: "Watch what matters — health checks, webhooks, and status pings on a schedule.", icon: I.pulse, glow: "rgba(251,113,133,.14)", iconBg: "rgba(251,113,133,.14)", iconFg: "var(--rose)", match: function (t) { return t.category === "monitoring"; } }
-    ];
+    // ---------- collections (packs from the registry) ----------
+    //
+    // Membership comes from index.json `packs[]`, NOT from tag predicates. It
+    // used to be `tags.indexOf("dev") !== -1`, which meant tagging an unrelated
+    // template `dev` silently changed what the Developer Pack contained — fine
+    // while a collection was only a filtered view, not fine now that a pack is a
+    // downloadable file that lands in someone's catalog.
+    //
+    // The registry owns the data (id, name, description, members, bundle path);
+    // the site owns only presentation. A pack with no entry below still renders,
+    // with the default look — so adding a pack to the registry needs no change
+    // here.
+    var PACK_STYLE = {
+      "starters":         { icon: I.spark,  glow: "var(--violet-soft)",     iconBg: "var(--violet-soft)",     iconFg: "var(--violet-hi)" },
+      "developer":        { icon: I.code,   glow: "var(--cyan-soft)",       iconBg: "var(--cyan-soft)",       iconFg: "var(--cyan)" },
+      "ai-agents":        { icon: I.bot,    glow: "var(--phosphor-soft)",   iconBg: "var(--phosphor-soft)",   iconFg: "var(--phosphor)" },
+      "backup-cleanup":   { icon: I.shield, glow: "rgba(251,191,36,.14)",   iconBg: "rgba(251,191,36,.14)",   iconFg: "var(--amber)" },
+      "monitoring":       { icon: I.pulse,  glow: "rgba(251,113,133,.14)",  iconBg: "rgba(251,113,133,.14)",  iconFg: "var(--rose)" },
+      "system-utilities": { icon: I.gear,   glow: "rgba(148,163,184,.16)",  iconBg: "rgba(148,163,184,.16)",  iconFg: "var(--ink-2)" }
+    };
+    var DEFAULT_PACK_STYLE = { icon: I.spark, glow: "var(--violet-soft)", iconBg: "var(--violet-soft)", iconFg: "var(--violet-hi)" };
+
+    // Built from the registry at load time (see the fetch at the bottom).
+    var COLLECTIONS = [];
+
+    function buildCollections(packs) {
+      return (packs || []).map(function (p) {
+        var style = PACK_STYLE[p.id] || DEFAULT_PACK_STYLE;
+        var ids = p.templateIds || [];
+        return {
+          key: p.id,
+          title: p.name,
+          tagline: p.description || "",
+          path: p.path,
+          templateIds: ids,
+          icon: style.icon, glow: style.glow, iconBg: style.iconBg, iconFg: style.iconFg,
+          match: function (t) { return ids.indexOf(t.id) !== -1; }
+        };
+      });
+    }
     function collByKey(k) { for (var i = 0; i < COLLECTIONS.length; i++) if (COLLECTIONS[i].key === k) return COLLECTIONS[i]; return null; }
+
+    // Download a whole pack as ONE file.
+    //
+    // The bundle is served pre-built and content-addressed, so this is a plain
+    // fetch of `packs/<id>.json` — the browser never assembles it from N
+    // template files, which means what you download is byte-for-byte what the
+    // registry published. It is already in the shape TaskHub's importer accepts,
+    // so it imports in one step.
+    function downloadPack(coll) {
+      if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
+      fetch("./" + coll.path).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      }).then(function (text) {
+        var blob = new Blob([text], { type: "application/json" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "taskhub-pack-" + coll.key + ".json";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        toast("Downloaded " + pluralize(coll.templateIds.length, "template") + " — import in TaskHub → Templates → Import");
+      }).catch(function (e) { toast("Pack download failed: " + e.message, "err"); });
+    }
+
+    function copyPack(coll) {
+      if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
+      fetch("./" + coll.path).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      }).then(function (text) { return copyText(text); })
+        .then(function () { toast("Pack JSON copied — paste into TaskHub → Import"); })
+        .catch(function (e) { toast("Copy failed: " + e.message, "err"); });
+    }
 
     // ---------- state ----------
     var TEMPLATES = [], FULL = {}, LOADED = false, LOAD_ERR = null;
@@ -703,10 +769,21 @@
       var c = collByKey(key);
       if (!c) return notFound("Collection not found");
       var list = sortList(TEMPLATES.filter(c.match), "featured");
+      // One button, one file, one import — rather than downloading N templates
+      // by hand and importing them one at a time.
+      var actions = c.path
+        ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">' +
+            '<button class="btn primary" data-dlpack="' + esc(c.key) + '">' + I.dl + ' Download all ' + list.length + '</button>' +
+            '<button class="btn" data-copypack="' + esc(c.key) + '">' + I.copy + ' Copy pack JSON</button>' +
+          '</div>' +
+          '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:10px">' +
+            'One file — import it in TaskHub → Templates → Import.</p>'
+        : '';
       return '<div class="wrap"><div class="crumb"><a data-nav="#/">Home</a>' + I.arrow + '<a data-nav="#/collections">Collections</a>' + I.arrow + '<span>' + esc(c.title) + '</span></div>' +
         '<div class="detail-hero"><div class="ic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
         '<div><h1>' + esc(c.title) + '</h1><p class="dsub">' + esc(c.tagline) + '</p>' +
-        '<div class="mono" style="color:var(--ink-3);font-size:13px;margin-top:12px">' + pluralize(list.length, "template") + '</div></div></div>' +
+        '<div class="mono" style="color:var(--ink-3);font-size:13px;margin-top:12px">' + pluralize(list.length, "template") + '</div>' +
+        actions + '</div></div>' +
         '<div style="padding-bottom:70px">' + cardGrid(list) + '</div></div>';
     }
 
@@ -957,6 +1034,13 @@
       var tag = e.target.closest("[data-tag]");
       if (tag) { browseState.tags = [tag.getAttribute("data-tag")]; browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.search = ""; location.hash = "#/browse"; return; }
 
+      // Pack actions — delegated (like the rail) so they keep working after a
+      // re-render, and checked BEFORE [data-nav] would swallow the click.
+      var dlp = e.target.closest("[data-dlpack]");
+      if (dlp) { e.stopPropagation(); downloadPack(collByKey(dlp.getAttribute("data-dlpack"))); return; }
+      var cpp = e.target.closest("[data-copypack]");
+      if (cpp) { e.stopPropagation(); copyPack(collByKey(cpp.getAttribute("data-copypack"))); return; }
+
       // browse rail interactions (event-delegated so re-renders keep working)
       var fopt = e.target.closest(".fopt[data-fdim]");
       if (fopt) { toggleArr(browseState[fopt.getAttribute("data-fdim")], fopt.getAttribute("data-fval")); refreshBrowse(); return; }
@@ -1004,7 +1088,16 @@
 
     // ---------- boot ----------
     fetch(INDEX_URL, { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " fetching index.json"); return r.json(); })
-      .then(function (data) { TEMPLATES = (data && data.templates) || []; LOADED = true; if (!TEMPLATES.length) LOAD_ERR = "The registry has no templates."; route(); })
+      .then(function (data) {
+        TEMPLATES = (data && data.templates) || [];
+        // `packs` is optional in the index — a registry published before packs
+        // existed simply has none, and the Collections views render empty
+        // rather than breaking.
+        COLLECTIONS = buildCollections(data && data.packs);
+        LOADED = true;
+        if (!TEMPLATES.length) LOAD_ERR = "The registry has no templates.";
+        route();
+      })
       .catch(function (e) { LOAD_ERR = e.message; route(); });
     route();
   })();

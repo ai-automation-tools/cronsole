@@ -147,11 +147,62 @@ export const registryIndexEntrySchema = z.object({
   sha256: z.string().regex(/^[a-f0-9]{64}$/, 'sha256 must be 64 lowercase hex chars.')
 });
 
+// --- Packs -------------------------------------------------------------------
+// A curated set of templates a user can import in one go. Membership is
+// declared (see catalog/packs.ts), never derived from tags — once a pack is a
+// downloadable artifact, "the Developer Pack quietly gained a member because
+// someone added a tag" changes what lands in someone's catalog.
+//
+// `path` points at a self-contained bundle in the *shape import already
+// accepts*, so downloading a pack and importing it is one step, not two.
+export const registryPackSchema = z.object({
+  id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, 'Pack id must be lowercase kebab-case.'),
+  name: z.string(),
+  description: z.string().optional(),
+  /** Ids of the templates in this pack. Every one must exist in `templates`. */
+  templateIds: z.array(z.string()).min(1, 'A pack must contain at least one template.'),
+  /** Registry-relative path to the bundle, e.g. "packs/developer.json". */
+  path: z.string(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/, 'sha256 must be 64 lowercase hex chars.')
+});
+
 export const registryIndexSchema = z.object({
   registryVersion: z.literal('1.0'),
   updatedAt: z.string().optional(),
-  templates: z.array(registryIndexEntrySchema)
+  templates: z.array(registryIndexEntrySchema),
+  /**
+   * Optional on purpose, in both directions:
+   *  - a registry published before packs existed has no `packs` key and must
+   *    still parse, and
+   *  - an app built before packs existed parses a registry that has one, because
+   *    `z.object()` strips unknown keys rather than rejecting them.
+   * So the key can roll out without a coordinated release.
+   */
+  packs: z.array(registryPackSchema).optional()
+});
+
+/**
+ * A downloadable pack bundle (`packs/<id>.json`).
+ *
+ * Deliberately shaped like the catalog export bundle (`taskhubCatalogVersion` +
+ * `templates`) so import accepts it untouched, with a `pack` block added for
+ * provenance — import reads `.templates` and ignores the rest.
+ *
+ * Note there is **no timestamp**: registry files are content-addressed by
+ * sha256 over their exact bytes, so a clock in the payload would change the
+ * hash on every build and make the drift test meaningless.
+ */
+export const registryPackBundleSchema = z.object({
+  taskhubCatalogVersion: z.literal('1.0'),
+  pack: z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().optional()
+  }),
+  templates: z.array(registryTemplateSchema)
 });
 
 export type RegistryIndex = z.infer<typeof registryIndexSchema>;
 export type RegistryIndexEntry = z.infer<typeof registryIndexEntrySchema>;
+export type RegistryPack = z.infer<typeof registryPackSchema>;
+export type RegistryPackBundle = z.infer<typeof registryPackBundleSchema>;

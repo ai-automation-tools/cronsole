@@ -150,6 +150,7 @@ Two things about that listing that will otherwise mislead you:
 | Run history | ✅ `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export | ✅ `export_task` | `GET /api/tasks/:id/export` (Windows→XML, native→JSON) |
 | **Bulk export / backup** | ❌ | `POST /api/tools/export/tasks` — all folders or one, as native XML. Exports what is **on the machine**, not just tracked tasks; `\Microsoft\` excluded unless `includeSystem: true`. Dashboard: **Tools** tab |
+| **Restore from a backup** | ❌ | `POST /api/tools/restore/tasks` — the write twin. `dryRun: true` returns a **plan** (create / overwrite / skip / refuse per file) and writes nothing; that is the only honest way to see what an archive contains first. `overwrite` and `createFolders` both default **false**. Restoring puts a task on the machine — it does **not** make TaskHub track it. Dashboard: **Tools** tab |
 | **Untrack** (remove from TaskHub, keep it running) | ✅ `untrack_task` — ungated | `POST /api/tasks/:id/untrack` |
 | **Delete** | ⚠️ `delete_task` — **only** with `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
 | Template import/export, save-as-template, sync, pairing | ❌ | REST / UI only |

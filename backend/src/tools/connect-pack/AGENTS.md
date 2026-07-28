@@ -71,3 +71,8 @@ Best evidence is a real side effect — a log line, a file, an HTTP hit.
 `POST /api/tools/export/tasks` with `{"scope":"all","format":"zip"}` exports every task on the
 machine as native Task Scheduler XML — including tasks TaskHub never imported. The XML is
 UTF-16 LE with a BOM (the only encoding Windows re-imports), so handle it as raw bytes.
+
+`POST /api/tools/restore/tasks` puts them back. **Send `dryRun: true` first** — it returns a
+plan (create / overwrite / skip / refuse per file) and writes nothing, which is the only way to
+know what an archive will do before it does it. `overwrite` and `createFolders` are both `false`
+by default; leave them that way unless the human asked for the thing they enable.

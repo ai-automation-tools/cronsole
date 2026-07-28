@@ -138,7 +138,56 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 ---
 
-## 5. System Status & Connections
+## 5. Tools — backing up and restoring
+
+The **Tools** tab holds the things that act across *all* your tasks rather than one of them.
+
+### Back up scheduled tasks
+
+Saves Windows Task Scheduler tasks as native XML — either every folder on the machine, or one
+folder you pick.
+
+- **It exports what is on the machine, not just what TaskHub imported.** The tasks most at risk of
+  being lost are the ones nothing else is tracking, so those are exactly the ones a backup has to
+  include.
+- Windows' own `\Microsoft\` tasks are **excluded by default and counted out loud** — on a real
+  machine they outnumber yours roughly 3:1 and would bury what you came for.
+- On Chromium browsers you pick a destination folder and the export mirrors your Task Scheduler
+  folder tree into it. Everywhere else it downloads as a single `.zip`. Both include a
+  `_taskhub-export.json` manifest listing exactly what was saved — and what was skipped or failed.
+- **The files contain each task's full command line and the account it runs as.** If any of your
+  tasks pass secrets on the command line, treat the export like a password.
+
+### Restore tasks from a backup
+
+Puts them back. Feed it the `.zip`, the folder you exported to, or individual `.xml` files.
+
+- **You always see a plan before anything is written.** Picking files runs a dry run: TaskHub works
+  out what would happen to every file — *restore* / *replace* / *skip* / *refuse* — by checking what
+  is really on your machine, and changes nothing. The button underneath then tells you how many
+  tasks it will actually change.
+- **Overwrite is off by default.** A task that already exists is left exactly as it is and reported
+  as skipped. Turn on **Overwrite tasks that already exist** only when replacing the live task is
+  what you mean — Windows replaces a same-named task without asking.
+- **Recreate missing folders** is on by default, because the folder tree is part of what you backed
+  up. Every folder it creates is listed in the plan. One thing worth knowing before you click:
+  those folders are created by the agent, which runs with administrator rights, so **removing one
+  later needs an elevated Task Scheduler**. The same is true of the restored tasks themselves —
+  delete them through TaskHub (or an elevated Task Scheduler), not from a normal PowerShell prompt.
+- Some files are refused rather than restored, and the plan says why: a task that belongs under
+  `\Microsoft\` (Windows' own — a name collision there would silently destroy a real system task),
+  a file that isn't a task definition, or two files that would land on the same task path.
+- **Restoring a task does not add it to TaskHub.** It puts the task back on the machine; use
+  **Import** on the Dashboard if you want TaskHub to track it too.
+
+### Connect an AI tool
+
+Downloads a small instruction pack that teaches Claude, Codex, or Cursor how to drive *your*
+TaskHub — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection itself.
+
+---
+
+## 6. System Status & Connections
 
 - **Sidebar:** Shows a live per-platform health summary (Online / Degraded / Offline) driven by real connection checks, plus a "synced N ago" indicator.
 - **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand.
@@ -148,4 +197,4 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 ---
 
-*Last Updated: July 27, 2026*
+*Last Updated: July 28, 2026*

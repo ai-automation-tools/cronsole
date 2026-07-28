@@ -174,6 +174,62 @@ describe('WindowsAgentConnector', () => {
     expect(result.xml).toBe('<Task><Settings/></Task>');
   });
 
+  it('importTask returns a refusal when the socket is missing', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
+    const result = await connector.importTask('\\Work\\Job', '<Task/>', { overwrite: false, createFolders: false }, { userId: 'test_user' });
+    expect(result).toEqual({ success: false, outcome: 'refused', message: 'Agent offline', foldersCreated: [] });
+  });
+
+  it('importTask emits a SIGNED task:import carrying the XML and both flags', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+    const xml = '<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>';
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:imported') {
+        setTimeout(() => handler({
+          taskExternalId: '\\Work\\Job',
+          success: true,
+          outcome: 'created',
+          message: 'Task restored',
+          foldersCreated: ['\\Work']
+        }), 10);
+      }
+    });
+
+    const result = await connector.importTask('\\Work\\Job', xml, { overwrite: true, createFolders: true }, { userId: 'test_user' });
+
+    // Unlike export, this one WRITES — so it is signed, and the signature covers
+    // the XML and both flags (expectSignedCommand is exact, so a field going
+    // missing from the wire fails here rather than at the agent).
+    expectSignedCommand(mockSocket, 'task:import', {
+      event: 'task:import',
+      taskPath: '\\Work\\Job',
+      xml,
+      overwrite: true,
+      createFolders: true
+    });
+    expect(result).toEqual({
+      success: true,
+      outcome: 'created',
+      message: 'Task restored',
+      foldersCreated: ['\\Work']
+    });
+  });
+
+  it('importTask treats an outcome it does not recognize as a refusal', async () => {
+    // An outcome we cannot interpret must never read as success — that is the
+    // direction where being wrong costs the user a task.
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:imported') {
+        setTimeout(() => handler({ taskExternalId: '\\Work\\Job', success: true, outcome: 'probably-fine' }), 10);
+      }
+    });
+
+    const result = await connector.importTask('\\Work\\Job', '<Task/>', { overwrite: false, createFolders: false }, { userId: 'test_user' });
+    expect(result.outcome).toBe('refused');
+    expect(result.foldersCreated).toEqual([]);
+  });
+
   it('should throw "Invalid task list received from agent" if payload is missing tasks', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
 

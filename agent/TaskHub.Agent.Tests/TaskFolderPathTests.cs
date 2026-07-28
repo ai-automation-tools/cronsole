@@ -171,5 +171,57 @@ namespace TaskHub.Agent.Tests
             // fails. Pinned to the literal the backend sends.
             TaskFolderPath.Normalize(TaskFolderPath.Default).Should().Be("\\TaskHub");
         }
+
+        // A restore supplies a whole task PATH rather than a folder plus a name, so
+        // splitting it correctly is what decides which folder gets validated.
+        [Theory]
+        [InlineData("\\Work\\Backups\\Nightly", "\\Work\\Backups", "Nightly")]
+        [InlineData("\\Loose", "\\", "Loose")]
+        [InlineData("Work/Nightly", "\\Work", "Nightly")]
+        [InlineData("", "\\", "")]
+        public void ParentOfAndLeafOf_SplitATaskPath(string taskPath, string folder, string name)
+        {
+            TaskFolderPath.ParentOf(taskPath).Should().Be(folder);
+            TaskFolderPath.LeafOf(taskPath).Should().Be(name);
+        }
+
+        [Fact]
+        public void ParentOf_KeepsTheMicrosoftGuardReachable()
+        {
+            // The whole point of ParentOf: a system task's path must still resolve to
+            // a folder Validate refuses. If this returned the root, an archive full of
+            // \Microsoft\ tasks would sail past the guard.
+            TaskFolderPath.Validate(TaskFolderPath.ParentOf("\\Microsoft\\Windows\\Defender\\Scan"))
+                .Should().NotBeNull();
+        }
+
+        [Theory]
+        [InlineData("Nightly Backup")]
+        [InlineData("Task.With.Dots")]
+        [InlineData("Bells & Whistles")]
+        public void ValidateTaskName_AllowsRealNames(string name)
+        {
+            TaskFolderPath.ValidateTaskName(name).Should().BeNull();
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData(".")]
+        [InlineData("..")]
+        [InlineData("bad:name")]
+        [InlineData("bad*name")]
+        [InlineData("trailing ")]
+        [InlineData(" leading")]
+        [InlineData("trailing.")]
+        public void ValidateTaskName_RefusesNamesWindowsWouldMangleOrReject(string name)
+        {
+            // RegisterTaskDefinition throws ArgumentOutOfRangeException for most of
+            // these, which surfaces as an opaque failure. Refusing here says what is
+            // wrong. The trailing dot/space cases matter for a different reason:
+            // Windows silently strips them, so the name you asked for is not the name
+            // you would get back — and a restore that renames tasks is not a restore.
+            TaskFolderPath.ValidateTaskName(name).Should().NotBeNull();
+        }
     }
 }

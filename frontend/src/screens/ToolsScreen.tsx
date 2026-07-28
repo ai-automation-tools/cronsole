@@ -1,5 +1,6 @@
 import { BulkExportTool } from '../components/tools/BulkExportTool';
 import { ConnectPackTool } from '../components/tools/ConnectPackTool';
+import { RestoreTool } from '../components/tools/RestoreTool';
 
 /**
  * Utilities that act across tasks rather than on one — backup and AI-tool setup.
@@ -12,11 +13,12 @@ export const ToolsScreen = () => (
   <div className="space-y-8 animate-in fade-in duration-500 pb-20">
     <div>
       <h2 className="text-2xl font-bold mb-1">Tools</h2>
-      <p className="text-muted-foreground">Backup, and setup for other AI tools.</p>
+      <p className="text-muted-foreground">Back up and restore tasks, and connect AI tools.</p>
     </div>
 
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
       <BulkExportTool />
+      <RestoreTool />
       <ConnectPackTool />
     </div>
   </div>

@@ -45,6 +45,9 @@ The core loop. If any of this lies, the product has no reason to exist.
 | F1.6 | **Local categorization** | User categories and overrides persist and survive a re-sync | 🟡 |
 | F1.7 | **Search & filter** | Query matching, view tabs, active/disabled filters | ✅ `taskSearch.test.ts` |
 | F1.8 | **Export a task** | Windows → native Task Scheduler XML (**UTF-16 LE + BOM**); TaskHub-native → JSON | ✅ `task-export.integration.test.ts` |
+| F1.8a | **Bulk export** | Exports what is **on the machine**, not just tracked tasks; `\Microsoft\` excluded by default but **counted out loud**; every file is UTF-16 LE + BOM and byte-identical on both the ZIP and base64 paths; a manifest records what was saved, skipped and failed | ✅ `bulkExport.test.ts`, `BulkExportTool.test.tsx` |
+| F1.8b | **Restore plans before it writes** | A `dryRun` returns create / overwrite / skip / refuse per file, computed from the machine's real tasks and folders, and **writes nothing**; an offline agent is a 502 rather than a blind restore; the destination resolves manifest › `<URI>` › filename and says which | ✅ `taskRestore.test.ts`, `task-restore.integration.test.ts`, `RestoreTool.test.tsx` |
+| F1.8c | **Restore refuses by default** | An existing task reports the third state **`exists`** — neither success nor failure — and is left untouched unless `overwrite`; `\Microsoft\` is refused; two files targeting one path refuse the second; a missing folder is refused unless `createFolders`, naming the **shallowest** missing folder | ✅ `taskRestore.test.ts` · ✅ live pass 2026-07-28 (registration date unchanged on a skip; Defrag untouched) |
 | F1.9 | **Untrack ≠ delete** | Untrack removes TaskHub's row **and makes no platform call** — the scheduled task survives; the two verbs are distinct in label, styling and confirm copy, and the confirm names **what survives**; `TASKHUB_NATIVE` is refused rather than silently deleted | ✅ `task-untrack.integration.test.ts`, `TaskModal.test.tsx` |
 | F1.10 | **An untrack survives the next sync** | `scope: 'tracked'` sync does **not** re-import an untracked task (that re-import is correct by the sync's logic and reads as "untrack is broken"); an explicit **category import** clears the exclusion, and both `/discover` and the sync response say how many rows that moves | ✅ `TaskService.test.ts`, `syncSummary.test.ts` · 🟡 the sync-route wiring itself is covered live, not by a suite |
 
@@ -108,7 +111,8 @@ silent data loss lives.
 
 | # | Test type | What it must prove | Status |
 |:--|:---|:---|:--|
-| F6.1 | **Agent command handlers** | `task:run`, `task:scan`, `task:create`, `task:delete`, `task:export` each behave per contract | ✅ `AgentServiceTests.cs` |
+| F6.1 | **Agent command handlers** | `task:run`, `task:scan`, `task:create`, `task:delete`, `task:export`, `task:import` each behave per contract | ✅ `AgentServiceTests.cs` |
+| F6.1a | **`task:import` signs the definition, not just the path** | The task's whole XML is inside the signature as a sha256, so a **swapped definition** with an untouched path and flags fails verification and never registers; both blast-radius flags (`overwrite`, `createFolders`) are signed too; the digest itself matches Node byte-for-byte | ✅ `AgentServiceTests.cs`, `AgentAuthenticatorTests.cs` + the shared golden vector in `agentAuth.test.ts` |
 | F6.2 | **Agent config & auth** | Pairing config parses; authenticator derives the right token | ✅ `AgentConfigTests.cs`, `AgentAuthenticatorTests.cs` |
 | F6.3 | **Health diagnostics** | An invalid Claude key surfaces "Key authentication failed" **with** corrective instructions | ⬜ |
 | F6.4 | **Failure notifications** | Failed manual + scheduled native runs fire generic / Discord / ntfy webhooks | ✅ `FailureNotificationService.test.ts` |

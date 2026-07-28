@@ -58,6 +58,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Remove from TaskHub, keep it running | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
+| Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
 | Template import/export, sync, pairing | — | REST / dashboard only |
 
 ---

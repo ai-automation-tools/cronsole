@@ -96,6 +96,7 @@ confident lie is the worst possible failure mode here — worse than an error.
 | U5.2 | **Remote access** | [Remote Access Guide](../../user-guides/guides/Remote_Access_Guide.md) gets you to your own instance from another device | ⬜ P3 |
 | U5.3 | **Auto-start at logon** | Stack comes up at logon with **no console flash** | 🟡 |
 | U5.4 | **Export → re-import** | Exported XML/JSON is genuinely usable outside TaskHub | 🟡 |
+| U5.4a | **Backup → restore, as a user would do it** | Export the machine from the Tools tab, delete something on purpose, restore it, and confirm in **Task Scheduler** — not in TaskHub — that it came back intact. Then check the awkward part: a restored task is admin-owned, so removing it needs TaskHub or an elevated Task Scheduler ([#28](../../troubleshooting/README.md#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied)) | 🟡 API path done 2026-07-28; **the Tools-tab UI has not been driven in a browser** |
 | U5.5 | **Accessibility** | Keyboard-only navigation works; focus is visible; screen reader announces modals | ⬜ |
 | U5.6 | **Survives a reboot** | Everything reconnects on its own — no manual repair | 🟡 |
 

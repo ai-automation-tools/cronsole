@@ -318,6 +318,64 @@ namespace TaskHub.Agent
                 }
             });
 
+            // Event: task:import (Server commanded us to register a task from its
+            // native XML — the restore half of task:export). Unlike task:export this
+            // one WRITES, so it is signed like every other write verb, and the XML
+            // itself is inside the signature (by hash) because the XML *is* the task.
+            _socket.On("task:import", async response =>
+            {
+                var taskPath = "";
+                try
+                {
+                    var data = response.GetValue<JsonElement>(0);
+                    taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
+                    string xml = data.TryGetProperty("xml", out var x) && x.ValueKind == JsonValueKind.String
+                        ? x.GetString() ?? "" : "";
+                    bool overwrite = data.TryGetProperty("overwrite", out var ow) && ow.ValueKind == JsonValueKind.True;
+                    bool createFolders = data.TryGetProperty("createFolders", out var cf) && cf.ValueKind == JsonValueKind.True;
+
+                    // Hash the XML we actually received and verify THAT — so a
+                    // rewritten definition fails verification even though the path
+                    // and flags still look right.
+                    string xmlHash = AgentAuthenticator.Sha256Hex(xml);
+
+                    if (!TryReadSignature(data, out var nonce, out var ts, out var sig) ||
+                        !_auth.VerifyCommand(AgentAuthenticator.ImportMessage(taskPath, xmlHash, overwrite, createFolders, nonce, ts), ts, sig))
+                    {
+                        Console.WriteLine($"REJECTED unsigned/invalid task:import for {taskPath}");
+                        return;
+                    }
+
+                    Console.WriteLine($"Server command: task:import -> {taskPath} (bytes={xml.Length}, overwrite={overwrite}, createFolders={createFolders})");
+
+                    var result = _scheduler.ImportTaskXml(taskPath, xml, overwrite, createFolders);
+                    Console.WriteLine($"Import {taskPath}: {result.Outcome} — {result.Message}");
+
+                    await _socket.EmitAsync("task:imported", new[] { new {
+                        taskExternalId = taskPath,
+                        success = result.Success,
+                        outcome = result.Outcome,
+                        message = result.Message,
+                        foldersCreated = result.FoldersCreated
+                    }});
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error importing task: {ex.Message}");
+                    try
+                    {
+                        await _socket.EmitAsync("task:imported", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            outcome = "refused",
+                            message = FriendlyStatusError(ex),
+                            foldersCreated = new List<string>()
+                        }});
+                    }
+                    catch { /* socket gone — server's 15s timeout covers it */ }
+                }
+            });
+
             // Event: task:set_status (Server commanded us to enable/disable a task)
             _socket.On("task:set_status", async response =>
             {

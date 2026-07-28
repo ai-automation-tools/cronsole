@@ -31,6 +31,18 @@ namespace TaskHub.Agent
         // Export-ScheduledTask / the Task Scheduler UI's Export produces), so it
         // round-trips into any Windows machine. Null when no task exists at the path.
         string? ExportTaskXml(string path);
+        // Register a task from its native XML — the inverse of ExportTaskXml, and
+        // the only WRITE path that takes a whole task definition from outside.
+        //
+        // It therefore re-validates everything itself: the folder (never
+        // \Microsoft\), the task name, and whether something already lives at the
+        // path. `overwrite` false means an existing task is REFUSED, not replaced —
+        // enforced by Windows (TaskCreation.Create) rather than only by our own
+        // check, so a race can't turn a refusal into a silent overwrite.
+        // `createFolders` recreates a missing folder chain: the one carve-out to
+        // "TaskHub creates only \TaskHub", because a restore is the user asking for
+        // their own tree back by name. Both flags are inside the command signature.
+        AgentImportResult ImportTaskXml(string path, string xml, bool overwrite, bool createFolders);
     }
 
     // Structured action the agent registers as the task's ExecAction. The server
@@ -94,5 +106,33 @@ namespace TaskHub.Agent
         public string Path { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Outcome of one ImportTaskXml. Richer than AgentTaskResult because a restore
+    /// has more than two endings, and collapsing them would lie in both directions:
+    /// "already exists, left alone" is not a failure (nothing is wrong, and the
+    /// user's task is intact), and it is emphatically not a success (nothing was
+    /// restored). The caller reports the outcome verbatim.
+    /// </summary>
+    public class AgentImportResult
+    {
+        /// <summary>True only when the task was actually written.</summary>
+        public bool Success { get; set; }
+        /// <summary>Full path of the task, as registered or as refused.</summary>
+        public string Path { get; set; } = string.Empty;
+        /// <summary>
+        /// created | replaced | exists | refused — the honest verb for what happened.
+        /// `exists` is the deliberate third state: Success is false, but so is
+        /// "something went wrong".
+        /// </summary>
+        public string Outcome { get; set; } = "refused";
+        public string Message { get; set; } = string.Empty;
+        /// <summary>
+        /// Folders this import had to create, in creation order. Always reported,
+        /// even on success: TaskHub creating a folder is the exception to a standing
+        /// invariant, so it may never be silent.
+        /// </summary>
+        public List<string> FoldersCreated { get; set; } = new List<string>();
     }
 }

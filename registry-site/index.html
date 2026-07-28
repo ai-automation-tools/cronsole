@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TaskHub Template Gallery</title>
-  <meta name="description" content="Browse and import automation templates for TaskHub — the unified scheduled-task manager. A curated catalog of cron jobs, scripts, and AI-agent workflows you can filter, download, and import." />
+  <title>TaskHub — local-first control plane for your scheduled tasks</title>
+  <meta name="description" content="TaskHub is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code and Codex routines, AI-agent jobs. Browse and import ready-to-run automation templates from the open registry." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%238B5CF6'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <style>
     /* ============================================================
@@ -271,6 +271,34 @@
     .browse-head p { margin: 0; color: var(--ink-2); font-size: 15px; }
     .browse-layout { display: grid; grid-template-columns: 244px 1fr; gap: 30px; align-items: start; padding-bottom: 70px; }
     .rail { position: sticky; top: 78px; }
+    /* Global search — lives in the nav, so it is present on every view and,
+       crucially, sits OUTSIDE #app: route() replaces #app.innerHTML on every
+       render, which would blow away focus and the caret mid-keystroke if the
+       input lived inside it. */
+    .nav-search { position: relative; flex: 1; max-width: 340px; margin: 0 18px; }
+    .nav-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--ink-3); pointer-events: none; }
+    .nav-search input {
+      width: 100%; padding: 8px 34px 8px 34px; font-size: 13px; font-family: inherit;
+      background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-sm); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .nav-search input::placeholder { color: var(--ink-3); }
+    .nav-search input:focus { border-color: var(--violet); box-shadow: 0 0 0 3px var(--violet-soft); }
+    .nav-search-kbd {
+      position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+      font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+      border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; pointer-events: none;
+    }
+    .nav-search input:focus ~ .nav-search-kbd { opacity: 0; }
+    @media (max-width: 900px) { .nav-search { max-width: none; margin: 0 10px; } .nav-search-kbd { display: none; } }
+    /* Below 620px the brand + icon buttons eat ~240px of a 375px row, leaving
+       the search box barely 110px — an input too narrow to read what you typed.
+       Give it its own full-width row instead of letting it be squeezed. */
+    @media (max-width: 620px) {
+      .nav-inner { flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 10px; row-gap: 10px; }
+      .nav-search { order: 10; flex-basis: 100%; margin: 0; }
+    }
+
     .search-box { position: relative; margin-bottom: 18px; }
     .search-box svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--ink-3); pointer-events: none; }
     .search-box input {
@@ -439,6 +467,12 @@
         <span class="nav-link" data-nav="#/browse">Browse</span>
         <span class="nav-link" data-nav="#/collections">Collections</span>
         <span class="nav-link" id="nav-import">Import guide</span>
+        <a class="nav-link" href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">Get TaskHub</a>
+      </div>
+      <div class="nav-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="search" id="gsearch" placeholder="Search templates…" autocomplete="off" aria-label="Search templates">
+        <kbd class="nav-search-kbd">/</kbd>
       </div>
       <div class="nav-right">
         <button class="ibtn nav-toggle" id="navtoggle" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
@@ -457,7 +491,7 @@
         <span>TaskHub Template Registry · content-addressed · served via GitHub Pages</span>
       </div>
       <div class="fr">
-        <a href="https://mikesailab.com" target="_blank" rel="noopener">TaskHub</a>
+        <a href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">TaskHub on GitHub</a>
         <a href="https://mikesailab.com/taskhub-registry/index.json" target="_blank" rel="noopener">index.json</a>
         <a href="https://github.com/michaelschecht/taskhub-registry/issues" target="_blank" rel="noopener">Request a template</a>
       </div>
@@ -471,7 +505,32 @@
   (function () {
     "use strict";
 
+    /**
+     * Where the registry actually lives.
+     *
+     * This one file is served from TWO places: taskhub.mikesailab.com (the
+     * front door) and mikesailab.com/taskhub-registry/ (alongside the JSON).
+     * Only the second has index.json next to it.
+     *
+     * The registry base is deliberately NOT moved to the new domain: it is the
+     * documented `TEMPLATE_REGISTRY_URL` that installed TaskHubs already fetch
+     * from, so changing it would break catalog sync for every existing install.
+     * Instead the page tries its own directory first and falls back to the
+     * canonical origin — GitHub Pages serves `Access-Control-Allow-Origin: *`,
+     * so the cross-origin fetch is allowed.
+     */
+    var REGISTRY_BASE = "https://mikesailab.com/taskhub-registry/";
     var INDEX_URL = "./index.json";
+    var ASSET_BASE = "./";           // set to REGISTRY_BASE if the local index is absent
+
+    var LINKS = {
+      appRepo: "https://github.com/michaelschecht/taskhub",
+      quickStart: "https://github.com/michaelschecht/taskhub#-quick-start",
+      registryRepo: "https://github.com/michaelschecht/taskhub-registry",
+      registryIssues: "https://github.com/michaelschecht/taskhub-registry/issues"
+    };
+
+    var QUICKSTART = "git clone https://github.com/michaelschecht/taskhub.git\ncd taskhub\ndocker compose up -d";
 
     // ---------- label maps ----------
     var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };
@@ -490,6 +549,7 @@
       arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
       back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
       dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>',
+      gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
       copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
       info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
       x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
@@ -519,19 +579,87 @@
       return I.code;
     }
 
-    // ---------- collections (curated) ----------
-    var COLLECTIONS = [
-      { key: "starters", title: "Script Starters", tagline: "Blank-slate primitives for PowerShell, Bash, Python, Node, executables and HTTP — the fastest way to schedule any command.", icon: I.spark, glow: "var(--violet-soft)", iconBg: "var(--violet-soft)", iconFg: "var(--violet-hi)", match: function (t) { return !!t.isStarter; } },
-      { key: "developer", title: "Developer Pack", tagline: "Keep repos fresh and toolchains healthy: git hygiene, npm checks, builds, tests, Docker upkeep.", icon: I.code, glow: "var(--cyan-soft)", iconBg: "var(--cyan-soft)", iconFg: "var(--cyan)", match: function (t) { return (t.tags || []).indexOf("dev") !== -1; } },
-      { key: "ai-agents", title: "AI & Agents", tagline: "Run Claude Code and Codex unattended — headless prompts, repo digests, autofix — plus AI prompt patterns.", icon: I.bot, glow: "var(--phosphor-soft)", iconBg: "var(--phosphor-soft)", iconFg: "var(--phosphor)", match: function (t) { return t.category === "ai-agent" || (t.tags || []).indexOf("ai") !== -1; } },
-      { key: "backup-cleanup", title: "Backup & Cleanup", tagline: "Protect data and reclaim disk: scheduled database backups, temp-file sweeps, and log rotation.", icon: I.shield, glow: "rgba(251,191,36,.14)", iconBg: "rgba(251,191,36,.14)", iconFg: "var(--amber)", match: function (t) { return t.category === "backup" || t.category === "cleanup"; } },
-      { key: "monitoring", title: "Monitoring", tagline: "Watch what matters — health checks, webhooks, and status pings on a schedule.", icon: I.pulse, glow: "rgba(251,113,133,.14)", iconBg: "rgba(251,113,133,.14)", iconFg: "var(--rose)", match: function (t) { return t.category === "monitoring"; } }
-    ];
+    // ---------- collections (packs from the registry) ----------
+    //
+    // Membership comes from index.json `packs[]`, NOT from tag predicates. It
+    // used to be `tags.indexOf("dev") !== -1`, which meant tagging an unrelated
+    // template `dev` silently changed what the Developer Pack contained — fine
+    // while a collection was only a filtered view, not fine now that a pack is a
+    // downloadable file that lands in someone's catalog.
+    //
+    // The registry owns the data (id, name, description, members, bundle path);
+    // the site owns only presentation. A pack with no entry below still renders,
+    // with the default look — so adding a pack to the registry needs no change
+    // here.
+    var PACK_STYLE = {
+      "starters":         { icon: I.spark,  glow: "var(--violet-soft)",     iconBg: "var(--violet-soft)",     iconFg: "var(--violet-hi)" },
+      "developer":        { icon: I.code,   glow: "var(--cyan-soft)",       iconBg: "var(--cyan-soft)",       iconFg: "var(--cyan)" },
+      "ai-agents":        { icon: I.bot,    glow: "var(--phosphor-soft)",   iconBg: "var(--phosphor-soft)",   iconFg: "var(--phosphor)" },
+      "backup-cleanup":   { icon: I.shield, glow: "rgba(251,191,36,.14)",   iconBg: "rgba(251,191,36,.14)",   iconFg: "var(--amber)" },
+      "monitoring":       { icon: I.pulse,  glow: "rgba(251,113,133,.14)",  iconBg: "rgba(251,113,133,.14)",  iconFg: "var(--rose)" },
+      "system-utilities": { icon: I.gear,   glow: "rgba(148,163,184,.16)",  iconBg: "rgba(148,163,184,.16)",  iconFg: "var(--ink-2)" }
+    };
+    var DEFAULT_PACK_STYLE = { icon: I.spark, glow: "var(--violet-soft)", iconBg: "var(--violet-soft)", iconFg: "var(--violet-hi)" };
+
+    // Built from the registry at load time (see the fetch at the bottom).
+    var COLLECTIONS = [];
+
+    function buildCollections(packs) {
+      return (packs || []).map(function (p) {
+        var style = PACK_STYLE[p.id] || DEFAULT_PACK_STYLE;
+        var ids = p.templateIds || [];
+        return {
+          key: p.id,
+          title: p.name,
+          tagline: p.description || "",
+          path: p.path,
+          templateIds: ids,
+          icon: style.icon, glow: style.glow, iconBg: style.iconBg, iconFg: style.iconFg,
+          match: function (t) { return ids.indexOf(t.id) !== -1; }
+        };
+      });
+    }
     function collByKey(k) { for (var i = 0; i < COLLECTIONS.length; i++) if (COLLECTIONS[i].key === k) return COLLECTIONS[i]; return null; }
+
+    // Download a whole pack as ONE file.
+    //
+    // The bundle is served pre-built and content-addressed, so this is a plain
+    // fetch of `packs/<id>.json` — the browser never assembles it from N
+    // template files, which means what you download is byte-for-byte what the
+    // registry published. It is already in the shape TaskHub's importer accepts,
+    // so it imports in one step.
+    function downloadPack(coll) {
+      if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
+      fetch(ASSET_BASE + coll.path).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      }).then(function (text) {
+        var blob = new Blob([text], { type: "application/json" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "taskhub-pack-" + coll.key + ".json";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        toast("Downloaded " + pluralize(coll.templateIds.length, "template") + " — import in TaskHub → Templates → Import");
+      }).catch(function (e) { toast("Pack download failed: " + e.message, "err"); });
+    }
+
+    function copyPack(coll) {
+      if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
+      fetch(ASSET_BASE + coll.path).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      }).then(function (text) { return copyText(text); })
+        .then(function () { toast("Pack JSON copied — paste into TaskHub → Import"); })
+        .catch(function (e) { toast("Copy failed: " + e.message, "err"); });
+    }
 
     // ---------- state ----------
     var TEMPLATES = [], FULL = {}, LOADED = false, LOAD_ERR = null;
-    var browseState = { search: "", availability: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
+    // `search` narrows TEMPLATES (driven by the header box, global to every view).
+    // `optionSearch` narrows the FILTER OPTIONS in the rail — a different job,
+    // deliberately a different field, so neither silently resets the other.
+    var browseState = { search: "", optionSearch: "", availability: [], pack: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
 
     // ---------- helpers ----------
     function $(id) { return document.getElementById(id); }
@@ -575,7 +703,7 @@
     // ---------- fetch full template ----------
     function fetchFull(entry) {
       if (FULL[entry.id]) return Promise.resolve(FULL[entry.id]);
-      return fetch("./" + entry.path).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      return fetch(ASSET_BASE + entry.path).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(function (j) { FULL[entry.id] = j; return j; });
     }
     function copyText(text) {
@@ -654,15 +782,27 @@
 
       return '<div class="wrap">' +
         '<section class="hero">' +
-          '<span class="hero-kicker kicker"><span class="pulse"></span>TaskHub · Template Registry</span>' +
-          '<h1>Automation templates,<br><span class="gr">ready to run.</span></h1>' +
-          '<p class="lede">A curated, open catalog of scheduled tasks — cron jobs, scripts, and unattended AI-agent workflows. Filter, preview, download, and import straight into your local TaskHub.</p>' +
-          '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse all templates' + I.arrow + '</button>' +
+          '<span class="hero-kicker kicker"><span class="pulse"></span>Local-first · open source</span>' +
+          '<h1>Your automations,<br><span class="gr">finally in one place.</span></h1>' +
+          '<p class="lede">TaskHub is a local-first control plane for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code and Codex routines, AI-agent jobs — in one dark, fast dashboard. View, trigger, edit and schedule them from a single place, and grow your catalog from the open template registry below.</p>' +
+          '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse ' + TEMPLATES.length + ' templates' + I.arrow + '</button>' +
+          '<a class="btn btn-ghost" href="' + LINKS.appRepo + '" target="_blank" rel="noopener">' + I.code + ' Get TaskHub</a>' +
           '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
           '<div class="stat-strip">' +
             stat(TEMPLATES.length, "Templates") + stat(coreCount, "Built-in") + stat(TEMPLATES.length - coreCount, "To import") + stat(cats, "Categories") +
           '</div>' +
         '</section>' +
+
+        // Why TaskHub — ported from the retired standalone landing page, which
+        // was a second front door saying things this one never did.
+        '<section class="band"><div class="band-head"><div><span class="kicker">Why TaskHub</span>' +
+          '<h2 style="margin-top:8px">One dashboard for work that never talks to itself</h2>' +
+          '<p>Scheduled work sprawls across tools that don\'t know about each other.</p></div></div>' +
+          '<div class="how-grid">' +
+            valueCard("One dashboard", "Windows Task Scheduler, Claude Code routines, and AI-agent jobs side by side — search, filter, and run any of them in seconds.") +
+            valueCard("Local-first &amp; safe", "The whole stack runs on your machine. Commands execute no-shell and signed — a template parameter can never inject a second command.") +
+            valueCard("Grow from templates", "An open, versioned registry of ready-to-run automations. Filter the gallery, import what you want, fill in the blanks, and schedule it.") +
+          '</div></section>' +
 
         '<section class="band"><div class="band-head"><div><h2>Browse by collection</h2><p>Hand-picked bundles for the things people automate most.</p></div>' +
           '<span class="see-all" data-nav="#/collections">All collections' + I.arrow + '</span></div>' +
@@ -679,10 +819,42 @@
             howStep("Validate & add", "TaskHub checks it against the same schema and {{placeholder}} rules as every built-in template.") +
             howStep("Apply & schedule", "Fill in the parameters, and it becomes a real scheduled task on your machine.") +
           '</div></div></section>' +
+
+        // Run it locally — the quick start the standalone landing page carried.
+        '<section class="band" id="sec-start"><div class="band-head"><div><span class="kicker">Get started</span>' +
+          '<h2 style="margin-top:8px">Run TaskHub locally</h2>' +
+          '<p>TaskHub is local-first — the whole stack runs on your machine.</p></div></div>' +
+          '<div class="code" style="position:relative">' +
+            '<button class="btn btn-sm" data-copytext="' + esc(QUICKSTART) + '" style="position:absolute;top:10px;right:10px">' + I.copy + ' Copy</button>' +
+            esc(QUICKSTART) +
+          '</div>' +
+          '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:12px">' +
+            'Then connect the Windows agent and open the dashboard. Full instructions in the ' +
+            '<a href="' + LINKS.quickStart + '" target="_blank" rel="noopener">repo quick start</a>.</p>' +
+        '</section>' +
+
+        // The project — where the code actually lives. Previously only reachable
+        // from the landing page, so retiring it without porting these would have
+        // orphaned every link to the source.
+        '<section class="band"><div class="band-head"><div><span class="kicker">The project</span>' +
+          '<h2 style="margin-top:8px">Built in the open</h2>' +
+          '<p>The app, the registry that feeds it, and this gallery.</p></div></div>' +
+          '<div class="coll-grid">' +
+            repoCard("App · Source", "TaskHub app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/michaelschecht/taskhub") +
+            repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/michaelschecht/taskhub-registry") +
+            repoCard("Feedback", "Request a template", "Missing an automation you\'d use? Open an issue and describe it — the catalog grows from real requests.", LINKS.registryIssues, "Open an issue") +
+          '</div></section>' +
         '</div>';
     }
     function stat(n, l) { return '<div class="stat"><div class="num">' + n + '</div><div class="lbl">' + esc(l) + '</div></div>'; }
     function howStep(h, p) { return '<div class="how-step"><div class="n"></div><h4>' + esc(h) + '</h4><p>' + esc(p) + '</p></div>'; }
+    function valueCard(h, p) { return '<div class="how-step"><h4 style="margin-top:0">' + h + '</h4><p>' + p + '</p></div>'; }
+    function repoCard(kicker, title, body, href, linkText) {
+      return '<a class="ccard" href="' + href + '" target="_blank" rel="noopener" style="--cglow:var(--violet-soft);text-decoration:none;display:block">' +
+        '<span class="kicker">' + esc(kicker) + '</span>' +
+        '<h3 style="margin-top:10px">' + esc(title) + '</h3><p>' + body + '</p>' +
+        '<div class="cnt">' + I.arrow + esc(linkText) + '</div></a>';
+    }
 
     // ---------- collections index ----------
     function viewCollections() {
@@ -703,10 +875,22 @@
       var c = collByKey(key);
       if (!c) return notFound("Collection not found");
       var list = sortList(TEMPLATES.filter(c.match), "featured");
+      // One button, one file, one import — rather than downloading N templates
+      // by hand and importing them one at a time.
+      var actions = c.path
+        ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">' +
+            '<button class="btn primary" data-dlpack="' + esc(c.key) + '">' + I.dl + ' Download all ' + list.length + '</button>' +
+            '<button class="btn" data-copypack="' + esc(c.key) + '">' + I.copy + ' Copy pack JSON</button>' +
+            '<button class="btn" data-nav="#/browse?pack=' + encodeURIComponent(c.key) + '">' + I.filter + ' Filter &amp; search this pack</button>' +
+          '</div>' +
+          '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:10px">' +
+            'One file — import it in TaskHub → Templates → Import.</p>'
+        : '';
       return '<div class="wrap"><div class="crumb"><a data-nav="#/">Home</a>' + I.arrow + '<a data-nav="#/collections">Collections</a>' + I.arrow + '<span>' + esc(c.title) + '</span></div>' +
         '<div class="detail-hero"><div class="ic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
         '<div><h1>' + esc(c.title) + '</h1><p class="dsub">' + esc(c.tagline) + '</p>' +
-        '<div class="mono" style="color:var(--ink-3);font-size:13px;margin-top:12px">' + pluralize(list.length, "template") + '</div></div></div>' +
+        '<div class="mono" style="color:var(--ink-3);font-size:13px;margin-top:12px">' + pluralize(list.length, "template") + '</div>' +
+        actions + '</div></div>' +
         '<div style="padding-bottom:70px">' + cardGrid(list) + '</div></div>';
     }
 
@@ -719,6 +903,15 @@
           if (!q.split(/\s+/).every(function (w) { return hay.indexOf(w) !== -1; })) return false;
         }
         if (except !== "availability" && browseState.availability.length && browseState.availability.indexOf(availOf(t)) === -1) return false;
+        // Pack is OR within the dimension (like availability/category), not AND:
+        // selecting two packs means "in either", which is what a shopper means.
+        if (except !== "pack" && browseState.pack.length) {
+          var inAny = browseState.pack.some(function (k) {
+            var c = collByKey(k);
+            return !!c && c.templateIds.indexOf(t.id) !== -1;
+          });
+          if (!inAny) return false;
+        }
         if (except !== "category" && browseState.category.length && browseState.category.indexOf(t.category) === -1) return false;
         if (except !== "os" && browseState.os.length && browseState.os.indexOf(t.os) === -1) return false;
         if (except !== "runtime" && browseState.runtime.length && browseState.runtime.indexOf(t.runtime) === -1) return false;
@@ -744,6 +937,12 @@
       var oc = counts(browseFiltered("os"), function (t) { return t.os; });
       var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
       var tc = counts(browseFiltered("tags"), function (t) { return t.tags || []; });
+      // Cross-faceted pack counts, same rule as every other dimension: count
+      // against everything EXCEPT this facet, so a pack's number tells you what
+      // selecting it would give you rather than what is already selected.
+      var pc = counts(browseFiltered("pack"), function (t) {
+        return COLLECTIONS.filter(function (c) { return c.templateIds.indexOf(t.id) !== -1; }).map(function (c) { return c.key; });
+      });
       var cats = uniq(TEMPLATES.map(function (t) { return t.category; })).sort();
       var oses = uniq(TEMPLATES.map(function (t) { return t.os; })).sort();
       var rts = uniq(TEMPLATES.map(function (t) { return t.runtime; })).sort();
@@ -755,19 +954,56 @@
         return '<div class="fopt' + (on ? " on" : "") + (cnt === 0 && !on ? " dim" : "") + '" data-fdim="' + dim + '" data-fval="' + esc(v) + '">' +
           '<span class="box">' + I.check + '</span><span class="fname">' + esc(txt) + '</span><span class="fcnt">' + cnt + '</span></div>';
       }
+      // Narrows the filter OPTIONS themselves — distinct from the header search,
+      // which narrows templates. With 40+ tags plus five other facets, finding
+      // the filter you want was its own search problem.
+      var fq = (browseState.optionSearch || "").toLowerCase().trim();
+      var hit = function (txt, val) {
+        if (!fq) return true;
+        return (txt + " " + val).toLowerCase().indexOf(fq) !== -1;
+      };
+      // A facet renders only if something in it matches, so searching collapses
+      // the rail to the relevant part instead of leaving empty headings.
+      function facet(title, optsHtml) {
+        return optsHtml ? '<div class="facet"><div class="facet-title">' + title + '</div><div class="facet-opts">' + optsHtml + '</div></div>' : "";
+      }
+      function optsFor(dim, values, labelMap, cnts) {
+        return values.filter(function (v) { return hit(lab(labelMap, v), v); })
+          .map(function (v) { return opt(dim, v, lab(labelMap, v), cnts[v] || 0); }).join("");
+      }
+
       var html = "";
       html += '<div class="rail-close"><h3>Filters</h3><button class="ibtn" id="railx">' + I.x + '</button></div>';
-      html += '<div class="search-box">' + I.search + '<input type="search" id="bsearch" placeholder="Search templates…" autocomplete="off" value="' + esc(browseState.search) + '"></div>';
-      html += '<div class="facet"><div class="facet-title">Availability</div><div class="facet-opts">' +
-        opt("availability", "core", "Built-in", ac.core || 0) +
-        opt("availability", "extended", "Import on demand", ac.extended || 0) + '</div></div>';
-      html += '<div class="facet"><div class="facet-title">Category</div><div class="facet-opts">' + cats.map(function (v) { return opt("category", v, lab(CAT, v), cc[v] || 0); }).join("") + '</div></div>';
-      html += '<div class="facet"><div class="facet-title">Platform</div><div class="facet-opts">' + oses.map(function (v) { return opt("os", v, lab(OS, v), oc[v] || 0); }).join("") + '</div></div>';
-      html += '<div class="facet"><div class="facet-title">Runtime</div><div class="facet-opts">' + rts.map(function (v) { return opt("runtime", v, lab(RT, v), rc[v] || 0); }).join("") + '</div></div>';
-      var tagHtml = shown.map(function (v) { var on = browseState.tags.indexOf(v) !== -1; return '<span class="tag' + (on ? " on" : "") + '" data-ftag="' + esc(v) + '">' + esc(v) + '</span>'; }).join("");
-      if (allTags.length > 14) tagHtml += '<button class="tag-more" id="tagmore">' + (browseState.showAllTags ? "− less" : "+" + (allTags.length - shown.length) + " more") + '</button>';
-      html += '<div class="facet"><div class="facet-title">Tags</div><div class="tag-cloud">' + tagHtml + '</div></div>';
-      var anyActive = browseState.availability.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
+      html += '<div class="search-box">' + I.filter + '<input type="search" id="fsearch" placeholder="Search filters…" autocomplete="off" value="' + esc(browseState.optionSearch || "") + '"></div>';
+
+      var availOpts = [
+        hit("Built-in", "core") ? opt("availability", "core", "Built-in", ac.core || 0) : "",
+        hit("Import on demand", "extended") ? opt("availability", "extended", "Import on demand", ac.extended || 0) : ""
+      ].join("");
+      html += facet("Availability", availOpts);
+
+      // Pack — the dimension packs introduced that Browse previously couldn't
+      // see. Membership comes from the registry, so this stays correct without
+      // a second definition of what a pack contains.
+      html += facet("Pack", COLLECTIONS.filter(function (c) { return hit(c.title, c.key); })
+        .map(function (c) { return opt("pack", c.key, c.title, pc[c.key] || 0); }).join(""));
+
+      html += facet("Category", optsFor("category", cats, CAT, cc));
+      html += facet("Platform", optsFor("os", oses, OS, oc));
+      html += facet("Runtime", optsFor("runtime", rts, RT, rc));
+
+      // When searching options, show every matching tag — truncating to 14
+      // would hide the exact tag being searched for.
+      var tagPool = fq ? allTags.filter(function (v) { return hit(v, v); }) : shown;
+      var tagHtml = tagPool.map(function (v) { var on = browseState.tags.indexOf(v) !== -1; return '<span class="tag' + (on ? " on" : "") + '" data-ftag="' + esc(v) + '">' + esc(v) + '</span>'; }).join("");
+      if (!fq && allTags.length > 14) tagHtml += '<button class="tag-more" id="tagmore">' + (browseState.showAllTags ? "− less" : "+" + (allTags.length - shown.length) + " more") + '</button>';
+      if (tagHtml) html += '<div class="facet"><div class="facet-title">Tags</div><div class="tag-cloud">' + tagHtml + '</div></div>';
+
+      if (fq && !availOpts && !tagPool.length && !optsFor("category", cats, CAT, cc) && !optsFor("os", oses, OS, oc) && !optsFor("runtime", rts, RT, rc)) {
+        html += '<div class="facet"><div class="facet-title" style="color:var(--ink-3);font-weight:400">No filter matches “' + esc(fq) + '”.</div></div>';
+      }
+
+      var anyActive = browseState.availability.length || browseState.pack.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
       if (anyActive) html += '<button class="clear-all" id="clearall">' + I.x + ' Clear all filters</button>';
       rail.innerHTML = html;
     }
@@ -775,6 +1011,7 @@
       var pills = $("pills"); if (!pills) return;
       var out = [];
       browseState.availability.forEach(function (v) { out.push(pill("availability", v, lab(AVAIL, v))); });
+      browseState.pack.forEach(function (v) { var c = collByKey(v); out.push(pill("pack", v, c ? c.title : v)); });
       browseState.category.forEach(function (v) { out.push(pill("category", v, lab(CAT, v))); });
       browseState.os.forEach(function (v) { out.push(pill("os", v, lab(OS, v))); });
       browseState.runtime.forEach(function (v) { out.push(pill("runtime", v, lab(RT, v))); });
@@ -898,9 +1135,17 @@
     // ======================================================
     function parseHash() {
       var h = (location.hash || "#/").replace(/^#/, "");
-      var parts = h.split("/").filter(Boolean); // e.g. ["t","dev-git-fetch-prune"]
+      // Split the PATH only. Splitting the raw hash made "/browse?pack=x" parse
+      // as the single segment "browse?pack=x", which matched no view and fell
+      // through to Home — so every query-string deep link silently 404'd to the
+      // landing page. (The pre-existing ?tag= link had the same bug; it was
+      // never noticed because the tag chips navigate to a bare "#/browse" and
+      // set the filter in JS instead of going through the URL.)
+      var qi = h.indexOf("?");
+      var path = qi === -1 ? h : h.slice(0, qi);
+      var parts = path.split("/").filter(Boolean); // e.g. ["t","dev-git-fetch-prune"]
       if (!parts.length) return { view: "home" };
-      if (parts[0] === "browse") return { view: "browse", tag: parseQuery(h).tag };
+      if (parts[0] === "browse") { var q = parseQuery(h); return { view: "browse", tag: q.tag, pack: q.pack }; }
       if (parts[0] === "collections") return { view: "collections" };
       if (parts[0] === "collection") return { view: "collection", key: parts[1] };
       if (parts[0] === "t") return { view: "detail", id: decodeURIComponent(parts[1] || "") };
@@ -928,6 +1173,7 @@
       else if (r.view === "collection") { $("app").innerHTML = viewCollection(r.key); }
       else if (r.view === "browse") {
         if (r.tag && browseState.tags.indexOf(r.tag) === -1) browseState.tags.push(r.tag);
+        if (r.pack && collByKey(r.pack) && browseState.pack.indexOf(r.pack) === -1) browseState.pack.push(r.pack);
         $("app").innerHTML = viewBrowse(); wireBrowse();
       } else if (r.view === "detail") {
         var entry = byId(r.id);
@@ -955,7 +1201,20 @@
       var open = e.target.closest("[data-open]");
       if (open) { location.hash = "#/t/" + encodeURIComponent(open.getAttribute("data-open")); return; }
       var tag = e.target.closest("[data-tag]");
-      if (tag) { browseState.tags = [tag.getAttribute("data-tag")]; browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.search = ""; location.hash = "#/browse"; return; }
+      if (tag) {
+        browseState.tags = [tag.getAttribute("data-tag")];
+        browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.pack = [];
+        browseState.search = "";
+        var gs = $("gsearch"); if (gs) gs.value = "";   // the header box owns `search`
+        location.hash = "#/browse"; return;
+      }
+
+      // Pack actions — delegated (like the rail) so they keep working after a
+      // re-render, and checked BEFORE [data-nav] would swallow the click.
+      var dlp = e.target.closest("[data-dlpack]");
+      if (dlp) { e.stopPropagation(); downloadPack(collByKey(dlp.getAttribute("data-dlpack"))); return; }
+      var cpp = e.target.closest("[data-copypack]");
+      if (cpp) { e.stopPropagation(); copyPack(collByKey(cpp.getAttribute("data-copypack"))); return; }
 
       // browse rail interactions (event-delegated so re-renders keep working)
       var fopt = e.target.closest(".fopt[data-fdim]");
@@ -963,18 +1222,78 @@
       var ftag = e.target.closest("[data-ftag]");
       if (ftag) { toggleArr(browseState.tags, ftag.getAttribute("data-ftag")); refreshBrowse(); return; }
       if (e.target.closest("#tagmore")) { browseState.showAllTags = !browseState.showAllTags; renderRail(); return; }
-      if (e.target.closest("#clearall")) { browseState.availability = []; browseState.category = []; browseState.os = []; browseState.runtime = []; browseState.tags = []; browseState.search = ""; refreshBrowse(); return; }
+      if (e.target.closest("#clearall")) {
+        browseState.availability = []; browseState.pack = []; browseState.category = [];
+        browseState.os = []; browseState.runtime = []; browseState.tags = [];
+        browseState.search = "";
+        // Clear the header box too — it is the live source of `search`, so
+        // leaving text in it would show "cleared" filters while still filtering.
+        var g = $("gsearch"); if (g) g.value = "";
+        refreshBrowse(); return;
+      }
       if (e.target.closest("#railx")) { browseState.railOpen = false; var rl = $("rail"); if (rl) rl.classList.remove("open"); document.body.style.overflow = ""; return; }
       var pb = e.target.closest("[data-pdim]");
       if (pb) { toggleArr(browseState[pb.getAttribute("data-pdim")], pb.getAttribute("data-pval")); refreshBrowse(); return; }
 
+      var ct = e.target.closest("[data-copytext]");
+      if (ct) {
+        copyText(ct.getAttribute("data-copytext"))
+          .then(function () { toast("Copied"); })
+          .catch(function (err) { toast("Copy failed: " + err.message, "err"); });
+        return;
+      }
+
       if (e.target.closest("#nav-import")) { importModal(); return; }
       if (e.target.closest("#navtoggle")) { toggleNavMenu(); return; }
     });
-    // browse search (delegated input)
     document.addEventListener("input", function (e) {
-      if (e.target && e.target.id === "bsearch") { browseState.search = e.target.value; renderPills(); renderBrowseGrid(); // keep focus: only re-render counts, not whole rail
-        renderRailCountsOnly(); }
+      if (!e.target) return;
+
+      // Global template search (header). Works from any view: typing on Home or
+      // a pack page lands you in filtered Browse results.
+      //
+      // The rail is deliberately NOT rebuilt on each keystroke — only its counts
+      // are patched — because renderRail() replaces the rail's innerHTML, and
+      // the mobile drawer's own focus would go with it.
+      if (e.target.id === "gsearch") {
+        browseState.search = e.target.value;
+        if (parseHash().view !== "browse") {
+          // Jump to Browse, but keep the caret in the header box: the header is
+          // outside #app, so route()'s innerHTML swap never touches it.
+          location.hash = "#/browse";
+          return;
+        }
+        renderPills(); renderBrowseGrid(); renderRailCountsOnly();
+        return;
+      }
+
+      // Rail search — narrows the filter OPTIONS, not the templates. Rebuilding
+      // the rail is required here (options appear/disappear), so focus and caret
+      // are restored explicitly afterwards.
+      if (e.target.id === "fsearch") {
+        browseState.optionSearch = e.target.value;
+        var caret = e.target.selectionStart;
+        renderRail();
+        var again = $("fsearch");
+        if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (err) {} }
+        return;
+      }
+    });
+
+    // "/" focuses search from anywhere — but never while the user is already
+    // typing into a field, where "/" is just a character.
+    document.addEventListener("keydown", function (e) {
+      var tag = (e.target && e.target.tagName) || "";
+      var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target && e.target.isContentEditable);
+      if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        var g = $("gsearch"); if (g) { e.preventDefault(); g.focus(); g.select(); }
+        return;
+      }
+      if (e.key === "Escape" && e.target && e.target.id === "gsearch") {
+        e.target.value = ""; browseState.search = "";
+        if (parseHash().view === "browse") { renderPills(); renderBrowseGrid(); renderRailCountsOnly(); }
+        e.target.blur();
+      }
     });
     function renderRailCountsOnly() {
       // update facet counts + tag counts without rebuilding the search input (preserves focus)
@@ -982,9 +1301,12 @@
       var cc = counts(browseFiltered("category"), function (t) { return t.category; });
       var oc = counts(browseFiltered("os"), function (t) { return t.os; });
       var rc = counts(browseFiltered("runtime"), function (t) { return t.runtime; });
+      var pc = counts(browseFiltered("pack"), function (t) {
+        return COLLECTIONS.filter(function (c) { return c.templateIds.indexOf(t.id) !== -1; }).map(function (c) { return c.key; });
+      });
       document.querySelectorAll(".fopt[data-fdim]").forEach(function (el) {
         var dim = el.getAttribute("data-fdim"), val = el.getAttribute("data-fval");
-        var m = dim === "availability" ? ac : dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
+        var m = dim === "availability" ? ac : dim === "pack" ? pc : dim === "category" ? cc : dim === "os" ? oc : rc, n = m[val] || 0;
         var c = el.querySelector(".fcnt"); if (c) c.textContent = n;
         var on = browseState[dim].indexOf(val) !== -1; el.classList.toggle("dim", n === 0 && !on);
       });
@@ -1003,8 +1325,30 @@
     window.addEventListener("hashchange", route);
 
     // ---------- boot ----------
-    fetch(INDEX_URL, { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " fetching index.json"); return r.json(); })
-      .then(function (data) { TEMPLATES = (data && data.templates) || []; LOADED = true; if (!TEMPLATES.length) LOAD_ERR = "The registry has no templates."; route(); })
+    // Try the co-located index first; if this copy of the page isn't sitting
+    // next to the registry, fall back to the canonical origin and point every
+    // later asset fetch (template files, pack bundles) at the same place.
+    function loadIndex() {
+      return fetch(INDEX_URL, { cache: "no-cache" })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .catch(function () {
+          ASSET_BASE = REGISTRY_BASE;
+          return fetch(REGISTRY_BASE + "index.json", { cache: "no-cache" })
+            .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " fetching index.json"); return r.json(); });
+        });
+    }
+
+    loadIndex()
+      .then(function (data) {
+        TEMPLATES = (data && data.templates) || [];
+        // `packs` is optional in the index — a registry published before packs
+        // existed simply has none, and the Collections views render empty
+        // rather than breaking.
+        COLLECTIONS = buildCollections(data && data.packs);
+        LOADED = true;
+        if (!TEMPLATES.length) LOAD_ERR = "The registry has no templates.";
+        route();
+      })
       .catch(function (e) { LOAD_ERR = e.message; route(); });
     route();
   })();

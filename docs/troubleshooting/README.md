@@ -46,6 +46,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 21 | Templates never update — the registry has no effect and the count never moves — while the app is otherwise perfectly healthy; the log shows `[catalog] sync failed … P2002` on `prisma.user.upsert()` | #19's bug in a **second file the #19 fix missed**: `ensureCatalogOwner()` keyed on the mutable `CATALOG_OWNER_EMAIL` while creating the fixed id. Here the caller **catches** it instead of crashing, so the only symptom is a catalog that silently never changes | [→](#21-templates-never-update-catalog-sync-failed--p2002-on-every-boot) |
 | 22 | You delete a Windows task (or a whole folder), sync, and TaskHub **still lists it** — while the sync response reports `missing: 56`, i.e. claims it marked them | The container's **generated Prisma client is stale** and lacks the `MISSING` enum, so `TaskStatus.MISSING` is `undefined` — and **Prisma treats `undefined` in `data` as "leave this field alone"**, so only `nextRunTime` was written while `updateMany` still returned a count. A *wrong* enum value throws; a **missing** one silently no-ops. `prisma migrate` updates the DB, so DB and client drifted apart invisibly (#18's shadowed `node_modules`) | [→](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n) |
 | 23 | The dashboard shows a plain **network error** after a reboot / unclean shutdown. Everything looks `Up`, every request to `:3000` is `HTTP 000`, and a backend log ends with `prisma.user.upsert()` → `FATAL: the database system is starting up` (container) or `Can't reach database server at localhost:5432` (host, `logs/backend.err.log`) | **Nothing waited for Postgres to be *ready*, only to *exist*** — after an unclean shutdown it spends seconds in crash recovery refusing queries, and the boot seed dies on the refusal. It stays dead because **`tsx watch` survives the crash**, so the container never exits and `restart: unless-stopped` never fires. Compounded by **two stacks running at once** (host *and* containers) fighting over `:3000`, with `Test-Port` reporting the dead squatter as "backend already up". **Fixed 2026-07-27**: `pg_isready` healthcheck + `condition: service_healthy`, `Wait-Db` in `taskhub.ps1`, and backend/frontend moved behind `profiles: ["docker"]` | [→](#23-network-error-after-a-reboot--the-database-system-is-starting-up) |
+| 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 
 ---
 
@@ -1183,6 +1184,22 @@ TaskHub-native jobs and `catalogSync` refreshes templates; neither touches Task 
 task created natively is invisible until *you* sync. That's deliberate (selective import), not
 a bug — but it means "I made it an hour ago and it's still not there" is expected, not a fault.
 
+> [!NOTE]
+> **Since 2026-07-27 the dashboard tells you this itself.** Sync Now no longer just says
+> `Tasks synced.` — when the platform reports tasks outside the folders you track, the toast
+> names them: *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."*
+> `POST /api/tasks/sync` carries the numbers per platform:
+>
+> ```jsonc
+> { "platform": "WINDOWS_TASK_SCHEDULER", "count": 352, "missing": 0,
+>   "untracked": { "count": 95, "folders": ["IAM", "…"], "systemCount": 257 } }
+> ```
+>
+> `systemCount` (the `\Microsoft\` tasks) is reported **separately and excluded from `count`**
+> on purpose: a real machine has ~257 of them, so counting them would pin the message at a
+> number that never moves — and a warning that never changes is one you stop reading. The fence
+> was always correct; only its invisibility was the defect.
+
 ### 20a. …and a *renamed* category silently stops syncing its folder
 
 A sharper edge of the same bug, fixed 2026-07-25. Categories are renameable (click the label on
@@ -1484,6 +1501,64 @@ fine — it's served by a **host** Vite dev server, independent of the dead back
 exactly why it presented as a network error rather than a blank page. The frontend moved off
 Vite's default `5173` to `7373` in the same change, since the two frontends had been fighting
 over it.)*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 24. `showDirectoryPicker()` throws "must be handling a user gesture" after an `await`
+
+**Symptom** — the bulk export's folder picker never opens. The console shows:
+
+```
+SecurityError: Failed to execute 'showDirectoryPicker' on 'Window':
+Must be handling a user gesture to show a file picker.
+```
+
+…from code that is unambiguously inside a click handler. Adding more logging confirms the
+handler runs, the function is called, and the browser still refuses.
+
+**Cause** — the File System Access API requires **transient user activation**: a short-lived
+window of "the user just did something" that a click grants and that **expires**. Any `await`
+before the picker call can consume it. The natural shape is the trap:
+
+```ts
+// WRONG — activation is gone by the time the request resolves
+const res = await api.post('/tools/export/tasks', body);   // network round-trip
+const dir = await showDirectoryPicker();                   // SecurityError
+```
+
+This is easy to misdiagnose because nothing about the error mentions timing — it says
+"gesture", so you go looking at your event wiring, which is fine.
+
+**Fix** — open the picker **first**, then fetch:
+
+```ts
+// RIGHT — the picker rides the click's activation; the request comes after
+const dir = await pickDirectory();
+if (!dir) return;                       // cancelled: nothing else has happened yet
+const res = await api.post('/tools/export/tasks', body);
+```
+
+Two bonuses fall out of the correct order: cancelling costs nothing (no export has run), and
+the user picks a destination before waiting instead of after.
+
+> [!TIP]
+> Treat user activation as a **budget spent by the first `await`**, not as a property of being
+> inside a handler. The same rule governs `requestFullscreen`, clipboard writes, and popups.
+
+Also worth knowing while working on this path:
+
+- **`showDirectoryPicker` is Chromium-only**, so the ZIP fallback is not optional decoration —
+  it is the whole experience on Firefox and Safari. It needs a **secure context**, which
+  `localhost` satisfies, so a local-first app gets the good path without HTTPS.
+- **Cancelling the dialog throws `AbortError`** rather than returning null. Treat it as "no",
+  not as a failure worth surfacing.
+- **The native dialog cannot be driven by browser automation.** Test the *writing* logic
+  against a fake directory handle and accept the dialog itself as a manual check, rather than
+  pretending the path is covered.
+
+*First hit: 2026-07-28, building the Tools tab's bulk export.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

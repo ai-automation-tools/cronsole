@@ -164,6 +164,64 @@ The index holds enough metadata to render the whole Templates tab (search / filt
 `sha256` is verified against the fetched file; a mismatch = reject, fall back to the bundled
 snapshot. (Signing the index is the stronger follow-up; checksum is the v1 integrity floor.)
 
+### 3.1 Packs *(added 2026-07-28)*
+
+A **pack** is a curated set of templates a user can import in one action. The index gained an
+**optional** `packs` array, and the artifact gained a `packs/<id>.json` bundle per pack:
+
+```jsonc
+{
+  "registryVersion": "1.0",
+  "templates": [ /* … */ ],
+  "packs": [
+    {
+      "id": "developer",                       // lowercase kebab; also the filename
+      "name": "Developer Pack",
+      "description": "Keep repos fresh and toolchains healthy…",
+      "templateIds": ["dev-git-fetch-prune", "dev-npm-test-run", "…"],
+      "path": "packs/developer.json",
+      "sha256": "<hex digest of the bundle file>"
+    }
+  ]
+}
+```
+
+Each bundle is **self-contained and directly importable** — the same shape
+`POST /api/templates/import` already accepts, so downloading a pack is one file and one
+import rather than N of each:
+
+```jsonc
+{
+  "taskhubCatalogVersion": "1.0",
+  "pack": { "id": "developer", "name": "Developer Pack", "description": "…" },
+  "templates": [ /* full v1 template objects, in declared order */ ]
+}
+```
+
+Four properties worth stating explicitly, because each is load-bearing:
+
+- **`packs` is optional in both directions.** A registry published before packs existed has no
+  `packs` key and still parses; an app built before packs existed parses a registry that has one,
+  because `z.object()` strips unknown keys rather than rejecting them. The key rolled out with no
+  coordinated release. When no packs are declared the key is **omitted entirely**, so a
+  pre-packs registry stays byte-identical.
+- **Membership is declared, never derived.** Packs list `templateIds` explicitly
+  (`backend/src/catalog/packs.ts`). The gallery previously inferred collections from tags
+  (`tags.includes('dev')`), which meant tagging an unrelated template silently changed what a
+  collection contained — tolerable for a filtered view, not for a file that lands in someone's
+  catalog. `buildRegistry` **throws** on an unknown or duplicated id, so the failure moves from
+  silent drift to a broken build.
+- **Bundles carry no timestamp.** Registry files are content-addressed by sha256 over exact
+  bytes; a clock inside the payload would change the hash every build and make the drift test
+  meaningless. (`updatedAt` stays in the index, which is not itself hashed.)
+- **Packs may overlap, and every template should be in at least one.** Overlap is legitimate
+  (`dev-docker-prune` is both a developer tool and a cleanup job). A template in *no* pack is
+  unreachable by browsing collections and makes "download every pack" quietly less than the
+  catalog — a test asserts full coverage.
+
+Presentation (icons, colors) stays in the gallery, keyed by pack id with a default, so adding a
+pack to the registry needs no site change.
+
 ---
 
 ## 4. Real examples, compiled

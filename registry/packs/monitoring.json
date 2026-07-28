@@ -1,0 +1,258 @@
+{
+  "taskhubCatalogVersion": "1.0",
+  "pack": {
+    "id": "monitoring",
+    "name": "Monitoring",
+    "description": "Watch what matters — health checks, webhooks, disk reports, and status pings on a schedule."
+  },
+  "templates": [
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-disk-report",
+      "name": "Log Disk Usage",
+      "description": "Append free/used disk space for every drive to a log file.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "disk",
+        "report"
+      ],
+      "icon": "HardDrive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-PSDrive -PSProvider FileSystem | Select-Object Name, Used, Free | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\disk.log",
+          "required": true,
+          "help": "Where to append the disk snapshot."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-ping-host",
+      "name": "Ping Host & Log",
+      "description": "Check whether a host is reachable and append the result to a log.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "network",
+        "uptime"
+      ],
+      "icon": "Activity",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/15 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Test-Connection -ComputerName '{{host}}' -Count 2 | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "host",
+          "label": "Host / IP",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The hostname or IP to ping."
+        },
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\ping.log",
+          "required": true,
+          "help": "Where to append the ping result."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-service-health",
+      "name": "Log Service Status",
+      "description": "Record whether a Windows service is running, on an interval.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "service",
+        "health"
+      ],
+      "icon": "HeartPulse",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/30 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-Service -Name '{{serviceName}}' | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "serviceName",
+          "label": "Service name",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The service short name to check."
+        },
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\service.log",
+          "required": true,
+          "help": "Where to append the status."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "dev-docker-compose-up",
+      "name": "Docker Compose Self-Heal",
+      "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern TaskHub uses for its own stack).",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "dev",
+        "docker",
+        "self-heal",
+        "monitoring"
+      ],
+      "icon": "RefreshCw",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/10 * * * *"
+      },
+      "commandTemplate": "docker compose -f \"{{composeFile}}\" up -d",
+      "parameters": [
+        {
+          "key": "composeFile",
+          "label": "Compose file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the docker-compose.yml. up -d is idempotent — running containers are left alone."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_webhook_windows",
+      "name": "Webhook / HTTP Ping (Windows)",
+      "description": "Call a URL on a schedule using Invoke-WebRequest.",
+      "runtime": "http",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "windows",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "icon": "Globe",
+      "isStarter": true,
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/15 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri '{{url}}' -Method {{method}} -UseBasicParsing\"",
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The endpoint to call."
+        },
+        {
+          "key": "method",
+          "label": "HTTP method",
+          "type": "select",
+          "default": "GET",
+          "required": true,
+          "options": [
+            "GET",
+            "POST"
+          ],
+          "help": "HTTP verb for the request."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_webhook_macos",
+      "name": "Webhook / HTTP Ping (macOS)",
+      "description": "Call a URL on a schedule using curl.",
+      "runtime": "http",
+      "os": "macos",
+      "category": "monitoring",
+      "tags": [
+        "macos",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "icon": "Globe",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/15 * * * *"
+      },
+      "commandTemplate": "curl -fsS -X {{method}} \"{{url}}\"",
+      "parameters": [
+        {
+          "key": "method",
+          "label": "HTTP method",
+          "type": "select",
+          "default": "GET",
+          "required": true,
+          "options": [
+            "GET",
+            "POST"
+          ],
+          "help": "HTTP verb for the request."
+        },
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The endpoint to call."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    }
+  ]
+}

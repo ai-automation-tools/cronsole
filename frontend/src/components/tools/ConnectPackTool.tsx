@@ -1,0 +1,129 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Bot, Download, FileJson, FileText, Loader2, Package } from 'lucide-react';
+import { api } from '../../api';
+import { useToast } from '../../hooks/useToast';
+import { downloadBlob, filenameFromDisposition } from '../../utils/saveExport';
+
+interface ConnectDownload {
+  id: string;
+  title: string;
+  description: string;
+  filename: string;
+  kind: 'zip' | 'markdown' | 'json';
+  fileCount: number;
+  bytes: number | null;
+}
+
+interface DownloadsResponse {
+  version: string;
+  home: string;
+  downloads: ConnectDownload[];
+}
+
+const KIND_ICON = {
+  zip: Package,
+  markdown: FileText,
+  json: FileJson
+} as const;
+
+const formatBytes = (bytes: number | null) => {
+  if (bytes === null) return null;
+  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
+};
+
+/**
+ * Downloads that teach *another* AI tool to drive this TaskHub.
+ *
+ * Not the repo's internal skill — that one teaches an agent to work on the
+ * TaskHub codebase and would hand an end user a pile of build internals. This is
+ * the usage surface: the tool table, the invariants, the schedule traps, and how
+ * to verify a task actually ran.
+ */
+export const ConnectPackTool = () => {
+  const { toast } = useToast();
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery<DownloadsResponse>({
+    queryKey: ['connect-pack'],
+    queryFn: async () => (await api.get('/tools/downloads')).data,
+    // Content compiled into the build — it cannot change while the app is open.
+    staleTime: Infinity
+  });
+
+  const handleDownload = async (item: ConnectDownload) => {
+    setDownloading(item.id);
+    try {
+      const res = await api.get(`/tools/downloads/${item.id}`, { responseType: 'blob' });
+      const filename = filenameFromDisposition(res.headers['content-disposition'] as string | undefined, item.filename);
+      downloadBlob(res.data as Blob, filename);
+      toast(`Downloaded ${filename}.`, 'success');
+    } catch (err: unknown) {
+      toast(`Couldn't download ${item.filename}: ${(err as Error).message}`, 'error');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  return (
+    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <Bot size={20} />
+        </div>
+        <div className="min-w-0">
+          <h3 className="font-bold">
+            Connect another AI tool
+            {data && <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">v{data.version}</span>}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Instructions that teach Claude Code, Cursor, Codex, or your own agent to create and manage
+            tasks through this TaskHub. Works over MCP, or plain REST if your tool has no MCP support.
+          </p>
+        </div>
+      </div>
+
+      {isLoading && (
+        <div className="text-sm text-muted-foreground flex items-center gap-2">
+          <Loader2 size={14} className="animate-spin" /> Loading downloads…
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {(data?.downloads ?? []).map(item => {
+          const Icon = KIND_ICON[item.kind];
+          const size = formatBytes(item.bytes);
+          return (
+            <div
+              key={item.id}
+              className="flex items-center gap-4 rounded-xl border border-border/60 bg-background/60 px-4 py-3"
+            >
+              <Icon size={16} className="text-subtle-foreground shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold truncate">{item.title}</div>
+                <div className="text-xs text-muted-foreground">{item.description}</div>
+              </div>
+              <div className="text-[10px] text-subtle-foreground hidden sm:block shrink-0">
+                {item.kind === 'zip' ? `${item.fileCount} files` : size}
+              </div>
+              <button
+                onClick={() => handleDownload(item)}
+                disabled={downloading === item.id}
+                className="shrink-0 bg-muted hover:bg-muted/80 text-foreground px-3 py-2 rounded-lg text-xs font-bold border border-border transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {downloading === item.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                Download
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-xs text-muted-foreground border-t border-border pt-4">
+        These files are stamped with the version above and generated by <em>this</em> install, so they match the
+        TaskHub you are running. A copy on another machine won't update itself — if it and TaskHub ever
+        disagree, TaskHub is right; download the pack again.
+      </p>
+    </div>
+  );
+};

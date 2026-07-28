@@ -118,8 +118,9 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 - **Sidebar:** Shows a live per-platform health summary (Online / Degraded / Offline) driven by real connection checks, plus a "synced N ago" indicator.
 - **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand.
 - **Settings → About → API origin:** Shows the backend URL the dashboard is using. You can override it in the browser when testing a different backend; **Reset** returns to the configured `VITE_API_URL` default.
-- **Sync vs. Import:** **Sync Now** re-pulls status and schedules for categories you already track; **Import** opens the discovery picker to add new tasks.
+- **Sync vs. Import:** **Sync Now** re-pulls status and schedules for categories you already track; **Import** opens the discovery picker to add new tasks. **Sync Now cannot discover a folder you don't already track** — that's what Import is for.
+- **"N tasks aren't imported":** because of the above, tasks can exist on your machine that TaskHub is deliberately ignoring. Sync Now now tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. If you don't want them, Import is not required — the message is informational, and it disappears once nothing is outstanding.
 
 ---
 
-*Last Updated: July 13, 2026*
+*Last Updated: July 27, 2026*

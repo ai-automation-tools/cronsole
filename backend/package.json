@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "seed": "tsx src/seed.ts",
     "registry:build": "tsx src/catalog/generate-registry.ts",
+    "connectpack:build": "tsx src/tools/generate-connect-pack.ts",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
@@ -40,6 +41,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9.0.3",
+    "jszip": "^3.10.1",
     "socket.io": "^4.8.3",
     "zod": "^4.4.3"
   }

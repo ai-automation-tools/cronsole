@@ -267,4 +267,90 @@ describe('TaskService', () => {
       });
     });
   });
+
+  describe('summarizeUntracked', () => {
+    const WIN = 'WINDOWS_TASK_SCHEDULER' as any;
+
+    it('reports tasks sitting in folders the sync did not include', () => {
+      // The exact scenario from troubleshooting #20: two folders of real tasks
+      // the connector reported on every sync, while the dashboard said only
+      // "Tasks synced." and gave no hint they existed.
+      const result = TaskService.summarizeUntracked(
+        [
+          '\\Edge-Radar\\NightlySettle',
+          '\\IAM\\RotateKeys',
+          '\\IAM\\AuditExport',
+          '\\Edge-Radar-MikesAILab\\Digest'
+        ],
+        ['Edge-Radar'],
+        WIN
+      );
+
+      expect(result.count).toBe(3);
+      expect(result.folders).toEqual(['Edge-Radar-MikesAILab', 'IAM']);
+    });
+
+    it('counts OS-owned tasks separately so the signal cannot go constant', () => {
+      // A real machine has hundreds of \Microsoft\ tasks. Folding them into
+      // `count` would pin the banner at a number that never moves, and a warning
+      // that never changes is one you stop reading.
+      const result = TaskService.summarizeUntracked(
+        [
+          '\\Microsoft\\Windows\\Defrag\\ScheduledDefrag',
+          '\\Microsoft\\Windows\\UpdateOrchestrator\\Reboot',
+          '\\IAM\\RotateKeys'
+        ],
+        [],
+        WIN
+      );
+
+      expect(result.count).toBe(1);
+      expect(result.systemCount).toBe(2);
+      // Surfaced, not silently dropped — the omission would be the other failure.
+      expect(result.folders).toEqual(['IAM']);
+    });
+
+    it('treats no filter as "syncing everything", so nothing is left out', () => {
+      // `include === undefined` means the caller asked for everything. Reporting
+      // the whole enumeration as un-imported would be exactly backwards.
+      const result = TaskService.summarizeUntracked(
+        ['\\IAM\\RotateKeys', '\\Edge-Radar\\Settle'],
+        undefined,
+        WIN
+      );
+
+      expect(result).toEqual({ count: 0, folders: [], systemCount: 0 });
+    });
+
+    it('deduplicates folders and maps root-level tasks to Uncategorized', () => {
+      const result = TaskService.summarizeUntracked(
+        ['\\IAM\\A', '\\IAM\\B', '\\IAM\\Nested\\C', '\\LooseTask'],
+        [],
+        WIN
+      );
+
+      expect(result.count).toBe(4);
+      expect(result.folders).toEqual(['IAM', 'Uncategorized']);
+    });
+
+    it('returns zero when the platform reported nothing', () => {
+      // TASKHUB_NATIVE's connector returns [] (the DB is its source of truth),
+      // so this must read as "nothing outstanding", not as an error.
+      expect(TaskService.summarizeUntracked([], [], WIN)).toEqual({
+        count: 0,
+        folders: [],
+        systemCount: 0
+      });
+    });
+
+    it('reports zero once every reported folder is tracked', () => {
+      const result = TaskService.summarizeUntracked(
+        ['\\IAM\\RotateKeys', '\\Edge-Radar\\Settle'],
+        ['IAM', 'Edge-Radar'],
+        WIN
+      );
+
+      expect(result).toEqual({ count: 0, folders: [], systemCount: 0 });
+    });
+  });
 });

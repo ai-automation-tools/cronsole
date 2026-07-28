@@ -27,6 +27,14 @@ const UPSERT_BATCH_SIZE = 100;
 const STALE_PRUNE_MIN_TRACKED = 20;
 const STALE_PRUNE_MIN_RETAIN_RATIO = 0.5;
 
+// Categories owned by the OS rather than the user. Counted separately in the
+// un-imported signal (see `summarizeUntracked`) because they are numerous,
+// permanent, and not something anyone intends to import — so folding them into
+// the headline number would make it constant, and a constant warning is noise.
+// Matches the root folder `extractCategory` derives, so `\Microsoft\Windows\…`
+// lands here.
+const SYSTEM_CATEGORIES = new Set(['Microsoft']);
+
 export class TaskService {
   static async upsertTasks(userId: string, platform: PlatformType, tasks: NormalizedTask[]) {
     const ops = tasks.map(t =>
@@ -161,6 +169,62 @@ export class TaskService {
       select: { externalId: true }
     });
     return Array.from(new Set(tracked.map(t => this.extractCategory(t.externalId, platform))));
+  }
+
+  /**
+   * What a sync **didn't** import: the tasks the platform reported that fall
+   * outside the include-set.
+   *
+   * Why this exists: selective import is the design, but it was **invisible**.
+   * A user created tasks in two new folders, pressed Sync Now repeatedly, and got
+   * a cheerful "Tasks synced." every time while 26 tasks sat one fence away — the
+   * connector had been reporting them the whole time. The fence is correct; saying
+   * nothing about it is the defect (troubleshooting #20). A dashboard that omits
+   * what it's withholding is lying by omission, which is §9's register in miniature.
+   *
+   * Reads the enumeration the caller **already has** (the same full, pre-filter
+   * list reconciliation needs), so this costs no extra agent round-trip.
+   *
+   * `included === undefined` means "no filter, sync everything" — nothing is left
+   * out, so the answer is zero rather than "all of it".
+   *
+   * `systemCount` is reported **separately** rather than folded into `count`, and
+   * that split is the whole reason this signal is usable. A real Windows box has
+   * hundreds of `\Microsoft\…` tasks nobody intends to import (which is why Import
+   * ships them unticked), so counting them would pin the banner permanently at
+   * "312 tasks in 47 folders" — a number that never changes trains you to ignore
+   * it, and a signal you've learned to ignore is worse than no signal. Excluding
+   * them silently would be the other failure, so they are surfaced, just not
+   * counted.
+   */
+  static summarizeUntracked(
+    externalIds: string[],
+    included: string[] | undefined,
+    platform: PlatformType
+  ): { count: number; folders: string[]; systemCount: number } {
+    const empty = { count: 0, folders: [] as string[], systemCount: 0 };
+    if (included === undefined || externalIds.length === 0) return empty;
+
+    const includedSet = new Set(included);
+    const folders = new Set<string>();
+    let count = 0;
+    let systemCount = 0;
+
+    for (const externalId of externalIds) {
+      const category = this.extractCategory(externalId, platform);
+      if (includedSet.has(category)) continue;
+      if (SYSTEM_CATEGORIES.has(category)) {
+        systemCount++;
+        continue;
+      }
+      count++;
+      folders.add(category);
+    }
+
+    // Not capped: these are the user's own folders, so the list is short in
+    // practice — and a silent truncation here would reintroduce exactly the
+    // "it didn't tell me" failure this function exists to fix.
+    return { count, folders: Array.from(folders).sort(), systemCount };
   }
 
   public static extractCategory(externalId: string, platform: PlatformType): string {

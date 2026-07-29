@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
-import { NeedsAttentionPanel } from '../components/NeedsAttentionPanel';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { isRunnable, runButtonTitle, canToggleStatus, toggleStatusTitle } from '../utils/taskActions';
 import { matchesTaskSearch } from '../utils/taskSearch';
@@ -395,10 +394,6 @@ export const DashboardScreen = ({
           </button>
         </div>
       </div>
-
-      {/* Renders itself only when something actually needs attention — a
-          permanent "all good" panel is the banner people learn to ignore. */}
-      {!isEmpty && <NeedsAttentionPanel tasks={allTasks} onTaskSelect={onTaskSelect} />}
 
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">

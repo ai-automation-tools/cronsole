@@ -167,7 +167,7 @@ export const BulkExportTool = () => {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5">
+    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
       <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
           <FolderDown size={20} />
@@ -273,7 +273,7 @@ export const BulkExportTool = () => {
         </span>
       </div>
 
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-center justify-between gap-4 flex-wrap mt-auto">
         <div className="text-xs text-muted-foreground">
           {isLoading ? 'Counting tasks…' : (
             <>

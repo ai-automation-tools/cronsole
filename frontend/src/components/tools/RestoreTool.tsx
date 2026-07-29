@@ -175,7 +175,7 @@ export const RestoreTool = () => {
   const guessedPaths = plan?.items.filter(i => i.source === 'filename').length ?? 0;
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5">
+    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
       <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
           <History size={20} />

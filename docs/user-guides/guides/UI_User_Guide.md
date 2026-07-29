@@ -145,7 +145,12 @@ The **Tools** tab holds the things that act across *all* your tasks rather than 
 ### Task health
 
 Answers *"which of my tasks need attention?"* — the question a few hundred rows can't answer by
-scrolling. Worst first, and it always gives you an answer, including when the answer is "nothing".
+scrolling. It always gives you an answer, including when the answer is "nothing".
+
+By default you see only the **summary**: how many tasks are critical, need a look, are unmeasured,
+and are healthy. **Show N tasks needing attention** opens the list, worst first; a **Collapse**
+button appears at the bottom once you've opened the whole thing, so you don't have to scroll back
+up to close what you scrolled down to read.
 
 Expand any row to see the **signals** behind it, each with the evidence it came from — *"Windows
 recorded exit code 2 for the run at 2026-07-27T03:00"*, *"Windows missed 2 scheduled starts as of

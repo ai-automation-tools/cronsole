@@ -55,8 +55,33 @@ const renderTool = () => {
   );
 };
 
+/** Open the disclosure that reveals the per-task list. */
+const openList = async () =>
+  fireEvent.click(await screen.findByRole('button', { name: /needing attention/i }));
+
 describe('TaskHealthTool', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  // The card's job on a utility tab is to answer its question at a glance. The
+  // per-task list is a deliberate second click, not the default view.
+  it('shows only the summary until asked for the list', async () => {
+    respond([health()]);
+    renderTool();
+
+    // The counts are there…
+    expect(await screen.findByText('Critical')).toBeInTheDocument();
+    expect(screen.getByText('Healthy')).toBeInTheDocument();
+    expect(screen.getByText(/across 13 tasks/i)).toBeInTheDocument();
+
+    // …and the task itself is not, until you open it.
+    expect(screen.queryByText('Nightly Backup')).not.toBeInTheDocument();
+    const disclosure = screen.getByRole('button', { name: /show 1 task needing attention/i });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(disclosure);
+    expect(screen.getByText('Nightly Backup')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /hide the list/i })).toBeInTheDocument();
+  });
 
   // Deliberately the opposite of a dashboard banner: a *tool* that vanished
   // when all was well would read as a missing feature. You opened this tab to
@@ -67,14 +92,16 @@ describe('TaskHealthTool', () => {
 
     expect(await screen.findByText(/nothing needs attention/i)).toBeInTheDocument();
     expect(screen.getByText('Task health')).toBeInTheDocument();
-    expect(screen.getByText(/12 healthy/i)).toBeInTheDocument();
+    // No disclosure to click when there is no list behind it.
+    expect(screen.queryByRole('button', { name: /needing attention/i })).not.toBeInTheDocument();
   });
 
   it('leads with the failing task and its headline signal, not a score', async () => {
     respond([health()]);
     renderTool();
+    await openList();
 
-    expect(await screen.findByText('Nightly Backup')).toBeInTheDocument();
+    expect(screen.getByText('Nightly Backup')).toBeInTheDocument();
     expect(screen.getByText('The last run failed.')).toBeInTheDocument();
     // The number is a ranking key — it appears only alongside its signals.
     expect(screen.queryByText('50')).not.toBeInTheDocument();
@@ -84,15 +111,16 @@ describe('TaskHealthTool', () => {
   it('shows the evidence behind a signal when the row is expanded', async () => {
     respond([health()]);
     renderTool();
+    await openList();
 
-    fireEvent.click(await screen.findByRole('button', { name: /nightly backup/i }));
+    fireEvent.click(screen.getByRole('button', { name: /nightly backup/i }));
 
     expect(screen.getByText(/Windows recorded exit code 2/)).toBeInTheDocument();
     expect(screen.getByText(/orders this list, doesn't grade the task/i)).toBeInTheDocument();
   });
 
   // Silence is not health. An unmeasured task must look different from a fine one.
-  it('shows unmeasured tasks as their own tier rather than folding them into healthy', async () => {
+  it('counts unmeasured tasks as their own tier rather than folding them into healthy', async () => {
     respond([
       health({
         taskId: 't2',
@@ -113,7 +141,7 @@ describe('TaskHealthTool', () => {
     renderTool();
 
     expect(await screen.findByText('Unmeasured')).toBeInTheDocument();
-    expect(screen.getByText(/1 unmeasured/i)).toBeInTheDocument();
+    await openList();
     // And it says how to fix the measurement, so nobody debugs a working task.
     fireEvent.click(screen.getByRole('button', { name: /unmeasured/i }));
     expect(screen.getByText(/republish the agent/i)).toBeInTheDocument();
@@ -121,18 +149,21 @@ describe('TaskHealthTool', () => {
 
   // The bug live testing found: 4 of the 5 worst tasks on a real machine were
   // `\Microsoft\` entries, burying the ones the user can act on.
-  it("keeps Windows' own tasks out of the list by default, and says how many", async () => {
+  it("keeps Windows' own tasks out of the count and the list by default", async () => {
     respond([
       health({ taskId: 'sys', name: 'AikCertEnrollTask', isSystem: true }),
       health({ taskId: 'mine', name: 'Nightly Backup', isSystem: false })
     ]);
     renderTool();
 
-    expect(await screen.findByText('Nightly Backup')).toBeInTheDocument();
+    // Hidden, but never silently — rows vanishing without a word is the other
+    // half of the same mistake.
+    expect(await screen.findByRole('button', { name: /1 system hidden/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /show 1 task needing attention/i })).toBeInTheDocument();
+
+    await openList();
+    expect(screen.getByText('Nightly Backup')).toBeInTheDocument();
     expect(screen.queryByText('AikCertEnrollTask')).not.toBeInTheDocument();
-    // Hidden, but never silently — 99 rows vanishing without a word is the
-    // other half of the same mistake.
-    expect(screen.getByRole('button', { name: /1 system hidden/i })).toBeInTheDocument();
   });
 
   it("brings Windows' own tasks back when asked", async () => {
@@ -143,27 +174,51 @@ describe('TaskHealthTool', () => {
     renderTool();
 
     fireEvent.click(await screen.findByRole('button', { name: /1 system hidden/i }));
+    await openList();
     expect(screen.getByText('AikCertEnrollTask')).toBeInTheDocument();
   });
 
   it('deep-links to the task, so the card needs no dashboard state', async () => {
     respond([health()]);
     renderTool();
+    await openList();
 
-    fireEvent.click(await screen.findByRole('button', { name: /nightly backup/i }));
+    fireEvent.click(screen.getByRole('button', { name: /nightly backup/i }));
     fireEvent.click(screen.getByRole('button', { name: /open task/i }));
 
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/tasks/t1'));
   });
 
-  it('caps the list and offers the rest rather than dumping 40 rows', async () => {
-    respond(Array.from({ length: 9 }, (_, i) => health({ taskId: `t${i}`, name: `Task ${i}` })));
-    renderTool();
+  describe('when the list is long', () => {
+    beforeEach(() => respond(Array.from({ length: 9 }, (_, i) => health({ taskId: `t${i}`, name: `Task ${i}` }))));
 
-    expect(await screen.findByText('Task 0')).toBeInTheDocument();
-    expect(screen.queryByText('Task 7')).not.toBeInTheDocument();
+    it('caps the list and offers the rest rather than dumping 40 rows', async () => {
+      renderTool();
+      await openList();
 
-    fireEvent.click(screen.getByRole('button', { name: /show 3 more/i }));
-    expect(screen.getByText('Task 7')).toBeInTheDocument();
+      expect(screen.getByText('Task 0')).toBeInTheDocument();
+      expect(screen.queryByText('Task 7')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /show 3 more/i }));
+      expect(screen.getByText('Task 7')).toBeInTheDocument();
+    });
+
+    // Once everything is open, the control that opened it has scrolled out of
+    // reach — so there has to be a way back out from the bottom.
+    it('offers a collapse at the bottom only once fully expanded', async () => {
+      renderTool();
+      await openList();
+
+      expect(screen.queryByRole('button', { name: /^collapse$/i })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /show 3 more/i }));
+      const collapse = screen.getByRole('button', { name: /^collapse$/i });
+      expect(collapse).toBeInTheDocument();
+
+      fireEvent.click(collapse);
+      // Back to the summary, not merely back to the capped list.
+      expect(screen.queryByText('Task 0')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /show 9 tasks needing attention/i })).toBeInTheDocument();
+    });
   });
 });

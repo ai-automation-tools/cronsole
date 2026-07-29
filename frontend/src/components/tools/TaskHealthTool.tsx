@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
+import { Activity, AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { api } from '../../api';
 
 export type HealthTier = 'ok' | 'attention' | 'critical' | 'unknown';
@@ -60,6 +60,8 @@ export const TaskHealthTool = () => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // Collapsed by default — the summary answers the question; the list is opt-in.
+  const [open, setOpen] = useState(false);
   const [includeSystem, setIncludeSystem] = useState(false);
 
   const { data, isLoading, error } = useQuery<HealthResponse>({
@@ -83,7 +85,7 @@ export const TaskHealthTool = () => {
   const unknown = visible.filter(t => t.tier === 'unknown').length;
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5">
+    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
       <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
           <Activity size={20} />
@@ -111,39 +113,67 @@ export const TaskHealthTool = () => {
 
       {data && (
         <>
-          <div className="flex items-center justify-between gap-4 flex-wrap border-t border-border pt-4">
-            <div className="text-xs text-muted-foreground">
-              {visible.length === 0 ? (
-                <span className="flex items-center gap-1.5 text-emerald-500 font-semibold">
-                  <ShieldCheck size={13} /> Nothing needs attention
-                </span>
-              ) : (
-                <>
-                  {critical > 0 && <span className="text-red-500 font-bold">{critical} critical</span>}
-                  {critical > 0 && (attention > 0 || unknown > 0) && <span> · </span>}
-                  {attention > 0 && <span className="text-amber-500 font-bold">{attention} to check</span>}
-                  {attention > 0 && unknown > 0 && <span> · </span>}
-                  {unknown > 0 && <span className="text-slate-400 font-bold">{unknown} unmeasured</span>}
-                  <span> of {data.counts.tasks} tasks</span>
-                </>
-              )}
-            </div>
-            <div className="flex items-center gap-3 text-xs text-subtle-foreground">
-              {(systemHidden > 0 || includeSystem) && (
-                <button
-                  onClick={() => { setIncludeSystem(!includeSystem); setShowAll(false); }}
-                  aria-pressed={includeSystem}
-                  className="font-semibold hover:text-foreground transition-colors"
-                >
-                  {includeSystem ? "Hide Windows' own" : `${systemHidden} system hidden`}
-                </button>
-              )}
-              <span className="flex items-center gap-1.5"><ShieldCheck size={12} /> {data.counts.ok} healthy</span>
-            </div>
+          {/* The summary IS the default view. A card on a utility tab should
+              answer its question in one glance; the per-task detail is a
+              deliberate second click, not something that fills the tab.
+              Centred in whatever height the row settles at, so the slack of an
+              equal-height grid reads as breathing room rather than a gap. */}
+          <div className="flex-1 flex flex-col justify-center gap-4 border-t border-border pt-4">
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: 'Critical', value: critical, className: 'text-red-500' },
+              { label: 'Attention', value: attention, className: 'text-amber-500' },
+              { label: 'Unmeasured', value: unknown, className: 'text-slate-400' },
+              { label: 'Healthy', value: data.counts.ok, className: 'text-emerald-500' }
+            ].map(stat => (
+              <div key={stat.label} className="text-center">
+                <div className={`text-2xl font-bold tabular-nums ${stat.value === 0 ? 'text-subtle-foreground' : stat.className}`}>
+                  {stat.value}
+                </div>
+                <div className="text-[10px] uppercase tracking-wide text-subtle-foreground font-semibold">
+                  {stat.label}
+                </div>
+              </div>
+            ))}
           </div>
 
-          {visible.length > 0 && (
-            <ul className="rounded-xl border border-border divide-y divide-border overflow-hidden">
+          <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
+            <span className="text-muted-foreground">
+              across {data.counts.tasks} task{data.counts.tasks === 1 ? '' : 's'}
+            </span>
+            {(systemHidden > 0 || includeSystem) && (
+              <button
+                onClick={() => { setIncludeSystem(!includeSystem); setShowAll(false); }}
+                aria-pressed={includeSystem}
+                className="font-semibold text-subtle-foreground hover:text-foreground transition-colors"
+              >
+                {includeSystem ? "Hide Windows' own" : `${systemHidden} system hidden`}
+              </button>
+            )}
+          </div>
+          </div>
+
+          <div className="pt-1">
+            {visible.length === 0 ? (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-semibold">
+                <ShieldCheck size={13} /> Nothing needs attention
+              </div>
+            ) : (
+              <button
+                onClick={() => { setOpen(!open); setShowAll(false); setExpanded(null); }}
+                aria-expanded={open}
+                className="w-full bg-background border border-border hover:border-primary px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+              >
+                {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                {open
+                  ? 'Hide the list'
+                  : `Show ${visible.length} task${visible.length === 1 ? '' : 's'} needing attention`}
+              </button>
+            )}
+          </div>
+
+          {open && visible.length > 0 && (
+            <ul className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-96 overflow-y-auto">
               {shown.map(health => {
                 const style = TIER_STYLE[health.tier as Exclude<HealthTier, 'ok'>];
                 const isOpen = expanded === health.taskId;
@@ -216,6 +246,19 @@ export const TaskHealthTool = () => {
                 </li>
               )}
             </ul>
+          )}
+
+          {/* A way back out from the bottom. Once the whole list is open the
+              control that opened it has scrolled out of reach, and making
+              someone scroll up to close what they scrolled down to read is the
+              kind of small rudeness nobody reports and everybody feels. */}
+          {open && showAll && visible.length > 0 && (
+            <button
+              onClick={() => { setShowAll(false); setOpen(false); setExpanded(null); }}
+              className="w-full text-xs font-semibold text-muted-foreground hover:text-foreground border-t border-border pt-4 flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <ChevronUp size={13} /> Collapse
+            </button>
           )}
         </>
       )}

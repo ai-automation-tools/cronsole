@@ -25,7 +25,12 @@ export const ToolsScreen = () => (
       <p className="text-muted-foreground">Check task health, back up and restore tasks, and connect AI tools.</p>
     </div>
 
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+    {/* No `items-start`: the default `stretch` plus `h-full` on every card is
+        what makes each row line up instead of ending ragged. Cards carry a
+        `min-h` floor so a short one doesn't look stubby next to a tall one, and
+        anything that can grow (a restore plan, the health list) scrolls inside
+        its own card rather than stretching the whole row. */}
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <TaskHealthTool />
       <BulkExportTool />
       <RestoreTool />

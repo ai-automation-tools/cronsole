@@ -138,9 +138,43 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 ---
 
-## 5. Tools — backing up and restoring
+## 5. Tools — health, backup and restore
 
 The **Tools** tab holds the things that act across *all* your tasks rather than one of them.
+
+### Task health
+
+Answers *"which of my tasks need attention?"* — the question a few hundred rows can't answer by
+scrolling. It always gives you an answer, including when the answer is "nothing".
+
+By default you see only the **summary**: how many tasks are critical, need a look, are unmeasured,
+and are healthy. **Show N tasks needing attention** opens the list, worst first; a **Collapse**
+button appears at the bottom once you've opened the whole thing, so you don't have to scroll back
+up to close what you scrolled down to read.
+
+Expand any row to see the **signals** behind it, each with the evidence it came from — *"Windows
+recorded exit code 2 for the run at 2026-07-27T03:00"*, *"Windows missed 2 scheduled starts as of
+the sync at …"*. The score shown there ranks the list; it is not a grade, and it never appears
+without the signals that produced it.
+
+Four states, and the third one matters:
+
+- **Critical** — the last run failed, several runs in a row failed, or the task has gone missing
+  from the platform.
+- **Attention** — missed starts, never run, overdue against its own schedule, a run stopped before
+  it finished, or a native job suddenly taking much longer than usual.
+- **Unknown** — TaskHub has **no evidence** about this task. Most often that means the Windows
+  agent predates run-result reporting: republish it and the tasks become measurable. Unmeasured is
+  deliberately not shown as healthy.
+- **Healthy** — counted in the header, not listed.
+
+Windows' own `\Microsoft\` tasks are **hidden by default**, the same way the dashboard's Personal
+filter hides them, with the count shown so you can bring them back. A **disabled** task is never
+counted as unhealthy — parking a task is a normal thing to do, and the card says so rather than
+nagging about a task you switched off on purpose. **Open task** jumps straight to it on the
+Dashboard.
+
+---
 
 ### Back up scheduled tasks
 
@@ -179,6 +213,23 @@ Puts them back. Feed it the `.zip`, the folder you exported to, or individual `.
   a file that isn't a task definition, or two files that would land on the same task path.
 - **Restoring a task does not add it to TaskHub.** It puts the task back on the machine; use
   **Import** on the Dashboard if you want TaskHub to track it too.
+
+### Export run history
+
+Downloads every recorded run across all your tasks as a CSV — the answer to *"what failed this
+month?"*, which the per-task history (20 rows at a time) can't give you. Pick a period, optionally
+narrow to failures, and the button tells you how many runs the file will hold before you download it.
+
+**Read the `runKind` column before you read `status`.** The history covers runs **TaskHub
+performed** — tasks you ran from the dashboard, and TaskHub-native jobs it runs itself:
+
+- `native-execution` — TaskHub ran the job, so `status` and `durationMs` describe the actual work.
+- `manual-trigger` — TaskHub asked the Windows agent to start the task. `SUCCESS` means Windows
+  accepted the start; the task's own outcome isn't in that row, and the duration is the round trip.
+
+A Windows task firing on its own schedule isn't recorded at all, so an empty period means TaskHub
+triggered nothing — **not** that nothing ran. (For "did this actually work?", the **Task health**
+panel below reads Windows' own result instead.)
 
 ### Connect an AI tool
 

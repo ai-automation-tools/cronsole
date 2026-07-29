@@ -12,7 +12,7 @@
 import { Router, Request, Response } from 'express';
 import JSZip from 'jszip';
 import { z } from 'zod';
-import { PlatformType } from '@prisma/client';
+import { ExecutionStatus, PlatformType, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
@@ -25,6 +25,19 @@ import {
   selectExportCandidates,
   type BulkExportSelection
 } from '../services/bulkExport.js';
+import {
+  csvFilename,
+  historyWhere,
+  runKindFor,
+  summarizeHistory,
+  toCsvBuffer,
+  type RunHistoryRow
+} from '../services/runHistory.js';
+import {
+  rankByHealth,
+  scoreTask,
+  summarizeHealth
+} from '../services/taskHealth.js';
 import {
   decodeTaskXml,
   isRestoreCandidate,
@@ -363,6 +376,196 @@ async function expandArchive(archiveBase64: string): Promise<RestoreInputFile[]>
   }
   return files;
 }
+
+/**
+ * Ceiling on one history read. Generous — a year of a busy machine fits — but
+ * bounded, because an unbounded export is a memory profile, not a feature. The
+ * response says when it was hit rather than silently returning a prefix.
+ */
+const MAX_HISTORY_ROWS = 50000;
+
+/** Default window when the caller doesn't pick one: the last 30 days. */
+const DEFAULT_HISTORY_DAYS = 30;
+
+const historyQuerySchema = z.object({
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  /** Repeatable or comma-separated: `?status=FAILURE,TIMEOUT`. */
+  status: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform(v => {
+      if (!v) return undefined;
+      const list = (Array.isArray(v) ? v : v.split(','))
+        .map(s => s.trim().toUpperCase())
+        .filter(Boolean);
+      return list.length ? list : undefined;
+    })
+    .pipe(z.array(z.nativeEnum(ExecutionStatus)).optional()),
+  platform: z.nativeEnum(PlatformType).optional(),
+  taskId: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(MAX_HISTORY_ROWS).optional(),
+  format: z.enum(['json', 'csv']).default('json')
+});
+
+/**
+ * Cross-task run history — "which tasks failed this month?", which had no answer
+ * anywhere in the product because `ExecutionLog` was readable only 20 rows at a
+ * time, per task.
+ *
+ * Lives on `/api/tools` because it spans tasks and has no task id of its own.
+ *
+ * **What it contains, and what it does not:** rows are runs *TaskHub performed*
+ * — a Windows task firing on its own schedule writes nothing here. Every row
+ * carries a `runKind` so `status` is readable: `native-execution` is a real
+ * outcome, `manual-trigger` means "the agent accepted the start". Saying that
+ * out loud is the difference between a useful report and one where an empty
+ * month reads as "nothing ran".
+ */
+router.get('/history', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const parsed = historyQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new HttpError(400, parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
+  }
+  const query = parsed.data;
+
+  const to = query.to ?? new Date();
+  const from = query.from ?? new Date(to.getTime() - DEFAULT_HISTORY_DAYS * 86400000);
+  if (from > to) {
+    throw new HttpError(400, 'The start of the range is after its end.');
+  }
+
+  const limit = query.limit ?? MAX_HISTORY_ROWS;
+  const where = historyWhere(userId, {
+    from,
+    to,
+    status: query.status,
+    platform: query.platform,
+    taskId: query.taskId
+  });
+
+  // Counted over the WHOLE filtered set, not the returned page. The UI uses
+  // this to say "this will export N runs" before the download, and a count that
+  // silently meant "N, or the page size, whichever is smaller" would be wrong
+  // exactly when it matters most — on the large export someone is about to run.
+  const byStatus = await prisma.executionLog.groupBy({
+    by: ['status'],
+    where,
+    _count: { _all: true }
+  });
+  const matched = {
+    runs: byStatus.reduce((sum, g) => sum + g._count._all, 0),
+    succeeded: byStatus.find(g => g.status === ExecutionStatus.SUCCESS)?._count._all ?? 0,
+    failed:
+      (byStatus.find(g => g.status === ExecutionStatus.FAILURE)?._count._all ?? 0) +
+      (byStatus.find(g => g.status === ExecutionStatus.TIMEOUT)?._count._all ?? 0),
+    pending: byStatus.find(g => g.status === ExecutionStatus.PENDING)?._count._all ?? 0
+  };
+
+  const records = await prisma.executionLog.findMany({
+    where,
+    orderBy: { triggeredAt: 'desc' },
+    // One extra row purely to detect the ceiling, so "you hit the limit" is a
+    // fact rather than an inference from a suspiciously round number.
+    take: limit + 1,
+    include: { task: { select: { id: true, name: true, externalId: true, platform: true, category: true } } }
+  });
+
+  const truncated = records.length > limit;
+  const rows: RunHistoryRow[] = records.slice(0, limit).map(record => ({
+    triggeredAt: record.triggeredAt,
+    taskId: record.task.id,
+    taskName: record.task.name,
+    taskPath: record.task.externalId,
+    platform: record.task.platform,
+    category: record.task.category,
+    status: record.status,
+    runKind: runKindFor(record.task.platform),
+    durationMs: record.durationMs,
+    platformRunId: record.platformRunId,
+    log: record.log
+  }));
+
+  if (query.format === 'csv') {
+    const body = toCsvBuffer(rows);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${csvFilename(from, to)}"`);
+    // The counts a binary-ish download has nowhere else to put, mirroring the
+    // bulk export's header.
+    res.setHeader('X-TaskHub-History-Counts', JSON.stringify({ ...summarizeHistory(rows), truncated }));
+    return res.send(body);
+  }
+
+  res.json({
+    range: { from, to },
+    /** Everything the filters match — what an export would contain. */
+    matched,
+    /** What this response actually carries, and the span it covers. */
+    returned: summarizeHistory(rows),
+    truncated,
+    limit,
+    rows
+  });
+});
+
+/**
+ * Automation health — which tasks need attention, and **on what evidence**.
+ *
+ * Mounted here, not as `/api/tasks/health`: that route already exists and means
+ * *per-platform connector health*. Two different questions ("is the agent up?"
+ * vs "is this task healthy?") must not share a name.
+ *
+ * The response always carries each task's signals. A caller that renders only
+ * the number is rendering a claim without its evidence, which is exactly the
+ * failure this feature was warned about.
+ */
+router.get('/task-health', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+
+  const tasks = await prisma.task.findMany({
+    where: { userId, status: { not: TaskStatus.DELETED } },
+    select: {
+      id: true,
+      name: true,
+      platform: true,
+      category: true,
+      // Needed for the system/personal verdict — the scorer asks
+      // TaskService.isSystemTask, which reads the native path.
+      externalId: true,
+      status: true,
+      schedule: true,
+      nextRunTime: true,
+      updatedAt: true,
+      metadata: true,
+      executions: {
+        orderBy: { triggeredAt: 'desc' },
+        take: HEALTH_EXECUTION_WINDOW,
+        select: { status: true, triggeredAt: true, durationMs: true }
+      }
+    }
+  });
+
+  const now = new Date();
+  // No cast. An `as HealthInputTask` here silenced the compiler when `externalId`
+  // was added to the scorer's input and left out of the select above — and the
+  // missing field only surfaced as a 500 against real data. A cast on a query
+  // result is a promise the query cannot keep.
+  const results = rankByHealth(tasks.map(task => scoreTask(task, now)));
+
+  res.json({
+    evaluatedAt: now,
+    counts: summarizeHealth(results),
+    tasks: results
+  });
+});
+
+/**
+ * How many recent runs feed a native task's signals. Enough to see a failure
+ * streak and a duration baseline; small enough that scoring every task is one
+ * bounded query rather than a full history load.
+ */
+const HEALTH_EXECUTION_WINDOW = 10;
 
 /**
  * What an AI tool needs to drive this TaskHub — the instructions half of the

@@ -134,6 +134,8 @@ you:
 | Export one task | `export_task` | `GET /api/tasks/:id/export` |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` |
+| Run history, all tasks | — | `GET /api/tools/history` (`?format=csv`) |
+| What needs attention | — | `GET /api/tools/task-health` |
 | **Untrack** (remove from TaskHub, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | **Delete** | `delete_task` — **only** when the human set `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
 

@@ -65,6 +65,23 @@ namespace TaskHub.Agent
         // sentinels) are sent as null instead of "0001-01-01" — see TriggerReader.
         public DateTime? LastRunTime { get; set; }
         public DateTime? NextRunTime { get; set; }
+        // Windows' OWN verdict on the last run: the exit code, where 0 is success.
+        //
+        // This is the only success signal for a Windows task that does not come
+        // from TaskHub. It has to exist because TaskHub's ExecutionLog records
+        // runs TaskHub *performed* — a task firing on its own schedule writes
+        // nothing there, and a manual trigger logs SUCCESS meaning "the agent
+        // started it", not "it worked". Scoring a task's health without this
+        // would read a machine full of healthy tasks as a machine full of tasks
+        // that never ran.
+        //
+        // Nullable: a task that has never run, or whose definition we cannot
+        // read, reports null rather than a fabricated 0 — "no evidence" and
+        // "succeeded" must never collapse into the same value.
+        public int? LastTaskResult { get; set; }
+        // How many scheduled starts Windows recorded as missed (machine asleep,
+        // service stopped). Nullable for the same reason.
+        public int? NumberOfMissedRuns { get; set; }
         // First cron-expressible trigger, if any; null for boot/logon/event tasks.
         public TriggerSpec? Trigger { get; set; }
         // Registration/principal detail powering the task-detail view. Null when

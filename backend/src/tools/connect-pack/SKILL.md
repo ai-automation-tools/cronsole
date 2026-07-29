@@ -59,6 +59,8 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
+| Run history across all tasks | — | `GET /api/tools/history` (`?format=csv`) |
+| What needs attention | — | `GET /api/tools/task-health` |
 | Template import/export, sync, pairing | — | REST / dashboard only |
 
 ---

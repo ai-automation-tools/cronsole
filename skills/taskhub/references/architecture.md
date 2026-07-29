@@ -32,12 +32,20 @@ Prisma models, **no `@@map`** — so SQL needs quoted PascalCase: `SELECT * FROM
 | `User` | email, password (hashed) | — |
 | `PlatformConnection` | platform, **config (encrypted)**, isActive, healthState | `@@unique([userId, platform])` |
 | `Task` | platform, **externalId**, name, category, schedule (5-field cron **UTC**), nextRunTime, status, quickLink, metadata | `@@unique([platform, externalId])`; indexed on `[userId, platform]`, `nextRunTime`, `category` |
-| `ExecutionLog` | per-run status/time/output | — |
+| `ExecutionLog` | per-run status/time/output | indexed on `[taskId, triggeredAt]` **and** `[triggeredAt]` — the second exists for the cross-task history range, which the first (leading with `taskId`) cannot serve |
 | `Template` | see below | indexed on `[isPublic, upvotes]`, `[isStarter, os]` |
 | `TemplateFavorite` | userId, templateId | `@@unique([userId, templateId])` |
 
 **`Task.externalId`** is the platform's native id — a Windows task path, a Claude routine id.
 That's what makes `(platform, externalId)` a meaningful uniqueness key.
+
+**`ExecutionLog` is not a complete run history** and reading it as one is wrong at dashboard scale.
+Rows are written in exactly two places — `POST /api/tasks/:id/run` and `NativeScheduler` — so it
+records runs **TaskHub performed**. A Windows task firing on its own schedule writes nothing, and a
+manual Windows run's `SUCCESS` means *"the agent accepted the start"*, with `durationMs` timing the
+round trip rather than the work. A Windows task's real outcome lives in the sync snapshot
+(`metadata.lastTaskResult`, `lastRunTime`, `numberOfMissedRuns`), which is why the agent reports
+them at all.
 
 **`TemplateFavorite` is a join model, deliberately** — not a column on `Template`. Favoriting
 must never mutate the shared catalog. It's the honest per-user signal that replaced fake

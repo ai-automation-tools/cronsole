@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
-  <title id="title">TaskHub Command Grid landscape logo concept</title>
-  <desc id="desc">A wide TaskHub wordmark with a connected task grid icon for GitHub and website headers.</desc>
+  <title id="title">Cronsole Command Grid landscape logo concept</title>
+  <desc id="desc">A wide Cronsole wordmark with a connected task grid icon for GitHub and website headers.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#0f0f12"/>
@@ -22,7 +22,7 @@
   <circle cx="128" cy="228" r="18" fill="#10b981"/>
   <circle cx="170" cy="228" r="15" fill="#a78bfa"/>
   <path d="M200 238l22 22 43-58" fill="none" stroke="#ecfeff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="344" y="177" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">TaskHub</text>
+  <text x="344" y="177" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">Cronsole</text>
   <text x="350" y="232" fill="#a1a1aa" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">One control plane for scheduled tasks</text>
   <g transform="translate(938 124)">
     <rect x="0" y="0" width="172" height="112" rx="24" fill="#111113" stroke="#27272a" stroke-width="3"/>

@@ -1,5 +1,19 @@
 version: '3.8'
 
+# Pinned explicitly, and deliberately still "taskhub" (2026-07-31).
+#
+# Without this line Compose derives the project name from the DIRECTORY name, which
+# makes the folder on disk silently decide which volumes the stack mounts. Renaming
+# the checkout would have created a brand-new empty `cronsole_postgres_data` and booted
+# an empty Postgres — the database orphaned rather than lost, but indistinguishable
+# from data loss at the moment you see it.
+#
+# It stays `taskhub` for the same reason POSTGRES_USER/POSTGRES_DB below do: the volume
+# `taskhub_postgres_data` holds the one thing here that cannot be rebuilt from the repo.
+# Renaming it buys nothing a user ever sees and risks everything. Docker identity and
+# product branding are separate namespaces; only one of them is allowed to be pretty.
+name: taskhub
+
 services:
   db:
     image: postgres:16-alpine
@@ -16,8 +30,14 @@ services:
     # (troubleshooting #23). After an unclean shutdown Postgres spends several seconds in
     # crash recovery answering `FATAL: the database system is starting up`, so "container
     # started" is not the signal the backend needs — "accepting connections" is.
+    # NOTE: pg_isready ignores -U/-d when deciding its exit code — it answers "is the
+    # server accepting connections", not "can this role reach this database". It returns 0
+    # for a role and database that do not exist. These args were left naming `cronsole`
+    # by a rename pass (the real role/db are `taskhub`, protected above), and nothing
+    # failed, because nothing here could. They are correct now so they stop implying a
+    # check that isn't happening; if you ever need to verify auth, that is a psql query.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cronsole -d cronsole"]
+      test: ["CMD-SHELL", "pg_isready -U taskhub -d taskhub"]
       interval: 5s
       timeout: 5s
       retries: 12

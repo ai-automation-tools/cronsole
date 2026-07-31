@@ -151,19 +151,44 @@ Desktop). The repo root is auto-detected by walking up to the folder containing
 `docker-compose.yml`, so the script keeps working even if this folder moves.
 
 ### Change the task itself (action, trigger, run level, or script path)
-1. Edit `CronsoleAgent.updated.xml`.
-2. Re-register it from an **elevated** PowerShell (accept the UAC prompt):
-   ```powershell
-   Register-ScheduledTask -TaskName "CronsoleAgent" -TaskPath "\Cronsole-Stack\" `
-     -Xml (Get-Content ".\scripts\startup-task\CronsoleAgent.updated.xml" -Raw) -Force
-   ```
-3. Verify:
-   ```powershell
-   (Get-ScheduledTask -TaskName "CronsoleAgent" -TaskPath "\Cronsole-Stack\").Actions
-   ```
+
+> [!WARNING]
+> **Both XML files below are pre-2026-07-31 and name the old checkout path
+> `…\Live_Apps\taskhub` — and `.updated.xml` also names `Start-TaskHub.ps1`, which no
+> longer exists.** Registering either one **succeeds**, then the task fails *silently* at
+> the next logon, because Windows does not validate an action's path at registration time.
+> That is the same silent-breakage shape the folder migration exists to prevent
+> ([`Migrate-RepoFolder.ps1`](Migrate-RepoFolder.ps1)); these two files were not repointed
+> because they are kept as **history**, not as live inputs. Use
+> [`Register-CronsoleStack.ps1`](Register-CronsoleStack.ps1) — the programmatic repair that
+> supersedes them and resolves the repo root at run time — and treat the XML as a record of
+> what the task used to be.
+
+To change the task programmatically (the supported path):
+
+```powershell
+# elevated PowerShell; re-registers all three \Cronsole-Stack\ tasks from the current repo root
+.\scripts\startup-task\Register-CronsoleStack.ps1
+```
+
+Verify — always by asking Task Scheduler, never by the registrar's exit code:
+
+```powershell
+Get-ScheduledTask -TaskPath '\Cronsole-Stack\' | ForEach-Object {
+  '{0} [{1}]' -f $_.TaskName, $_.State
+  $_.Actions | ForEach-Object { "  $($_.Execute) $($_.Arguments)" }
+}
+```
+
+If you do re-register from XML anyway, **update every absolute path inside the file first**
+and confirm each one resolves with `Test-Path`.
 
 ### Revert to the original (agent-only) task
-From an **elevated** PowerShell:
+The same warning applies — `CronsoleAgent.backup.xml` is a snapshot of the **pre-rename**
+task and points at `…\Live_Apps\taskhub\agent\publish\TaskHub.Agent.exe`, a path *and* an
+exe name that are both gone. It is kept for reference, not for rollback onto this machine.
+To roll back, edit its paths to the current checkout first, then:
+
 ```powershell
 Register-ScheduledTask -TaskName "CronsoleAgent" -TaskPath "\Cronsole-Stack\" `
   -Xml (Get-Content ".\scripts\startup-task\CronsoleAgent.backup.xml" -Raw) -Force
@@ -177,8 +202,8 @@ foreach ($port in 7373,3000) {
   $procId = (Get-NetTCPConnection -State Listen -LocalPort $port -EA SilentlyContinue).OwningProcess | Select-Object -First 1
   if ($procId) { Stop-Process -Id $procId -Force }
 }
-# agent
-Get-Process -Name 'Cronsole.Agent' -EA SilentlyContinue | Stop-Process -Force
+# agent -- both names: one launched before the 2026-07-31 exe rename is still TaskHub.Agent
+Get-Process -Name 'Cronsole.Agent','TaskHub.Agent' -EA SilentlyContinue | Stop-Process -Force
 # data services
 & 'D:\GDrive\Repos\Docker\resources\bin\docker.exe' compose -f .\docker-compose.yml stop db redis
 ```

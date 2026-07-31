@@ -28,6 +28,9 @@
       5. Rename the folder.
       6. Repoint each task's action to the new path with Set-ScheduledTask --
          actions only, so triggers, principal and RunLevel survive untouched.
+      6b. Repoint the .claude\skills\cronsole JUNCTION, whose target is stored as
+         an absolute path and would otherwise dangle. A scheduled task is not the
+         only thing on this machine that names the folder by absolute path.
       7. Re-enable, then VERIFY BY ASKING TASK SCHEDULER what the actions now
          say -- not by trusting an exit code. Stage 2's lesson: a script ending
          in `Stop-Process -Id $PID` can take its caller with it and still look
@@ -56,10 +59,15 @@
     file lives inside the folder being renamed, the rename fails. Copy it out
     first and pass -RepoRoot:
 
+      $repo = "D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\cronsole"
       $s = "$env:TEMP\Migrate-RepoFolder.ps1"
-      Copy-Item "D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub\scripts\startup-task\Migrate-RepoFolder.ps1" $s
-      & $s -RepoRoot "D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub" -DryRun
-      & $s -RepoRoot "D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub"
+      Copy-Item "$repo\scripts\startup-task\Migrate-RepoFolder.ps1" $s
+      & $s -RepoRoot $repo -NewName "<new-folder-name>" -DryRun
+      & $s -RepoRoot $repo -NewName "<new-folder-name>"
+
+    The example names the CURRENT folder because that is what a future move starts
+    from. The 2026-07-31 run went taskhub -> cronsole; leaving the old name in this
+    example would send the next reader at a folder that no longer exists.
 
     Requires elevation: the \Cronsole-Stack\ tasks run at RunLevel Highest and
     were created elevated, so modifying them needs an administrator token.
@@ -163,7 +171,18 @@ if (Test-Path $down) {
     & pwsh -NoProfile -File $down down 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
 }
 Stop-ScheduledTask -TaskPath $TaskPath -TaskName 'CronsoleAgent' -ErrorAction SilentlyContinue
-Get-Process -Name 'Cronsole.Agent' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+# Stop the agent under BOTH names. An agent that started before the 2026-07-31 exe
+# rename is still called TaskHub.Agent, holds the same handles inside agent\publish,
+# and is invisible to a lookup for the new name only - so `cronsole.ps1 down` reports
+# "agent already stopped" and the rename below then fails on a handle nothing admits
+# to holding. That is exactly how this script failed the first time it was run.
+$agents = @(Get-Process -Name 'Cronsole.Agent','TaskHub.Agent' -ErrorAction SilentlyContinue)
+foreach ($a in $agents) {
+    Write-Host ("    stopping agent {0} (pid {1})" -f $a.ProcessName, $a.Id) -ForegroundColor DarkGray
+    Stop-Process -Id $a.Id -Force -ErrorAction SilentlyContinue
+}
+if ($agents.Count -eq 0) { Write-Host '    no agent process running' -ForegroundColor DarkGray }
 
 # A stopped process is not the same as a released handle. Retry rather than
 # racing it -- the failure mode otherwise is a rename that fails for a reason the
@@ -177,15 +196,68 @@ foreach ($attempt in 1..10) {
         break
     } catch {
         if ($attempt -eq 10) {
+            # Name the holders rather than listing "common culprits". A generic hint sends
+            # you hunting an Explorer window while a leftover `tsx watch` sits there -- the
+            # exact wrong turn this failure produced the first time. Only processes that
+            # NAME the path can be found this way: a process merely sitting in the folder
+            # (an editor, a terminal, an AI agent) holds an identical CWD handle and is
+            # invisible to every API short of a handle enumerator, so say that too instead
+            # of letting an empty list read as "nothing is holding it".
+            $suspects = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+                Where-Object {
+                    $_.ProcessId -ne $PID -and $_.CommandLine -and
+                    $_.CommandLine.IndexOf($OldRoot, [StringComparison]::OrdinalIgnoreCase) -ge 0
+                } | ForEach-Object { "    pid {0,-6} {1}" -f $_.ProcessId, $_.Name })
+
+            $named = if ($suspects.Count -gt 0) {
+                "Processes naming that path right now:`n" + ($suspects -join "`n")
+            } else {
+                'No process NAMES that path, so the holder is something merely sitting in
+it -- its working directory is a handle too, and one this check cannot see.'
+            }
+
+            # Undo our own setup rather than print the undo. Step 3 disabled the launcher
+            # tasks; if we exit leaving them off, a failed migration has silently turned
+            # logon start off too -- and the user finds out at the next reboot. Restoring
+            # is a command we can run, so printing it instead would be the lazier half of
+            # the same thought that made the rest of this script verify by reading back.
+            $restored = @()
+            foreach ($n in $TaskNames) {
+                try {
+                    Enable-ScheduledTask -TaskPath $TaskPath -TaskName $n -ErrorAction Stop | Out-Null
+                    $restored += $n
+                } catch { }
+            }
+            $stillOff = @($TaskNames | Where-Object {
+                $t = Get-ScheduledTask -TaskPath $TaskPath -TaskName $_ -ErrorAction SilentlyContinue
+                $t -and $t.State -eq 'Disabled'
+            })
+            $taskState = if ($stillOff.Count -eq 0) {
+                "The launcher tasks were re-enabled -- the machine is back how it started."
+            } else {
+                @"
+COULD NOT re-enable: $($stillOff -join ', ') -- logon start is OFF until you do:
+
+  '$($stillOff -join "','")' | ForEach-Object {
+      Enable-ScheduledTask -TaskPath '$TaskPath' -TaskName `$_ }
+"@
+            }
+
             Write-Error @"
 Could not rename after 10 attempts: $($_.Exception.Message)
 
-Something still holds a handle inside $OldRoot. Common culprits: an editor or
-terminal with that folder open, a node process from the stack, or Explorer.
-The launcher tasks are currently DISABLED -- re-enable them with:
+Something still holds a handle inside $OldRoot.
 
-  '$($TaskNames -join "','")' | ForEach-Object {
-      Enable-ScheduledTask -TaskPath '$TaskPath' -TaskName `$_ }
+$named
+
+A working directory counts. Close any editor, terminal, file manager or AI coding
+session opened ON that folder -- including the one you may be reading this in --
+then run this script again from a shell somewhere else.
+
+$taskState
+
+The app tier was stopped and was NOT restarted. Bring it back with:
+  pwsh "$OldRoot\scripts\cronsole.ps1" up
 "@
             exit 1
         }
@@ -205,6 +277,23 @@ foreach ($n in $plan) {
     }
     Set-ScheduledTask -TaskPath $TaskPath -TaskName $n -Action $newActions | Out-Null
     Write-Host ("  [ ok ] {0}" -f $n) -ForegroundColor Green
+}
+
+# --- 5b. Repoint the per-machine skill junction --------------------------------
+# .claude\skills\cronsole is a JUNCTION, and a junction stores its target as an
+# ABSOLUTE path -- so the rename leaves it aimed at a folder that no longer exists.
+# Claude Code then loads no cronsole skill at all, and says nothing, because a
+# dangling junction is not an error: it is an absence. Exactly the silent-breakage
+# shape this whole script exists to prevent, which is why it belongs here rather
+# than in a "don't forget to..." note. setup-skill-links.ps1 derives every path from
+# its own location, so running the copy at the NEW root is the repoint; it is
+# idempotent and needs no elevation.
+$relink = Join-Path $NewRoot 'scripts\setup-skill-links.ps1'
+if (Test-Path $relink) {
+    Write-Host 'Repointing the skill junction...' -ForegroundColor Cyan
+    & pwsh -NoProfile -File $relink 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+} else {
+    Write-Host '  [warn] setup-skill-links.ps1 not found -- relink the skills by hand' -ForegroundColor Yellow
 }
 
 # --- 6. Re-enable --------------------------------------------------------------
@@ -236,6 +325,23 @@ foreach ($n in $TaskNames) {
         $bad++
     } else {
         Write-Host ("  [ ok ] {0}  state={1}, targets exist" -f $n, $t.State) -ForegroundColor Green
+    }
+}
+
+# Verify the junction by RESOLVING it, not by Test-Path on the link itself: a
+# dangling junction is still a directory entry, so the naive check is how an absence
+# passes for a presence. Ask where it points and whether that exists.
+$link = Join-Path $NewRoot '.claude\skills\cronsole'
+$li   = Get-Item $link -Force -ErrorAction SilentlyContinue
+if (-not $li -or -not $li.LinkType) {
+    Write-Host '  [warn] .claude\skills\cronsole is not a link -- run scripts\setup-skill-links.ps1' -ForegroundColor Yellow
+} else {
+    $tgt = @($li.Target)[0]
+    if ($tgt -and (Test-Path $tgt)) {
+        Write-Host ("  [ ok ] skill junction -> {0}" -f $tgt) -ForegroundColor Green
+    } else {
+        Write-Host ("  [FAIL] skill junction dangles -> {0}" -f $tgt) -ForegroundColor Red
+        $bad++
     }
 }
 

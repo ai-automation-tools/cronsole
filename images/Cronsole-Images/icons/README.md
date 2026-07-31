@@ -1,6 +1,6 @@
-# TaskHub Icon Proposals
+# Cronsole Icon Proposals
 
-Square TaskHub icon proposals for favicons, app icons, and clickable buttons.
+Square Cronsole icon proposals for favicons, app icons, and clickable buttons.
 
 Open [`../preview.html`](../preview.html) to compare these icons alongside the landscape logo proposals.
 

@@ -147,7 +147,7 @@ claude mcp add cronsole \
   "mcpServers": {
     "cronsole": {
       "command": "node",
-      "args": ["D:/AI_Agents/Projects/Mikes_AI_Lab/Repos/Live_Apps/taskhub/mcp-server/dist/index.js"],
+      "args": ["D:/AI_Agents/Projects/Mikes_AI_Lab/Repos/Live_Apps/cronsole/mcp-server/dist/index.js"],
       "env": {
         "CRONSOLE_TOKEN": "<your-jwt>",
         "CRONSOLE_API_URL": "http://localhost:3000/api"

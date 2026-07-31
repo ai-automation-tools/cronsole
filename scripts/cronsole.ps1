@@ -47,6 +47,18 @@ $AgentExe    = Join-Path $RepoRoot 'agent\publish\Cronsole.Agent.exe'
 $LogDir      = Join-Path $RepoRoot 'logs'
 $Compose     = Join-Path $RepoRoot 'docker-compose.yml'
 
+# The agent exe was renamed TaskHub.Agent -> Cronsole.Agent on 2026-07-31. A process
+# that STARTED before that rename is still named TaskHub.Agent, and it holds every
+# handle and Task Scheduler connection a Cronsole.Agent would - so looking only for
+# the new name is how "agent already stopped" gets printed at a running agent, and
+# how a folder rename then fails on a handle nothing admits to holding. We only ever
+# start the new name; the legacy entry exists solely to be FOUND and stopped.
+$AgentProcNames = @('Cronsole.Agent', 'TaskHub.Agent')
+
+function Get-AgentProcess {
+    Get-Process -Name $AgentProcNames -ErrorAction SilentlyContinue
+}
+
 $Npm = 'C:\Program Files\nodejs\npm.cmd'
 if (-not (Test-Path $Npm)) { $Npm = 'npm.cmd' }
 $Docker = 'D:\GDrive\Repos\Docker\resources\bin\docker.exe'
@@ -196,8 +208,17 @@ function Get-AgentProbe {
     # The agent binds nothing - it dials OUT - so the process is the only signal
     # available locally. Whether it is CONNECTED is a different question, and only
     # the app can answer it; say so rather than let "process running" read as "paired".
-    if (Get-Process -Name 'Cronsole.Agent' -ErrorAction SilentlyContinue) {
-        return New-Probe 'UP' 'process Cronsole.Agent running' 'process only - connection state is visible in the app sidebar, not here'
+    $p = Get-AgentProcess | Select-Object -First 1
+    if ($p) {
+        # Say WHICH binary is running. A legacy-named process is a real agent doing real
+        # work, so it is honestly UP - but it predates the rename, which means it is also
+        # running code older than anything in the checkout. Reporting a bare "UP" would
+        # hide the staler of the two facts.
+        if ($p.ProcessName -eq 'Cronsole.Agent') {
+            return New-Probe 'UP' 'process Cronsole.Agent running' 'process only - connection state is visible in the app sidebar, not here'
+        }
+        return New-Probe 'WARN' ("process {0} running (pre-rename binary, pid {1})" -f $p.ProcessName, $p.Id) `
+            'this agent started before the Cronsole rename, so it is running stale code - republish: scripts\Republish-Agent.ps1'
     }
     return New-Probe 'DOWN' 'no Cronsole.Agent process' 'publish + start it, or run: cronsole up' $false
 }
@@ -215,6 +236,32 @@ function Stop-Port([int]$Port, [string]$Label) {
         Write-Host '           (a container port proxy?) try:  docker compose stop backend frontend' -ForegroundColor Yellow
     } else {
         Write-Host "  $Label already stopped"
+    }
+}
+
+# Stop-Port kills whatever owns the LISTENING SOCKET. Under `npm run dev` that is the
+# innermost node; `tsx watch` and its cmd.exe wrapper are its ANCESTORS, so they survive
+# with a working-directory handle still open inside backend\ or frontend\. Nothing here
+# notices, and nothing should: the port really is free and the service really is stopped.
+# The cost lands somewhere else entirely - a surviving watcher is what makes a later
+# rename of the checkout fail with "Access to the path is denied", an error that blames
+# the folder instead of the process still sitting in it (Migrate-RepoFolder.ps1).
+#
+# Match on the repo path in the command line, and only for node.exe/cmd.exe. A process
+# whose CWD merely happens to be the repo - an editor, a terminal, an AI agent - holds
+# the same kind of handle but is not ours to kill, and its command line does not name us.
+function Stop-DevServerTree {
+    $dirs  = @($BackendDir, $FrontendDir)
+    $stale = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $proc = $_
+        $proc.ProcessId -ne $PID -and
+        $proc.Name -in @('node.exe', 'cmd.exe') -and
+        $proc.CommandLine -and
+        ($dirs | Where-Object { $proc.CommandLine.IndexOf($_, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
+    })
+    foreach ($p in $stale) {
+        Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+        Write-Host "  stopped leftover watcher (pid $($p.ProcessId), $($p.Name))"
     }
 }
 
@@ -353,8 +400,16 @@ function Invoke-Up {
     }
 
     # 4. Agent (host .exe - needs Task Scheduler access)
-    if ((Get-AgentProbe).State -eq 'UP') {
-        Write-Host '  agent already up'
+    # Ask for the PROCESS, not the probe state: a legacy-named agent probes WARN, and
+    # branching on 'UP' would start a second agent alongside it. Two agents on one
+    # machine both answer task:run.
+    $running = Get-AgentProcess | Select-Object -First 1
+    if ($running) {
+        Write-Host ("  agent already up ({0}, pid {1})" -f $running.ProcessName, $running.Id)
+        if ($running.ProcessName -ne 'Cronsole.Agent') {
+            Write-Host '  WARNING: that is the pre-rename binary - it is running stale code.' -ForegroundColor Yellow
+            Write-Host '           republish to swap it: scripts\Republish-Agent.ps1' -ForegroundColor Yellow
+        }
     } elseif (Test-Path $AgentExe) {
         Start-Process -FilePath $AgentExe -WorkingDirectory (Split-Path -Parent $AgentExe) -WindowStyle Hidden | Out-Null
         Write-Host '  started agent'
@@ -368,12 +423,25 @@ function Invoke-Up {
 
 function Invoke-Down {
     Write-Host 'Stopping the Cronsole app tier...'
-    if ((Get-AgentProbe).State -eq 'UP') {
-        Stop-Process -Name 'Cronsole.Agent' -Force -ErrorAction SilentlyContinue
-        Write-Host '  stopped agent'
+    $agents = @(Get-AgentProcess)
+    if ($agents.Count -gt 0) {
+        foreach ($a in $agents) {
+            Stop-Process -Id $a.Id -Force -ErrorAction SilentlyContinue
+            Write-Host ("  stopped agent ({0}, pid {1})" -f $a.ProcessName, $a.Id)
+        }
+        # Confirm rather than assume. The agent runs at RunLevel Highest, so an
+        # unelevated `down` gets Access Denied from Stop-Process and -SilentlyContinue
+        # swallows it - which prints "stopped agent" at an agent that is still running.
+        Start-Sleep -Milliseconds 500
+        $left = @(Get-AgentProcess)
+        if ($left.Count -gt 0) {
+            Write-Host ("  WARNING: agent still running (pid {0}) - Stop-Process was refused." -f ($left.Id -join ', ')) -ForegroundColor Yellow
+            Write-Host '           it runs elevated; re-run this from an Administrator prompt.' -ForegroundColor Yellow
+        }
     } else { Write-Host '  agent already stopped' }
     Stop-Port 3000 'backend'
     Stop-Port 7373 'frontend'
+    Stop-DevServerTree
 
     if ($All) {
         Write-Host 'Stopping data services (docker)...'

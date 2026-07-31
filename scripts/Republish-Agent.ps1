@@ -67,18 +67,24 @@ $before = if (Test-Path $Dll) { (Get-Item $Dll).LastWriteTime } else { $null }
 Write-Log ("current published dll: {0}" -f $(if ($before) { $before } else { '(none)' }))
 
 # --- 2. Stop the running agent so its exe can be replaced --------------------
-$proc = Get-Process Cronsole.Agent -ErrorAction SilentlyContinue
-if ($proc) {
-    Write-Log ("stopping Cronsole.Agent (pid {0})" -f ($proc.Id -join ', '))
+# Both names. An agent that started before the 2026-07-31 exe rename is still called
+# TaskHub.Agent and still locks files in agent\publish - stopping only the new name
+# leaves it running, and the "no agent process running" line below would be a lie
+# told right before a publish that then fails on a locked file.
+$AgentProcNames = @('Cronsole.Agent', 'TaskHub.Agent')
+$proc = @(Get-Process -Name $AgentProcNames -ErrorAction SilentlyContinue)
+if ($proc.Count -gt 0) {
+    Write-Log ("stopping agent: {0}" -f (($proc | ForEach-Object { "$($_.ProcessName) (pid $($_.Id))" }) -join ', '))
     $proc | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
-    if (Get-Process Cronsole.Agent -ErrorAction SilentlyContinue) {
-        Write-Log 'ABORT: agent still running; publish would fail on the locked exe.'
+    $left = @(Get-Process -Name $AgentProcNames -ErrorAction SilentlyContinue)
+    if ($left.Count -gt 0) {
+        Write-Log ("ABORT: agent still running (pid {0}); publish would fail on the locked exe." -f ($left.Id -join ', '))
         exit 3
     }
     Write-Log 'agent stopped'
 } else {
-    Write-Log 'no Cronsole.Agent process running'
+    Write-Log 'no agent process running'
 }
 
 # --- 3. Rebuild + publish ----------------------------------------------------
@@ -108,6 +114,17 @@ if (Test-Path $Dll) {
     }
 }
 
+# --- 3b. Remove pre-rename leftovers from the publish folder -----------------
+# `dotnet publish` writes into the output dir; it does not clean it. So the old
+# TaskHub.Agent.exe/.dll survive the rename and sit next to the new ones, launchable
+# by a double-click into a process nothing here would find under the new name. Its
+# runtimeconfig/deps are gone, so it can no longer even start - it is purely a trap.
+$stale = @(Get-ChildItem (Join-Path $RepoRoot 'agent\publish') -Filter 'TaskHub.Agent.*' -File -ErrorAction SilentlyContinue)
+foreach ($f in $stale) {
+    Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue
+    Write-Log ("removed pre-rename leftover: {0}" -f $f.Name)
+}
+
 # --- 4. Relaunch the stack ---------------------------------------------------
 if ($NoStart) {
     Write-Log 'NoStart set; skipping stack relaunch.'
@@ -118,7 +135,7 @@ if ($NoStart) {
     Write-Log "cronsole.ps1 up exit: $LASTEXITCODE"
 
     Start-Sleep -Seconds 3
-    $new = Get-Process Cronsole.Agent -ErrorAction SilentlyContinue
+    $new = Get-Process -Name 'Cronsole.Agent' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($new) {
         Write-Log ("agent running: pid {0}, started {1}" -f $new.Id, $new.StartTime)
     } else {

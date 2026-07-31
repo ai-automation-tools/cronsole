@@ -56,9 +56,12 @@ curl -s http://localhost:3000/api/tasks/health -H "Authorization: Bearer $TASKHU
 
 `WINDOWS_TASK_SCHEDULER` should be `HEALTHY` with a recent `lastSync`.
 
-> **An unelevated `Get-Process TaskHub.Agent` returning nothing does NOT mean the agent is
-> down.** It runs elevated and is invisible to an unelevated shell. The health endpoint is
-> the reliable signal.
+> **An unelevated `Get-Process Cronsole.Agent` returning nothing does NOT mean the agent is
+> down** — for two independent reasons. It runs elevated, so it is invisible to an unelevated
+> shell; and **an agent launched before the 2026-07-31 exe rename is still named
+> `TaskHub.Agent`**, so it is invisible to that lookup at any privilege level. Ask for both
+> names — `Get-Process -Name 'Cronsole.Agent','TaskHub.Agent'` — and treat the health
+> endpoint as the reliable signal either way (troubleshooting #35a).
 
 To check the build is current, compare the published dll against the source:
 

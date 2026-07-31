@@ -58,12 +58,16 @@ Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'  
 Get-Content "$env:TEMP\cronsole-republish.log" -Tail 20   # it logs — read it
 ```
 
-**Manual way** — Administrator prompt, `Get-Process Cronsole.Agent | Stop-Process -Force`
-then `dotnet publish` then `cronsole.ps1 up`. The stop is the step that matters.
+**Manual way** — Administrator prompt,
+`Get-Process -Name 'Cronsole.Agent','TaskHub.Agent' | Stop-Process -Force` then
+`dotnet publish` then `cronsole.ps1 up`. The stop is the step that matters.
 
-**Verify it took.** The published dll must be newer than the newest `.cs`. And an unelevated
-`Get-Process Cronsole.Agent` returning nothing does **not** mean it's down — it runs elevated
-and may be invisible to you. Ask `GET /api/tasks/health` instead; that's authoritative.
+**Verify it took.** The published dll must be newer than the newest `.cs`. And
+`Get-Process Cronsole.Agent` returning nothing does **not** mean it's down, for **two**
+reasons: it runs elevated (invisible to an unelevated shell), and an agent launched before
+the 2026-07-31 exe rename is still named **`TaskHub.Agent`** (invisible to that lookup at any
+privilege level — [#35a](../../../docs/troubleshooting/README.md#35a-and-the-holder-was-the-agent-itself-running-under-its-pre-rename-name)).
+Ask `GET /api/tasks/health` instead; that's authoritative.
 
 ## Add a new agent command
 
@@ -77,7 +81,7 @@ The one most likely to waste your afternoon — **two processes must ship togeth
    elevated):
 
 ```powershell
-Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name 'Cronsole.Agent','TaskHub.Agent' -ErrorAction SilentlyContinue | Stop-Process -Force
 dotnet publish ".\agent\Cronsole.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
 pwsh .\scripts\cronsole.ps1 up
 ```

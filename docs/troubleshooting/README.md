@@ -50,6 +50,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
 | 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
+| 35 | The checkout-folder rename fails all 10 attempts with `Access to the path … is denied`, moments after `cronsole down` reported the agent, backend and frontend all stopped | **`Stop-Port` kills the owner of the listening socket, not the owner of the folder.** Under `npm run dev` the listener is the innermost node; `tsx watch` and its `cmd.exe` wrapper are its **ancestors**, survive, and keep a CWD handle inside `backend\` — and Windows won't rename a directory that has one. The shutdown report was true, just not the claim that mattered. **Fixed 2026-07-31** (`Stop-DevServerTree`; the migration now names the holders). The other holder is **the shell or AI session you're typing in** — same handle, invisible to any process scan, so close it and re-run from elsewhere | [→](#35-the-checkout-rename-fails-with-access-to-the-path-is-denied--right-after-down-reported-everything-stopped) |
+| 35a | The **same** rename failure with the watcher fix already in — and the abort message names the holder: `pid 47312 TaskHub.Agent.exe`, printed two lines under `agent already stopped` | **A process keeps the name it was launched with.** The exe was renamed `TaskHub.Agent` → `Cronsole.Agent`, but this agent had started three days before the rename, so all four `Get-Process -Name 'Cronsole.Agent'` call sites (probe, `down`, republish, migrate) went blind at once — each still reporting success. The tell is `StartTime` predating the rename. **Fixed 2026-07-31**: every stop looks for **both** names, a legacy-named agent probes **WARN not UP**, republish prunes pre-rename leftovers from `agent\publish\`, and the migration's abort path re-enables the launcher tasks itself. *Renaming a binary does not rename the processes already running it — keep the old name in every lookup that **stops** something* | [→](#35a-and-the-holder-was-the-agent-itself-running-under-its-pre-rename-name) |
 | 32 | A PowerShell check against the API returns **every** task when it should return one, or prints a header with one **blank** row — while the same endpoint's raw JSON is plainly correct | **`Invoke-RestMethod` writes its array to the pipeline without enumerating it**, so a directly-piped `Where-Object`/`Select-Object` receives one `Object[]` instead of N objects. `$_.prop -eq 'x'` then evaluates against the whole array and returns the *matching elements* — truthy — so everything passes the filter. Assign to a variable first, then filter, and wrap in `@()` before `.Count`. **Worst where a check is meant to prove a row is gone: the broken form prints `0` on no-match, so it looks right and can never fail in the direction it is testing** | [→](#32-a-powershell-check-against-the-api-matches-everything-or-renders-a-blank-row) |
 | 34 | A Pages site moves to a new custom domain; the **old** subdomain 404s on both schemes despite its DNS record still resolving to the right GitHub IPs | **Pages redirects only `<user>.github.io/<repo>` to the custom domain — never a second custom domain pointed at the same IPs.** Serving is keyed on the `Host` header matching the repo's `CNAME`; anything else gets no site. DNS looks perfectly healthy the whole time, because the failure is vhost routing one layer above it. Either drop the old record (so it `NXDOMAIN`s rather than 404s) or serve a real redirect from a second repo. **"The record still points there" ≠ "the server will answer for that name"** | [→](#34-the-old-custom-domain-404s-after-moving-a-pages-site-to-a-new-one) |
 | 33 | A rename lands, every suite is green, and a working setup quietly stops working — MCP tools vanish, webhooks stop firing, an agent can't find its secret | The rename pass rewrote the **back-compat shim** that existed to survive it (`CRONSOLE_x ?? TASKHUB_x` → `CRONSOLE_x ?? CRONSOLE_x`) — a tautology that compiles and reads correctly — **and rewrote the guarding tests the same way**, so they still pass. Never write the old name as a literal in the thing meant to survive the rename: assemble it (`['TASK','HUB'].join('')`) and mutation-check the fallback | [→](#33-a-rename-pass-silently-disables-the-back-compat-it-just-added--and-rewrites-the-tests-too) |
@@ -2202,6 +2204,147 @@ resolver before concluding the deletion didn't take.**
 
 *First hit: 2026-07-31, stage 3 of the TaskHub → Cronsole rename — predicted as a free
 redirect, verified as a 404, resolved by deletion.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 35. The checkout rename fails with `Access to the path is denied` — right after `down` reported everything stopped
+
+**Symptom** — `Migrate-RepoFolder.ps1` disables the launcher tasks, stops the stack, prints a clean
+shutdown, and then loses all ten rename attempts:
+
+```
+    stopped agent
+    stopped backend (pid 31292)
+    stopped frontend (pid 12188)
+Waiting for handles to clear, then renaming...
+Could not rename after 10 attempts: Access to the path
+'…\Live_Apps\taskhub' is denied.
+```
+
+**Cause — `Stop-Port` kills the process that owns the listening socket, which is not the process
+that owns the folder.** Under `npm run dev` the tree is three deep:
+
+```
+cmd.exe  (npm run dev wrapper)      <- survives, CWD = backend\
+  node   (tsx watch src/index.ts)   <- survives, CWD = backend\
+    node (the actual :3000 listener) <- the only one Stop-Port sees
+```
+
+Killing the listener frees the port and stops the service, so **the shutdown report was true** — it
+just wasn't the claim that mattered. The two ancestors keep running, and **a process's current
+directory is an open directory handle**; Windows will not rename a directory that has one. Here the
+watcher had been up for four days, long enough that nothing connected it to the rename.
+
+**The wrong turn it produces:** the old error listed "an editor or terminal with that folder open,
+or Explorer" as common culprits, so the hunt starts with windows to close — while the actual holder
+is a headless `tsx watch` no window will ever reveal.
+
+**The second holder is the one you're typing in.** An editor, terminal, or AI coding session whose
+CWD is the folder holds an identical handle. It cannot be killed from inside itself, and it does not
+name the path on its command line, so no process scan will list it. If the rename still fails after
+the stack is down, **close the session that is sitting in the folder and re-run from elsewhere.**
+
+**Fixed 2026-07-31** — `Invoke-Down` now calls `Stop-DevServerTree`, which sweeps any `node.exe` /
+`cmd.exe` whose *command line* names `backend\` or `frontend\` under the repo. Matching the command
+line rather than the CWD is deliberate: it catches every process the script started and cannot
+reach an editor or agent that merely happens to be sitting there. `Migrate-RepoFolder.ps1` now
+**names the surviving holders** in its failure message, and says plainly that an empty list means
+the holder is a CWD it cannot see.
+
+**Clearing it by hand:**
+
+```powershell
+Get-CimInstance Win32_Process |
+  Where-Object { $_.CommandLine -like '*Live_Apps\taskhub\backend*' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+```
+
+**If the migration already aborted, the launcher tasks are left DISABLED** — that is the script
+being careful, but a disabled `\Cronsole-Stack\` is a silent no-start at next logon. Either re-run
+the migration (it re-enables and verifies at the end) or re-enable them **from an elevated shell** —
+they are `RunLevel Highest`, so an unelevated `Enable-ScheduledTask` fails with `Access is denied`:
+
+```powershell
+'CronsoleAgent','CronsoleRepublish','CronsoleStack' |
+  ForEach-Object { Enable-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName $_ }
+```
+
+**The generalizable part:** *"the service is stopped"* and *"nothing is holding the folder"* are
+different claims, and the first is what every shutdown routine is built to verify. Same family as
+[#23](#23-network-error-after-a-reboot--the-database-system-is-starting-up) — where a `tsx watch`
+surviving a crash is exactly what kept the container alive and stopped `restart: unless-stopped`
+from ever firing.
+
+*First hit: 2026-07-31, stage 4 of the TaskHub → Cronsole rename (the checkout-folder migration).*
+
+### 35a. …and the holder was the agent itself, running under its pre-rename name
+
+**Symptom** — the same failure, one layer further in. With `Stop-DevServerTree` shipped and no
+watcher left, the migration still lost all ten attempts — and this time its own failure message
+named the holder:
+
+```
+    Stopping the Cronsole app tier...
+      agent already stopped
+      backend already stopped
+      frontend already stopped
+Waiting for handles to clear, then renaming...
+Could not rename after 10 attempts: The process cannot access the file
+because it is being used by another process.
+Processes naming that path right now:
+    pid 47312  TaskHub.Agent.exe
+```
+
+Read those two lines together: **"agent already stopped" and "pid 47312 TaskHub.Agent.exe" are on
+the same screen.** That contradiction is the whole diagnosis.
+
+**Cause — the exe was renamed `TaskHub.Agent` → `Cronsole.Agent`, but a process keeps the name it
+was launched with.** This agent started 2026-07-28, three days *before* the rename. Every "stop the
+agent" call site had been updated to the new name and to nothing else:
+
+| Call site | Looked for | Found the running agent? |
+|---|---|---|
+| `cronsole.ps1` › `Get-AgentProbe` | `Cronsole.Agent` | no → reported **DOWN** |
+| `cronsole.ps1` › `Invoke-Down` | `Cronsole.Agent` | no → printed **"agent already stopped"** |
+| `Republish-Agent.ps1` | `Cronsole.Agent` | no → **"no Cronsole.Agent process running"**, then published over a locked exe |
+| `Migrate-RepoFolder.ps1` | `Cronsole.Agent` | no → renamed into a live handle |
+
+So a rename made three independent shutdown checks *simultaneously* blind, in the one way that
+leaves them all still reporting success. `Stop-ScheduledTask` didn't help either: it stops what the
+task *launched*, and this process had outlived its launcher.
+
+**The tell:** `(Get-Process -Id <pid>).StartTime` predates the rename. A holder older than the
+rename is a holder no post-rename lookup can see.
+
+**A second copy was sitting in `agent\publish\` too.** `dotnet publish` writes into the output
+folder without cleaning it, so `TaskHub.Agent.exe` / `.dll` survived alongside the new binaries —
+launchable by a double-click into a process nothing would find. Its `runtimeconfig.json` and
+`deps.json` had already been replaced, so it could no longer even start: purely a trap.
+
+**Fixed 2026-07-31** — all four call sites now look for **both** names, `Republish-Agent.ps1`
+deletes pre-rename leftovers from `agent\publish\` after a successful publish, and the probe
+reports a legacy-named agent as **WARN, not UP** — it is genuinely running, but it is also running
+code older than the checkout, and a bare `UP` would hide the staler of the two facts. `up` branches
+on the *process*, not on the probe state, so a WARN agent doesn't get a second agent started
+beside it.
+
+**Also fixed:** the abort path now **re-enables the launcher tasks itself** instead of printing the
+command for you. A failed migration that leaves `\Cronsole-Stack\` disabled has silently turned
+logon start off, and you find out at the next reboot — the exact silent-breakage shape the script
+exists to prevent.
+
+**The generalizable part, and it is not about agents:** *renaming a binary does not rename the
+processes already running it.* Any lookup by process name has a blind spot exactly as wide as the
+rename, it opens the moment you rename, and it stays open until every pre-rename process has been
+restarted — which is precisely the thing the broken lookup can no longer do. **When you rename an
+executable, keep the old name in every `Get-Process` / `pkill` / `taskkill` that stops it**, as a
+find-only alias. Sibling of [#33](#33-a-rename-pass-silently-disables-the-back-compat-it-just-added--and-rewrites-the-tests-too):
+a rename pass keeps finding new surfaces that quietly asserted the old name, and the ones that
+*stop* things fail by reporting success.
+
+*First hit: 2026-07-31, immediately after the #35 fix, on the second run of the same migration.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

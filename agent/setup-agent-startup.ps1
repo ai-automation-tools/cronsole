@@ -7,9 +7,13 @@ $PublishDir = Join-Path $ScriptDir "publish"
 
 Write-Host "1. Building Cronsole C# Agent in Release mode..." -ForegroundColor Cyan
 
-# Stop any running agent first — publish fails if Cronsole.Agent.exe is locked.
+# Stop any running agent first -- publish fails if Cronsole.Agent.exe is locked.
+# Both names: an agent launched before the 2026-07-31 exe rename is still called
+# TaskHub.Agent and locks the same files, while being invisible to a lookup for the
+# new name (troubleshooting #35a). Stop-ScheduledTask does not cover it either -- it
+# stops what the task launched, and such a process has outlived its launcher.
 Stop-ScheduledTask -TaskPath "\Cronsole-Stack\" -TaskName "CronsoleAgent" -ErrorAction SilentlyContinue
-Stop-Process -Name "Cronsole.Agent" -Force -Confirm:$false -ErrorAction SilentlyContinue
+Stop-Process -Name "Cronsole.Agent","TaskHub.Agent" -Force -Confirm:$false -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
 dotnet publish $ProjectDir -c Release -r win-x64 --self-contained false -o $PublishDir

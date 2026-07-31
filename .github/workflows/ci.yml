@@ -30,6 +30,14 @@ jobs:
       - name: Check for literal control bytes in text files
         run: node scripts/check-control-bytes.mjs
 
+      # Windows PowerShell 5.1 reads .ps1 as ANSI unless the file has a UTF-8 BOM,
+      # so one em-dash in a comment produces PARSE ERRORS on correct syntax. pwsh 7
+      # parses it fine, which is why five scripts — including a machine migration and
+      # the elevated agent installer — were unrunnable in "Windows PowerShell (Admin)"
+      # for months with every check green.
+      - name: Check PowerShell scripts are pure ASCII
+        run: node scripts/check-ps1-ascii.mjs
+
   backend:
     name: Backend tests and build
     runs-on: ubuntu-latest

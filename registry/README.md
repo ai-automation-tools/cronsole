@@ -1,4 +1,4 @@
-# TaskHub Template Registry — generated artifact (source of truth)
+# Cronsole Template Registry — generated artifact (source of truth)
 
 > [!IMPORTANT]
 > **Don't hand-edit anything in this folder.** It's generated from
@@ -6,7 +6,7 @@
 > content-addressed — a manual edit breaks the `sha256` checksums and the drift
 > test fails in CI. Change the catalog in `bundled.ts`, then regenerate.
 
-This directory is the **static template registry**: the decoupled catalog a TaskHub
+This directory is the **static template registry**: the decoupled catalog a Cronsole
 backend can fetch at runtime instead of reading its compiled-in snapshot. It's this
 repo's **source of truth** for the registry artifact, and what gets mirrored to the
 separate public repo (see [Publishing](#publishing)).
@@ -81,7 +81,7 @@ This folder is the source of truth; to ship a catalog change:
 
 ```bash
 cd backend && npm run registry:build     # regenerate this folder
-# commit registry/ in the taskhub repo, then mirror it to the public repo:
+# commit registry/ in the cronsole repo, then mirror it to the public repo:
 pwsh scripts/publish-registry.ps1         # copies index.json + templates/ -> the clone, pushes
 ```
 

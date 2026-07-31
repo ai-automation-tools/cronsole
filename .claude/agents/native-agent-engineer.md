@@ -46,12 +46,15 @@ exists." Assert the *shape* of what landed in the OS, not that the call returned
   and `dotnet publish` cannot overwrite the locked exe. Republish from an **Administrator**
   prompt:
   ```powershell
-  Get-Process TaskHub.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
-  dotnet publish ".\agent\TaskHub.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
-  & ".\scripts\taskhub.ps1" up
+  # Both names: an agent launched before the 2026-07-31 exe rename is still TaskHub.Agent.
+  Get-Process -Name 'Cronsole.Agent','TaskHub.Agent' -ErrorAction SilentlyContinue | Stop-Process -Force
+  dotnet publish ".\agent\Cronsole.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
+  & ".\scripts\cronsole.ps1" up
   ```
-  An unelevated `Get-Process` returning nothing does **not** mean the agent is down — ask
-  the backend's health endpoint instead.
+  Prefer `scripts\Republish-Agent.ps1`, which does all of the above and proves the dll
+  actually moved. An unelevated `Get-Process` returning nothing does **not** mean the agent
+  is down, and neither does the new name alone — ask the backend's health endpoint instead
+  (troubleshooting #35a).
 - **A transient test agent strands the real one.** Windows shows `OFFLINE` forever after
   you stop a dogfood agent. One socket per user; the idle real agent re-registers only on
   reconnect. Fix: `docker compose restart backend`.

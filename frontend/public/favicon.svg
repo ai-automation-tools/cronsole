@@ -1,4 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#10b981"/>
-  <path d="M 8 9 L 24 9 M 16 9 L 16 24" stroke="#09090b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Cronsole Command Grid icon</title>
+  <desc id="desc">A square Cronsole icon showing connected task nodes inside a dark control-plane tile.</desc>
+  <defs>
+    <linearGradient id="bg" x1="28" y1="24" x2="228" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18181b"/>
+      <stop offset="0.52" stop-color="#09090b"/>
+      <stop offset="1" stop-color="#050505"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="64" y1="48" x2="200" y2="208" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="url(#bg)"/>
+  <rect x="20" y="20" width="216" height="216" rx="42" fill="none" stroke="url(#accent)" stroke-width="8"/>
+  <path d="M76 94h104M76 128h104M76 162h104" stroke="#27272a" stroke-width="16" stroke-linecap="round"/>
+  <path d="M76 94h54M76 128h82M76 162h42" stroke="#8b5cf6" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="76" cy="94" r="18" fill="#10b981"/>
+  <circle cx="130" cy="94" r="15" fill="#a78bfa"/>
+  <circle cx="76" cy="128" r="18" fill="#10b981"/>
+  <circle cx="158" cy="128" r="15" fill="#a78bfa"/>
+  <circle cx="76" cy="162" r="18" fill="#10b981"/>
+  <circle cx="118" cy="162" r="15" fill="#a78bfa"/>
+  <path d="M146 172l22 22 43-58" fill="none" stroke="#ecfeff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
 </svg>

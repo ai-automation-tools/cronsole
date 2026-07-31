@@ -623,7 +623,7 @@ export const TemplatesScreen = () => {
       {/* Gallery pointer — the built-in set is a small curated sampler; the rest
           of the catalog lives in the public gallery and is imported on demand. */}
       <a
-        href="https://mikesailab.com/taskhub-registry/"
+        href="https://mikesailab.com/cronsole-registry/"
         target="_blank"
         rel="noopener noreferrer"
         className="group flex items-center gap-4 bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-2xl p-4 hover:border-primary/40 transition-colors"

@@ -1,6 +1,6 @@
 # Cronsole — operating rules for an AI assistant
 
-> Cronsole Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
+> Cronsole Connect Pack **v1.2** · canonical copy: <https://cronsole.mikesailab.com>
 
 Paste this into your tool's system prompt, `AGENTS.md`, `CLAUDE.md`, custom instructions, or
 whatever single-file convention it uses. It is the condensed form of the full skill in this

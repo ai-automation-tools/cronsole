@@ -51,7 +51,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
 | 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
 | 32 | A PowerShell check against the API returns **every** task when it should return one, or prints a header with one **blank** row — while the same endpoint's raw JSON is plainly correct | **`Invoke-RestMethod` writes its array to the pipeline without enumerating it**, so a directly-piped `Where-Object`/`Select-Object` receives one `Object[]` instead of N objects. `$_.prop -eq 'x'` then evaluates against the whole array and returns the *matching elements* — truthy — so everything passes the filter. Assign to a variable first, then filter, and wrap in `@()` before `.Count`. **Worst where a check is meant to prove a row is gone: the broken form prints `0` on no-match, so it looks right and can never fail in the direction it is testing** | [→](#32-a-powershell-check-against-the-api-matches-everything-or-renders-a-blank-row) |
-| 32 | A rename lands, every suite is green, and a working setup quietly stops working — MCP tools vanish, webhooks stop firing, an agent can't find its secret | The rename pass rewrote the **back-compat shim** that existed to survive it (`CRONSOLE_x ?? TASKHUB_x` → `CRONSOLE_x ?? CRONSOLE_x`) — a tautology that compiles and reads correctly — **and rewrote the guarding tests the same way**, so they still pass. Never write the old name as a literal in the thing meant to survive the rename: assemble it (`['TASK','HUB'].join('')`) and mutation-check the fallback | [→](#32-a-rename-pass-silently-disables-the-back-compat-it-just-added--and-rewrites-the-tests-too) |
+| 34 | A Pages site moves to a new custom domain; the **old** subdomain 404s on both schemes despite its DNS record still resolving to the right GitHub IPs | **Pages redirects only `<user>.github.io/<repo>` to the custom domain — never a second custom domain pointed at the same IPs.** Serving is keyed on the `Host` header matching the repo's `CNAME`; anything else gets no site. DNS looks perfectly healthy the whole time, because the failure is vhost routing one layer above it. Either drop the old record (so it `NXDOMAIN`s rather than 404s) or serve a real redirect from a second repo. **"The record still points there" ≠ "the server will answer for that name"** | [→](#34-the-old-custom-domain-404s-after-moving-a-pages-site-to-a-new-one) |
+| 33 | A rename lands, every suite is green, and a working setup quietly stops working — MCP tools vanish, webhooks stop firing, an agent can't find its secret | The rename pass rewrote the **back-compat shim** that existed to survive it (`CRONSOLE_x ?? TASKHUB_x` → `CRONSOLE_x ?? CRONSOLE_x`) — a tautology that compiles and reads correctly — **and rewrote the guarding tests the same way**, so they still pass. Never write the old name as a literal in the thing meant to survive the rename: assemble it (`['TASK','HUB'].join('')`) and mutation-check the fallback | [→](#33-a-rename-pass-silently-disables-the-back-compat-it-just-added--and-rewrites-the-tests-too) |
 | 31 | The dashboard loads but every API call fails with *"No 'Access-Control-Allow-Origin' header is present"* — while `curl` against the same route returns 200 | **Read the backend log — it names the refused origin and the allowed list.** Since 2026-07-31 the REST API enforces **`ALLOWED_ORIGINS`** (it used to reflect any origin), and the browser's origin isn't on the list — after a port change, a Settings → API-origin override, or reaching Cronsole over Tailscale/a tunnel. **`curl` works because it sends no `Origin`, and a request without one is always allowed**, so a passing `curl` is not evidence the browser can reach the API. Add the exact origin (scheme + host + port) and restart the backend; the same list gates the `/ui` live-update socket | [→](#31-the-dashboard-loads-but-every-api-call-fails-with-a-cors-error) |
 | 30 | A route 500s on real data while `tsc` is green | A **cast on a query result** (`row as SomeInterface`) silenced the compiler at the one boundary that had drifted — a Prisma `select` missing a field the consumer now requires. Delete the cast; Prisma's generated select type is already the strongest check there is. *A cast at a data boundary is a promise the query cannot keep* | [→](#30-a-route-500s-on-real-data-while-tsc-is-green--a-cast-on-a-query-result) |
 | 29 | `prisma migrate` refuses to run — "migration was modified after it was applied" — and the only remedy it offers drops the database | Prisma checksums each migration **file**; editing an applied one (even adding a comment) breaks the hash. **Never `migrate reset`** on a local-first app — that is the user's real data. Verify the DB already matches the SQL, re-record the checksum, then use `--create-only` + `migrate deploy` (which also skips `generate`, dodging [#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)) | [→](#29-prisma-migrate-refuses-to-run-migration-was-modified-after-it-was-applied--and-offers-to-drop-your-database) |
@@ -2075,7 +2076,7 @@ $task.id
 
 ---
 
-## 32. A rename pass silently disables the back-compat it just added — and rewrites the tests too
+## 33. A rename pass silently disables the back-compat it just added — and rewrites the tests too
 
 **Symptom** — a rename lands, every suite is green, and a previously working setup stops
 working: the MCP tools vanish, or failure webhooks stop firing, or an agent can't find its
@@ -2135,7 +2136,64 @@ validates `\Microsoft\`, folder existence, and whether the task already exists, 
 action points at a file that is there. **After renaming or moving anything a scheduled task
 references, take a fresh export and treat the old one as history, not as a restore point.**
 
-*First hit: 2026-07-31, stage 2 of the TaskHub → Cronsole rename.*
+**It recurred one stage later, in a different disguise — so treat this as a pattern, not an
+incident.** Stage 3 renamed the public repos, and its pass matched
+`scripts/rename-stage2.mjs`, which holds the literal strings `'taskhub-registry'`,
+`'taskhub-site'` and `'michaelschecht/taskhub'` under the comment `// Stage 3 (public
+surface).` Those strings are **stage 2's protection list** — the record of what it deliberately
+did *not* rename. Rewriting them yields a script that still parses, still reads correctly, and
+now misreports its own scope, having erased the evidence of the boundary it was drawing. Stage 2
+was bitten by a pass eating its **back-compat shim**; stage 3 nearly lost the **record of the
+exception**. Same mechanism both times: **the artifacts that describe a rename are made of the
+very strings the rename matches, and a mechanical pass cannot tell a name being used from a name
+being quoted.** Add every such file to an explicit protection list before running the pass, and
+diff the protection list itself afterwards.
+
+*First hit: 2026-07-31, stage 2 of the TaskHub → Cronsole rename. Recurred the same day in
+stage 3.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 34. The old custom domain 404s after moving a Pages site to a new one
+
+**Symptom** — you move a GitHub Pages site to a new custom domain, leave the old subdomain's
+DNS record in place expecting it to forward, and the old URL returns a bare **404** on both
+`http` and `https`. No redirect, no `Location` header. The new domain serves `200` perfectly,
+so the move itself plainly worked.
+
+**Cause** — **GitHub Pages redirects only the `<user>.github.io/<repo>` path to the configured
+custom domain. It does not redirect a *second* custom domain that merely points at the same
+Pages IP addresses.** Serving is keyed on the `Host` header matching the repo's `CNAME` file;
+a request arriving with any other `Host` has no site to match and gets a 404. DNS resolving
+correctly is necessary but not sufficient — the record gets the request to GitHub's front
+door, and GitHub then declines it.
+
+**The trap is that the DNS looks healthy.** `nslookup` returns the right `CNAME` and the right
+GitHub IPs, so every check you would naturally run says the old subdomain is fine. The failure
+lives one layer above DNS, in vhost routing you cannot see from a resolver.
+
+**Fix** — pick one deliberately, because the default is a dead link:
+
+- **Accept the 404** and remove the old DNS record too, so it `NXDOMAIN`s instead. A name that
+  doesn't resolve is a clearer signal than one that resolves to a 404 — the second reads as
+  "the site is broken", the first as "this address is gone."
+- **Serve a real redirect**: point the old subdomain at a minimal repo whose `CNAME` is the
+  *old* name and whose `index.html` is a `<meta http-equiv="refresh">` plus a
+  `<link rel="canonical">` to the new domain. One custom domain per repo is the constraint that
+  forces a second repo here.
+- **Redirect at the registrar/CDN** if it offers subdomain forwarding (Squarespace does not for
+  a subdomain delegated to GitHub via `CNAME`).
+
+**The generalizable part:** *"the DNS record still points there"* is not the same claim as
+*"the server will still answer for that name."* Verify a domain move by requesting the **old**
+URL and reading the status code, not by confirming the record resolves — same family as
+[#23](#23-network-error-after-a-reboot--the-database-system-is-starting-up)'s bound port that
+proved something was listening but not that it was yours.
+
+*First hit: 2026-07-31, stage 3 of the TaskHub → Cronsole rename — predicted as a free
+redirect, verified as a 404.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

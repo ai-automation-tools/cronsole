@@ -295,7 +295,7 @@ a disabled button with no explanation, and **never** a silent no-op that looks l
 ## 12. Registry updates land without a redeploy
 
 ```powershell
-Invoke-RestMethod https://mikesailab.com/taskhub-registry/index.json |
+Invoke-RestMethod https://mikesailab.com/cronsole-registry/index.json |
   Select-Object -ExpandProperty templates | Measure-Object | Select-Object Count
 ```
 
@@ -305,7 +305,7 @@ without shipping the app.
 
 ## 13. Gallery import journey
 
-From the app, find your way to the [gallery](https://mikesailab.com/taskhub-registry), browse,
+From the app, find your way to the [gallery](https://mikesailab.com/cronsole-registry), browse,
 and import an **extended** (non-core) template.
 
 **Expect:** the pointer from the app is findable, the gallery's Availability facet works, and

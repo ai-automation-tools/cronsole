@@ -29,10 +29,15 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 // trap. A downloaded copy lives on someone else's machine and can never be
 // updated in place, so the stamp is the only way it can say how old it is.
 // 1.1 (2026-07-28): untrack_task added to the surface (15 tools).
-export const CONNECT_PACK_VERSION = '1.1';
+// 1.2 (2026-07-31): TaskHub became Cronsole; CONNECT_PACK_HOME moved to
+//   cronsole.mikesailab.com. A v1.1 copy in someone's hand still points at the old
+//   domain — which redirects today, so it degrades to a slow link rather than a dead
+//   one — but "where to find a newer copy" changing IS a content change, and this
+//   stamp is the only way that copy can tell its reader it predates the move.
+export const CONNECT_PACK_VERSION = '1.2';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
-export const CONNECT_PACK_HOME = 'https://taskhub.mikesailab.com';
+export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';
 
 export interface ConnectPackDownload {
   id: string;

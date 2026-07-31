@@ -485,7 +485,7 @@ A missing compiler is never a silent failure — it's the declared-but-manual pa
   snapshot on any failure. Wired via `TEMPLATE_REGISTRY_URL` (unset = bundled). A drift test
   keeps the committed artifact in sync with the snapshot.
 - **Step 4 — hosting + runtime refresh** (2026-07-13): ✅ done. The artifact is mirrored to the
-  public repo `michaelschecht/taskhub-registry` (GitHub Pages → `https://mikesailab.com/taskhub-registry`,
+  public repo `michaelschecht/cronsole-registry` (GitHub Pages → `https://mikesailab.com/cronsole-registry`,
   set as `TEMPLATE_REGISTRY_URL`) via `scripts/publish-registry.ps1`; the backend syncs the catalog
   into the DB on boot + on an interval (`catalog/catalogSync.ts`), so registry changes land with no
   reseed. Verified live end-to-end.

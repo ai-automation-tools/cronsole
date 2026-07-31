@@ -6,7 +6,7 @@
 >
 > **Status:** Catalog drafted + schema migrated + starters seeded (2026-06-10); Apply modal + library UI shipped.
 > The catalog now lives behind the Registry v1 source (`backend/src/catalog/` + hosted
-> `taskhub-registry`) with 40 templates: 20 Tier A starters + 20 use-case patterns
+> `cronsole-registry`) with 40 templates: 20 Tier A starters + 20 use-case patterns
 > (Developer Pack, Claude Code AI pack, and Codex AI pack included). The **Apply modal** (§7 step 3) shipped, backed by
 > `GET /api/templates` + `POST /api/templates/:id/apply`; since 2026-07-10 the modal sends **raw
 > parameter values** and the **backend owns `{{placeholder}}` substitution per-token** (§5).

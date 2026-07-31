@@ -467,7 +467,7 @@
         <span class="nav-link" data-nav="#/browse">Browse</span>
         <span class="nav-link" data-nav="#/collections">Collections</span>
         <span class="nav-link" id="nav-import">Import guide</span>
-        <a class="nav-link" href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">Get Cronsole</a>
+        <a class="nav-link" href="https://github.com/michaelschecht/cronsole" target="_blank" rel="noopener">Get Cronsole</a>
       </div>
       <div class="nav-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -477,7 +477,7 @@
       <div class="nav-right">
         <button class="ibtn nav-toggle" id="navtoggle" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
         <button class="ibtn" id="theme" aria-label="Toggle theme"></button>
-        <a class="ibtn" href="https://github.com/michaelschecht/taskhub-registry" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02.8-.22 1.65-.33 2.5-.34.85 0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85 0 1.34-.01 2.42-.01 2.75 0 .27.18.58.69.48A10.01 10.01 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></svg></a>
+        <a class="ibtn" href="https://github.com/michaelschecht/cronsole-registry" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02.8-.22 1.65-.33 2.5-.34.85 0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85 0 1.34-.01 2.42-.01 2.75 0 .27.18.58.69.48A10.01 10.01 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></svg></a>
       </div>
     </div>
   </nav>
@@ -491,9 +491,9 @@
         <span>Cronsole Template Registry · content-addressed · served via GitHub Pages</span>
       </div>
       <div class="fr">
-        <a href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">Cronsole on GitHub</a>
-        <a href="https://mikesailab.com/taskhub-registry/index.json" target="_blank" rel="noopener">index.json</a>
-        <a href="https://github.com/michaelschecht/taskhub-registry/issues" target="_blank" rel="noopener">Request a template</a>
+        <a href="https://github.com/michaelschecht/cronsole" target="_blank" rel="noopener">Cronsole on GitHub</a>
+        <a href="https://mikesailab.com/cronsole-registry/index.json" target="_blank" rel="noopener">index.json</a>
+        <a href="https://github.com/michaelschecht/cronsole-registry/issues" target="_blank" rel="noopener">Request a template</a>
       </div>
     </div>
   </footer>
@@ -508,8 +508,8 @@
     /**
      * Where the registry actually lives.
      *
-     * This one file is served from TWO places: taskhub.mikesailab.com (the
-     * front door) and mikesailab.com/taskhub-registry/ (alongside the JSON).
+     * This one file is served from TWO places: cronsole.mikesailab.com (the
+     * front door) and mikesailab.com/cronsole-registry/ (alongside the JSON).
      * Only the second has index.json next to it.
      *
      * The registry base is deliberately NOT moved to the new domain: it is the
@@ -519,18 +519,18 @@
      * canonical origin — GitHub Pages serves `Access-Control-Allow-Origin: *`,
      * so the cross-origin fetch is allowed.
      */
-    var REGISTRY_BASE = "https://mikesailab.com/taskhub-registry/";
+    var REGISTRY_BASE = "https://mikesailab.com/cronsole-registry/";
     var INDEX_URL = "./index.json";
     var ASSET_BASE = "./";           // set to REGISTRY_BASE if the local index is absent
 
     var LINKS = {
-      appRepo: "https://github.com/michaelschecht/taskhub",
-      quickStart: "https://github.com/michaelschecht/taskhub#-quick-start",
-      registryRepo: "https://github.com/michaelschecht/taskhub-registry",
-      registryIssues: "https://github.com/michaelschecht/taskhub-registry/issues"
+      appRepo: "https://github.com/michaelschecht/cronsole",
+      quickStart: "https://github.com/michaelschecht/cronsole#-quick-start",
+      registryRepo: "https://github.com/michaelschecht/cronsole-registry",
+      registryIssues: "https://github.com/michaelschecht/cronsole-registry/issues"
     };
 
-    var QUICKSTART = "git clone https://github.com/michaelschecht/taskhub.git\ncd cronsole\ndocker compose up -d";
+    var QUICKSTART = "git clone https://github.com/michaelschecht/cronsole.git\ncd cronsole\ndocker compose up -d";
 
     // ---------- label maps ----------
     var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };
@@ -840,8 +840,8 @@
           '<h2 style="margin-top:8px">Built in the open</h2>' +
           '<p>The app, the registry that feeds it, and this gallery.</p></div></div>' +
           '<div class="coll-grid">' +
-            repoCard("App · Source", "Cronsole app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/michaelschecht/taskhub") +
-            repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/michaelschecht/taskhub-registry") +
+            repoCard("App · Source", "Cronsole app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/michaelschecht/cronsole") +
+            repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/michaelschecht/cronsole-registry") +
             repoCard("Feedback", "Request a template", "Missing an automation you\'d use? Open an issue and describe it — the catalog grows from real requests.", LINKS.registryIssues, "Open an issue") +
           '</div></section>' +
         '</div>';

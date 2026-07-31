@@ -138,7 +138,7 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 ---
 
-## 5. Tools — health, backup and restore
+## 5. Tools — health, analytics, backup and restore
 
 The **Tools** tab holds the things that act across *all* your tasks rather than one of them.
 
@@ -173,6 +173,46 @@ filter hides them, with the count shown so you can bring them back. A **disabled
 counted as unhealthy — parking a task is a normal thing to do, and the card says so rather than
 nagging about a task you switched off on purpose. **Open task** jumps straight to it on the
 Dashboard.
+
+---
+
+### Execution analytics
+
+Three questions the per-task history can't answer, in one card: **Failures**, **Duration**, and
+**Idle**. Pick a period (7, 30 or 90 days) for the first two.
+
+**Failures** shows the totals for the period and one bar per day, stacked succeeded / failed /
+pending. Hover a bar — or tab to it — and the line above the chart names that day and its numbers.
+Days with no runs are drawn as empty columns on purpose: a chart that skipped them would draw a
+straight line across an outage.
+
+Two things about this chart are worth knowing:
+
+- **It counts runs Cronsole *performed*** — runs you started from the dashboard, and Cronsole-native
+  jobs Cronsole runs itself. A Windows task firing on its own schedule isn't recorded, so an empty
+  period means Cronsole triggered nothing, **not** that nothing ran. For "did this actually work?",
+  use **Task health**, which reads Windows' own result.
+- **The totals are always exact.** If a period has more runs than the chart can draw, the bars cover
+  a shorter, complete stretch and the card says so — rather than showing a full-width chart with
+  data missing from the middle.
+
+**Duration** answers *"which tasks are getting slower?"* by comparing each task's recent runs against
+its own earlier baseline (median, so one slow night isn't a trend). **Only Cronsole-native tasks
+appear here.** For a Windows task, the recorded duration is how long the agent took to *accept* the
+start — not how long the job took — so including them would rank handshakes instead of work. On a
+Windows-only machine this list is legitimately empty, and the card says how many runs it left out
+and why.
+
+**Idle** lists scheduled tasks with no run in the last 30 days, each with the evidence behind it.
+Windows tasks are judged from **Windows' own last-run time**, not from Cronsole's records — which is
+why this works for tasks Cronsole has never triggered. Anything it can't judge is counted separately
+rather than dropped:
+
+- **Disabled** and **on demand** — not running is what these are supposed to do.
+- **Never run** — a different fact from "ran, but a while ago", and a different fix.
+- **No run data from the agent** — usually an agent that predates run reporting. Republish it.
+
+`\Microsoft\` tasks are hidden by default with the count shown, the same as everywhere else.
 
 ---
 

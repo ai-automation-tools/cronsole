@@ -193,7 +193,7 @@ Local clones live side by side under `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\T
 | Clone | Remote | Serves | Source in this repo |
 |:---|:---|:---|:---|
 | `Tools\cronsole-registry` | `michaelschecht/cronsole-registry` | `mikesailab.com/cronsole-registry` (registry JSON **+** gallery) | `registry/` + `registry-site/` |
-| `Tools\cronsole-site` | `michaelschecht/cronsole-site` | `cronsole.mikesailab.com` (landing) | `landing-site/` |
+| `Tools\cronsole-site` | `michaelschecht/cronsole-site` | `cronsole.mikesailab.com` (the front door — **the same gallery page**, not a landing page) | `registry-site/` |
 
 - They are **separate, independent git repos — NOT submodules.**
 - **These clones double as the publish working clones.** The scripts default `-WorkDir` to

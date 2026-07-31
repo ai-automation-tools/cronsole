@@ -2192,8 +2192,16 @@ URL and reading the status code, not by confirming the record resolves — same 
 [#23](#23-network-error-after-a-reboot--the-database-system-is-starting-up)'s bound port that
 proved something was listening but not that it was yours.
 
+**How it was actually resolved here (2026-07-31):** the `taskhub.mikesailab.com` record was
+**deleted**. The redirect repo was considered and rejected — the front door predated public
+launch and the URL was never advertised, so there was nothing to forward. Confirmed
+`NXDOMAIN` on both `8.8.8.8` and `1.1.1.1`. Note that the machine you are testing from will
+keep answering from its **own DNS cache** for the record's remaining TTL after the record is
+gone: `curl` still returned 404 here until `Clear-DnsClientCache` ran. **Check a public
+resolver before concluding the deletion didn't take.**
+
 *First hit: 2026-07-31, stage 3 of the TaskHub → Cronsole rename — predicted as a free
-redirect, verified as a 404.*
+redirect, verified as a 404, resolved by deletion.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

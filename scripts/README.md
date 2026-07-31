@@ -21,7 +21,8 @@ the full details.
 | **`setup-skill-links.ps1`** · **`.sh`** | Link the tracked [**🧠 skills/**](../skills/README.md) into `.claude/skills/` so Claude Code loads them. **Run once per fresh clone**; idempotent. See below. |
 | **`Republish-Agent.ps1`** | **Rebuild + republish the .NET agent** (stop → `dotnet publish` → relaunch). The agent never hot-reloads, so run this after **any** `agent/` change or you'll debug a stale agent ([troubleshooting #7](../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)). Needs elevation — or register the on-demand task below and skip that. Logs to `%TEMP%\taskhub-republish.log`. |
 | **`publish-registry.ps1`** | Mirror the generated `registry/` + `registry-site/` to the public `taskhub-registry` repo (GitHub Pages). Does **not** regenerate — run `npm run registry:build` in `backend/` first. |
-| **`publish-landing.ps1`** | Mirror `landing-site/` to the public `taskhub-site` repo. |
+| **`publish-frontdoor.ps1`** | Mirror the same `registry-site/` page to the public `taskhub-site` repo — TaskHub's front door at `taskhub.mikesailab.com`. One page, two hosts. Excludes `README.md` and `CNAME`, which the target repos own. |
+| **`check-control-bytes.mjs`** | Fail on any literal control byte in a tracked text file (a NUL once made a security-relevant file diff as binary). Wired into CI as the `repo-hygiene` job. |
 | [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Task-Hub\TaskHubAgent` scheduled task (re-runs every 10 min as a self-heal). It now delegates to `taskhub.ps1 up`, so boot and manual control share one code path. |
 
 ## 🎛️ Controlling the stack (`taskhub.ps1`)
@@ -89,6 +90,23 @@ skills committed under `.claude/skills/` alone.
 > **twice** — once under `skills/`, again under `.claude/skills/`. The script checks this and
 > warns if an entry is missing. Sibling repos don't hit this because they ignore their whole
 > CLI tree.
+
+## 🗄️ Backend-local scripts
+
+A script that needs Prisma has to run from `backend/` (the generated client lives in its
+`node_modules`), so those live in [**`backend/scripts/`**](../backend/scripts/) and are
+invoked through npm:
+
+```powershell
+cd backend
+npm run db:check      # read-only: what the database actually contains
+```
+
+`db:check` prints the generated-client currency **first** — a client missing an enum member
+silently drops writes to it, which makes every count below it a claim rather than a fact
+([#22](../docs/troubleshooting/README.md#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n))
+— then task counts by platform and status, exclusions, template provenance (managed vs.
+imported), and the run log. It writes nothing.
 
 ## 🔗 Related
 

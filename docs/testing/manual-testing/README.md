@@ -99,7 +99,7 @@ requires the `Authorization: Bearer` header.
 | Method | Route | What it does |
 |:---|:---|:---|
 | `GET` | `/api/health` | Liveness (**no auth**) |
-| `POST` | `/api/auth/register` · `/api/auth/login` | Auth (**no auth**) |
+| `GET`/`POST` | `/api/auth/status` · `/setup` · `/login` | Auth (**no auth**). `/setup` is first-run only; there is no `/register`. |
 | `GET` | `/api/tasks` | List tasks |
 | `GET` | `/api/tasks/health` | **Per-platform** health (`HEALTHY` / `OFFLINE`) |
 | `POST` | `/api/tasks/sync` | Trigger a scan |

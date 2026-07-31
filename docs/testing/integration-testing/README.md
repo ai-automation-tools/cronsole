@@ -123,8 +123,8 @@ The only seam that touches real COM. Windows-only, and the hardest to fake.
 |:--|:---|:---|:--|
 | I6.1 | **Live query invalidation** | A `task:updated` socket event invalidates TanStack Query and the UI repaints | ✅ E2E `smoke.spec.ts` |
 | I6.2 | **API client contract** | Frontend request/response shapes match what the backend actually returns | ✅ `api.test.ts` |
-| I6.3 | **CORS / origins** | `ALLOWED_ORIGINS` admits the dev frontend and refuses others | ⬜ |
-| I6.4 | **MCP → REST** | All 5 MCP tools drive the real API under `TASKHUB_TOKEN` | ⬜ Manual |
+| I6.3 | **CORS / origins** | `ALLOWED_ORIGINS` admits the dev frontend and refuses others — for the **REST API and** the socket, from one definition | ✅ `src/config/__tests__/origins.test.ts` (asserts response *headers*, not status codes) + manual [Security Checks §10](../manual-testing/runbooks/Security_Checks.md) |
+| I6.4 | **MCP → REST** | All **15** MCP tools drive the real API under `TASKHUB_TOKEN` | ⬜ Manual — and the standing gap: `mcp-server`'s own suite stubs the HTTP client, so it can prove what the wrapper does, never that the wrapper and the API still *agree* |
 | I6.5 | **Docker Compose stack** | `docker compose up` yields a working stack from a clean checkout, secrets aligned ([troubleshooting #2](../../troubleshooting/README.md#2-403-invalid-or-expired-token-or-agent-rejected)) | ⬜ Manual |
 
 ## 🏃 Running these

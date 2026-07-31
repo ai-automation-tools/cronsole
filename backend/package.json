@@ -1,13 +1,14 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "TaskHub backend — Express + Prisma API, agent WebSocket channel, and native scheduler.",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx src/seed.ts",
+    "db:check": "tsx scripts/check-db.ts",
     "registry:build": "tsx src/catalog/generate-registry.ts",
     "connectpack:build": "tsx src/tools/generate-connect-pack.ts",
     "test": "vitest run",
@@ -15,7 +16,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "type": "module",
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

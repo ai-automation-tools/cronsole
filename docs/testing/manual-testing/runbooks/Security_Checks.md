@@ -51,14 +51,25 @@ plaintext is sitting in `docker logs`.
 
 ## 4. ⭐ Tenant isolation (IDOR)
 
-Create a second user and try to reach the first user's data.
+Act as a second user and try to reach the first user's data.
+
+There is **no registration endpoint** — account creation is `/setup`, which 409s once the
+owner exists (that refusal is itself part of the check). So mint a token for a second
+identity directly, which tests the same thing more sharply: owner scoping is enforced on the
+`userId` **inside the token**, not on which accounts happen to exist.
 
 ```powershell
-$u2 = Invoke-RestMethod -Method Post http://localhost:3000/api/auth/register `
-  -ContentType 'application/json' `
-  -Body (@{ email = 'manual-test-b@example.com'; password = 'TestPassword123!' } | ConvertTo-Json)
+# From backend/ — signs a valid token for a user id that owns nothing.
+$t2 = node -e "require('dotenv').config(); console.log(require('jsonwebtoken').sign({ id: 'manual-test-user-b', email: 'manual-test-b@example.com' }, process.env.JWT_SECRET, { expiresIn: '1h' }))"
 
-$H2 = @{ Authorization = "Bearer $($u2.token)" }
+$H2 = @{ Authorization = "Bearer $t2" }
+
+# Confirm the closed door while you're here: /setup must refuse a second account.
+try {
+  Invoke-RestMethod -Method Post http://localhost:3000/api/auth/setup `
+    -ContentType 'application/json' `
+    -Body (@{ email = 'manual-test-b@example.com'; password = 'TestPassword123!' } | ConvertTo-Json)
+} catch { $_.Exception.Response.StatusCode.value__ }   # expect 409
 
 # User B lists their own tasks — should be empty
 (Invoke-RestMethod http://localhost:3000/api/tasks -Headers $H2).Count
@@ -158,13 +169,33 @@ so a captured envelope must not be re-usable later.
 
 ## 10. CORS refuses unknown origins
 
+**Read the headers, not the status code.** CORS is enforced by the *browser*: a refused
+origin still gets a normal `200` and a full response body — what it does not get is the
+`Access-Control-Allow-Origin` header that makes the body readable to the calling page. A
+check that only prints `%{http_code}` here cannot fail, which is worse than no check.
+
 ```powershell
-curl.exe -s -o NUL -w "%{http_code}`n" -H "Origin: https://evil.example.com" `
-  -H "Authorization: Bearer $env:TH_TOKEN" http://localhost:3000/api/tasks
+# Refused: expect NO Access-Control-Allow-Origin line.
+curl.exe -s -D - -o NUL -H "Origin: https://evil.example.com" `
+  -H "Authorization: Bearer $env:TH_TOKEN" http://localhost:3000/api/tasks |
+  Select-String -Pattern 'access-control-allow-origin'
+
+# Admitted: expect the origin echoed back verbatim.
+curl.exe -s -D - -o NUL -H "Origin: http://localhost:7373" `
+  -H "Authorization: Bearer $env:TH_TOKEN" http://localhost:3000/api/tasks |
+  Select-String -Pattern 'access-control-allow-origin'
 ```
 
-**Expect:** the browser-enforced CORS headers do **not** admit `evil.example.com`. Only
-`ALLOWED_ORIGINS` (default `http://localhost:7373`) should be echoed back.
+**Expect:** no header for `evil.example.com`, and `Access-Control-Allow-Origin:
+http://localhost:7373` for the configured origin. Since 2026-07-31 this list gates the
+**REST API and the Socket.IO handshake** from one definition (`backend/src/config/origins.ts`);
+before that Express reflected any origin while only the socket was restricted.
+
+**Two things that are *not* failures:** a request with **no `Origin` header** is admitted on
+purpose (every non-browser caller sends none, and authentication is their gate — which is
+why the `curl` above must set `Origin` explicitly to test anything), and an **empty
+`ALLOWED_ORIGINS`** is permissive by design — check the backend's boot log for
+`ALLOWED_ORIGINS is unset` before concluding the restriction is broken.
 
 ## 11. Login rate limit — ⬜ known gap
 

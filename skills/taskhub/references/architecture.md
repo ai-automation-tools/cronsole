@@ -199,11 +199,12 @@ app.get ('/api/health')                        // liveness, NO auth
 app.use ('/api/auth',      authRoutes)         // NO auth
 app.use ('/api/tasks',     authenticateToken, taskRoutes)
 app.use ('/api/templates', authenticateToken, templateRoutes)
+app.use ('/api/tools',     authenticateToken, toolsRoutes)   // cross-task: export/restore/history/health
 ```
 
 | Method | Route | Notes |
 |:---|:---|:---|
-| `POST` | `/api/auth/register` · `/api/auth/login` | JWT access + refresh; rotation supported |
+| `POST` | `/api/auth/setup` · `/api/auth/login` | Single-user local login: 24h access token, **no refresh flow**. `/setup` creates the one owner and 409s afterwards. **There is no `/register`** — it was removed 2026-07-31; account creation is `/setup` only. |
 | `GET` | `/api/tasks` | List (flattened last-run summary for the dashboard) |
 | `GET` | `/api/tasks/health` | Per-platform health; **auto-creates** a Windows connection if none exists |
 | `POST` | `/api/tasks/sync` | Kick the scan chain above |

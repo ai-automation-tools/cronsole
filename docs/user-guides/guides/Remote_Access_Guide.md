@@ -23,15 +23,19 @@
 ## Why this is "advanced"
 
 TaskHub can **create and run commands on your machine** — that's the whole point, but it also
-means exposing the dashboard is effectively exposing **remote command execution**. On top of
-that, the current build authenticates the dashboard with a **development token, not a real
-login screen** (a proper account system is still on the roadmap). So the rule is simple:
+means exposing the dashboard is effectively exposing **remote command execution**.
+
+There *is* a real login screen (single-user, since 2026-07-16: one owner account, created on
+first run, with a rate-limited login). What there is **not** is the rest of an internet-facing
+account system: no password reset, no refresh tokens (a 24h access token, then you log in
+again), no second account, and no per-user agent pairing. A single password in front of remote
+command execution is one credential away from a very bad day. So the rule is unchanged:
 
 > [!WARNING]
 > **Never put TaskHub directly on the public internet** (no naked port-forwarding of `:3000`
-> or `:7373`). Until there's a real login, the **network layer must be your authentication** —
-> use a private VPN (Tailscale) or an access-gated tunnel (Cloudflare Access). Both options
-> below do exactly that.
+> or `:7373`). The **network layer must be your authentication** — use a private VPN
+> (Tailscale) or an access-gated tunnel (Cloudflare Access). Both options below do exactly
+> that. Treat TaskHub's own login as a second factor behind that gate, never as the gate.
 
 ## The model (how this differs from "hosting")
 
@@ -98,7 +102,9 @@ runs an outbound-only connector from your PC.
    proxy note below — a public URL is much cleaner as one origin than two).
 3. **Gate it with [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/)**
    — require a login (your email, an identity provider, or a one-time PIN) in front of the
-   tunnel. This is what stands in for TaskHub's not-yet-built login screen. **Do not skip it.**
+   tunnel. TaskHub's own single-user login is **not** a substitute for this: one password, no
+   reset, no lockout beyond rate limiting, in front of remote command execution. **Do not
+   skip it.**
 4. Add the tunnel hostname to the backend `ALLOWED_ORIGINS`.
 
 ## Making it one URL (optional reverse proxy)
@@ -117,9 +123,13 @@ until then, you can add one yourself if you want the single-URL setup.
 
 - [ ] TaskHub is reachable **only** over Tailscale or an Access-gated tunnel — never a raw
       public port.
-- [ ] `ALLOWED_ORIGINS` lists exactly your remote frontend origin(s) and nothing broader.
-- [ ] You understand that anyone who reaches the dashboard can run/create tasks on your
-      machine, so the access gate (VPN membership / Access login) *is* your security boundary.
+- [ ] `ALLOWED_ORIGINS` lists exactly your remote frontend origin(s) and nothing broader. It
+      gates **both** the REST API's CORS headers and the Socket.IO handshake, so a missing
+      origin means "no data and no live updates", and an over-broad one is a real widening.
+      **Leaving it empty is permissive, not safe** — the backend warns at boot when it is.
+- [ ] You understand that anyone who reaches the dashboard **and knows the one password** can
+      run/create tasks on your machine, so the access gate (VPN membership / Access login) is
+      your real security boundary — TaskHub's login is the layer behind it, not instead of it.
 - [ ] Keep your `JWT_SECRET`, `ENCRYPTION_KEY`, and `AGENT_PAIRING_SECRET` strong and private
       (see [Setup](../../setup/README.md)).
 

@@ -46,7 +46,7 @@ Includes quick links to native UIs, cross-platform schedule conversion templates
 | **Windows agent** | .NET 10 (C#) + `Microsoft.Win32.TaskScheduler` + WiX installer |
 | **Auth** | JWT (access + refresh); OAuth2 post-MVP |
 | **Hosting (dev)** | Docker Compose |
-| **Hosting (prod)** | AWS ECS Fargate or Render; static frontend on S3 + CloudFront or Vercel |
+| **Hosting (prod)** | **None — TaskHub is local-first.** Every user runs the whole stack on their own machine; there is no hosted instance (decided 2026-07-13). Reaching your own instance from another device is the optional P3 *Remote access* item. *(This row previously read "AWS ECS Fargate or Render; static frontend on S3 + CloudFront or Vercel" — true before the local-first decision, and corrected 2026-07-31.)* |
 | **Cache / pub-sub** | Redis (optional for MVP; required for multi-instance WebSocket) |
 | **MCP server** (Phase 6) | Node.js wrapper over REST API |
 
@@ -320,6 +320,8 @@ These are project-specific overrides on top of the parent workspace's general st
 - Secrets never in code. Use `.env.local` for dev, AWS Secrets Manager / Vault for prod.
 - WebSocket: WSS only. JWT for users, pairing-secret-derived token for agents.
 - No `0.0.0.0` binds in the agent. It's a *client*, not a server.
+- **There is exactly one account-creation path — `POST /api/auth/setup`** (first run only; 409 once an owner exists). The generic `POST /auth/register` was deleted 2026-07-31: an unauthenticated account-creation endpoint on a service whose job is creating and running commands on the user's machine, kept alive only because the test suite found it convenient. **Never re-add one for a test.** An integration test pins its 404.
+- **`ALLOWED_ORIGINS` is one list gating two surfaces** — REST CORS *and* the Socket.IO handshake — parsed once in `backend/src/config/origins.ts`. They used to be separate (a bare `app.use(cors())` beside a restricted socket), which is how two mechanisms answering the same question drift. A request with **no `Origin` header is always allowed** — every non-browser caller (MCP server, `curl`, the test suite) sends none, and authentication, not CORS, is their gate. An **empty list stays permissive but warns at boot**: "unset" and "deliberately open" are indistinguishable from inside the process, and only one of them is a decision.
 
 ### Template catalog (registry)
 - Templates are **content, not code**: they live in the Registry v1 JSON schema, not inlined in `seed.ts`. Edit the catalog in `backend/src/catalog/bundled.ts` (the bundled source of truth), then `npm run registry:build` to regenerate `registry/`, and `pwsh scripts/publish-registry.ps1` to mirror it to the public `taskhub-registry` repo.

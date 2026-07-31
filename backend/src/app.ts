@@ -6,6 +6,7 @@ import toolsRoutes from './routes/tools.js';
 import authRoutes from './routes/auth.js';
 import { authenticateToken } from './auth/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { corsOptions } from './config/origins.js';
 
 /**
  * Build the Express app: middleware, routes, and the single error boundary.
@@ -25,7 +26,10 @@ const RESTORE_BODY_LIMIT = '32mb';
 export function createApp(): Express {
   const app = express();
 
-  app.use(cors());
+  // Same origin list Socket.IO enforces (see config/origins.ts). This was a bare
+  // `cors()` — reflect-any-origin — while the socket channel was restricted, so
+  // the two halves of the same API disagreed about who may call it.
+  app.use(cors(corsOptions()));
 
   // Restore uploads a whole archive of task XML — 95 tasks is comfortably past
   // the 100 kB default — so it gets its own parser with a much larger ceiling.

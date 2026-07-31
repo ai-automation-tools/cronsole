@@ -37,8 +37,8 @@ router.get('/status', async (_req: Request, res: Response) => {
 /**
  * First-run account creation. Allowed only until a real (password-bearing)
  * account exists; after that it 409s and the caller must log in. This is the
- * single-user product's account-creation path (the UI never exposes the generic
- * /register primitive below).
+ * ONLY account-creation path in the product (see the note where /register used
+ * to be).
  *
  * It CLAIMS the existing password-less placeholder rather than creating a
  * second row: the app has always run as `cli_user_placeholder` (it owns the
@@ -83,24 +83,20 @@ router.post('/setup', authLimiter, validateBody(credentialsSchema), async (req: 
   res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
 });
 
-// Generic registration primitive. NOT surfaced in the single-user UI (which uses
-// /setup + /login); kept for the integration suite and any future multi-user
-// path. Fully closing it is part of the deferred multi-tenant hardening.
-router.post('/register', validateBody(credentialsSchema), async (req: Request, res: Response) => {
-  const { email, password, name } = req.body;
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  try {
-    const user = await prisma.user.create({ data: { email, password: hashedPassword, name } });
-    const token = generateToken(user);
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
-  } catch (error: any) {
-    if (error.code === 'P2002') {
-      throw new HttpError(400, 'Email already exists');
-    }
-    throw error;
-  }
-});
+// There is deliberately NO generic `POST /register` here.
+//
+// It existed until 2026-07-31 as an unauthenticated account-creation primitive —
+// never surfaced in the UI, kept "for the tests and a future multi-user path".
+// On a local-first install that is a public account-creation endpoint on a
+// service whose whole job is creating and running commands on your machine, and
+// the P3 remote-access work is specifically about making that service reachable
+// from other devices. The single-user product already has the account paths it
+// needs: /setup creates the one owner (409 afterwards) and /login authenticates.
+//
+// If multi-user is ever built, registration comes back as a designed flow with
+// an invite or an owner-gated approval — not as a leftover primitive. See the
+// deferred multi-tenant item in docs/ROADMAP.md, and the integration suite,
+// which pins its absence.
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email and password required'),

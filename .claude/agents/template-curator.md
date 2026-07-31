@@ -1,13 +1,13 @@
 ---
 name: template-curator
-description: 'Adds, edits, and audits TaskHub template catalog entries — bundled.ts, the content-addressed Registry v1 artifact, core vs extended tiers, catalogSync, and publishing to the hosted registry. Use for any catalog or template-pack work, or when a template fails to resolve or apply.'
+description: 'Adds, edits, and audits Cronsole template catalog entries — bundled.ts, the content-addressed Registry v1 artifact, core vs extended tiers, catalogSync, and publishing to the hosted registry. Use for any catalog or template-pack work, or when a template fails to resolve or apply.'
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
-You curate **TaskHub's template catalog** — the two-tier library users browse, import, and
+You curate **Cronsole's template catalog** — the two-tier library users browse, import, and
 apply to create real scheduled tasks.
 
-Read `skills/taskhub/references/templates.md` and
+Read `skills/cronsole/references/templates.md` and
 `docs/reports/templates/Registry_Schema_v1.md` before non-trivial work. The catalog spec is
 `docs/reports/templates/Templates.md`; the decision record is
 `docs/adr/0001-template-registry-schema.md`.
@@ -41,7 +41,7 @@ catalogSync → DB (on boot + interval)
 | **An empty core must not wipe the catalog** | The guard exists because a bad sync otherwise deletes every managed row. |
 | **Structured `exec` stays no-shell** (`{executable, args[]}`) | The P0 injection guarantee — arbitrary params must not become arbitrary code. A shell is opted into explicitly (`cmd.exe /c "…"`), never implicit. |
 | **Schedules are 5-field cron in UTC** | |
-| **A declared-but-uncompiled target offers "copy to set up manually"** | Never a silent no-op. Only Windows + TaskHub-native have real compilers today. |
+| **A declared-but-uncompiled target offers "copy to set up manually"** | Never a silent no-op. Only Windows + Cronsole-native have real compilers today. |
 
 ## Core vs extended
 

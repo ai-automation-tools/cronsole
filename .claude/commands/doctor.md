@@ -1,16 +1,16 @@
 ---
 allowed-tools: Read, Bash, Grep, Glob
 argument-hint: (no args) | --stale | --agent | --mcp | --fix
-description: Diagnose a TaskHub stack that builds but misbehaves — the three processes that run stale, agent connectivity, and MCP token expansion
+description: Diagnose a Cronsole stack that builds but misbehaves — the three processes that run stale, agent connectivity, and MCP token expansion
 ---
 
-# TaskHub Doctor
+# Cronsole Doctor
 
 Run **before** debugging your own code when live behavior contradicts the source.
 
 ## Why this exists
 
-TaskHub has **three processes that run stale**, and each one presents as a bug in your
+Cronsole has **three processes that run stale**, and each one presents as a bug in your
 logic rather than a stale process:
 
 | Stale thing | Presents as | Because |
@@ -51,7 +51,7 @@ docker restart taskhub-backend-1
 Ask the backend, not the process list:
 
 ```bash
-curl -s http://localhost:3000/api/tasks/health -H "Authorization: Bearer $TASKHUB_TOKEN"
+curl -s http://localhost:3000/api/tasks/health -H "Authorization: Bearer $CRONSOLE_TOKEN"
 ```
 
 `WINDOWS_TASK_SCHEDULER` should be `HEALTHY` with a recent `lastSync`.
@@ -66,8 +66,8 @@ curl -s http://localhost:3000/api/tasks/health -H "Authorization: Bearer $TASKHU
 To check the build is current, compare the published dll against the source:
 
 ```powershell
-Get-Item ".\agent\publish\TaskHub.Agent.dll" | Select-Object LastWriteTime
-Get-ChildItem ".\agent\TaskHub.Agent" -Recurse -Filter *.cs |
+Get-Item ".\agent\publish\Cronsole.Agent.dll" | Select-Object LastWriteTime
+Get-ChildItem ".\agent\Cronsole.Agent" -Recurse -Filter *.cs |
   Sort-Object LastWriteTime -Descending | Select-Object -First 1 LastWriteTime
 ```
 
@@ -86,13 +86,21 @@ Get-ChildItem ".\mcp-server\src" -Filter *.ts |
   Sort-Object LastWriteTime -Descending | Select-Object -First 1 LastWriteTime
 
 # Is the token actually expanded in THIS process?
-if ($env:TASKHUB_TOKEN) { "set, length $($env:TASKHUB_TOKEN.Length)" } else { "NOT SET" }
-[Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User') -ne $null
+if ($env:CRONSOLE_TOKEN) { "set, length $($env:CRONSOLE_TOKEN.Length)" } else { "NOT SET" }
+[Environment]::GetEnvironmentVariable('CRONSOLE_TOKEN','User') -ne $null
 ```
 
-**The `taskhub` MCP tools missing entirely is a symptom, not an absence of one.** The
-server exits on startup when `TASKHUB_TOKEN` is unset — the host forwards the literal
-`${TASKHUB_TOKEN}`, `configFromEnv()` detects it and refuses to start, and a host silently
+> **Do not check `TASKHUB_TOKEN` here.** Rename stage 2 **deleted that variable from the
+> machine** (`Migrate-ToCronsole.ps1`), so probing it reports a failure that isn't real —
+> it is guaranteed to print `NOT SET` on a perfectly healthy setup. This block did exactly
+> that until 2026-07-31. The legacy name still exists in **one** place, and it is not this
+> one: `mcp-server/src/client.ts` reads a `['TASK','HUB'].join('')` prefix as a fallback for
+> a *user* whose old variable is still exported. That is a compatibility path in code, not a
+> thing to diagnose.
+
+**The `cronsole` MCP tools missing entirely is a symptom, not an absence of one.** The
+server exits on startup when `CRONSOLE_TOKEN` is unset — the host forwards the literal
+`${CRONSOLE_TOKEN}`, `configFromEnv()` detects it and refuses to start, and a host silently
 drops a server that fails to boot. Check `/mcp` for the message.
 
 If the variable is set at User scope but empty in this process: **the terminal predates the

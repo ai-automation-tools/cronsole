@@ -17,7 +17,7 @@ import { ToolsScreen } from './screens/ToolsScreen';
 import { useSettings } from './hooks/useSettings';
 import { useToast } from './hooks/useToast';
 import { useConfirm } from './hooks/useConfirm';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { describeUntracked, type SyncResponse } from './utils/syncSummary';
 

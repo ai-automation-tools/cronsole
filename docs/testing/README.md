@@ -96,14 +96,49 @@ cd ../mcp-server && npm test
 > mock agent), which CI doesn't stand up. E2E is a **local gate you have to run by hand** —
 > which means it's the suite most likely to rot unnoticed. Run it before any release.
 
+### ⚠️ E2E preflight — two things that will waste your afternoon
+
+Both of these were hit on 2026-07-31. Neither announces itself.
+
+**1. An empty `VITE_DEV_TOKEN` makes every test fail on the login screen.** The suite has no
+login step by design — the browser authenticates with `frontend/.env.local`'s
+`VITE_DEV_TOKEN`. If that value is empty or signed with a **rotated** `JWT_SECRET`, the app
+falls through to `AuthScreen` and each spec dies on a missing dashboard heading. The failure
+reads like a broken frontend, not a missing credential; the tell is the page snapshot in
+`test-results/*/error-context.md` showing a **Sign in** form. Mint a fresh one:
+
+```bash
+cd backend && node --input-type=module -e "
+import 'dotenv/config'; import jwt from 'jsonwebtoken';
+console.log(jwt.sign({ id: 'cli_user_placeholder', email: '<your login email>' }, process.env.JWT_SECRET, { expiresIn: '3650d' }));"
+# paste into frontend/.env.local as VITE_DEV_TOKEN="…" — Vite restarts and picks it up
+```
+
+The `id` must be a **real `User.id`** in the dev DB, or every request 401s with a valid token.
+
+**2. Running E2E knocks your real Windows agent offline.** The mock agent takes the
+single per-user agent socket; when the suite disconnects it, the backend clears the mapping
+and the real agent — whose socket is still alive from *its* side — never re-registers. This is
+[troubleshooting #5](../troubleshooting/README.md#5-windows-offline-after-running-a-transient-test-agent),
+reached through the suite rather than a hand-started dogfood agent. It does **not** self-heal;
+polling for minutes won't recover it. Afterwards:
+
+```bash
+pwsh scripts/cronsole.ps1 restart   # drops all agent sockets; the real agent reconnects
+curl -s http://localhost:3000/api/tasks/health -H "Authorization: Bearer <dev token>"
+# expect WINDOWS_TASK_SCHEDULER: HEALTHY
+```
+
+Treat that health check as **part of the E2E run**, not an optional follow-up — the agent
+being down is silent until the next thing you try to do needs it.
+
 ## 📊 Known coverage gaps
 
 Honest list. These are real holes, not aspirational polish:
 
 | Gap | Impact | Tracked |
 |:---|:---|:---|
-| **Login rate limit (`429`) not implemented** | The archived Test Plan's brute-force mitigation has no code behind it — so nothing to test | Go-public checklist in [ROADMAP](../ROADMAP.md) |
-| **E2E not wired into CI** | Regressions in full-stack flows only surface if someone runs it locally | This doc |
+| **E2E not wired into CI** | Regressions in full-stack flows only surface if someone runs it locally — **and it can fail to run at all without failing loudly** (see the preflight below) | This doc |
 | **MCP tools are never exercised against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does* — not that the wrapper and the API still **agree**. If a route's response shape moves (`conversion.warnings`, `task`, `score`), the stub keeps passing while the real tool breaks. This is the [#9](../troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) failure mode one layer up: *both sides green while disagreeing about the wire.* Covered today only by driving the tools by hand (see the MCP runbook row below) | This doc |
 | **The sync route's exclusion wiring has no suite** | `TaskService.excludedExternalIds` / `filterExcluded` / `clearExclusionsForCategories` are unit-tested, and the untrack route is integration-tested — but the **order they run in inside `POST /tasks/sync`** (clear before read, so an import isn't skipped for one more cycle) is proven only by the live round-trip done at ship time. A reordering would pass every suite and make untrack look broken one sync later | This doc |
 | **The `<375px` mobile layout is unverified in a browser** | The drawer's `inert` behavior is unit-tested and confirmed live at desktop width, but the narrow viewport itself was never rendered: the browser window will not resize in this environment (it reports success while `innerWidth` stays 2124). Worth a real device check | This doc + [ROADMAP](../ROADMAP.md) |

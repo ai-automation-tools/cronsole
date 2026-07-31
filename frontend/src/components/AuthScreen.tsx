@@ -58,9 +58,12 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center mb-4">
             <ShieldCheck className="text-primary" size={24} />
           </div>
-          <h1 className="text-2xl font-black tracking-tight">
-            Task<span className="text-primary">Hub</span>
-          </h1>
+          {/* One contiguous string on purpose. This read "Task<span>Hub</span>"
+              through the whole 2026-07-31 rename because a brand split across a
+              span is invisible to a grep for the brand — the login screen is the
+              first thing a logged-out user sees, and nothing caught it. Matches
+              the Sidebar's plain <h1>Cronsole</h1>. */}
+          <h1 className="text-2xl font-black tracking-tight">Cronsole</h1>
           <p className="text-sm text-muted-foreground mt-1 text-center">
             {isSetup ? 'Create your account to get started' : 'Sign in to your dashboard'}
           </p>

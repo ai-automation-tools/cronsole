@@ -111,6 +111,23 @@ describe('auth flow', () => {
     expect(apiMock.post).not.toHaveBeenCalled();
   });
 
+  // The login screen read "TaskHub" through the entire rename because the brand
+  // was split as Task<span>Hub</span> — invisible to a grep for "TaskHub", and
+  // unreachable by the E2E suite, which authenticates past this screen with the
+  // dev token. Assert the rendered heading, not the source, so any future rename
+  // that misses it fails here. Both branches, since setup is what a new user sees.
+  it.each([
+    ['login', false],
+    ['first-run setup', true],
+  ])('brands the %s screen as Cronsole', async (_label, needsSetup) => {
+    apiMock.get.mockResolvedValue({ data: { needsSetup } });
+    renderApp();
+
+    const heading = await screen.findByRole('heading', { level: 1 });
+    expect(heading).toHaveTextContent(/^Cronsole$/);
+    expect(heading).not.toHaveTextContent(/TaskHub/i);
+  });
+
   it('trusts a stored login token and renders the app without a status probe', async () => {
     tokenState.value = 'existing-jwt';
     renderApp();

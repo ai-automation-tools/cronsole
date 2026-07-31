@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ExecutionAnalyticsTool } from '../tools/ExecutionAnalyticsTool';
 import { api } from '../../api';
@@ -8,8 +8,8 @@ import { api } from '../../api';
 vi.mock('../../api', () => ({ api: { get: vi.fn() } }));
 
 const navigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual<typeof import('react-router')>('react-router');
   return { ...actual, useNavigate: () => navigate };
 });
 

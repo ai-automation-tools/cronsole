@@ -68,7 +68,8 @@ a regression test is a fix with an expiry date.
 | R3.4 | **Replay rejection** | Expired/duplicate HMAC envelopes rejected | ✅ `agentAuth.test.ts` |
 | R3.5 | **Encryption at rest** | Config never lands in the DB as plaintext | ✅ `encryption-at-rest.integration.test.ts` |
 | R3.6 | **Tenant isolation** | Cross-user access stays impossible as routes are added | ✅ `idor.integration.test.ts` |
-| R3.7 | **Dependency audit** | Production `npm audit` stays at **0** | ⬜ Not gated — see [`artifacts/cronsole_security_audit_2026-07-10.md`](../../../artifacts/cronsole_security_audit_2026-07-10.md) |
+| R3.6a | **Login rate limit** | Credential-guessing surfaces stay limited. Per-IP, **10 / 15 min**, on `/auth/login` **and** `/auth/setup` | ✅ `authLimiter.test.ts` |
+| R3.7 | **Dependency audit** | Production `npm audit` stays at **0**, in **all three** packages — `backend/`, `frontend/`, `mcp-server/`. Checking only one is how it drifted: on 2026-07-31 backend and mcp-server were clean while frontend carried 2 high (`react-router` [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2)) | ⬜ Not gated — run `npm audit --omit=dev` in each; see [`artifacts/cronsole_security_audit_2026-07-10.md`](../../../artifacts/cronsole_security_audit_2026-07-10.md) |
 | R3.8 | **Secret scanning** | No `.env` values or keys committed | ⬜ |
 
 ## 🐛 Bug-fix regression

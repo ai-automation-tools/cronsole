@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { api } from '../../api';

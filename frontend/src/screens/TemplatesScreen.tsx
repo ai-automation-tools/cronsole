@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { api } from '../api';
 import type { Template, ImportResult } from '../types';
 import { ApplyTemplateModal } from '../components/ApplyTemplateModal';

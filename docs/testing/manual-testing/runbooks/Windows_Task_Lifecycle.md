@@ -98,7 +98,7 @@ Implicit shell = the P0 injection guarantee is broken. See
 ## 6. Run Now
 
 ```powershell
-Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/<task-id>/run" -Headers $H
+Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/$taskId/run" -Headers $H
 ```
 
 **Expect:** a success response, and a toast in the UI within ~5s.
@@ -124,7 +124,7 @@ already fixed once.
 ## 9. Execution log recorded
 
 ```powershell
-Invoke-RestMethod "http://localhost:3000/api/tasks/<task-id>/executions" -Headers $H |
+Invoke-RestMethod "http://localhost:3000/api/tasks/$taskId/executions" -Headers $H |
   ConvertTo-Json -Depth 5
 ```
 
@@ -135,7 +135,7 @@ the detail view should show the same history.
 
 ```powershell
 $body = @{ schedule = '30 4 * * *' } | ConvertTo-Json
-Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/<task-id>/schedule" `
+Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/$taskId/schedule" `
   -Headers $H -ContentType 'application/json' -Body $body
 ```
 
@@ -178,7 +178,7 @@ Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/$taskId/status"
 ## 12. Export round-trip
 
 ```powershell
-Invoke-RestMethod "http://localhost:3000/api/tasks/<task-id>/export" -Headers $H `
+Invoke-RestMethod "http://localhost:3000/api/tasks/$taskId/export" -Headers $H `
   -OutFile "$env:TEMP\manual-test-lifecycle.xml"
 ```
 
@@ -243,15 +243,25 @@ Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $
 
 # 4. An explicit category import IS the way back
 Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
-  -ContentType 'application/json' -Body '{"categories":["Cronsole"]}'
+  -ContentType 'application/json' -Body '{"categories":["TaskHub"]}'
 #    -> exclusionsCleared = 1, and the task returns
+
+# 5. The row is NEW — re-read the id before continuing
+$all    = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
+$taskId = @($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' })[0].id
+$taskId
 ```
 
 **Expect:** step 3 leaves it out (a sync that re-imported it would look identical to "untrack is
 broken"), step 4 brings it back and **says so** — `exclusionsCleared` is what the toast turns
 into *"Re-imported 1 task you had removed from Cronsole."*
 
-Also check `GET /api/tasks/discover` between 3 and 4: the `Cronsole` category should report
+> **The category is `TaskHub`, not `Cronsole`.** Categories for Windows tasks are derived from
+> the real Task Scheduler folder path, and that folder is still `\TaskHub\` — the product rename
+> does not move it. Passing `["Cronsole"]` matches no folder and silently imports nothing, which
+> reads exactly like "untrack can't be undone."
+
+Also check `GET /api/tasks/discover` between 3 and 4: the `TaskHub` category should report
 `excludedCount: 1`, which is the amber **+1 removed** badge in the Import modal. The number has
 to arrive **before** the click.
 
@@ -295,8 +305,16 @@ date **unchanged** — "left alone" has to mean untouched, not rewritten identic
 
 ## 13. Delete, and verify it's really gone
 
+A restore lands the task on the machine but does **not** track it (12b), so re-import it and
+re-read `$taskId` one more time before deleting:
+
 ```powershell
-Invoke-RestMethod -Method Delete "http://localhost:3000/api/tasks/<task-id>" -Headers $H
+Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
+  -ContentType 'application/json' -Body '{"categories":["TaskHub"]}' | Out-Null
+$all    = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
+$taskId = @($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' })[0].id
+
+Invoke-RestMethod -Method Delete "http://localhost:3000/api/tasks/$taskId" -Headers $H
 
 Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle' -ErrorAction SilentlyContinue
 ```
@@ -306,11 +324,27 @@ platform confirms — so if Windows still has it, Cronsole must still list it.
 
 ## 14. Empty folder auto-prunes
 
-Delete every task in `\TaskHub\` (including `manual-test-reimport` from step 12), then:
+Delete every task in `\TaskHub\` (including `manual-test-reimport` from step 12) — but the
+**last** one has to go **through Cronsole**, so import it first:
 
 ```powershell
+Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
+  -ContentType 'application/json' -Body '{"categories":["TaskHub"]}' | Out-Null
+$all      = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
+$reimport = @($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-reimport' })[0].id
+Invoke-RestMethod -Method Delete "http://localhost:3000/api/tasks/$reimport" -Headers $H
+
+# the folder should now be gone entirely, not merely empty
 Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue
+
+$svc = New-Object -ComObject Schedule.Service; $svc.Connect()
+try { $svc.GetFolder('\TaskHub'); 'FOLDER STILL EXISTS' } catch { 'folder pruned: ' + $_.Exception.Message.Trim() }
 ```
+
+> **The prune is Cronsole's, not Windows'.** It runs on Cronsole's delete path when it removes
+> the folder's last task. Clearing the folder with `Unregister-ScheduledTask` empties it without
+> ever telling Cronsole, so the folder survives and this step fails for a reason that has
+> nothing to do with pruning.
 
 **Expect:** the `\TaskHub\` folder is gone — it auto-prunes on last-task delete.
 

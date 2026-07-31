@@ -50,6 +50,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
 | 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
+| 32 | A PowerShell check against the API returns **every** task when it should return one, or prints a header with one **blank** row — while the same endpoint's raw JSON is plainly correct | **`Invoke-RestMethod` writes its array to the pipeline without enumerating it**, so a directly-piped `Where-Object`/`Select-Object` receives one `Object[]` instead of N objects. `$_.prop -eq 'x'` then evaluates against the whole array and returns the *matching elements* — truthy — so everything passes the filter. Assign to a variable first, then filter, and wrap in `@()` before `.Count`. **Worst where a check is meant to prove a row is gone: the broken form prints `0` on no-match, so it looks right and can never fail in the direction it is testing** | [→](#32-a-powershell-check-against-the-api-matches-everything-or-renders-a-blank-row) |
 | 31 | The dashboard loads but every API call fails with *"No 'Access-Control-Allow-Origin' header is present"* — while `curl` against the same route returns 200 | **Read the backend log — it names the refused origin and the allowed list.** Since 2026-07-31 the REST API enforces **`ALLOWED_ORIGINS`** (it used to reflect any origin), and the browser's origin isn't on the list — after a port change, a Settings → API-origin override, or reaching Cronsole over Tailscale/a tunnel. **`curl` works because it sends no `Origin`, and a request without one is always allowed**, so a passing `curl` is not evidence the browser can reach the API. Add the exact origin (scheme + host + port) and restart the backend; the same list gates the `/ui` live-update socket | [→](#31-the-dashboard-loads-but-every-api-call-fails-with-a-cors-error) |
 | 30 | A route 500s on real data while `tsc` is green | A **cast on a query result** (`row as SomeInterface`) silenced the compiler at the one boundary that had drifted — a Prisma `select` missing a field the consumer now requires. Delete the cast; Prisma's generated select type is already the strongest check there is. *A cast at a data boundary is a promise the query cannot keep* | [→](#30-a-route-500s-on-real-data-while-tsc-is-green--a-cast-on-a-query-result) |
 | 29 | `prisma migrate` refuses to run — "migration was modified after it was applied" — and the only remedy it offers drops the database | Prisma checksums each migration **file**; editing an applied one (even adding a comment) breaks the hash. **Never `migrate reset`** on a local-first app — that is the user's real data. Verify the DB already matches the SQL, re-record the checksum, then use `--create-only` + `migrate deploy` (which also skips `generate`, dodging [#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)) | [→](#29-prisma-migrate-refuses-to-run-migration-was-modified-after-it-was-applied--and-offers-to-drop-your-database) |
@@ -1999,6 +2000,75 @@ live task updates. If it is unset entirely, the backend says so at boot:
 `ALLOWED_ORIGINS is unset — the REST API accepts requests from any browser origin.`
 
 *First hit: 2026-07-31, aligning REST CORS with the socket's origin list (Go-public checklist).*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 32. A PowerShell check against the API matches everything, or renders a blank row
+
+**Symptom** — a filter that should select one task returns **every** task:
+
+```powershell
+$task = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H |
+  Where-Object { $_.name -eq 'manual-test-lifecycle' }
+$task.id     # -> prints ~350 ids, not one
+```
+
+…or a projection prints a header and a single **blank** row:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/tasks/$taskId/executions" -Headers $H |
+  Select-Object status, triggeredAt, durationMs
+# status triggeredAt durationMs
+# ------ ----------- ----------
+#                                <- one empty row, though the rows exist
+```
+
+The endpoint is fine — `Invoke-WebRequest` on the same URL returns correct JSON, and the DB
+agrees.
+
+**Cause** — **`Invoke-RestMethod` writes its deserialized array to the pipeline as a single
+object** rather than enumerating it. The next command therefore receives one `Object[]`, not N
+task objects:
+
+- `Where-Object { $_.name -eq 'x' }` — `$_` **is the array**. PowerShell's member enumeration
+  makes `$_.name` an *array of names*, and `array -eq 'x'` is a filtering operator that returns
+  the **matching elements**. A non-empty result is truthy, so the whole array passes the filter.
+- `Select-Object status` — `Select-Object` does *not* member-enumerate, so it builds one object
+  whose `status` is `$null`: the blank row.
+
+Assigning to a variable first fixes both, because piping a *variable* does enumerate.
+
+**Fix** — assign, then filter, and wrap in `@()` before `.Count` or indexing:
+
+```powershell
+$all  = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
+$task = @($all | Where-Object { $_.name -eq 'manual-test-lifecycle' })[0]
+$task.id
+```
+
+> [!WARNING]
+> **The dangerous shape is a check meant to prove something is *gone*.** The manual-testing
+> runbook used the broken form to assert an untracked row had left the DB:
+>
+> ```powershell
+> (Invoke-RestMethod ".../api/tasks" -Headers $H |
+>   Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' }).Count   # -> 0
+> ```
+>
+> With nothing matching, the array is filtered out and this correctly prints `0` — so it passes
+> and looks right. But had untrack failed to remove the row, it would have printed the **full
+> task count**, not `1`. **The check could never fail in the direction it existed to test.**
+> Fixed in `Windows_Task_Lifecycle.md` § 12a and `Template_Apply.md` on 2026-07-31.
+
+> [!TIP]
+> The tell that separates this from a real API bug: fetch the same URL with
+> **`Invoke-WebRequest`** and read `.Content`. If the raw JSON is right, the bug is in the
+> pipeline, not the server. Related in spirit to [#25](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error)
+> — *a verification command that cannot fail is not verification.*
+
+*First hit: 2026-07-31, during a manual Windows Task Lifecycle run.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

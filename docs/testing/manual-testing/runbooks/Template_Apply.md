@@ -182,9 +182,13 @@ Confirm the category follows the **root** folder (`Work`, not `Backups`), since 
 task's category is a projection of its top-level folder:
 
 ```powershell
-Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H |
-  ? { $_.name -like 'manual-test-folder' } | Select name, category, externalId
+$all = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
+@($all | Where-Object { $_.name -like 'manual-test-folder' }) | Select-Object name, category, externalId
 ```
+
+> Assign before filtering — piping `Invoke-RestMethod` straight into `Where-Object` hands it one
+> `Object[]` instead of N tasks, so the filter matches everything and you get the whole task list
+> back. See the warning in [Windows Task Lifecycle](Windows_Task_Lifecycle.md#12a-untrack--the-row-goes-the-task-stays) § 12a.
 
 Now the other half of the rule — a folder that does **not** exist must be **refused**, never
 created:

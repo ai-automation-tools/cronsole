@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
-  <title id="title">TaskHub Schedule Orbit landscape logo concept</title>
-  <desc id="desc">A wide TaskHub wordmark with clock and orbit icon for website and repository branding.</desc>
+  <title id="title">Cronsole Schedule Orbit landscape logo concept</title>
+  <desc id="desc">A wide Cronsole wordmark with clock and orbit icon for website and repository branding.</desc>
   <defs>
     <radialGradient id="iconBg" cx="50%" cy="42%" r="72%">
       <stop offset="0" stop-color="#1f2937"/>
@@ -22,7 +22,7 @@
   <path d="M239 220c-27 33-77 44-117 21" fill="none" stroke="#8b5cf6" stroke-width="9" stroke-linecap="round"/>
   <circle cx="238" cy="128" r="18" fill="#10b981"/>
   <circle cx="121" cy="232" r="15" fill="#8b5cf6"/>
-  <text x="344" y="176" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">TaskHub</text>
+  <text x="344" y="176" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">Cronsole</text>
   <text x="350" y="232" fill="#a1a1aa" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Schedules, agents, and automations in sync</text>
   <path d="M964 180h42l18-34 32 70 21-36h45" fill="none" stroke="#10b981" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

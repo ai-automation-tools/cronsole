@@ -1,11 +1,11 @@
 ---
 name: release-engineering
-description: 'Ship TaskHub to strangers — semantic versioning across four independently-versioned components, WiX MSI installer packaging, Windows Authenticode code signing, macOS notarization, agent auto-update and trust, changelogs, and GitHub releases. Use when cutting a release, tagging a version, building or signing an installer, distributing the agent, or working the go-public checklist.'
+description: 'Ship Cronsole to strangers — semantic versioning across four independently-versioned components, WiX MSI installer packaging, Windows Authenticode code signing, macOS notarization, agent auto-update and trust, changelogs, and GitHub releases. Use when cutting a release, tagging a version, building or signing an installer, distributing the agent, or working the go-public checklist.'
 ---
 
 # Release Engineering
 
-TaskHub is **local-first**: users run the frontend, backend, and a native agent on their own
+Cronsole is **local-first**: users run the frontend, backend, and a native agent on their own
 machine. That makes releasing a *distribution* problem, not a deploy problem — you are
 asking a stranger to run an **unattended, elevated, scheduled process** they did not build.
 
@@ -16,7 +16,7 @@ Covers four open roadmap items: **Installer packages**, **Agent distribution & t
 
 **Trust is the product.** A code-signing certificate is not a compliance checkbox — it is
 the difference between "install this" and a SmartScreen wall that says the publisher is
-unknown. TaskHub's whole value is that state it reports is *true* and actions it takes
+unknown. Cronsole’s whole value is that state it reports is *true* and actions it takes
 *actually happen*; a user cannot verify that from the outside, so the signature is the only
 claim they can check.
 
@@ -92,7 +92,7 @@ Different model, stricter: **sign → notarize → staple**, or Gatekeeper refus
 
 ## Agent distribution & trust
 
-The agent auto-updating is the highest-risk feature TaskHub could ship: an elevated process
+The agent auto-updating is the highest-risk feature Cronsole could ship: an elevated process
 that replaces its own binary is exactly what an attacker wants to compromise.
 
 - **Verify the signature before swapping the binary**, not after.
@@ -106,7 +106,7 @@ that replaces its own binary is exactly what an attacker wants to compromise.
 ## Legal minimum (before strangers install it)
 
 - **LICENSE** — pick it deliberately; it constrains contribution and reuse.
-- **Privacy statement** — TaskHub is local-first and that is a *selling point*. Say plainly
+- **Privacy statement** — Cronsole is local-first and that is a *selling point*. Say plainly
   what leaves the machine (registry fetches, webhooks the user configured) and what does
   not.
 - **Third-party notices** — the bundled dependency licenses.

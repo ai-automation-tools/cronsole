@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
-  <title id="title">TaskHub Agent Pulse landscape logo concept</title>
-  <desc id="desc">A wide TaskHub wordmark with terminal, pulse, and cloud hub icon for product branding.</desc>
+  <title id="title">Cronsole Agent Pulse landscape logo concept</title>
+  <desc id="desc">A wide Cronsole wordmark with terminal, pulse, and cloud hub icon for product branding.</desc>
   <defs>
     <linearGradient id="iconBg" x1="72" y1="72" x2="288" y2="288" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#121212"/>
@@ -21,7 +21,7 @@
   <circle cx="238" cy="164" r="21" fill="#8b5cf6"/>
   <path d="M231 164h14M238 157v14" stroke="#f5f3ff" stroke-width="7" stroke-linecap="round"/>
   <path d="M206 108l-7 20h21l-25 46 7-31h-21z" fill="#facc15"/>
-  <text x="344" y="176" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">TaskHub</text>
+  <text x="344" y="176" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">Cronsole</text>
   <text x="350" y="232" fill="#a1a1aa" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Run local scheduled tasks from anywhere</text>
   <g transform="translate(955 118)">
     <path d="M36 92h134c23 0 42-18 42-41s-19-41-42-41c-14 0-27 7-35 18-9-16-26-26-45-26-28 0-51 22-51 50v3h-3c-20 0-36 16-36 36 0 1 0 1 0 1z" fill="#111113" stroke="#27272a" stroke-width="4"/>

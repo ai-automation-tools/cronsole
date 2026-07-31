@@ -1,7 +1,7 @@
 ---
 allowed-tools: Read, Edit, Bash, Grep, Glob
 argument-hint: (no args = working tree) | <git-ref> | --staged | --fix
-description: Check whether a change leaves the MCP server, the taskhub skill, or the docs describing something that is no longer true — and fix what drifted
+description: Check whether a change leaves the MCP server, the cronsole skill, or the docs describing something that is no longer true — and fix what drifted
 ---
 
 # Sync the mirror surfaces
@@ -10,7 +10,7 @@ Run **before committing** any non-trivial change, and before declaring work done
 
 ## Why this exists
 
-`mcp-server/` and `skills/taskhub/` both **describe** TaskHub rather than implement it. So
+`mcp-server/` and `skills/cronsole/` both **describe** Cronsole rather than implement it. So
 when they drift, **nothing fails**. The suite stays green, CI is happy, and the drift
 surfaces weeks later as an agent — or a user — confidently doing the wrong thing.
 
@@ -37,11 +37,11 @@ git diff --name-only <ref>        # explicit ref
 | If the change touched… | Then verify / update |
 |:---|:---|
 | `backend/src/routes/tasks.ts` or `templates.ts` — specifically `GET /api/tasks`, `POST /api/tasks/:id/run`, `GET /api/templates`, `POST /api/templates/:id/apply`, `POST /api/tasks/preview` | `mcp-server/src/tools.ts` + `client.ts`; the tool tables in `mcp-server/README.md` **and** `docs/user-guides/guides/MCP_Server_Guide.md` |
-| `mcp-server/src/tools.ts` — a tool added, removed, renamed, or its params changed | Both tool tables above, **and** the tool list in `skills/taskhub/SKILL.md` › "The two AI surfaces" |
+| `mcp-server/src/tools.ts` — a tool added, removed, renamed, or its params changed | Both tool tables above, **and** the tool list in `skills/cronsole/SKILL.md` › "The two AI surfaces" |
 | `mcp-server/src/client.ts` — env vars or how they are read | `mcp-server/.env.example` + the config table in **both** READMEs |
 | A new architectural rule or invariant | `CLAUDE.md` §9 + the invariants table in `SKILL.md` |
 | A new trap that cost real hours | `docs/troubleshooting/README.md` **and** the traps table in `SKILL.md` |
-| `backend/src/connectors/` or `backend/src/catalog/` | `CLAUDE.md` §9 + `SKILL.md` + `skills/taskhub/references/*.md` |
+| `backend/src/connectors/` or `backend/src/catalog/` | `CLAUDE.md` §9 + `SKILL.md` + `skills/cronsole/references/*.md` |
 | Anything shipped, or scope moved | `docs/ROADMAP.md`, dated |
 | `agent/` — a new `task:*` command or a `SignableCommand` variant | The agent protocol section in `references/architecture.md`; confirm backend and agent ship **together** |
 

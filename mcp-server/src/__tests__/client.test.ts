@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createServer, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { TaskHubClient, TaskHubApiError, configFromEnv } from '../client.js';
+import { CronsoleClient, CronsoleApiError, configFromEnv } from '../client.js';
 
 /**
  * The client owns exactly two things the backend can't cover for it: reading its
@@ -21,6 +21,12 @@ describe('configFromEnv', () => {
   const saved = { ...process.env };
 
   beforeEach(() => {
+    delete process.env.CRONSOLE_TOKEN;
+    delete process.env.CRONSOLE_API_URL;
+    delete process.env.CRONSOLE_TIMEOUT_MS;
+    // The pre-rename names are still honored (see below), so a developer with
+    // TASKHUB_TOKEN still exported would otherwise make these tests pass or fail
+    // depending on their shell — which is how a suite quietly stops testing.
     delete process.env.TASKHUB_TOKEN;
     delete process.env.TASKHUB_API_URL;
     delete process.env.TASKHUB_TIMEOUT_MS;
@@ -31,64 +37,83 @@ describe('configFromEnv', () => {
   });
 
   it('refuses to start when the token is unset', () => {
-    expect(() => configFromEnv()).toThrow(/TASKHUB_TOKEN is not set/);
+    expect(() => configFromEnv()).toThrow(/CRONSOLE_TOKEN is not set/);
   });
 
-  it('treats an unexpanded ${TASKHUB_TOKEN} literal as unset, not as a token', () => {
+  it('still accepts the pre-rename TASKHUB_* names', () => {
+    // The 2026-07-31 rename must not invalidate a working setup: the variable
+    // lives in the USER's environment, not this repo, and on Windows it needs a
+    // fresh terminal to even re-read (#8a). Renaming it in code alone would take
+    // the tools away from anyone who hadn't re-exported yet.
+    process.env.TASKHUB_TOKEN = 'legacy-token';
+    process.env.TASKHUB_API_URL = 'http://legacy.test/api';
+
+    const config = configFromEnv();
+    expect(config.token).toBe('legacy-token');
+    expect(config.baseUrl).toBe('http://legacy.test/api');
+  });
+
+  it('prefers the new name when both are set', () => {
+    process.env.TASKHUB_TOKEN = 'legacy-token';
+    process.env.CRONSOLE_TOKEN = 'current-token';
+    expect(configFromEnv().token).toBe('current-token');
+  });
+
+  it('treats an unexpanded ${CRONSOLE_TOKEN} literal as unset, not as a token', () => {
     // The bug this pins: an MCP host passes an unset ${VAR} through as its
     // LITERAL text. A bare emptiness check sails past it, the backend rejects
     // the literal as "403 Invalid or expired token", and that reads as an
     // expired JWT — sending you to debug auth instead of your environment.
-    process.env.TASKHUB_TOKEN = '${TASKHUB_TOKEN}';
+    process.env.CRONSOLE_TOKEN = '${CRONSOLE_TOKEN}';
     expect(() => configFromEnv()).toThrow(/passed through unexpanded/);
   });
 
   it('names the literal it actually received, so the message is diagnosable', () => {
-    process.env.TASKHUB_TOKEN = '${SOME_OTHER_VAR}';
+    process.env.CRONSOLE_TOKEN = '${SOME_OTHER_VAR}';
     expect(() => configFromEnv()).toThrow(/\$\{SOME_OTHER_VAR\}/);
   });
 
   it('treats the ${VAR:-default} form as unexpanded too', () => {
-    process.env.TASKHUB_TOKEN = '${TASKHUB_TOKEN:-}';
+    process.env.CRONSOLE_TOKEN = '${CRONSOLE_TOKEN:-}';
     expect(() => configFromEnv()).toThrow(/passed through unexpanded/);
   });
 
   it('does not mistake a real token that merely contains braces', () => {
     // Guards the guard: the check is anchored, so it must not swallow a
     // legitimate token. A false positive here would be a refusal to start.
-    process.env.TASKHUB_TOKEN = 'abc${nope}def';
+    process.env.CRONSOLE_TOKEN = 'abc${nope}def';
     expect(configFromEnv().token).toBe('abc${nope}def');
   });
 
   it('trims surrounding whitespace from the token', () => {
-    process.env.TASKHUB_TOKEN = '  jwt.token.here  ';
+    process.env.CRONSOLE_TOKEN = '  jwt.token.here  ';
     expect(configFromEnv().token).toBe('jwt.token.here');
   });
 
   it('defaults the base URL to the local backend', () => {
-    process.env.TASKHUB_TOKEN = 't';
+    process.env.CRONSOLE_TOKEN = 't';
     expect(configFromEnv().baseUrl).toBe('http://localhost:3000/api');
   });
 
   it('strips trailing slashes off the base URL', () => {
-    process.env.TASKHUB_TOKEN = 't';
-    process.env.TASKHUB_API_URL = 'https://example.com/api///';
+    process.env.CRONSOLE_TOKEN = 't';
+    process.env.CRONSOLE_API_URL = 'https://example.com/api///';
     expect(configFromEnv().baseUrl).toBe('https://example.com/api');
   });
 
   it('defaults the timeout and honours an override', () => {
-    process.env.TASKHUB_TOKEN = 't';
+    process.env.CRONSOLE_TOKEN = 't';
     expect(configFromEnv().timeoutMs).toBe(15000);
-    process.env.TASKHUB_TIMEOUT_MS = '500';
+    process.env.CRONSOLE_TIMEOUT_MS = '500';
     expect(configFromEnv().timeoutMs).toBe(500);
   });
 });
 
 // ---------------------------------------------------------------------------
-// TaskHubClient — against a real HTTP server
+// CronsoleClient — against a real HTTP server
 // ---------------------------------------------------------------------------
 
-describe('TaskHubClient', () => {
+describe('CronsoleClient', () => {
   let server: Server;
   let baseUrl: string;
   let respond: (req: { url: string; method: string; body: string }) => {
@@ -121,7 +146,7 @@ describe('TaskHubClient', () => {
     await new Promise<void>(resolve => server.close(() => resolve()));
   });
 
-  const client = () => new TaskHubClient({ baseUrl, token: 'test-token', timeoutMs: 2000 });
+  const client = () => new CronsoleClient({ baseUrl, token: 'test-token', timeoutMs: 2000 });
 
   it('sends the bearer token', async () => {
     respond = () => ({ status: 200, body: { ok: true } });
@@ -145,7 +170,7 @@ describe('TaskHubClient', () => {
     // axios's "Request failed with status code 404".
     respond = () => ({ status: 404, body: { error: 'Task not found' } });
     await expect(client().post('/tasks/x/run')).rejects.toMatchObject({
-      name: 'TaskHubApiError',
+      name: 'CronsoleApiError',
       message: 'Task not found',
       status: 404
     });
@@ -162,7 +187,7 @@ describe('TaskHubClient', () => {
   it('still reports the status when the body carries neither', async () => {
     respond = () => ({ status: 500, body: {} });
     await expect(client().get('/tasks')).rejects.toMatchObject({
-      message: 'TaskHub API returned HTTP 500',
+      message: 'Cronsole API returned HTTP 500',
       status: 500
     });
   });
@@ -176,21 +201,21 @@ describe('TaskHubClient', () => {
   });
 
   /** Await a call expected to fail and hand back the typed error. */
-  const failure = async (p: Promise<unknown>): Promise<TaskHubApiError> => {
+  const failure = async (p: Promise<unknown>): Promise<CronsoleApiError> => {
     try {
       await p;
       throw new Error('expected the call to reject, but it resolved');
     } catch (e) {
-      expect(e).toBeInstanceOf(TaskHubApiError);
-      return e as TaskHubApiError;
+      expect(e).toBeInstanceOf(CronsoleApiError);
+      return e as CronsoleApiError;
     }
   };
 
   it('explains an unreachable backend instead of leaking a connection code', async () => {
     // Port 1 is reserved and never listening.
-    const dead = new TaskHubClient({ baseUrl: 'http://127.0.0.1:1', token: 't', timeoutMs: 1000 });
+    const dead = new CronsoleClient({ baseUrl: 'http://127.0.0.1:1', token: 't', timeoutMs: 1000 });
     const err = await failure(dead.get('/tasks'));
-    expect(err.message).toMatch(/Could not reach the TaskHub backend/);
+    expect(err.message).toMatch(/Could not reach the Cronsole backend/);
     expect(err.message).toMatch(/Is the backend running/);
     expect(err.status).toBeUndefined();
   });

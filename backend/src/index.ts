@@ -112,7 +112,7 @@ async function main() {
   await nativeScheduler.start();
 
   server.listen(PORT, () => {
-    console.log(`TaskHub Backend running on http://localhost:${PORT}`);
+    console.log(`Cronsole Backend running on http://localhost:${PORT}`);
   });
 }
 

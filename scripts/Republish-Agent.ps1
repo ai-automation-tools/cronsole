@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Rebuild and republish the TaskHub Windows agent, then relaunch the stack.
+    Rebuild and republish the Cronsole Windows agent, then relaunch the stack.
 
 .DESCRIPTION
     The .NET agent is a host process running the published exe and it NEVER
@@ -19,7 +19,7 @@
 
     DEV TOOL. Not part of what ships to users.
 
-    Everything is logged to $env:TEMP\taskhub-republish.log so the caller - which
+    Everything is logged to $env:TEMP\cronsole-republish.log so the caller - which
     has no console attached when run via the task - can read what actually
     happened instead of assuming an exit code told the whole story.
 
@@ -37,7 +37,7 @@ param(
 $ErrorActionPreference = 'Continue'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$Log      = Join-Path $env:TEMP 'taskhub-republish.log'
+$Log      = Join-Path $env:TEMP 'cronsole-republish.log'
 
 function Write-Log($msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $msg
@@ -45,7 +45,7 @@ function Write-Log($msg) {
     Add-Content -Path $Log -Value $line -ErrorAction SilentlyContinue
 }
 
-Set-Content -Path $Log -Value "=== TaskHub agent republish ===" -ErrorAction SilentlyContinue
+Set-Content -Path $Log -Value "=== Cronsole agent republish ===" -ErrorAction SilentlyContinue
 Write-Log "repo: $RepoRoot"
 
 # --- Refuse honestly if not elevated -----------------------------------------

@@ -1,7 +1,7 @@
 <h1 align="center">🌐 Resources</h1>
 
 <p align="center">
-  <em>Curated external links — the schedulers TaskHub connects to and the references behind it.</em>
+  <em>Curated external links — the schedulers Cronsole connects to and the references behind it.</em>
 </p>
 
 <p align="center">
@@ -10,7 +10,7 @@
 
 ---
 
-Pointers to things that live **outside** this repo: the native scheduling UIs TaskHub links
+Pointers to things that live **outside** this repo: the native scheduling UIs Cronsole links
 out to, and reference sites and repositories worth knowing about.
 
 ## 📚 In this section

@@ -36,7 +36,7 @@ describe('useTheme', () => {
   });
 
   it('defaults to dark on a fresh install, not to the OS preference', () => {
-    // The OS says light. Dark is TaskHub's default (CLAUDE.md §9), so a fresh
+    // The OS says light. Dark is Cronsole's default (CLAUDE.md §9), so a fresh
     // install must still render dark — following the OS here is what made the
     // docs a lie for every user whose machine is set to light.
     setSystemPrefersDark(false);

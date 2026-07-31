@@ -25,21 +25,34 @@ interface FailureWebhookConfig {
   headers: Record<string, string>;
 }
 
-const WEBHOOK_URL_ENV = 'TASKHUB_FAILURE_WEBHOOK_URL';
-const WEBHOOK_TYPE_ENV = 'TASKHUB_FAILURE_WEBHOOK_TYPE';
-const WEBHOOK_HEADERS_ENV = 'TASKHUB_FAILURE_WEBHOOK_HEADERS_JSON';
+const WEBHOOK_URL_ENV = 'CRONSOLE_FAILURE_WEBHOOK_URL';
+const WEBHOOK_TYPE_ENV = 'CRONSOLE_FAILURE_WEBHOOK_TYPE';
+const WEBHOOK_HEADERS_ENV = 'CRONSOLE_FAILURE_WEBHOOK_HEADERS_JSON';
+
+/**
+ * These were `TASKHUB_FAILURE_WEBHOOK_*` before the 2026-07-31 rename. The
+ * variable lives in the operator's environment, not in this repo, so switching
+ * the name in code alone would silently stop notifying on failure — the one
+ * feature whose whole job is to speak up when something breaks. Read the new
+ * name, accept the old one.
+ */
+function readEnv(name: string): string | undefined {
+  const current = process.env[name];
+  if (current !== undefined && current !== '') return current;
+  return process.env[name.replace(/^CRONSOLE_/, 'TASKHUB_')];
+}
 const DEFAULT_TIMEOUT_MS = 5000;
 
 const pendingNotifications = new Set<Promise<FailureNotificationResult>>();
 
 function configuredType(): FailureWebhookType {
-  const raw = (process.env[WEBHOOK_TYPE_ENV] ?? 'generic').trim().toLowerCase();
+  const raw = (readEnv(WEBHOOK_TYPE_ENV) ?? 'generic').trim().toLowerCase();
   if (raw === 'discord' || raw === 'ntfy' || raw === 'generic') return raw;
   return 'generic';
 }
 
 function configuredHeaders(): Record<string, string> | 'invalid' {
-  const raw = process.env[WEBHOOK_HEADERS_ENV]?.trim();
+  const raw = readEnv(WEBHOOK_HEADERS_ENV)?.trim();
   if (!raw) return {};
 
   try {
@@ -58,7 +71,7 @@ function configuredHeaders(): Record<string, string> | 'invalid' {
 }
 
 function readConfig(): FailureWebhookConfig | FailureNotificationResult {
-  const url = process.env[WEBHOOK_URL_ENV]?.trim();
+  const url = readEnv(WEBHOOK_URL_ENV)?.trim();
   if (!url) return { sent: false, reason: 'not_configured' };
 
   const headers = configuredHeaders();
@@ -74,7 +87,7 @@ function truncate(value: string, length = 900): string {
 function formatText(event: FailureNotificationEvent): string {
   const when = (event.triggeredAt ?? new Date()).toISOString();
   const duration = event.durationMs == null ? '' : ` in ${event.durationMs}ms`;
-  return `TaskHub ${event.trigger} run failed${duration}: ${event.task.name} (${event.task.platform}) at ${when}. ${event.message}`;
+  return `Cronsole ${event.trigger} run failed${duration}: ${event.task.name} (${event.task.platform}) at ${when}. ${event.message}`;
 }
 
 function eventPayload(event: FailureNotificationEvent) {
@@ -106,7 +119,7 @@ function requestFor(config: FailureWebhookConfig, event: FailureNotificationEven
       data: {
         content: text,
         embeds: [{
-          title: 'TaskHub run failed',
+          title: 'Cronsole run failed',
           color: 0xdc2626,
           fields: [
             { name: 'Task', value: event.task.name, inline: true },
@@ -127,7 +140,7 @@ function requestFor(config: FailureWebhookConfig, event: FailureNotificationEven
       method: 'POST',
       timeout: DEFAULT_TIMEOUT_MS,
       headers: {
-        Title: `TaskHub failed: ${event.task.name}`,
+        Title: `Cronsole failed: ${event.task.name}`,
         Tags: 'warning',
         Priority: 'high',
         ...baseHeaders

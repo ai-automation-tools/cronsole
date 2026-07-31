@@ -41,7 +41,7 @@ That's what makes `(platform, externalId)` a meaningful uniqueness key.
 
 **`ExecutionLog` is not a complete run history** and reading it as one is wrong at dashboard scale.
 Rows are written in exactly two places — `POST /api/tasks/:id/run` and `NativeScheduler` — so it
-records runs **TaskHub performed**. A Windows task firing on its own schedule writes nothing, and a
+records runs **Cronsole performed**. A Windows task firing on its own schedule writes nothing, and a
 manual Windows run's `SUCCESS` means *"the agent accepted the start"*, with `durationMs` timing the
 round trip rather than the work. A Windows task's real outcome lives in the sync snapshot
 (`metadata.lastTaskResult`, `lastRunTime`, `numberOfMissedRuns`), which is why the agent reports
@@ -62,7 +62,7 @@ upvotes.
 `PlatformType`: `WINDOWS_TASK_SCHEDULER`, `MACOS_LAUNCHD` (catalog-only until built),
 `CLAUDE_CODE`, `CHATGPT`, `JULES`, `OPEN_CLAW`, `HERMES`, `TASKHUB_NATIVE`.
 
-Only **Windows** and **TaskHub-native** have real compilers today. A declared-but-uncompiled
+Only **Windows** and **Cronsole-native** have real compilers today. A declared-but-uncompiled
 `compatibleTargets` entry is the honest "copy to set up manually" path — **never** a silent
 failure.
 
@@ -72,7 +72,7 @@ Every integration implements `PlatformConnector` (`backend/src/connectors/platfo
 and registers in `backend/src/connectors/registry.ts`. **No platform-specific logic lives
 outside this layer.**
 
-Implementations: `WindowsAgentConnector`, `TaskHubNativeConnector`, `ClaudeConnector`.
+Implementations: `WindowsAgentConnector`, `CronsoleNativeConnector`, `ClaudeConnector`.
 
 ### Capability is encoded in the type system
 
@@ -246,7 +246,7 @@ the resolved `trigger`. An **unparseable cron is a score-0 result with a warning
 principle expressed as an API contract.
 
 **The Windows duplicate-name guard** (`assertWindowsTaskNameAvailable`) returns **409** when a
-name collides with a task TaskHub already tracks under `\TaskHub\`. Without it,
+name collides with a task Cronsole already tracks under `\TaskHub\`. Without it,
 `RegisterTaskDefinition` **silently overwrites** — the user loses a task and is never told.
 That's data loss, not a UX nit.
 

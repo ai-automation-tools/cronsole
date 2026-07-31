@@ -39,7 +39,7 @@ describe('POST /tasks/:id/untrack', () => {
     owner = await createUser('untrack@example.com');
   });
 
-  it('removes the TaskHub row and remembers the exclusion', async () => {
+  it('removes the Cronsole row and remembers the exclusion', async () => {
     const task = await createWindowsTask(owner.user.id, 'Noisy');
 
     const res = await request(app)
@@ -96,7 +96,7 @@ describe('POST /tasks/:id/untrack', () => {
     expect(await prisma.taskExclusion.count({ where: { userId: owner.user.id } })).toBe(1);
   });
 
-  it('refuses TaskHub-native tasks instead of quietly deleting them', async () => {
+  it('refuses Cronsole-native tasks instead of quietly deleting them', async () => {
     // A native task exists nowhere but here, so "remove but keep it" cannot be
     // true. Doing a delete under a reversible label is the exact mistake this
     // feature exists to prevent, so it must refuse rather than accommodate.
@@ -107,7 +107,7 @@ describe('POST /tasks/:id/untrack', () => {
       .set('Authorization', owner.auth)
       .expect(400);
 
-    expect(res.body.error).toMatch(/exist only inside TaskHub/i);
+    expect(res.body.error).toMatch(/exist only inside Cronsole/i);
     expect(await prisma.task.findUnique({ where: { id: native.id } })).not.toBeNull();
   });
 

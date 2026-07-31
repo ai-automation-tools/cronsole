@@ -3,7 +3,7 @@
 <h1 align="center">🧠 Skills</h1>
 
 <p align="center">
-  <em>Portable, versioned expertise about TaskHub — for any Claude Code session that works on it.</em>
+  <em>Portable, versioned expertise about Cronsole — for any Claude Code session that works on it.</em>
 </p>
 
 <p align="center">
@@ -13,15 +13,15 @@
 
 ---
 
-This folder is the **source of truth** for TaskHub's Agent Skills — tracked, reviewable, and
-versioned alongside the code they describe. Skills are how an AI agent gets TaskHub's mental
+This folder is the **source of truth** for Cronsole's Agent Skills — tracked, reviewable, and
+versioned alongside the code they describe. Skills are how an AI agent gets Cronsole's mental
 model, invariants, and hard-won traps **before** it starts editing.
 
 ## 📦 What's here
 
 | Skill | What it gives an agent |
 |:---|:---|
-| [**🗓️ taskhub/**](taskhub/SKILL.md) | The whole system: architecture, the agent protocol, the template registry, testing layers, and the traps. Routes to canonical docs rather than duplicating them. |
+| [**🗓️ cronsole/**](cronsole/SKILL.md) | The whole system: architecture, the agent protocol, the template registry, testing layers, and the traps. Routes to canonical docs rather than duplicating them. |
 
 ## ⚙️ Installing it — run one script
 
@@ -52,9 +52,9 @@ The script:
 
 > [!WARNING]
 > **Every new skill needs a `.gitignore` line.** Unlike sibling repos that ignore their whole
-> CLI tree, taskhub **tracks** `.claude/skills/` — so git follows the junction and would commit
+> CLI tree, cronsole **tracks** `.claude/skills/` — so git follows the junction and would commit
 > the skill content **twice**: once under `skills/`, again under `.claude/skills/`. The
-> `.gitignore` carries `/.claude/skills/taskhub/` for exactly this reason. Add a line per new
+> `.gitignore` carries `/.claude/skills/cronsole/` for exactly this reason. Add a line per new
 > skill; the setup script will tell you if you forget.
 
 **Always edit the copy here**, never through the link.
@@ -82,11 +82,11 @@ These keep the skill useful instead of becoming stale weight:
 | [**🤖 CLAUDE.md**](../CLAUDE.md) | Project conventions — loaded automatically, always in context |
 | [**📚 docs/**](../docs/README.md) | The canonical documentation the skill routes to |
 | `.claude/skills/` | Where Claude Code actually loads project skills from |
-| [**🧩 mcp-server/**](../mcp-server) | The *other* AI surface — drives TaskHub at runtime, rather than teaching an agent about the codebase |
+| [**🧩 mcp-server/**](../mcp-server) | The *other* AI surface — drives Cronsole at runtime, rather than teaching an agent about the codebase |
 
 > [!NOTE]
 > **Skill vs. MCP server** — easy to conflate. The **skill** teaches an agent how to *work on*
-> TaskHub's codebase. The **MCP server** lets an agent *use* a running TaskHub (list, run, and
+> Cronsole's codebase. The **MCP server** lets an agent *use* a running Cronsole (list, run, and
 > create tasks). Different audiences, different lifecycles.
 
 <p align="right">(<a href="#skills-top">back to top</a>)</p>
@@ -96,5 +96,5 @@ These keep the skill useful instead of becoming stale weight:
 <p align="center">
   <a href="../README.md">Repository Root</a> ·
   <a href="../docs/README.md">Documentation</a> ·
-  <a href="taskhub/SKILL.md">TaskHub Skill</a>
+  <a href="cronsole/SKILL.md">Cronsole Skill</a>
 </p>

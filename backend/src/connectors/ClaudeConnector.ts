@@ -41,7 +41,7 @@ export class ClaudeConnector implements PlatformConnector {
     try {
       const response = await axios.post(
         `https://api.anthropic.com/v1/claude_code/routines/${externalId}/fire`,
-        { text: 'Triggered from TaskHub' },
+        { text: 'Triggered from Cronsole' },
         {
           headers: {
             'Authorization': `Bearer ${routine.token}`,

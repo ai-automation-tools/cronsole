@@ -110,9 +110,9 @@ requires the `Authorization: Bearer` header.
 | `GET` | `/api/tasks/:id/export` | Export (Windows → XML, native → JSON) |
 | `GET` | `/api/tasks/:id/executions` | Run history |
 | `DELETE` | `/api/tasks/:id` | Delete |
-| `POST` | `/api/tasks/native` | Create a TaskHub-native task |
+| `POST` | `/api/tasks/native` | Create a Cronsole-native task |
 | `POST` | `/api/tasks/:id/save-as-template` | Save task as template |
-| `POST` | `/api/tasks/:id/untrack` | Remove from TaskHub, leave the platform entry running |
+| `POST` | `/api/tasks/:id/untrack` | Remove from Cronsole, leave the platform entry running |
 | `POST` | `/api/tools/export/tasks` | **Bulk** export — the whole machine or one folder (`format: 'zip' \| 'files'`) |
 | `POST` | `/api/tools/restore/tasks` | Restore from a backup. **Send `dryRun: true` first** — it returns the plan and writes nothing |
 | `GET` | `/api/templates` · `/api/templates/discover` | List / browse catalog |
@@ -145,7 +145,7 @@ The two easiest to get wrong (`platform` is **required** on both, and the name f
 
 `platform` accepts any `PlatformType`: `WINDOWS_TASK_SCHEDULER`, `TASKHUB_NATIVE`,
 `CLAUDE_CODE`, `MACOS_LAUNCHD`, `CHATGPT`, `JULES`, `OPEN_CLAW`, `HERMES` — but only
-**Windows** and **TaskHub-native** have real compilers today.
+**Windows** and **Cronsole-native** have real compilers today.
 
 ## ✍️ Conventions
 

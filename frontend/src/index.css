@@ -9,7 +9,7 @@
  * cleanly between themes. Values are `H S% L%` triplets consumed via hsl().
  */
 
-/* Default = dark, so the first paint before hydration matches TaskHub's default. */
+/* Default = dark, so the first paint before hydration matches Cronsole's default. */
 :root {
   --background: 0 0% 4%;
   --surface: 0 0% 7%;

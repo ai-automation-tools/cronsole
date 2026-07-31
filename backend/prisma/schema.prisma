@@ -83,9 +83,9 @@ model Task {
   @@index([category])
 }
 
-/// A task the user removed from TaskHub while it still exists on the platform.
+/// A task the user removed from Cronsole while it still exists on the platform.
 ///
-/// Untrack deletes the Task row (TaskHub's own record) but never touches the
+/// Untrack deletes the Task row (Cronsole's own record) but never touches the
 /// real scheduler entry — so without this table the very next sync that includes
 /// its category would re-import it, correctly by the sync's logic and yet
 /// indistinguishable from "untrack didn't work". Silently undoing a user's
@@ -205,7 +205,7 @@ enum PlatformType {
   JULES
   OPEN_CLAW
   HERMES
-  TASKHUB_NATIVE         // scheduled + executed by the TaskHub backend itself (docs/resources/Native_Tasks.md)
+  TASKHUB_NATIVE         // scheduled + executed by the Cronsole backend itself (docs/resources/Native_Tasks.md)
 }
 
 enum ScriptType {
@@ -247,7 +247,7 @@ enum TaskStatus {
   DISABLED
   UNKNOWN
   DELETED
-  // Tracked in TaskHub but absent from the platform on the last full sync — a
+  // Tracked in Cronsole but absent from the platform on the last full sync — a
   // native delete, or (indistinguishably from here) an offline agent / an
   // unreadable ACL'd folder. Set by reconciliation, never by a user: it is
   // self-healing (the next sync that sees the task restores ACTIVE/DISABLED)

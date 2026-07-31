@@ -32,13 +32,13 @@ describe('RunHistoryTool', () => {
   });
 
   // Without this, an empty export reads as "nothing ran" when it means
-  // "TaskHub triggered nothing" — a report answering a different question than
+  // "Cronsole triggered nothing" — a report answering a different question than
   // the one it was asked.
   it('states what the history does and does not contain', async () => {
     renderTool();
     // Split across a <strong>, so match the emphasized claim and the caveat
     // separately rather than the sentence as one node.
-    expect(await screen.findByText('TaskHub performed')).toBeInTheDocument();
+    expect(await screen.findByText('Cronsole performed')).toBeInTheDocument();
     expect(screen.getByText(/isn't recorded here/i)).toBeInTheDocument();
     expect(screen.getByText(/not that nothing ran/i)).toBeInTheDocument();
   });

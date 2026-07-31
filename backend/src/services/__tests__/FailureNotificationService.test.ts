@@ -33,9 +33,9 @@ describe('FailureNotificationService', () => {
   beforeEach(() => {
     vi.mocked(axios.request).mockReset();
     process.env = { ...ORIGINAL_ENV };
-    delete process.env.TASKHUB_FAILURE_WEBHOOK_URL;
-    delete process.env.TASKHUB_FAILURE_WEBHOOK_TYPE;
-    delete process.env.TASKHUB_FAILURE_WEBHOOK_HEADERS_JSON;
+    delete process.env.CRONSOLE_FAILURE_WEBHOOK_URL;
+    delete process.env.CRONSOLE_FAILURE_WEBHOOK_TYPE;
+    delete process.env.CRONSOLE_FAILURE_WEBHOOK_HEADERS_JSON;
   });
 
   afterEach(() => {
@@ -50,15 +50,15 @@ describe('FailureNotificationService', () => {
   });
 
   it('sends generic JSON payloads with text and structured event data', async () => {
-    process.env.TASKHUB_FAILURE_WEBHOOK_URL = 'https://hooks.example.com/taskhub';
-    process.env.TASKHUB_FAILURE_WEBHOOK_HEADERS_JSON = '{"Authorization":"Bearer secret"}';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_URL = 'https://hooks.example.com/cronsole';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_HEADERS_JSON = '{"Authorization":"Bearer secret"}';
     vi.mocked(axios.request).mockResolvedValue({ status: 204 });
 
     const result = await sendFailureNotification(event);
 
     expect(result).toEqual({ sent: true });
     expect(axios.request).toHaveBeenCalledWith(expect.objectContaining({
-      url: 'https://hooks.example.com/taskhub',
+      url: 'https://hooks.example.com/cronsole',
       method: 'POST',
       timeout: 5000,
       headers: expect.objectContaining({
@@ -78,8 +78,8 @@ describe('FailureNotificationService', () => {
   });
 
   it('formats Discord webhook payloads', async () => {
-    process.env.TASKHUB_FAILURE_WEBHOOK_URL = 'https://discord.example.com/webhook';
-    process.env.TASKHUB_FAILURE_WEBHOOK_TYPE = 'discord';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_URL = 'https://discord.example.com/webhook';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_TYPE = 'discord';
     vi.mocked(axios.request).mockResolvedValue({ status: 204 });
 
     await sendFailureNotification({ ...event, trigger: 'manual' });
@@ -88,7 +88,7 @@ describe('FailureNotificationService', () => {
       data: expect.objectContaining({
         content: expect.stringContaining('manual run failed'),
         embeds: [expect.objectContaining({
-          title: 'TaskHub run failed',
+          title: 'Cronsole run failed',
           color: 0xdc2626,
           description: expect.stringContaining('503')
         })]
@@ -97,15 +97,15 @@ describe('FailureNotificationService', () => {
   });
 
   it('formats ntfy payloads', async () => {
-    process.env.TASKHUB_FAILURE_WEBHOOK_URL = 'https://ntfy.example.com/taskhub';
-    process.env.TASKHUB_FAILURE_WEBHOOK_TYPE = 'ntfy';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_URL = 'https://ntfy.example.com/cronsole';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_TYPE = 'ntfy';
     vi.mocked(axios.request).mockResolvedValue({ status: 200 });
 
     await sendFailureNotification(event);
 
     expect(axios.request).toHaveBeenCalledWith(expect.objectContaining({
       headers: expect.objectContaining({
-        Title: 'TaskHub failed: Nightly backup',
+        Title: 'Cronsole failed: Nightly backup',
         Tags: 'warning',
         Priority: 'high'
       }),
@@ -114,20 +114,20 @@ describe('FailureNotificationService', () => {
   });
 
   it('returns invalid_headers without sending when header JSON is malformed', async () => {
-    process.env.TASKHUB_FAILURE_WEBHOOK_URL = 'https://hooks.example.com/taskhub';
-    process.env.TASKHUB_FAILURE_WEBHOOK_HEADERS_JSON = '{"Authorization":123}';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_URL = 'https://hooks.example.com/cronsole';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_HEADERS_JSON = '{"Authorization":123}';
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const result = await sendFailureNotification(event);
 
     expect(result).toEqual({ sent: false, reason: 'invalid_headers' });
     expect(axios.request).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('TASKHUB_FAILURE_WEBHOOK_HEADERS_JSON'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('CRONSOLE_FAILURE_WEBHOOK_HEADERS_JSON'));
     warn.mockRestore();
   });
 
   it('swallows delivery failures and keeps queue flushing observable for tests', async () => {
-    process.env.TASKHUB_FAILURE_WEBHOOK_URL = 'https://hooks.example.com/taskhub';
+    process.env.CRONSOLE_FAILURE_WEBHOOK_URL = 'https://hooks.example.com/cronsole';
     vi.mocked(axios.request).mockRejectedValue(new Error('ECONNREFUSED'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 

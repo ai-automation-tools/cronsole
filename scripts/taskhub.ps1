@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Single control surface for the local TaskHub stack: bring it up, take it down,
+    Single control surface for the local Cronsole stack: bring it up, take it down,
     restart it, or see one combined status for every service.
 
 .DESCRIPTION
@@ -11,12 +11,12 @@
     "which part is down?".
 
     Usage:
-      taskhub up        Start anything that isn't already running (idempotent)
-      taskhub down      Stop the backend, frontend, and agent (leaves db/redis up)
-      taskhub down -All Also stop the Docker db/redis containers
-      taskhub restart   down (app tier) then up
-      taskhub status    One table showing every service (default)
-      taskhub logs      Tail the backend/frontend/launcher logs
+      cronsole up        Start anything that isn't already running (idempotent)
+      cronsole down      Stop the backend, frontend, and agent (leaves db/redis up)
+      cronsole down -All Also stop the Docker db/redis containers
+      cronsole restart   down (app tier) then up
+      cronsole status    One table showing every service (default)
+      cronsole logs      Tail the backend/frontend/launcher logs
 
     Every service is probed by asking the SERVICE, not by checking whether its port
     is bound - /api/health for the backend, an HTTP GET for the frontend, pg_isready
@@ -154,14 +154,14 @@ function Get-DbProbe {
             }
         }
         # Compose file predates the healthcheck (or no container) - ask Postgres itself.
-        & $Docker compose -f $Compose exec -T db pg_isready -U taskhub -d taskhub *> $null
+        & $Docker compose -f $Compose exec -T db pg_isready -U cronsole -d cronsole *> $null
         if ($LASTEXITCODE -eq 0) { return New-Probe 'UP' 'pg_isready' }
     }
     if (Test-PortBound 5432) {
         return New-Probe 'WARN' ':5432 accepts connections, readiness unverified' `
             'a Postgres is reachable but pg_isready could not run (docker CLI unavailable?)' $true $false
     }
-    return New-Probe 'DOWN' 'nothing on :5432' 'run: taskhub up' $false
+    return New-Probe 'DOWN' 'nothing on :5432' 'run: cronsole up' $false
 }
 
 function Get-RedisProbe {
@@ -169,7 +169,7 @@ function Get-RedisProbe {
     if (Test-PortBound 6379) {
         return New-Probe 'WARN' ':6379 bound, PING unanswered' 'something holds the port but it is not answering as Redis'
     }
-    return New-Probe 'DOWN' 'nothing on :6379' 'run: taskhub up' $false
+    return New-Probe 'DOWN' 'nothing on :6379' 'run: cronsole up' $false
 }
 
 function Get-BackendProbe {
@@ -179,7 +179,7 @@ function Get-BackendProbe {
     if (Test-PortBound 3000) {
         return New-Probe 'WARN' ':3000 bound, no HTTP answer' 'something holds the port while the app behind it is dead'
     }
-    return New-Probe 'DOWN' 'nothing on :3000' 'run: taskhub up' $false
+    return New-Probe 'DOWN' 'nothing on :3000' 'run: cronsole up' $false
 }
 
 function Get-FrontendProbe {
@@ -189,7 +189,7 @@ function Get-FrontendProbe {
     if (Test-PortBound 7373) {
         return New-Probe 'WARN' ':7373 bound, no HTTP answer' 'a dead dev server or a stale container proxy holds the port'
     }
-    return New-Probe 'DOWN' 'nothing on :7373' 'run: taskhub up' $false
+    return New-Probe 'DOWN' 'nothing on :7373' 'run: cronsole up' $false
 }
 
 function Get-AgentProbe {
@@ -199,7 +199,7 @@ function Get-AgentProbe {
     if (Get-Process -Name 'TaskHub.Agent' -ErrorAction SilentlyContinue) {
         return New-Probe 'UP' 'process TaskHub.Agent running' 'process only - connection state is visible in the app sidebar, not here'
     }
-    return New-Probe 'DOWN' 'no TaskHub.Agent process' 'publish + start it, or run: taskhub up' $false
+    return New-Probe 'DOWN' 'no TaskHub.Agent process' 'publish + start it, or run: cronsole up' $false
 }
 
 function Stop-Port([int]$Port, [string]$Label) {
@@ -229,7 +229,7 @@ function Invoke-Status {
     )
 
     Write-Host ''
-    Write-Host '  TaskHub stack' -ForegroundColor Cyan
+    Write-Host '  Cronsole stack' -ForegroundColor Cyan
     Write-Host '  -------------'
     foreach ($r in $rows) {
         switch ($r.Probe.State) {
@@ -275,7 +275,7 @@ function Invoke-Status {
     } elseif ($upCount -eq 0) {
         Write-Host '  => DOWN' -ForegroundColor Red
     } else {
-        Write-Host "  => PARTIAL ($upCount/$($rows.Count) services) - run: taskhub up" -ForegroundColor Yellow
+        Write-Host "  => PARTIAL ($upCount/$($rows.Count) services) - run: cronsole up" -ForegroundColor Yellow
     }
     Write-Host ''
 }
@@ -316,7 +316,7 @@ function Start-HostService([string]$Name, [string]$WorkDir) {
 }
 
 function Invoke-Up {
-    Write-Host 'Bringing the TaskHub stack up...'
+    Write-Host 'Bringing the Cronsole stack up...'
 
     # 1. Data services (Docker). restart: unless-stopped keeps them self-healing.
     & $Docker compose -f $Compose up -d db redis 2>&1 | Out-Null
@@ -335,7 +335,7 @@ function Invoke-Up {
         # and leave you debugging the wrong process, so name the holder instead.
         Write-Host "  ERROR: :3000 is held but the backend does not answer ($($backend.Signal))" -ForegroundColor Red
         Write-Host '         Clear it first:  docker compose stop backend frontend' -ForegroundColor Red
-        Write-Host '         or stop the holder:  taskhub down' -ForegroundColor Red
+        Write-Host '         or stop the holder:  cronsole down' -ForegroundColor Red
     } else {
         Wait-Db | Out-Null
         Start-HostService 'backend' $BackendDir
@@ -347,7 +347,7 @@ function Invoke-Up {
         Write-Host "  frontend already up ($($frontend.Signal))"
     } elseif ($frontend.Present) {
         Write-Host "  ERROR: :7373 is held but the frontend does not answer ($($frontend.Signal))" -ForegroundColor Red
-        Write-Host '         Clear it first:  taskhub down' -ForegroundColor Red
+        Write-Host '         Clear it first:  cronsole down' -ForegroundColor Red
     } else {
         Start-HostService 'frontend' $FrontendDir
     }
@@ -367,7 +367,7 @@ function Invoke-Up {
 }
 
 function Invoke-Down {
-    Write-Host 'Stopping the TaskHub app tier...'
+    Write-Host 'Stopping the Cronsole app tier...'
     if ((Get-AgentProbe).State -eq 'UP') {
         Stop-Process -Name 'TaskHub.Agent' -Force -ErrorAction SilentlyContinue
         Write-Host '  stopped agent'

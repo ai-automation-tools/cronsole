@@ -2,10 +2,10 @@
  * Bulk export of Windows Task Scheduler tasks as native XML.
  *
  * The single-task path (`GET /api/tasks/:id/export`) exports a *tracked* task —
- * it is keyed on a TaskHub DB row. This module exports what is actually **on the
+ * it is keyed on a Cronsole DB row. This module exports what is actually **on the
  * machine**, tracked or not, because the thing it exists to prevent is data
  * loss: deleting one Task Scheduler folder can take dozens of tasks with it, and
- * the ones TaskHub never imported are exactly the ones nothing else is holding.
+ * the ones Cronsole never imported are exactly the ones nothing else is holding.
  *
  * That is possible with no agent protocol change: `task:export` takes a raw
  * `taskPath` and does not check that the path belongs to a tracked task (it is
@@ -120,7 +120,7 @@ export function isWithinFolder(folder: string, parent: string): boolean {
  * Decide what to export from the agent's full enumeration.
  *
  * `tasks` is the unfiltered `syncTasks` result — every task on the machine,
- * including the ones TaskHub never imported. That is the point.
+ * including the ones Cronsole never imported. That is the point.
  */
 export function selectExportCandidates(
   tasks: TaskInfo[],
@@ -281,7 +281,7 @@ export async function runBulkExport(
 }
 
 export interface ExportManifest {
-  taskhubExportVersion: string;
+  cronsoleExportVersion: string;
   exportedAt: string;
   machineScope: BulkExportSelection;
   counts: {
@@ -311,7 +311,7 @@ export function buildManifest(
   now: Date
 ): ExportManifest {
   return {
-    taskhubExportVersion: '1.0',
+    cronsoleExportVersion: '1.0',
     exportedAt: now.toISOString(),
     machineScope: {
       scope: selection.scope,

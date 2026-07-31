@@ -40,7 +40,7 @@ export function describeUntracked(data: SyncResponse | undefined): string | null
   // untrack looks broken. Said first, because it is the surprising part.
   const restored = results.reduce((n, r) => n + (r.exclusionsCleared ?? 0), 0);
   const restoredNote = restored > 0
-    ? `Re-imported ${restored} task${restored === 1 ? '' : 's'} you had removed from TaskHub. `
+    ? `Re-imported ${restored} task${restored === 1 ? '' : 's'} you had removed from Cronsole. `
     : '';
 
   const count = results.reduce((n, r) => n + (r.untracked?.count ?? 0), 0);

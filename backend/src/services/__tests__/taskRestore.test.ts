@@ -122,7 +122,7 @@ describe('readExportManifest', () => {
   it('maps relative paths to the task paths the export recorded', () => {
     const manifest = readExportManifest([
       {
-        relativePath: '_taskhub-export.json',
+        relativePath: '_cronsole-export.json',
         bytes: Buffer.from(
           JSON.stringify({ files: [{ relativePath: 'Work/A.xml', taskPath: '\\Work\\A' }] }),
           'utf8'
@@ -135,13 +135,13 @@ describe('readExportManifest', () => {
   it('survives a corrupt manifest instead of failing the restore', () => {
     // Precision is lost (every file falls back to its URI); correctness is not.
     expect(
-      readExportManifest([{ relativePath: '_taskhub-export.json', bytes: Buffer.from('{oh no', 'utf8') }]).size
+      readExportManifest([{ relativePath: '_cronsole-export.json', bytes: Buffer.from('{oh no', 'utf8') }]).size
     ).toBe(0);
   });
 
   it('does not treat the manifest itself as a task to restore', () => {
-    expect(isRestoreCandidate('_taskhub-export.json')).toBe(false);
-    expect(isRestoreCandidate('Work/_taskhub-export.json')).toBe(false);
+    expect(isRestoreCandidate('_cronsole-export.json')).toBe(false);
+    expect(isRestoreCandidate('Work/_cronsole-export.json')).toBe(false);
     expect(isRestoreCandidate('Work/Nightly.xml')).toBe(true);
     expect(isRestoreCandidate('Work/notes.txt')).toBe(false);
   });

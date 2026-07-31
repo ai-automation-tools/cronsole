@@ -34,7 +34,8 @@ const router = Router();
 
 const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 
-const isValidCron = (cron: string) => cron.trim().split(/\s+/).length === 5;
+import { isValidCron } from '../utils/cron.js';
+import { previewSchedule } from '../services/schedulePreview.js';
 
 // List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
@@ -141,7 +142,7 @@ const patchTaskScheduleSchema = z.object({
   schedule: z.string().trim().min(1, 'schedule is required')
 });
 
-// Edit the schedule of an existing task. For TaskHub-native tasks, the backend
+// Edit the schedule of an existing task. For Cronsole-native tasks, the backend
 // owns the scheduler, so it can update the cron + nextRunTime directly. For
 // Windows the agent rebuilds only the task's trigger (action/principal/settings
 // preserved) via a signed task:update_schedule; the DB row's schedule/trigger
@@ -319,26 +320,10 @@ const previewSchema = z.object({
 router.post('/preview', validateBody(previewSchema), async (req: Request, res: Response) => {
   const { platform, schedule } = req.body;
 
-  if (typeof schedule !== 'string' || !isValidCron(schedule)) {
-    return res.json({
-      score: 0,
-      warnings: ['Schedule must be a 5-field cron expression (min hour dom month dow).'],
-      trigger: null
-    });
-  }
-  if (platform !== PlatformType.WINDOWS_TASK_SCHEDULER) {
-    return res.json({ score: 1, warnings: [], trigger: null });
-  }
-  const conversion = convertCronToWindowsTrigger(schedule.trim());
-  res.json({
-    score: conversion.confidence,
-    warnings: conversion.warnings,
-    trigger: conversion.trigger,
-    // Discriminates the two 0.7 registers the score alone conflates: a derived
-    // step that drifts ('approximated') vs. a discarded cron replaced with an
-    // hourly default ('replaced'). Absent on an exact or invalid schedule.
-    lossy: conversion.lossy
-  });
+  // The whole body — score, warnings, trigger, the `lossy` discriminator, and
+  // the upcoming run times — comes from one service so the New Task modal and
+  // the Tools tab's schedule tester cannot answer the same question differently.
+  res.json(previewSchedule(platform, schedule));
 });
 
 const createTaskSchema = z.object({
@@ -433,7 +418,7 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     metadata: { schedule, command, state: 'Ready' }
   }]);
 
-  // We know the cron for TaskHub-created tasks — store it (synced tasks
+  // We know the cron for Cronsole-created tasks — store it (synced tasks
   // still lack schedule normalization; see analysis P1 #5).
   if (upserted.length > 0) {
     const updated = await prisma.task.update({
@@ -461,7 +446,7 @@ const createNativeSchema = z.object({
   job: z.unknown() // semantic validation stays in validateJob (shared with the executor)
 });
 
-// Create a TaskHub-native task (scheduled + executed by the backend itself —
+// Create a Cronsole-native task (scheduled + executed by the backend itself —
 // docs/resources/Native_Tasks.md). Richer than the connector createTask path
 // because it takes a full job spec instead of a command string.
 router.post('/native', validateBody(createNativeSchema), async (req: Request, res: Response) => {
@@ -492,7 +477,7 @@ router.post('/native', validateBody(createNativeSchema), async (req: Request, re
       platform: PlatformType.TASKHUB_NATIVE,
       externalId: `native_${randomBytes(8).toString('hex')}`,
       name,
-      category: category ?? 'TaskHub',
+      category: category ?? 'Cronsole',
       schedule,
       nextRunTime,
       status: TaskStatus.ACTIVE,
@@ -757,7 +742,7 @@ router.get('/discover', async (req: Request, res: Response) => {
 // Unlike the single delete below this deliberately does NOT ask the platform to
 // delete anything: MISSING means the platform already reported the task gone, so
 // there is nothing left to remove and no confirmation to obtain. It only drops
-// TaskHub's own rows (and their logs). Benign in the race where a task came back
+// Cronsole's own rows (and their logs). Benign in the race where a task came back
 // but no sync has run yet: the row is deleted, then the next sync re-imports it,
 // because reconciliation is what set MISSING in the first place.
 router.delete('/missing', async (req: Request, res: Response) => {
@@ -798,7 +783,7 @@ router.delete('/missing', async (req: Request, res: Response) => {
   res.json({ message: `Cleared ${ids.length} missing task${ids.length === 1 ? '' : 's'}`, deleted: ids.length });
 });
 
-// Untrack: remove a task from TaskHub while LEAVING IT ON THE PLATFORM.
+// Untrack: remove a task from Cronsole while LEAVING IT ON THE PLATFORM.
 //
 // MUST stay above `DELETE /:id`'s sibling routes only in spirit — it is a POST
 // on a distinct path, so declaration order doesn't bite here the way it does for
@@ -831,7 +816,7 @@ router.post('/:id/untrack', async (req: Request, res: Response) => {
   if (task.platform === PlatformType.TASKHUB_NATIVE) {
     throw new HttpError(
       400,
-      'TaskHub-native tasks exist only inside TaskHub, so there is nothing to keep. ' +
+      'Cronsole-native tasks exist only inside Cronsole, so there is nothing to keep. ' +
       'Use Delete to remove it, or disable it to stop it running.'
     );
   }
@@ -856,20 +841,20 @@ router.post('/:id/untrack', async (req: Request, res: Response) => {
 
   notifyTasksChanged(userId);
   res.json({
-    message: 'Removed from TaskHub',
+    message: 'Removed from Cronsole',
     // Said out loud in the response, not just in the button copy: the caller
     // (including an MCP client with no UI to read) must be able to tell this
     // apart from a delete.
     externalId: task.externalId,
     platformEntryKept: true,
-    detail: `"${task.name}" is no longer tracked by TaskHub. It still exists on its platform and will keep running on its own schedule. Re-import its category to track it again.`
+    detail: `"${task.name}" is no longer tracked by Cronsole. It still exists on its platform and will keep running on its own schedule. Re-import its category to track it again.`
   });
 });
 
-// Delete a task. TaskHub-native rows are backend-owned, so the DB delete is the
+// Delete a task. Cronsole-native rows are backend-owned, so the DB delete is the
 // whole operation. For agent-backed platforms (Windows) the connector must
 // remove the real scheduler entry first (signed task:delete to the agent) — the
-// DB row only goes away once the platform confirms, so TaskHub never claims a
+// DB row only goes away once the platform confirms, so Cronsole never claims a
 // task is gone while it still exists (and runs) on the machine. Platforms
 // without a deleteTask implementation still get the honest 400.
 router.delete('/:id', async (req: Request, res: Response) => {
@@ -970,8 +955,8 @@ const safeFilePart = (s: string) => s.replace(/[^\w.-]+/g, '_').slice(0, 80) || 
 
 // Export a user's *actual* tracked task (distinct from template export). A
 // Windows task exports as native Task Scheduler XML (retrieved through the
-// agent — round-trips into any Windows machine); a TaskHub-native task has no
-// Windows XML equivalent, so it exports as TaskHub JSON built from the DB row.
+// agent — round-trips into any Windows machine); a Cronsole-native task has no
+// Windows XML equivalent, so it exports as Cronsole JSON built from the DB row.
 router.get('/:id/export', async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const userId = (req as AuthRequest).user!.id;
@@ -1017,7 +1002,7 @@ router.get('/:id/export', async (req: Request, res: Response) => {
       ? (task.metadata as Record<string, unknown>)
       : {};
     const bundle = {
-      taskhubTaskVersion: '1.0',
+      cronsoleTaskVersion: '1.0',
       exportedAt: new Date().toISOString(),
       task: {
         name: task.name,

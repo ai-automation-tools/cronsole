@@ -20,7 +20,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
               <HelpCircle className="text-foreground" size={22} />
               <p className="text-[10px] text-foreground uppercase font-black tracking-widest">Documentation & Help</p>
             </div>
-            <h2 id="help-center-title" className="text-xl font-bold">TaskHub Help Center</h2>
+            <h2 id="help-center-title" className="text-xl font-bold">Cronsole Help Center</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               Get started, master the basics, and find the full guides.
             </p>
@@ -96,7 +96,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
               <div className="p-3 bg-background/50 rounded-2xl border border-border/80">
                 <span className="font-bold text-foreground block mb-1">📂 Dynamic Local Categorization</span>
                 <p className="text-muted-foreground">
-                  TaskHub automatically infers root folders as categories (e.g. a Windows task at <code className="bg-surface px-1 py-0.5 rounded text-foreground">\Monitoring\Logs</code> is categorized as "Monitoring"). You can rename categories by clicking the category label on any card.
+                  Cronsole automatically infers root folders as categories (e.g. a Windows task at <code className="bg-surface px-1 py-0.5 rounded text-foreground">\Monitoring\Logs</code> is categorized as "Monitoring"). You can rename categories by clicking the category label on any card.
                 </p>
               </div>
 
@@ -111,7 +111,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
               <div className="p-3 bg-background/50 rounded-2xl border border-border/80">
                 <span className="font-bold text-foreground block mb-1">🖥️ Windows Agent Execution</span>
                 <p className="text-muted-foreground">
-                  The TaskHub Windows Agent runs locally to execute tasks. If the agent is offline, tasks will queue up and sync the next time the agent starts.
+                  The Cronsole Windows Agent runs locally to execute tasks. If the agent is offline, tasks will queue up and sync the next time the agent starts.
                 </p>
               </div>
             </div>
@@ -145,7 +145,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
                 className="p-3 bg-background border border-border hover:border-primary/50 rounded-2xl flex items-center justify-between group transition-colors"
               >
                 <div className="min-w-0">
-                  <span className="font-semibold text-xs text-foreground block truncate group-hover:text-foreground transition-colors">TaskHub Repository</span>
+                  <span className="font-semibold text-xs text-foreground block truncate group-hover:text-foreground transition-colors">Cronsole Repository</span>
                   <span className="text-[10px] text-subtle-foreground truncate block">Explore codebase & issue tracker</span>
                 </div>
                 <ExternalLink size={14} className="text-subtle-foreground group-hover:text-foreground transition-colors" />

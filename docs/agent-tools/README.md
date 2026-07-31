@@ -1,7 +1,7 @@
 <h1 align="center">🛠️ Agent Tools</h1>
 
 <p align="center">
-  <em>The AI-assisted tooling TaskHub is built and maintained with.</em>
+  <em>The AI-assisted tooling Cronsole is built and maintained with.</em>
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
 
 ---
 
-TaskHub is developed with an AI-agent workflow (Claude Code). This section documents the
+Cronsole is developed with an AI-agent workflow (Claude Code). This section documents the
 tooling that workflow relies on — the **MCP servers** that give the agent live capabilities,
 the **CLIs** used to build and run the stack, and the project-scoped **subagents** that
 handle specialized work. It's meta-documentation: how the project gets built, not how the
@@ -23,7 +23,7 @@ app runs.
 | Area | What's inside |
 |:---|:---|
 | [**🔌 MCP Servers**](mcp/README.md) | The Model Context Protocol servers configured in [`.mcp.json`](../../.mcp.json) — docs, GitHub, browser automation, search, and more. |
-| [**⌨️ CLIs**](clis/README.md) | Command-line tools used to develop, run, and ship TaskHub. |
+| [**⌨️ CLIs**](clis/README.md) | Command-line tools used to develop, run, and ship Cronsole. |
 | [**🤖 Subagents**](agents/README.md) | The project-scoped Claude Code subagents in [`.claude/agents/`](../../.claude/agents). |
 
 ## 🔗 Related

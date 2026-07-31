@@ -43,7 +43,7 @@ describe('DELETE /tasks/:id per platform', () => {
         platform: PlatformType.WINDOWS_TASK_SCHEDULER,
         externalId: '\\TaskHub\\Integration-Delete',
         name: 'Integration-Delete',
-        category: 'TaskHub',
+        category: 'Cronsole',
         status: TaskStatus.ACTIVE
       }
     });
@@ -54,7 +54,7 @@ describe('DELETE /tasks/:id per platform', () => {
 
     expect(res.status).toBe(502);
     expect(res.body.error).toMatch(/offline/i);
-    // The scheduler entry couldn't be confirmed gone, so TaskHub keeps the row.
+    // The scheduler entry couldn't be confirmed gone, so Cronsole keeps the row.
     expect(await prisma.task.findUnique({ where: { id: task.id } })).not.toBeNull();
   });
 

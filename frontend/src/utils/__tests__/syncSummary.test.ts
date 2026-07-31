@@ -64,20 +64,20 @@ describe('describeUntracked', () => {
       // explanation is indistinguishable from untrack being broken.
       expect(describeUntracked({
         results: [{ platform: 'WINDOWS_TASK_SCHEDULER', exclusionsCleared: 3, untracked: { count: 0, folders: [], systemCount: 0 } }]
-      })).toBe('Re-imported 3 tasks you had removed from TaskHub.');
+      })).toBe('Re-imported 3 tasks you had removed from Cronsole.');
     });
 
     it('reads correctly for a single restored task', () => {
       expect(describeUntracked({
         results: [{ platform: 'WINDOWS_TASK_SCHEDULER', exclusionsCleared: 1 }]
-      })).toBe('Re-imported 1 task you had removed from TaskHub.');
+      })).toBe('Re-imported 1 task you had removed from Cronsole.');
     });
 
     it('leads with the restore note and still reports what was left out', () => {
       expect(describeUntracked({
         results: [{ ...win(4, ['IAM']), exclusionsCleared: 2 }]
       })).toBe(
-        'Re-imported 2 tasks you had removed from TaskHub. ' +
+        'Re-imported 2 tasks you had removed from Cronsole. ' +
         "Synced. 4 tasks in 1 folder aren't imported — use Import to add them."
       );
     });

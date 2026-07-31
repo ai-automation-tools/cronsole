@@ -14,7 +14,7 @@
 
 ---
 
-TaskHub is a **reliability control plane**. Its whole value proposition is that the state it
+Cronsole is a **reliability control plane**. Its whole value proposition is that the state it
 shows you is true and the actions you take actually happen on the real platform. That makes
 testing a product feature, not a chore: a dashboard that *lies* about a task is worse than no
 dashboard at all.

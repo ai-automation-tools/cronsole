@@ -19,12 +19,12 @@ thing?**"* It's the only layer that can catch a feature that works perfectly and
 worth shipping.
 
 UAT is **human and mostly manual by design**. Automating it away defeats the point — the value
-is a person with real intent hitting real friction. TaskHub is **local-first**, so the tester
+is a person with real intent hitting real friction. Cronsole is **local-first**, so the tester
 is running the same stack a user would: no staging environment stands between you and the
 truth.
 
 **Who runs it:** whoever is about to call something done. Today that's Mike — dogfooding is
-TaskHub's primary UAT channel, and it has already produced real fixes (the PowerShell console
+Cronsole's primary UAT channel, and it has already produced real fixes (the PowerShell console
 flash, the empty `\TaskHub\` folder, task export).
 
 **Legend:** ✅ passing · 🟡 partial / needs re-run · ⬜ never formally run
@@ -49,7 +49,7 @@ The highest-stakes UAT. A user who bounces here never sees anything else.
 
 ## 🎯 Core job-to-be-done
 
-Does TaskHub deliver the "single pane of glass" it promises?
+Does Cronsole deliver the "single pane of glass" it promises?
 
 | # | Scenario | Acceptance criteria | Status |
 |:--|:---|:---|:--|
@@ -75,7 +75,7 @@ Does TaskHub deliver the "single pane of glass" it promises?
 
 ## 🤝 Trust & honesty
 
-TaskHub's core promise is that it **tells the truth**. These scenarios exist because a
+Cronsole's core promise is that it **tells the truth**. These scenarios exist because a
 confident lie is the worst possible failure mode here — worse than an error.
 
 | # | Scenario | Acceptance criteria | Status |
@@ -92,11 +92,11 @@ confident lie is the worst possible failure mode here — worse than an error.
 
 | # | Scenario | Acceptance criteria | Status |
 |:--|:---|:---|:--|
-| U5.1 | **MCP in a real host** | Wire into Claude/Codex/Cursor per the [MCP Server Guide](../../user-guides/guides/MCP_Server_Guide.md) and drive TaskHub **in natural language** end to end | 🟡 |
+| U5.1 | **MCP in a real host** | Wire into Claude/Codex/Cursor per the [MCP Server Guide](../../user-guides/guides/MCP_Server_Guide.md) and drive Cronsole **in natural language** end to end | 🟡 |
 | U5.2 | **Remote access** | [Remote Access Guide](../../user-guides/guides/Remote_Access_Guide.md) gets you to your own instance from another device | ⬜ P3 |
 | U5.3 | **Auto-start at logon** | Stack comes up at logon with **no console flash** | 🟡 |
-| U5.4 | **Export → re-import** | Exported XML/JSON is genuinely usable outside TaskHub | 🟡 |
-| U5.4a | **Backup → restore, as a user would do it** | Export the machine from the Tools tab, delete something on purpose, restore it, and confirm in **Task Scheduler** — not in TaskHub — that it came back intact. Then check the awkward part: a restored task is admin-owned, so removing it needs TaskHub or an elevated Task Scheduler ([#28](../../troubleshooting/README.md#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied)) | 🟡 API path done 2026-07-28; **the Tools-tab UI has not been driven in a browser** |
+| U5.4 | **Export → re-import** | Exported XML/JSON is genuinely usable outside Cronsole | 🟡 |
+| U5.4a | **Backup → restore, as a user would do it** | Export the machine from the Tools tab, delete something on purpose, restore it, and confirm in **Task Scheduler** — not in Cronsole — that it came back intact. Then check the awkward part: a restored task is admin-owned, so removing it needs Cronsole or an elevated Task Scheduler ([#28](../../troubleshooting/README.md#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied)) | 🟡 API path done 2026-07-28; **the Tools-tab UI has not been driven in a browser** |
 | U5.5 | **Accessibility** | Keyboard-only navigation works; focus is visible; screen reader announces modals | ⬜ |
 | U5.6 | **Survives a reboot** | Everything reconnects on its own — no manual repair | 🟡 |
 
@@ -116,7 +116,7 @@ Before calling a release done:
 - [ ] Full automated sweep green (see [Testing home](../README.md#-how-to-run-everything))
 - [ ] **E2E run locally** — it's not in CI, so nothing else will catch it
 - [ ] [Manual runbooks](../manual-testing/README.md) worked: [Smoke](../manual-testing/runbooks/Smoke_Test.md) → [Windows Lifecycle](../manual-testing/runbooks/Windows_Task_Lifecycle.md) → [Template Apply](../manual-testing/runbooks/Template_Apply.md) → [Agent Resilience](../manual-testing/runbooks/Agent_Resilience.md) → [Security Checks](../manual-testing/runbooks/Security_Checks.md)
-- [ ] Onboarding pass (**U1**) on a machine that hasn't run TaskHub
+- [ ] Onboarding pass (**U1**) on a machine that hasn't run Cronsole
 - [ ] Core job-to-be-done (**U2**) — including the timed NFRs
 - [ ] Trust & honesty (**U4**) — no silent failures, no confident lies
 - [ ] Docs verified against reality (**U1.6**)

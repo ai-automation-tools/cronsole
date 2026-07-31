@@ -12,8 +12,8 @@
 
 ---
 
-TaskHub ships a **two-tier template catalog** (40 templates). Pick a template, fill in its
-`{{placeholder}}` parameters in the Apply modal, and TaskHub creates a real scheduled task —
+Cronsole ships a **two-tier template catalog** (40 templates). Pick a template, fill in its
+`{{placeholder}}` parameters in the Apply modal, and Cronsole creates a real scheduled task —
 converting the cron to the platform's native trigger for you.
 
 - **Tier A — script starters:** 20 curated starters across PowerShell, Python, Bash/zsh,

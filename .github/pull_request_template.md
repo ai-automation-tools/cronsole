@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to TaskHub. Keep one logical change per PR. -->
+<!-- Thanks for contributing to Cronsole. Keep one logical change per PR. -->
 
 ## What & why
 

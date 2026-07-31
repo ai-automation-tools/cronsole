@@ -13,7 +13,7 @@ Load when touching the catalog, adding templates, or publishing the registry.
 updates without redeploying the app* — the entire point of the decoupling.
 
 A template is **target-agnostic** (**Trigger → Action → Execution Target**) and is *compiled*
-to a target's native config **at apply time**. Only **Windows** and **TaskHub-native** have
+to a target's native config **at apply time**. Only **Windows** and **Cronsole-native** have
 real compilers today. A declared-but-uncompiled `compatibleTargets` entry is the honest
 "copy to set up manually" path — **never a silent failure**.
 
@@ -110,7 +110,7 @@ A **pack** is a curated set a user imports in one action. `index.json` carries a
 }
 ```
 
-The bundle is `{ taskhubCatalogVersion, pack, templates[] }` — **the exact shape
+The bundle is `{ cronsoleCatalogVersion, pack, templates[] }` — **the exact shape
 `POST /api/templates/import` accepts**, so a pack download is one file and one import. Import
 reads `.templates` and ignores the rest.
 
@@ -170,7 +170,7 @@ reads `.templates` and ignores the rest.
 > - **`powershell.exe` → always `-NoProfile`.** An unattended run must not depend on the
 >   user's profile.
 > - **A scheduled run has no console.** A command that merely *errors* interactively can
->   *block* under Task Scheduler, where the task sits `Running` forever and TaskHub reports
+>   *block* under Task Scheduler, where the task sits `Running` forever and Cronsole reports
 >   `lastRunStatus: SUCCESS` — because "started" is all it can observe.
 
 ## Publishing

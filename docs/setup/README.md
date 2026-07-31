@@ -1,7 +1,7 @@
 <h1 align="center">⚙️ Setup & Configuration</h1>
 
 <p align="center">
-  <em>Environment variables and options that control how TaskHub runs.</em>
+  <em>Environment variables and options that control how Cronsole runs.</em>
 </p>
 
 <p align="center">
@@ -10,7 +10,7 @@
 
 ---
 
-Already installed? This page covers the settings that point TaskHub at the right backend,
+Already installed? This page covers the settings that point Cronsole at the right backend,
 authenticate the dashboard, and connect the agent. If you haven't installed yet, start with
 [**⬇️ Installation**](../install/README.md).
 
@@ -77,7 +77,7 @@ dotnet run                  # connects out to the backend
 ### Changing the backend URL from the dashboard
 
 `VITE_API_URL` is only the default. In the running app, open **Settings → About → API origin**
-to point the dashboard at another backend without rebuilding the frontend. TaskHub stores that
+to point the dashboard at another backend without rebuilding the frontend. Cronsole stores that
 browser-local override in `localStorage`, updates REST calls and the live `/ui` Socket.IO
 channel immediately, and **Reset** returns to the `VITE_API_URL` default.
 
@@ -95,7 +95,7 @@ pwsh scripts\taskhub.ps1 down     # stop backend + frontend + agent
 ```
 
 Postgres/Redis carry `restart: unless-stopped`, so they self-heal after a crash
-or reboot; the auto-start scheduled task re-runs `taskhub up` every 10 minutes to
+or reboot; the auto-start scheduled task re-runs `cronsole up` every 10 minutes to
 recover the rest. See [`scripts/README.md`](../../scripts/README.md) for details.
 
 ## 🤝 Agent connection & pairing

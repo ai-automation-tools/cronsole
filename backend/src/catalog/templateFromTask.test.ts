@@ -45,7 +45,7 @@ describe('buildTemplateFromTask', () => {
     expect(registryTemplateSchema.safeParse(t).success).toBe(true);
     expect(t.commandTemplate).toBe('https://example.com/health');
     expect(t.runtime).toBe('http');
-    expect(t.compatibleTargets).toEqual(['taskhub-native']);
+    expect(t.compatibleTargets).toEqual(['cronsole-native']);
     expect(t.category).toBe('monitoring');
   });
 
@@ -76,7 +76,7 @@ describe('buildTemplateFromTask', () => {
 
   it('rejects a task with no capturable command', () => {
     expect(() => buildTemplateFromTask(baseWindows({})))
-      .toThrow(/no command TaskHub can capture/);
+      .toThrow(/no command Cronsole can capture/);
   });
 
   it('rejects a multi-action task with an honest reason', () => {

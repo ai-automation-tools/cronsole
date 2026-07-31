@@ -1,9 +1,9 @@
 <a id="docs-top"></a>
 
-<h1 align="center">📚 TaskHub Documentation</h1>
+<h1 align="center">📚 Cronsole Documentation</h1>
 
 <p align="center">
-  <em>Everything you need to install, configure, use, and extend TaskHub.</em>
+  <em>Everything you need to install, configure, use, and extend Cronsole.</em>
 </p>
 
 <p align="center">
@@ -14,12 +14,12 @@
 
 ---
 
-This is the home for all TaskHub documentation. Every folder below has its own `README.md`
+This is the home for all Cronsole documentation. Every folder below has its own `README.md`
 that explains what's inside and links to the individual documents.
 
 ## 🧭 Start here
 
-New to TaskHub? Follow this path in order:
+New to Cronsole? Follow this path in order:
 
 1. [**⬇️ Install**](install/README.md) — get the stack running (Windows, macOS, or clone-the-repo).
 2. [**⚙️ Configure**](setup/README.md) — environment variables, backend connection, agent pairing.
@@ -30,10 +30,10 @@ New to TaskHub? Follow this path in order:
 
 | Folder | What's inside |
 |:---|:---|
-| [**⬇️ install/**](install/README.md) | Install TaskHub — Windows, macOS, and clone-the-repo paths. |
+| [**⬇️ install/**](install/README.md) | Install Cronsole — Windows, macOS, and clone-the-repo paths. |
 | [**⚙️ setup/**](setup/README.md) | Configure it — environment variables, Docker vs. manual, agent pairing. |
-| [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive TaskHub from Claude/Codex/Cursor), and remote access from other devices. |
-| [**💬 prompts/**](prompts/README.md) | Talk to it — copy-paste example prompts for driving TaskHub in natural language, via the MCP server, the `taskhub` skill, or the REST API. |
+| [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive Cronsole from Claude/Codex/Cursor), and remote access from other devices. |
+| [**💬 prompts/**](prompts/README.md) | Talk to it — copy-paste example prompts for driving Cronsole in natural language, via the MCP server, the `cronsole` skill, or the REST API. |
 | [**🧯 troubleshooting/**](troubleshooting/README.md) | Fix it — symptom → cause → fix for problems we've actually hit. |
 | [**🧪 testing/**](testing/README.md) | Verify it — functional, integration, regression, and UAT: what to test, what covers it today, and how to run it. Includes copy-pasteable [manual runbooks](testing/manual-testing/README.md) for what no suite can prove (real Task Scheduler, agent resilience, security at rest). |
 
@@ -44,8 +44,8 @@ New to TaskHub? Follow this path in order:
 | [**📄 reports/**](reports/README.md) | Task templates (the two-tier catalog) and worked API examples. |
 | [**🧩 Template registry**](reports/templates/Registry_Schema_v1.md) | The target-agnostic Registry v1 JSON schema for templates (the catalog is a decoupled, hosted registry). |
 | [**🧠 adr/**](adr/0001-template-registry-schema.md) | Architecture decision records (ADR 0001: the template registry). |
-| [**🛠️ agent-tools/**](agent-tools/README.md) | The AI tooling TaskHub is built with — MCP servers, CLIs, and subagents. |
-| [**🧠 skills/**](../skills/README.md) | The TaskHub Agent Skill — architecture, invariants, and traps, so an AI agent knows the system before it edits it. |
+| [**🛠️ agent-tools/**](agent-tools/README.md) | The AI tooling Cronsole is built with — MCP servers, CLIs, and subagents. |
+| [**🧠 skills/**](../skills/README.md) | The Cronsole Agent Skill — architecture, invariants, and traps, so an AI agent knows the system before it edits it. |
 | [**🌐 resources/**](resources/README.md) | Curated external links — native scheduler UIs and reference repos/sites. |
 
 ## 🗺️ Planning

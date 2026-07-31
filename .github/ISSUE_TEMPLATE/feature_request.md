@@ -20,7 +20,7 @@ labels: enhancement
 ## Scope check
 
 <!--
-TaskHub is a reliability-focused control plane, not a general workflow builder.
+Cronsole is a reliability-focused control plane, not a general workflow builder.
 New execution targets/connectors unlock only when they're reliable. See docs/ROADMAP.md
 (Strategy guardrails) — does this fit that direction?
 -->

@@ -319,7 +319,7 @@ const devPack: RegistryTemplate[] = [
     schemaVersion: '1.0',
     id: 'dev-docker-compose-up',
     name: 'Docker Compose Self-Heal',
-    description: 'Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern TaskHub uses for its own stack).',
+    description: 'Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern Cronsole uses for its own stack).',
     runtime: 'executable',
     os: 'cross-platform',
     category: 'monitoring',
@@ -1107,7 +1107,7 @@ const extendedPack: RegistryTemplate[] = [
     commandTemplate: 'powershell.exe -NoProfile -Command "Invoke-RestMethod -Uri \'{{webhookUrl}}\' -Method Post -ContentType \'application/json\' -Body (@{ content = \'{{message}}\' } | ConvertTo-Json)"',
     parameters: [
       { key: 'webhookUrl', label: 'Discord webhook URL', type: 'url', default: '', required: true, help: 'Channel → Integrations → Webhooks → Copy URL.' },
-      { key: 'message', label: 'Message', type: 'text', default: 'TaskHub scheduled heartbeat', required: true, help: 'The text to post. Avoid single quotes (they close the PowerShell string).' }
+      { key: 'message', label: 'Message', type: 'text', default: 'Cronsole scheduled heartbeat', required: true, help: 'The text to post. Avoid single quotes (they close the PowerShell string).' }
     ],
     compatibleTargets: ['windows']
   },

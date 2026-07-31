@@ -153,7 +153,7 @@ const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Templ
           return (
             <span
               key={p}
-              title={creatable ? 'TaskHub can create this task here' : 'Compatible pattern — TaskHub can’t create tasks here yet'}
+              title={creatable ? 'Cronsole can create this task here' : 'Compatible pattern — Cronsole can’t create tasks here yet'}
               className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full border ${creatable ? 'bg-primary/15 text-foreground border-primary/30' : 'bg-muted text-subtle-foreground border-border opacity-70'}`}
             >
               {platformLabel(p)}{!creatable && ' *'}
@@ -393,7 +393,7 @@ const TemplateImportExport = () => {
     try {
       const res = await api.get('/templates/export', { responseType: 'blob' });
       const cd = res.headers['content-disposition'] as string | undefined;
-      const filename = cd?.match(/filename="?([^"]+)"?/)?.[1] ?? 'taskhub-catalog.json';
+      const filename = cd?.match(/filename="?([^"]+)"?/)?.[1] ?? 'cronsole-catalog.json';
       const url = URL.createObjectURL(res.data as Blob);
       const a = document.createElement('a');
       a.href = url;

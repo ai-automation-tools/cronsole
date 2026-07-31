@@ -86,7 +86,7 @@ accidentally. **Know these before changing the catalog.**
 | **No field leakage** (`catalogSync.test.ts`) | `core` reaches the DB |
 | **IDOR sweep** (`idor.integration.test.ts`) | A route leaks across tenants — **add every new route here** |
 | **MCP tool surface** (`mcp-server/.../tools.test.ts`) | A tool is added, removed, or renamed. Deliberate: that change obligates both README tool tables + the skill (CLAUDE.md §11a), and those surfaces never break loudly on their own. **Update the expected list *and* the docs in the same change** — don't just make it pass. |
-| **Unexpanded `${TASKHUB_TOKEN}`** (`mcp-server/.../client.test.ts`) | The literal-passthrough guard stops refusing to start — the bug that made every MCP tool 403 like an expired JWT ([#8](../../../docs/troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)) |
+| **Unexpanded `${CRONSOLE_TOKEN}`** (`mcp-server/.../client.test.ts`) | The literal-passthrough guard stops refusing to start — the bug that made every MCP tool 403 like an expired JWT ([#8](../../../docs/troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)) |
 
 ## Where tests live
 
@@ -99,7 +99,7 @@ frontend/tests/e2e/             Playwright (+ helpers/mockAgent.ts)
 agent/TaskHub.Agent.Tests/      xUnit
 mcp-server/src/__tests__/       unit (vitest) — tools via a real MCP client
                                 over InMemoryTransport with a stubbed
-                                TaskHubClient; client.ts against a real
+                                CronsoleClient; client.ts against a real
                                 local http server
 ```
 
@@ -107,7 +107,7 @@ mcp-server/src/__tests__/       unit (vitest) — tools via a real MCP client
 
 1. **Test the claim, not the code.** `rejects a duplicate Windows task name with 409` beats
    `test applyTemplate`.
-2. **Test the error path.** Most TaskHub bugs are *honesty* bugs — the feature "works" but
+2. **Test the error path.** Most Cronsole bugs are *honesty* bugs — the feature "works" but
    lies when it fails. Assert what the user is **told**.
 3. **Prefer invariant guards over example tests.** One test covering all 55 templates forever
    beats 55 tests.

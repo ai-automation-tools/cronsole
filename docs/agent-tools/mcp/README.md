@@ -1,7 +1,7 @@
 <h1 align="center">🔌 MCP Servers</h1>
 
 <p align="center">
-  <em>Model Context Protocol servers that give the TaskHub build agent live capabilities.</em>
+  <em>Model Context Protocol servers that give the Cronsole build agent live capabilities.</em>
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
 ---
 
 These are the MCP servers wired up in [`.mcp.json`](../../../.mcp.json) at the repo root.
-They extend Claude Code with abilities it uses while working on TaskHub — fetching current
+They extend Claude Code with abilities it uses while working on Cronsole — fetching current
 library docs, opening PRs, driving a browser for E2E checks, and more. Secrets are supplied
 via environment variables (never committed).
 
@@ -30,7 +30,7 @@ via environment variables (never committed).
 
 > [!TIP]
 > Use **context7** before writing any code that touches an external library — your training
-> data may lag the library's current API. It's the highest-value server here for TaskHub.
+> data may lag the library's current API. It's the highest-value server here for Cronsole.
 
 ## 🔗 Related
 

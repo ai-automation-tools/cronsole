@@ -188,7 +188,7 @@ export class MockTaskHubAgent {
           name: payload.taskPath.split('\\').pop() ?? payload.taskPath,
           state: 'Ready',
           enabled: true,
-          author: 'TaskHub E2E mock agent',
+          author: 'Cronsole E2E mock agent',
           description: 'Restored by mock agent'
         }
       ];
@@ -285,7 +285,7 @@ export class MockTaskHubAgent {
               ]
             : [],
           enabled: true,
-          author: 'TaskHub E2E mock agent',
+          author: 'Cronsole E2E mock agent',
           description: payload.command
         }
       ];
@@ -338,7 +338,7 @@ export function e2eAgentTask(): MockAgentTask {
       }
     ],
     enabled: true,
-    author: 'TaskHub E2E mock agent',
+    author: 'Cronsole E2E mock agent',
     description: 'Deterministic task for Playwright mock-agent coverage'
   };
 }

@@ -1,7 +1,7 @@
 <h1 align="center">🌐 Remote Access Guide <sub>(advanced · optional)</sub></h1>
 
 <p align="center">
-  <em>Reach your own local TaskHub from your phone or another computer —
+  <em>Reach your own local Cronsole from your phone or another computer —
   self-hosted, private, no cloud account required.</em>
 </p>
 
@@ -14,7 +14,7 @@
 ---
 
 > [!IMPORTANT]
-> **TaskHub is designed as a local-first application.** It runs entirely on your own machine
+> **Cronsole is designed as a local-first application.** It runs entirely on your own machine
 > and is meant to be used from that machine. This guide is an **optional, advanced
 > enhancement** for reaching your own instance from other devices — it is **not** a supported
 > launch feature, and it is deliberately sequenced as the *last* item on the
@@ -22,7 +22,7 @@
 
 ## Why this is "advanced"
 
-TaskHub can **create and run commands on your machine** — that's the whole point, but it also
+Cronsole can **create and run commands on your machine** — that's the whole point, but it also
 means exposing the dashboard is effectively exposing **remote command execution**.
 
 There *is* a real login screen (single-user, since 2026-07-16: one owner account, created on
@@ -32,10 +32,10 @@ again), no second account, and no per-user agent pairing. A single password in f
 command execution is one credential away from a very bad day. So the rule is unchanged:
 
 > [!WARNING]
-> **Never put TaskHub directly on the public internet** (no naked port-forwarding of `:3000`
+> **Never put Cronsole directly on the public internet** (no naked port-forwarding of `:3000`
 > or `:7373`). The **network layer must be your authentication** — use a private VPN
 > (Tailscale) or an access-gated tunnel (Cloudflare Access). Both options below do exactly
-> that. Treat TaskHub's own login as a second factor behind that gate, never as the gate.
+> that. Treat Cronsole's own login as a second factor behind that gate, never as the gate.
 
 ## The model (how this differs from "hosting")
 
@@ -57,7 +57,7 @@ reachable remotely, and only over an encrypted, access-controlled channel.
 
 ## Prerequisites
 
-- TaskHub running locally and working in your own browser (see the
+- Cronsole running locally and working in your own browser (see the
   [Quick Start](../../../README.md#-quick-start)).
 - Admin access to your PC to install one small networking tool.
 - The two remote devices (e.g. PC + phone) both able to run that tool or reach the tunnel.
@@ -68,7 +68,7 @@ reachable remotely, and only over an encrypted, access-controlled channel.
 stable addresses. Nothing is exposed publicly. This is the closest match to "how I access
 code-server," and the safest.
 
-1. **Install Tailscale** on your PC *and* on each device you want to reach TaskHub from (phone,
+1. **Install Tailscale** on your PC *and* on each device you want to reach Cronsole from (phone,
    laptop). Sign in to the same account on all of them.
 2. **Find your PC's Tailscale address** — either the `100.x.y.z` IP or its MagicDNS name (e.g.
    `my-pc.tailnet-name.ts.net`) from the Tailscale admin console or `tailscale ip`.
@@ -83,7 +83,7 @@ code-server," and the safest.
    backend origin to `http://my-pc.tailnet-name.ts.net:3000`. This uses the runtime
    API-origin override (stored per-device), so no rebuild is needed. *(Alternatively, build the
    frontend with `VITE_API_URL` set to that backend origin.)*
-5. **Bookmark it.** You now reach TaskHub from that device whenever both are on the tailnet —
+5. **Bookmark it.** You now reach Cronsole from that device whenever both are on the tailnet —
    hitting the roadmap's "trigger from your phone in under 30 seconds" goal, with zero public
    exposure.
 
@@ -93,7 +93,7 @@ code-server," and the safest.
 
 ## Option B — Cloudflare Tunnel
 
-If you want a real HTTPS URL (e.g. `taskhub.yourdomain.com`) without opening any inbound
+If you want a real HTTPS URL (e.g. `cronsole.yourdomain.com`) without opening any inbound
 ports, [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
 runs an outbound-only connector from your PC.
 
@@ -102,14 +102,14 @@ runs an outbound-only connector from your PC.
    proxy note below — a public URL is much cleaner as one origin than two).
 3. **Gate it with [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/)**
    — require a login (your email, an identity provider, or a one-time PIN) in front of the
-   tunnel. TaskHub's own single-user login is **not** a substitute for this: one password, no
+   tunnel. Cronsole's own single-user login is **not** a substitute for this: one password, no
    reset, no lockout beyond rate limiting, in front of remote command execution. **Do not
    skip it.**
 4. Add the tunnel hostname to the backend `ALLOWED_ORIGINS`.
 
 ## Making it one URL (optional reverse proxy)
 
-Unlike code-server (a single port), TaskHub is two origins — the frontend and the backend API
+Unlike code-server (a single port), Cronsole is two origins — the frontend and the backend API
 + Socket.IO, which the browser calls directly. That's fine over Tailscale (expose both ports),
 but for a public tunnel it's cleaner to collapse them behind **one origin** with a small
 reverse proxy that serves the frontend and forwards `/api` + `/socket.io` to the backend.
@@ -121,7 +121,7 @@ until then, you can add one yourself if you want the single-URL setup.
 
 ## Security checklist
 
-- [ ] TaskHub is reachable **only** over Tailscale or an Access-gated tunnel — never a raw
+- [ ] Cronsole is reachable **only** over Tailscale or an Access-gated tunnel — never a raw
       public port.
 - [ ] `ALLOWED_ORIGINS` lists exactly your remote frontend origin(s) and nothing broader. It
       gates **both** the REST API's CORS headers and the Socket.IO handshake, so a missing
@@ -129,7 +129,7 @@ until then, you can add one yourself if you want the single-URL setup.
       **Leaving it empty is permissive, not safe** — the backend warns at boot when it is.
 - [ ] You understand that anyone who reaches the dashboard **and knows the one password** can
       run/create tasks on your machine, so the access gate (VPN membership / Access login) is
-      your real security boundary — TaskHub's login is the layer behind it, not instead of it.
+      your real security boundary — Cronsole's login is the layer behind it, not instead of it.
 - [ ] Keep your `JWT_SECRET`, `ENCRYPTION_KEY`, and `AGENT_PAIRING_SECRET` strong and private
       (see [Setup](../../setup/README.md)).
 

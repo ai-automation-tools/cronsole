@@ -10,7 +10,7 @@
 
 ---
 
-Repositories worth knowing about — the TaskHub source itself, and the key upstream projects
+Repositories worth knowing about — the Cronsole source itself, and the key upstream projects
 its stack is built on.
 
 ## 🗂️ Repositories
@@ -25,14 +25,14 @@ its stack is built on.
 
 > [!NOTE]
 > This list is a starting point. Add related projects, forks, or inspiration repos here as
-> the ecosystem around TaskHub grows.
+> the ecosystem around Cronsole grows.
 
 ## 🔗 Related
 
 | Resource | Why you'd go there |
 |:---|:---|
 | [**🔗 Websites**](../websites/README.md) | Native scheduler UIs and reference sites. |
-| [**🛠️ Agent Tools**](../../agent-tools/README.md) | The MCP servers and CLIs used to build TaskHub. |
+| [**🛠️ Agent Tools**](../../agent-tools/README.md) | The MCP servers and CLIs used to build Cronsole. |
 
 ---
 

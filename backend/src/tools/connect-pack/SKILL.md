@@ -1,17 +1,17 @@
 ---
-name: taskhub
-description: Create, run, and manage scheduled tasks through a running TaskHub instance — Windows Task Scheduler tasks and TaskHub-native HTTP jobs. Use when the user asks to schedule something, automate a recurring job, check whether a scheduled job ran, or change/disable/delete an existing scheduled task.
+name: cronsole
+description: Create, run, and manage scheduled tasks through a running Cronsole instance — Windows Task Scheduler tasks and Cronsole-native HTTP jobs. Use when the user asks to schedule something, automate a recurring job, check whether a scheduled job ran, or change/disable/delete an existing scheduled task.
 ---
 
-# TaskHub
+# Cronsole
 
-> TaskHub Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
-> If this file is older than your TaskHub install, the install wins — re-download the pack.
+> Cronsole Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
+> If this file is older than your Cronsole install, the install wins — re-download the pack.
 
-TaskHub is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
+Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
 machine: a web dashboard, a backend API, and a Windows agent that talks to Task Scheduler.
 
-This skill teaches you to **use** a running TaskHub. You are driving someone's real computer.
+This skill teaches you to **use** a running Cronsole. You are driving someone's real computer.
 
 > **The frame:** creating a task is not "calling an API", it's **registering code to run on
 > someone's computer forever, with no one watching**. A scheduled task fails differently from
@@ -26,14 +26,14 @@ Two surfaces, same backend:
 
 | Surface | Use when |
 |:---|:---|
-| **MCP server** (`taskhub`) | Your host supports MCP. 15 tools, 1:1 with API routes. Preferred. |
+| **MCP server** (`cronsole`) | Your host supports MCP. 15 tools, 1:1 with API routes. Preferred. |
 | **REST API** (`http://localhost:3000/api`) | No MCP support, or you need something MCP doesn't expose (template import/export, save-as-template, sync, agent pairing). Bearer token in `Authorization`. |
 
 Both need the backend running and a token. See `README.md` in this pack for wiring.
 
 **If a tool you expect is missing, that is an answer, not an obstacle.** `delete_task` is
-absent unless the human set `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`. Say so and offer the safe
-alternative — **disable** it (stops it running), **untrack** it (removes it from TaskHub but
+absent unless the human set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`. Say so and offer the safe
+alternative — **disable** it (stops it running), **untrack** it (removes it from Cronsole but
 leaves it running), or the dashboard. Do not route around a gate.
 
 ---
@@ -55,7 +55,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Edit the command | `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` |
-| Remove from TaskHub, keep it running | `untrack_task` | `POST /api/tasks/:id/untrack` |
+| Remove from Cronsole, keep it running | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
@@ -72,10 +72,10 @@ leaves it running), or the dashboard. Do not route around a gate.
 | **Schedules are 5-field cron in UTC** | Not local time. The dashboard converts for display; you convert on the way in. |
 | **Commands are tokenized, no shell** | A Windows command becomes a structured `{executable, args[]}` action. Pipes, `>`, `&&`, `%VAR%` do **not** work unless you invoke a shell explicitly. This is the injection guarantee — an implicit shell turns every parameter into arbitrary code. |
 | **`\Microsoft\` is refused** | Registering a task **silently overwrites** a same-named one, and the agent runs **elevated**. Writing there could destroy a real Windows task with no error. Refused in the backend *and* independently in the agent. |
-| **A folder must already exist** | The only folder TaskHub creates is `\TaskHub` — and the only one it removes. Deleting a folder needs elevation, so it will not create litter it cannot clean up. A create into a missing folder is refused honestly. |
+| **A folder must already exist** | The only folder Cronsole creates is `\TaskHub` — and the only one it removes. Deleting a folder needs elevation, so it will not create litter it cannot clean up. A create into a missing folder is refused honestly. |
 | **Names are unique per folder** | A collision returns **409** instead of letting Windows silently overwrite. |
 | **Disable is how you park a task** | Never encode "don't run" in the cron — see §5. |
-| **Untrack is how you tidy the dashboard** | `untrack_task` removes TaskHub's record and leaves the scheduled task running. Deleting to clean up a view destroys someone's automation. |
+| **Untrack is how you tidy the dashboard** | `untrack_task` removes Cronsole's record and leaves the scheduled task running. Deleting to clean up a view destroys someone's automation. |
 
 ---
 
@@ -132,13 +132,13 @@ minute step (`*/15 * * * *`), hour step (`0 */4 * * *`). Everything else hits th
 
 ## 6. Verifying — the part everyone skips
 
-**TaskHub's own `SUCCESS` is not proof the command worked.** The agent observes that the task
+**Cronsole's own `SUCCESS` is not proof the command worked.** The agent observes that the task
 *started*, never that it finished correctly — so a command that hangs forever reports
-`SUCCESS`. An empty run history means *TaskHub has no record*, not *it never ran*: a Windows
-task firing on its own trigger is recorded by Windows, not by TaskHub.
+`SUCCESS`. An empty run history means *Cronsole has no record*, not *it never ran*: a Windows
+task firing on its own trigger is recorded by Windows, not by Cronsole.
 
 > **When you are testing whether the reporting is honest, the reporting cannot be your
-> witness.** Get evidence from outside TaskHub:
+> witness.** Get evidence from outside Cronsole:
 
 ```powershell
 $t = Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>'
@@ -146,7 +146,7 @@ $t.Actions  | Select-Object Execute, Arguments      # direct exec? no stray cmd.
 $t.Triggers | Select-Object StartBoundary, Repetition   # UTC -> local correct?
 Start-ScheduledTask -InputObject $t
 Get-ScheduledTaskInfo -InputObject $t | Select-Object LastRunTime, LastTaskResult
-#   0      = exited cleanly           <- Windows' own record, independent of TaskHub
+#   0      = exited cleanly           <- Windows' own record, independent of Cronsole
 #   267009 = STILL RUNNING (hung)     <- flat CPU means blocked, not working
 ```
 
@@ -165,5 +165,5 @@ Best evidence is a **real side effect** — a log line, a file, an HTTP hit.
    Its absence from the listing is normal: it is created on demand and pruned when empty.
 5. The name won't collide in that folder.
 6. The command **terminates**.
-7. After creating: run it and **verify from outside TaskHub**.
+7. After creating: run it and **verify from outside Cronsole**.
 8. If it was a test: delete it.

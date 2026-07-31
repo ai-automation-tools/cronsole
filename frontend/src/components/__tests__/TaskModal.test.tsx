@@ -231,18 +231,18 @@ describe('TaskModal Component', () => {
 
   describe('untrack vs delete — two removals that must never be confusable', () => {
     it('untracks without ever calling delete, and says what survives', async () => {
-      vi.mocked(api.post).mockResolvedValue({ data: { message: 'Removed from TaskHub' } });
+      vi.mocked(api.post).mockResolvedValue({ data: { message: 'Removed from Cronsole' } });
       const onClose = vi.fn();
 
       renderModal({ task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' }, onClose });
-      fireEvent.click(screen.getByText('Remove from TaskHub'));
+      fireEvent.click(screen.getByText('Remove from Cronsole'));
 
       // The confirm must name what SURVIVES. "Are you sure?" on the reversible
       // action is what trains people to click through the irreversible one.
       expect(confirmMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'Remove from TaskHub?',
-          confirmText: 'Remove from TaskHub',
+          title: 'Remove from Cronsole?',
+          confirmText: 'Remove from Cronsole',
           message: expect.stringContaining('NOT deleted')
         })
       );
@@ -261,7 +261,7 @@ describe('TaskModal Component', () => {
       confirmMock.mockResolvedValue(false);
       renderModal({ task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' } });
 
-      fireEvent.click(screen.getByText('Remove from TaskHub'));
+      fireEvent.click(screen.getByText('Remove from Cronsole'));
 
       await waitFor(() => expect(confirmMock).toHaveBeenCalled());
       expect(api.post).not.toHaveBeenCalled();
@@ -270,23 +270,23 @@ describe('TaskModal Component', () => {
     it('offers both verbs on a Windows task, with different labels', () => {
       renderModal({ task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER' } });
 
-      expect(screen.getByText('Remove from TaskHub')).toBeInTheDocument();
+      expect(screen.getByText('Remove from Cronsole')).toBeInTheDocument();
       expect(screen.getByText('Delete from Windows')).toBeInTheDocument();
       // A bare "Delete" would be the ambiguous label this design rejects.
       expect(screen.queryByText('Delete')).not.toBeInTheDocument();
     });
 
-    it('does not offer untrack for a TaskHub-native task', () => {
+    it('does not offer untrack for a Cronsole-native task', () => {
       // A native task exists nowhere else, so "remove but keep it" cannot be
       // true — offering it would be a destructive action under a safe label.
       renderModal({ task: { ...mockTask, platform: 'TASKHUB_NATIVE' } });
 
-      expect(screen.queryByText('Remove from TaskHub')).not.toBeInTheDocument();
+      expect(screen.queryByText('Remove from Cronsole')).not.toBeInTheDocument();
       expect(screen.getByText('Delete')).toBeInTheDocument();
     });
   });
 
-  it('deletes a TaskHub-native task after confirmation', async () => {
+  it('deletes a Cronsole-native task after confirmation', async () => {
     vi.mocked(api.delete).mockResolvedValue({ data: { message: 'Task deleted' } });
     const onClose = vi.fn();
 
@@ -303,7 +303,7 @@ describe('TaskModal Component', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('edits a TaskHub-native task schedule via PATCH /tasks/:id/schedule', async () => {
+  it('edits a Cronsole-native task schedule via PATCH /tasks/:id/schedule', async () => {
     vi.mocked(api.post).mockResolvedValue({ data: { score: 1, warnings: [] } });
     vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask, schedule: '0 8 * * *' } });
 
@@ -319,7 +319,7 @@ describe('TaskModal Component', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Edit Schedule/i }));
-    expect(screen.getByText('TaskHub-native')).toBeInTheDocument();
+    expect(screen.getByText('Cronsole-native')).toBeInTheDocument();
 
     fireEvent.change(screen.getByDisplayValue('0 3 * * *'), {
       target: { value: '0 8 * * *' }

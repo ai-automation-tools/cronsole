@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E config. Tests drive a real browser against the running TaskHub
+ * Playwright E2E config. Tests drive a real browser against the running Cronsole
  * dev stack (frontend + backend + Postgres), so bring it up first:
  *   pwsh scripts/taskhub.ps1 up
  * Point elsewhere with PLAYWRIGHT_BASE_URL (e.g. a staging host).

@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "TaskHub backend — Express + Prisma API, agent WebSocket channel, and native scheduler.",
+  "description": "Cronsole backend — Express + Prisma API, agent WebSocket channel, and native scheduler.",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

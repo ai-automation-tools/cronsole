@@ -26,7 +26,7 @@ export async function createNativeTask(
       platform: PlatformType.TASKHUB_NATIVE,
       externalId: overrides.externalId ?? `native_${Math.random().toString(36).slice(2, 10)}`,
       name: overrides.name ?? 'Fixture Task',
-      category: 'TaskHub',
+      category: 'Cronsole',
       schedule: '0 3 * * *',
       status: TaskStatus.ACTIVE,
       metadata: { job: { jobType: 'HTTP', url: 'https://example.com/health', method: 'GET' } }

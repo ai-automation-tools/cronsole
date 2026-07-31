@@ -1,6 +1,6 @@
-# TaskHub UI User Guide
+# Cronsole UI User Guide
 
-Welcome to the **TaskHub** interface! This guide provides a comprehensive overview of how to navigate the dashboard, manage your scheduled tasks, and use advanced features like categorization and templates.
+Welcome to the **Cronsole** interface! This guide provides a comprehensive overview of how to navigate the dashboard, manage your scheduled tasks, and use advanced features like categorization and templates.
 
 ---
 
@@ -10,11 +10,11 @@ The Dashboard is your "one pane of glass" for monitoring every scheduled task in
 
 ### Task Cards
 Each task is represented by a card showing:
-- **Platform Badge:** Identifies where the task lives (e.g., Windows, Claude, or TaskHub-native).
+- **Platform Badge:** Identifies where the task lives (e.g., Windows, Claude, or Cronsole-native).
 *   **Status Indicator:** A green dot for `ACTIVE` tasks and a gray dot for `DISABLED` tasks.
-*   **Local Category:** A folder icon showing the TaskHub-specific category.
+*   **Local Category:** A folder icon showing the Cronsole-specific category.
 *   **External ID:** The native path or ID used by the source platform.
-*   **Last Updated:** The last time TaskHub synced state for this task.
+*   **Last Updated:** The last time Cronsole synced state for this task.
 
 ### Quick Actions
 - **Run Now (Play Icon):** Manually triggers the task immediately. This requires a confirmation dialog to prevent accidental triggers.
@@ -25,7 +25,7 @@ Each task is represented by a card showing:
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
 - **Active Only:** Toggle to hide disabled tasks. It shows how many it's holding back (`12 hidden`) — that count includes **missing** and unknown-state tasks too, not just disabled ones.
-- **Personal / Incl. System:** Windows keeps hundreds of its own scheduled tasks under `\Microsoft\` — on a typical machine they outnumber yours roughly 3:1 — so once they're imported they drown out everything you actually care about. TaskHub hides them by default and says how many (`257 system hidden`); click to include them. The choice is remembered between visits, and the button only appears if you've actually imported some. This is **independent of Active Only**, so the normal view is *personal **and** active* — either can be turned off without touching the other.
+- **Personal / Incl. System:** Windows keeps hundreds of its own scheduled tasks under `\Microsoft\` — on a typical machine they outnumber yours roughly 3:1 — so once they're imported they drown out everything you actually care about. Cronsole hides them by default and says how many (`257 system hidden`); click to include them. The choice is remembered between visits, and the button only appears if you've actually imported some. This is **independent of Active Only**, so the normal view is *personal **and** active* — either can be turned off without touching the other.
 - **Category & platform chips:** Filter to a single category or platform. These chips are **faceted** — they only show categories/platforms that actually have tasks *under the current filters* (with a live count), so turning on **Active Only** or a platform filter drops any now-empty tags instead of showing zero-count noise.
 
 ---
@@ -37,8 +37,8 @@ Clicking a task card opens the **Task Details** modal, which has two tabs.
 ### Overview
 Instead of raw data, the Overview parses the task's synced configuration into readable panels:
 - **Summary:** Status, last result (success/failure), next run, and last run.
-- **Schedule:** A human-readable description (e.g. *"Daily at 9:00 AM UTC"*) alongside the underlying cron expression. Schedules are stored in UTC. If TaskHub can't express the trigger as cron (boot, logon, event, or on-demand tasks), it says so honestly rather than guessing.
-- **Action:** What the task actually runs — an HTTP request for TaskHub-native tasks, or the executable/arguments/working directory for Windows tasks. If your agent build doesn't yet report a task's action, the panel says so rather than showing a blank.
+- **Schedule:** A human-readable description (e.g. *"Daily at 9:00 AM UTC"*) alongside the underlying cron expression. Schedules are stored in UTC. If Cronsole can't express the trigger as cron (boot, logon, event, or on-demand tasks), it says so honestly rather than guessing.
+- **Action:** What the task actually runs — an HTTP request for Cronsole-native tasks, or the executable/arguments/working directory for Windows tasks. If your agent build doesn't yet report a task's action, the panel says so rather than showing a blank.
 - **Settings:** Scheduler state, whether the task is enabled, the account it runs as, run level, logon type, author, and description — shown when the agent reports them.
 - **Raw platform metadata:** The full untouched sync payload is still available under a collapsible section at the bottom.
 
@@ -46,36 +46,36 @@ Instead of raw data, the Overview parses the task's synced configuration into re
 The second tab lists recorded runs with their status, timestamp, duration, and a log snippet — so you can answer "did it actually run, and did it work?"
 
 ### Editing a schedule
-The modal footer shows **Edit Schedule** for TaskHub-native tasks and Windows tasks whose trigger can be represented as a cron expression. TaskHub-native edits update the backend scheduler immediately; Windows edits require the local agent because TaskHub changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until TaskHub has a dedicated safe editor for those trigger types.
+The modal footer shows **Edit Schedule** for Cronsole-native tasks and Windows tasks whose trigger can be represented as a cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits require the local agent because Cronsole changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe editor for those trigger types.
 
 ### Removing a task — two very different buttons
 The modal footer offers **two** ways to make a task go away, and they are not interchangeable.
 
-**Remove from TaskHub** *(the safe one)* — takes the task off your dashboard and forgets its
-TaskHub run history. **The scheduled task itself is not touched:** it stays on the machine and
+**Remove from Cronsole** *(the safe one)* — takes the task off your dashboard and forgets its
+Cronsole run history. **The scheduled task itself is not touched:** it stays on the machine and
 keeps running on its own schedule. Use this when you imported a folder you didn't mean to, or
 when you simply don't want to look at a task any more.
-- Future syncs **won't** pull it back — TaskHub remembers that you removed it, so a routine
+- Future syncs **won't** pull it back — Cronsole remembers that you removed it, so a routine
   **Sync Now** can't silently undo your choice.
 - To get it back, run **Import** and re-select its category. The Import modal shows an amber
   **+N removed** badge on any category that would bring removed tasks back, so you see the
   number before you commit, and the toast afterwards tells you how many returned.
-- Not offered for TaskHub-native tasks — those exist only inside TaskHub, so there's nothing
+- Not offered for Cronsole-native tasks — those exist only inside Cronsole, so there's nothing
   left to keep.
 
 **Delete from Windows** *(the irreversible one, styled red)* — deletes the real Task Scheduler
 entry. The task stops existing and will never run again.
-- The real entry goes **first**, via the local agent; the TaskHub record only goes once the
-  platform confirms — TaskHub never claims a task is gone while it still exists on your machine.
+- The real entry goes **first**, via the local agent; the Cronsole record only goes once the
+  platform confirms — Cronsole never claims a task is gone while it still exists on your machine.
   If the agent is offline the delete is refused and the task stays.
 - Some Windows tasks were registered by an elevated process and carry admin-only permissions;
-  TaskHub will tell you when a task can only be deleted from an elevated Task Scheduler (or by
+  Cronsole will tell you when a task can only be deleted from an elevated Task Scheduler (or by
   running the agent elevated).
-- For a **TaskHub-native** task the button is just **Delete** — it removes the task and its run
-  history, and nothing exists outside TaskHub to clean up.
+- For a **Cronsole-native** task the button is just **Delete** — it removes the task and its run
+  history, and nothing exists outside Cronsole to clean up.
 
 > [!TIP]
-> If your goal is a tidier dashboard, you almost always want **Remove from TaskHub**. Deleting
+> If your goal is a tidier dashboard, you almost always want **Remove from Cronsole**. Deleting
 > to clean up a view destroys automation that may have been running for years.
 
 > **Note on schedule times:** the recurring clock time in the Schedule panel follows your **Settings → Behavior → schedule-time display** choice — your local time by default, or UTC. Absolute timestamps (next/last run) are always shown in your local time.
@@ -84,17 +84,17 @@ entry. The task stops existing and will never run again.
 
 ## 3. Task Categorization & Organization
 
-TaskHub allows you to organize tasks into local folders (categories).
+Cronsole allows you to organize tasks into local folders (categories).
 
 ### Automatic Initial Categorization
-When you first sync with a platform (like Windows Task Scheduler), TaskHub **automatically imports the existing folder structure**. 
+When you first sync with a platform (like Windows Task Scheduler), Cronsole **automatically imports the existing folder structure**. 
 - A Windows task at `\Microsoft\Windows\UpdateOrchestrator\Reboot` will be automatically placed in the `Microsoft\Windows\UpdateOrchestrator` category.
 - This gives you an organized starting point that mirrors your current environment.
 
 ### Local Overrides
-Your categorization in TaskHub is **local and persistent**. 
-- If you move a task to a "Critical" category in TaskHub, it will **stay there** even after subsequent syncs. 
-- TaskHub will not overwrite your manual categorization with the source platform's folder structure once the task is imported.
+Your categorization in Cronsole is **local and persistent**. 
+- If you move a task to a "Critical" category in Cronsole, it will **stay there** even after subsequent syncs. 
+- Cronsole will not overwrite your manual categorization with the source platform's folder structure once the task is imported.
 
 ### Viewing Categories
 At the top of the Dashboard, you'll see a horizontal chip bar:
@@ -126,13 +126,13 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 ### Applying a template
 - Each card shows its target platforms, script type, intended schedule (UTC), and the command it will run.
-- Click **"Apply Template"** to open the creation flow. For starters, you'll fill in the required parameters (validated as you go). TaskHub then registers the new task on your machine via the local agent (Windows) or the relevant API.
-- **Task name:** prefilled with the template's name but yours to edit — give each applied task its own name if you reuse a template. A name that matches a task TaskHub already created **in the same folder** is **rejected** (instead of Windows silently overwriting the existing task), and names with characters Windows forbids (`\ / : * ? " < > |`, trailing dots) are refused with a clear message.
-- **Task Scheduler folder** *(Windows only)*: choose where the task actually lives in Windows Task Scheduler. The list is read from your machine and defaults to `\TaskHub`. **This is also the task's category in TaskHub** — for a Windows task the category *is* its top-level folder, which is why an imported task shows up under `Microsoft` or whatever folder it really lives in. Because the collision check is per folder, the same name in two different folders is fine: `\TaskHub\Backup` and `\Work\Backup` are genuinely different Windows tasks.
-  - **Only folders that already exist are offered.** TaskHub creates exactly one folder — its own `\TaskHub`, which it also removes again once the last task in it is deleted. It won't create any other, because deleting a Task Scheduler folder needs admin rights: a folder TaskHub made would be permanent, and only *you* could clear it. To file tasks somewhere new, create the folder in Task Scheduler first and it'll appear in the list.
-  - `\Microsoft\` isn't offered. Windows keeps its own scheduled tasks there, and creating one with a matching name would **silently overwrite** a real system task — no error, no warning. TaskHub refuses it rather than hand you that footgun.
+- Click **"Apply Template"** to open the creation flow. For starters, you'll fill in the required parameters (validated as you go). Cronsole then registers the new task on your machine via the local agent (Windows) or the relevant API.
+- **Task name:** prefilled with the template's name but yours to edit — give each applied task its own name if you reuse a template. A name that matches a task Cronsole already created **in the same folder** is **rejected** (instead of Windows silently overwriting the existing task), and names with characters Windows forbids (`\ / : * ? " < > |`, trailing dots) are refused with a clear message.
+- **Task Scheduler folder** *(Windows only)*: choose where the task actually lives in Windows Task Scheduler. The list is read from your machine and defaults to `\TaskHub`. **This is also the task's category in Cronsole** — for a Windows task the category *is* its top-level folder, which is why an imported task shows up under `Microsoft` or whatever folder it really lives in. Because the collision check is per folder, the same name in two different folders is fine: `\TaskHub\Backup` and `\Work\Backup` are genuinely different Windows tasks.
+  - **Only folders that already exist are offered.** Cronsole creates exactly one folder — its own `\TaskHub`, which it also removes again once the last task in it is deleted. It won't create any other, because deleting a Task Scheduler folder needs admin rights: a folder Cronsole made would be permanent, and only *you* could clear it. To file tasks somewhere new, create the folder in Task Scheduler first and it'll appear in the list.
+  - `\Microsoft\` isn't offered. Windows keeps its own scheduled tasks there, and creating one with a matching name would **silently overwrite** a real system task — no error, no warning. Cronsole refuses it rather than hand you that footgun.
   - If the agent is offline the list can't be read; you can still create in `\TaskHub`.
-- **Other platforms** keep TaskHub's own categories — only Windows has a real folder hierarchy to point at.
+- **Other platforms** keep Cronsole's own categories — only Windows has a real folder hierarchy to point at.
 - **Schedule:** quick preset chips fill common crons, and a plain-language preview under the field ("Runs daily at 8:00 AM UTC" — or your local time, per Settings) confirms what the cron means before you create anything. Conversion warnings appear when a cron can't map cleanly onto a native Windows trigger.
 - The created task appears on the Dashboard immediately — no need to wait for a sync.
 
@@ -163,7 +163,7 @@ Four states, and the third one matters:
   from the platform.
 - **Attention** — missed starts, never run, overdue against its own schedule, a run stopped before
   it finished, or a native job suddenly taking much longer than usual.
-- **Unknown** — TaskHub has **no evidence** about this task. Most often that means the Windows
+- **Unknown** — Cronsole has **no evidence** about this task. Most often that means the Windows
   agent predates run-result reporting: republish it and the tasks become measurable. Unmeasured is
   deliberately not shown as healthy.
 - **Healthy** — counted in the header, not listed.
@@ -181,14 +181,14 @@ Dashboard.
 Saves Windows Task Scheduler tasks as native XML — either every folder on the machine, or one
 folder you pick.
 
-- **It exports what is on the machine, not just what TaskHub imported.** The tasks most at risk of
+- **It exports what is on the machine, not just what Cronsole imported.** The tasks most at risk of
   being lost are the ones nothing else is tracking, so those are exactly the ones a backup has to
   include.
 - Windows' own `\Microsoft\` tasks are **excluded by default and counted out loud** — on a real
   machine they outnumber yours roughly 3:1 and would bury what you came for.
 - On Chromium browsers you pick a destination folder and the export mirrors your Task Scheduler
   folder tree into it. Everywhere else it downloads as a single `.zip`. Both include a
-  `_taskhub-export.json` manifest listing exactly what was saved — and what was skipped or failed.
+  `_cronsole-export.json` manifest listing exactly what was saved — and what was skipped or failed.
 - **The files contain each task's full command line and the account it runs as.** If any of your
   tasks pass secrets on the command line, treat the export like a password.
 
@@ -196,7 +196,7 @@ folder you pick.
 
 Puts them back. Feed it the `.zip`, the folder you exported to, or individual `.xml` files.
 
-- **You always see a plan before anything is written.** Picking files runs a dry run: TaskHub works
+- **You always see a plan before anything is written.** Picking files runs a dry run: Cronsole works
   out what would happen to every file — *restore* / *replace* / *skip* / *refuse* — by checking what
   is really on your machine, and changes nothing. The button underneath then tells you how many
   tasks it will actually change.
@@ -207,12 +207,12 @@ Puts them back. Feed it the `.zip`, the folder you exported to, or individual `.
   up. Every folder it creates is listed in the plan. One thing worth knowing before you click:
   those folders are created by the agent, which runs with administrator rights, so **removing one
   later needs an elevated Task Scheduler**. The same is true of the restored tasks themselves —
-  delete them through TaskHub (or an elevated Task Scheduler), not from a normal PowerShell prompt.
+  delete them through Cronsole (or an elevated Task Scheduler), not from a normal PowerShell prompt.
 - Some files are refused rather than restored, and the plan says why: a task that belongs under
   `\Microsoft\` (Windows' own — a name collision there would silently destroy a real system task),
   a file that isn't a task definition, or two files that would land on the same task path.
-- **Restoring a task does not add it to TaskHub.** It puts the task back on the machine; use
-  **Import** on the Dashboard if you want TaskHub to track it too.
+- **Restoring a task does not add it to Cronsole.** It puts the task back on the machine; use
+  **Import** on the Dashboard if you want Cronsole to track it too.
 
 ### Export run history
 
@@ -220,21 +220,21 @@ Downloads every recorded run across all your tasks as a CSV — the answer to *"
 month?"*, which the per-task history (20 rows at a time) can't give you. Pick a period, optionally
 narrow to failures, and the button tells you how many runs the file will hold before you download it.
 
-**Read the `runKind` column before you read `status`.** The history covers runs **TaskHub
-performed** — tasks you ran from the dashboard, and TaskHub-native jobs it runs itself:
+**Read the `runKind` column before you read `status`.** The history covers runs **Cronsole
+performed** — tasks you ran from the dashboard, and Cronsole-native jobs it runs itself:
 
-- `native-execution` — TaskHub ran the job, so `status` and `durationMs` describe the actual work.
-- `manual-trigger` — TaskHub asked the Windows agent to start the task. `SUCCESS` means Windows
+- `native-execution` — Cronsole ran the job, so `status` and `durationMs` describe the actual work.
+- `manual-trigger` — Cronsole asked the Windows agent to start the task. `SUCCESS` means Windows
   accepted the start; the task's own outcome isn't in that row, and the duration is the round trip.
 
-A Windows task firing on its own schedule isn't recorded at all, so an empty period means TaskHub
+A Windows task firing on its own schedule isn't recorded at all, so an empty period means Cronsole
 triggered nothing — **not** that nothing ran. (For "did this actually work?", the **Task health**
 panel below reads Windows' own result instead.)
 
 ### Connect an AI tool
 
 Downloads a small instruction pack that teaches Claude, Codex, or Cursor how to drive *your*
-TaskHub — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection itself.
+Cronsole — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection itself.
 
 ---
 
@@ -244,7 +244,7 @@ TaskHub — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection i
 - **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand.
 - **Settings → About → API origin:** Shows the backend URL the dashboard is using. You can override it in the browser when testing a different backend; **Reset** returns to the configured `VITE_API_URL` default.
 - **Sync vs. Import:** **Sync Now** re-pulls status and schedules for categories you already track; **Import** opens the discovery picker to add new tasks. **Sync Now cannot discover a folder you don't already track** — that's what Import is for.
-- **"N tasks aren't imported":** because of the above, tasks can exist on your machine that TaskHub is deliberately ignoring. Sync Now now tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. If you don't want them, Import is not required — the message is informational, and it disappears once nothing is outstanding.
+- **"N tasks aren't imported":** because of the above, tasks can exist on your machine that Cronsole is deliberately ignoring. Sync Now now tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. If you don't want them, Import is not required — the message is informational, and it disappears once nothing is outstanding.
 
 ---
 

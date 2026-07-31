@@ -18,7 +18,7 @@ sure the common prerequisites are in place, then continue with the guide for you
 
 ```bash
 git clone https://github.com/michaelschecht/taskhub.git
-cd taskhub
+cd cronsole
 ```
 
 ## 2. Install the common prerequisites
@@ -33,7 +33,7 @@ cd taskhub
 | Next guide | Use this when… |
 |:---|:---|
 | [**🪟 Windows Install Guide**](Windows_Install_Guide.md) | You want the full experience — live Windows Task Scheduler sync and remote triggering. |
-| [**🍎 macOS Install Guide**](macOS_Install_Guide.md) | You want to run and explore TaskHub, minus the Windows agent. |
+| [**🍎 macOS Install Guide**](macOS_Install_Guide.md) | You want to run and explore Cronsole, minus the Windows agent. |
 
 ---
 

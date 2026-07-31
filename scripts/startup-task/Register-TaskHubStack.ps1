@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Installs/repairs the TaskHub self-heal scheduled tasks so the local stack
+    Installs/repairs the Cronsole self-heal scheduled tasks so the local stack
     stays up - with NO PowerShell console flashing on screen.
 
 .DESCRIPTION
@@ -14,7 +14,7 @@
     nothing appears on screen. See run-hidden.vbs.
 
     DEDUPE: \Task-Hub\TaskHubAgent (the logon bootstrap that also starts Docker
-    Desktop) used to carry its own recurring repetition via Set-TaskHubRepetition.ps1,
+    Desktop) used to carry its own recurring repetition via Set-CronsoleRepetition.ps1,
     so BOTH tasks re-ran `taskhub.ps1 up` on an interval - redundant work and double
     the flashing. TaskHubStack now owns the recurring self-heal, so this script (when
     -RepairAgentTask is on, the default) resets any existing TaskHubAgent to a clean
@@ -82,7 +82,7 @@ $stackTrigger.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMin
 
 Register-ScheduledTask -TaskName 'TaskHubStack' -TaskPath '\Task-Hub\' `
     -Action $stackAction -Trigger $stackTrigger -Settings $settings -Principal $principal `
-    -Description "Self-heals the local TaskHub stack via scripts\taskhub.ps1 up (at logon + every $IntervalMinutes min), launched hidden via run-hidden.vbs." `
+    -Description "Self-heals the local Cronsole stack via scripts\taskhub.ps1 up (at logon + every $IntervalMinutes min), launched hidden via run-hidden.vbs." `
     -Force | Out-Null
 
 $t = Get-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubStack'

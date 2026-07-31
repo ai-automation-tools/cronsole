@@ -1,9 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { TaskHubClient, TaskHubApiError } from './client.js';
+import { CronsoleClient, CronsoleApiError } from './client.js';
 
 /**
- * Tool surface for the TaskHub MCP server (docs/ROADMAP.md › P3):
+ * Tool surface for the Cronsole MCP server (docs/ROADMAP.md › P3):
  *
  *   read      list_tasks · list_templates · list_folders · get_task_history ·
  *             export_task · convert_schedule
@@ -13,7 +13,7 @@ import { TaskHubClient, TaskHubApiError } from './client.js';
  *             untrack_task
  *   destroy   delete_task            (only when allowDestructive — see below)
  *
- * Each tool is a thin call through TaskHubClient into the REST API. Business
+ * Each tool is a thin call through CronsoleClient into the REST API. Business
  * rules (owner scoping, no-shell command structuring, agent signing, cron→trigger
  * conversion) all stay server-side — this layer only shapes input/output.
  *
@@ -29,12 +29,12 @@ export interface ToolOptions {
   /**
    * Register the irreversible tools (delete_task). Sourced from an env var, not
    * a tool parameter: a `confirm: true` argument is not a gate, because the model
-   * fills it in itself. See TaskHubClientConfig.allowDestructive.
+   * fills it in itself. See CronsoleClientConfig.allowDestructive.
    */
   allowDestructive: boolean;
 }
 
-// The platforms TaskHub can actually create on today (the honesty pass gated the
+// The platforms Cronsole can actually create on today (the honesty pass gated the
 // UI to these too). Others are catalog-only until their agent/connector exists.
 const CREATABLE_PLATFORMS = ['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'] as const;
 
@@ -123,9 +123,9 @@ interface ExecutionRow {
 /** A tool handler failed — render the message honestly and flag it as an error. */
 function toolError(err: unknown) {
   const message =
-    err instanceof TaskHubApiError
+    err instanceof CronsoleApiError
       ? err.status
-        ? `TaskHub API error (HTTP ${err.status}): ${err.message}`
+        ? `Cronsole API error (HTTP ${err.status}): ${err.message}`
         : err.message
       : err instanceof Error
         ? err.message
@@ -198,7 +198,7 @@ const compactTemplate = (t: TemplateRow) => ({
 
 export function registerTools(
   server: McpServer,
-  client: TaskHubClient,
+  client: CronsoleClient,
   options: ToolOptions = { allowDestructive: false }
 ): void {
   // -------------------------------------------------------------------------
@@ -209,7 +209,7 @@ export function registerTools(
     {
       title: 'List scheduled tasks',
       description:
-        'List the scheduled tasks TaskHub tracks for the current user (Windows Task Scheduler + TaskHub-native), ' +
+        'List the scheduled tasks Cronsole tracks for the current user (Windows Task Scheduler + Cronsole-native), ' +
         'with each task\'s schedule, status, next run time, and last run result. Optional filters narrow the list.',
       inputSchema: {
         platform: z
@@ -220,7 +220,7 @@ export function registerTools(
           .enum(['ACTIVE', 'DISABLED', 'UNKNOWN', 'DELETED', 'MISSING'])
           .optional()
           .describe(
-            'Only tasks with this status. MISSING = tracked by TaskHub but absent from the platform on the last ' +
+            'Only tasks with this status. MISSING = tracked by Cronsole but absent from the platform on the last ' +
             'sync (a native delete, or an offline agent / unreadable folder — indistinguishable from here); it ' +
             'self-heals to ACTIVE/DISABLED when the task reappears. Use it to answer "what did I lose?".'
           ),
@@ -284,11 +284,11 @@ export function registerTools(
     {
       title: 'Run a task now',
       description:
-        'Trigger a task to run immediately by its TaskHub id (get ids from list_tasks). ' +
+        'Trigger a task to run immediately by its Cronsole id (get ids from list_tasks). ' +
         'For a Windows task this sends a signed run command to the local agent; for a native task the backend runs it. ' +
         'Returns the run result.',
       inputSchema: {
-        taskId: z.string().describe('The TaskHub task id (from list_tasks).')
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).')
       }
     },
     async ({ taskId }) => {
@@ -312,7 +312,7 @@ export function registerTools(
     {
       title: 'List task templates',
       description:
-        'List the TaskHub template catalog (starters + use-case patterns) with each template\'s id, category, tags, ' +
+        'List the Cronsole template catalog (starters + use-case patterns) with each template\'s id, category, tags, ' +
         'target platforms, default schedule, and declared parameters — use this to find a template id and its required ' +
         'parameters before calling create_task_from_template.',
       inputSchema: {
@@ -381,7 +381,7 @@ export function registerTools(
       description:
         'List the real Windows Task Scheduler folders on the machine, with how many tasks each holds and whether ' +
         'a task can be created in it. Call this before create_task / create_task_from_template when you want a ' +
-        'folder other than the default: TaskHub creates ONLY its own "\\TaskHub" folder, so every other folder ' +
+        'folder other than the default: Cronsole creates ONLY its own "\\TaskHub" folder, so every other folder ' +
         'must already exist — this is how you find out which do. Windows-only (no other platform has task folders). ' +
         'Folders you cannot create in are listed with writable=false rather than hidden, so you can see that a ' +
         'folder exists AND why it is refused.',
@@ -433,7 +433,7 @@ export function registerTools(
               })
               .join('\n')
           : 'No folders match.';
-        const note = `\nDefault folder: ${result.defaultFolder} (used when you omit \`folder\`; TaskHub creates this one itself).`;
+        const note = `\nDefault folder: ${result.defaultFolder} (used when you omit \`folder\`; Cronsole creates this one itself).`;
         return ok(`${header}\n${summary}${note}`, {
           matched,
           returned: rows.length,
@@ -481,23 +481,23 @@ export function registerTools(
         schedule: z
           .string()
           .describe(
-            '5-field cron in UTC: "min hour dom month dow". TaskHub stores all schedules as UTC cron and ' +
+            '5-field cron in UTC: "min hour dom month dow". Cronsole stores all schedules as UTC cron and ' +
             'displays them in local time — do not pass local time.'
           ),
         platform: z
           .enum(CREATABLE_PLATFORMS)
           .default('WINDOWS_TASK_SCHEDULER')
-          .describe('Where to create the task. Only Windows and TaskHub-native are creatable today.'),
+          .describe('Where to create the task. Only Windows and Cronsole-native are creatable today.'),
         category: z
           .string()
           .optional()
-          .describe('TaskHub category for grouping. For Windows this defaults to the folder name.'),
+          .describe('Cronsole category for grouping. For Windows this defaults to the folder name.'),
         folder: z
           .string()
           .optional()
           .describe(
             'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\TaskHub" (default) or ' +
-            '"\\\\Work\\\\Backups". The folder MUST ALREADY EXIST — TaskHub creates only its own "\\\\TaskHub" ' +
+            '"\\\\Work\\\\Backups". The folder MUST ALREADY EXIST — Cronsole creates only its own "\\\\TaskHub" ' +
             'folder, because removing a folder needs elevation and it will not leave behind one the user has to ' +
             'delete by hand. Folders under "\\\\Microsoft\\\\" are refused outright: Windows keeps its own ' +
             'scheduled tasks there and a name collision would silently overwrite one.'
@@ -566,7 +566,7 @@ export function registerTools(
         platform: z
           .enum(CREATABLE_PLATFORMS)
           .default('WINDOWS_TASK_SCHEDULER')
-          .describe('Where to create the task. Only Windows and TaskHub-native are creatable today.'),
+          .describe('Where to create the task. Only Windows and Cronsole-native are creatable today.'),
         name: z
           .string()
           .optional()
@@ -580,8 +580,8 @@ export function registerTools(
           .optional()
           .describe(
             'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\TaskHub" (default) or ' +
-            '"\\\\Work\\\\Backups". This also becomes the task\'s category in TaskHub. The folder MUST ALREADY ' +
-            'EXIST — TaskHub creates only its own "\\\\TaskHub" folder, because removing a folder needs elevation ' +
+            '"\\\\Work\\\\Backups". This also becomes the task\'s category in Cronsole. The folder MUST ALREADY ' +
+            'EXIST — Cronsole creates only its own "\\\\TaskHub" folder, because removing a folder needs elevation ' +
             'and it will not leave behind one the user has to delete by hand. Folders under "\\\\Microsoft\\\\" are ' +
             'refused outright: Windows keeps its own scheduled tasks there and a name collision would silently ' +
             'overwrite one.'
@@ -652,6 +652,9 @@ export function registerTools(
           warnings: string[];
           trigger: WindowsTrigger | null;
           lossy?: 'approximated' | 'replaced';
+          requestedRuns?: string[];
+          effectiveRuns?: string[] | null;
+          diverges?: boolean;
         }>('/tasks/preview', { platform, schedule });
         const warnings = result.warnings?.length ? `\nWarnings: ${result.warnings.join('; ')}` : '';
         const trigger = result.trigger ? `\nTrigger: ${describeTrigger(result.trigger)}` : '';
@@ -663,9 +666,19 @@ export function registerTools(
             : result.lossy === 'approximated'
               ? '\nLossy: approximated — the trigger is built from your cron but drifts after the first cycle.'
               : '';
+        // Dates, because they are the only rendering nobody can misread. A bare
+        // confidence of 1.0 is exactly what the Monday-only bug printed, and
+        // "REPLACED" still requires the reader to know what that costs; two run
+        // lists that disagree do not.
+        const runs = result.diverges && result.effectiveRuns?.length
+          ? `\nYou asked for: ${(result.requestedRuns ?? []).slice(0, 3).join(', ') || 'never'}` +
+            `\nIt will ACTUALLY run: ${result.effectiveRuns.slice(0, 3).join(', ')}, …`
+          : result.requestedRuns?.length
+            ? `\nNext runs (UTC): ${result.requestedRuns.slice(0, 3).join(', ')}`
+            : '';
         const text =
           result.score > 0
-            ? `Convertible for ${platform} (confidence ${result.score}).${trigger}${lossy}${warnings}`
+            ? `Convertible for ${platform} (confidence ${result.score}).${trigger}${lossy}${runs}${warnings}`
             : `Not convertible for ${platform} (score 0).${warnings}`;
         return ok(text, { platform, schedule, ...result });
       } catch (err) {
@@ -680,9 +693,9 @@ export function registerTools(
   server.registerTool(
     'create_native_task',
     {
-      title: 'Create a TaskHub-native HTTP task',
+      title: 'Create a Cronsole-native HTTP task',
       description:
-        'Create a TaskHub-native task that makes an HTTP request on a schedule — run by the TaskHub backend ' +
+        'Create a Cronsole-native task that makes an HTTP request on a schedule — run by the Cronsole backend ' +
         'itself, with no agent and no machine to be logged into. Use this instead of create_task when the job ' +
         'IS an HTTP call and you need more than a plain GET: this takes a full job spec (method, headers, body), ' +
         'where create_task with platform=TASKHUB_NATIVE only accepts a URL. ' +
@@ -709,7 +722,7 @@ export function registerTools(
           .string()
           .optional()
           .describe('Request body as a string. For JSON, pass the serialized JSON and set a Content-Type header.'),
-        category: z.string().optional().describe('TaskHub category for grouping. Defaults to "TaskHub".')
+        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
       }
     },
     async ({ name, url, schedule, method, headers, body, category }) => {
@@ -748,13 +761,13 @@ export function registerTools(
         'Show the recent execution history for a task — when it ran, whether it succeeded, how long it took, ' +
         'and any captured output. This is how you answer "did last night\'s job actually work?". ' +
         'Returns at most the 20 most recent runs (a server-side cap), newest first. ' +
-        'IMPORTANT: history only covers runs TaskHub knows about — manual runs it triggered and TaskHub-native ' +
+        'IMPORTANT: history only covers runs Cronsole knows about — manual runs it triggered and Cronsole-native ' +
         'scheduler fires. A Windows task that ran on its own trigger is recorded by Windows, not here, so an ' +
         'empty history does NOT mean the task never ran. Note too that a SUCCESS here means the run was ' +
         'dispatched and reported success — a task that hangs forever can still report SUCCESS, so for a ' +
         'suspected hang check Windows\' own LastTaskResult rather than trusting this.',
       inputSchema: {
-        taskId: z.string().describe('The TaskHub task id (from list_tasks).'),
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
         limit: z
           .number()
           .int()
@@ -773,12 +786,12 @@ export function registerTools(
         if (rows.length === 0) {
           // Say what the emptiness does and does not mean. "No runs" read as
           // "never ran" would be a confident lie for a Windows task firing on
-          // its own trigger — those runs are recorded by Windows, not TaskHub.
+          // its own trigger — those runs are recorded by Windows, not Cronsole.
           return ok(
             'No run history recorded for this task.\n' +
-            'This means TaskHub has not recorded a run — it does NOT necessarily mean the task never ran: ' +
-            'a Windows task firing on its own trigger is recorded by Windows, not by TaskHub. ' +
-            'TaskHub records manual runs it triggered and TaskHub-native scheduler fires.',
+            'This means Cronsole has not recorded a run — it does NOT necessarily mean the task never ran: ' +
+            'a Windows task firing on its own trigger is recorded by Windows, not by Cronsole. ' +
+            'Cronsole records manual runs it triggered and Cronsole-native scheduler fires.',
             { taskId, returned: 0, runs: [] }
           );
         }
@@ -810,13 +823,13 @@ export function registerTools(
       description:
         'Export a task\'s full definition. A Windows task exports as native Task Scheduler XML (the same thing ' +
         'Export-ScheduledTask and the Task Scheduler UI produce, so it re-imports into any Windows machine); ' +
-        'a TaskHub-native task exports as TaskHub JSON. Useful for inspecting exactly what is registered, ' +
+        'a Cronsole-native task exports as Cronsole JSON. Useful for inspecting exactly what is registered, ' +
         'backing a task up before changing it, or moving it to another machine. ' +
         'IMPORTANT if you save the XML to a file: Windows requires it as UTF-16 LE with a BOM. Writing it as ' +
         'UTF-8 (the default almost everywhere) produces a file Windows refuses with "unable to switch the ' +
         'encoding" — the text below is correct, but the encoding you save it in is on you.',
       inputSchema: {
-        taskId: z.string().describe('The TaskHub task id (from list_tasks).')
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).')
       }
     },
     async ({ taskId }) => {
@@ -843,11 +856,11 @@ export function registerTools(
           );
         }
 
-        // TaskHub-native: JSON straight from the DB row.
+        // Cronsole-native: JSON straight from the DB row.
         const json = JSON.parse(data.toString('utf8'));
         return ok(
-          `TaskHub-native task definition for ${taskId}:\n\n${JSON.stringify(json, null, 2)}`,
-          { taskId, format: 'taskhub-json', definition: json }
+          `Cronsole-native task definition for ${taskId}:\n\n${JSON.stringify(json, null, 2)}`,
+          { taskId, format: 'cronsole-json', definition: json }
         );
       } catch (err) {
         return toolError(err);
@@ -867,10 +880,10 @@ export function registerTools(
         'it — do NOT try to park a task by giving it a rare cron schedule (an expression Windows cannot express ' +
         'is silently REPLACED with an hourly trigger, so "once a year" becomes "every hour"). ' +
         'Disabling keeps the task and its definition intact and is fully reversible: enable it again to resume. ' +
-        'For a Windows task this sends a signed command to the local agent; the change is written to TaskHub ' +
+        'For a Windows task this sends a signed command to the local agent; the change is written to Cronsole ' +
         'only after the platform confirms it.',
       inputSchema: {
-        taskId: z.string().describe('The TaskHub task id (from list_tasks).'),
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
         status: z
           .enum(['ACTIVE', 'DISABLED'])
           .describe('ACTIVE enables the task; DISABLED stops it running without deleting it.')
@@ -905,18 +918,18 @@ export function registerTools(
       description:
         'Change when an existing task runs, without deleting and recreating it. For a Windows task the agent ' +
         'rebuilds only the trigger — the command, working directory, and permissions are preserved — and ' +
-        'TaskHub records the change only after the platform confirms it. ' +
+        'Cronsole records the change only after the platform confirms it. ' +
         'IMPORTANT: check the new schedule with convert_schedule FIRST and read the returned trigger, not just ' +
         'the confidence score. A cron Windows cannot express natively is REPLACED with an hourly trigger rather ' +
         'than refused, and it only ever runs MORE often than you asked. ' +
         'Only tasks whose trigger is expressible as cron can be re-scheduled: a Windows task that runs at boot, ' +
         'logon, or on an event has no cron form and is refused honestly.',
       inputSchema: {
-        taskId: z.string().describe('The TaskHub task id (from list_tasks).'),
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
         schedule: z
           .string()
           .describe(
-            '5-field cron in UTC: "min hour dom month dow". TaskHub stores all schedules as UTC and displays ' +
+            '5-field cron in UTC: "min hour dom month dow". Cronsole stores all schedules as UTC and displays ' +
             'them in local time — do not pass local time.'
           )
       }
@@ -947,7 +960,7 @@ export function registerTools(
       title: 'Change what a task runs',
       description:
         'Change an existing task\'s command, working directory, description, or run level. The agent replaces ' +
-        'the task\'s action while preserving its trigger and the account it runs as, and TaskHub records the ' +
+        'the task\'s action while preserving its trigger and the account it runs as, and Cronsole records the ' +
         'change only after the platform confirms it. ' +
         'The command is structured server-side into a no-shell {executable, args[]} action, exactly as on create ' +
         '— so a shell is NOT implied: to use pipes, redirection, or `&&` you must invoke one explicitly, ' +
@@ -956,7 +969,7 @@ export function registerTools(
         'so pass the full command you want even if you are only changing the working directory, and read the ' +
         'task\'s current values first (list_tasks / export_task) rather than guessing.',
       inputSchema: {
-        taskId: z.string().describe('The TaskHub task id (from list_tasks).'),
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
         command: z
           .string()
           .describe(
@@ -1014,24 +1027,24 @@ export function registerTools(
   //
   // Ungated because the scheduled task itself is untouched and the row can be
   // re-imported: nothing is destroyed that the platform doesn't still hold. The
-  // TaskHub-only loss is the run history, which is stated in the description
+  // Cronsole-only loss is the run history, which is stated in the description
   // rather than glossed over.
   server.registerTool(
     'untrack_task',
     {
-      title: 'Remove a task from TaskHub, keeping it on the platform',
+      title: 'Remove a task from Cronsole, keeping it on the platform',
       description:
-        'Stop tracking a task in TaskHub WITHOUT deleting it. The real scheduled task is left alone — it stays ' +
-        'on the machine and keeps running on its own schedule; only TaskHub\'s record of it (and its TaskHub run ' +
+        'Stop tracking a task in Cronsole WITHOUT deleting it. The real scheduled task is left alone — it stays ' +
+        'on the machine and keeps running on its own schedule; only Cronsole\'s record of it (and its Cronsole run ' +
         'history) is removed, and future syncs will not re-import it. ' +
         'This is the right tool for cleaning up a dashboard, undoing an over-broad import, or hiding tasks the ' +
         'user does not care about — use it instead of delete_task for anything that is not genuinely meant to ' +
         'stop existing. ' +
-        'Reversible: importing that category again in the TaskHub UI starts tracking the task once more. ' +
-        'Not available for TASKHUB_NATIVE tasks, which exist only inside TaskHub and therefore have nothing to ' +
+        'Reversible: importing that category again in the Cronsole UI starts tracking the task once more. ' +
+        'Not available for TASKHUB_NATIVE tasks, which exist only inside Cronsole and therefore have nothing to ' +
         'be kept — disable or delete those instead.',
       inputSchema: {
-        taskId: z.string().describe('The TaskHub task id (from list_tasks).')
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).')
       }
     },
     async ({ taskId }) => {
@@ -1042,7 +1055,7 @@ export function registerTools(
         );
         const detail = typeof result.detail === 'string'
           ? result.detail
-          : 'Removed from TaskHub. The scheduled task still exists on its platform.';
+          : 'Removed from Cronsole. The scheduled task still exists on its platform.';
         return ok(detail, {
           taskId,
           untracked: true,
@@ -1072,16 +1085,16 @@ export function registerTools(
         title: 'Delete a task permanently',
         description:
           'PERMANENTLY delete a scheduled task. For a Windows task this removes the real Task Scheduler entry ' +
-          'via the local agent (which runs elevated), and the TaskHub record is only removed after the platform ' +
+          'via the local agent (which runs elevated), and the Cronsole record is only removed after the platform ' +
           'confirms the deletion. This CANNOT be undone — there is no trash and no restore. ' +
           'Prefer set_task_status with DISABLED unless the task is genuinely meant to be gone: disabling stops ' +
           'the task running and is fully reversible. ' +
-          'If the goal is to tidy the TaskHub dashboard rather than to destroy a scheduled task, use ' +
-          'untrack_task instead — it removes the task from TaskHub and leaves it running on the machine. ' +
+          'If the goal is to tidy the Cronsole dashboard rather than to destroy a scheduled task, use ' +
+          'untrack_task instead — it removes the task from Cronsole and leaves it running on the machine. ' +
           'If you did not create the task in this session, export_task first so the definition can be rebuilt, ' +
           'and confirm with the user before calling this.',
         inputSchema: {
-          taskId: z.string().describe('The TaskHub task id (from list_tasks).')
+          taskId: z.string().describe('The Cronsole task id (from list_tasks).')
         }
       },
       async ({ taskId }) => {

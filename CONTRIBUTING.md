@@ -1,8 +1,8 @@
-# Contributing to TaskHub
+# Contributing to Cronsole
 
-Thanks for contributing to TaskHub.
+Thanks for contributing to Cronsole.
 
-TaskHub is currently a **private MVP-stage repository**. The goal of this guide is to keep changes small, reviewable, and aligned with the project plan in `docs/`.
+Cronsole is currently a **private MVP-stage repository**. The goal of this guide is to keep changes small, reviewable, and aligned with the project plan in `docs/`.
 
 ## Before you change code
 

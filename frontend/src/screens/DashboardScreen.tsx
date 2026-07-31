@@ -210,7 +210,7 @@ export const DashboardScreen = ({
       result = showDisabled ? tasks : tasks.filter(t => t.status === 'ACTIVE');
     }
 
-    // Platform isolation (e.g. only TaskHub-native, only Windows)
+    // Platform isolation (e.g. only Cronsole-native, only Windows)
     if (selectedPlatform !== 'All') {
       result = result.filter(t => t.platform === selectedPlatform);
     }
@@ -353,7 +353,7 @@ export const DashboardScreen = ({
             Only rendered when something is actually missing: the mess arrives in
             bulk (deleting a Task Scheduler folder flags every task under it at
             once), so the way out has to be bulk too. Amber rather than red — it
-            deletes TaskHub's records for tasks the platform already lost, not
+            deletes Cronsole's records for tasks the platform already lost, not
             anything on the machine, and the confirm modal says exactly that.
           */}
           {missingCount > 0 && (
@@ -361,7 +361,7 @@ export const DashboardScreen = ({
               onClick={() => onClearMissing(missingCount)}
               disabled={isClearingMissing}
               className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-500/10 border border-amber-500/40 text-foreground hover:border-amber-500/70 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-              title={`${missingCount} tracked task${missingCount === 1 ? ' was' : 's were'} not found on their platform at the last sync. Remove TaskHub's records for them — nothing on your machine is touched.`}
+              title={`${missingCount} tracked task${missingCount === 1 ? ' was' : 's were'} not found on their platform at the last sync. Remove Cronsole's records for them — nothing on your machine is touched.`}
             >
               <Trash2 size={16} className="text-amber-400" />
               {isClearingMissing ? 'Clearing…' : `Clear ${missingCount} Missing`}
@@ -371,7 +371,7 @@ export const DashboardScreen = ({
           <button
             onClick={onNewTask}
             className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-violet-600/20 active:scale-95"
-            title="Create a task that runs on TaskHub itself — no Windows entry"
+            title="Create a task that runs on Cronsole itself — no Windows entry"
           >
             <Zap size={16} /> New Task
           </button>

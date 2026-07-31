@@ -13,7 +13,7 @@
 ---
 
 This is the complete setup: the web dashboard, the backend, **and** the local agent that
-syncs your Windows Task Scheduler into TaskHub and lets you trigger tasks remotely.
+syncs your Windows Task Scheduler into Cronsole and lets you trigger tasks remotely.
 
 > [!IMPORTANT]
 > Haven't cloned the repo yet? Start with the

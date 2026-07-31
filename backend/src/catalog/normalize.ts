@@ -59,7 +59,7 @@ export const CATEGORY_TO_ENUM: Record<string, TemplateCategory> = {
 // dropped from targetPlatforms, matching the current catalog which never used it.
 export const TARGET_TO_PLATFORM: Record<string, PlatformType | undefined> = {
   windows: PlatformType.WINDOWS_TASK_SCHEDULER,
-  'taskhub-native': PlatformType.TASKHUB_NATIVE,
+  'cronsole-native': PlatformType.TASKHUB_NATIVE,
   macos: PlatformType.MACOS_LAUNCHD,
   'claude-code': PlatformType.CLAUDE_CODE,
   chatgpt: PlatformType.CHATGPT,

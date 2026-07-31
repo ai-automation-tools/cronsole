@@ -53,7 +53,7 @@ describe('save task as template', () => {
     expect(list.body.some((t: { id: string }) => t.id === res.body.template.id)).toBe(true);
   });
 
-  it('saves a native HTTP task as a taskhub-native template', async () => {
+  it('saves a native HTTP task as a cronsole-native template', async () => {
     const task = await createTask(
       owner.user.id,
       PlatformType.TASKHUB_NATIVE,

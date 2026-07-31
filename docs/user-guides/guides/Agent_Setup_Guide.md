@@ -1,8 +1,8 @@
-# TaskHub Windows Agent Setup Guide
+# Cronsole Windows Agent Setup Guide
 
-This guide details how to install, register, and run the **TaskHub C# Agent** on Windows. 
+This guide details how to install, register, and run the **Cronsole C# Agent** on Windows. 
 
-The agent runs as a headless (windowless) background process that connects to the TaskHub server via WebSockets. It syncs scheduled tasks and listens for "Run Now" execution requests from the TaskHub Dashboard.
+The agent runs as a headless (windowless) background process that connects to the Cronsole server via WebSockets. It syncs scheduled tasks and listens for "Run Now" execution requests from the Cronsole Dashboard.
 
 ---
 
@@ -21,7 +21,7 @@ The repository provides an automation script, [setup-agent-startup.ps1](../../..
 1. Open **PowerShell** as **Administrator**.
 2. Navigate to the agent directory (inside your clone of the repo):
    ```powershell
-   cd path\to\taskhub\agent
+   cd path\to\cronsole\agent
    ```
 3. Execute the registration script:
    ```powershell
@@ -62,8 +62,8 @@ To confirm the agent process is running silently in the background:
   ```
 
 ### 3. Connection Check
-To verify that the agent has connected to the TaskHub server:
-- Open the TaskHub Dashboard ([http://localhost:7373/](http://localhost:7373/)).
+To verify that the agent has connected to the Cronsole server:
+- Open the Cronsole Dashboard ([http://localhost:7373/](http://localhost:7373/)).
 - The **Windows Agent** status in the sidebar should display **Online**.
 - Verify that your local Windows scheduled tasks are successfully imported/synchronized.
 
@@ -82,7 +82,7 @@ If you are developing or debugging the agent and want to run it directly inside 
    ```bash
    dotnet run
    ```
-   *(This starts the agent in the foreground, showing log output like `Connecting to server...` and `Connected to TaskHub server!`)*
+   *(This starts the agent in the foreground, showing log output like `Connecting to server...` and `Connected to Cronsole server!`)*
 
 ---
 

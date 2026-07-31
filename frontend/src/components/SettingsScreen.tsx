@@ -43,7 +43,7 @@ import {
 } from '../api';
 import type { Task } from '../types';
 
-const PLATFORM_LINKS_KEY = 'taskhub_platform_links';
+const PLATFORM_LINKS_KEY = 'cronsole_platform_links';
 
 const VIEW_OPTIONS: { value: DashboardView; label: string; Icon: typeof Grid }[] = [
   { value: 'grid', label: 'Grid', Icon: Grid },
@@ -289,7 +289,7 @@ const AccountSection = () => {
     'w-full sm:w-64 bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground outline-none focus:border-primary shadow-sm';
 
   return (
-    <Section icon={KeyRound} title="Account" subtitle="The single owner account for this TaskHub instance.">
+    <Section icon={KeyRound} title="Account" subtitle="The single owner account for this Cronsole instance.">
       <Row label="Signed in as">
         <span className="text-xs font-mono text-muted-foreground">{user?.email ?? 'this device'}</span>
       </Row>
@@ -354,7 +354,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'taskhub-settings.json';
+    a.download = 'cronsole-settings.json';
     a.click();
     URL.revokeObjectURL(url);
     toast('Settings exported.', 'success');
@@ -368,7 +368,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
         replaceAll(parsed);
         toast('Settings imported.', 'success');
       } catch {
-        toast('Could not parse that file — expected TaskHub settings JSON.', 'error');
+        toast('Could not parse that file — expected Cronsole settings JSON.', 'error');
       }
     };
     reader.readAsText(file);
@@ -428,7 +428,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
       <ConnectionsSection timezone={settings.timezone} />
 
       {/* Appearance */}
-      <Section icon={Palette} title="Appearance" subtitle="How TaskHub looks on this device.">
+      <Section icon={Palette} title="Appearance" subtitle="How Cronsole looks on this device.">
         <Row label="Theme" description="Dark is the default. System follows your OS setting.">
           <ThemeToggle />
         </Row>
@@ -459,7 +459,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
       </Section>
 
       {/* Behavior */}
-      <Section icon={SlidersHorizontal} title="Behavior" subtitle="How TaskHub reacts to your actions.">
+      <Section icon={SlidersHorizontal} title="Behavior" subtitle="How Cronsole reacts to your actions.">
         <Row label="Confirm before running a task" description="Ask for confirmation before triggering a task run.">
           <Toggle
             checked={settings.confirmBeforeRun}

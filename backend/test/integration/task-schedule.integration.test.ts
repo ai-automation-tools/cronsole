@@ -15,7 +15,7 @@ async function createWindowsTask(userId: string, name = 'Integration-Schedule') 
       platform: PlatformType.WINDOWS_TASK_SCHEDULER,
       externalId: `\\TaskHub\\${name}`,
       name,
-      category: 'TaskHub',
+      category: 'Cronsole',
       schedule: '0 3 * * *',
       status: TaskStatus.ACTIVE,
       metadata: { schedule: '0 3 * * *', command: 'echo hi', state: 'Ready' }

@@ -36,7 +36,7 @@ export function validateJob(job: unknown): string | null {
 }
 
 /**
- * Executes a TaskHub-native job. HTTP is the only MVP job type
+ * Executes a Cronsole-native job. HTTP is the only MVP job type
  * (docs/resources/Native_Tasks.md).
  */
 export async function executeJob(job: NativeJob): Promise<NativeRunResult> {

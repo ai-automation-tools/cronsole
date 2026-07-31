@@ -31,7 +31,7 @@
       "key": "message",
       "label": "Message",
       "type": "text",
-      "default": "TaskHub scheduled heartbeat",
+      "default": "Cronsole scheduled heartbeat",
       "required": true,
       "help": "The text to post. Avoid single quotes (they close the PowerShell string)."
     }

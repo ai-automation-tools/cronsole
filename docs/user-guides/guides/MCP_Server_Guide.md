@@ -1,7 +1,7 @@
 <h1 align="center">🧩 MCP Server Guide</h1>
 
 <p align="center">
-  <em>Drive TaskHub in natural language from Claude, Codex, Cursor, or any MCP host —
+  <em>Drive Cronsole in natural language from Claude, Codex, Cursor, or any MCP host —
   list, run, and create scheduled tasks without leaving your assistant.</em>
 </p>
 
@@ -15,20 +15,20 @@
 
 ## What it is
 
-The **TaskHub MCP server** ([`mcp-server/`](../../../mcp-server/README.md)) is a
-[Model Context Protocol](https://modelcontextprotocol.io) server that exposes TaskHub's REST
+The **Cronsole MCP server** ([`mcp-server/`](../../../mcp-server/README.md)) is a
+[Model Context Protocol](https://modelcontextprotocol.io) server that exposes Cronsole's REST
 API as a set of tools an AI assistant can call. Ask Claude *"what scheduled tasks do I have
 that failed recently?"* or *"create a daily database backup from the backup template at 2am"*
-and it calls straight through to your running TaskHub backend.
+and it calls straight through to your running Cronsole backend.
 
 It's a **thin wrapper** — it holds no logic of its own. Every tool is a call to a backend
-route, so all of TaskHub's guarantees (per-user scoping, no-shell command structuring, signed
+route, so all of Cronsole's guarantees (per-user scoping, no-shell command structuring, signed
 agent commands, cron→trigger conversion) stay server-side where they're already tested. It
 speaks MCP over **stdio** and authenticates as **one user** via a token you provide.
 
 > [!NOTE]
 > This is the same "single pane of glass" you get in the dashboard, reached through your AI
-> assistant instead of the browser. Anything the MCP server can do, your TaskHub user account
+> assistant instead of the browser. Anything the MCP server can do, your Cronsole user account
 > can do.
 
 ## The tools
@@ -42,13 +42,13 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`create_task`** | "Run `C:\jobs\nightly.ps1` every weekday at 6am" — any command you already know | `POST /api/tasks` |
 | **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
 | **`create_native_task`** | "Ping my health endpoint every 15 minutes and POST this JSON to the webhook" | `POST /api/tasks/native` |
-| **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?" | `POST /api/tasks/preview` |
+| **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |
 | **`get_task_history`** | "Did last night's backup work?", "why did the report task fail?" | `GET /api/tasks/:id/executions` |
 | **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" | `GET /api/tasks/:id/export` |
 | **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
 | **`update_task_schedule`** | "Move the digest to 7am on weekdays" | `PATCH /api/tasks/:id/schedule` |
 | **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
-| **`untrack_task`** | "Stop showing all those Microsoft tasks", "I imported that folder by mistake" — removes it from TaskHub, **leaves the scheduled task running** | `POST /api/tasks/:id/untrack` |
+| **`untrack_task`** | "Stop showing all those Microsoft tasks", "I imported that folder by mistake" — removes it from Cronsole, **leaves the scheduled task running** | `POST /api/tasks/:id/untrack` |
 | **`delete_task`** ⚠️ | "Delete the old test task" — **off by default**, see below | `DELETE /api/tasks/:id` |
 
 **`create_task` vs. `create_task_from_template`:** use `create_task` when you already know the
@@ -60,23 +60,23 @@ which is backwards.
 
 `list_tasks` and `list_templates` accept optional filters (`platform`, `status`, `category`,
 `search`) and are bounded (default 50 results, with an honest "showing N of M" note). A task's
-`status` can be **`MISSING`** — tracked by TaskHub but gone from the platform on the last sync
+`status` can be **`MISSING`** — tracked by Cronsole but gone from the platform on the last sync
 (a native delete, or an offline agent / unreadable folder — the same from here); it self-heals
 to ACTIVE/DISABLED when the task reappears, so `list_tasks(status: "MISSING")` answers "what did
 I lose?".
 `create_task_from_template` fills the template's `{{placeholder}}` parameters from the values
-you pass. Both create tools are gated to the platforms TaskHub can actually create on today
-(**Windows Task Scheduler** + **TaskHub-native**), and their optional **`folder`** chooses the
+you pass. Both create tools are gated to the platforms Cronsole can actually create on today
+(**Windows Task Scheduler** + **Cronsole-native**), and their optional **`folder`** chooses the
 real Task Scheduler folder the task lands in — default `\TaskHub`, and it becomes the task's
-category in TaskHub. Any *other* folder must already exist: removing a Task Scheduler folder
-needs elevation, so TaskHub won't leave behind one you'd have to delete by hand. **`list_folders`
+category in Cronsole. Any *other* folder must already exist: removing a Task Scheduler folder
+needs elevation, so Cronsole won't leave behind one you'd have to delete by hand. **`list_folders`
 is how your assistant finds one** — it shows every real folder, its task count, and whether a
 task can be created there. Folders it can't use (like `\Microsoft\…`) are shown as *not
 writable* rather than hidden, so you get "that one's refused" instead of a confusing silence.
 
 > [!NOTE]
 > **Stopping a task: disable it, don't re-schedule it.** If your assistant offers to "pause" a
-> task by giving it a rare cron (once a year, Feb 30), don't let it — a cron TaskHub can't
+> task by giving it a rare cron (once a year, Feb 30), don't let it — a cron Cronsole can't
 > express natively is replaced with an **hourly** trigger, so that makes it run *more*, not
 > less. `set_task_status` with `DISABLED` is the honest way, and it's fully reversible.
 
@@ -99,26 +99,26 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 >   `create_task_from_template` (running / registering tasks) and `set_task_status`,
 >   `update_task_schedule`, `update_task_action` (changing them). Same guardrails as clicking
 >   **Run Now**, **Apply**, or **Edit** in the dashboard — and all of them are reversible.
-> - **`untrack_task` removes a task from TaskHub but not from your machine.** The scheduled task
->   stays where it is and keeps running; TaskHub just stops tracking it (and forgets its TaskHub
+> - **`untrack_task` removes a task from Cronsole but not from your machine.** The scheduled task
+>   stays where it is and keeps running; Cronsole just stops tracking it (and forgets its Cronsole
 >   run history). Use this to tidy a cluttered dashboard or undo an import you didn't mean to do
 >   — importing that folder again brings it back.
 > - **`delete_task` is OFF unless you turn it on.** Deleting removes the real Task Scheduler
 >   entry through an elevated agent, with no trash and no restore. Set
->   `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true` in your host's environment to expose it; otherwise your
+>   `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` in your host's environment to expose it; otherwise your
 >   assistant won't even see the tool. That switch is deliberately *yours* — a tool parameter
 >   like "confirm: true" would just be the assistant reassuring itself.
 
 > [!TIP]
-> **A `SUCCESS` in `get_task_history` means "TaskHub dispatched it and it reported success"** —
+> **A `SUCCESS` in `get_task_history` means "Cronsole dispatched it and it reported success"** —
 > a task that hangs forever reports exactly the same thing. If you suspect a hang, check
-> Windows' own `LastTaskResult` rather than trusting TaskHub's report of itself. Equally, an
-> **empty** history doesn't mean the task never ran: TaskHub records manual runs and native
+> Windows' own `LastTaskResult` rather than trusting Cronsole's report of itself. Equally, an
+> **empty** history doesn't mean the task never ran: Cronsole records manual runs and native
 > fires, while a Windows task firing on its own trigger is recorded by Windows.
 
 ## Prerequisites
 
-- A **running TaskHub backend** reachable over HTTP (local dev default `http://localhost:3000`).
+- A **running Cronsole backend** reachable over HTTP (local dev default `http://localhost:3000`).
   See [Setup](../../setup/README.md) or the [Quick Start](../../../README.md#-quick-start).
 - **Node.js** (the same LTS the backend uses) to run the server.
 - A **user JWT** for the account whose tasks you want to manage (below).
@@ -137,21 +137,21 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 
 | Variable | Required | Default | Purpose |
 |:---|:---:|:---|:---|
-| `TASKHUB_TOKEN` | ✅ | — | A user JWT sent as `Authorization: Bearer <token>`. |
-| `TASKHUB_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
-| `TASKHUB_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
-| `TASKHUB_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** tool. Deleting is permanent — no trash, no restore — so it's off unless you set this to exactly `true` (anything else, including a typo, leaves it off). When off, your assistant doesn't see the tool at all. Prefer disabling a task to deleting it. |
+| `CRONSOLE_TOKEN` | ✅ | — | A user JWT sent as `Authorization: Bearer <token>`. |
+| `CRONSOLE_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
+| `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
+| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** tool. Deleting is permanent — no trash, no restore — so it's off unless you set this to exactly `true` (anything else, including a typo, leaves it off). When off, your assistant doesn't see the tool at all. Prefer disabling a task to deleting it. |
 
 > [!IMPORTANT]
 > The server reads its **process environment only** — it loads no `.env` file, so copying
 > `.env.example` to `.env.local` does nothing by itself. Either set the vars in your host's
-> `env` block (below), or export `TASKHUB_TOKEN` in the environment you launch the host from:
+> `env` block (below), or export `CRONSOLE_TOKEN` in the environment you launch the host from:
 >
 > ```powershell
-> [Environment]::SetEnvironmentVariable('TASKHUB_TOKEN', '<jwt>', 'User')   # Windows, persistent
+> [Environment]::SetEnvironmentVariable('CRONSOLE_TOKEN', '<jwt>', 'User')   # Windows, persistent
 > ```
 > ```bash
-> export TASKHUB_TOKEN='<jwt>'                                              # POSIX
+> export CRONSOLE_TOKEN='<jwt>'                                              # POSIX
 > ```
 >
 > **On Windows, a fresh terminal is required** — a process inherits its environment from its
@@ -160,7 +160,7 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 
 ### Minting a token
 
-The MCP server acts as one TaskHub user — mint a JWT the same way the frontend dev token is
+The MCP server acts as one Cronsole user — mint a JWT the same way the frontend dev token is
 minted. From `backend/` (with the backend's `JWT_SECRET` in scope):
 
 ```bash
@@ -174,15 +174,15 @@ node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'
 
 ## Wire it into your assistant
 
-The backend must be running and reachable at `TASKHUB_API_URL`.
+The backend must be running and reachable at `CRONSOLE_API_URL`.
 
 ### Claude Code
 
 ```bash
-claude mcp add taskhub \
-  --env TASKHUB_TOKEN=<your-jwt> \
-  --env TASKHUB_API_URL=http://localhost:3000/api \
-  -- node /absolute/path/to/taskhub/mcp-server/dist/index.js
+claude mcp add cronsole \
+  --env CRONSOLE_TOKEN=<your-jwt> \
+  --env CRONSOLE_API_URL=http://localhost:3000/api \
+  -- node /absolute/path/to/cronsole/mcp-server/dist/index.js
 ```
 
 ### Claude Desktop / any JSON-config host
@@ -192,12 +192,12 @@ Add to `claude_desktop_config.json` (or the host's MCP config):
 ```json
 {
   "mcpServers": {
-    "taskhub": {
+    "cronsole": {
       "command": "node",
-      "args": ["/absolute/path/to/taskhub/mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/cronsole/mcp-server/dist/index.js"],
       "env": {
-        "TASKHUB_TOKEN": "<your-jwt>",
-        "TASKHUB_API_URL": "http://localhost:3000/api"
+        "CRONSOLE_TOKEN": "<your-jwt>",
+        "CRONSOLE_API_URL": "http://localhost:3000/api"
       }
     }
   }
@@ -208,19 +208,19 @@ Add to `claude_desktop_config.json` (or the host's MCP config):
 
 Any host that launches a stdio MCP server works — point it at
 `node .../mcp-server/dist/index.js` with the same two env vars. The tools appear under the
-`taskhub` server once it connects.
+`cronsole` server once it connects.
 
-### Working inside the TaskHub repo
+### Working inside the Cronsole repo
 
-If you're developing TaskHub itself, the root `.mcp.json` (seeded from
-[`.mcp.json.example`](../../../.mcp.json.example)) already carries a `taskhub` entry pointing at
-`./mcp-server/dist/index.js`, with `TASKHUB_TOKEN` referenced as `${TASKHUB_TOKEN}` so the
+If you're developing Cronsole itself, the root `.mcp.json` (seeded from
+[`.mcp.json.example`](../../../.mcp.json.example)) already carries a `cronsole` entry pointing at
+`./mcp-server/dist/index.js`, with `CRONSOLE_TOKEN` referenced as `${CRONSOLE_TOKEN}` so the
 committed config never holds the secret. Build the server, export the variable, and open a
 **fresh terminal** — then the tools appear automatically.
 
 > [!NOTE]
 > That file mixes two different MCP surfaces. The other servers (context7, playwright, …) are
-> **dev tooling** for *building* TaskHub. `taskhub` is a **product component** for *using* it —
+> **dev tooling** for *building* Cronsole. `cronsole` is a **product component** for *using* it —
 > the only entry that needs a running backend and a token, and so the only one that can fail
 > to start.
 
@@ -235,8 +235,8 @@ Once connected, natural-language prompts map onto the tools:
 - *"Run `C:\jobs\nightly.ps1` every weekday at 6am."* →
   `create_task(name: "Nightly", command: "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\jobs\\nightly.ps1\"", schedule: "0 13 * * 1-5")`
   — note the cron is **UTC**; 6am local is a different number.
-- *"Create a task from `dev-git-fetch-prune` for `C:\repos\taskhub`, hourly."* →
-  `create_task_from_template(templateId: "dev-git-fetch-prune", parameters: { repoPath: "C:\\repos\\taskhub" }, schedule: "0 * * * *")`
+- *"Create a task from `dev-git-fetch-prune` for `C:\repos\cronsole`, hourly."* →
+  `create_task_from_template(templateId: "dev-git-fetch-prune", parameters: { repoPath: "C:\\repos\\cronsole" }, schedule: "0 * * * *")`
 
 The assistant discovers a template's required parameters from `list_templates` (each template
 lists its params, required ones marked) before calling `create_task_from_template`.
@@ -244,19 +244,24 @@ lists its params, required ones marked) before calling `create_task_from_templat
 > [!TIP]
 > **Ask it to check the schedule first.** `convert_schedule` shows the trigger your cron
 > actually becomes — *"Weekly at 09:00 on Monday, Tuesday, …"* — which is worth reading, not
-> just the confidence number next to it. A cron TaskHub can't express as a native Windows
+> just the confidence number next to it. A cron Cronsole can't express as a native Windows
 > trigger is **replaced** with an hourly one rather than rejected, and that arrives as a
 > mild-sounding warning. Rare schedules are the ones this bites.
+>
+> Since 2026-07-31 it also prints **the actual run times**, and both lists when they disagree
+> (*"You asked for: 2027-01-01… / It will ACTUALLY run: 2026-07-31T13:00, 14:00, 15:00…"*).
+> That is the version nobody misreads. The same comparison is available in the app without an
+> agent host — **Tools → Schedule tester**.
 
 ## Troubleshooting
 
 | Symptom | Likely cause / fix |
 |:---|:---|
-| `TASKHUB_TOKEN is not set` on startup | The env var is missing in the host's config for this server. |
-| `TASKHUB_TOKEN was passed through unexpanded as the literal "${TASKHUB_TOKEN}"` | Your host resolved `${TASKHUB_TOKEN}` against an environment where it isn't set, so it forwarded the raw text. Export it and start the host from a **fresh terminal**. See [troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token). |
-| **The `taskhub` tools don't appear at all** | The server exited on startup — almost always the unexpanded-token case above. A host drops a server that fails to boot, so the symptom is *absence*, not an error. Check your host's MCP status (`/mcp` in Claude Code) for the message. |
-| `HTTP 403: Invalid or expired token` | Check the token is *real* before assuming it expired: an unexpanded `${TASKHUB_TOKEN}` literal produces this same 403. If it is a real JWT, it's wrong, expired, or signed with a different `JWT_SECRET` than the running backend — re-mint. |
-| `Could not reach the TaskHub backend … ECONNREFUSED` | The backend isn't running, or `TASKHUB_API_URL` is wrong (remember the `/api` suffix). |
+| `CRONSOLE_TOKEN is not set` on startup | The env var is missing in the host's config for this server. |
+| `CRONSOLE_TOKEN was passed through unexpanded as the literal "${CRONSOLE_TOKEN}"` | Your host resolved `${CRONSOLE_TOKEN}` against an environment where it isn't set, so it forwarded the raw text. Export it and start the host from a **fresh terminal**. See [troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token). |
+| **The `cronsole` tools don't appear at all** | The server exited on startup — almost always the unexpanded-token case above. A host drops a server that fails to boot, so the symptom is *absence*, not an error. Check your host's MCP status (`/mcp` in Claude Code) for the message. |
+| `HTTP 403: Invalid or expired token` | Check the token is *real* before assuming it expired: an unexpanded `${CRONSOLE_TOKEN}` literal produces this same 403. If it is a real JWT, it's wrong, expired, or signed with a different `JWT_SECRET` than the running backend — re-mint. |
+| `Could not reach the Cronsole backend … ECONNREFUSED` | The backend isn't running, or `CRONSOLE_API_URL` is wrong (remember the `/api` suffix). |
 | `HTTP 409` when creating | A Windows task with that name already exists — pass a different `name`. |
 | `HTTP 400: Schedule cannot be converted…` | The cron isn't Windows-convertible; check it with `convert_schedule` first. |
 | Tool returns an error but nothing crashes | By design — every tool returns a readable error (`isError`) instead of throwing. |
@@ -264,7 +269,7 @@ lists its params, required ones marked) before calling `create_task_from_templat
 ## How it fits together
 
 ```
-Your AI assistant  ──MCP/stdio──►  taskhub mcp-server  ──HTTP(Bearer JWT)──►  TaskHub backend
+Your AI assistant  ──MCP/stdio──►  cronsole mcp-server  ──HTTP(Bearer JWT)──►  Cronsole backend
    (Claude/Codex/…)                 (list/run/create/convert)                  (routes → agent / native scheduler)
 ```
 

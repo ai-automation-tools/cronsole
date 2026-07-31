@@ -1,4 +1,4 @@
-# TaskHub Template Registry — Schema v1 (draft for review)
+# Cronsole Template Registry — Schema v1 (draft for review)
 
 > **Status:** Draft for Mike's review. No code has changed. This is step 1 of the
 > [Template registry roadmap item](../../ROADMAP.md#-p2--product-value): the versioned,
@@ -17,7 +17,7 @@ automation abstractly along one model:
 
 > **Trigger → Action → Execution Target**
 
-TaskHub *compiles* that abstract description into a target's native config **at apply
+Cronsole *compiles* that abstract description into a target's native config **at apply
 time**, using the compilers it already has (`convertCronToWindowsTrigger`, the structured
 `{executable, args[]}` ExecAction path). A target the registry *declares* but can't yet
 *compile* renders as the honest "copy this to set up manually" path — the same honesty
@@ -81,7 +81,7 @@ not a replacement of the concepts:
     "retries": 0
   },
 
-  "author": "taskhub",                 // optional provenance (for community submissions later)
+  "author": "cronsole",                 // optional provenance (for community submissions later)
   "version": "1.0.0"                   // optional per-template content version
 }
 ```
@@ -91,7 +91,7 @@ not a replacement of the concepts:
 | `kind` | Fields | Compiles to | Real today? |
 |---|---|---|---|
 | `exec` | `program: string`, `args: string[]` | direct no-shell `ExecAction` (Windows), argv (POSIX) | ✅ Windows |
-| `http` | `method`, `url`, `headers?`, `body?` | TaskHub-native HTTP job | ✅ TaskHub-native |
+| `http` | `method`, `url`, `headers?`, `body?` | Cronsole-native HTTP job | ✅ Cronsole-native |
 | `prompt` | `text: string` | natural-language routine (Claude/ChatGPT) | ❌ compiler pending → manual |
 
 **`exec` is the canonical, secure form.** `program` + each `arg` map straight to the
@@ -123,9 +123,9 @@ fields (and in the `commandTemplate` shorthand). Server-side validation is the e
 
 ### 2.3 `compatibleTargets` vocabulary
 
-`windows` · `taskhub-native` · `macos` · `linux` · `claude-code` · `chatgpt`
+`windows` · `cronsole-native` · `macos` · `linux` · `claude-code` · `chatgpt`
 (extensible). A target is **real** only when a compiler exists for it — `windows` and
-`taskhub-native` today. Others are declared-but-manual: the UI shows them muted with the
+`cronsole-native` today. Others are declared-but-manual: the UI shows them muted with the
 honest "no agent or API yet — copy the command to set it up manually" note, exactly as the
 Apply modal already gates `CREATABLE_PLATFORMS`.
 
@@ -192,7 +192,7 @@ import rather than N of each:
 
 ```jsonc
 {
-  "taskhubCatalogVersion": "1.0",
+  "cronsoleCatalogVersion": "1.0",
   "pack": { "id": "developer", "name": "Developer Pack", "description": "…" },
   "templates": [ /* full v1 template objects, in declared order */ ]
 }
@@ -226,7 +226,7 @@ pack to the registry needs no site change.
 
 ## 4. Real examples, compiled
 
-Each example shows the registry JSON (source of truth) → what TaskHub compiles it into for
+Each example shows the registry JSON (source of truth) → what Cronsole compiles it into for
 each target. All four are current catalog entries re-expressed in v1.
 
 ### 4.1 PowerShell Script (starter · Windows `exec`)
@@ -319,7 +319,7 @@ modal shows the resolved prompt with the honest "no agent or API yet — copy to
 manually" note and a disabled Create button. Nothing fabricated; the template is fully valid
 and becomes one-click the day a connector lands.
 
-### 4.4 Webhook / HTTP Ping (starter · TaskHub-native `http`)
+### 4.4 Webhook / HTTP Ping (starter · Cronsole-native `http`)
 
 Same intent as the current Windows `Invoke-WebRequest` starter, expressed as a native HTTP
 job so it needs no agent at all.
@@ -333,11 +333,11 @@ job so it needs no agent at all.
     { "key": "method", "label": "HTTP method", "type": "select", "options": ["GET", "POST"], "default": "GET", "required": true },
     { "key": "url", "label": "URL", "type": "url", "required": true }
   ],
-  "compatibleTargets": ["taskhub-native", "windows"]
+  "compatibleTargets": ["cronsole-native", "windows"]
 }
 ```
 
-**Compiled → TaskHub-native:** an HTTP job (`method`, `url`) on cron `*/15 * * * *`, run by
+**Compiled → Cronsole-native:** an HTTP job (`method`, `url`) on cron `*/15 * * * *`, run by
 the backend scheduler — no agent required. **Compiled → Windows:** the same intent compiles
 to a `powershell.exe -Command "Invoke-WebRequest …"` `exec` action (runtime-specific
 lowering), so one template serves both targets.
@@ -352,7 +352,7 @@ vocabulary.
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://taskhub/registry/template-v1.json",
+  "$id": "https://cronsole/registry/template-v1.json",
   "type": "object",
   "required": ["schemaVersion", "id", "name", "trigger", "action", "compatibleTargets"],
   "additionalProperties": false,
@@ -412,7 +412,7 @@ vocabulary.
     },
     "compatibleTargets": {
       "type": "array", "minItems": 1,
-      "items": { "enum": ["windows","taskhub-native","macos","linux","claude-code","chatgpt"] }
+      "items": { "enum": ["windows","cronsole-native","macos","linux","claude-code","chatgpt"] }
     },
     "execution": {
       "type": "object",
@@ -440,7 +440,7 @@ is always structured.)*
 | Target | Trigger | Action | Settings | Status |
 |---|---|---|---|---|
 | `windows` | `cron → WindowsTrigger` (`convertCronToWindowsTrigger`) | `exec → ExecAction` (per-arg quoting); `http`→PS `Invoke-WebRequest` exec; `prompt`→n/a | `runLevel`, `workingDir` | ✅ exists |
-| `taskhub-native` | `cron` stored UTC | `http → native HTTP job`; `exec`→n/a | timeout/retries (partial) | ✅ exists |
+| `cronsole-native` | `cron` stored UTC | `http → native HTTP job`; `exec`→n/a | timeout/retries (partial) | ✅ exists |
 | `macos` | `cron → launchd StartCalendarInterval` | `exec → argv` / plist | — | ❌ compiler pending (honest manual) |
 | `claude-code` / `chatgpt` | `cron` (routine cadence) | `prompt → routine text` | — | ❌ compiler pending (honest manual) |
 

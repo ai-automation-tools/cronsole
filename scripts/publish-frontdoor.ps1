@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-    Publish the gallery as TaskHub's public front door (taskhub.mikesailab.com).
+    Publish the gallery as Cronsole's public front door (taskhub.mikesailab.com).
 
 .DESCRIPTION
-    TaskHub used to have two public pages: a marketing landing page at
+    Cronsole used to have two public pages: a marketing landing page at
     taskhub.mikesailab.com and the template gallery at mikesailab.com/taskhub-registry.
     Two front doors saying overlapping things. The landing page was retired on
     2026-07-28 and the gallery took over that domain, with the landing page's
@@ -15,7 +15,7 @@
     Why the registry itself does NOT move
     -------------------------------------
     The registry JSON stays at https://mikesailab.com/taskhub-registry/. That URL
-    is the documented TEMPLATE_REGISTRY_URL that installed TaskHubs already fetch
+    is the documented TEMPLATE_REGISTRY_URL that installed Cronsoles already fetch
     their catalog from; moving it would break catalog sync for every existing
     install, and the content-addressed pack/template paths with it. Only the
     *page* is served from the new domain — it detects that index.json is not

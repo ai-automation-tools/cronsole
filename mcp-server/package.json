@@ -1,11 +1,11 @@
 {
-  "name": "taskhub-mcp-server",
+  "name": "cronsole-mcp-server",
   "version": "1.0.0",
-  "description": "Model Context Protocol server for TaskHub — a thin wrapper over the REST API so Claude / Codex / Cursor can list, run, and create scheduled tasks via natural language.",
+  "description": "Model Context Protocol server for Cronsole — a thin wrapper over the REST API so Claude / Codex / Cursor can list, run, and create scheduled tasks via natural language.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "taskhub-mcp": "dist/index.js"
+    "cronsole-mcp": "dist/index.js"
   },
   "files": [
     "dist"
@@ -21,7 +21,7 @@
   "keywords": [
     "mcp",
     "model-context-protocol",
-    "taskhub",
+    "cronsole",
     "scheduler"
   ],
   "author": "",

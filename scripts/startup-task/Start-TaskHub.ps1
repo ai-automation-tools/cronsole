@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Launches the full local TaskHub stack (data services, backend, frontend, agent).
+    Launches the full local Cronsole stack (data services, backend, frontend, agent).
 
 .DESCRIPTION
     Single entry point used by the Windows Scheduled Task \Task-Hub\TaskHubAgent.
@@ -73,7 +73,7 @@ function Start-HostProcess {
     Write-Log "Started $Name (logs: $out / $err)"
 }
 
-Write-Log "===== TaskHub launcher starting ====="
+Write-Log "===== Cronsole launcher starting ====="
 Write-Log "Repo root: $RepoRoot"
 
 # --- 1. Docker engine --------------------------------------------------------
@@ -104,18 +104,18 @@ function Wait-Docker {
 
 if (Wait-Docker) {
     # Delegate the actual service startup to the single control script, so the
-    # boot path and a manual `taskhub up` share exactly one implementation. It's
+    # boot path and a manual `cronsole up` share exactly one implementation. It's
     # idempotent (starts only what's down), which is what the 10-min self-heal
     # re-run relies on.
-    $TaskHubScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'taskhub.ps1'
-    if (Test-Path $TaskHubScript) {
-        Write-Log "Bringing the stack up via $TaskHubScript"
-        & $TaskHubScript up *>> $MainLog
+    $CronsoleScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'taskhub.ps1'
+    if (Test-Path $CronsoleScript) {
+        Write-Log "Bringing the stack up via $CronsoleScript"
+        & $CronsoleScript up *>> $MainLog
     } else {
-        Write-Log "Control script not found at $TaskHubScript" 'ERROR'
+        Write-Log "Control script not found at $CronsoleScript" 'ERROR'
     }
 } else {
     Write-Log 'Docker engine unavailable - cannot start the stack. Backend would fail to reach Postgres.' 'ERROR'
 }
 
-Write-Log "===== TaskHub launcher finished ====="
+Write-Log "===== Cronsole launcher finished ====="

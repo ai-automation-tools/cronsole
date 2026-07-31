@@ -15,9 +15,9 @@ interface EditScheduleModalProps {
 }
 
 /**
- * Edit the cron schedule of an existing TaskHub-native task or cron-expressible
+ * Edit the cron schedule of an existing Cronsole-native task or cron-expressible
  * Windows Task Scheduler task. Windows edits rebuild only the native trigger via
- * the agent; TaskHub-native edits update the backend scheduler directly.
+ * the agent; Cronsole-native edits update the backend scheduler directly.
  */
 export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => {
   const queryClient = useQueryClient();
@@ -78,13 +78,13 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
             <p className="text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 text-foreground">
-              <CalendarClock size={11} /> {isWindows ? 'Windows Task Scheduler' : 'TaskHub-native'}
+              <CalendarClock size={11} /> {isWindows ? 'Windows Task Scheduler' : 'Cronsole-native'}
             </p>
             <h2 id="edit-schedule-title" className="text-xl font-bold">Edit Schedule</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               {isWindows
                 ? <>Changes only the trigger for <span className="font-semibold text-foreground">{task.name}</span> — its command and settings are preserved. Requires the Windows agent to be online.</>
-                : <>Changes when <span className="font-semibold text-foreground">{task.name}</span> runs in the TaskHub backend scheduler.</>}
+                : <>Changes when <span className="font-semibold text-foreground">{task.name}</span> runs in the Cronsole backend scheduler.</>}
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
@@ -131,7 +131,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
                 </div>
               ) : (
                 <p className="text-[11px] text-emerald-500 flex items-center gap-1.5">
-                  <CheckCircle2 size={12} /> {isWindows ? 'Converts cleanly to a Windows trigger.' : 'Valid TaskHub-native cron schedule.'}
+                  <CheckCircle2 size={12} /> {isWindows ? 'Converts cleanly to a Windows trigger.' : 'Valid Cronsole-native cron schedule.'}
                 </p>
               )
             )}

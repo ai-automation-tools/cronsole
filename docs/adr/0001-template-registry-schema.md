@@ -6,7 +6,7 @@
 
 ## Context
 
-The template catalog is fast-moving **content**; the TaskHub app is stable **code**. Today
+The template catalog is fast-moving **content**; the Cronsole app is stable **code**. Today
 the catalog is baked into `backend/src/seed.ts` and materialized by a Postgres reseed, so
 every catalog change is a code change + migration/reseed — friction that grows as the catalog
 grows toward the hundreds of templates sketched in the 2026-07-13 strategy pass (now the
@@ -24,7 +24,7 @@ it's a Windows job or a cron job." That was explored and rejected (see Alternati
 ## Decision
 
 **1. Format — a versioned, target-agnostic JSON schema on the Trigger → Action → Execution
-Target model.** A template describes the automation abstractly; TaskHub *compiles* it to a
+Target model.** A template describes the automation abstractly; Cronsole *compiles* it to a
 target's native config at apply time. Details and examples in the schema spec; the spine:
 
 - `schemaVersion`, stable `id`, `name`/`description`, `runtime`, `os`, `category` + `tags[]`.
@@ -35,7 +35,7 @@ target's native config at apply time. Details and examples in the schema spec; t
   `prompt` (natural language for AI targets).
 - `parameters` — the current `{key,label,type,default,required,options,help}` shape, unchanged.
 - `compatibleTargets[]` — declared execution targets, honest: **real only where a compiler
-  exists** (`windows`, `taskhub-native` today); others render as "copy to set up manually."
+  exists** (`windows`, `cronsole-native` today); others render as "copy to set up manually."
 - `execution` — `runLevel`/`workingDir` (real on Windows now), `timeoutSec`/`retries` (declared
   for future).
 

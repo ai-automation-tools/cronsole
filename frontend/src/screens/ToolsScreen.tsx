@@ -2,6 +2,7 @@ import { BulkExportTool } from '../components/tools/BulkExportTool';
 import { ConnectPackTool } from '../components/tools/ConnectPackTool';
 import { RestoreTool } from '../components/tools/RestoreTool';
 import { RunHistoryTool } from '../components/tools/RunHistoryTool';
+import { ScheduleTesterTool } from '../components/tools/ScheduleTesterTool';
 import { TaskHealthTool } from '../components/tools/TaskHealthTool';
 
 /**
@@ -22,7 +23,7 @@ export const ToolsScreen = () => (
   <div className="space-y-8 animate-in fade-in duration-500 pb-20">
     <div>
       <h2 className="text-2xl font-bold mb-1">Tools</h2>
-      <p className="text-muted-foreground">Check task health, back up and restore tasks, and connect AI tools.</p>
+      <p className="text-muted-foreground">Check task health, try a schedule, back up and restore tasks, and connect AI tools.</p>
     </div>
 
     {/* No `items-start`: the default `stretch` plus `h-full` on every card is
@@ -32,6 +33,7 @@ export const ToolsScreen = () => (
         its own card rather than stretching the whole row. */}
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <TaskHealthTool />
+      <ScheduleTesterTool />
       <BulkExportTool />
       <RestoreTool />
       <RunHistoryTool />

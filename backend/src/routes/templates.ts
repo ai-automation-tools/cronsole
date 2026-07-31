@@ -38,7 +38,7 @@ const router = Router();
 
 const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 
-const isValidCron = (cron: string) => cron.trim().split(/\s+/).length === 5;
+import { isValidCron } from '../utils/cron.js';
 
 /**
  * Resolve the platform-native trigger for a schedule. Only Windows needs a
@@ -74,7 +74,7 @@ router.get('/', async (req: Request, res: Response) => {
 const safeFilePart = (s: string) => s.replace(/[^\w.-]+/g, '_').slice(0, 80) || 'catalog';
 
 // Export the catalog (or a subset) as a portable Registry v1 JSON download.
-//   GET /export            -> whole catalog, as an { taskhubCatalogVersion, ... } bundle
+//   GET /export            -> whole catalog, as an { cronsoleCatalogVersion, ... } bundle
 //   GET /export?ids=a,b    -> just those templates, same bundle shape
 //   GET /export?id=x       -> a single template as a bare v1 object (nice to hand-edit)
 // Reads the DB (what the user actually sees) and lowers each row to v1 via
@@ -87,7 +87,7 @@ router.get('/export', async (req: Request, res: Response) => {
     if (!row) throw new HttpError(404, 'Template not found');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition',
-      `attachment; filename="taskhub-template-${safeFilePart(singleId)}.json"`);
+      `attachment; filename="cronsole-template-${safeFilePart(singleId)}.json"`);
     return res.json(denormalizeTemplate(row));
   }
 
@@ -99,7 +99,7 @@ router.get('/export', async (req: Request, res: Response) => {
   const stamp = bundle.exportedAt.slice(0, 10);
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Content-Disposition',
-    `attachment; filename="taskhub-catalog-${safeFilePart(stamp)}.json"`);
+    `attachment; filename="cronsole-catalog-${safeFilePart(stamp)}.json"`);
   res.json(bundle);
 });
 
@@ -229,7 +229,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
     typeof name === 'string' && name.trim() ? name.trim() : template.name;
 
   // Windows: resolve the destination folder, then reject an invalid folder or
-  // name (400) and a name that collides with a task TaskHub already tracks IN
+  // name (400) and a name that collides with a task Cronsole already tracks IN
   // THAT FOLDER (409) — RegisterTaskDefinition would otherwise silently
   // overwrite it. The collision is per-folder because that is how Windows'
   // overwrite works: \Work\Backup and \TaskHub\Backup are different tasks.
@@ -323,7 +323,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   // shows it without waiting for a sync, and the duplicate-name guard above
   // sees it immediately — so a back-to-back re-apply with the same name 409s
   // instead of silently overwriting the task that was just created.
-  // Windows ONLY: TaskHubNativeConnector.createTask writes its own row (with
+  // Windows ONLY: CronsoleNativeConnector.createTask writes its own row (with
   // metadata.job — an upsert here would wipe it and break the task), and no
   // other connector can succeed today.
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {

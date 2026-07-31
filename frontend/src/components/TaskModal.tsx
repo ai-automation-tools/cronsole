@@ -138,7 +138,7 @@ function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
 }
 
 /**
- * Whether the task's action + settings can be edited from TaskHub, plus the
+ * Whether the task's action + settings can be edited from Cronsole, plus the
  * prefill for the editor. Gated to Windows tasks with exactly one reported exec
  * action — the agent replaces the single exec action, so multi-action or
  * not-yet-synced tasks stay read-only with an honest reason.
@@ -292,7 +292,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
     mutationFn: async () => api.post(`/tasks/${task!.id}/untrack`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast(`"${task!.name}" removed from TaskHub. It still exists on its platform.`, 'success');
+      toast(`"${task!.name}" removed from Cronsole. It still exists on its platform.`, 'success');
       onClose();
     },
     onError: (error: unknown) => {
@@ -316,7 +316,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
   });
 
   // Export the task's native definition: Windows → Task Scheduler XML (via the
-  // agent), TaskHub-native → TaskHub JSON. Downloads through the api client so
+  // agent), Cronsole-native → Cronsole JSON. Downloads through the api client so
   // the auth header rides along, using the server's Content-Disposition filename.
   const handleExport = async () => {
     setExporting(true);
@@ -424,7 +424,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               <div className="flex flex-col items-center justify-center py-16 text-subtle-foreground gap-2">
                 <History size={32} className="opacity-30" />
                 <p className="text-sm font-medium">No recorded runs yet</p>
-                <p className="text-xs text-subtle-foreground">Manual runs and TaskHub-scheduled fires will appear here.</p>
+                <p className="text-xs text-subtle-foreground">Manual runs and Cronsole-scheduled fires will appear here.</p>
               </div>
             ) : (
               executions.map(run => (
@@ -514,7 +514,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
             ) : (
               <div className="text-xs text-subtle-foreground bg-background border border-border rounded-xl px-4 py-3 flex items-start gap-2">
                 <Info size={14} className="shrink-0 mt-0.5" />
-                No direct schedule — this task runs on a trigger TaskHub can't express as cron (boot, logon, event, or on-demand only).
+                No direct schedule — this task runs on a trigger Cronsole can't express as cron (boot, logon, event, or on-demand only).
               </div>
             )}
             {sched.rows.length > 0 && <RowList rows={sched.rows} />}
@@ -607,7 +607,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
         <footer className="p-6 bg-background border-t border-border flex flex-wrap gap-3">
           {/*
             Two removals, and the entire design is in telling them apart.
-            "Remove from TaskHub" keeps the scheduled task and forgets it here;
+            "Remove from Cronsole" keeps the scheduled task and forgets it here;
             "Delete from Windows" destroys the real thing. They differ only in
             blast radius and one is irreversible, so they get different verbs,
             different icons, different colours, and confirm copy that names what
@@ -618,13 +618,13 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
             <button
               onClick={async () => {
                 const ok = await confirm({
-                  title: 'Remove from TaskHub?',
+                  title: 'Remove from Cronsole?',
                   message:
-                    `"${task.name}" will disappear from this dashboard along with its TaskHub run history.\n\n` +
+                    `"${task.name}" will disappear from this dashboard along with its Cronsole run history.\n\n` +
                     'The scheduled task itself is NOT deleted — it stays on the machine and keeps running ' +
-                    'on its own schedule. TaskHub just stops tracking it, and will not re-import it on the ' +
+                    'on its own schedule. Cronsole just stops tracking it, and will not re-import it on the ' +
                     'next sync. Import its category again to bring it back.',
-                  confirmText: 'Remove from TaskHub',
+                  confirmText: 'Remove from Cronsole',
                   tone: 'default'
                 });
                 if (ok) {
@@ -633,9 +633,9 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               }}
               disabled={untrackMutation.isPending}
               className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
-              title="Stop tracking this task in TaskHub. The scheduled task stays on the machine and keeps running."
+              title="Stop tracking this task in Cronsole. The scheduled task stays on the machine and keeps running."
             >
-              {untrackMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <EyeOff size={16} />} Remove from TaskHub
+              {untrackMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <EyeOff size={16} />} Remove from Cronsole
             </button>
           )}
           {(task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && (() => {
@@ -644,8 +644,8 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               <button
                 onClick={async () => {
                   const scope = isWindowsTask
-                    ? `"${task.name}" will be deleted from Windows Task Scheduler itself, along with its TaskHub run history. The scheduled task will stop existing and will never run again.\n\nThis cannot be undone. To keep the task and only stop tracking it here, use "Remove from TaskHub" instead.`
-                    : `Delete "${task.name}" and its run history? This task exists only inside TaskHub, so this cannot be undone.`;
+                    ? `"${task.name}" will be deleted from Windows Task Scheduler itself, along with its Cronsole run history. The scheduled task will stop existing and will never run again.\n\nThis cannot be undone. To keep the task and only stop tracking it here, use "Remove from Cronsole" instead.`
+                    : `Delete "${task.name}" and its run history? This task exists only inside Cronsole, so this cannot be undone.`;
                   const ok = await confirm({
                     title: isWindowsTask ? 'Delete from Windows?' : 'Delete task?',
                     message: scope,
@@ -660,7 +660,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
                 className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-3 rounded-xl font-bold transition-all border border-red-500/30 active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
                 title={isWindowsTask
                   ? 'Permanently delete this task from Windows Task Scheduler (via the agent)'
-                  : 'Delete this TaskHub-native task'}
+                  : 'Delete this Cronsole-native task'}
               >
                 {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 {isWindowsTask ? 'Delete from Windows' : 'Delete'}
@@ -690,21 +690,21 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               disabled={exporting}
               title={task.platform === 'WINDOWS_TASK_SCHEDULER'
                 ? 'Export this task as Windows Task Scheduler XML (via the agent)'
-                : 'Export this TaskHub-native task as JSON'}
+                : 'Export this Cronsole-native task as JSON'}
               className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export
             </button>
           )}
           {(() => {
-            // Editable for TaskHub-native tasks (backend owns the scheduler) and
+            // Editable for Cronsole-native tasks (backend owns the scheduler) and
             // for Windows tasks whose trigger is cron-expressible (task.schedule
             // is set). Boot/logon/event/on-demand Windows triggers read back as
             // no schedule and stay read-only until they have a safe editor.
             const editable = (task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && !!task.schedule;
             const reason = task.platform === 'WINDOWS_TASK_SCHEDULER'
-              ? "This task runs on a trigger TaskHub can't edit yet (boot, logon, event, or on-demand only)."
-              : 'Schedule editing is only available for TaskHub-native tasks and cron-expressible Windows tasks.';
+              ? "This task runs on a trigger Cronsole can't edit yet (boot, logon, event, or on-demand only)."
+              : 'Schedule editing is only available for Cronsole-native tasks and cron-expressible Windows tasks.';
             return (
               <button
                 onClick={() => editable && setShowScheduleEditor(true)}

@@ -4,7 +4,7 @@ import type { PlatformLink } from '../types';
 
 export const PlatformsScreen = () => {
   const [links, setLinks] = useState<PlatformLink[]>(() => {
-    const saved = localStorage.getItem('taskhub_platform_links');
+    const saved = localStorage.getItem('cronsole_platform_links');
     if (saved) return JSON.parse(saved);
     return [
       { id: 'claude', name: 'Claude Routines', url: 'https://claude.ai/code/routines', iconType: 'claude' },
@@ -19,7 +19,7 @@ export const PlatformsScreen = () => {
 
   const saveLinks = (newLinks: PlatformLink[]) => {
     setLinks(newLinks);
-    localStorage.setItem('taskhub_platform_links', JSON.stringify(newLinks));
+    localStorage.setItem('cronsole_platform_links', JSON.stringify(newLinks));
   };
 
   const addLink = () => {

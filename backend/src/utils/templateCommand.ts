@@ -161,7 +161,7 @@ export function substituteStructuredCommand(
 
 /**
  * Whole-string substitution for platforms that don't split a command into
- * argv (e.g. a TaskHub-native HTTP job, where the command is a URL). Same
+ * argv (e.g. a Cronsole-native HTTP job, where the command is a URL). Same
  * unfilled-placeholder tracking as the structured variant.
  */
 export function substitutePlainCommand(

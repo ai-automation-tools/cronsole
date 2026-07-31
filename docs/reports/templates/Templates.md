@@ -1,4 +1,4 @@
-# TaskHub — Template Catalog & Design
+# Cronsole — Template Catalog & Design
 
 > Living spec for the **Template** feature. Templates are how a user creates a new scheduled
 > task by clicking a button instead of hand-writing a command + cron + trigger. This doc is the
@@ -23,7 +23,7 @@
 
 ## 1. Why templates matter
 
-Templates are the most leveraged surface in TaskHub. A scheduled task is really just three
+Templates are the most leveraged surface in Cronsole. A scheduled task is really just three
 things — **a runtime**, **a command/script**, and **a schedule**. Most users don't want to
 remember PowerShell syntax *and* cron syntax *and* the Windows trigger XML at the same time.
 A template collapses all of that into: *pick one → fill a couple of blanks → click Apply.*
@@ -32,7 +32,7 @@ We support two complementary tiers in one library:
 
 | Tier | Answers | Example | Who authors it |
 |---|---|---|---|
-| **A. Script Starters** | "How does this run?" | *PowerShell Script*, *Python Script (cross-platform)* | Shipped by TaskHub (curated) |
+| **A. Script Starters** | "How does this run?" | *PowerShell Script*, *Python Script (cross-platform)* | Shipped by Cronsole (curated) |
 | **B. Use-Case Patterns** | "What does this do?" | *Daily Database Backup*, *Morning News Digest* | Shipped + community (`isPublic`, `upvotes`) |
 
 Tier B already exists (see `backend/src/seed.ts`). This doc adds **Tier A** and the metadata

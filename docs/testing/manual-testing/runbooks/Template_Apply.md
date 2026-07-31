@@ -3,7 +3,7 @@
 > **Covers:** F3.1, F3.3, F3.4, F3.9, F2.7 · I5.1, I5.4, I5.5 · U3.1, U3.2, U3.3, U3.4, U4.3, U4.4
 > **Time:** ~20 min · **Needs:** the stack + Windows
 
-The template catalog is TaskHub's on-ramp — it's how a new user gets from "empty dashboard" to
+The template catalog is Cronsole's on-ramp — it's how a new user gets from "empty dashboard" to
 "working scheduled task." This runbook walks that arc and checks the two honesty guarantees
 that live here: **the 409 duplicate guard** and **honest handling of targets we can't compile**.
 
@@ -29,7 +29,7 @@ $templates.Count
 ## 2. Prune-on-sync spared your own templates
 
 ```powershell
-docker exec taskhub-db-1 psql -U taskhub -d taskhub `
+docker exec taskhub-db-1 psql -U cronsole -d cronsole `
   -c 'SELECT name, managed FROM "Template" ORDER BY managed, name;'
 ```
 
@@ -40,7 +40,7 @@ your own templates vanished, that's a serious data-loss bug.
 ## 3. `core` never reached the database
 
 ```powershell
-docker exec taskhub-db-1 psql -U taskhub -d taskhub -c '\d "Template"'
+docker exec taskhub-db-1 psql -U cronsole -d cronsole -c '\d "Template"'
 ```
 
 **Expect:** **no `core` column.** `normalize.ts` whitelists Prisma fields; `core` is a
@@ -202,8 +202,8 @@ Get-ScheduledTask -TaskPath '\NoSuchFolder\*' -ErrorAction SilentlyContinue   # 
 
 **Expect:** an honest failure naming the missing folder, and no `\NoSuchFolder` left behind.
 
-**Why:** TaskHub creates exactly one folder — its own `\TaskHub`, the same one it prunes when
-emptied. Deleting a Task Scheduler folder needs **elevation**, so any other folder TaskHub
+**Why:** Cronsole creates exactly one folder — its own `\TaskHub`, the same one it prunes when
+emptied. Deleting a Task Scheduler folder needs **elevation**, so any other folder Cronsole
 created would be a one-way door only the user could close by hand. *Never create what you
 cannot remove.*
 
@@ -244,7 +244,7 @@ Get-ScheduledTask -TaskPath "$existing\" -TaskName 'manual-test-folder' |
   Unregister-ScheduledTask -Confirm:$false
 ```
 
-> **Cleanup note.** TaskHub only auto-prunes an emptied `\TaskHub\`; every other folder is
+> **Cleanup note.** Cronsole only auto-prunes an emptied `\TaskHub\`; every other folder is
 > **yours** and is deliberately left alone. That's why it also refuses to *create* one — a
 > folder it made would need **elevation** to delete, so it would be litter only you could
 > clear. If a dogfood ever leaves folders behind, remove them from an **elevated** prompt:
@@ -276,14 +276,14 @@ Invoke-RestMethod -Method Post "http://localhost:3000/api/templates/<template-id
 - `score < 1.0` comes back with **at least one warning** — never a silent downgrade.
 - In the UI, `score < 0.7` **blocks auto-apply** until you acknowledge the warning.
 
-**The principle:** the user consents to loss. TaskHub never quietly degrades a schedule and
+**The principle:** the user consents to loss. Cronsole never quietly degrades a schedule and
 reports success. The score is `min(template confidence, conversion confidence)`, so a lossy
 *either* way must surface.
 
 ## 11. Uncompiled targets are honest
 
 Find a template declaring a `compatibleTargets` entry with **no compiler** (only Windows and
-TaskHub-native compile today).
+Cronsole-native compile today).
 
 **Expect:** an honest **"copy to set up manually"** path — the command to run yourself. **Not**
 a disabled button with no explanation, and **never** a silent no-op that looks like success.

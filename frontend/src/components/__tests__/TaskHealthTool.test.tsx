@@ -131,7 +131,7 @@ describe('TaskHealthTool', () => {
           {
             code: 'no-run-evidence',
             severity: 'info',
-            summary: 'TaskHub has no run results for this task yet.',
+            summary: 'Cronsole has no run results for this task yet.',
             evidence: 'The connected agent does not report last-run results — republish the agent to enable health checks',
             weight: 0
           }

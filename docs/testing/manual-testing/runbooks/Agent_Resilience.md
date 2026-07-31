@@ -3,7 +3,7 @@
 > **Covers:** F5.7, F6.4 · I3.4, I3.5, I3.6, I3.7 · R5.3 · U4.1, U4.5, U4.6, U5.6
 > **Time:** ~20 min · **Needs:** the stack
 
-TaskHub is local-first: the agent lives on your machine and **always dials out**. So the
+Cronsole is local-first: the agent lives on your machine and **always dials out**. So the
 interesting failures aren't crashes — they're **disconnects**, and whether the dashboard tells
 you the truth while disconnected. A dashboard that shows stale "online" state is actively
 dangerous: you'd trust a Run Now that goes nowhere.
@@ -132,7 +132,7 @@ pwsh .\scripts\taskhub.ps1 up
 **Expect:** a new agent command against a **stale** agent produces a clear timeout error, not a
 silent no-op. The tell that this is skew and not a missing route: the route **exists** (a bad
 id returns `{"error":"Task not found"}`, not an Express "Cannot GET"), and only the
-**agent-backed** path times out — a DB-only TaskHub-native path works instantly. See
+**agent-backed** path times out — a DB-only Cronsole-native path works instantly. See
 [troubleshooting #7](../../../troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished).
 
 ## 8. Failure notifications fire
@@ -153,7 +153,7 @@ Leave the stack idle after killing an agent mid-run.
 
 **Expect:** the stale-pruning guard clears orphaned "running" state rather than leaving a task
 pinned as running forever. Cross-check
-[`artifacts/taskhub_resilience_2026-07-10.md`](../../../../artifacts/taskhub_resilience_2026-07-10.md).
+[`artifacts/cronsole_resilience_2026-07-10.md`](../../../../artifacts/cronsole_resilience_2026-07-10.md).
 
 ## 10. Survives a reboot
 

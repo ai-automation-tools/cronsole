@@ -1,7 +1,7 @@
 <h1 align="center">🤖 Subagents</h1>
 
 <p align="center">
-  <em>Project-scoped Claude Code subagents that handle specialized TaskHub work.</em>
+  <em>Project-scoped Claude Code subagents that handle specialized Cronsole work.</em>
 </p>
 
 <p align="center">

@@ -81,7 +81,7 @@ export class TaskService {
 
   /**
    * Reconcile DB tasks against the platform's FULL task list. A task tracked in
-   * TaskHub but absent from `currentExternalIds` is flipped to MISSING (and its
+   * Cronsole but absent from `currentExternalIds` is flipped to MISSING (and its
    * nextRunTime cleared) — NOT deleted.
    *
    * Why not delete: absence from one sync is not proof a task is gone. An
@@ -245,7 +245,7 @@ export class TaskService {
   /**
    * The platform-native ids this user has explicitly untracked on `platform`.
    *
-   * Untrack removes TaskHub's row while leaving the real scheduler entry alone,
+   * Untrack removes Cronsole's row while leaving the real scheduler entry alone,
    * so without this the next sync including that category re-imports it — right
    * by the sync's logic, and identical from the outside to "untrack is broken".
    */

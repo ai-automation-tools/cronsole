@@ -1,6 +1,6 @@
 # registry-site/ — the public Template Gallery
 
-Source of truth for the **TaskHub Template Gallery**, the browse-and-import site served at
+Source of truth for the **Cronsole Template Gallery**, the browse-and-import site served at
 **`https://mikesailab.com/taskhub-registry/`**.
 
 It's a single self-contained `index.html` (inline CSS + vanilla JS, no build step, no external
@@ -21,7 +21,7 @@ views:
 Every template offers **Download JSON** and **Copy JSON**, which flow into the app's shipped
 **Templates → Import** path (`POST /api/templates/import`). Aesthetic direction: a dark, textured
 "automation control catalog" with a monospace-forward technical identity and a phosphor-green
-"runnable" signal. A one-click "Add to my TaskHub" protocol handoff is a deliberate future
+"runnable" signal. A one-click "Add to my Cronsole" protocol handoff is a deliberate future
 follow-up (roadmap part 3).
 
 ## How it ships

@@ -1,6 +1,6 @@
 # Task authoring & management
 
-How to **create** a scheduled task in TaskHub, in every way the system supports, and how to
+How to **create** a scheduled task in Cronsole, in every way the system supports, and how to
 **manage** it afterwards. Read this before creating a task on a user's real machine —
 a scheduled task is durable, runs unattended, and runs **elevated** on Windows.
 
@@ -110,15 +110,15 @@ step (`*/15 * * * *`), hour step (`0 */4 * * *`). Everything else hits the fallb
 
 | Rule | Behavior |
 |:---|:---|
-| **Default folder is `\TaskHub`** | The only folder TaskHub creates — and the only one it prunes when the last task leaves. |
-| **Any other folder must ALREADY EXIST** | Deleting a folder needs elevation, so TaskHub will not create one it can't remove. *Never create what you cannot remove.* A create into a missing folder is refused honestly. |
+| **Default folder is `\TaskHub`** | The only folder Cronsole creates — and the only one it prunes when the last task leaves. |
+| **Any other folder must ALREADY EXIST** | Deleting a folder needs elevation, so Cronsole will not create one it can't remove. *Never create what you cannot remove.* A create into a missing folder is refused honestly. |
 | **`\Microsoft\` is refused outright** | `RegisterTaskDefinition` **silently overwrites** a same-named task, and the agent runs **elevated** — writing there could destroy a real Windows task with no error. Refused in the backend **and independently in the agent**. |
 | **Name must be unique per folder** | A collision returns **409** rather than letting Windows silently overwrite. `\Work\Backup` and `\TaskHub\Backup` are different tasks. |
 | **`folder` is inside the signature** | Every field the agent acts on is signed — an unsigned field would let an on-path attacker redirect the write. |
 
 **Use `list_folders` to find a valid one** (MCP) / `GET /api/tasks/folders` — it returns every
 real folder with its task count and whether you can create there. Don't guess a path: the only
-folder TaskHub will create is `\TaskHub`, so a guess that doesn't exist is an honest refusal,
+folder Cronsole will create is `\TaskHub`, so a guess that doesn't exist is an honest refusal,
 not a new folder.
 
 Two things about that listing that will otherwise mislead you:
@@ -128,7 +128,7 @@ Two things about that listing that will otherwise mislead you:
   its presence as permission.
 - **The default `\TaskHub` is often absent from the list.** It's created lazily and **pruned
   when its last task is deleted**, so on a clean machine it genuinely doesn't exist yet. That
-  is not a problem and not a reason to pick a different folder — omit `folder` and TaskHub
+  is not a problem and not a reason to pick a different folder — omit `folder` and Cronsole
   creates it. `list_folders` reports `defaultFolder` separately for exactly this reason.
 
 ---
@@ -152,19 +152,19 @@ Two things about that listing that will otherwise mislead you:
 | **Bulk export / backup** | ❌ | `POST /api/tools/export/tasks` — all folders or one, as native XML. Exports what is **on the machine**, not just tracked tasks; `\Microsoft\` excluded unless `includeSystem: true`. Dashboard: **Tools** tab |
 | **Run history, all tasks** | ❌ | `GET /api/tools/history` (`?format=csv`) — the only cross-task read of `ExecutionLog`; per-task history is capped at 20 rows. **Read `runKind` before reading `status`**: `native-execution` is a real outcome, `manual-trigger` means only that the agent accepted the start. Dashboard: **Tools** tab |
 | **Task health / "what needs attention"** | ❌ | `GET /api/tools/task-health` — per-task tier + **signals with their evidence**. Windows tasks score from Windows' own `lastTaskResult`/`lastRunTime`/missed runs; native tasks from `ExecutionLog`. A task with no evidence is `unknown`, never `ok`. Not to be confused with `GET /api/tasks/health`, which is *per-platform connector* health. Dashboard: **Tools** tab › Task health |
-| **Restore from a backup** | ❌ | `POST /api/tools/restore/tasks` — the write twin. `dryRun: true` returns a **plan** (create / overwrite / skip / refuse per file) and writes nothing; that is the only honest way to see what an archive contains first. `overwrite` and `createFolders` both default **false**. Restoring puts a task on the machine — it does **not** make TaskHub track it. Dashboard: **Tools** tab |
-| **Untrack** (remove from TaskHub, keep it running) | ✅ `untrack_task` — ungated | `POST /api/tasks/:id/untrack` |
-| **Delete** | ⚠️ `delete_task` — **only** with `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
+| **Restore from a backup** | ❌ | `POST /api/tools/restore/tasks` — the write twin. `dryRun: true` returns a **plan** (create / overwrite / skip / refuse per file) and writes nothing; that is the only honest way to see what an archive contains first. `overwrite` and `createFolders` both default **false**. Restoring puts a task on the machine — it does **not** make Cronsole track it. Dashboard: **Tools** tab |
+| **Untrack** (remove from Cronsole, keep it running) | ✅ `untrack_task` — ungated | `POST /api/tasks/:id/untrack` |
+| **Delete** | ⚠️ `delete_task` — **only** with `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
 | Template import/export, save-as-template, sync, pairing | ❌ | REST / UI only |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.
 
-**Untrack is how you tidy the dashboard** — not delete. `untrack_task` drops TaskHub's row (and
-its TaskHub run history) while leaving the real scheduled task exactly where it is, still running
+**Untrack is how you tidy the dashboard** — not delete. `untrack_task` drops Cronsole's row (and
+its Cronsole run history) while leaving the real scheduled task exactly where it is, still running
 on its own schedule, and records an exclusion so the next sync doesn't quietly re-import it. Use
 it for an over-broad import, a folder full of OS tasks, or anything the user just doesn't want to
-see. It refuses `TASKHUB_NATIVE` tasks, which exist **only** inside TaskHub and therefore have
+see. It refuses `TASKHUB_NATIVE` tasks, which exist **only** inside Cronsole and therefore have
 nothing to keep — that 400 is correct, not a bug to route around. The way back is re-importing
 the category in the UI.
 
@@ -173,7 +173,7 @@ the category in the UI.
 | Goal | Verb | What survives |
 |:---|:---|:---|
 | Stop it running, keep everything | `set_task_status: DISABLED` | the task, its schedule, its history |
-| Stop *seeing* it, keep it running | `untrack_task` | the real scheduled task (TaskHub's history goes) |
+| Stop *seeing* it, keep it running | `untrack_task` | the real scheduled task (Cronsole's history goes) |
 | Make it stop existing | `delete_task` (gated) | nothing |
 
 **`delete_task` is absent unless the human opted in.** If it isn't in your tool list, that is the
@@ -187,9 +187,9 @@ and the DB row goes **only after the platform confirms**; an admin-ACL'd task ge
 - **`update_task_action` REPLACES the action, it does not patch it.** `command` and `runLevel` are
   both required. Read the task's current values (`list_tasks` / `export_task`) before changing
   one field, or you will silently reset the other.
-- **`get_task_history` is not a complete record.** TaskHub logs manual runs it triggered and
+- **`get_task_history` is not a complete record.** Cronsole logs manual runs it triggered and
   native scheduler fires; a Windows task firing on its **own** trigger is recorded by Windows.
-  So an empty history means "TaskHub has nothing", never "it never ran". And a `SUCCESS` means
+  So an empty history means "Cronsole has nothing", never "it never ran". And a `SUCCESS` means
   *dispatched and reported success* — a hung task reports exactly that (§6, and trap #12).
 
 ---
@@ -197,12 +197,12 @@ and the DB row goes **only after the platform confirms**; an admin-ACL'd task ge
 ## 6. Verify it — the part everyone skips
 
 **A green suite is not evidence a task works.** Resolvability proves a command *tokenizes*,
-not that it *runs*. Neither is TaskHub's own `lastRunStatus: SUCCESS` — the agent observes
+not that it *runs*. Neither is Cronsole's own `lastRunStatus: SUCCESS` — the agent observes
 that the task **started**, never that the command worked, so a command that hangs forever
 reports `SUCCESS` ([#12](../../../docs/troubleshooting/README.md#12-a-template-passes-every-test-and-still-hangs-on-the-target)).
 
 > **When you're testing the reporting layer's honesty, the reporting layer cannot be your
-> witness.** Get evidence from outside TaskHub.
+> witness.** Get evidence from outside Cronsole.
 
 ```powershell
 $t = Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>'
@@ -210,7 +210,7 @@ $t.Actions | Select-Object Execute, Arguments     # direct exec? no stray cmd.ex
 $t.Triggers | Select-Object StartBoundary, DaysInterval, Repetition   # UTC->local correct?
 Start-ScheduledTask -InputObject $t
 Get-ScheduledTaskInfo -InputObject $t | Select-Object LastRunTime, LastTaskResult
-#   0      = exited cleanly            <- Windows' own record, independent of TaskHub
+#   0      = exited cleanly            <- Windows' own record, independent of Cronsole
 #   267009 = STILL RUNNING (hung)      <- flat CPU = blocked, not working
 ```
 
@@ -236,7 +236,7 @@ Before you call `create_task` on a real machine:
 6. Name won't collide in that folder.
 7. The command **terminates**. An unattended run has no console — a prompt or an unprinted
    error hangs forever.
-8. After creating: **run it and verify from outside TaskHub** (`LastTaskResult` + a side effect).
+8. After creating: **run it and verify from outside Cronsole** (`LastTaskResult` + a side effect).
 9. If it was a test: **delete it**.
 
 ## Canonical sources

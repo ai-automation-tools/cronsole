@@ -9,7 +9,7 @@
  * fallback snapshot (./bundled.ts) or, later, a fetched remote registry.
  *
  * A template is target-agnostic: it describes Trigger -> Action abstractly and
- * declares which execution targets it's Compatible with. TaskHub compiles it to
+ * declares which execution targets it's Compatible with. Cronsole compiles it to
  * a target's native config at apply time; a declared-but-uncompiled target is
  * the honest "copy to set up manually" path, never a silent failure.
  */
@@ -33,7 +33,7 @@ export const CATEGORIES = [
 ] as const;
 
 export const COMPAT_TARGETS = [
-  'windows', 'taskhub-native', 'macos', 'linux', 'claude-code', 'chatgpt'
+  'windows', 'cronsole-native', 'macos', 'linux', 'claude-code', 'chatgpt'
 ] as const;
 
 export const registryParameterSchema = z.object({
@@ -184,7 +184,7 @@ export const registryIndexSchema = z.object({
 /**
  * A downloadable pack bundle (`packs/<id>.json`).
  *
- * Deliberately shaped like the catalog export bundle (`taskhubCatalogVersion` +
+ * Deliberately shaped like the catalog export bundle (`cronsoleCatalogVersion` +
  * `templates`) so import accepts it untouched, with a `pack` block added for
  * provenance — import reads `.templates` and ignores the rest.
  *
@@ -193,7 +193,7 @@ export const registryIndexSchema = z.object({
  * hash on every build and make the drift test meaningless.
  */
 export const registryPackBundleSchema = z.object({
-  taskhubCatalogVersion: z.literal('1.0'),
+  cronsoleCatalogVersion: z.literal('1.0'),
   pack: z.object({
     id: z.string(),
     name: z.string(),

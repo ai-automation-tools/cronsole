@@ -63,7 +63,7 @@ describe('Windows task-name guard', () => {
   // overwritten it with no error. Worse than no guard: the UI still implies
   // you're protected. These pin the per-folder behavior.
 
-  it('POST /tasks 409s on a collision in a NON-TaskHub folder', async () => {
+  it('POST /tasks 409s on a collision in a NON-Cronsole folder', async () => {
     await createTrackedWindowsTask(owner.user.id, 'Backup', '\\Work');
 
     const res = await request(app)
@@ -79,7 +79,7 @@ describe('Windows task-name guard', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/already exists/);
-    // The message must name the folder it actually checked, not "TaskHub".
+    // The message must name the folder it actually checked, not "Cronsole".
     expect(res.body.error).toMatch(/\\Work/);
   });
 
@@ -232,7 +232,7 @@ describe('Windows task-name guard', () => {
   });
 
   it('native apply keeps metadata.job intact (regression: the Windows-only apply upsert must not touch native rows)', async () => {
-    // TaskHubNativeConnector.createTask writes its own row with metadata.job;
+    // CronsoleNativeConnector.createTask writes its own row with metadata.job;
     // the apply route's immediate-upsert (Windows only) must not overwrite it,
     // or the native task becomes permanently non-runnable.
     const { createNativeConnection } = await import('./helpers.js');

@@ -1,13 +1,13 @@
 /**
  * The Connect Pack — downloadable instructions that teach *another* AI tool to
- * drive a running TaskHub.
+ * drive a running Cronsole.
  *
- * Deliberately NOT the repo's own `skills/taskhub/` skill. That one teaches an
- * agent to work **on** the TaskHub codebase (catalogSync, normalize.ts, registry
+ * Deliberately NOT the repo's own `skills/cronsole/` skill. That one teaches an
+ * agent to work **on** the Cronsole codebase (catalogSync, normalize.ts, registry
  * publishing, the repo's internal traps) and is the wrong document for someone
  * who just wants their CLI to schedule a job. What ships here is the *usage*
  * surface: the tool table, the invariants, the schedule traps, and how to verify
- * from outside TaskHub.
+ * from outside Cronsole.
  *
  * Content lives as real markdown under `connect-pack/` and is compiled into
  * `connectPackBundled.ts` — see generate-connect-pack.ts for why it is bundled
@@ -47,26 +47,26 @@ export interface ConnectPackDownload {
 }
 
 /**
- * Archive layout for the skill download: `taskhub/…` so the folder drops
+ * Archive layout for the skill download: `cronsole/…` so the folder drops
  * straight into `.claude/skills/` without the user having to rename anything.
  */
-const SKILL_PREFIX = 'taskhub/';
+const SKILL_PREFIX = 'cronsole/';
 
 export const CONNECT_PACK_DOWNLOADS: ConnectPackDownload[] = [
   {
     id: 'connect-pack',
     title: 'Full Connect Pack',
     description: 'Everything below in one archive, plus install instructions per host.',
-    filename: `taskhub-connect-pack-v${CONNECT_PACK_VERSION}.zip`,
+    filename: `cronsole-connect-pack-v${CONNECT_PACK_VERSION}.zip`,
     contentType: 'application/zip',
     kind: 'zip',
     contents: ['README.md', 'SKILL.md', 'references/task-authoring.md', 'AGENTS.md', 'mcp-config.json']
   },
   {
     id: 'skill',
-    title: 'TaskHub skill',
+    title: 'Cronsole skill',
     description: 'For hosts that support skills (Claude Code, Claude Desktop). Unzip into your skills folder.',
-    filename: `taskhub-skill-v${CONNECT_PACK_VERSION}.zip`,
+    filename: `cronsole-skill-v${CONNECT_PACK_VERSION}.zip`,
     contentType: 'application/zip',
     kind: 'zip',
     contents: ['SKILL.md', 'references/task-authoring.md']
@@ -84,7 +84,7 @@ export const CONNECT_PACK_DOWNLOADS: ConnectPackDownload[] = [
     id: 'task-authoring',
     title: 'Task authoring reference',
     description: 'The long form: creation paths, command recipes, quoting, folders, schedule traps, verification.',
-    filename: 'taskhub-task-authoring.md',
+    filename: 'cronsole-task-authoring.md',
     contentType: 'text/markdown; charset=utf-8',
     kind: 'markdown',
     contents: ['references/task-authoring.md']
@@ -93,7 +93,7 @@ export const CONNECT_PACK_DOWNLOADS: ConnectPackDownload[] = [
     id: 'mcp-config',
     title: 'MCP server config',
     description: 'The wiring snippet for your MCP host, with the setup traps documented inline.',
-    filename: 'taskhub-mcp-config.json',
+    filename: 'cronsole-mcp-config.json',
     contentType: 'application/json; charset=utf-8',
     kind: 'json',
     contents: ['mcp-config.json']
@@ -116,7 +116,7 @@ export function packFile(path: string): string {
 /**
  * Build a download's bytes.
  *
- * The skill archive is prefixed with `taskhub/` so it unzips into a correctly
+ * The skill archive is prefixed with `cronsole/` so it unzips into a correctly
  * named skill folder; the full pack keeps the README at the root, where someone
  * opening the archive will actually look for it.
  */

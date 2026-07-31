@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="docs/README.md">
-    <img src="images/TaskHub-Images/logos/dark/landscape-01-command-grid.svg" alt="TaskHub — one control plane for scheduled tasks" width="720">
+    <img src="images/Cronsole-Images/logos/dark/landscape-01-command-grid.svg" alt="Cronsole — one control plane for scheduled tasks" width="720">
   </a>
 </p>
 
@@ -52,7 +52,7 @@
 
 No existing tool unifies AI-assistant schedulers with your operating system's scheduler.
 Desktop utilities are Windows-only or abandoned; heavyweight orchestrators (Airflow, n8n,
-Jenkins) are built for data engineers. TaskHub's angle is cross-domain unification,
+Jenkins) are built for data engineers. Cronsole's angle is cross-domain unification,
 **mobile-first triggering**, and AI-native task creation.
 
 ## 🔌 What it connects to
@@ -60,13 +60,13 @@ Jenkins) are built for data engineers. TaskHub's angle is cross-domain unificati
 | Platform | How it connects | Status |
 |:---|:---|:---|
 | **🪟 Windows Task Scheduler** | A lightweight local agent on your machine — outbound-only, never accepts incoming connections. | ✅ Functional |
-| **⚡ TaskHub-native** | HTTP jobs (webhooks, health checks) that TaskHub schedules and runs itself — no OS task needed. | ✅ Functional |
+| **⚡ Cronsole-native** | HTTP jobs (webhooks, health checks) that Cronsole schedules and runs itself — no OS task needed. | ✅ Functional |
 | **🤖 Claude Code Routines** | Natural-language routines through the Anthropic API. | 🧪 Experimental |
 | **💬 ChatGPT · Gemini · Jules** | Quick links straight to their native scheduling screens. | 🔗 Quick links |
 
 ## 🔍 How It Works
 
-TaskHub has three pieces. A small **agent** runs on your Windows machine and opens an
+Cronsole has three pieces. A small **agent** runs on your Windows machine and opens an
 outbound connection to the **backend** (it never accepts incoming connections). The agent
 pushes your Task Scheduler list up to the backend, which stores it and keeps the **web
 dashboard** in sync. When you click **Run Now**, the dashboard tells the backend, and the
@@ -80,14 +80,14 @@ so what you see is consistent no matter where a task actually lives.
 |:---|:---|
 | **Unified dashboard** | Every synced task in one view, with platform and status badges, across grid / list / kanban / schedule layouts. |
 | **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. |
-| **Live sync** | The local agent keeps TaskHub in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
-| **TaskHub-native tasks** | Create HTTP jobs (webhooks, health checks) that TaskHub schedules and runs itself — no OS task needed. |
-| **Template library** | 40 ready-to-use script starters and use-case patterns — including the **Developer Pack** and AI CLI packs for Claude Code + Codex; fill in the blanks and TaskHub creates a real scheduled task. Backed by a versioned, hosted [template registry](docs/reports/templates/Registry_Schema_v1.md) so the catalog updates independently of the app. **Grow it without a reseed**: export/import templates as JSON, or **Save as template** straight from a real task. |
-| **AI-native control (MCP)** | Drive TaskHub from Claude, Codex, or Cursor in plain language — list, run, and create tasks through the [MCP server](docs/user-guides/guides/MCP_Server_Guide.md), a thin wrapper over the same API the dashboard uses. |
+| **Live sync** | The local agent keeps Cronsole in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
+| **Cronsole-native tasks** | Create HTTP jobs (webhooks, health checks) that Cronsole schedules and runs itself — no OS task needed. |
+| **Template library** | 40 ready-to-use script starters and use-case patterns — including the **Developer Pack** and AI CLI packs for Claude Code + Codex; fill in the blanks and Cronsole creates a real scheduled task. Backed by a versioned, hosted [template registry](docs/reports/templates/Registry_Schema_v1.md) so the catalog updates independently of the app. **Grow it without a reseed**: export/import templates as JSON, or **Save as template** straight from a real task. |
+| **AI-native control (MCP)** | Drive Cronsole from Claude, Codex, or Cursor in plain language — list, run, and create tasks through the [MCP server](docs/user-guides/guides/MCP_Server_Guide.md), a thin wrapper over the same API the dashboard uses. |
 | **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
 | **Search & organize** | Free-text search plus local categories to keep a big task list navigable. Windows' own `\Microsoft\` tasks — which outnumber yours roughly 3:1 on a real machine — are hidden by default, and the filter tells you how many it's holding back. |
 | **Back up & restore** | Save every scheduled task on the machine as native Task Scheduler XML — including the ones you never imported, which are the ones nothing else is holding — then put them back. Restore **shows you a plan first**: what it would create, replace, skip, or refuse, checked against what is really on the machine, before anything is written. |
-| **Remove without destroying** | **Remove from TaskHub** takes a task off your dashboard and leaves it running on the machine; **Delete from Windows** is the separate, clearly-marked verb that actually destroys the scheduled task. Undoing an over-broad import never costs you an automation. |
+| **Remove without destroying** | **Remove from Cronsole** takes a task off your dashboard and leaves it running on the machine; **Delete from Windows** is the separate, clearly-marked verb that actually destroys the scheduled task. Undoing an over-broad import never costs you an automation. |
 | **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
 
 
@@ -99,15 +99,15 @@ so what you see is consistent no matter where a task actually lives.
 <br>
 
 <p align="center">
-  <img src="images/screenshots/dashboard.png" alt="TaskHub unified dashboard — dark theme with platform filters, categories, and grid/list/kanban/schedule views" width="900">
+  <img src="images/screenshots/dashboard.png" alt="Cronsole unified dashboard — dark theme with platform filters, categories, and grid/list/kanban/schedule views" width="900">
 </p>
 
 | | |
 |:---:|:---:|
-| <img src="images/screenshots/templates.png" alt="TaskHub template library"><br><sub><b>Template library</b> — parameterized script starters</sub> | <img src="images/screenshots/apply-template-modal.png" alt="Apply Template modal"><br><sub><b>Apply Template</b> — fill in the blanks, get a real task</sub> |
-| <img src="images/screenshots/task-detail.png" alt="TaskHub task detail modal"><br><sub><b>Task detail</b> — metadata, run history, Run Now</sub> | <img src="images/screenshots/new-task-modal.png" alt="New Task modal"><br><sub><b>New Task</b> — TaskHub-native or Windows, with cron presets</sub> |
-| <img src="images/screenshots/list-view.png" alt="TaskHub list view"><br><sub><b>List view</b> — sortable columns and quick actions</sub> | <img src="images/screenshots/kanban-view.png" alt="TaskHub kanban view"><br><sub><b>Kanban view</b> — tasks grouped by status</sub> |
-| <img src="images/screenshots/schedule-view.png" alt="TaskHub schedule view"><br><sub><b>Schedule view</b> — chronological by next run</sub> | <img src="images/screenshots/dashboard-light.png" alt="TaskHub dashboard in light theme"><br><sub><b>Light theme</b> — the same dashboard, light variant</sub> |
+| <img src="images/screenshots/templates.png" alt="Cronsole template library"><br><sub><b>Template library</b> — parameterized script starters</sub> | <img src="images/screenshots/apply-template-modal.png" alt="Apply Template modal"><br><sub><b>Apply Template</b> — fill in the blanks, get a real task</sub> |
+| <img src="images/screenshots/task-detail.png" alt="Cronsole task detail modal"><br><sub><b>Task detail</b> — metadata, run history, Run Now</sub> | <img src="images/screenshots/new-task-modal.png" alt="New Task modal"><br><sub><b>New Task</b> — Cronsole-native or Windows, with cron presets</sub> |
+| <img src="images/screenshots/list-view.png" alt="Cronsole list view"><br><sub><b>List view</b> — sortable columns and quick actions</sub> | <img src="images/screenshots/kanban-view.png" alt="Cronsole kanban view"><br><sub><b>Kanban view</b> — tasks grouped by status</sub> |
+| <img src="images/screenshots/schedule-view.png" alt="Cronsole schedule view"><br><sub><b>Schedule view</b> — chronological by next run</sub> | <img src="images/screenshots/dashboard-light.png" alt="Cronsole dashboard in light theme"><br><sub><b>Light theme</b> — the same dashboard, light variant</sub> |
 
 </details>
 
@@ -121,7 +121,7 @@ so what you see is consistent no matter where a task actually lives.
 
    ```bash
    git clone https://github.com/michaelschecht/taskhub.git
-   cd taskhub
+   cd cronsole
    ```
 
 2. Bring up the dev stack (Postgres + Redis + backend + frontend):
@@ -190,9 +190,9 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 | Section | What's inside |
 |:---|:---|
 | [**📚 Documentation home**](docs/README.md) | The map to every guide, reference, and design doc. |
-| [**⬇️ Installation**](docs/install/README.md) | Install TaskHub on Windows or macOS, or clone the repo. |
+| [**⬇️ Installation**](docs/install/README.md) | Install Cronsole on Windows or macOS, or clone the repo. |
 | [**⚙️ Setup & Configuration**](docs/setup/README.md) | Environment variables, Docker vs. manual, agent pairing. |
-| [**🖥️ User Guides**](docs/user-guides/README.md) | Day-to-day guides for using TaskHub once it's running. |
+| [**🖥️ User Guides**](docs/user-guides/README.md) | Day-to-day guides for using Cronsole once it's running. |
 | [**🧯 Troubleshooting**](docs/troubleshooting/README.md) | Symptom → cause → fix for problems we've actually hit. |
 | [**🧪 Testing**](docs/testing/README.md) | What to test and how to run it — functional, integration, regression, and UAT, plus step-by-step manual runbooks. |
 | [**🗺️ Roadmap**](docs/ROADMAP.md) | What's shipped and what's next, in priority order. |
@@ -206,12 +206,12 @@ And the key guides, one click away:
 | [**🍎 macOS Install**](docs/install/guides/macOS_Install_Guide.md) | Dashboard + backend on macOS (no Windows agent yet). |
 | [**🖥️ UI User Guide**](docs/user-guides/guides/UI_User_Guide.md) | Navigating the dashboard, categorizing tasks, applying templates. |
 | [**🤖 Windows Agent Setup**](docs/user-guides/guides/Agent_Setup_Guide.md) | Installing, verifying, and troubleshooting the local agent. |
-| [**🧩 MCP Server**](docs/user-guides/guides/MCP_Server_Guide.md) | Wiring TaskHub into Claude / Codex / Cursor to manage tasks in natural language. |
+| [**🧩 MCP Server**](docs/user-guides/guides/MCP_Server_Guide.md) | Wiring Cronsole into Claude / Codex / Cursor to manage tasks in natural language. |
 | [**🔥 Smoke Test**](docs/testing/manual-testing/runbooks/Smoke_Test.md) | Verifying your stack is actually alive and the agent is talking — in about 10 minutes. |
 
-## 🧠 The TaskHub Skill
+## 🧠 The Cronsole Skill
 
-Building TaskHub with an AI agent? The repo ships an **[Agent Skill](skills/README.md)** — a
+Building Cronsole with an AI agent? The repo ships an **[Agent Skill](skills/README.md)** — a
 briefing that gives Claude Code the project's mental model *before* it touches anything: the
 architecture, the invariants that must never break (schedules are cron-UTC, `exec` is
 never implicitly shelled, the registry is content-addressed), and the traps that quietly eat
@@ -227,19 +227,19 @@ pwsh scripts/setup-skill-links.ps1
 ./scripts/setup-skill-links.sh
 ```
 
-Run **once per clone**, then restart your CLI — it activates automatically on TaskHub work.
-The script links [`skills/taskhub/`](skills/taskhub/SKILL.md) into `.claude/skills/`, so the
+Run **once per clone**, then restart your CLI — it activates automatically on Cronsole work.
+The script links [`skills/cronsole/`](skills/cronsole/SKILL.md) into `.claude/skills/`, so the
 agent reads the tracked source directly and **no second copy exists to drift**. The skill
 routes to [`docs/`](docs/README.md) rather than restating it, for the same reason.
 
 > [!NOTE]
 > **Skill vs. MCP server** — easy to conflate. The [**skill**](skills/README.md) teaches an
-> agent to *work on* TaskHub's codebase. The [**MCP server**](docs/user-guides/guides/MCP_Server_Guide.md)
-> lets an agent *use* a running TaskHub — list, run, and create tasks in natural language.
+> agent to *work on* Cronsole's codebase. The [**MCP server**](docs/user-guides/guides/MCP_Server_Guide.md)
+> lets an agent *use* a running Cronsole — list, run, and create tasks in natural language.
 
 ## 🤝 Contributing
 
-TaskHub is a private MVP-stage repository. If you're working on it, start with
+Cronsole is a private MVP-stage repository. If you're working on it, start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CLAUDE.md`](CLAUDE.md), and track work on the
 [Roadmap](docs/ROADMAP.md). Recent changes are logged in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 

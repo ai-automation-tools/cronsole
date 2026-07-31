@@ -65,7 +65,7 @@ function categoryFromText(text: string | undefined): RegistryTemplate['category'
 /**
  * Derive the command string + runtime + targets from the task's metadata,
  * mirroring the task modal's actionInfo():
- *   - native HTTP job  -> the URL is the command (applies back to taskhub-native)
+ *   - native HTTP job  -> the URL is the command (applies back to cronsole-native)
  *   - Windows exec     -> exe + args (exe quoted when it has whitespace, so it
  *                         re-tokenizes to the same {executable,args} on apply)
  *   - plain command    -> the stored command string verbatim
@@ -85,7 +85,7 @@ function deriveAction(task: TaskLike): {
   if (job && typeof job === 'object') {
     const url = asText(job.url);
     if (url) {
-      return { command: url, runtime: 'http', compatibleTargets: ['taskhub-native'], os: 'cross-platform' };
+      return { command: url, runtime: 'http', compatibleTargets: ['cronsole-native'], os: 'cross-platform' };
     }
   }
 
@@ -116,7 +116,7 @@ function deriveAction(task: TaskLike): {
     return {
       command,
       runtime: isWindows ? runtimeFromExecutable(exe) : 'executable',
-      compatibleTargets: isWindows ? ['windows'] : ['taskhub-native'],
+      compatibleTargets: isWindows ? ['windows'] : ['cronsole-native'],
       os: isWindows ? 'windows' : 'cross-platform'
     };
   }
@@ -124,7 +124,7 @@ function deriveAction(task: TaskLike): {
   throw new SaveAsTemplateError(
     execActs.length > 1
       ? "This task has multiple actions — saving multi-action tasks as templates isn't supported yet."
-      : "This task has no command TaskHub can capture yet. Sync it and try again."
+      : "This task has no command Cronsole can capture yet. Sync it and try again."
   );
 }
 

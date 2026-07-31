@@ -111,7 +111,7 @@ docs/archive/
 # second time (once under skills/, again under .claude/skills/).
 # Add a line here for every new folder in skills/ -- the setup script warns if you forget.
 # NOTE: must stay AFTER the !/.claude/skills/ re-include above -- last match wins.
-/.claude/skills/taskhub/
+/.claude/skills/cronsole/
 
 # --- Local scratch / tooling artifacts ---
 temp/

@@ -183,7 +183,7 @@ export const RestoreTool = () => {
         <div className="min-w-0">
           <h3 className="font-bold">Restore tasks from a backup</h3>
           <p className="text-sm text-muted-foreground">
-            Register Windows tasks back onto <strong>this machine</strong> from an export. TaskHub shows you
+            Register Windows tasks back onto <strong>this machine</strong> from an export. Cronsole shows you
             exactly what it would do before anything is written.
           </p>
         </div>
@@ -269,7 +269,7 @@ export const RestoreTool = () => {
           <span>
             <span className="font-semibold">Recreate missing Task Scheduler folders</span>
             <span className="block text-xs text-muted-foreground">
-              TaskHub normally creates no folders but its own. Restoring is the exception, because the folder tree is
+              Cronsole normally creates no folders but its own. Restoring is the exception, because the folder tree is
               part of what you backed up — every folder it creates is listed below.{' '}
               <strong>Removing one afterwards needs an elevated Task Scheduler</strong>, since the agent creates it
               with administrator rights.
@@ -362,7 +362,7 @@ export const RestoreTool = () => {
           </ul>
           <ResultTable items={results.items} />
           <p className="text-xs text-muted-foreground">
-            Restored tasks are on the machine now. Import them from the Dashboard to track them in TaskHub.
+            Restored tasks are on the machine now. Import them from the Dashboard to track them in Cronsole.
           </p>
         </div>
       )}

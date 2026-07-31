@@ -55,7 +55,7 @@ agent change without republishing means testing the *old* build, which is
 ```powershell
 .\scripts\startup-task\Register-RepublishTask.ps1        # ONE time, Administrator
 Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'   # any prompt
-Get-Content "$env:TEMP\taskhub-republish.log" -Tail 20   # it logs — read it
+Get-Content "$env:TEMP\cronsole-republish.log" -Tail 20   # it logs — read it
 ```
 
 **Manual way** — Administrator prompt, `Get-Process TaskHub.Agent | Stop-Process -Force`
@@ -137,8 +137,8 @@ The 15 tools and their routes:
 | `set_task_status` | `PATCH /api/tasks/:id/status` | reversible → ungated |
 | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` | reversible → ungated |
 | `update_task_action` | `PATCH /api/tasks/:id/actions` | replaces, doesn't patch |
-| `untrack_task` | `POST /api/tasks/:id/untrack` | drops TaskHub's row, **no platform call** → ungated |
-| `delete_task` | `DELETE /api/tasks/:id` | **gated** by `TASKHUB_MCP_ALLOW_DESTRUCTIVE` |
+| `untrack_task` | `POST /api/tasks/:id/untrack` | drops Cronsole's row, **no platform call** → ungated |
+| `delete_task` | `DELETE /api/tasks/:id` | **gated** by `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |
 
 **The gating rule, if you add more** (settled 2026-07-15): irreversible verbs are gated and
 **absent** from `tools/list` when off; reversible ones are not. The gate is an **env var, not a
@@ -173,7 +173,7 @@ pwsh scripts/publish-landing.ps1    # landing-site/            → taskhub-site
 ```
 
 Both reset their working clone to `origin/main` — **never keep manual work in
-`Repos\Tools\taskhub-*`**. Both **exclude `README.md`** (the public repos own their front
+`Repos\Tools\cronsole-*`**. Both **exclude `README.md`** (the public repos own their front
 pages). Neither regenerates the registry.
 
 ## Run the tests

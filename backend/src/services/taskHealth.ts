@@ -17,10 +17,10 @@
  *
  * ## Two platforms, two sources of truth
  *
- * `ExecutionLog` records runs **TaskHub performed** — a Windows task firing on
+ * `ExecutionLog` records runs **Cronsole performed** — a Windows task firing on
  * its own schedule writes nothing there. So:
  *
- * - **TaskHub-native** tasks score from `ExecutionLog`, which genuinely *is*
+ * - **Cronsole-native** tasks score from `ExecutionLog`, which genuinely *is*
  *   their run history (`NativeScheduler` executes the work and records it).
  * - **Windows** tasks score from what **Windows itself** reports: `lastRunTime`,
  *   `lastTaskResult` (the exit code), and `numberOfMissedRuns`, carried in the
@@ -207,7 +207,7 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
       'missing',
       'critical',
       'The platform no longer has this task.',
-      `TaskHub's last sync did not find ${task.name} on the platform`,
+      `Cronsole's last sync did not find ${task.name} on the platform`,
       WEIGHTS.missing
     );
     // Nothing else is worth saying about a task that is gone — every other
@@ -220,7 +220,7 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
     // Explicitly NOT a deduction. Parking a task is the recommended safe action
     // — it is why `set_task_status` ships ungated over MCP — so scoring it as
     // unhealthy would punish the very behavior the product asks for.
-    add('disabled', 'info', 'This task is disabled, so it will not run.', 'TaskHub task status is DISABLED');
+    add('disabled', 'info', 'This task is disabled, so it will not run.', 'Cronsole task status is DISABLED');
   }
 
   if (!task.schedule) {
@@ -245,7 +245,7 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
       add(
         'no-run-evidence',
         'info',
-        'TaskHub has no run results for this task yet.',
+        'Cronsole has no run results for this task yet.',
         'The connected agent does not report last-run results — republish the agent to enable health checks'
       );
       return { ...base, tier: 'unknown', score: null, signals };
@@ -271,7 +271,7 @@ function scoreNativeExecutions(
         'never-run',
         'warn',
         'This task has never run.',
-        'TaskHub has no execution records for it',
+        'Cronsole has no execution records for it',
         WEIGHTS.neverRun
       );
     }

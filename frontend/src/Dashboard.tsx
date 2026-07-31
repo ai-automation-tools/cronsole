@@ -89,7 +89,7 @@ const Dashboard = () => {
       if (err.message === 'Cancelled') return;
       const detail = err.response?.data?.error || err.message;
       if (settings.toastOnFailure) toast(`Failed to run "${task.name}": ${detail}`, 'error');
-      notifyFailure('TaskHub — run failed', `${task.name}: ${detail}`);
+      notifyFailure('Cronsole — run failed', `${task.name}: ${detail}`);
     }
   });
 
@@ -124,8 +124,8 @@ const Dashboard = () => {
       const ok = await confirm({
         title: `Clear ${count} missing task${count === 1 ? '' : 's'}?`,
         message:
-          `These are tracked in TaskHub but were not found on their platform at the last sync — ` +
-          `usually because you deleted them natively. This removes TaskHub's records and their run ` +
+          `These are tracked in Cronsole but were not found on their platform at the last sync — ` +
+          `usually because you deleted them natively. This removes Cronsole's records and their run ` +
           `history. Nothing on your machine is touched. If one still exists, the next sync re-imports it.`,
         confirmText: `Clear ${count}`,
         tone: 'danger'
@@ -185,7 +185,7 @@ const Dashboard = () => {
       const err = error as Error & { response?: { data?: { error?: string } } };
       const detail = err.response?.data?.error || err.message;
       if (settings.toastOnFailure) toast(`Sync error: ${detail}`, 'error');
-      notifyFailure('TaskHub — sync failed', detail);
+      notifyFailure('Cronsole — sync failed', detail);
     }
   });
 
@@ -240,14 +240,14 @@ const Dashboard = () => {
           </button>
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 bg-primary rounded-lg flex items-center justify-center font-bold text-primary-foreground text-sm">T</div>
-            <span className="font-bold">TaskHub</span>
+            <span className="font-bold">Cronsole</span>
           </div>
         </div>
         {!settings.onboardingSeen && (
           <div className="mb-6 flex items-center gap-4 flex-wrap bg-primary/10 border border-primary/30 rounded-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-500">
             <Sparkles size={20} className="text-primary shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-foreground">New to TaskHub?</p>
+              <p className="text-sm font-bold text-foreground">New to Cronsole?</p>
               <p className="text-xs text-muted-foreground">Take the 4-step getting-started tour — connect the agent, import tasks, and use templates.</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

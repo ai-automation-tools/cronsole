@@ -135,8 +135,8 @@ describe('cross-task run history', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/text\/csv/);
-      expect(res.headers['content-disposition']).toMatch(/taskhub-run-history.*\.csv/);
-      expect(JSON.parse(res.headers['x-taskhub-history-counts']).runs).toBe(1);
+      expect(res.headers['content-disposition']).toMatch(/cronsole-run-history.*\.csv/);
+      expect(JSON.parse(res.headers['x-cronsole-history-counts']).runs).toBe(1);
 
       const body = res.body as Buffer;
       // UTF-8 BOM, so Excel does not decode non-ASCII names as ANSI.
@@ -147,7 +147,7 @@ describe('cross-task run history', () => {
       expect(text).toContain('manual-trigger');
     });
 
-    // TaskHub stores command lines, so an export is attacker-influenceable text
+    // Cronsole stores command lines, so an export is attacker-influenceable text
     // that is already about running things. Without neutralization this file is
     // a payload that fires when someone opens it in Excel.
     it('neutralizes a task name that a spreadsheet would execute', async () => {

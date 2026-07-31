@@ -35,7 +35,7 @@ describe('export existing tasks', () => {
     owner = await createUser('exp-owner@example.com');
   });
 
-  it('exports a TaskHub-native task as JSON', async () => {
+  it('exports a Cronsole-native task as JSON', async () => {
     const task = await createTask(
       owner.user.id,
       PlatformType.TASKHUB_NATIVE,
@@ -51,7 +51,7 @@ describe('export existing tasks', () => {
     expect(res.headers['content-type']).toMatch(/application\/json/);
     expect(res.headers['content-disposition']).toContain('Health_Check.json');
     expect(res.body).toMatchObject({
-      taskhubTaskVersion: '1.0',
+      cronsoleTaskVersion: '1.0',
       task: {
         name: 'Health Check',
         platform: 'TASKHUB_NATIVE',

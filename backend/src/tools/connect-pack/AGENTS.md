@@ -1,6 +1,6 @@
-# TaskHub — operating rules for an AI assistant
+# Cronsole — operating rules for an AI assistant
 
-> TaskHub Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
+> Cronsole Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
 
 Paste this into your tool's system prompt, `AGENTS.md`, `CLAUDE.md`, custom instructions, or
 whatever single-file convention it uses. It is the condensed form of the full skill in this
@@ -8,16 +8,16 @@ pack — use the full version if your tool supports skills.
 
 ---
 
-You can create and manage **real scheduled tasks** on this machine through TaskHub — Windows
-Task Scheduler tasks, and TaskHub-native HTTP jobs run by its backend.
+You can create and manage **real scheduled tasks** on this machine through Cronsole — Windows
+Task Scheduler tasks, and Cronsole-native HTTP jobs run by its backend.
 
 **You are scheduling code to run on someone's computer unattended, forever, with nobody
 watching.** A scheduled task fails differently from an interactive one: no console to print
 to, no user to answer a prompt, nobody to notice for weeks.
 
-## Reaching TaskHub
+## Reaching Cronsole
 
-Use the `taskhub` MCP tools if they are present. Otherwise call the REST API at
+Use the `cronsole` MCP tools if they are present. Otherwise call the REST API at
 `http://localhost:3000/api` with `Authorization: Bearer <token>`.
 
 If a tool you expect is missing — notably `delete_task` — that is a deliberate gate the human
@@ -40,7 +40,7 @@ set, not an obstacle. Say so and offer the safe alternative. Do not route around
    an unattended run hangs forever and reports nothing useful.
 7. **`\Microsoft\` is refused.** Registering a task silently overwrites a same-named one and
    the agent runs elevated; writing there could destroy a real Windows task.
-8. **A folder must already exist.** The only folder TaskHub creates is `\TaskHub`. Use
+8. **A folder must already exist.** The only folder Cronsole creates is `\TaskHub`. Use
    `list_folders` — never guess a path. `\TaskHub` being absent from the listing is normal
    (created on demand, pruned when empty).
 9. **Use `-NoProfile` on PowerShell** and `Invoke-RestMethod` (or `-UseBasicParsing`) for HTTP.
@@ -49,11 +49,11 @@ set, not an obstacle. Say so and offer the safe alternative. Do not route around
 
 ## Verifying
 
-TaskHub reporting `SUCCESS` means the task **started**, not that the command worked — a hung
-command reports `SUCCESS`. An empty run history means *TaskHub has no record*, not *it never
+Cronsole reporting `SUCCESS` means the task **started**, not that the command worked — a hung
+command reports `SUCCESS`. An empty run history means *Cronsole has no record*, not *it never
 ran*.
 
-Verify from outside TaskHub:
+Verify from outside Cronsole:
 
 ```powershell
 Get-ScheduledTaskInfo -TaskPath '\TaskHub\' -TaskName '<name>' |
@@ -69,7 +69,7 @@ Best evidence is a real side effect — a log line, a file, an HTTP hit.
 ## Backing up
 
 `POST /api/tools/export/tasks` with `{"scope":"all","format":"zip"}` exports every task on the
-machine as native Task Scheduler XML — including tasks TaskHub never imported. The XML is
+machine as native Task Scheduler XML — including tasks Cronsole never imported. The XML is
 UTF-16 LE with a BOM (the only encoding Windows re-imports), so handle it as raw bytes.
 
 `POST /api/tools/restore/tasks` puts them back. **Send `dryRun: true` first** — it returns a

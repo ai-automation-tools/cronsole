@@ -1,6 +1,6 @@
-# TaskHub Startup Task
+# Cronsole Startup Task
 
-Auto-starts the **entire local TaskHub stack** at Windows logon via a single
+Auto-starts the **entire local Cronsole stack** at Windows logon via a single
 Scheduled Task, so `http://localhost:7373` is live after you sign in — no manual
 `npm run dev` in three terminals.
 
@@ -15,7 +15,7 @@ frontend talks to was never started).
 | `Start-TaskHub.ps1` | The launcher. Brings up every component in order; idempotent. Now delegates to `..\taskhub.ps1 up`. |
 | `run-hidden.vbs` | **No-flash launcher.** Runs a PowerShell script hidden from creation via `WScript.Shell.Run(cmd, 0, False)`, so no console/conhost window flashes on recurring triggers. Both self-heal tasks launch through this. |
 | `Register-TaskHubStack.ps1` | Registers the **`\Task-Hub\TaskHubStack`** self-heal watchdog (recurring `taskhub.ps1 up`, launched via `run-hidden.vbs`) **and** repairs `TaskHubAgent` to a flash-free, logon-only bootstrap. Run once, **as Administrator**. |
-| `Set-TaskHubRepetition.ps1` | **Deprecated** — TaskHubStack now owns recurring self-heal. Adding a repetition to `TaskHubAgent` duplicates it (and doubles the flashing); no-op without `-Force`. |
+| `Set-CronsoleRepetition.ps1` | **Deprecated** — TaskHubStack now owns recurring self-heal. Adding a repetition to `TaskHubAgent` duplicates it (and doubles the flashing); no-op without `-Force`. |
 | `TaskHubAgent.updated.xml` | Reference/legacy Scheduled Task definition (runs the launcher via `powershell.exe`). Superseded by the programmatic repair in `Register-TaskHubStack.ps1` — kept for history. |
 | `TaskHubAgent.backup.xml` | The **original** task definition (agent-only), kept for rollback. |
 

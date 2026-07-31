@@ -111,7 +111,7 @@ export function buildRegistry(
     }
 
     const bundle: RegistryPackBundle = {
-      taskhubCatalogVersion: '1.0',
+      cronsoleCatalogVersion: '1.0',
       pack: { id: pack.id, name: pack.name, description: pack.description },
       // Membership order is the declared order — a pack reads the way it was
       // curated, not the way the catalog happens to be sorted.

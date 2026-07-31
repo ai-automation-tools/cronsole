@@ -27,7 +27,7 @@ describe('Sidebar Component', () => {
     const setActiveTab = vi.fn();
     render(<Sidebar activeTab="dashboard" setActiveTab={setActiveTab} />);
 
-    expect(screen.getByText('TaskHub')).toBeInTheDocument();
+    expect(screen.getByText('Cronsole')).toBeInTheDocument();
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Templates')).toBeInTheDocument();
     expect(screen.getByText('Platforms')).toBeInTheDocument();

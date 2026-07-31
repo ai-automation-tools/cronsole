@@ -5,7 +5,7 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 const STORAGE_KEY = 'taskhub.theme';
 
 /**
- * Dark is TaskHub's default, not an opt-in (CLAUDE.md §9) — the token set, the
+ * Dark is Cronsole's default, not an opt-in (CLAUDE.md §9) — the token set, the
  * design system, and both public sites are built dark-first, so "follow the OS"
  * would ship a first paint the product was never designed in. `system` stays
  * available, but only as a mode the user picks on purpose.

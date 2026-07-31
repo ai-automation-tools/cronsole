@@ -1,7 +1,7 @@
 <h1 align="center">⬇️ Installation</h1>
 
 <p align="center">
-  <em>Get TaskHub running on your machine — from cloning the repo to a live dashboard.</em>
+  <em>Get Cronsole running on your machine — from cloning the repo to a live dashboard.</em>
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
 
 ---
 
-TaskHub has three parts: a **frontend** (the dashboard), a **backend** (API + database),
+Cronsole has three parts: a **frontend** (the dashboard), a **backend** (API + database),
 and a **Windows agent** that syncs your local Task Scheduler. The frontend and backend run
 anywhere Docker does; the agent is Windows-only today.
 
@@ -26,7 +26,7 @@ variables.
 |:---|:---|
 | [**📦 Clone the Repo**](guides/Clone_Repo_Guide.md) | Any OS — the first step for every path, plus the common prerequisites. |
 | [**🪟 Windows Install Guide**](guides/Windows_Install_Guide.md) | You want the full experience — live Windows Task Scheduler sync and remote triggering. |
-| [**🍎 macOS Install Guide**](guides/macOS_Install_Guide.md) | You want to run and explore TaskHub, minus the Windows agent. |
+| [**🍎 macOS Install Guide**](guides/macOS_Install_Guide.md) | You want to run and explore Cronsole, minus the Windows agent. |
 
 ## 🐳 Prefer to run each piece manually?
 

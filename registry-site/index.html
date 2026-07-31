@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TaskHub — local-first control plane for your scheduled tasks</title>
-  <meta name="description" content="TaskHub is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code and Codex routines, AI-agent jobs. Browse and import ready-to-run automation templates from the open registry." />
+  <title>Cronsole — local-first control plane for your scheduled tasks</title>
+  <meta name="description" content="Cronsole is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code and Codex routines, AI-agent jobs. Browse and import ready-to-run automation templates from the open registry." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%238B5CF6'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <style>
     /* ============================================================
-       TaskHub Template Gallery — "automation control catalog"
+       Cronsole Template Gallery — "automation control catalog"
        Self-contained: no build step, no external fonts/CDN.
        ============================================================ */
 
@@ -460,14 +460,14 @@
     <div class="nav-inner">
       <div class="brand" data-nav="#/">
         <div class="brand-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M9 16.5l4.5 4.5L23 11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <div class="brand-name">TaskHub <span class="reg">Registry</span></div>
+        <div class="brand-name">Cronsole <span class="reg">Registry</span></div>
       </div>
       <div class="nav-links" id="navlinks">
         <span class="nav-link" data-nav="#/">Home</span>
         <span class="nav-link" data-nav="#/browse">Browse</span>
         <span class="nav-link" data-nav="#/collections">Collections</span>
         <span class="nav-link" id="nav-import">Import guide</span>
-        <a class="nav-link" href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">Get TaskHub</a>
+        <a class="nav-link" href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">Get Cronsole</a>
       </div>
       <div class="nav-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -488,10 +488,10 @@
     <div class="wrap">
       <div class="fl">
         <div class="brand-mark" style="width:26px;height:26px;border-radius:7px"><svg viewBox="0 0 32 32" fill="none"><path d="M9 16.5l4.5 4.5L23 11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <span>TaskHub Template Registry · content-addressed · served via GitHub Pages</span>
+        <span>Cronsole Template Registry · content-addressed · served via GitHub Pages</span>
       </div>
       <div class="fr">
-        <a href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">TaskHub on GitHub</a>
+        <a href="https://github.com/michaelschecht/taskhub" target="_blank" rel="noopener">Cronsole on GitHub</a>
         <a href="https://mikesailab.com/taskhub-registry/index.json" target="_blank" rel="noopener">index.json</a>
         <a href="https://github.com/michaelschecht/taskhub-registry/issues" target="_blank" rel="noopener">Request a template</a>
       </div>
@@ -513,7 +513,7 @@
      * Only the second has index.json next to it.
      *
      * The registry base is deliberately NOT moved to the new domain: it is the
-     * documented `TEMPLATE_REGISTRY_URL` that installed TaskHubs already fetch
+     * documented `TEMPLATE_REGISTRY_URL` that installed Cronsoles already fetch
      * from, so changing it would break catalog sync for every existing install.
      * Instead the page tries its own directory first and falls back to the
      * canonical origin — GitHub Pages serves `Access-Control-Allow-Origin: *`,
@@ -530,18 +530,18 @@
       registryIssues: "https://github.com/michaelschecht/taskhub-registry/issues"
     };
 
-    var QUICKSTART = "git clone https://github.com/michaelschecht/taskhub.git\ncd taskhub\ndocker compose up -d";
+    var QUICKSTART = "git clone https://github.com/michaelschecht/taskhub.git\ncd cronsole\ndocker compose up -d";
 
     // ---------- label maps ----------
     var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };
     var OS = { windows: "Windows", macos: "macOS", linux: "Linux", "cross-platform": "Cross-platform" };
     var RT = { powershell: "PowerShell", batch: "Batch", bash: "Bash", zsh: "Zsh", python: "Python", node: "Node.js", executable: "Executable", http: "HTTP", "ai-prompt": "AI Prompt", applescript: "AppleScript", vbscript: "VBScript" };
-    var CREATABLE = { windows: 1, "taskhub-native": 1 };
-    // Distribution tier: core templates ship built into TaskHub (auto-synced by
+    var CREATABLE = { windows: 1, "cronsole-native": 1 };
+    // Distribution tier: core templates ship built into Cronsole (auto-synced by
     // default); everything else is extended — browse here and import on demand.
     function availOf(t) { return t.core ? "core" : "extended"; }
     var AVAIL = { core: "Built-in", extended: "Import" };
-    var TGT = { windows: "Windows", "taskhub-native": "TaskHub", macos: "macOS", linux: "Linux", "claude-code": "Claude Code", chatgpt: "ChatGPT" };
+    var TGT = { windows: "Windows", "cronsole-native": "Cronsole", macos: "macOS", linux: "Linux", "claude-code": "Claude Code", chatgpt: "ChatGPT" };
     function lab(m, v) { return m[v] || v; }
 
     // ---------- icons ----------
@@ -626,7 +626,7 @@
     // The bundle is served pre-built and content-addressed, so this is a plain
     // fetch of `packs/<id>.json` — the browser never assembles it from N
     // template files, which means what you download is byte-for-byte what the
-    // registry published. It is already in the shape TaskHub's importer accepts,
+    // registry published. It is already in the shape Cronsole's importer accepts,
     // so it imports in one step.
     function downloadPack(coll) {
       if (!coll || !coll.path) { toast("This pack has no bundle in the registry.", "err"); return; }
@@ -637,10 +637,10 @@
         var blob = new Blob([text], { type: "application/json" });
         var a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "taskhub-pack-" + coll.key + ".json";
+        a.download = "cronsole-pack-" + coll.key + ".json";
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-        toast("Downloaded " + pluralize(coll.templateIds.length, "template") + " — import in TaskHub → Templates → Import");
+        toast("Downloaded " + pluralize(coll.templateIds.length, "template") + " — import in Cronsole → Templates → Import");
       }).catch(function (e) { toast("Pack download failed: " + e.message, "err"); });
     }
 
@@ -650,7 +650,7 @@
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.text();
       }).then(function (text) { return copyText(text); })
-        .then(function () { toast("Pack JSON copied — paste into TaskHub → Import"); })
+        .then(function () { toast("Pack JSON copied — paste into Cronsole → Import"); })
         .catch(function (e) { toast("Copy failed: " + e.message, "err"); });
     }
 
@@ -720,7 +720,7 @@
     }
     function copyTpl(entry) {
       fetchFull(entry).then(function (j) { return copyText(JSON.stringify(j, null, 2)); })
-        .then(function () { toast("Template JSON copied — paste into TaskHub → Import"); })
+        .then(function () { toast("Template JSON copied — paste into Cronsole → Import"); })
         .catch(function (e) { toast("Copy failed: " + e.message, "err"); });
     }
 
@@ -784,18 +784,18 @@
         '<section class="hero">' +
           '<span class="hero-kicker kicker"><span class="pulse"></span>Local-first · open source</span>' +
           '<h1>Your automations,<br><span class="gr">finally in one place.</span></h1>' +
-          '<p class="lede">TaskHub is a local-first control plane for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code and Codex routines, AI-agent jobs — in one dark, fast dashboard. View, trigger, edit and schedule them from a single place, and grow your catalog from the open template registry below.</p>' +
+          '<p class="lede">Cronsole is a local-first control plane for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code and Codex routines, AI-agent jobs — in one dark, fast dashboard. View, trigger, edit and schedule them from a single place, and grow your catalog from the open template registry below.</p>' +
           '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse ' + TEMPLATES.length + ' templates' + I.arrow + '</button>' +
-          '<a class="btn btn-ghost" href="' + LINKS.appRepo + '" target="_blank" rel="noopener">' + I.code + ' Get TaskHub</a>' +
+          '<a class="btn btn-ghost" href="' + LINKS.appRepo + '" target="_blank" rel="noopener">' + I.code + ' Get Cronsole</a>' +
           '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
           '<div class="stat-strip">' +
             stat(TEMPLATES.length, "Templates") + stat(coreCount, "Built-in") + stat(TEMPLATES.length - coreCount, "To import") + stat(cats, "Categories") +
           '</div>' +
         '</section>' +
 
-        // Why TaskHub — ported from the retired standalone landing page, which
+        // Why Cronsole — ported from the retired standalone landing page, which
         // was a second front door saying things this one never did.
-        '<section class="band"><div class="band-head"><div><span class="kicker">Why TaskHub</span>' +
+        '<section class="band"><div class="band-head"><div><span class="kicker">Why Cronsole</span>' +
           '<h2 style="margin-top:8px">One dashboard for work that never talks to itself</h2>' +
           '<p>Scheduled work sprawls across tools that don\'t know about each other.</p></div></div>' +
           '<div class="how-grid">' +
@@ -815,15 +815,15 @@
           '<div class="band-head" style="margin:10px 0 0"><div><h2>How importing works</h2></div></div>' +
           '<div class="how-grid">' +
             howStep("Pick a template", "Download or copy any template here. You get one Registry v1 JSON file — fully inspectable.") +
-            howStep("Open TaskHub → Import", "In your local TaskHub, go to the Templates tab and click Import.") +
-            howStep("Validate & add", "TaskHub checks it against the same schema and {{placeholder}} rules as every built-in template.") +
+            howStep("Open Cronsole → Import", "In your local Cronsole, go to the Templates tab and click Import.") +
+            howStep("Validate & add", "Cronsole checks it against the same schema and {{placeholder}} rules as every built-in template.") +
             howStep("Apply & schedule", "Fill in the parameters, and it becomes a real scheduled task on your machine.") +
           '</div></div></section>' +
 
         // Run it locally — the quick start the standalone landing page carried.
         '<section class="band" id="sec-start"><div class="band-head"><div><span class="kicker">Get started</span>' +
-          '<h2 style="margin-top:8px">Run TaskHub locally</h2>' +
-          '<p>TaskHub is local-first — the whole stack runs on your machine.</p></div></div>' +
+          '<h2 style="margin-top:8px">Run Cronsole locally</h2>' +
+          '<p>Cronsole is local-first — the whole stack runs on your machine.</p></div></div>' +
           '<div class="code" style="position:relative">' +
             '<button class="btn btn-sm" data-copytext="' + esc(QUICKSTART) + '" style="position:absolute;top:10px;right:10px">' + I.copy + ' Copy</button>' +
             esc(QUICKSTART) +
@@ -840,7 +840,7 @@
           '<h2 style="margin-top:8px">Built in the open</h2>' +
           '<p>The app, the registry that feeds it, and this gallery.</p></div></div>' +
           '<div class="coll-grid">' +
-            repoCard("App · Source", "TaskHub app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/michaelschecht/taskhub") +
+            repoCard("App · Source", "Cronsole app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/michaelschecht/taskhub") +
             repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/michaelschecht/taskhub-registry") +
             repoCard("Feedback", "Request a template", "Missing an automation you\'d use? Open an issue and describe it — the catalog grows from real requests.", LINKS.registryIssues, "Open an issue") +
           '</div></section>' +
@@ -884,7 +884,7 @@
             '<button class="btn" data-nav="#/browse?pack=' + encodeURIComponent(c.key) + '">' + I.filter + ' Filter &amp; search this pack</button>' +
           '</div>' +
           '<p class="mono" style="color:var(--ink-3);font-size:12px;margin-top:10px">' +
-            'One file — import it in TaskHub → Templates → Import.</p>'
+            'One file — import it in Cronsole → Templates → Import.</p>'
         : '';
       return '<div class="wrap"><div class="crumb"><a data-nav="#/">Home</a>' + I.arrow + '<a data-nav="#/collections">Collections</a>' + I.arrow + '<span>' + esc(c.title) + '</span></div>' +
         '<div class="detail-hero"><div class="ic" style="background:' + c.iconBg + ';color:' + c.iconFg + '">' + c.icon + '</div>' +
@@ -922,7 +922,7 @@
     function counts(list, keyFn) { var m = {}; list.forEach(function (t) { var ks = keyFn(t); (Array.isArray(ks) ? ks : [ks]).forEach(function (k) { if (k == null) return; m[k] = (m[k] || 0) + 1; }); }); return m; }
 
     function viewBrowse() {
-      return '<div class="wrap"><div class="browse-head"><h1>Browse the catalog</h1><p>Every template in the registry. A curated <b style="color:var(--phosphor)">Built-in</b> set ships with TaskHub by default; filter to <b style="color:var(--cyan)">Import on demand</b> to see everything else you can add.</p></div>' +
+      return '<div class="wrap"><div class="browse-head"><h1>Browse the catalog</h1><p>Every template in the registry. A curated <b style="color:var(--phosphor)">Built-in</b> set ships with Cronsole by default; filter to <b style="color:var(--cyan)">Import on demand</b> to see everything else you can add.</p></div>' +
         '<div class="browse-layout"><aside class="rail' + (browseState.railOpen ? " open" : "") + '" id="rail"></aside>' +
         '<div><div class="browse-bar">' +
           '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="result-n" id="rn"></span><button class="btn btn-sm mobile-filter-btn" id="mfilter">' + I.filter + ' Filters</button></div>' +
@@ -1060,7 +1060,7 @@
       var targets = (tpl.compatibleTargets || []).map(function (x) { var r = CREATABLE[x]; return '<span class="tg ' + (r ? "real" : "manual") + '"><span class="dot"></span>' + esc(lab(TGT, x)) + '</span>'; }).join("");
       var anyManual = (tpl.compatibleTargets || []).some(function (x) { return !CREATABLE[x]; });
       var targetsHtml = '<div class="sec"><p class="sec-label">Compatible targets</p><div class="targets">' + targets + '</div>' +
-        (anyManual ? '<p class="note">Highlighted targets are created directly by TaskHub today. Others are an honest "copy to set up manually" path — no silent failure.</p>' : "") + '</div>';
+        (anyManual ? '<p class="note">Highlighted targets are created directly by Cronsole today. Others are an honest "copy to set up manually" path — no silent failure.</p>' : "") + '</div>';
 
       // related
       var related = TEMPLATES.filter(function (t) { return t.id !== entry.id && t.category === entry.category; });
@@ -1082,7 +1082,7 @@
           '<p class="dsub">' + esc(tpl.description) + '</p>' +
           '<div class="tcard-meta" style="margin-top:16px">' + (tpl.core ? '<span class="badge badge-core">Built-in</span>' : '<span class="badge badge-ext">Import</span>') + '<span class="badge badge-cat">' + esc(lab(CAT, tpl.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, tpl.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, tpl.runtime)) + '</span></div></div></div>' +
         '<div class="detail-grid"><div>' + schedHtml + cmdHtml + paramsHtml + targetsHtml + '</div>' +
-        '<aside><div class="aside-card"><h3>' + (tpl.core ? 'Built into TaskHub' : 'Add to your TaskHub') + '</h3><p class="sub">' + (tpl.core ? 'This template ships by default — no import needed. You can still download it for reference.' : 'Download or copy, then import in the Templates tab.') + '</p>' +
+        '<aside><div class="aside-card"><h3>' + (tpl.core ? 'Built into Cronsole' : 'Add to your Cronsole') + '</h3><p class="sub">' + (tpl.core ? 'This template ships by default — no import needed. You can still download it for reference.' : 'Download or copy, then import in the Templates tab.') + '</p>' +
           '<div class="aside-actions"><button class="btn btn-primary" data-dl>' + I.dl + ' Download JSON</button>' +
           '<button class="btn" data-copy>' + I.copy + ' Copy JSON</button>' +
           '<button class="btn btn-ghost" id="detail-import">' + I.info + ' How to import</button></div>' +
@@ -1124,8 +1124,8 @@
       openModal('<div class="modal"><div class="modal-h"><div class="ic">' + I.dl + '</div><div><h2>Import a template</h2><p class="sub">Two clicks — no reseed, no redeploy.</p></div><button class="modal-x" data-close aria-label="Close">' + I.x + '</button></div>' +
         '<div class="modal-b"><ol class="steps">' +
         '<li><div><b>Download</b> or <b>Copy</b> a template from this gallery — a single Registry v1 JSON file.</div></li>' +
-        '<li><div>In your local <b>TaskHub</b>, open the <b>Templates</b> tab and click <b>Import</b>.</div></li>' +
-        '<li><div>Pick the file (or paste the JSON). TaskHub validates it with the same schema + <b>{{placeholder}}</b> checks it uses for every built-in template.</div></li>' +
+        '<li><div>In your local <b>Cronsole</b>, open the <b>Templates</b> tab and click <b>Import</b>.</div></li>' +
+        '<li><div>Pick the file (or paste the JSON). Cronsole validates it with the same schema + <b>{{placeholder}}</b> checks it uses for every built-in template.</div></li>' +
         '<li><div>Click <b>Apply</b>, fill in the parameters, and it becomes a real scheduled task.</div></li>' +
         '</ol><p class="note" style="margin-top:18px">Imported templates are treated as untrusted content and never shell-wrapped — a placeholder value is always exactly one argument to the intended program.</p></div></div>');
     }
@@ -1318,9 +1318,9 @@
     function closeNavMenu() { var nl = $("navlinks"); if (nl) nl.classList.remove("open"); }
 
     // ---------- theme ----------
-    function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); $("theme").innerHTML = t === "dark" ? I.sun : I.moon; try { localStorage.setItem("taskhub.gallery.theme", t); } catch (e) {} }
+    function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); $("theme").innerHTML = t === "dark" ? I.sun : I.moon; try { localStorage.setItem("cronsole.gallery.theme", t); } catch (e) {} }
     $("theme").addEventListener("click", function () { applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"); });
-    (function () { var s; try { s = localStorage.getItem("taskhub.gallery.theme"); } catch (e) {} applyTheme(s || "dark"); })();
+    (function () { var s; try { s = localStorage.getItem("cronsole.gallery.theme"); } catch (e) {} applyTheme(s || "dark"); })();
 
     window.addEventListener("hashchange", route);
 

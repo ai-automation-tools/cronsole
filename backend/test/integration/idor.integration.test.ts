@@ -54,7 +54,7 @@ describe('multi-tenancy / IDOR', () => {
 
     // The owner still sees the original category — Bob's write never landed.
     const check = await request(app).get('/api/tasks').set('Authorization', alice.auth);
-    expect(check.body[0].category).toBe('TaskHub');
+    expect(check.body[0].category).toBe('Cronsole');
   });
 
   it('404s when Bob deletes Alice\'s task (and it survives)', async () => {

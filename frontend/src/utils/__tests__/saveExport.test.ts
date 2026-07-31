@@ -116,7 +116,7 @@ describe('writeFilesToDirectory', () => {
 
 describe('filenameFromDisposition', () => {
   it('reads a quoted filename', () => {
-    expect(filenameFromDisposition('attachment; filename="taskhub-tasks.zip"', 'x.zip')).toBe('taskhub-tasks.zip');
+    expect(filenameFromDisposition('attachment; filename="cronsole-tasks.zip"', 'x.zip')).toBe('cronsole-tasks.zip');
   });
 
   it('reads an unquoted filename', () => {

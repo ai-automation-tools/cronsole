@@ -4,7 +4,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { subscribeApiOrigin, subscribeBackendStatus, API_ORIGIN, type BackendStatus } from '../api';
 
 /**
- * Fixed banner shown whenever the frontend cannot reach the TaskHub backend
+ * Fixed banner shown whenever the frontend cannot reach the Cronsole backend
  * (connection refused / network error). Clears automatically on the next
  * successful API response. Retry re-runs all queries without a full reload.
  */
@@ -43,7 +43,7 @@ export default function BackendStatusBanner() {
     >
       <AlertTriangle size={18} className="shrink-0 text-red-400" />
       <span className="text-center">
-        Can&apos;t reach the TaskHub backend at{' '}
+        Can&apos;t reach the Cronsole backend at{' '}
         <code className="font-mono text-red-200">{apiOrigin}</code>. Is the server running?
       </span>
       <button

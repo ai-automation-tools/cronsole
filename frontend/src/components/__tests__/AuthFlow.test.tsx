@@ -42,7 +42,7 @@ describe('auth flow', () => {
     renderApp();
 
     expect(await screen.findByText('Create account')).toBeInTheDocument();
-    expect(screen.getByText(/fresh TaskHub install/i)).toBeInTheDocument();
+    expect(screen.getByText(/fresh Cronsole install/i)).toBeInTheDocument();
     expect(screen.queryByText('DASHBOARD')).not.toBeInTheDocument();
   });
 

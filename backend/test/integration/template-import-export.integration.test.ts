@@ -41,8 +41,8 @@ describe('template import/export', () => {
     const res = await request(app).get('/api/templates/export').set('Authorization', owner.auth);
 
     expect(res.status).toBe(200);
-    expect(res.headers['content-disposition']).toMatch(/attachment; filename="taskhub-catalog-/);
-    expect(res.body.taskhubCatalogVersion).toBe('1.0');
+    expect(res.headers['content-disposition']).toMatch(/attachment; filename="cronsole-catalog-/);
+    expect(res.body.cronsoleCatalogVersion).toBe('1.0');
     const entry = res.body.templates.find((t: { id: string }) => t.id === 'tpl_ie_fixture');
     expect(entry).toMatchObject({
       schemaVersion: '1.0',
@@ -62,7 +62,7 @@ describe('template import/export', () => {
       .set('Authorization', owner.auth);
 
     expect(res.status).toBe(200);
-    expect(res.headers['content-disposition']).toContain('taskhub-template-tpl_ie_fixture.json');
+    expect(res.headers['content-disposition']).toContain('cronsole-template-tpl_ie_fixture.json');
     expect(res.body.id).toBe('tpl_ie_fixture');
     expect(res.body.templates).toBeUndefined(); // a bare object, not a bundle
   });
@@ -125,7 +125,7 @@ describe('template import/export', () => {
       runtime: 'bash',
       commandTemplate: 'echo {{msg}}',
       parameters: [{ key: 'msg', required: true }],
-      compatibleTargets: ['taskhub-native']
+      compatibleTargets: ['cronsole-native']
     };
     const partial = await request(app)
       .post('/api/templates/import')
@@ -173,7 +173,7 @@ describe('template import/export', () => {
       trigger: { kind: 'schedule', cron: '0 2 * * *' },
       runtime: 'bash',
       commandTemplate: 'echo hi',
-      compatibleTargets: ['taskhub-native'],
+      compatibleTargets: ['cronsole-native'],
       tags: ['dev', 'git', 'build']
     };
     const imp = await request(app)

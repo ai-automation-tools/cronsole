@@ -56,7 +56,7 @@ $tasks.Count
 The `/api/tasks` call above already proved Prisma can reach Postgres. Confirm directly:
 
 ```powershell
-docker exec taskhub-db-1 psql -U taskhub -d taskhub -c 'SELECT COUNT(*) FROM "Task";'
+docker exec taskhub-db-1 psql -U cronsole -d cronsole -c 'SELECT COUNT(*) FROM "Task";'
 ```
 
 **Expect:** a count matching step 4. Table names are **PascalCase and quoted** — Prisma
@@ -118,7 +118,7 @@ DevTools → Network → **Disable cache** → Fast 3G → reload.
 
 **Expect:** interactive in **< 2s** (NFR1). Record the number — there's no automated gate on
 this, so this reading *is* the measurement. Compare against
-[`artifacts/taskhub_performance_2026-07-10.md`](../../../../artifacts/taskhub_performance_2026-07-10.md).
+[`artifacts/cronsole_performance_2026-07-10.md`](../../../../artifacts/cronsole_performance_2026-07-10.md).
 
 ---
 

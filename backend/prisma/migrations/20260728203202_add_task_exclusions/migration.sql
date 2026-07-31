@@ -1,4 +1,4 @@
--- Remembers a task the user removed from TaskHub while it still exists on the
+-- Remembers a task the user removed from Cronsole while it still exists on the
 -- platform ("untrack"), so the next sync that includes its category does not
 -- silently re-import it. Without this, untrack would appear not to work: the
 -- re-import is correct by the sync's own logic and indistinguishable from a bug.

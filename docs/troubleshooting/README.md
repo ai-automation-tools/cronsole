@@ -3,7 +3,7 @@
 <h1 align="center">🧯 Troubleshooting</h1>
 
 <p align="center">
-  <em>Symptom → cause → fix for problems we've actually hit running TaskHub.</em>
+  <em>Symptom → cause → fix for problems we've actually hit running Cronsole.</em>
 </p>
 
 <p align="center">
@@ -28,13 +28,13 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
 | 6 | A `.ps1` fails to parse under `powershell` (5.1) with `Unexpected token '}'` / `The string is missing the terminator` — but runs fine under `pwsh` (7) | A non-ASCII char (e.g. an em-dash `—`) in a BOM-less UTF-8 script; Windows PowerShell 5.1 reads it as ANSI and decodes it into a curly quote it treats as a string delimiter | [→](#6-ps1-parse-errors-under-windows-powershell-51-only) |
 | 7 | A newly added agent command (e.g. a new `task:*` socket op) returns `502` with `... timeout` after ~15s, even though the backend route exists | The **.NET agent is a host process running the old published exe** — it doesn't hot-reload, so it has no handler for the new command and never answers; the backend times out | [→](#7-new-agent-command-502-times-out-until-the-agent-is-republished) |
-| 8 | **Every** MCP tool returns `403 Invalid or expired token` — or the `taskhub` tools are **missing entirely** — while the dashboard and `curl` with a real token work fine | `TASKHUB_TOKEN` is unset, so Claude Code passed the **literal** `${TASKHUB_TOKEN}` through to the API — nothing is actually expired. Since the server now refuses to start on a literal, the tools go *missing* rather than 403 | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
+| 8 | **Every** MCP tool returns `403 Invalid or expired token` — or the `cronsole` tools are **missing entirely** — while the dashboard and `curl` with a real token work fine | `CRONSOLE_TOKEN` is unset, so Claude Code passed the **literal** `${CRONSOLE_TOKEN}` through to the API — nothing is actually expired. Since the server now refuses to start on a literal, the tools go *missing* rather than 403 | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
 | 8a | …and the token **is** set at the User level, you restarted, and it's *still* invisible | A new terminal is not a new environment. A VS Code integrated terminal inherits `Code.exe`'s environment block, snapshotted when VS Code launched — new tabs and host restarts re-inherit the same stale one | [→](#8a-and-restart-from-a-fresh-terminal-does-nothing-under-vs-code) |
 | 9 | A new agent command returns a well-formed payload where **every field is empty/false** — no error, no exception, the counts are even right | The agent emitted a C# object directly; the socket serializer does **not** camelCase, so the wire carries `Path`/`TaskCount` while the backend reads `f.path` → `undefined` for every field | [→](#9-agent-payload-arrives-with-every-field-empty) |
 | 10 | `DeleteFolder` on a Task Scheduler folder fails with `Access is denied. (0x80070005 (E_ACCESSDENIED))` | Task Scheduler folder deletion requires **elevation**, even for a folder you created and even when it is empty | [→](#10-cannot-delete-a-task-scheduler-folder-e_accessdenied) |
-| 11 | After a **System Restore**, `Start-ScheduledTask` says the republish task doesn't exist **and/or** the `taskhub` MCP tools vanish — while the repo, `git status`, and the build are all perfectly clean | Both live on `C:` as per-machine state git can't protect: the scheduled-task registration and the `TASKHUB_TOKEN` **User** env var. A restore of `C:` wipes them; a repo on another drive survives, so nothing *looks* wrong | [→](#11-after-a-system-restore-the-republish-task-and-mcp-tools-are-gone) |
-| 12 | A task created from a template sits in `Running` **forever** (`LastTaskResult` `267009`), burning no CPU — while TaskHub cheerfully reports `lastRunStatus: SUCCESS`, and every test passes | The command is broken **on the target**, which no test checks. Classic cause: `Invoke-WebRequest` without `-UseBasicParsing` needs the **IE engine Windows 11 removed** → `NullReferenceException`, and with no console to write it to, the process blocks instead of exiting | [→](#12-a-template-passes-every-test-and-still-hangs-on-the-target) |
-| 13 | The `taskhub` MCP tools are **missing** — and the token is fine: it's set, the host can see it, the backend is healthy, and `node mcp-server/dist/index.js` boots clean by hand | The server is **disabled in the host**, not broken. `disabledMcpjsonServers` in `.claude/settings.local.json` lists it — that's what Claude Code writes for **every** server in `.mcp.json` when you decline the "do you trust this project's MCP servers?" prompt | [→](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine) |
+| 11 | After a **System Restore**, `Start-ScheduledTask` says the republish task doesn't exist **and/or** the `cronsole` MCP tools vanish — while the repo, `git status`, and the build are all perfectly clean | Both live on `C:` as per-machine state git can't protect: the scheduled-task registration and the `CRONSOLE_TOKEN` **User** env var. A restore of `C:` wipes them; a repo on another drive survives, so nothing *looks* wrong | [→](#11-after-a-system-restore-the-republish-task-and-mcp-tools-are-gone) |
+| 12 | A task created from a template sits in `Running` **forever** (`LastTaskResult` `267009`), burning no CPU — while Cronsole cheerfully reports `lastRunStatus: SUCCESS`, and every test passes | The command is broken **on the target**, which no test checks. Classic cause: `Invoke-WebRequest` without `-UseBasicParsing` needs the **IE engine Windows 11 removed** → `NullReferenceException`, and with no console to write it to, the process blocks instead of exiting | [→](#12-a-template-passes-every-test-and-still-hangs-on-the-target) |
+| 13 | The `cronsole` MCP tools are **missing** — and the token is fine: it's set, the host can see it, the backend is healthy, and `node mcp-server/dist/index.js` boots clean by hand | The server is **disabled in the host**, not broken. `disabledMcpjsonServers` in `.claude/settings.local.json` lists it — that's what Claude Code writes for **every** server in `.mcp.json` when you decline the "do you trust this project's MCP servers?" prompt | [→](#13-the-cronsole-mcp-tools-are-missing-while-the-token-is-fine) |
 | 14 | You picked a **deliberately rare** cron (annual, Feb 30, a specific date) so a test task couldn't fire on its own — and it fires **hourly, every day**, forever | Any cron the converter doesn't recognize falls back to a **hard-coded hourly** trigger. The schedule is *replaced*, not approximated, and the fallback only ever runs **more** often, never less. The warning now says so outright (fixed 2026-07-15) — but the **score is still `0.7`**, the same as a genuinely-approximate step | [→](#14-a-rare-cron-becomes-an-hourly-trigger) |
 | 15 | `run_task` on a **disabled** task hangs ~15s then fails `Agent trigger timeout` — while the agent is connected and healthy, and every other command works | The agent's `task:run` only replied on **success**: any failure (disabled, missing, ACL) wrote to a console nobody reads and emitted nothing, so the backend could only time out and blame the transport. Fixed 2026-07-15 — **needs an agent republish** | [→](#15-run_task-times-out-instead-of-saying-the-task-is-disabled) |
 | 16 | The **second** of two identical agent commands within one second is silently dropped — 15s, then `Agent trigger timeout`. A second later, the same command works | Signed commands carried a **second-granular** `ts` and nothing else unique, so two identical commands in the same second were byte-identical — and the agent's **replay guard** couldn't distinguish your re-send from an attack. **Fixed 2026-07-15** with a per-command nonce; needs backend + agent shipped together | [→](#16-a-second-identical-agent-command-within-one-second-is-dropped) |
@@ -44,16 +44,16 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 20 | A task you just created in Task Scheduler never appears, no matter how many times you press **Sync Now** — no error, agent online, other tasks refresh fine | **Sync Now can only refresh folders you already track, never discover a new one**: it built its category filter from the tasks already on screen, so a brand-new folder was excluded by the very filter meant to include it. Use **Import** (the only path that calls `/discover`). There is also **no automatic Windows sync** at all | [→](#20-sync-now-never-brings-in-a-task-you-just-created-in-task-scheduler) |
 | 20a | …and after you **rename a category**, that whole folder silently stops syncing — no new tasks, no refresh, no error | The server filters on `extractCategory(externalId)` (re-derived from the folder path) while the caller sent the **renameable** stored `category`, so the name matched no folder. **Fixed 2026-07-25**: Sync Now sends `{ scope: 'tracked' }` and the server resolves the folders itself | [→](#20a-and-a-renamed-category-silently-stops-syncing-its-folder) |
 | 21 | Templates never update — the registry has no effect and the count never moves — while the app is otherwise perfectly healthy; the log shows `[catalog] sync failed … P2002` on `prisma.user.upsert()` | #19's bug in a **second file the #19 fix missed**: `ensureCatalogOwner()` keyed on the mutable `CATALOG_OWNER_EMAIL` while creating the fixed id. Here the caller **catches** it instead of crashing, so the only symptom is a catalog that silently never changes | [→](#21-templates-never-update-catalog-sync-failed--p2002-on-every-boot) |
-| 22 | You delete a Windows task (or a whole folder), sync, and TaskHub **still lists it** — while the sync response reports `missing: 56`, i.e. claims it marked them | The container's **generated Prisma client is stale** and lacks the `MISSING` enum, so `TaskStatus.MISSING` is `undefined` — and **Prisma treats `undefined` in `data` as "leave this field alone"**, so only `nextRunTime` was written while `updateMany` still returned a count. A *wrong* enum value throws; a **missing** one silently no-ops. `prisma migrate` updates the DB, so DB and client drifted apart invisibly (#18's shadowed `node_modules`) | [→](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n) |
+| 22 | You delete a Windows task (or a whole folder), sync, and Cronsole **still lists it** — while the sync response reports `missing: 56`, i.e. claims it marked them | The container's **generated Prisma client is stale** and lacks the `MISSING` enum, so `TaskStatus.MISSING` is `undefined` — and **Prisma treats `undefined` in `data` as "leave this field alone"**, so only `nextRunTime` was written while `updateMany` still returned a count. A *wrong* enum value throws; a **missing** one silently no-ops. `prisma migrate` updates the DB, so DB and client drifted apart invisibly (#18's shadowed `node_modules`) | [→](#22-deleted-a-windows-task-synced-and-cronsole-still-shows-it--while-reporting-missing-n) |
 | 23 | The dashboard shows a plain **network error** after a reboot / unclean shutdown. Everything looks `Up`, every request to `:3000` is `HTTP 000`, and a backend log ends with `prisma.user.upsert()` → `FATAL: the database system is starting up` (container) or `Can't reach database server at localhost:5432` (host, `logs/backend.err.log`) | **Nothing waited for Postgres to be *ready*, only to *exist*** — after an unclean shutdown it spends seconds in crash recovery refusing queries, and the boot seed dies on the refusal. It stays dead because **`tsx watch` survives the crash**, so the container never exits and `restart: unless-stopped` never fires. Compounded by **two stacks running at once** (host *and* containers) fighting over `:3000`, with `Test-Port` reporting the dead squatter as "backend already up". **Fixed 2026-07-27**: `pg_isready` healthcheck + `condition: service_healthy`, `Wait-Db` in `taskhub.ps1`, and backend/frontend moved behind `profiles: ["docker"]` | [→](#23-network-error-after-a-reboot--the-database-system-is-starting-up) |
-| 23a | `taskhub status` prints `[DOWN]` for Postgres, Redis, backend **and** frontend — while `/api/health` returns 200 and the frontend serves 200 | The **same port check as #23, wrong in the other direction**: `Get-NetTCPConnection` needs the NetTCPIP CIM provider and the container check needs a resolvable docker CLI; both were wrapped in `catch { $false }`, so *"the probe could not run"* printed as *"the service is down"*. **Fixed 2026-07-28**: every service is probed by asking the service (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP `PING`), the port is corroboration only, and present-but-unconfirmable reports **`WARN`** with the signal named | [→](#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving) |
+| 23a | `cronsole status` prints `[DOWN]` for Postgres, Redis, backend **and** frontend — while `/api/health` returns 200 and the frontend serves 200 | The **same port check as #23, wrong in the other direction**: `Get-NetTCPConnection` needs the NetTCPIP CIM provider and the container check needs a resolvable docker CLI; both were wrapped in `catch { $false }`, so *"the probe could not run"* printed as *"the service is down"*. **Fixed 2026-07-28**: every service is probed by asking the service (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP `PING`), the port is corroboration only, and present-but-unconfirmable reports **`WARN`** with the signal named | [→](#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving) |
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
 | 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
-| 31 | The dashboard loads but every API call fails with *"No 'Access-Control-Allow-Origin' header is present"* — while `curl` against the same route returns 200 | **Read the backend log — it names the refused origin and the allowed list.** Since 2026-07-31 the REST API enforces **`ALLOWED_ORIGINS`** (it used to reflect any origin), and the browser's origin isn't on the list — after a port change, a Settings → API-origin override, or reaching TaskHub over Tailscale/a tunnel. **`curl` works because it sends no `Origin`, and a request without one is always allowed**, so a passing `curl` is not evidence the browser can reach the API. Add the exact origin (scheme + host + port) and restart the backend; the same list gates the `/ui` live-update socket | [→](#31-the-dashboard-loads-but-every-api-call-fails-with-a-cors-error) |
+| 31 | The dashboard loads but every API call fails with *"No 'Access-Control-Allow-Origin' header is present"* — while `curl` against the same route returns 200 | **Read the backend log — it names the refused origin and the allowed list.** Since 2026-07-31 the REST API enforces **`ALLOWED_ORIGINS`** (it used to reflect any origin), and the browser's origin isn't on the list — after a port change, a Settings → API-origin override, or reaching Cronsole over Tailscale/a tunnel. **`curl` works because it sends no `Origin`, and a request without one is always allowed**, so a passing `curl` is not evidence the browser can reach the API. Add the exact origin (scheme + host + port) and restart the backend; the same list gates the `/ui` live-update socket | [→](#31-the-dashboard-loads-but-every-api-call-fails-with-a-cors-error) |
 | 30 | A route 500s on real data while `tsc` is green | A **cast on a query result** (`row as SomeInterface`) silenced the compiler at the one boundary that had drifted — a Prisma `select` missing a field the consumer now requires. Delete the cast; Prisma's generated select type is already the strongest check there is. *A cast at a data boundary is a promise the query cannot keep* | [→](#30-a-route-500s-on-real-data-while-tsc-is-green--a-cast-on-a-query-result) |
 | 29 | `prisma migrate` refuses to run — "migration was modified after it was applied" — and the only remedy it offers drops the database | Prisma checksums each migration **file**; editing an applied one (even adding a comment) breaks the hash. **Never `migrate reset`** on a local-first app — that is the user's real data. Verify the DB already matches the SQL, re-record the checksum, then use `--create-only` + `migrate deploy` (which also skips `generate`, dodging [#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)) | [→](#29-prisma-migrate-refuses-to-run-migration-was-modified-after-it-was-applied--and-offers-to-drop-your-database) |
-| 28 | A **restored** task, or the folder it landed in, refuses to delete with `Access is denied` — though you created the original yourself, unelevated | The restore ran through the **elevated agent**, so Windows gave the task (and any folder created for it) an administrator ACE. Delete the task **through TaskHub** (import the folder, then Delete from Windows) or from an elevated Task Scheduler; the folder has no in-app route and needs an elevated `DeleteFolder`. This is the concrete cost of restore's folder carve-out | [→](#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied) |
+| 28 | A **restored** task, or the folder it landed in, refuses to delete with `Access is denied` — though you created the original yourself, unelevated | The restore ran through the **elevated agent**, so Windows gave the task (and any folder created for it) an administrator ACE. Delete the task **through Cronsole** (import the folder, then Delete from Windows) or from an elevated Task Scheduler; the folder has no in-app route and needs an elevated `DeleteFolder`. This is the concrete cost of restore's folder carve-out | [→](#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied) |
 | 27 | `PayloadTooLargeError: request entity too large` on an upload route; small selections work | `express.json()` caps bodies at **100 kB**. Don't raise it globally — that hands every endpoint a huge request budget. Mount a larger parser **scoped to the path and BEFORE the global one** (`body-parser` skips a request another parser already consumed, so mounting it after does nothing and looks identical to not adding it) | [→](#27-a-route-that-takes-an-upload-413s--and-raising-the-global-body-limit-is-the-wrong-fix) |
 
 ---
@@ -316,7 +316,7 @@ wire up the backend route + connector, restart the backend, and the endpoint now
 The tell that distinguishes this from entry #4: the route **exists** (a bad id
 returns your handler's `{"error":"Task not found"}`, not an Express "Cannot GET"),
 and only the **agent-backed** path (Windows tasks) times out — a DB-only path
-(TaskHub-native) works immediately.
+(Cronsole-native) works immediately.
 
 **Fix** — republish the agent. It runs at **RunLevel Highest**, so an unelevated
 shell can't stop it and `dotnet publish` can't overwrite the locked exe.
@@ -333,7 +333,7 @@ After that, republish from **any** prompt — no elevation, no UAC:
 
 ```powershell
 Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'
-Get-Content "$env:TEMP\taskhub-republish.log" -Tail 20   # it logs; read it, don't assume
+Get-Content "$env:TEMP\cronsole-republish.log" -Tail 20   # it logs; read it, don't assume
 ```
 
 `\Task-Hub\TaskHubRepublish` is a **no-trigger** task at RunLevel Highest that runs
@@ -393,19 +393,19 @@ Get-ChildItem ".\agent\TaskHub.Agent" -Recurse -Filter *.cs |
 
 ## 8. Every MCP tool returns `403 Invalid or expired token`
 
-**Symptom** — the backend is healthy and the dashboard works, but *every* TaskHub MCP
+**Symptom** — the backend is healthy and the dashboard works, but *every* Cronsole MCP
 tool call fails immediately:
 
 ```
-TaskHub API error (HTTP 403): Invalid or expired token
+Cronsole API error (HTTP 403): Invalid or expired token
 ```
 
-**Cause** — `TASKHUB_TOKEN` is **not set in the environment the MCP host was launched
+**Cause** — `CRONSOLE_TOKEN` is **not set in the environment the MCP host was launched
 from**, so it was never expanded. `.mcp.json` references the token as
-`"TASKHUB_TOKEN": "${TASKHUB_TOKEN}"`, and Claude Code
+`"CRONSOLE_TOKEN": "${CRONSOLE_TOKEN}"`, and Claude Code
 [documents](https://code.claude.com/docs/en/mcp) that an unset variable is passed
-through as its **literal text** (`${TASKHUB_TOKEN}`) with only a warning. The server
-then sends `Authorization: Bearer ${TASKHUB_TOKEN}` and the API rejects it.
+through as its **literal text** (`${CRONSOLE_TOKEN}`) with only a warning. The server
+then sends `Authorization: Bearer ${CRONSOLE_TOKEN}` and the API rejects it.
 
 The message is misleading: nothing is expired, and the JWT is not malformed — the
 variable is simply unset. Don't rotate secrets or re-mint a token before checking this.
@@ -420,7 +420,7 @@ The tell that distinguishes it from [entry #2](#2-403-invalid-or-expired-token-o
   failure with:
 
   ```bash
-  curl -s -H 'Authorization: Bearer ${TASKHUB_TOKEN}' http://localhost:3000/api/tasks
+  curl -s -H 'Authorization: Bearer ${CRONSOLE_TOKEN}' http://localhost:3000/api/tasks
   # {"error":"Invalid or expired token"}  ← identical to what the MCP tools return
   ```
 
@@ -432,18 +432,18 @@ repo's convention is that it holds only `${ENV}` references.
 # Mint a token inside the backend container, so it's signed with the JWT_SECRET
 # the running backend actually uses (not whatever your shell has).
 $token = (docker exec taskhub-backend-1 node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'365d'}))").Trim()
-[Environment]::SetEnvironmentVariable('TASKHUB_TOKEN', $token, 'User')   # persistent
+[Environment]::SetEnvironmentVariable('CRONSOLE_TOKEN', $token, 'User')   # persistent
 ```
 
 Since 2026-07-14 `configFromEnv()` detects an unexpanded `${...}` literal and refuses
 to start with an explicit message, so this now fails loudly at launch rather than as a
 403 on every call. If you see that startup error, the fix above is still the answer.
 **Note the symptom moved:** because the server now refuses to start, the tools go
-*missing* rather than 403ing. `/mcp` showing no `taskhub`, or a `ToolSearch` for
-`mcp__taskhub__*` finding nothing, can be this same bug wearing a quieter mask —
+*missing* rather than 403ing. `/mcp` showing no `cronsole`, or a `ToolSearch` for
+`mcp__cronsole__*` finding nothing, can be this same bug wearing a quieter mask —
 but **missing tools do not identify the token as the cause**, because a server
 disabled in the host looks exactly the same. Rule that out first
-([#13](#13-the-taskhub-mcp-tools-are-missing-while-the-token-is-fine)); it's one
+([#13](#13-the-cronsole-mcp-tools-are-missing-while-the-token-is-fine)); it's one
 command, and it's the cheaper hypothesis.
 
 ### 8a. …and "restart from a fresh terminal" does nothing under VS Code
@@ -472,15 +472,15 @@ below it inherits the old block. Confirm the variable is genuinely persisted, an
 the process just can't see it:
 
 ```powershell
-[Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')   # persisted value
-$env:TASKHUB_TOKEN                                              # what this process sees
+[Environment]::GetEnvironmentVariable('CRONSOLE_TOKEN','User')   # persisted value
+$env:CRONSOLE_TOKEN                                              # what this process sees
 ```
 
 **Fix — inject it into the current shell, then relaunch the host from that shell.** This
 works without closing VS Code and losing your window state:
 
 ```powershell
-$env:TASKHUB_TOKEN = [Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')
+$env:CRONSOLE_TOKEN = [Environment]::GetEnvironmentVariable('CRONSOLE_TOKEN','User')
 claude
 ```
 
@@ -557,7 +557,7 @@ Access is denied. (0x80070005 (E_ACCESSDENIED))
 ```
 
 **Cause** — Task Scheduler **folder** deletion requires elevation. Task *deletion* through
-TaskHub works fine (the agent runs elevated and does it for you), but nothing hands your
+Cronsole works fine (the agent runs elevated and does it for you), but nothing hands your
 unelevated shell the right to remove the containing folder.
 
 **Fix** — from an **Administrator** prompt:
@@ -572,9 +572,9 @@ The folder must be empty (no tasks **and** no subfolders) or the call fails for 
 instead.
 
 > [!NOTE]
-> **This is why TaskHub refuses to create folders.** It creates exactly one — its own
+> **This is why Cronsole refuses to create folders.** It creates exactly one — its own
 > `\TaskHub`, the same one it prunes when the last task leaves. Any other folder it created
-> would be a **one-way door**: TaskHub could make it but never remove it, leaving litter only
+> would be a **one-way door**: Cronsole could make it but never remove it, leaving litter only
 > you could clear from an elevated prompt. *Never create what you cannot remove.* A folder
 > you made is yours and is deliberately left alone — the fix was to stop creating them, not
 > to start deleting them.
@@ -594,7 +594,7 @@ Start-ScheduledTask : No MSFT_ScheduledTask objects found with property 'TaskNam
 'TaskHubRepublish'
 ```
 
-...and/or every `taskhub` MCP tool is simply **missing** from the host — not erroring, not
+...and/or every `cronsole` MCP tool is simply **missing** from the host — not erroring, not
 403-ing (that's [#8](#8-every-mcp-tool-returns-403-invalid-or-expired-token)), just absent.
 
 **Cause** — both are **per-machine state on `C:` that git cannot protect**:
@@ -602,13 +602,13 @@ Start-ScheduledTask : No MSFT_ScheduledTask objects found with property 'TaskNam
 | Wiped | Where it actually lives |
 |:---|:---|
 | `\Task-Hub\TaskHubRepublish` (and the other `\Task-Hub\` tasks) | Task Scheduler store on `C:` |
-| `TASKHUB_TOKEN` | `HKCU\Environment` (User env var) on `C:` |
+| `CRONSOLE_TOKEN` | `HKCU\Environment` (User env var) on `C:` |
 
 The *scripts* that register the task are committed and survive; only the **registration** is
 lost. Likewise the MCP server, its `dist/`, and `.mcp.json` all survive — only the token is
 gone. So a restore of `C:` leaves a repo on `D:` untouched and every symptom points somewhere
 other than the real cause. The token loss is silent by design: since the 2026-07-14 hardening,
-`configFromEnv()` **refuses to start** rather than forward a literal `${TASKHUB_TOKEN}`, so the
+`configFromEnv()` **refuses to start** rather than forward a literal `${CRONSOLE_TOKEN}`, so the
 tools disappear instead of returning a misleading 403.
 
 **Fix** — re-register the task (once, **elevated** — a UAC prompt is expected):
@@ -622,7 +622,7 @@ the secret the live backend actually uses, rather than a file that may not be wh
 
 ```powershell
 $token = docker exec -w /app taskhub-backend-1 node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'30d'}))"
-[Environment]::SetEnvironmentVariable('TASKHUB_TOKEN', $token.Trim(), 'User')
+[Environment]::SetEnvironmentVariable('CRONSOLE_TOKEN', $token.Trim(), 'User')
 ```
 
 Confirm it authenticates *before* blaming MCP — this separates an auth problem from an MCP one:
@@ -639,7 +639,7 @@ already-running process, so restarting the host inside an old terminal won't pic
 > what lives on `C:` rather than in git. Scheduled tasks, User env vars, and anything under
 > `%TEMP%` are all outside the repo's blast radius — and outside its protection.
 
-*First hit: 2026-07-15 (a System Restore took `\Task-Hub\TaskHubRepublish` and `TASKHUB_TOKEN`
+*First hit: 2026-07-15 (a System Restore took `\Task-Hub\TaskHubRepublish` and `CRONSOLE_TOKEN`
 with it; the repo on `D:` was untouched, so the two failures looked unrelated).*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
@@ -649,7 +649,7 @@ with it; the repo on `D:` was untouched, so the two failures looked unrelated).*
 ## 12. A template passes every test and still hangs on the target
 
 **Symptom** — a task created from a template never finishes. It sits in `Running`
-indefinitely while consuming no CPU, and TaskHub's UI reports the run as **`SUCCESS`**:
+indefinitely while consuming no CPU, and Cronsole's UI reports the run as **`SUCCESS`**:
 
 ```
 state       : Running
@@ -669,7 +669,7 @@ Meanwhile `npm test` is green — including the whole-catalog **resolvability** 
    (`System.NullReferenceException`).
 2. **A scheduled run has no console.** Interactively that error prints and the process
    exits. Under Task Scheduler there is nowhere to write it, so the process **blocks
-   forever** rather than failing. `TaskHub` reports `SUCCESS` because the agent only
+   forever** rather than failing. `Cronsole` reports `SUCCESS` because the agent only
    observes that the task *started* — it never claimed the command *worked*.
 
 The tell: `Running` + flat CPU = blocked. A task that is genuinely working accrues CPU.
@@ -706,15 +706,15 @@ not have surfaced it).*
 
 ---
 
-## 13. The `taskhub` MCP tools are missing while the token is fine
+## 13. The `cronsole` MCP tools are missing while the token is fine
 
-**Symptom** — `mcp__taskhub__*` is absent from the tool list and `/mcp` doesn't list
-`taskhub` at all. Unlike [#8](#8-every-mcp-tool-returns-403-invalid-or-expired-token),
+**Symptom** — `mcp__cronsole__*` is absent from the tool list and `/mcp` doesn't list
+`cronsole` at all. Unlike [#8](#8-every-mcp-tool-returns-403-invalid-or-expired-token),
 **every downstream check passes**:
 
 ```powershell
-[Environment]::GetEnvironmentVariable('TASKHUB_TOKEN','User')   # set
-$env:TASKHUB_TOKEN                                              # the host sees it too
+[Environment]::GetEnvironmentVariable('CRONSOLE_TOKEN','User')   # set
+$env:CRONSOLE_TOKEN                                              # the host sees it too
 curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health   # 200
 node ./mcp-server/dist/index.js                                 # boots clean by hand
 ```
@@ -725,8 +725,8 @@ yourself, the server is not the problem** — the host never started it.
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}' \
   | node ./mcp-server/dist/index.js
-# TaskHub MCP server running on stdio
-# {"result":{...,"serverInfo":{"name":"taskhub","version":"1.0.0"}},"jsonrpc":"2.0","id":1}
+# Cronsole MCP server running on stdio
+# {"result":{...,"serverInfo":{"name":"cronsole","version":"1.0.0"}},"jsonrpc":"2.0","id":1}
 ```
 
 **Cause** — the server is **disabled in the host**, not broken. Claude Code prompts once
@@ -738,15 +738,15 @@ per project: *"this project defines MCP servers, do you trust them?"* Declining 
 ```json
 {
   "disabledMcpjsonServers": [
-    "taskhub", "playwright", "nanobanana", "serper",
+    "cronsole", "playwright", "nanobanana", "serper",
     "github", "notion", "context7", "elevenlabs"
   ]
 }
 ```
 
-The tell: **all** of the project's MCP servers are missing at once, not just `taskhub`. One
+The tell: **all** of the project's MCP servers are missing at once, not just `cronsole`. One
 broken server fails alone; a declined trust prompt takes the whole file with it. If
-`context7` and `github` are gone too, stop debugging `taskhub`.
+`context7` and `github` are gone too, stop debugging `cronsole`.
 
 **Fix** — remove the server from the list and **restart the host** (the list is read at
 launch):
@@ -762,7 +762,7 @@ recorded, editing the file is the way back.
 
 > [!WARNING]
 > **This masks #8 and #8a completely.** A disabled server never runs, so a broken
-> `TASKHUB_TOKEN` produces the *identical* symptom — missing tools — and you can spend a
+> `CRONSOLE_TOKEN` produces the *identical* symptom — missing tools — and you can spend a
 > session fixing an environment variable that was never the blocker. **Check
 > `disabledMcpjsonServers` first**: it's one command, it's the cheaper hypothesis, and it
 > rules out the whole token branch before you touch it.
@@ -1152,7 +1152,7 @@ server never comes up. The container stays `Up` (tsx is alive) but nothing serve
 Check the DB to confirm the row's email drifted:
 
 ```bash
-docker exec taskhub-db-1 psql -U taskhub -d taskhub -t \
+docker exec taskhub-db-1 psql -U cronsole -d cronsole -t \
   -c 'SELECT id, email FROM "User";'
 # cli_user_placeholder | mikeschecht@gmail.com   ← not mike@example.com anymore
 ```
@@ -1204,7 +1204,7 @@ for the tasks you already track"), but the failure is silent, so it reads as a b
 Confirm it in one call — the agent sees the folder even though the dashboard doesn't:
 
 ```bash
-curl -s -H "Authorization: Bearer $TASKHUB_TOKEN" localhost:3000/api/tasks/discover
+curl -s -H "Authorization: Bearer $CRONSOLE_TOKEN" localhost:3000/api/tasks/discover
 # WINDOWS_TASK_SCHEDULER → [... {"name":"IAM","count":1}, {"name":"Edge-Radar-MikesAILab","count":25} ...]
 ```
 
@@ -1221,7 +1221,7 @@ you tick a category you don't yet have. Two things to know when you do:
   ~257. Once tracked, they come back on **every** subsequent sync.
 
 There is **no automatic Windows sync** — no poll, no interval. `NativeScheduler` runs
-TaskHub-native jobs and `catalogSync` refreshes templates; neither touches Task Scheduler. A
+Cronsole-native jobs and `catalogSync` refreshes templates; neither touches Task Scheduler. A
 task created natively is invisible until *you* sync. That's deliberate (selective import), not
 a bug — but it means "I made it an hour ago and it's still not there" is expected, not a fault.
 
@@ -1255,7 +1255,7 @@ server resolves the include-set itself from the tracked tasks' native paths
 (`TaskService.trackedCategories`), which is immune to renames by construction:
 
 ```bash
-curl -X POST -H "Authorization: Bearer $TASKHUB_TOKEN" -H 'Content-Type: application/json' \
+curl -X POST -H "Authorization: Bearer $CRONSOLE_TOKEN" -H 'Content-Type: application/json' \
   localhost:3000/api/tasks/sync -d '{"scope":"tracked"}'
 ```
 
@@ -1269,7 +1269,7 @@ where a mutable email was the key to an upsert.
 > Scheduler entry** via a signed `task:delete` — so it is *not* a way to tidy up an over-broad
 > import. Removing rows you shouldn't have imported (e.g. the 257 `Microsoft` ones) means
 > deleting them straight from the DB, which leaves Windows untouched:
-> `docker exec taskhub-db-1 psql -U taskhub -d taskhub -c "DELETE FROM \"Task\" WHERE platform='WINDOWS_TASK_SCHEDULER' AND \"externalId\" LIKE '\\Microsoft\\%';"`
+> `docker exec taskhub-db-1 psql -U cronsole -d cronsole -c "DELETE FROM \"Task\" WHERE platform='WINDOWS_TASK_SCHEDULER' AND \"externalId\" LIKE '\\Microsoft\\%';"`
 
 *First hit: 2026-07-25 (new tasks in `\IAM\` and `\Edge-Radar-MikesAILab\` were invisible after
 repeated Sync Now; `/discover` showed the agent had been reporting all of them the whole time).*
@@ -1306,7 +1306,7 @@ error on a background refresh is invisible in exactly the way a crash isn't.**
 Confirm the email drifted:
 
 ```bash
-docker exec taskhub-db-1 psql -U taskhub -d taskhub -c 'SELECT id, email FROM "User";'
+docker exec taskhub-db-1 psql -U cronsole -d cronsole -c 'SELECT id, email FROM "User";'
 # cli_user_placeholder | mikeschecht@gmail.com   ← not mike@example.com anymore
 ```
 
@@ -1334,10 +1334,10 @@ the catalog had been silently dead since the login feature first changed the pla
 
 ---
 
-## 22. Deleted a Windows task, synced, and TaskHub still shows it — while reporting `missing: N`
+## 22. Deleted a Windows task, synced, and Cronsole still shows it — while reporting `missing: N`
 
 **Symptom** — you delete tasks (or a whole folder) in Task Scheduler, press Sync, and they're
-**still listed** in TaskHub as `ACTIVE`/`DISABLED`. The sync response looks *correct*:
+**still listed** in Cronsole as `ACTIVE`/`DISABLED`. The sync response looks *correct*:
 
 ```json
 {"platform":"WINDOWS_TASK_SCHEDULER","count":349,"missing":56}
@@ -1346,7 +1346,7 @@ the catalog had been silently dead since the login feature first changed the pla
 `missing: 56` says 56 tasks were marked MISSING. The database says otherwise — **nothing changed**:
 
 ```bash
-docker exec taskhub-db-1 psql -U taskhub -d taskhub -t \
+docker exec taskhub-db-1 psql -U cronsole -d cronsole -t \
   -c "SELECT status, count(*) FROM \"Task\" WHERE platform='WINDOWS_TASK_SCHEDULER' GROUP BY 1;"
 #  ACTIVE   | 298      ← identical before and after the sync
 #  DISABLED | 107
@@ -1373,7 +1373,7 @@ comparing them directly, which is the diagnostic worth remembering:
 
 ```bash
 # what the DATABASE knows
-docker exec taskhub-db-1 psql -U taskhub -d taskhub -t -c 'SELECT unnest(enum_range(NULL::"TaskStatus"));'
+docker exec taskhub-db-1 psql -U cronsole -d cronsole -t -c 'SELECT unnest(enum_range(NULL::"TaskStatus"));'
 #  ACTIVE / DISABLED / UNKNOWN / DELETED / MISSING
 
 # what the CONTAINER'S CLIENT knows
@@ -1479,7 +1479,7 @@ docker restart taskhub-backend-1
 ```yaml
   db:
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U taskhub -d taskhub"]
+      test: ["CMD-SHELL", "pg_isready -U cronsole -d cronsole"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -1504,7 +1504,7 @@ docker compose kill db backend && docker compose --profile docker up -d
 ```
 
 For the **host** backend the same gate lives in `scripts/taskhub.ps1` as `Wait-Db`, which polls
-the db container's health before launching it. `taskhub up` now prints `db ready (accepting
+the db container's health before launching it. `cronsole up` now prints `db ready (accepting
 connections)` before `started backend` — if you don't see that line, you're on the old script.
 
 ### The deeper cause: two stacks were running at once
@@ -1523,7 +1523,7 @@ refused to start the real one. Every layer was reporting something true and the 
 
 **Fixed 2026-07-27:** `backend` and `frontend` are now `profiles: ["docker"]`, so a plain
 `docker compose up -d` starts **db + redis only** and cannot collide with the host stack. The
-containerized variant is explicit: `docker compose --profile docker up -d`. `taskhub status`
+containerized variant is explicit: `docker compose --profile docker up -d`. `cronsole status`
 also now calls out the specific state that hid this — `:3000` bound while `/api/health` fails.
 
 > [!TIP]
@@ -1537,7 +1537,7 @@ also now calls out the specific state that hid this — `:3000` bound while `/ap
 > holds it, not that your app is behind it — and the failure mode it hides is the one where a
 > dead process squats the port your live process needs. Probe the **health endpoint**.
 
-*First hit: 2026-07-27 (reported as "TaskHub is giving me a network error". The UI itself loaded
+*First hit: 2026-07-27 (reported as "Cronsole is giving me a network error". The UI itself loaded
 fine — it's served by a **host** Vite dev server, independent of the dead backend — which is
 exactly why it presented as a network error rather than a blank page. The frontend moved off
 Vite's default `5173` to `7373` in the same change, since the two frontends had been fighting
@@ -1549,7 +1549,7 @@ over it.)*
 
 ### 23a. …and the same probe reported four services DOWN while all four were serving
 
-**Symptom** — `taskhub status` prints `[DOWN]` for Postgres, Redis, the backend **and** the
+**Symptom** — `cronsole status` prints `[DOWN]` for Postgres, Redis, the backend **and** the
 frontend, and `=> DOWN` at the bottom — while `curl http://localhost:3000/api/health` returns
 **200** and the frontend returns **200** in a browser. Everything works; the control surface
 says nothing does.
@@ -1722,7 +1722,7 @@ rename over a loaded file. Nothing is corrupt; the write simply didn't happen.
 
 **Why it matters more than a failed command** — the migration already ran. So the **database has
 the new schema and the generated client does not**, which is the same drift that made the MISSING
-feature a silent no-op for nine days ([#22](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n)).
+feature a silent no-op for nine days ([#22](#22-deleted-a-windows-task-synced-and-cronsole-still-shows-it--while-reporting-missing-n)).
 Here the failure is at least loud, and the new-model case fails loudly at runtime too
 (`prisma.taskExclusion` is `undefined` → `TypeError`). A new **enum value** would not — Prisma
 drops `undefined` from a `data` payload and reports success.
@@ -1815,17 +1815,17 @@ $svc.GetFolder('\').DeleteFolder('MyFolder', 0)
 The confusing part: **you created the original task yourself, unelevated, and could delete it fine.**
 The restored copy looks identical in Task Scheduler and refuses.
 
-**Cause** — the restore is performed by the **TaskHub agent, which runs elevated**. Windows adds an
+**Cause** — the restore is performed by the **Cronsole agent, which runs elevated**. Windows adds an
 ACE for the registering context, so the task — and any folder created for it — end up owned by an
 administrator. An unelevated prompt can read them and cannot remove them. This is the same
 condition [`FriendlyDeleteError`](../../agent/TaskHub.Agent/AgentService.cs) already explains for
 `task:delete`; restore just makes it reachable for tasks you used to own outright.
 
-**Fix — for the task:** delete it *through TaskHub*, which routes the delete back through the same
+**Fix — for the task:** delete it *through Cronsole*, which routes the delete back through the same
 elevated agent that created it. Import the folder (Dashboard → Import), then Delete from Windows.
 Or open Task Scheduler **as administrator** and delete it there.
 
-**Fix — for the folder:** there is no in-app route. TaskHub only ever prunes its own `\TaskHub`, on
+**Fix — for the folder:** there is no in-app route. Cronsole only ever prunes its own `\TaskHub`, on
 purpose ("never delete what isn't yours"), so a folder restore created has to go from an elevated
 prompt:
 
@@ -1835,7 +1835,7 @@ $svc = New-Object -ComObject Schedule.Service; $svc.Connect()
 $svc.GetFolder('\').DeleteFolder('MyFolder', 0)
 ```
 
-**Worth knowing before you restore** — this is the concrete cost of restore's carve-out to *"TaskHub
+**Worth knowing before you restore** — this is the concrete cost of restore's carve-out to *"Cronsole
 creates exactly one folder"*. Recreating a folder tree is the right call for a restore (the
 alternative refuses every task in the archive on a reinstalled machine), but **a folder created that
 way is a one-way door for anyone without elevation** — a sharper version of the original rationale,
@@ -1875,14 +1875,14 @@ matches what the file describes, and only then tell Prisma the file is the one t
 
 ```bash
 # 1. Does the DB actually contain what this migration declares?
-docker exec taskhub-db-1 psql -U taskhub -d taskhub -c '\d "TaskExclusion"'
-docker exec taskhub-db-1 psql -U taskhub -d taskhub \
+docker exec taskhub-db-1 psql -U cronsole -d cronsole -c '\d "TaskExclusion"'
+docker exec taskhub-db-1 psql -U cronsole -d cronsole \
   -c "SELECT indexname FROM pg_indexes WHERE tablename='TaskExclusion';"
 
 # 2. Only if it does — re-record the file's current hash.
 SUM=$(node -e "console.log(require('crypto').createHash('sha256')\
   .update(require('fs').readFileSync('prisma/migrations/<name>/migration.sql')).digest('hex'))")
-docker exec taskhub-db-1 psql -U taskhub -d taskhub \
+docker exec taskhub-db-1 psql -U cronsole -d cronsole \
   -c "UPDATE _prisma_migrations SET checksum='$SUM' WHERE migration_name='<name>';"
 
 npx prisma migrate status   # -> "Database schema is up to date!"
@@ -1934,7 +1934,7 @@ check available — assigning it to a hand-written interface proves the two agre
 away.
 
 **Generalization: a cast on a query result is a promise the query cannot keep.** It is the same
-shape as [#22](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n)
+shape as [#22](#22-deleted-a-windows-task-synced-and-cronsole-still-shows-it--while-reporting-missing-n)
 (a mock asserting the code's intent while the container disagreed) and
 [#25](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) (a check that
 cannot fail): **when you disable the thing that would have told you, the failure moves to
@@ -1978,7 +1978,7 @@ any origin), and the origin the dashboard is served from isn't on the list. It b
 situations:
 
 - the frontend moved port, or you're reaching it by a hostname/IP rather than `localhost`;
-- you set the **Settings → About → API origin** override, or reached TaskHub over Tailscale /
+- you set the **Settings → About → API origin** override, or reached Cronsole over Tailscale /
   a tunnel, so the browser origin is no longer the one in `.env`;
 - `ALLOWED_ORIGINS` was never set *and* something else on the list is — an empty list is
   permissive, but a list with one wrong entry is not.

@@ -83,7 +83,7 @@ describe('csvCell', () => {
     expect(csvCell(0)).toBe('0');
   });
 
-  // The one that matters most. TaskHub stores command lines, so an exported
+  // The one that matters most. Cronsole stores command lines, so an exported
   // cell is attacker-influenceable text that is already about running things:
   // without this, opening the report in Excel executes it.
   it('neutralizes every leading character a spreadsheet treats as a formula', () => {
@@ -182,8 +182,8 @@ describe('summarizeHistory', () => {
 describe('csvFilename', () => {
   it('puts the range in the name so a saved file stays self-describing', () => {
     expect(csvFilename(new Date('2026-07-01T00:00:00Z'), new Date('2026-07-28T00:00:00Z'))).toBe(
-      'taskhub-run-history_2026-07-01_2026-07-28.csv'
+      'cronsole-run-history_2026-07-01_2026-07-28.csv'
     );
-    expect(csvFilename(null, null)).toBe('taskhub-run-history.csv');
+    expect(csvFilename(null, null)).toBe('cronsole-run-history.csv');
   });
 });

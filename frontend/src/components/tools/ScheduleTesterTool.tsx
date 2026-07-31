@@ -16,7 +16,7 @@ interface SchedulePreview {
 
 const PLATFORMS = [
   { value: 'WINDOWS_TASK_SCHEDULER', label: 'Windows Task Scheduler' },
-  { value: 'TASKHUB_NATIVE', label: 'TaskHub-native' }
+  { value: 'TASKHUB_NATIVE', label: 'Cronsole-native' }
 ] as const;
 
 /** Both zones, always — the point is to remove doubt, not to honor a preference. */
@@ -159,7 +159,7 @@ export const ScheduleTesterTool = () => {
                 <span>
                   {data.trigger
                     ? 'Converts exactly — the trigger fires when your cron says it should.'
-                    : 'TaskHub runs this expression itself, exactly as written.'}
+                    : 'Cronsole runs this expression itself, exactly as written.'}
                 </span>
               </div>
             )}

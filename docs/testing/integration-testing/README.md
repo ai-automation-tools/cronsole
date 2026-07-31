@@ -3,7 +3,7 @@
 <h1 align="center">🔗 Integration Testing</h1>
 
 <p align="center">
-  <em>Do the seams hold? Every component in TaskHub is fine alone — the bugs live between them.</em>
+  <em>Do the seams hold? Every component in Cronsole is fine alone — the bugs live between them.</em>
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
 
 ---
 
-TaskHub is four processes talking to each other — **React frontend**, **Express backend**,
+Cronsole is four processes talking to each other — **React frontend**, **Express backend**,
 **PostgreSQL**, and a **.NET agent** on the user's own machine — plus outbound calls to the
 hosted registry, webhooks, and platform APIs. Integration tests exercise those boundaries
 **with the real thing on the other side**, because mocks agree with your assumptions and
@@ -98,7 +98,7 @@ The only seam that touches real COM. Windows-only, and the hardest to fake.
 | I4.2 | **Real task delete** | Entry actually disappears; the empty `\TaskHub\` folder auto-prunes on last delete | 🟡 |
 | I4.3 | **Elevation refusal** | An admin-ACL'd task returns an honest "needs elevation" — never a false success | 🟡 |
 | I4.4 | **XML export fidelity** | Exported XML is valid Task Scheduler XML, **UTF-16 LE + BOM**, and re-importable into Windows | ✅ `task-export.integration.test.ts` |
-| I4.4a | **XML restore fidelity** | A restored task round-trips: action, trigger, description **and principal** (run-as account, logon type, run level) match what was exported — `TaskLogonType.None` must not silently re-register the task as somebody else | ✅ live pass 2026-07-28 (verified with `Get-ScheduledTask`, not TaskHub's own report) · ⬜ automated — `ImportTaskXml` talks to COM |
+| I4.4a | **XML restore fidelity** | A restored task round-trips: action, trigger, description **and principal** (run-as account, logon type, run level) match what was exported — `TaskLogonType.None` must not silently re-register the task as somebody else | ✅ live pass 2026-07-28 (verified with `Get-ScheduledTask`, not Cronsole's own report) · ⬜ automated — `ImportTaskXml` talks to COM |
 | I4.4b | **Restore's write guards hold against real Task Scheduler** | Overwrite off leaves an existing task's **registration date unchanged**; overwrite on replaces it; a real `\Microsoft\Windows\Defrag\` export is refused and Defrag is untouched | ✅ live pass 2026-07-28 |
 | I4.4c | **A restored task is admin-owned** | Because the agent is elevated, the restored task and any folder it creates carry an administrator ACE — an unelevated `Unregister-ScheduledTask` / `DeleteFolder` gets `Access is denied` ([troubleshooting #28](../../troubleshooting/README.md#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied)) | ✅ observed live 2026-07-28 — documented behavior, not a defect |
 | I4.4d | **Windows reports its own run results** | After an agent republish, every synced Windows task carries `lastTaskResult` + `numberOfMissedRuns` in metadata, and an **absent** key (old agent) stays distinguishable from a null one | ✅ live pass 2026-07-28 (354/354 tasks reporting) · ✅ `taskHealth.test.ts` for the absent/null distinction |
@@ -124,7 +124,7 @@ The only seam that touches real COM. Windows-only, and the hardest to fake.
 | I6.1 | **Live query invalidation** | A `task:updated` socket event invalidates TanStack Query and the UI repaints | ✅ E2E `smoke.spec.ts` |
 | I6.2 | **API client contract** | Frontend request/response shapes match what the backend actually returns | ✅ `api.test.ts` |
 | I6.3 | **CORS / origins** | `ALLOWED_ORIGINS` admits the dev frontend and refuses others — for the **REST API and** the socket, from one definition | ✅ `src/config/__tests__/origins.test.ts` (asserts response *headers*, not status codes) + manual [Security Checks §10](../manual-testing/runbooks/Security_Checks.md) |
-| I6.4 | **MCP → REST** | All **15** MCP tools drive the real API under `TASKHUB_TOKEN` | ⬜ Manual — and the standing gap: `mcp-server`'s own suite stubs the HTTP client, so it can prove what the wrapper does, never that the wrapper and the API still *agree* |
+| I6.4 | **MCP → REST** | All **15** MCP tools drive the real API under `CRONSOLE_TOKEN` | ⬜ Manual — and the standing gap: `mcp-server`'s own suite stubs the HTTP client, so it can prove what the wrapper does, never that the wrapper and the API still *agree* |
 | I6.5 | **Docker Compose stack** | `docker compose up` yields a working stack from a clean checkout, secrets aligned ([troubleshooting #2](../../troubleshooting/README.md#2-403-invalid-or-expired-token-or-agent-rejected)) | ⬜ Manual |
 
 ## 🏃 Running these

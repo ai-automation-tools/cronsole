@@ -16,7 +16,7 @@ test.describe('dashboard smoke', () => {
     await expect(page.getByText(/Manage \d+ tasks across your ecosystem/)).toBeVisible();
 
     // The sidebar brand is always present.
-    await expect(page.getByText('TaskHub').first()).toBeVisible();
+    await expect(page.getByText('Cronsole').first()).toBeVisible();
   });
 
   test('navigates to the template library', async ({ page }) => {

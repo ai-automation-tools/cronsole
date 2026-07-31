@@ -3,7 +3,7 @@ import type { TimezoneMode } from '../hooks/useSettings';
 /**
  * Best-effort, honest human description of a 5-field cron expression
  * (`minute hour day-of-month month day-of-week`). Covers the common shapes
- * TaskHub generates and syncs; returns `null` for anything it can't describe
+ * Cronsole generates and syncs; returns `null` for anything it can't describe
  * confidently so callers fall back to showing the raw expression rather than
  * guessing wrong.
  *

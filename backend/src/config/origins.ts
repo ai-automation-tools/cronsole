@@ -7,7 +7,7 @@ import type { CorsOptions } from 'cors';
  * They used to disagree: Socket.IO was restricted to `ALLOWED_ORIGINS` while
  * Express ran a bare `app.use(cors())`, which reflects *any* origin — so the
  * REST API was readable cross-origin by any page the user happened to have open
- * while TaskHub was running. Two mechanisms answering the same question is how
+ * while Cronsole was running. Two mechanisms answering the same question is how
  * one of them quietly stops matching the other, so there is now one parser and
  * one policy.
  */

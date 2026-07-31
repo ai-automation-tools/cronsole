@@ -43,7 +43,7 @@ describe('BulkExportTool', () => {
     delete (window as unknown as { showDirectoryPicker?: () => void }).showDirectoryPicker;
   });
 
-  it('says it exports the machine, not just what TaskHub imported', async () => {
+  it('says it exports the machine, not just what Cronsole imported', async () => {
     renderTool();
     // The whole reason the tool exists: un-imported tasks are the ones nothing
     // else is holding. If the copy stops saying so, the invisible fence is back.
@@ -127,8 +127,8 @@ describe('BulkExportTool', () => {
     vi.mocked(api.post).mockResolvedValue({
       data: new Blob(['zip']),
       headers: {
-        'content-disposition': 'attachment; filename="taskhub-tasks.zip"',
-        'x-taskhub-export-counts': JSON.stringify({
+        'content-disposition': 'attachment; filename="cronsole-tasks.zip"',
+        'x-cronsole-export-counts': JSON.stringify({
           enumerated: 352, selected: 45, exported: 45, failed: 0, skippedSystem: 257
         })
       }
@@ -157,7 +157,7 @@ describe('BulkExportTool', () => {
       data: new Blob(['zip']),
       headers: {
         'content-disposition': 'attachment; filename="t.zip"',
-        'x-taskhub-export-counts': JSON.stringify({
+        'x-cronsole-export-counts': JSON.stringify({
           enumerated: 352, selected: 45, exported: 44, failed: 1, skippedSystem: 257
         })
       }

@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-28T18:26:33.185Z",
+  "updatedAt": "2026-07-31T15:34:39.613Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -238,7 +238,7 @@
     {
       "id": "dev-docker-compose-up",
       "name": "Docker Compose Self-Heal",
-      "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern TaskHub uses for its own stack).",
+      "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern Cronsole uses for its own stack).",
       "category": "monitoring",
       "tags": [
         "dev",
@@ -253,7 +253,7 @@
         "macos"
       ],
       "path": "templates/dev-docker-compose-up.json",
-      "sha256": "fc1ac426f5e1b2bce4c9f2f3d66704dc2565548f7a8e230f267beeb03195d09b"
+      "sha256": "b6b3b45c2625b4da4c56f59a7cadf21703645a66fe8ad00ad9befa1774ddc03e"
     },
     {
       "id": "ai-claude-headless-run",
@@ -1041,7 +1041,7 @@
         "windows"
       ],
       "path": "templates/ntf-discord-heartbeat.json",
-      "sha256": "c4bccd8d47a1450de7017cb4c8b89e94657006f1fea3e49ef76a81ff7acac39f"
+      "sha256": "9d002f3c53d793a02d60a84c9e1f1ea876378ca08d678e5caa218de551186ccd"
     },
     {
       "id": "ntf-log-heartbeat",
@@ -1091,7 +1091,7 @@
         "tpl_starter_chatgpt_link"
       ],
       "path": "packs/starters.json",
-      "sha256": "5391df7eae8b5f7c03087755e587d6cb49fdd2c3f630ac0ed685c6776a0f4bb3"
+      "sha256": "6f45e6f6215e0ac4310d7e2996fefb876d6ccff221487db8d183fdaefc1a250d"
     },
     {
       "id": "developer",
@@ -1111,7 +1111,7 @@
         "tpl_starter_git_sync"
       ],
       "path": "packs/developer.json",
-      "sha256": "61092b23f86f123c3325b21b5ed24684f18bef4b3f4c0d396091bcdc25d2d411"
+      "sha256": "8ac7965bfde93aa10403aa486a6be0eaacd9ccbfc2ce16772789ac7911e70a55"
     },
     {
       "id": "ai-agents",
@@ -1131,7 +1131,7 @@
         "tpl_starter_chatgpt_link"
       ],
       "path": "packs/ai-agents.json",
-      "sha256": "22b4af81f091aac120c74caa0a7f3eb66849be8d297eaf4858cdacc0ff7e9c2c"
+      "sha256": "b95c6f8d76ab3780974029405e94fb25538eb00a7be924517fa19e18ec9e0505"
     },
     {
       "id": "backup-cleanup",
@@ -1148,7 +1148,7 @@
         "ai-claude-log-cleanup"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "53f9711365e58a1d14b3e5077efe99ef2b3dc56e785dcf6c1bc3eb5e5858085e"
+      "sha256": "0c62b92faf6838866524254bbfdb7c61044dabd095fd92a2e3c3f71d8f8df8b1"
     },
     {
       "id": "monitoring",
@@ -1163,7 +1163,7 @@
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "1b514319e1ac15fb664af15c9655eb88664cf5bbf44e12a550d6828565820920"
+      "sha256": "78ce283c563bdedab2b685bb79270e38c0a7ef0cd81fca32916ecd9c5086eb86"
     },
     {
       "id": "system-utilities",
@@ -1180,7 +1180,7 @@
         "ntf-log-heartbeat"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "76720b497892e1c29224d8315a8f6b5f4d5c1175755a2a39df0c8afd6c92eac6"
+      "sha256": "a083ec9345460f44ebb3118da2cc3c7cc0a390438916d6b64090be4da8a1301a"
     }
   ]
 }

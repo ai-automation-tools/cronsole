@@ -1,8 +1,8 @@
 # Task authoring & management
 
-> TaskHub Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
+> Cronsole Connect Pack **v1.1** · canonical copy: <https://taskhub.mikesailab.com>
 
-Every way to **create** a scheduled task through TaskHub, and how to **manage** it afterwards.
+Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
 unattended, and on Windows runs **elevated**.
 
@@ -99,8 +99,8 @@ minute step (`*/15 * * * *`), hour step (`0 */4 * * *`). Everything else hits th
 
 | Rule | Behavior |
 |:---|:---|
-| **Default folder is `\TaskHub`** | The only folder TaskHub creates — and the only one it prunes when the last task leaves. |
-| **Any other folder must ALREADY EXIST** | Deleting a folder needs elevation, so TaskHub will not create one it cannot remove. A create into a missing folder is refused honestly. |
+| **Default folder is `\TaskHub`** | The only folder Cronsole creates — and the only one it prunes when the last task leaves. |
+| **Any other folder must ALREADY EXIST** | Deleting a folder needs elevation, so Cronsole will not create one it cannot remove. A create into a missing folder is refused honestly. |
 | **`\Microsoft\` is refused outright** | Registering a task **silently overwrites** a same-named one, and the agent runs **elevated** — writing there could destroy a real Windows task with no error. Refused in the backend **and** independently in the agent. |
 | **Name must be unique per folder** | A collision returns **409** rather than letting Windows silently overwrite. `\Work\Backup` and `\TaskHub\Backup` are different tasks. |
 
@@ -113,7 +113,7 @@ you:
   its presence as permission.
 - **The default `\TaskHub` is often absent.** It is created lazily and **pruned when its last
   task is deleted**, so on a clean machine it genuinely does not exist yet. That is not a
-  problem and not a reason to pick another folder — omit `folder` and TaskHub creates it.
+  problem and not a reason to pick another folder — omit `folder` and Cronsole creates it.
   `list_folders` reports `defaultFolder` separately for exactly this reason.
 
 ---
@@ -136,17 +136,17 @@ you:
 | Restore from a backup | — | `POST /api/tools/restore/tasks` |
 | Run history, all tasks | — | `GET /api/tools/history` (`?format=csv`) |
 | What needs attention | — | `GET /api/tools/task-health` |
-| **Untrack** (remove from TaskHub, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
-| **Delete** | `delete_task` — **only** when the human set `TASKHUB_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
+| **Untrack** (remove from Cronsole, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
+| **Delete** | `delete_task` — **only** when the human set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.
 
-**Untrack is how you tidy the dashboard** — not delete. `untrack_task` removes TaskHub's record of
-a task (and its TaskHub run history) while leaving the real scheduled task exactly where it is,
+**Untrack is how you tidy the dashboard** — not delete. `untrack_task` removes Cronsole's record of
+a task (and its Cronsole run history) while leaving the real scheduled task exactly where it is,
 still running on its own schedule; future syncs won't pull it back. Reach for it when someone
-imported a folder by mistake, or wants OS-owned tasks out of their view. It refuses TaskHub-native
-tasks, which exist only inside TaskHub and so have nothing to keep.
+imported a folder by mistake, or wants OS-owned tasks out of their view. It refuses Cronsole-native
+tasks, which exist only inside Cronsole and so have nothing to keep.
 
 **Three verbs, three blast radii — never substitute one for another:**
 
@@ -158,7 +158,7 @@ tasks, which exist only inside TaskHub and so have nothing to keep.
 
 **If `delete_task` isn't in your tool list, that is the answer.** Say so and offer
 `set_task_status: DISABLED`, the dashboard, or the REST call. Don't route around it. Delete
-removes the real Task Scheduler entry, and TaskHub's own record goes **only after the platform
+removes the real Task Scheduler entry, and Cronsole's own record goes **only after the platform
 confirms**; a task with an admin ACL gets an honest "needs elevation" refusal rather than a
 fake success.
 
@@ -167,20 +167,20 @@ Two behaviors worth knowing before you use these:
 - **`update_task_action` REPLACES the action, it does not patch it.** `command` and `runLevel`
   are both required. Read the task's current values first, or you will silently reset the one
   you didn't mean to change.
-- **`get_task_history` is not a complete record.** TaskHub logs manual runs it triggered and
+- **`get_task_history` is not a complete record.** Cronsole logs manual runs it triggered and
   its own native jobs; a Windows task firing on its **own** trigger is recorded by Windows. An
-  empty history means "TaskHub has nothing", never "it never ran".
+  empty history means "Cronsole has nothing", never "it never ran".
 
 ---
 
 ## 6. Verify it — the part everyone skips
 
-**A command that tokenizes is not a command that runs.** Neither is TaskHub's own
+**A command that tokenizes is not a command that runs.** Neither is Cronsole's own
 `lastRunStatus: SUCCESS` — the agent observes that the task **started**, never that the
 command worked, so a command that hangs forever reports `SUCCESS`.
 
 > **When you're testing whether the reporting is honest, the reporting cannot be your
-> witness.** Get evidence from outside TaskHub.
+> witness.** Get evidence from outside Cronsole.
 
 ```powershell
 $t = Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>'
@@ -210,7 +210,7 @@ POST /api/tools/export/tasks
   { "scope": "folder", "folder": "\\Work", "format": "zip" }
 ```
 
-This exports what is **on the machine**, not only what TaskHub imported, as native Task
+This exports what is **on the machine**, not only what Cronsole imported, as native Task
 Scheduler XML. The XML is UTF-16 LE with a BOM — the only encoding Windows re-imports — so if
 you write it anywhere, write it as **raw bytes**, never re-encoded as UTF-8. Tasks under
 `\Microsoft\` are excluded unless you pass `includeSystem: true`.
@@ -219,7 +219,7 @@ Re-import on Windows with `Register-ScheduledTask -Xml (Get-Content -Raw file.xm
 
 ### Restoring one back
 
-TaskHub can put them back itself:
+Cronsole can put them back itself:
 
 ```
 POST /api/tools/restore/tasks
@@ -241,7 +241,7 @@ Two flags, both `false` by default, both deliberate:
 
 Send the file's **raw bytes** base64-encoded (or the whole `.zip` as `archiveBase64`) — never
 the XML as a JSON string, or the UTF-16 encoding is lost. Restoring a task puts it on the
-machine; it does **not** make TaskHub track it. Import it from the dashboard for that.
+machine; it does **not** make Cronsole track it. Import it from the dashboard for that.
 
 ---
 
@@ -257,5 +257,5 @@ Before you call `create_task` on a real machine:
    take the default `\TaskHub`.
 6. The name won't collide in that folder.
 7. The command **terminates**. An unattended run has no console.
-8. After creating: **run it and verify from outside TaskHub**.
+8. After creating: **run it and verify from outside Cronsole**.
 9. If it was a test: **delete it**.

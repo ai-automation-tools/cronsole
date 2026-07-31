@@ -24,7 +24,7 @@ function table(rows: Array<[string, string | number]>, indent = '  '): void {
 }
 
 async function main(): Promise<void> {
-  console.log(`\nTaskHub DB snapshot — ${new Date().toISOString()}`);
+  console.log(`\nCronsole DB snapshot — ${new Date().toISOString()}`);
 
   // First, because a stale client makes every number below a claim rather than
   // a fact: it silently drops enum values it doesn't know.
@@ -83,9 +83,9 @@ async function main(): Promise<void> {
   });
   table([
     ['platform connections', connections],
-    // ExecutionLog records runs TaskHub PERFORMED, not runs that happened — a
+    // ExecutionLog records runs Cronsole PERFORMED, not runs that happened — a
     // Windows task firing on its own schedule writes nothing here.
-    ['execution log rows (TaskHub-performed runs)', runs],
+    ['execution log rows (Cronsole-performed runs)', runs],
     ['latest run', latestRun ? `${latestRun.triggeredAt.toISOString()} (${latestRun.status})` : 'none']
   ]);
 

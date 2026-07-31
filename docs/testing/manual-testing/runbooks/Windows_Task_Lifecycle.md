@@ -3,12 +3,12 @@
 > **Covers:** F1.3, F1.4, F1.5, F1.8, F1.8b, F1.8c, F1.9, F2.8 · I4.1, I4.2, I4.3, I4.4, I4.4a, I4.4b, I4.6 · U2.2, U4.2
 > **Time:** ~30 min · **Needs:** the stack + **real Windows Task Scheduler**
 
-This is the runbook that earns TaskHub's core promise. Every automated test of this path uses
+This is the runbook that earns Cronsole's core promise. Every automated test of this path uses
 a **mock agent** — which proves the protocol, not the platform. Only this runbook proves a
 real task really appears, really fires, and really disappears.
 
-**The discipline:** after every TaskHub action, verify in **Task Scheduler**, not in TaskHub.
-TaskHub agreeing with itself proves nothing.
+**The discipline:** after every Cronsole action, verify in **Task Scheduler**, not in Cronsole.
+Cronsole agreeing with itself proves nothing.
 
 Complete the [preflight](../README.md#-preflight--do-this-once-per-session) and the
 [Smoke Test](Smoke_Test.md) first. `$H` holds your auth header.
@@ -25,7 +25,7 @@ Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue |
 **Expect:** whatever's there now (possibly nothing — the `\TaskHub\` folder auto-prunes when
 its last task is deleted). Note it; you'll compare at the end.
 
-## 2. Create a task through TaskHub
+## 2. Create a task through Cronsole
 
 In the UI: **Templates** → pick a harmless one → apply it with a name like
 `manual-test-lifecycle`. Or via the API:
@@ -38,16 +38,31 @@ $body = @{
   parameters = @{ }                       # fill per the template's {{placeholders}}
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post "http://localhost:3000/api/templates/<template-id>/apply" `
+$created = Invoke-RestMethod -Method Post "http://localhost:3000/api/templates/<template-id>/apply" `
   -Headers $H -ContentType 'application/json' -Body $body
+$taskId = $created.id
+$taskId
 ```
 
 **Expect:** `200/201` and a task id back.
 
+> **`$taskId` is what every `<task-id>` below means** — Cronsole's own row id (a cuid), **not**
+> the task name. `/api/tasks/manual-test-lifecycle/run` returns `Task not found`; the route
+> looks the task up by primary key. If you created the task in the UI instead, get the id with:
+>
+> ```powershell
+> $all    = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
+> $taskId = @($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' })[0].id
+> ```
+>
+> **The id changes.** Untrack (12a) deletes the row and re-import creates a new one, so re-read
+> `$taskId` after **12a** and again after **12b** — a full pass through this runbook uses three
+> different ids for the same Windows task.
+
 > The server owns `{{placeholder}}` substitution — pass **raw `parameters`**, not a
 > pre-substituted `command`. (`command` still exists for legacy clients but is deprecated.)
 
-## 3. ⭐ Verify it exists in Windows — not in TaskHub
+## 3. ⭐ Verify it exists in Windows — not in Cronsole
 
 ```powershell
 Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle'
@@ -55,7 +70,7 @@ Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle'
 
 **Expect:** the task exists, `State = Ready`.
 
-**This is the step that matters.** If TaskHub shows the task but this doesn't, TaskHub is
+**This is the step that matters.** If Cronsole shows the task but this doesn't, Cronsole is
 lying — the highest-severity bug class in this product.
 
 ## 4. Verify the trigger compiled correctly
@@ -95,7 +110,7 @@ Get-ScheduledTaskInfo -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle' |
   Select-Object LastRunTime, LastTaskResult, NextRunTime
 ```
 
-**Expect:** `LastRunTime` is **just now** and `LastTaskResult` is `0`. A TaskHub success toast
+**Expect:** `LastRunTime` is **just now** and `LastTaskResult` is `0`. A Cronsole success toast
 with no `LastRunTime` change means the run never reached Windows.
 
 ## 8. No console flash
@@ -136,15 +151,29 @@ HMAC command** — a failure here may be signature-related, not schedule-related
 ## 11. Disable, and verify
 
 ```powershell
-$body = @{ enabled = $false } | ConvertTo-Json
-Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/<task-id>/status" `
+$body = @{ status = 'DISABLED' } | ConvertTo-Json
+Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/$taskId/status" `
   -Headers $H -ContentType 'application/json' -Body $body
 
-(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle').State
+(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle').State   # -> Disabled
 ```
 
-**Expect:** `Disabled` — in **Windows**, not just in TaskHub's UI. Re-enable and confirm it
-returns to `Ready`.
+Then re-enable:
+
+```powershell
+$body = @{ status = 'ACTIVE' } | ConvertTo-Json
+Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/$taskId/status" `
+  -Headers $H -ContentType 'application/json' -Body $body
+
+(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle').State   # -> Ready
+```
+
+**Expect:** `Disabled` then `Ready` — in **Windows**, not just in Cronsole's UI.
+
+> The body is `{ status: 'ACTIVE' | 'DISABLED' }`, not `{ enabled: <bool> }` — the route
+> validates against `patchTaskStatusSchema` and rejects anything else with
+> `400 status: Invalid status`. A 400 here leaves Windows untouched, so a failed call is safe
+> to just re-issue.
 
 ## 12. Export round-trip
 
@@ -172,22 +201,35 @@ Register-ScheduledTask -Xml (Get-Content "$env:TEMP\manual-test-lifecycle.xml" -
 
 ## 12a. Untrack — the row goes, the task stays
 
-The whole safety claim of untrack is that it makes **no platform call**. TaskHub reporting
-"Removed from TaskHub" is not evidence of that; Windows is.
+The whole safety claim of untrack is that it makes **no platform call**. Cronsole reporting
+"Removed from Cronsole" is not evidence of that; Windows is.
 
 ```powershell
-# Untrack it (the dashboard button is "Remove from TaskHub")
-Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/<task-id>/untrack" -Headers $H
+# Untrack it (the dashboard button is "Remove from Cronsole")
+Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/$taskId/untrack" -Headers $H
 
-# 1. Gone from TaskHub?
-(Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H |
-  Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' }).Count   # -> 0
+# 1. Gone from Cronsole?
+$all = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
+@($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' }).Count   # -> 0
 
 # 2. THE check — does Windows still have it?
 Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle'      # -> State: Ready
 ```
 
-**Expect:** the row is gone from TaskHub and the scheduled task is **still there and still
+> [!WARNING]
+> **Assign the response to a variable before filtering it — don't pipe `Invoke-RestMethod`
+> straight into `Where-Object`.** IRM writes its array to the pipeline *without enumerating*,
+> so the filter receives one `Object[]` instead of N task objects. `$_.externalId -eq '…'`
+> then evaluates against the whole array and returns the *matching elements*, which is truthy,
+> so **every** task passes the filter. Piping into `Select-Object` fails the same way and
+> renders one blank row.
+>
+> This matters most right here: the broken form prints `0` when nothing matches, so it looks
+> correct — but if untrack had left the row behind it would report the full task count instead
+> of `1`. **It is a check that cannot fail in the direction it's testing.** `@(…)` around the
+> filter also keeps `.Count` honest when exactly one row matches.
+
+**Expect:** the row is gone from Cronsole and the scheduled task is **still there and still
 `Ready`**. If Windows lost the task, untrack silently performed a delete — the single worst
 outcome this feature can have, because it wore a reversible label while being irreversible.
 
@@ -201,27 +243,27 @@ Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $
 
 # 4. An explicit category import IS the way back
 Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
-  -ContentType 'application/json' -Body '{"categories":["TaskHub"]}'
+  -ContentType 'application/json' -Body '{"categories":["Cronsole"]}'
 #    -> exclusionsCleared = 1, and the task returns
 ```
 
 **Expect:** step 3 leaves it out (a sync that re-imported it would look identical to "untrack is
 broken"), step 4 brings it back and **says so** — `exclusionsCleared` is what the toast turns
-into *"Re-imported 1 task you had removed from TaskHub."*
+into *"Re-imported 1 task you had removed from Cronsole."*
 
-Also check `GET /api/tasks/discover` between 3 and 4: the `TaskHub` category should report
+Also check `GET /api/tasks/discover` between 3 and 4: the `Cronsole` category should report
 `excludedCount: 1`, which is the amber **+1 removed** badge in the Import modal. The number has
 to arrive **before** the click.
 
 ## 12b. Restore — put it back, and check with Windows
 
-Step 12 proves the XML is *importable by Windows*. This proves **TaskHub can do the importing**,
+Step 12 proves the XML is *importable by Windows*. This proves **Cronsole can do the importing**,
 which is a different claim and the one the Tools tab makes.
 
 ```powershell
 # Base64 the exported bytes — never send the XML as a JSON string, or the UTF-16 is lost
 $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:TEMP\manual-test-lifecycle.xml"))
-$body = @{ files = @(@{ relativePath = 'TaskHub/manual-test-lifecycle.xml'; contentBase64 = $b64 })
+$body = @{ files = @(@{ relativePath = 'Cronsole/manual-test-lifecycle.xml'; contentBase64 = $b64 })
            dryRun = $true } | ConvertTo-Json -Depth 5
 Invoke-RestMethod -Method Post "http://localhost:3000/api/tools/restore/tasks" `
   -Headers $H -ContentType 'application/json' -Body $body |
@@ -248,7 +290,7 @@ date **unchanged** — "left alone" has to mean untouched, not rewritten identic
 
 > **Heads-up for cleanup:** the restore ran through the **elevated** agent, so the restored task
 > (and any folder it created) now carry an administrator ACE. An unelevated
-> `Unregister-ScheduledTask` will fail with `Access is denied` — delete it through TaskHub, or
+> `Unregister-ScheduledTask` will fail with `Access is denied` — delete it through Cronsole, or
 > from an elevated Task Scheduler. See [#28](../../../troubleshooting/README.md#28-a-restored-task-or-the-folder-it-landed-in-cant-be-deleted-access-is-denied).
 
 ## 13. Delete, and verify it's really gone
@@ -260,7 +302,7 @@ Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle' -Error
 ```
 
 **Expect:** the second command returns **nothing**. The DB row must only go **after** the
-platform confirms — so if Windows still has it, TaskHub must still list it.
+platform confirms — so if Windows still has it, Cronsole must still list it.
 
 ## 14. Empty folder auto-prunes
 
@@ -274,7 +316,7 @@ Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue
 
 ## 15. Elevation refusal is honest
 
-Find an admin-ACL'd task (one Windows requires elevation to modify), import it into TaskHub,
+Find an admin-ACL'd task (one Windows requires elevation to modify), import it into Cronsole,
 and try to delete it.
 
 **Expect:** an honest **"needs elevation"** refusal. **Not** a success toast, and **not** a
@@ -309,7 +351,7 @@ Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue |
 Remove-Item "$env:TEMP\manual-test-lifecycle.xml" -ErrorAction SilentlyContinue
 ```
 
-Then sync TaskHub so its view matches reality again:
+Then sync Cronsole so its view matches reality again:
 
 ```powershell
 Invoke-RestMethod -Method Post http://localhost:3000/api/tasks/sync -Headers $H

@@ -1,6 +1,6 @@
 # Security Policy
 
-TaskHub is a scheduled-task control plane. A local agent runs on your machine and can
+Cronsole is a scheduled-task control plane. A local agent runs on your machine and can
 **create, run, and delete scheduled tasks** — i.e. it executes commands with your
 privileges. Because of that, we take security reports seriously and ask that you do too.
 
@@ -20,7 +20,7 @@ disclosure, and avoid accessing or modifying data that isn't yours while testing
 
 ## Scope
 
-TaskHub runs **entirely on your own machine** (local-first) — there is no hosted service.
+Cronsole runs **entirely on your own machine** (local-first) — there is no hosted service.
 The most security-relevant surfaces are:
 
 - **The Windows agent** — registers/runs/deletes Task Scheduler entries; commands are
@@ -30,7 +30,7 @@ The most security-relevant surfaces are:
   (per-session HMAC signatures + a replay guard).
 - **The REST API** — JWT-scoped per user; task routes are owner-scoped. Browser origins are
   restricted to `ALLOWED_ORIGINS` (both CORS and the Socket.IO handshake).
-- **Accounts** — TaskHub is single-user. The **only** way to create an account is `/setup`,
+- **Accounts** — Cronsole is single-user. The **only** way to create an account is `/setup`,
   which works on first run and refuses (409) once an owner exists. There is deliberately no
   open registration endpoint.
 - **Config at rest** — platform-connection config (API keys, pairing secrets) is encrypted
@@ -47,7 +47,7 @@ exposure.
 - The dashboard has a real **single-user** login (one owner, created at first run). What it
   does *not* have is the rest of a multi-user system: no password reset, no refresh tokens
   (a 24h access token, then log in again), and no per-user agent pairing. **Do not expose
-  TaskHub directly to the public internet.** If you access it from another device, put it
+  Cronsole directly to the public internet.** If you access it from another device, put it
   behind a private network layer (e.g. Tailscale) or an access-gated tunnel — see the
   [Remote Access Guide](docs/user-guides/guides/Remote_Access_Guide.md).
 - The agent runs with your Windows privileges; a task you create runs as you (or elevated,
@@ -56,7 +56,7 @@ exposure.
 
 ## Supported versions
 
-TaskHub is pre-1.0. Security fixes land on the latest `main`; there are no back-ported
+Cronsole is pre-1.0. Security fixes land on the latest `main`; there are no back-ported
 release branches yet.
 
 ## Secrets

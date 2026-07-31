@@ -72,7 +72,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         >
           {isSetup && (
             <p className="text-xs text-muted-foreground bg-background border border-border rounded-lg p-3">
-              This is a fresh TaskHub install. The first account you create becomes the owner of
+              This is a fresh Cronsole install. The first account you create becomes the owner of
               this instance — there's no public sign-up.
             </p>
           )}

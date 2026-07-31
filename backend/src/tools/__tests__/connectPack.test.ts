@@ -61,13 +61,13 @@ describe('version stamping', () => {
 });
 
 describe('download assembly', () => {
-  it('builds the skill archive under taskhub/ so it drops into a skills folder', async () => {
+  it('builds the skill archive under cronsole/ so it drops into a skills folder', async () => {
     const download = findDownload('skill')!;
     const zip = await JSZip.loadAsync(await buildDownload(download));
     const entries = Object.values(zip.files).filter(f => !f.dir).map(f => f.name).sort();
     expect(entries).toEqual([
-      'taskhub/SKILL.md',
-      'taskhub/references/task-authoring.md'
+      'cronsole/SKILL.md',
+      'cronsole/references/task-authoring.md'
     ]);
   });
 
@@ -75,12 +75,12 @@ describe('download assembly', () => {
     const download = findDownload('connect-pack')!;
     const zip = await JSZip.loadAsync(await buildDownload(download));
     expect(zip.files['README.md']).toBeDefined();
-    expect(zip.files['taskhub/README.md']).toBeUndefined();
+    expect(zip.files['cronsole/README.md']).toBeUndefined();
   });
 
   it('round-trips archived content unchanged', async () => {
     const zip = await JSZip.loadAsync(await buildDownload(findDownload('skill')!));
-    const skill = await zip.file('taskhub/SKILL.md')!.async('string');
+    const skill = await zip.file('cronsole/SKILL.md')!.async('string');
     expect(skill).toBe(packFile('SKILL.md'));
   });
 
@@ -91,7 +91,7 @@ describe('download assembly', () => {
 
   it('ships a parseable MCP config', () => {
     const parsed = JSON.parse(packFile('mcp-config.json'));
-    expect(parsed.mcpServers.taskhub.env.TASKHUB_TOKEN).toBe('${TASKHUB_TOKEN}');
+    expect(parsed.mcpServers.cronsole.env.CRONSOLE_TOKEN).toBe('${CRONSOLE_TOKEN}');
   });
 
   it('never bakes a literal token into the shipped config', () => {
@@ -102,7 +102,7 @@ describe('download assembly', () => {
 
   it('does not enable the destructive gate by default', () => {
     const parsed = JSON.parse(packFile('mcp-config.json'));
-    expect(parsed.mcpServers.taskhub.env.TASKHUB_MCP_ALLOW_DESTRUCTIVE).toBeUndefined();
+    expect(parsed.mcpServers.cronsole.env.CRONSOLE_MCP_ALLOW_DESTRUCTIVE).toBeUndefined();
   });
 
   it('reports a real size for single-file downloads', () => {
@@ -115,12 +115,12 @@ describe('download assembly', () => {
 });
 
 describe('audience', () => {
-  // The repo's own skills/taskhub/ teaches an agent to work ON the codebase.
+  // The repo's own skills/cronsole/ teaches an agent to work ON the codebase.
   // Shipping that to an end user would hand them build internals instead of
   // usage instructions — the mistake this pack exists to avoid.
   const REPO_INTERNALS = ['catalogSync', 'normalize.ts', 'bundled.ts', 'registry:build', 'publish-registry'];
 
-  it('contains no TaskHub build internals', () => {
+  it('contains no Cronsole build internals', () => {
     for (const path of Object.keys(CONNECT_PACK_FILES)) {
       for (const term of REPO_INTERNALS) {
         expect(packFile(path), `${path} leaks repo internals: ${term}`).not.toContain(term);

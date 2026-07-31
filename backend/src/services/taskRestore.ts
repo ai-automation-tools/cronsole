@@ -20,7 +20,7 @@
 import { isSystemTaskPath, normalizeFolder, taskFolderOf } from './bulkExport.js';
 
 /** Name of the manifest `bulkExport` writes into every archive. */
-export const EXPORT_MANIFEST_NAME = '_taskhub-export.json';
+export const EXPORT_MANIFEST_NAME = '_cronsole-export.json';
 
 /** What the plan decided to do with one file. */
 export type RestoreAction = 'create' | 'overwrite' | 'skip' | 'refuse';

@@ -6,11 +6,11 @@ import { executeJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { computeNextRun } from '../utils/cron-next.js';
 
 /**
- * Connector for tasks that live only in TaskHub: the database is the platform
+ * Connector for tasks that live only in Cronsole: the database is the platform
  * and the backend's NativeScheduler is the execution engine
  * (docs/resources/Native_Tasks.md).
  */
-export class TaskHubNativeConnector implements PlatformConnector {
+export class CronsoleNativeConnector implements PlatformConnector {
   platform = PlatformType.TASKHUB_NATIVE;
 
   async syncTasks(_config: any): Promise<TaskInfo[]> {

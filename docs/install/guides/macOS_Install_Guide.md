@@ -35,7 +35,7 @@ docker compose up --build
 
 | Works on macOS | What it gives you |
 |:---|:---|
-| **TaskHub-native tasks** | HTTP jobs (webhooks, health checks) the backend schedules and runs itself — no OS task needed. |
+| **Cronsole-native tasks** | HTTP jobs (webhooks, health checks) the backend schedules and runs itself — no OS task needed. |
 | **Template library** | Browse the catalog and apply templates targeting other platforms. |
 | **Full dashboard UI** | All four views, categories, search, run history, themes. |
 

@@ -53,7 +53,7 @@ const isWithin = (folder: string, parent: string) => {
 /**
  * Bulk export of Windows Task Scheduler tasks.
  *
- * Exports what is on the **machine**, not only what TaskHub has imported — the
+ * Exports what is on the **machine**, not only what Cronsole has imported — the
  * tasks most at risk of being lost are the ones nothing else is tracking. The UI
  * says so out loud, because an "Export all" that quietly means "all the ones we
  * happen to know about" is the same invisible fence that made un-imported tasks
@@ -138,11 +138,11 @@ export const BulkExportTool = () => {
         toast(`Exported ${payload.counts.exported} task${payload.counts.exported === 1 ? '' : 's'} to "${directory.name}".`, 'success');
       } else {
         const res = await api.post('/tools/export/tasks', { ...body, format: 'zip' }, { responseType: 'blob' });
-        const filename = filenameFromDisposition(res.headers['content-disposition'] as string | undefined, 'taskhub-tasks.zip');
+        const filename = filenameFromDisposition(res.headers['content-disposition'] as string | undefined, 'cronsole-tasks.zip');
         downloadBlob(res.data as Blob, filename);
         // A binary response has no JSON body to carry the counts, so the server
         // puts them in a header — otherwise "3 of 95 failed" would vanish.
-        const counts = JSON.parse((res.headers['x-taskhub-export-counts'] as string) || 'null') as ExportCounts | null;
+        const counts = JSON.parse((res.headers['x-cronsole-export-counts'] as string) || 'null') as ExportCounts | null;
         if (counts) setResult({ counts, failures: [], destination: filename });
         toast(`Exported ${counts?.exported ?? 0} tasks to ${filename}.`, 'success');
       }
@@ -176,7 +176,7 @@ export const BulkExportTool = () => {
           <h3 className="font-bold">Back up scheduled tasks</h3>
           <p className="text-sm text-muted-foreground">
             Save Windows Task Scheduler tasks as native XML. Exports what is on <strong>this machine</strong> —
-            including tasks you never imported into TaskHub.
+            including tasks you never imported into Cronsole.
           </p>
         </div>
       </div>
@@ -309,7 +309,7 @@ export const BulkExportTool = () => {
             {result.counts.skippedSystem > 0 && (
               <li>{result.counts.skippedSystem} Windows system tasks skipped</li>
             )}
-            <li>A <code>_taskhub-export.json</code> manifest lists exactly what was saved.</li>
+            <li>A <code>_cronsole-export.json</code> manifest lists exactly what was saved.</li>
           </ul>
 
           {result.counts.failed > 0 && (

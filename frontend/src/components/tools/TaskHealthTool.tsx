@@ -52,7 +52,7 @@ const TIER_STYLE: Record<Exclude<HealthTier, 'ok'>, { label: string; dot: string
  * each signal names the field it came from. The number is labelled as a ranking,
  * because that is all it is.
  *
- * `unknown` is its own tier rather than folded into "fine". A task TaskHub has no
+ * `unknown` is its own tier rather than folded into "fine". A task Cronsole has no
  * run evidence for is not healthy — it is unmeasured, and saying so is the
  * difference between a dashboard and a reassurance.
  */
@@ -94,7 +94,7 @@ export const TaskHealthTool = () => {
           <h3 className="font-bold">Task health</h3>
           <p className="text-sm text-muted-foreground">
             Which tasks need attention, and the evidence behind each verdict — read from
-            Windows' own run results, not just TaskHub's records.
+            Windows' own run results, not just Cronsole's records.
           </p>
         </div>
       </div>

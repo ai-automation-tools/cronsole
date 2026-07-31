@@ -87,7 +87,7 @@ export const Sidebar = ({ activeTab, setActiveTab, open = false, onClose }: Side
       >
         <div className="mb-8 px-2 flex items-center gap-2">
           <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center font-bold text-primary-foreground shadow-lg shadow-primary/20">T</div>
-          <h1 className="text-xl font-bold tracking-tight">TaskHub</h1>
+          <h1 className="text-xl font-bold tracking-tight">Cronsole</h1>
           <button
             onClick={onClose}
             className="ml-auto p-1.5 rounded-lg text-subtle-foreground hover:text-foreground hover:bg-surface transition-colors md:hidden"

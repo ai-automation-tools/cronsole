@@ -64,7 +64,7 @@ export function previewSchedule(
   const requested = computeNextRuns(cron, PREVIEW_RUN_COUNT, from);
   const requestedRuns = requested.map(d => d.toISOString());
 
-  // Non-Windows platforms run the cron as given — TaskHub-native is scheduled by
+  // Non-Windows platforms run the cron as given — Cronsole-native is scheduled by
   // NativeScheduler off this very expression — so there is no second schedule to
   // compare against and no divergence to warn about.
   if (platform !== PlatformType.WINDOWS_TASK_SCHEDULER) {

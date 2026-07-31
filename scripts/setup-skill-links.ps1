@@ -10,7 +10,7 @@
 # that exist in both places.
 #
 # IMPORTANT (differs from sibling repos): AI-Automation-Library gitignores its
-# whole CLIs/ tree, so its links can never be committed. taskhub TRACKS
+# whole CLIs/ tree, so its links can never be committed. cronsole TRACKS
 # .claude/skills/ (the pre-existing installed skills are committed there), so a
 # junction here WOULD be walked by git and its content committed a SECOND time --
 # once at skills/<name>/ and again at .claude/skills/<name>/. Every linked <name>

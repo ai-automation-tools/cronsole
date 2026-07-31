@@ -191,7 +191,7 @@ describe('scoreTask — Windows', () => {
   });
 });
 
-describe('scoreTask — TaskHub-native', () => {
+describe('scoreTask — Cronsole-native', () => {
   it('is critical when the most recent run failed', () => {
     const health = scoreTask(nativeTask([run(ExecutionStatus.FAILURE, 1), run(ExecutionStatus.SUCCESS, 2)]), NOW);
     expect(health.tier).toBe('critical');

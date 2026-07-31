@@ -1,7 +1,7 @@
 <h1 align="center">🔧 Scripts</h1>
 
 <p align="center">
-  <em>Operational scripts for running TaskHub on your machine.</em>
+  <em>Operational scripts for running Cronsole on your machine.</em>
 </p>
 
 <p align="center">
@@ -10,7 +10,7 @@
 
 ---
 
-Helper scripts that automate running TaskHub locally. Each subfolder has its own README with
+Helper scripts that automate running Cronsole locally. Each subfolder has its own README with
 the full details.
 
 ## 📂 In this folder
@@ -19,9 +19,9 @@ the full details.
 |:---|:---|
 | **`taskhub.ps1`** | **Single control surface** for the whole local stack — one command to bring it up, take it down, restart it, or see one combined status. Use this instead of hunting for which service is down. |
 | **`setup-skill-links.ps1`** · **`.sh`** | Link the tracked [**🧠 skills/**](../skills/README.md) into `.claude/skills/` so Claude Code loads them. **Run once per fresh clone**; idempotent. See below. |
-| **`Republish-Agent.ps1`** | **Rebuild + republish the .NET agent** (stop → `dotnet publish` → relaunch). The agent never hot-reloads, so run this after **any** `agent/` change or you'll debug a stale agent ([troubleshooting #7](../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)). Needs elevation — or register the on-demand task below and skip that. Logs to `%TEMP%\taskhub-republish.log`. |
+| **`Republish-Agent.ps1`** | **Rebuild + republish the .NET agent** (stop → `dotnet publish` → relaunch). The agent never hot-reloads, so run this after **any** `agent/` change or you'll debug a stale agent ([troubleshooting #7](../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)). Needs elevation — or register the on-demand task below and skip that. Logs to `%TEMP%\cronsole-republish.log`. |
 | **`publish-registry.ps1`** | Mirror the generated `registry/` + `registry-site/` to the public `taskhub-registry` repo (GitHub Pages). Does **not** regenerate — run `npm run registry:build` in `backend/` first. |
-| **`publish-frontdoor.ps1`** | Mirror the same `registry-site/` page to the public `taskhub-site` repo — TaskHub's front door at `taskhub.mikesailab.com`. One page, two hosts. Excludes `README.md` and `CNAME`, which the target repos own. |
+| **`publish-frontdoor.ps1`** | Mirror the same `registry-site/` page to the public `taskhub-site` repo — Cronsole's front door at `taskhub.mikesailab.com`. One page, two hosts. Excludes `README.md` and `CNAME`, which the target repos own. |
 | **`check-control-bytes.mjs`** | Fail on any literal control byte in a tracked text file (a NUL once made a security-relevant file diff as binary). Wired into CI as the `repo-hygiene` job. |
 | [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Task-Hub\TaskHubAgent` scheduled task (re-runs every 10 min as a self-heal). It now delegates to `taskhub.ps1 up`, so boot and manual control share one code path. |
 
@@ -45,7 +45,7 @@ pwsh scripts\taskhub.ps1 logs       # tail the backend/frontend logs
 `status` prints **ALL UP**, **DEGRADED**, **PARTIAL (n/5)**, or **DOWN** so you can
 tell at a glance. Docker db/redis carry `restart: unless-stopped`, so they recover
 from a crash or reboot on their own; the backend/frontend recover on the next
-auto-start self-heal (or immediately with `taskhub up`).
+auto-start self-heal (or immediately with `cronsole up`).
 
 > [!IMPORTANT]
 > **Every service is checked by asking the service, never by checking whether a port
@@ -67,7 +67,7 @@ auto-start self-heal (or immediately with `taskhub up`).
 
 ## 🧠 Linking the skills (`setup-skill-links.ps1` / `.sh`)
 
-The TaskHub Agent Skill lives canonically at the repo-root [**`skills/`**](../skills/README.md)
+The Cronsole Agent Skill lives canonically at the repo-root [**`skills/`**](../skills/README.md)
 (tracked). Claude Code, though, only loads skills from **`.claude/skills/`**. This script
 bridges the two with a per-machine link, so the agent reads the tracked source directly and
 **no second copy exists to drift**:
@@ -85,7 +85,7 @@ folders that contain a `SKILL.md`, refuses to clobber a real directory, and leav
 skills committed under `.claude/skills/` alone.
 
 > [!WARNING]
-> **Each linked skill needs a `.gitignore` line** (`/.claude/skills/<name>/`). taskhub
+> **Each linked skill needs a `.gitignore` line** (`/.claude/skills/<name>/`). cronsole
 > **tracks** `.claude/skills/`, so git follows the junction and would commit the skill content
 > **twice** — once under `skills/`, again under `.claude/skills/`. The script checks this and
 > warns if an entry is missing. Sibling repos don't hit this because they ignore their whole
@@ -104,7 +104,7 @@ npm run db:check      # read-only: what the database actually contains
 
 `db:check` prints the generated-client currency **first** — a client missing an enum member
 silently drops writes to it, which makes every count below it a claim rather than a fact
-([#22](../docs/troubleshooting/README.md#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n))
+([#22](../docs/troubleshooting/README.md#22-deleted-a-windows-task-synced-and-cronsole-still-shows-it--while-reporting-missing-n))
 — then task counts by platform and status, exclusions, template provenance (managed vs.
 imported), and the run log. It writes nothing.
 

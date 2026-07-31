@@ -20,7 +20,7 @@ const REPO = 'https://github.com/michaelschecht/taskhub/blob/main';
 
 export const TEMPLATE_RESOURCES: ResourceSection[] = [
   {
-    title: 'TaskHub docs',
+    title: 'Cronsole docs',
     links: [
       {
         label: 'Template catalog spec',
@@ -45,7 +45,7 @@ export const TEMPLATE_RESOURCES: ResourceSection[] = [
       {
         label: 'crontab.guru',
         url: 'https://crontab.guru/',
-        description: 'Sanity-check 5-field cron expressions (TaskHub stores UTC cron).'
+        description: 'Sanity-check 5-field cron expressions (Cronsole stores UTC cron).'
       },
       {
         label: 'Windows Task Scheduler docs',

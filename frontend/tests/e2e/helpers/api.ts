@@ -80,7 +80,7 @@ export function windowsTasksAsAgentTasks(tasks: ApiTask[]) {
             : null,
         actions: Array.isArray(metadata.actions) ? metadata.actions : [],
         enabled: task.status !== 'DISABLED',
-        author: 'TaskHub E2E preserve-existing'
+        author: 'Cronsole E2E preserve-existing'
       };
     });
 }

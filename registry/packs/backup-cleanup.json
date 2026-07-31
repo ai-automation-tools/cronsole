@@ -1,5 +1,5 @@
 {
-  "taskhubCatalogVersion": "1.0",
+  "cronsoleCatalogVersion": "1.0",
   "pack": {
     "id": "backup-cleanup",
     "name": "Backup & Cleanup",

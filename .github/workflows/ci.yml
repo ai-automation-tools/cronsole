@@ -72,13 +72,13 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: taskhub
+          POSTGRES_USER: cronsole
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: taskhub
+          POSTGRES_DB: cronsole
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U taskhub"
+          --health-cmd "pg_isready -U cronsole"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5

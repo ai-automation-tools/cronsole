@@ -3,7 +3,7 @@
     Mirror the generated template registry to the public taskhub-registry repo.
 
 .DESCRIPTION
-    Source of truth is <taskhub>/registry/ (generated from
+    Source of truth is <cronsole>/registry/ (generated from
     backend/src/catalog/bundled.ts via `npm run registry:build` and drift-tested).
     This script copies that folder into a local clone of the separate public repo
     (github.com/michaelschecht/taskhub-registry) and pushes it. GitHub Pages then
@@ -38,7 +38,7 @@ $SrcDir = Join-Path $RepoRoot 'registry'
 if (-not (Test-Path (Join-Path $SrcDir 'index.json'))) {
     throw "No registry/index.json at $SrcDir — run 'npm run registry:build' in backend/ first."
 }
-# Gallery site (browse/import UI) — source of truth for the public site is <taskhub>/registry-site/.
+# Gallery site (browse/import UI) — source of truth for the public site is <cronsole>/registry-site/.
 # Served at https://mikesailab.com/taskhub-registry/ (index.html at the clone root); it fetches
 # the registry's index.json + templates/*.json from the same origin.
 $SiteDir = Join-Path $RepoRoot 'registry-site'
@@ -88,7 +88,7 @@ if (Test-Path (Join-Path $SiteDir 'index.html')) {
     # CNAME is excluded defensively: it decides which domain a Pages repo answers
     # on, so a stray one in registry-site/ would hand taskhub.mikesailab.com to
     # the REGISTRY repo — moving the registry JSON off its documented URL and
-    # breaking catalog sync for every installed TaskHub. Domains belong to the
+    # breaking catalog sync for every installed Cronsole. Domains belong to the
     # target repo, never to mirrored content.
     Get-ChildItem -Path (Join-Path $SiteDir '*') -File -Exclude 'README.md', 'CNAME' | ForEach-Object {
         Copy-Item $_.FullName (Join-Path $WorkDir $_.Name) -Force

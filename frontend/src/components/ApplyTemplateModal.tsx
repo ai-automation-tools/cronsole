@@ -37,7 +37,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(params.map(p => [p.key, p.default ?? '']))
   );
-  // Only platforms TaskHub can actually create a task on are selectable; the
+  // Only platforms Cronsole can actually create a task on are selectable; the
   // rest are compatibility labels (no agent/API yet). Default to the first
   // creatable target so Apply doesn't silently fail on an uncreatable platform.
   const creatableTargets = template.targetPlatforms.filter(isCreatablePlatform);
@@ -48,7 +48,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   // Windows task the "category" is a projection of this folder
   // (TaskService.extractCategory reads the root segment), so choosing a folder
   // IS choosing the category — unlike native tasks, where categories are local.
-  // Only EXISTING folders are offered: TaskHub creates just its own \TaskHub
+  // Only EXISTING folders are offered: Cronsole creates just its own \TaskHub
   // (the one folder it also prunes), because removing a folder needs elevation
   // and anything else it created would be litter only the user could clear.
   const [folder, setFolder] = useState(DEFAULT_FOLDER);
@@ -109,7 +109,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   });
 
   // Offer only writable folders that ALREADY EXIST — plus the default, which is
-  // the one folder TaskHub creates lazily (and prunes again when emptied), so it
+  // the one folder Cronsole creates lazily (and prunes again when emptied), so it
   // belongs here even on a fresh machine where it doesn't exist yet.
   // \Microsoft\ is excluded rather than shown-and-disabled: the reason is
   // explained once, below, which is honest without cluttering the list with
@@ -180,7 +180,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
                     key={p}
                     onClick={() => creatable && setPlatform(p)}
                     disabled={!creatable}
-                    title={creatable ? undefined : 'TaskHub can’t create tasks on this platform yet — no agent or API.'}
+                    title={creatable ? undefined : 'Cronsole can’t create tasks on this platform yet — no agent or API.'}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                       platform === p
                         ? 'bg-primary border-primary text-primary-foreground'
@@ -197,7 +197,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
             {creatableTargets.length === 0 && (
               <p className="text-[11px] text-amber-400 bg-amber-500/5 border border-amber-500/30 rounded-xl px-3 py-2 flex items-start gap-1.5">
                 <AlertTriangle size={11} className="shrink-0 mt-0.5" />
-                This is a compatible pattern — TaskHub can’t create tasks on its target platform(s) yet (no agent or API). Copy the command below to set it up manually.
+                This is a compatible pattern — Cronsole can’t create tasks on its target platform(s) yet (no agent or API). Copy the command below to set it up manually.
               </p>
             )}
           </div>
@@ -252,8 +252,8 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
                 </p>
               ) : (
                 <p className="text-[10px] text-subtle-foreground italic">
-                  Where the task lives in Windows Task Scheduler — this also becomes its category in TaskHub.
-                  {' '}<span className="not-italic">Only folders that already exist are listed. TaskHub creates just its own {DEFAULT_FOLDER} (and removes it again when empty) — deleting a folder needs admin rights, so it won’t leave one behind that only you could clear. To use a new folder, create it in Task Scheduler first.</span>
+                  Where the task lives in Windows Task Scheduler — this also becomes its category in Cronsole.
+                  {' '}<span className="not-italic">Only folders that already exist are listed. Cronsole creates just its own {DEFAULT_FOLDER} (and removes it again when empty) — deleting a folder needs admin rights, so it won’t leave one behind that only you could clear. To use a new folder, create it in Task Scheduler first.</span>
                   {' '}<span className="not-italic">\Microsoft\ isn’t offered: Windows keeps its own tasks there, and a name collision would silently overwrite one.</span>
                 </p>
               )}

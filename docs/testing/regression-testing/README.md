@@ -18,7 +18,7 @@ Regression testing isn't a separate suite you go write — it's **what every oth
 the day after it's written**. A functional test proves a feature works. That same test, pinned
 in CI forever, is the promise it keeps working.
 
-The point is **freedom to change things**. TaskHub has a decoupled registry, an agent
+The point is **freedom to change things**. Cronsole has a decoupled registry, an agent
 protocol, and a security posture that all need to keep evolving. The regression suite is what
 makes that safe.
 
@@ -68,7 +68,7 @@ a regression test is a fix with an expiry date.
 | R3.4 | **Replay rejection** | Expired/duplicate HMAC envelopes rejected | ✅ `agentAuth.test.ts` |
 | R3.5 | **Encryption at rest** | Config never lands in the DB as plaintext | ✅ `encryption-at-rest.integration.test.ts` |
 | R3.6 | **Tenant isolation** | Cross-user access stays impossible as routes are added | ✅ `idor.integration.test.ts` |
-| R3.7 | **Dependency audit** | Production `npm audit` stays at **0** | ⬜ Not gated — see [`artifacts/taskhub_security_audit_2026-07-10.md`](../../../artifacts/taskhub_security_audit_2026-07-10.md) |
+| R3.7 | **Dependency audit** | Production `npm audit` stays at **0** | ⬜ Not gated — see [`artifacts/cronsole_security_audit_2026-07-10.md`](../../../artifacts/cronsole_security_audit_2026-07-10.md) |
 | R3.8 | **Secret scanning** | No `.env` values or keys committed | ⬜ |
 
 ## 🐛 Bug-fix regression
@@ -92,9 +92,9 @@ one), **#6** (non-ASCII in PowerShell scripts), **#7** (agent command with no ha
 
 | # | Test type | What it protects | Status |
 |:--|:---|:---|:--|
-| R5.1 | **Performance budget** | Dashboard load **< 2s** (NFR1). A baseline exists; nothing fails when we drift past it | ⬜ See [`artifacts/taskhub_performance_2026-07-10.md`](../../../artifacts/taskhub_performance_2026-07-10.md) |
+| R5.1 | **Performance budget** | Dashboard load **< 2s** (NFR1). A baseline exists; nothing fails when we drift past it | ⬜ See [`artifacts/cronsole_performance_2026-07-10.md`](../../../artifacts/cronsole_performance_2026-07-10.md) |
 | R5.2 | **Bundle size** | Frontend bundle doesn't creep | ⬜ |
-| R5.3 | **Resilience / soak** | Reconnect behavior + stale-pruning guard hold under network blips | 🟡 See [`artifacts/taskhub_resilience_2026-07-10.md`](../../../artifacts/taskhub_resilience_2026-07-10.md) |
+| R5.3 | **Resilience / soak** | Reconnect behavior + stale-pruning guard hold under network blips | 🟡 See [`artifacts/cronsole_resilience_2026-07-10.md`](../../../artifacts/cronsole_resilience_2026-07-10.md) |
 | R5.4 | **Visual regression** | Dark/light theme and layout don't break silently | ⬜ |
 | R5.5 | **Mobile layout** | Stays usable below 375px | 🟡 E2E only |
 | R5.6 | **Migration safety** | A migration applies cleanly to a **populated** DB, not just an empty one | ⬜ |

@@ -21,7 +21,7 @@ your auth header.
 Look at the real bytes:
 
 ```powershell
-docker exec taskhub-db-1 psql -U taskhub -d taskhub `
+docker exec taskhub-db-1 psql -U cronsole -d cronsole `
   -c 'SELECT id, platform, "config" FROM "PlatformConnection";'
 ```
 
@@ -123,7 +123,7 @@ verification, not just parsing.
 ## 6. Passwords are hashed
 
 ```powershell
-docker exec taskhub-db-1 psql -U taskhub -d taskhub `
+docker exec taskhub-db-1 psql -U cronsole -d cronsole `
   -c 'SELECT email, password FROM "User";'
 ```
 
@@ -226,7 +226,7 @@ cd ..\frontend ; npm audit --omit=dev
 
 **Expect:** **0 production vulnerabilities**. Nothing gates this in CI, so this reading is the
 check. Baseline:
-[`artifacts/taskhub_security_audit_2026-07-10.md`](../../../../artifacts/taskhub_security_audit_2026-07-10.md).
+[`artifacts/cronsole_security_audit_2026-07-10.md`](../../../../artifacts/cronsole_security_audit_2026-07-10.md).
 
 ## 13. No secrets committed
 
@@ -261,7 +261,7 @@ baked into `docker-compose.yml` are known and intentional — real rotated secre
 
 ```powershell
 # Remove the test user created in step 4
-docker exec taskhub-db-1 psql -U taskhub -d taskhub `
+docker exec taskhub-db-1 psql -U cronsole -d cronsole `
   -c "DELETE FROM \"User\" WHERE email = 'manual-test-b@example.com';"
 
 # Remove any tasks created in step 8

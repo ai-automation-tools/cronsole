@@ -1,5 +1,5 @@
 // Single source of truth for platform display — labels and badge styling.
-// TaskHub-native tasks get a distinct violet identity so they're immediately
+// Cronsole-native tasks get a distinct violet identity so they're immediately
 // separable from platform-synced tasks (docs/resources/Native_Tasks.md).
 
 export const platformLabel = (p: string) =>
@@ -11,7 +11,7 @@ export const platformLabel = (p: string) =>
     JULES: 'Jules',
     OPEN_CLAW: 'Open Claw',
     HERMES: 'Hermes',
-    TASKHUB_NATIVE: 'TaskHub'
+    TASKHUB_NATIVE: 'Cronsole'
   }[p] ?? p.split('_')[0]);
 
 export const platformBadgeClass = (p: string) =>
@@ -24,7 +24,7 @@ export const platformBadgeClass = (p: string) =>
 
 export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';
 
-// Platforms TaskHub can actually CREATE a task on today (a registered, working
+// Platforms Cronsole can actually CREATE a task on today (a registered, working
 // connector). Everything else a template lists is "compatible with" only — no
 // agent/API yet (macOS launchd, ChatGPT), or an experimental scaffold not wired
 // for creation (Claude). Templates advertise broader targetPlatforms; Apply is

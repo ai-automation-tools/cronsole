@@ -27,7 +27,7 @@ export interface CreateTaskOptions {
 
 /**
  * A real native folder a task can live in. Reported honestly, including ones
- * TaskHub will not write to — the UI shows WHY a folder is unavailable rather
+ * Cronsole will not write to — the UI shows WHY a folder is unavailable rather
  * than hiding it (leaving the user wondering) or offering it and failing late.
  */
 export interface PlatformFolder {
@@ -141,7 +141,7 @@ export interface PlatformConnector {
    * Export the platform's native task definition (read-only). Optional —
    * implemented only where the platform has a portable native format. The
    * Windows agent returns the task's Task Scheduler XML (round-trips into any
-   * Windows machine); TaskHub-native tasks have no such format and are exported
+   * Windows machine); Cronsole-native tasks have no such format and are exported
    * as JSON directly from the DB by the route, so this stays connector-specific.
    */
   exportTask?(externalId: string, config: any): Promise<{ success: boolean; xml?: string; message?: string }>;
@@ -168,7 +168,7 @@ export interface PlatformConnector {
  * Outcome of restoring one task. Four states rather than a boolean, because
  * collapsing them lies in both directions: `exists` is not a failure (nothing
  * went wrong and the user's task is intact) and not a success (nothing was
- * restored). `foldersCreated` is always reported — TaskHub creating a folder is
+ * restored). `foldersCreated` is always reported — Cronsole creating a folder is
  * a carve-out to a standing invariant, so it may never be silent.
  */
 export interface ImportTaskResult {

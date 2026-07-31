@@ -6,7 +6,7 @@
  *
  *   1. **File System Access API** (`showDirectoryPicker`) — a real folder picker
  *      and real per-file writes. Chromium only, and it needs a secure context —
- *      but `localhost` counts as one, and TaskHub is a local-first app, so the
+ *      but `localhost` counts as one, and Cronsole is a local-first app, so the
  *      primary path works for most users.
  *   2. **A single ZIP download** everywhere else. Lands in the browser's
  *      download folder like any other file.
@@ -58,7 +58,7 @@ export async function pickDirectory(): Promise<DirectoryHandleLike | null> {
   const picker = (window as unknown as { showDirectoryPicker?: DirectoryPicker }).showDirectoryPicker;
   if (!picker) return null;
   try {
-    return await picker({ mode: 'readwrite', id: 'taskhub-export' });
+    return await picker({ mode: 'readwrite', id: 'cronsole-export' });
   } catch (err) {
     // AbortError is the user clicking Cancel — not a failure worth reporting.
     if ((err as DOMException)?.name === 'AbortError') return null;

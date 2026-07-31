@@ -91,7 +91,7 @@ const timestampSlug = (d: Date) => d.toISOString().replace(/[:.]/g, '-').replace
 /**
  * Export Windows Task Scheduler tasks in bulk as native XML.
  *
- * Exports what is on the **machine**, not what TaskHub has imported. That is
+ * Exports what is on the **machine**, not what Cronsole has imported. That is
  * the whole point: the tasks most at risk of being lost are the ones nothing
  * else is tracking. The UI states which it did, because "Export all" that
  * silently means "all the ones we happen to know about" is the same invisible
@@ -131,7 +131,7 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
     enumerated = await connector.syncTasks(config);
   } catch (err: any) {
     throw new HttpError(502, err?.message === 'Agent offline'
-      ? 'The Windows agent is offline, so TaskHub cannot read the machine\'s tasks.'
+      ? 'The Windows agent is offline, so Cronsole cannot read the machine\'s tasks.'
       : err?.message || 'Could not enumerate tasks from the agent');
   }
 
@@ -161,7 +161,7 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
   const now = new Date();
   const manifest = buildManifest(selection, selectionResult, files, failures, now);
   const manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2), 'utf8');
-  const MANIFEST_NAME = '_taskhub-export.json';
+  const MANIFEST_NAME = '_cronsole-export.json';
 
   if (body.format === 'zip') {
     const zip = new JSZip();
@@ -175,10 +175,10 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
     });
 
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="taskhub-tasks-${timestampSlug(now)}.zip"`);
+    res.setHeader('Content-Disposition', `attachment; filename="cronsole-tasks-${timestampSlug(now)}.zip"`);
     // The counts the UI would otherwise lose on a binary response — a download
     // has no JSON body to report "3 of 95 failed" in.
-    res.setHeader('X-TaskHub-Export-Counts', JSON.stringify(manifest.counts));
+    res.setHeader('X-Cronsole-Export-Counts', JSON.stringify(manifest.counts));
     return res.send(archive);
   }
 
@@ -313,7 +313,7 @@ router.post('/restore/tasks', validateBody(restoreTasksSchema), async (req: Requ
     existingFolders = folders.folders.map(f => f.path);
   } catch (err: any) {
     throw new HttpError(502, err?.message === 'Agent offline'
-      ? 'The Windows agent is offline, so TaskHub cannot see what is already on the machine — and it will not restore blind.'
+      ? 'The Windows agent is offline, so Cronsole cannot see what is already on the machine — and it will not restore blind.'
       : err?.message || 'Could not read the machine\'s current tasks');
   }
 
@@ -415,7 +415,7 @@ const historyQuerySchema = z.object({
  *
  * Lives on `/api/tools` because it spans tasks and has no task id of its own.
  *
- * **What it contains, and what it does not:** rows are runs *TaskHub performed*
+ * **What it contains, and what it does not:** rows are runs *Cronsole performed*
  * — a Windows task firing on its own schedule writes nothing here. Every row
  * carries a `runKind` so `status` is readable: `native-execution` is a real
  * outcome, `manual-trigger` means "the agent accepted the start". Saying that
@@ -493,7 +493,7 @@ router.get('/history', async (req: Request, res: Response) => {
     res.setHeader('Content-Disposition', `attachment; filename="${csvFilename(from, to)}"`);
     // The counts a binary-ish download has nowhere else to put, mirroring the
     // bulk export's header.
-    res.setHeader('X-TaskHub-History-Counts', JSON.stringify({ ...summarizeHistory(rows), truncated }));
+    res.setHeader('X-Cronsole-History-Counts', JSON.stringify({ ...summarizeHistory(rows), truncated }));
     return res.send(body);
   }
 
@@ -568,7 +568,7 @@ router.get('/task-health', async (req: Request, res: Response) => {
 const HEALTH_EXECUTION_WINDOW = 10;
 
 /**
- * What an AI tool needs to drive this TaskHub — the instructions half of the
+ * What an AI tool needs to drive this Cronsole — the instructions half of the
  * Tools tab.
  *
  * Read-only and content-only: these serve documentation the install already

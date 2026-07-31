@@ -8,7 +8,7 @@ interface DiscoveredCategory {
   name: string;
   count: number;
   /**
-   * Tasks in this category the user removed from TaskHub, which importing it
+   * Tasks in this category the user removed from Cronsole, which importing it
    * will bring back. Reported so the number arrives BEFORE the action — a row
    * you deliberately removed reappearing with no warning reads as a bug.
    */
@@ -118,7 +118,7 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                           {!!cat.excludedCount && (
                             <span
                               className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-400"
-                              title={`${cat.excludedCount} task${cat.excludedCount === 1 ? '' : 's'} you removed from TaskHub will be tracked again if you import this category.`}
+                              title={`${cat.excludedCount} task${cat.excludedCount === 1 ? '' : 's'} you removed from Cronsole will be tracked again if you import this category.`}
                             >
                               +{cat.excludedCount} removed
                             </span>

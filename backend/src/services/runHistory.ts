@@ -9,7 +9,7 @@
  *
  * ## The thing to understand before reading a row
  *
- * `ExecutionLog` records runs **TaskHub performed**, not runs that *happened*.
+ * `ExecutionLog` records runs **Cronsole performed**, not runs that *happened*.
  * Rows are written in exactly two places: `POST /api/tasks/:id/run` and
  * `NativeScheduler`. A Windows task firing on its own schedule writes nothing
  * here at all.
@@ -17,9 +17,9 @@
  * That makes `status` mean two different things depending on the platform, and
  * conflating them is how a report lies:
  *
- * - **TaskHub-native** — TaskHub ran the job itself, so `status` and
+ * - **Cronsole-native** — Cronsole ran the job itself, so `status` and
  *   `durationMs` describe the actual work. This is a real execution record.
- * - **Windows** — TaskHub asked the agent to start the task. `SUCCESS` means
+ * - **Windows** — Cronsole asked the agent to start the task. `SUCCESS` means
  *   *"Windows accepted the start"*; the task's own outcome is not in this row,
  *   and `durationMs` measures the round trip, not the work. It is fire-and-forget
  *   ([#12](../../docs/troubleshooting/README.md) is the same lesson: a hung task
@@ -86,7 +86,7 @@ export function historyWhere(userId: string, filters: RunHistoryFilters) {
  *
  * Derived from the platform rather than stored, because it is a property of how
  * the row *came to exist*: only `NativeScheduler` actually executes work, and it
- * only ever runs TaskHub-native tasks. Anything logged against a platform task
+ * only ever runs Cronsole-native tasks. Anything logged against a platform task
  * got there through a manual trigger — nothing else writes one.
  */
 export function runKindFor(platform: PlatformType): RunKind {
@@ -130,7 +130,7 @@ const CSV_COLUMNS = [
  * text. Excel, LibreOffice and Sheets all do this, and Excel will additionally
  * offer to run DDE for `=cmd|…`.
  *
- * This matters more here than in most exports: TaskHub's rows contain task names
+ * This matters more here than in most exports: Cronsole's rows contain task names
  * and **command lines**, i.e. attacker-influenceable text that is already about
  * executing things. A task named `=cmd|'/c calc'!A1` would otherwise turn a
  * "run history" download into a live payload the moment someone opens it.
@@ -185,9 +185,9 @@ export function toCsvBuffer(rows: RunHistoryRow[]): Buffer {
   ]);
 }
 
-/** `taskhub-run-history_2026-07-01_2026-07-28.csv` — the range is in the name. */
+/** `cronsole-run-history_2026-07-01_2026-07-28.csv` — the range is in the name. */
 export function csvFilename(from: Date | null, to: Date | null): string {
   const day = (d: Date) => d.toISOString().slice(0, 10);
   const range = from && to ? `_${day(from)}_${day(to)}` : from ? `_from-${day(from)}` : '';
-  return `taskhub-run-history${range}.csv`;
+  return `cronsole-run-history${range}.csv`;
 }

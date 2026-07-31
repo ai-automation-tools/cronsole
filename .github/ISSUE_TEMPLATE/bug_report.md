@@ -22,7 +22,7 @@ Security → Report a vulnerability (see SECURITY.md).
 
 ## Environment
 
-- TaskHub piece: <!-- frontend / backend / agent / mcp-server -->
+- Cronsole piece: <!-- frontend / backend / agent / mcp-server -->
 - OS + version:
 - How you're running it: <!-- Docker Compose / manual / packaged -->
 - Browser (if frontend):

@@ -28,8 +28,8 @@ const errorMessage = (err: unknown): string => {
  * Export run history as CSV.
  *
  * The load-bearing copy here is the honesty note. `ExecutionLog` holds runs
- * **TaskHub performed** — a Windows task firing on its own schedule writes
- * nothing — so an empty month means "TaskHub triggered nothing", not "nothing
+ * **Cronsole performed** — a Windows task firing on its own schedule writes
+ * nothing — so an empty month means "Cronsole triggered nothing", not "nothing
  * ran". Without that stated, this export is a report that quietly answers a
  * different question than the one you asked it.
  */
@@ -67,7 +67,7 @@ export const RunHistoryTool = () => {
       });
       const filename = filenameFromDisposition(
         res.headers['content-disposition'] as string | undefined,
-        'taskhub-run-history.csv'
+        'cronsole-run-history.csv'
       );
       downloadBlob(res.data as Blob, filename);
       toast(`Exported ${matched?.runs ?? 0} run${matched?.runs === 1 ? '' : 's'} to ${filename}.`, 'success');
@@ -129,9 +129,9 @@ export const RunHistoryTool = () => {
       <div className="rounded-xl bg-background/60 border border-border/60 px-4 py-3 text-xs text-muted-foreground flex items-start gap-2">
         <Info size={14} className="mt-0.5 shrink-0 text-primary" />
         <span>
-          This covers runs <strong>TaskHub performed</strong> — tasks you ran from the dashboard, and TaskHub-native
+          This covers runs <strong>Cronsole performed</strong> — tasks you ran from the dashboard, and Cronsole-native
           jobs it runs itself. A Windows task firing on its own schedule isn't recorded here, so an empty period means
-          TaskHub triggered nothing, not that nothing ran. Each row's <code>runKind</code> says which it is.
+          Cronsole triggered nothing, not that nothing ran. Each row's <code>runKind</code> says which it is.
         </span>
       </div>
 

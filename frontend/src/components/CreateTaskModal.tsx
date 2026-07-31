@@ -16,7 +16,7 @@ interface CreateTaskModalProps {
 
 /**
  * Creates a task on a chosen platform:
- * - TaskHub-native — scheduled and executed by the backend itself, no OS entry
+ * - Cronsole-native — scheduled and executed by the backend itself, no OS entry
  *   (docs/resources/Native_Tasks.md).
  * - Windows — registered as a real Task Scheduler task under \TaskHub\ via the
  *   agent, with the cron converted to a native trigger (same path as templates).
@@ -26,7 +26,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   const { toast } = useToast();
   const [platform, setPlatform] = useState<CreatePlatform>('TASKHUB_NATIVE');
   const [name, setName] = useState('');
-  const [category, setCategory] = useState('TaskHub');
+  const [category, setCategory] = useState('Cronsole');
   const [schedule, setSchedule] = useState('0 8 * * *');
   // Native (HTTP job) fields
   const [url, setUrl] = useState('');
@@ -83,7 +83,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
       toast(
         isWindows
           ? `Windows task "${name}" created under the \\TaskHub\\ scheduler folder.`
-          : `TaskHub task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
+          : `Cronsole task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
         'success'
       );
       onClose();
@@ -128,13 +128,13 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           <div>
             <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : 'text-violet-400'}`}>
               {isWindows ? <Monitor size={11} /> : <Zap size={11} />}
-              {isWindows ? 'Windows Task Scheduler' : 'TaskHub-native task'}
+              {isWindows ? 'Windows Task Scheduler' : 'Cronsole-native task'}
             </p>
             <h2 id="create-task-title" className="text-xl font-bold">New Task</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               {isWindows
-                ? 'Registered as a real Windows scheduled task via the local agent — survives reboots, runs even when TaskHub is down.'
-                : 'Scheduled and executed by TaskHub itself — nothing is created in Windows Task Scheduler.'}
+                ? 'Registered as a real Windows scheduled task via the local agent — survives reboots, runs even when Cronsole is down.'
+                : 'Scheduled and executed by Cronsole itself — nothing is created in Windows Task Scheduler.'}
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
@@ -146,7 +146,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Platform</label>
             <div className="flex gap-2">
-              {platformButton('TASKHUB_NATIVE', 'TaskHub', Zap, 'bg-violet-600/10 border-violet-500/40 text-violet-300')}
+              {platformButton('TASKHUB_NATIVE', 'Cronsole', Zap, 'bg-violet-600/10 border-violet-500/40 text-violet-300')}
               {platformButton('WINDOWS_TASK_SCHEDULER', 'Windows', Monitor, 'bg-primary/10 border-primary/40 text-foreground')}
             </div>
           </div>
@@ -269,8 +269,8 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : 'text-violet-400'}`} />
             <span>
               {isWindows
-                ? 'Created under the \\TaskHub\\ folder in Task Scheduler, so TaskHub-made tasks stay identifiable. Requires the Windows agent to be online.'
-                : 'Runs only while the TaskHub backend is up. Use a Windows task instead for jobs that must survive TaskHub being offline.'}
+                ? 'Created under the \\TaskHub\\ folder in Task Scheduler, so Cronsole-made tasks stay identifiable. Requires the Windows agent to be online.'
+                : 'Runs only while the Cronsole backend is up. Use a Windows task instead for jobs that must survive Cronsole being offline.'}
             </span>
           </div>
 
@@ -291,7 +291,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               ? <><Loader2 size={16} className="animate-spin" /> Creating…</>
               : isWindows
                 ? <><Monitor size={16} /> Create Windows Task</>
-                : <><Zap size={16} /> Create TaskHub Task</>}
+                : <><Zap size={16} /> Create Cronsole Task</>}
           </button>
         </footer>
     </Modal>

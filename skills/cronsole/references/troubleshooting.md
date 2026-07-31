@@ -8,7 +8,7 @@ Load when something won't build, boot, connect, or authenticate.
 
 ## Triage: read the tell, not the error
 
-Most TaskHub "impossible" behavior is one of seven known traps. The **tell** distinguishes
+Most Cronsole "impossible" behavior is one of seven known traps. The **tell** distinguishes
 them faster than the error text does.
 
 | Tell | It's this |
@@ -71,7 +71,7 @@ Cuts across several traps. The real agent runs **elevated** (RunLevel Highest):
 ## Diagnosing something new
 
 1. **Check `docs/troubleshooting/README.md` first.** Seriously.
-2. **Isolate the layer.** DB-only path (TaskHub-native) vs. agent-backed path (Windows) is the
+2. **Isolate the layer.** DB-only path (Cronsole-native) vs. agent-backed path (Windows) is the
    sharpest split available — if native works and Windows hangs, it's the agent.
 3. **Distinguish "route missing" from "handler missing":** a bad id returning your handler's
    `{"error":"Task not found"}` means the route exists (so it's the agent, #7); an Express

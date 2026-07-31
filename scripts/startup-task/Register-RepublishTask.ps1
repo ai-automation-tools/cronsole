@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Register \Task-Hub\TaskHubRepublish - an on-demand, elevated task that
-    rebuilds and republishes the TaskHub agent. DEV TOOL. Run once, elevated.
+    rebuilds and republishes the Cronsole agent. DEV TOOL. Run once, elevated.
 
 .DESCRIPTION
     The .NET agent never hot-reloads and runs at RunLevel Highest, so every agent
@@ -15,7 +15,7 @@
     working in this repo) can run:
 
         Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'
-        Get-Content "$env:TEMP\taskhub-republish.log" -Tail 20
+        Get-Content "$env:TEMP\cronsole-republish.log" -Tail 20
 
     One elevated registration; unlimited republishes after that.
 
@@ -32,7 +32,7 @@
     Why it is an acceptable trade HERE:
       * It runs ONE fixed script from this repo (scripts\Republish-Agent.ps1),
         not arbitrary input.
-      * TaskHub ALREADY does this. \Task-Hub\TaskHubStack runs scripts\taskhub.ps1
+      * Cronsole ALREADY does this. \Task-Hub\TaskHubStack runs scripts\taskhub.ps1
         elevated on a recurring trigger. Anyone who can write to this repo already
         has elevated code execution on this machine; this adds no new capability,
         it just adds a second entry point to the same one.
@@ -117,6 +117,6 @@ Write-Host ("  action  : {0}" -f $Script)
 Write-Host ""
 Write-Host "Republish from any prompt (no elevation needed):"
 Write-Host "  Start-ScheduledTask -TaskPath '$TaskPath' -TaskName '$TaskName'"
-Write-Host "  Get-Content `"`$env:TEMP\taskhub-republish.log`" -Tail 20"
+Write-Host "  Get-Content `"`$env:TEMP\cronsole-republish.log`" -Tail 20"
 Write-Host ""
 Write-Host "Remove it with:  .\scripts\startup-task\Register-RepublishTask.ps1 -Unregister"

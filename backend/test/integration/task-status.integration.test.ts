@@ -53,7 +53,7 @@ describe('PATCH /tasks/:id/status per platform', () => {
         platform: PlatformType.WINDOWS_TASK_SCHEDULER,
         externalId: '\\TaskHub\\Integration-Status',
         name: 'Integration-Status',
-        category: 'TaskHub',
+        category: 'Cronsole',
         status: TaskStatus.ACTIVE
       }
     });

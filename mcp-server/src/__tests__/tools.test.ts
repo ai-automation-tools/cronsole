@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { registerTools } from '../tools.js';
-import { TaskHubClient, TaskHubApiError } from '../client.js';
+import { CronsoleClient, CronsoleApiError } from '../client.js';
 
 /**
  * These drive the REAL registered tools through a REAL MCP client over an
@@ -18,7 +18,7 @@ import { TaskHubClient, TaskHubApiError } from '../client.js';
  * have caught either.
  */
 
-// ---- a TaskHubClient stub that records calls ------------------------------
+// ---- a CronsoleClient stub that records calls ------------------------------
 
 type Method = 'get' | 'post' | 'patch' | 'delete' | 'getBuffer';
 
@@ -35,7 +35,7 @@ function stubClient(routes: Record<string, unknown | (() => unknown)>) {
     // a decoding detail, not a different endpoint.
     const verb = method === 'getBuffer' ? 'GET' : method.toUpperCase();
     const key = `${verb} ${path}`;
-    if (!(key in routes)) throw new TaskHubApiError(`no stub for ${key}`, 404);
+    if (!(key in routes)) throw new CronsoleApiError(`no stub for ${key}`, 404);
     const v = routes[key];
     const out = typeof v === 'function' ? (v as () => unknown)() : v;
     if (out instanceof Error) throw out;
@@ -61,12 +61,12 @@ function stubClient(routes: Record<string, unknown | (() => unknown)>) {
     async getBuffer(path: string) {
       return record('getBuffer', path);
     }
-  } as unknown as TaskHubClient;
+  } as unknown as CronsoleClient;
   return { client, calls };
 }
 
-async function connect(client: TaskHubClient, allowDestructive = false) {
-  const server = new McpServer({ name: 'taskhub-test', version: '0.0.0' });
+async function connect(client: CronsoleClient, allowDestructive = false) {
+  const server = new McpServer({ name: 'cronsole-test', version: '0.0.0' });
   registerTools(server, client, { allowDestructive });
   const mcp = new Client({ name: 'test-client', version: '0.0.0' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -300,7 +300,7 @@ describe('run_task', () => {
 
   it('reports a not-found id honestly instead of throwing', async () => {
     const { client } = stubClient({
-      'POST /tasks/ghost/run': () => new TaskHubApiError('Task not found', 404)
+      'POST /tasks/ghost/run': () => new CronsoleApiError('Task not found', 404)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'run_task', { taskId: 'ghost' });
@@ -435,7 +435,7 @@ describe('list_folders', () => {
     // Observed live, not hypothesised: \TaskHub is created lazily and the agent
     // PRUNES it when its last task is deleted, so the default folder is
     // routinely absent from a real listing. An agent that read absence as
-    // "unusable" would go invent a folder — which TaskHub then refuses,
+    // "unusable" would go invent a folder — which Cronsole then refuses,
     // because it only ever creates \TaskHub. The note must not depend on the
     // folder being present.
     const { client } = stubClient({
@@ -448,7 +448,7 @@ describe('list_folders', () => {
     const r = await call(mcp, 'list_folders');
     expect(text(r)).not.toMatch(/\\TaskHub \[default\]/);
     expect(text(r)).toMatch(/Default folder: \\TaskHub/);
-    expect(text(r)).toMatch(/TaskHub creates this one itself/);
+    expect(text(r)).toMatch(/Cronsole creates this one itself/);
     expect(r.structuredContent?.defaultFolder).toBe('\\TaskHub');
   });
 
@@ -476,7 +476,7 @@ describe('list_folders', () => {
     // The 502 exists precisely so this never renders as an empty list — that
     // would read as "this machine has no folders", a confident lie.
     const { client } = stubClient({
-      'GET /tasks/folders': () => new TaskHubApiError('Agent folders timeout', 502)
+      'GET /tasks/folders': () => new CronsoleApiError('Agent folders timeout', 502)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'list_folders');
@@ -545,7 +545,7 @@ describe('create_task', () => {
     expect(calls[0].body).toMatchObject({ folder: '\\Work\\Backups', category: 'Ops' });
   });
 
-  it('creates on TaskHub-native when asked', async () => {
+  it('creates on Cronsole-native when asked', async () => {
     const { client, calls } = stubClient({ 'POST /tasks': created });
     const mcp = await connect(client);
     await call(mcp, 'create_task', {
@@ -557,7 +557,7 @@ describe('create_task', () => {
     expect(calls[0].body).toMatchObject({ platform: 'TASKHUB_NATIVE' });
   });
 
-  it('refuses a platform TaskHub cannot create on, before reaching the API', async () => {
+  it('refuses a platform Cronsole cannot create on, before reaching the API', async () => {
     // CHATGPT has no connector that can create — the enum must stop it here
     // rather than let the backend 400 on something the tool should never send.
     const { client, calls } = stubClient({ 'POST /tasks': created });
@@ -644,7 +644,7 @@ describe('create_task', () => {
 
   it('surfaces a duplicate-name 409 honestly', async () => {
     const { client } = stubClient({
-      'POST /tasks': () => new TaskHubApiError('A task named "x" already exists in \\TaskHub', 409)
+      'POST /tasks': () => new CronsoleApiError('A task named "x" already exists in \\TaskHub', 409)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'create_task', { name: 'x', command: 'c.exe', schedule: '0 9 * * *' });
@@ -655,7 +655,7 @@ describe('create_task', () => {
 
   it('surfaces the \\Microsoft\\ refusal as the backend worded it', async () => {
     const { client } = stubClient({
-      'POST /tasks': () => new TaskHubApiError('Folder \\Microsoft\\Windows is reserved by Windows.', 400)
+      'POST /tasks': () => new CronsoleApiError('Folder \\Microsoft\\Windows is reserved by Windows.', 400)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'create_task', {
@@ -943,7 +943,7 @@ describe('set_task_status', () => {
   it('surfaces an agent-offline 502 honestly', async () => {
     const { client } = stubClient({
       'PATCH /tasks/id1/status': () =>
-        new TaskHubApiError('The platform failed to update the task status', 502)
+        new CronsoleApiError('The platform failed to update the task status', 502)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'set_task_status', { taskId: 'id1', status: 'DISABLED' });
@@ -996,7 +996,7 @@ describe('update_task_schedule', () => {
     // answer is the backend's own 400, not a wrapper-invented one.
     const { client } = stubClient({
       'PATCH /tasks/id1/schedule': () =>
-        new TaskHubApiError('Editing schedules is not supported for CLAUDE_CODE yet.', 400)
+        new CronsoleApiError('Editing schedules is not supported for CLAUDE_CODE yet.', 400)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'update_task_schedule', { taskId: 'id1', schedule: '0 6 * * *' });
@@ -1137,7 +1137,7 @@ describe('get_task_history', () => {
   });
 
   it('does not claim a task never ran when there is simply no history', async () => {
-    // The honesty case. TaskHub records manual runs and native fires; a Windows
+    // The honesty case. Cronsole records manual runs and native fires; a Windows
     // task firing on its OWN trigger is recorded by Windows. Reporting "no runs"
     // as "never ran" would be a confident lie about someone else's records.
     const { client } = stubClient({ 'GET /tasks/id1/executions': [] });
@@ -1148,7 +1148,7 @@ describe('get_task_history', () => {
   });
 
   it('warns that SUCCESS is not proof against a hang', async () => {
-    // #12's lesson, on the tool that most looks like proof: TaskHub's own
+    // #12's lesson, on the tool that most looks like proof: Cronsole's own
     // SUCCESS is exactly what the hung webhook template reported.
     const { client } = stubClient({});
     const mcp = await connect(client);
@@ -1168,7 +1168,7 @@ describe('get_task_history', () => {
 
   it('surfaces a 404 for someone else\'s task', async () => {
     const { client } = stubClient({
-      'GET /tasks/nope/executions': () => new TaskHubApiError('Task not found', 404)
+      'GET /tasks/nope/executions': () => new CronsoleApiError('Task not found', 404)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'get_task_history', { taskId: 'nope' });
@@ -1217,9 +1217,9 @@ describe('export_task', () => {
     expect(text(await call(mcp, 'export_task', { taskId: 'id1' }))).toMatch(/UTF-16 LE with a BOM/);
   });
 
-  it('exports a TaskHub-native task as JSON', async () => {
+  it('exports a Cronsole-native task as JSON', async () => {
     const bundle = {
-      taskhubTaskVersion: '1.0',
+      cronsoleTaskVersion: '1.0',
       exportedAt: '2026-07-15T00:00:00.000Z',
       task: { name: 'Ping', platform: 'TASKHUB_NATIVE', job: { url: 'https://x' } }
     };
@@ -1231,14 +1231,14 @@ describe('export_task', () => {
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'export_task', { taskId: 'id2' });
-    expect(r.structuredContent?.format).toBe('taskhub-json');
+    expect(r.structuredContent?.format).toBe('cronsole-json');
     expect(r.structuredContent?.definition).toEqual(bundle);
   });
 
   it('surfaces an agent-offline export failure honestly', async () => {
     const { client } = stubClient({
       'GET /tasks/id1/export': () =>
-        new TaskHubApiError('The agent could not export this task', 502)
+        new CronsoleApiError('The agent could not export this task', 502)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'export_task', { taskId: 'id1' });
@@ -1323,7 +1323,7 @@ describe('create_native_task', () => {
 
   it('surfaces an invalid-job 400 from the backend', async () => {
     const { client } = stubClient({
-      'POST /tasks/native': () => new TaskHubApiError('job.url must be an absolute URL', 400)
+      'POST /tasks/native': () => new CronsoleApiError('job.url must be an absolute URL', 400)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'create_native_task', {
@@ -1339,7 +1339,7 @@ describe('create_native_task', () => {
 describe('untrack_task', () => {
   it('POSTs to the untrack route', async () => {
     const { client, calls } = stubClient({
-      'POST /tasks/id1/untrack': { message: 'Removed from TaskHub', externalId: '\\IAM\\Rotate' }
+      'POST /tasks/id1/untrack': { message: 'Removed from Cronsole', externalId: '\\IAM\\Rotate' }
     });
     const mcp = await connect(client);
     await call(mcp, 'untrack_task', { taskId: 'id1' });
@@ -1358,9 +1358,9 @@ describe('untrack_task', () => {
     // this for a delete — that confusion is the whole risk of the feature.
     const { client } = stubClient({
       'POST /tasks/id1/untrack': {
-        message: 'Removed from TaskHub',
+        message: 'Removed from Cronsole',
         externalId: '\\IAM\\Rotate',
-        detail: '"Rotate" is no longer tracked by TaskHub. It still exists on its platform.'
+        detail: '"Rotate" is no longer tracked by Cronsole. It still exists on its platform.'
       }
     });
     const mcp = await connect(client);
@@ -1395,15 +1395,15 @@ describe('untrack_task', () => {
 
   it('surfaces the native-task refusal instead of retrying as a delete', async () => {
     const { client } = stubClient({
-      'POST /tasks/n1/untrack': new TaskHubApiError(
-        'TaskHub-native tasks exist only inside TaskHub, so there is nothing to keep.',
+      'POST /tasks/n1/untrack': new CronsoleApiError(
+        'Cronsole-native tasks exist only inside Cronsole, so there is nothing to keep.',
         400
       )
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'untrack_task', { taskId: 'n1' });
     expect(r.isError).toBe(true);
-    expect(text(r)).toMatch(/exist only inside TaskHub/i);
+    expect(text(r)).toMatch(/exist only inside Cronsole/i);
   });
 });
 
@@ -1449,7 +1449,7 @@ describe('delete_task', () => {
     // not a wrapper guess about why.
     const { client } = stubClient({
       'DELETE /tasks/id1': () =>
-        new TaskHubApiError('The platform failed to delete the task: needs elevation', 502)
+        new CronsoleApiError('The platform failed to delete the task: needs elevation', 502)
     });
     const mcp = await connect(client, true);
     const r = await call(mcp, 'delete_task', { taskId: 'id1' });
@@ -1463,7 +1463,7 @@ describe('error handling across the surface', () => {
     // A thrown handler surfaces as a protocol error; the model sees a stack
     // trace instead of a reason it can act on. Every tool must degrade to a
     // readable message.
-    const boom = () => new TaskHubApiError('Backend exploded', 500);
+    const boom = () => new CronsoleApiError('Backend exploded', 500);
     const { client } = stubClient({
       'GET /tasks': boom,
       'GET /templates': boom,
@@ -1514,12 +1514,12 @@ describe('error handling across the surface', () => {
 
   it('renders a connection failure (no status) without an empty "HTTP undefined"', async () => {
     const { client } = stubClient({
-      'GET /tasks': () => new TaskHubApiError('Could not reach the TaskHub backend at http://x (ECONNREFUSED)')
+      'GET /tasks': () => new CronsoleApiError('Could not reach the Cronsole backend at http://x (ECONNREFUSED)')
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'list_tasks');
     expect(r.isError).toBe(true);
-    expect(text(r)).toBe('Could not reach the TaskHub backend at http://x (ECONNREFUSED)');
+    expect(text(r)).toBe('Could not reach the Cronsole backend at http://x (ECONNREFUSED)');
     expect(text(r)).not.toMatch(/undefined/);
   });
 });

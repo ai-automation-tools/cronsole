@@ -9,7 +9,7 @@
 # skills/ are left untouched -- this only manages the <name>s in both places.
 #
 # IMPORTANT (differs from sibling repos): AI-Automation-Library gitignores its
-# whole CLIs/ tree, so its links can never be committed. taskhub TRACKS
+# whole CLIs/ tree, so its links can never be committed. cronsole TRACKS
 # .claude/skills/, so a link here WOULD be committed -- content landing once at
 # skills/<name>/ and again at .claude/skills/<name>/. Every linked <name> must be
 # gitignored. This script verifies that and warns if it isn't.

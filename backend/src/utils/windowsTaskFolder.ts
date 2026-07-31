@@ -17,7 +17,7 @@
  * trust its caller). This module is the backend half; keep the two in sync.
  */
 
-/** Where TaskHub puts created tasks unless told otherwise. */
+/** Where Cronsole puts created tasks unless told otherwise. */
 export const DEFAULT_TASK_FOLDER = '\\TaskHub';
 
 /**
@@ -79,7 +79,7 @@ export function windowsTaskFolderError(folder: string): string | null {
   }
 
   if (segments[0].toLowerCase() === RESERVED_ROOT) {
-    return 'TaskHub will not create tasks under \\Microsoft\\ — that is where Windows keeps its own scheduled tasks, and a name collision there would silently overwrite one. Choose another folder.';
+    return 'Cronsole will not create tasks under \\Microsoft\\ — that is where Windows keeps its own scheduled tasks, and a name collision there would silently overwrite one. Choose another folder.';
   }
 
   return null;

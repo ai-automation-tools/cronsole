@@ -1,40 +1,40 @@
 {
   "//": [
-    "TaskHub Connect Pack v1.1 - MCP server wiring.",
+    "Cronsole Connect Pack v1.1 - MCP server wiring.",
     "Newer copy: https://taskhub.mikesailab.com",
     "",
-    "Merge the `taskhub` entry below into your host's MCP config:",
+    "Merge the `cronsole` entry below into your host's MCP config:",
     "  Claude Code  ->  .mcp.json in your project root, or ~/.claude.json",
     "  Claude Desktop -> claude_desktop_config.json",
     "  Cursor / Codex / others -> whatever file that host documents; the shape is the same.",
     "",
-    "Replace <PATH-TO-TASKHUB> with where you installed TaskHub. The MCP server runs",
+    "Replace <PATH-TO-CRONSOLE> with where you installed Cronsole. The MCP server runs",
     "dist/, not src/ - run `cd mcp-server && npm run build` once before first use, and",
     "again after any update, or your change is invisible.",
     "",
-    "TASKHUB_TOKEN is a ${ENV} reference on purpose so this file never holds the secret.",
+    "CRONSOLE_TOKEN is a ${ENV} reference on purpose so this file never holds the secret.",
     "Export it in the environment you launch the host from. On Windows a newly set",
     "variable needs a FRESH terminal - a process inherits its parent's environment, so",
     "restarting the host inside an old terminal will not pick it up.",
     "",
-    "If TASKHUB_TOKEN is unset, the literal text ${TASKHUB_TOKEN} is forwarded and the API",
+    "If CRONSOLE_TOKEN is unset, the literal text ${CRONSOLE_TOKEN} is forwarded and the API",
     "answers 403 Invalid or expired token - which reads like an expired JWT and sends you",
     "debugging auth instead of your environment. The server detects that and refuses to",
     "start, so the tools go MISSING rather than erroring.",
     "",
-    "TASKHUB_MCP_ALLOW_DESTRUCTIVE is omitted deliberately. Leaving it off keeps the",
+    "CRONSOLE_MCP_ALLOW_DESTRUCTIVE is omitted deliberately. Leaving it off keeps the",
     "irreversible delete_task tool ABSENT from the tool list. The reversible verbs",
     "(set_task_status, update_task_schedule, update_task_action) are always available -",
     "prefer disabling a task over deleting it."
   ],
   "mcpServers": {
-    "taskhub": {
+    "cronsole": {
       "type": "stdio",
       "command": "node",
-      "args": ["<PATH-TO-TASKHUB>/mcp-server/dist/index.js"],
+      "args": ["<PATH-TO-CRONSOLE>/mcp-server/dist/index.js"],
       "env": {
-        "TASKHUB_API_URL": "http://localhost:3000/api",
-        "TASKHUB_TOKEN": "${TASKHUB_TOKEN}"
+        "CRONSOLE_API_URL": "http://localhost:3000/api",
+        "CRONSOLE_TOKEN": "${CRONSOLE_TOKEN}"
       }
     }
   }

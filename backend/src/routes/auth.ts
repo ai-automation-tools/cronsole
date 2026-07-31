@@ -24,7 +24,7 @@ const credentialsSchema = z.object({
 const OWNER_FILTER = { AND: [{ password: { not: null } }, { password: { not: '' } }] };
 
 /**
- * First-run gate. TaskHub is local-first and single-user: a fresh install has
+ * First-run gate. Cronsole is local-first and single-user: a fresh install has
  * only the password-less catalog placeholder, so the frontend asks here whether
  * to show the "create your account" (setup) screen or the login screen. Public
  * and unthrottled — a boolean derived from a count, nothing sensitive.

@@ -31,19 +31,19 @@ async function withNotificationSink<T>(fn: (url: string, requests: string[]) => 
 
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
-  const prevUrl = process.env.TASKHUB_FAILURE_WEBHOOK_URL;
-  const prevType = process.env.TASKHUB_FAILURE_WEBHOOK_TYPE;
-  process.env.TASKHUB_FAILURE_WEBHOOK_URL = `http://127.0.0.1:${port}/notify`;
-  process.env.TASKHUB_FAILURE_WEBHOOK_TYPE = 'generic';
+  const prevUrl = process.env.CRONSOLE_FAILURE_WEBHOOK_URL;
+  const prevType = process.env.CRONSOLE_FAILURE_WEBHOOK_TYPE;
+  process.env.CRONSOLE_FAILURE_WEBHOOK_URL = `http://127.0.0.1:${port}/notify`;
+  process.env.CRONSOLE_FAILURE_WEBHOOK_TYPE = 'generic';
 
   try {
-    return await fn(process.env.TASKHUB_FAILURE_WEBHOOK_URL, requests);
+    return await fn(process.env.CRONSOLE_FAILURE_WEBHOOK_URL, requests);
   } finally {
     await flushFailureNotifications();
-    if (prevUrl === undefined) delete process.env.TASKHUB_FAILURE_WEBHOOK_URL;
-    else process.env.TASKHUB_FAILURE_WEBHOOK_URL = prevUrl;
-    if (prevType === undefined) delete process.env.TASKHUB_FAILURE_WEBHOOK_TYPE;
-    else process.env.TASKHUB_FAILURE_WEBHOOK_TYPE = prevType;
+    if (prevUrl === undefined) delete process.env.CRONSOLE_FAILURE_WEBHOOK_URL;
+    else process.env.CRONSOLE_FAILURE_WEBHOOK_URL = prevUrl;
+    if (prevType === undefined) delete process.env.CRONSOLE_FAILURE_WEBHOOK_TYPE;
+    else process.env.CRONSOLE_FAILURE_WEBHOOK_TYPE = prevType;
     await new Promise<void>((resolve, reject) => {
       server.close(err => err ? reject(err) : resolve());
     });
@@ -91,7 +91,7 @@ describe('native task creation', () => {
         platform: PlatformType.TASKHUB_NATIVE,
         externalId: 'native_missing_job',
         name: 'Broken native task',
-        category: 'TaskHub',
+        category: 'Cronsole',
         schedule: '0 3 * * *',
         status: TaskStatus.ACTIVE,
         metadata: {}
@@ -125,7 +125,7 @@ describe('native task creation', () => {
         platform: PlatformType.TASKHUB_NATIVE,
         externalId: 'native_scheduled_missing_job',
         name: 'Broken scheduled task',
-        category: 'TaskHub',
+        category: 'Cronsole',
         schedule: '*/5 * * * *',
         nextRunTime: dueAt,
         status: TaskStatus.ACTIVE,

@@ -13,7 +13,7 @@ import { registryTemplateSchema, type RegistryTemplate } from './schema.js';
 
 /** The download shape import accepts (also accepts a bare array / single object). */
 export interface ExportBundle {
-  taskhubCatalogVersion: '1.0';
+  cronsoleCatalogVersion: '1.0';
   exportedAt: string;
   templates: RegistryTemplate[];
 }
@@ -49,5 +49,5 @@ export async function exportCatalog(
     if (registryTemplateSchema.safeParse(lowered).success) templates.push(lowered);
   }
 
-  return { taskhubCatalogVersion: '1.0', exportedAt, templates };
+  return { cronsoleCatalogVersion: '1.0', exportedAt, templates };
 }

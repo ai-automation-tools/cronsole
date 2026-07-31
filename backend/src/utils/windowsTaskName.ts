@@ -10,9 +10,9 @@ import { DEFAULT_TASK_FOLDER, normalizeWindowsTaskFolder, windowsTaskPath } from
  * C:\Windows\System32\Tasks\<folder>\<name>, so names follow filename rules.
  * More importantly, RegisterTaskDefinition silently OVERWRITES an existing
  * task with the same name in the same folder — so before creating we refuse
- * names that collide with a task TaskHub already tracks (409). Untracked
+ * names that collide with a task Cronsole already tracks (409). Untracked
  * same-name tasks can still be overwritten (the agent can't cheaply enumerate
- * pre-register), but every TaskHub-created task is tracked, so the common
+ * pre-register), but every Cronsole-created task is tracked, so the common
  * self-collision is closed.
  *
  * The collision is **per folder**, because that is how Task Scheduler's

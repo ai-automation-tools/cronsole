@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cronsole — local-first control plane for your scheduled tasks</title>
   <meta name="description" content="Cronsole is a local-first dashboard for the scheduled work scattered across your machine — Windows Task Scheduler, Claude Code and Codex routines, AI-agent jobs. Browse and import ready-to-run automation templates from the open registry." />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%238B5CF6'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20256%20256%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22bg%22%20x1%3D%2228%22%20y1%3D%2224%22%20x2%3D%22228%22%20y2%3D%22232%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2318181b%22%2F%3E%3Cstop%20offset%3D%220.52%22%20stop-color%3D%22%2309090b%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23050505%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22accent%22%20x1%3D%2264%22%20y1%3D%2248%22%20x2%3D%22200%22%20y2%3D%22208%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%238b5cf6%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2310b981%22%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D%22glow%22%20x%3D%22-30%25%22%20y%3D%22-30%25%22%20width%3D%22160%25%22%20height%3D%22160%25%22%3E%3CfeGaussianBlur%20stdDeviation%3D%225%22%20result%3D%22blur%22%2F%3E%3CfeMerge%3E%3CfeMergeNode%20in%3D%22blur%22%2F%3E%3CfeMergeNode%20in%3D%22SourceGraphic%22%2F%3E%3C%2FfeMerge%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D%22256%22%20height%3D%22256%22%20rx%3D%2254%22%20fill%3D%22url(%23bg)%22%2F%3E%3Crect%20x%3D%2220%22%20y%3D%2220%22%20width%3D%22216%22%20height%3D%22216%22%20rx%3D%2242%22%20fill%3D%22none%22%20stroke%3D%22url(%23accent)%22%20stroke-width%3D%228%22%2F%3E%3Cpath%20d%3D%22M76%2094h104M76%20128h104M76%20162h104%22%20stroke%3D%22%2327272a%22%20stroke-width%3D%2216%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M76%2094h54M76%20128h82M76%20162h42%22%20stroke%3D%22%238b5cf6%22%20stroke-width%3D%2216%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2276%22%20cy%3D%2294%22%20r%3D%2218%22%20fill%3D%22%2310b981%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2294%22%20r%3D%2215%22%20fill%3D%22%23a78bfa%22%2F%3E%3Ccircle%20cx%3D%2276%22%20cy%3D%22128%22%20r%3D%2218%22%20fill%3D%22%2310b981%22%2F%3E%3Ccircle%20cx%3D%22158%22%20cy%3D%22128%22%20r%3D%2215%22%20fill%3D%22%23a78bfa%22%2F%3E%3Ccircle%20cx%3D%2276%22%20cy%3D%22162%22%20r%3D%2218%22%20fill%3D%22%2310b981%22%2F%3E%3Ccircle%20cx%3D%22118%22%20cy%3D%22162%22%20r%3D%2215%22%20fill%3D%22%23a78bfa%22%2F%3E%3Cpath%20d%3D%22M146%20172l22%2022%2043-58%22%20fill%3D%22none%22%20stroke%3D%22%23ecfeff%22%20stroke-width%3D%2217%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20filter%3D%22url(%23glow)%22%2F%3E%3C%2Fsvg%3E" />
   <style>
     /* ============================================================
        Cronsole Template Gallery — "automation control catalog"
@@ -111,10 +111,10 @@
     .brand { display: flex; align-items: center; gap: 11px; cursor: pointer; }
     .brand-mark {
       width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
-      background: linear-gradient(135deg, var(--violet), var(--violet-lo));
-      display: grid; place-items: center; box-shadow: 0 6px 20px -6px var(--violet);
+      display: grid; place-items: center; overflow: hidden;
+      box-shadow: 0 6px 20px -6px var(--violet);
     }
-    .brand-mark svg { width: 19px; height: 19px; }
+    .brand-mark svg { width: 100%; height: 100%; display: block; }
     .brand-name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
     .brand-name .reg { color: var(--ink-3); font-weight: 500; }
     .nav-links { display: flex; align-items: center; gap: 4px; margin-left: 12px; }
@@ -456,10 +456,11 @@
   </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient id="cm-bg" x1="28" y1="24" x2="228" y2="232" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#18181b"/><stop offset="0.52" stop-color="#09090b"/><stop offset="1" stop-color="#050505"/></linearGradient><linearGradient id="cm-accent" x1="64" y1="48" x2="200" y2="208" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#10b981"/></linearGradient><filter id="cm-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><symbol id="cronsole-mark" viewBox="0 0 256 256"><rect width="256" height="256" rx="54" fill="url(#cm-bg)"/><rect x="20" y="20" width="216" height="216" rx="42" fill="none" stroke="url(#cm-accent)" stroke-width="8"/><path d="M76 94h104M76 128h104M76 162h104" stroke="#27272a" stroke-width="16" stroke-linecap="round"/><path d="M76 94h54M76 128h82M76 162h42" stroke="#8b5cf6" stroke-width="16" stroke-linecap="round"/><circle cx="76" cy="94" r="18" fill="#10b981"/><circle cx="130" cy="94" r="15" fill="#a78bfa"/><circle cx="76" cy="128" r="18" fill="#10b981"/><circle cx="158" cy="128" r="15" fill="#a78bfa"/><circle cx="76" cy="162" r="18" fill="#10b981"/><circle cx="118" cy="162" r="15" fill="#a78bfa"/><path d="M146 172l22 22 43-58" fill="none" stroke="#ecfeff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" filter="url(#cm-glow)"/></symbol></svg>
   <nav class="nav">
     <div class="nav-inner">
       <div class="brand" data-nav="#/">
-        <div class="brand-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M9 16.5l4.5 4.5L23 11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="brand-mark"><svg viewBox="0 0 256 256" role="img" aria-label="Cronsole"><use href="#cronsole-mark"/></svg></div>
         <div class="brand-name">Cronsole <span class="reg">Registry</span></div>
       </div>
       <div class="nav-links" id="navlinks">
@@ -487,7 +488,7 @@
   <footer class="ft">
     <div class="wrap">
       <div class="fl">
-        <div class="brand-mark" style="width:26px;height:26px;border-radius:7px"><svg viewBox="0 0 32 32" fill="none"><path d="M9 16.5l4.5 4.5L23 11" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="brand-mark" style="width:26px;height:26px;border-radius:7px"><svg viewBox="0 0 256 256" role="img" aria-label="Cronsole"><use href="#cronsole-mark"/></svg></div>
         <span>Cronsole Template Registry · content-addressed · served via GitHub Pages</span>
       </div>
       <div class="fr">

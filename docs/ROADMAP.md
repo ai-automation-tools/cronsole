@@ -43,6 +43,8 @@ Stages 1 (in-repo) and 2 (this machine) shipped earlier the same day. Final stat
 
   **The pattern across all three: an item logged as cosmetic was load-bearing in two cases out of three.** "Harmless — it points at `dist/`" and "worth one click-through" were both written from reading, not running.
 
+  **Decided while closing this out: `\Cronsole-Stack\` stays untracked.** Clearing the stale rows left the launcher folder out of the dashboard, which is a change from before the rename (the three tasks *were* tracked as `\Task-Hub\*`), so it needed a call rather than a default. They are **infrastructure — the thing that runs Cronsole, not work Cronsole runs** — and tracking them puts the app in its own task list, where disabling `CronsoleAgent` from the dashboard takes the agent offline and thereby removes the dashboard's ability to re-enable it. It also keeps the `\Cronsole-Stack\` ↔ `\Cronsole\` separation true at the UI layer rather than relying on nobody clicking Delete. **Nothing enforces it** — Import discovers `Cronsole-Stack` as an ordinary category, ticked under *Non-system* — so it is a standing choice, written down in CLAUDE.md §9 and [`scripts/startup-task/README.md`](../scripts/startup-task/README.md) precisely because a future import would silently undo it. Status for these three comes from `cronsole.ps1 status` and Task Scheduler.
+
 **3. Then, product work, in this order** — all naming-independent, so none of it waits on stage 3:
 `Richer execution analytics` (its data layer already shipped with the health score, so this is now cheap) → `Bulk task actions` → `Saved views` → `Versioning & releases` (which also unblocks the deliberately-skipped `version` fields in the package manifests).
 

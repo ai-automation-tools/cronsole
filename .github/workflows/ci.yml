@@ -80,13 +80,21 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: cronsole
+          # DB identity stays `taskhub` on purpose (compose pins `name: taskhub` for the
+          # same reason). A rename pass moved these three to `cronsole` while the stage-1
+          # protection list held TEST_DATABASE_URL below at `taskhub` — so CI created one
+          # role and the tests connected as another. Keep both halves on `taskhub`.
+          POSTGRES_USER: taskhub
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: cronsole
+          POSTGRES_DB: taskhub
         ports:
           - 5432:5432
+        # NOTE: pg_isready ignores -U/-d when deciding its exit code -- it answers
+        # "is the server accepting connections", not "can this role reach this db",
+        # and returns 0 for a role that does not exist. That is why this job went red
+        # at the test step rather than at the healthcheck.
         options: >-
-          --health-cmd "pg_isready -U cronsole"
+          --health-cmd "pg_isready -U taskhub"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5

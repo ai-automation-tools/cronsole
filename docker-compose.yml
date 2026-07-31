@@ -69,7 +69,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://taskhub:password@db:5432/cronsole
+      # Database is `taskhub` (POSTGRES_DB above), not `cronsole`. A rename pass moved
+      # this half and left the service definition alone; commit 2b195c4 fixed the same
+      # bug in backend/.env.example and in the healthcheck, and missed this line.
+      DATABASE_URL: postgresql://taskhub:password@db:5432/taskhub
       REDIS_URL: redis://redis:6379
       PORT: 3000
       # The backend fail-fasts without these. Values below are DEV-ONLY defaults so

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import { Modal } from './ui/Modal';
 import { useSettings } from '../hooks/useSettings';
+import { platformLabel } from '../platform';
 
 /**
  * Categories excluded from the "non-system" preset and unticked on a first run.
@@ -180,7 +181,10 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
             )}
             {discovery?.map(platform => (
                <div key={platform.platform} className="space-y-2 mb-6 last:mb-0">
-                  <h3 className="text-[10px] font-black text-foreground uppercase tracking-widest ml-1">{platform.platform.replace(/_/g, ' ')}</h3>
+                  {/* platformLabel, not the raw enum: `TASKHUB_NATIVE`.replace(/_/g,' ')
+                      rendered "TASKHUB NATIVE" here long after the product became Cronsole,
+                      and "WINDOWS TASK SCHEDULER" where every other surface says "Windows". */}
+                  <h3 className="text-[10px] font-black text-foreground uppercase tracking-widest ml-1">{platformLabel(platform.platform)}</h3>
                   <div className="grid gap-2">
                     {platform.categories.map((cat) => (
                       <label key={cat.name} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer group ${selected.includes(cat.name) ? 'bg-primary/5 border-primary/30' : 'bg-background/50 border-border hover:border-foreground/20'}`}>

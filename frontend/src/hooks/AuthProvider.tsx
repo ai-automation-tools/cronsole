@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { api, setAuthToken, clearAuthToken, hasLoginToken, getAuthToken, subscribeAuthFailure } from '../api';
 import { AuthContext, type AuthUser } from './useAuth';
 
-const USER_STORAGE_KEY = 'taskhub.user';
+const USER_STORAGE_KEY = 'cronsole.user';
 
 function readStoredUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;

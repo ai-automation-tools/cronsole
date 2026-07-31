@@ -99,10 +99,10 @@ minute step (`*/15 * * * *`), hour step (`0 */4 * * *`). Everything else hits th
 
 | Rule | Behavior |
 |:---|:---|
-| **Default folder is `\TaskHub`** | The only folder Cronsole creates — and the only one it prunes when the last task leaves. |
+| **Default folder is `\Cronsole`** | The only folder Cronsole creates — and the only one it prunes when the last task leaves. |
 | **Any other folder must ALREADY EXIST** | Deleting a folder needs elevation, so Cronsole will not create one it cannot remove. A create into a missing folder is refused honestly. |
 | **`\Microsoft\` is refused outright** | Registering a task **silently overwrites** a same-named one, and the agent runs **elevated** — writing there could destroy a real Windows task with no error. Refused in the backend **and** independently in the agent. |
-| **Name must be unique per folder** | A collision returns **409** rather than letting Windows silently overwrite. `\Work\Backup` and `\TaskHub\Backup` are different tasks. |
+| **Name must be unique per folder** | A collision returns **409** rather than letting Windows silently overwrite. `\Work\Backup` and `\Cronsole\Backup` are different tasks. |
 
 **Use `list_folders` to find a valid one.** It returns every real folder with its task count
 and whether you can create there. Two things about that listing that will otherwise mislead
@@ -111,7 +111,7 @@ you:
 - **An unwritable folder is still listed** (`writable: false`, e.g. `\Microsoft\…`). That is
   deliberate — *"exists but refused"* is a different fact from *"doesn't exist"*. Do not read
   its presence as permission.
-- **The default `\TaskHub` is often absent.** It is created lazily and **pruned when its last
+- **The default `\Cronsole` is often absent.** It is created lazily and **pruned when its last
   task is deleted**, so on a clean machine it genuinely does not exist yet. That is not a
   problem and not a reason to pick another folder — omit `folder` and Cronsole creates it.
   `list_folders` reports `defaultFolder` separately for exactly this reason.
@@ -183,7 +183,7 @@ command worked, so a command that hangs forever reports `SUCCESS`.
 > witness.** Get evidence from outside Cronsole.
 
 ```powershell
-$t = Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>'
+$t = Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName '<name>'
 $t.Actions  | Select-Object Execute, Arguments
 $t.Triggers | Select-Object StartBoundary, DaysInterval, Repetition
 Start-ScheduledTask -InputObject $t
@@ -254,7 +254,7 @@ Before you call `create_task` on a real machine:
 3. The command **tokenizes** the way you intend; a shell is **explicit** if you need one.
 4. `-NoProfile` on PowerShell; `Invoke-RestMethod` (or `-UseBasicParsing`) for HTTP.
 5. Folder **exists and is writable** — check with `list_folders`, don't guess. Or omit it and
-   take the default `\TaskHub`.
+   take the default `\Cronsole`.
 6. The name won't collide in that folder.
 7. The command **terminates**. An unattended run has no console.
 8. After creating: **run it and verify from outside Cronsole**.

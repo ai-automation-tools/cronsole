@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using FluentAssertions;
 using Microsoft.Win32.TaskScheduler;
-using TaskHub.Agent;
+using Cronsole.Agent;
 using Xunit;
 
-namespace TaskHub.Agent.Tests
+namespace Cronsole.Agent.Tests
 {
     public class TriggerBuilderTests
     {

@@ -332,7 +332,7 @@ const createTaskSchema = z.object({
   category: z.string().trim().min(1).optional(),
   /**
    * Windows only: the native Task Scheduler folder to create the task in
-   * (default \TaskHub). Validated with windowsTaskFolderError — it is signed
+   * (default \Cronsole). Validated with windowsTaskFolderError — it is signed
    * into the agent command, and the agent re-validates before registering.
    */
   folder: z.string().optional(),
@@ -358,7 +358,7 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
     // Invalid folder or name → 400; name colliding with a tracked task IN THAT
     // FOLDER → 409 (RegisterTaskDefinition would silently overwrite it). The
-    // collision is per-folder: \Work\Backup and \TaskHub\Backup are different
+    // collision is per-folder: \Work\Backup and \Cronsole\Backup are different
     // tasks, while two \Work\Backup are the same one.
     if (typeof folder === 'string' && folder.trim()) {
       const folderProblem = windowsTaskFolderError(folder);
@@ -407,7 +407,7 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
   // Upsert the created task right away so the frontend shows it immediately
   // (sync would pick it up later otherwise).
   // Fallback must match where the agent actually registers — built from
-  // finalFolder, not a hardcoded \TaskHub, or a task created in \Work would be
+  // finalFolder, not a hardcoded \Cronsole, or a task created in \Work would be
   // tracked under the wrong externalId (blinding the duplicate-name guard to
   // this row, and every later run/delete/edit).
   const externalId = result.externalId || windowsTaskPath(finalFolder, name);

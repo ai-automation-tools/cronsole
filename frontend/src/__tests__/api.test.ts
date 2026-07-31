@@ -21,7 +21,7 @@ describe('runtime API origin', () => {
     expect(next).toBe('http://example.test:4000');
     expect(mod.API_ORIGIN).toBe('http://example.test:4000');
     expect(mod.api.defaults.baseURL).toBe('http://example.test:4000/api');
-    expect(window.localStorage.getItem('taskhub.apiOrigin')).toBe('http://example.test:4000');
+    expect(window.localStorage.getItem('cronsole.apiOrigin')).toBe('http://example.test:4000');
   });
 
   it('normalizes pasted paths back to an origin', async () => {

@@ -13,7 +13,7 @@ async function createWindowsTask(userId: string, name = 'Integration-Actions') {
     data: {
       userId,
       platform: PlatformType.WINDOWS_TASK_SCHEDULER,
-      externalId: `\\TaskHub\\${name}`,
+      externalId: `\\Cronsole\\${name}`,
       name,
       category: 'Cronsole',
       schedule: '0 3 * * *',

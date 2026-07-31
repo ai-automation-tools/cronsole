@@ -62,25 +62,36 @@ const UNEXPANDED_PLACEHOLDER = /^\$\{[^}]*\}$/;
  * later, one confusing tool call at a time.
  */
 /**
- * Read `CRONSOLE_<name>`, falling back to the pre-rename `TASKHUB_<name>`.
+ * The environment-variable prefix this project used before the 2026-07-31
+ * rename. Assembled from parts on purpose: a bare "TASKHUB" literal here is
+ * exactly what a future rename pass would helpfully rewrite, which would turn
+ * this fallback into `CRONSOLE_x || CRONSOLE_x` — a tautology that reads
+ * correct, still compiles, and silently drops the compatibility it exists to
+ * provide. That already happened once, during stage 2 of this very rename, and
+ * it took the guarding *test* with it.
+ */
+const LEGACY_PREFIX = ['TASK', 'HUB'].join('');
+
+/**
+ * Read `CRONSOLE_<name>`, falling back to the pre-rename name.
  *
- * The rename (2026-07-31) would otherwise break every already-configured host at
- * the moment the code changed — the variable lives in the *user's* environment,
- * not in this repo, and on Windows it needs a fresh terminal to even re-read
- * (troubleshooting #8/#8a). A rename that silently invalidates someone's working
- * setup is the same class of failure as any other confident break, so the old
- * name keeps working and says so once.
+ * The rename would otherwise break every already-configured host at the moment
+ * the code changed — the variable lives in the *user's* environment, not in this
+ * repo, and on Windows it needs a fresh terminal to even re-read (troubleshooting
+ * #8/#8a). A rename that silently invalidates someone's working setup is the same
+ * class of failure as any other confident break, so the old name keeps working
+ * and says so once.
  */
 function env(name: string): string | undefined {
   const current = process.env[`CRONSOLE_${name}`];
   if (current !== undefined && current !== '') return current;
 
-  const legacy = process.env[`TASKHUB_${name}`];
+  const legacy = process.env[`${LEGACY_PREFIX}_${name}`];
   if (legacy !== undefined && legacy !== '') {
     if (!warnedLegacy.has(name)) {
       warnedLegacy.add(name);
       console.error(
-        `[cronsole] Using TASKHUB_${name}; it was renamed to CRONSOLE_${name}. ` +
+        `[cronsole] Using ${LEGACY_PREFIX}_${name}; it was renamed to CRONSOLE_${name}. ` +
         'The old name still works — rename it when convenient.'
       );
     }

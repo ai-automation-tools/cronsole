@@ -128,7 +128,7 @@ try {
 **Expect:** **409**. Then confirm Windows still has exactly **one** task by that name:
 
 ```powershell
-Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-dup'
+Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-dup'
 ```
 
 **Why this matters:** without the guard, Windows **silently overwrites** a same-name task.
@@ -206,7 +206,7 @@ Get-ScheduledTask -TaskPath '\NoSuchFolder\*' -ErrorAction SilentlyContinue   # 
 
 **Expect:** an honest failure naming the missing folder, and no `\NoSuchFolder` left behind.
 
-**Why:** Cronsole creates exactly one folder — its own `\TaskHub`, the same one it prunes when
+**Why:** Cronsole creates exactly one folder — its own `\Cronsole`, the same one it prunes when
 emptied. Deleting a Task Scheduler folder needs **elevation**, so any other folder Cronsole
 created would be a one-way door only the user could close by hand. *Never create what you
 cannot remove.*
@@ -214,7 +214,7 @@ cannot remove.*
 Now the guard. Each of these must return **400**:
 
 ```powershell
-foreach ($f in '\Microsoft', '\microsoft\Windows', '\MICROSOFT\Windows\SystemRestore', '\TaskHub\..\Microsoft') {
+foreach ($f in '\Microsoft', '\microsoft\Windows', '\MICROSOFT\Windows\SystemRestore', '\Cronsole\..\Microsoft') {
   $b = @{ platform='WINDOWS_TASK_SCHEDULER'; name='manual-test-sneaky'; folder=$f; schedule='0 3 * * *'; parameters=@{} } | ConvertTo-Json
   try {
     Invoke-RestMethod -Method Post "http://localhost:3000/api/templates/<template-id>/apply" `
@@ -237,7 +237,7 @@ matches the root *segment*, not a prefix) and must be **allowed**, given the fol
 # \MicrosoftEdgeBackups is a different folder; \Work\Microsoft is yours, not the reserved root.
 ```
 
-Finally, the same name in a **different** folder must be *allowed* — `\TaskHub\Backup` and
+Finally, the same name in a **different** folder must be *allowed* — `\Cronsole\Backup` and
 `\Work\Backup` are genuinely different Windows tasks, and blocking it would make folders
 pointless.
 
@@ -248,7 +248,7 @@ Get-ScheduledTask -TaskPath "$existing\" -TaskName 'manual-test-folder' |
   Unregister-ScheduledTask -Confirm:$false
 ```
 
-> **Cleanup note.** Cronsole only auto-prunes an emptied `\TaskHub\`; every other folder is
+> **Cleanup note.** Cronsole only auto-prunes an emptied `\Cronsole\`; every other folder is
 > **yours** and is deliberately left alone. That's why it also refuses to *create* one — a
 > folder it made would need **elevation** to delete, so it would be litter only you could
 > clear. If a dogfood ever leaves folders behind, remove them from an **elevated** prompt:
@@ -333,7 +333,7 @@ step 2 to confirm it survived.
 ## 🧹 Cleanup
 
 ```powershell
-Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue |
+Get-ScheduledTask -TaskPath '\Cronsole\' -ErrorAction SilentlyContinue |
   Where-Object TaskName -like 'manual-test-*' |
   Unregister-ScheduledTask -Confirm:$false
 

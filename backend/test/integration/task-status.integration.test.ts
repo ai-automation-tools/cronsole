@@ -51,7 +51,7 @@ describe('PATCH /tasks/:id/status per platform', () => {
       data: {
         userId: owner.user.id,
         platform: PlatformType.WINDOWS_TASK_SCHEDULER,
-        externalId: '\\TaskHub\\Integration-Status',
+        externalId: '\\Cronsole\\Integration-Status',
         name: 'Integration-Status',
         category: 'Cronsole',
         status: TaskStatus.ACTIVE

@@ -381,7 +381,7 @@ export function registerTools(
       description:
         'List the real Windows Task Scheduler folders on the machine, with how many tasks each holds and whether ' +
         'a task can be created in it. Call this before create_task / create_task_from_template when you want a ' +
-        'folder other than the default: Cronsole creates ONLY its own "\\TaskHub" folder, so every other folder ' +
+        'folder other than the default: Cronsole creates ONLY its own "\\Cronsole" folder, so every other folder ' +
         'must already exist — this is how you find out which do. Windows-only (no other platform has task folders). ' +
         'Folders you cannot create in are listed with writable=false rather than hidden, so you can see that a ' +
         'folder exists AND why it is refused.',
@@ -496,8 +496,8 @@ export function registerTools(
           .string()
           .optional()
           .describe(
-            'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\TaskHub" (default) or ' +
-            '"\\\\Work\\\\Backups". The folder MUST ALREADY EXIST — Cronsole creates only its own "\\\\TaskHub" ' +
+            'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\Cronsole" (default) or ' +
+            '"\\\\Work\\\\Backups". The folder MUST ALREADY EXIST — Cronsole creates only its own "\\\\Cronsole" ' +
             'folder, because removing a folder needs elevation and it will not leave behind one the user has to ' +
             'delete by hand. Folders under "\\\\Microsoft\\\\" are refused outright: Windows keeps its own ' +
             'scheduled tasks there and a name collision would silently overwrite one.'
@@ -579,9 +579,9 @@ export function registerTools(
           .string()
           .optional()
           .describe(
-            'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\TaskHub" (default) or ' +
+            'Windows only: the Task Scheduler folder to create the task in, e.g. "\\\\Cronsole" (default) or ' +
             '"\\\\Work\\\\Backups". This also becomes the task\'s category in Cronsole. The folder MUST ALREADY ' +
-            'EXIST — Cronsole creates only its own "\\\\TaskHub" folder, because removing a folder needs elevation ' +
+            'EXIST — Cronsole creates only its own "\\\\Cronsole" folder, because removing a folder needs elevation ' +
             'and it will not leave behind one the user has to delete by hand. Folders under "\\\\Microsoft\\\\" are ' +
             'refused outright: Windows keeps its own scheduled tasks there and a name collision would silently ' +
             'overwrite one.'

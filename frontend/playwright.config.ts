@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright E2E config. Tests drive a real browser against the running Cronsole
  * dev stack (frontend + backend + Postgres), so bring it up first:
- *   pwsh scripts/taskhub.ps1 up
+ *   pwsh scripts/cronsole.ps1 up
  * Point elsewhere with PLAYWRIGHT_BASE_URL (e.g. a staging host).
  *
  * These are separate from the Vitest component tests (which are excluded from

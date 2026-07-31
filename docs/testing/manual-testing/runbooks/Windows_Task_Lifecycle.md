@@ -18,11 +18,11 @@ Complete the [preflight](../README.md#-preflight--do-this-once-per-session) and 
 ## 1. Baseline the scheduler
 
 ```powershell
-Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue |
+Get-ScheduledTask -TaskPath '\Cronsole\' -ErrorAction SilentlyContinue |
   Select-Object TaskName, State
 ```
 
-**Expect:** whatever's there now (possibly nothing — the `\TaskHub\` folder auto-prunes when
+**Expect:** whatever's there now (possibly nothing — the `\Cronsole\` folder auto-prunes when
 its last task is deleted). Note it; you'll compare at the end.
 
 ## 2. Create a task through Cronsole
@@ -52,7 +52,7 @@ $taskId
 >
 > ```powershell
 > $all    = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
-> $taskId = @($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' })[0].id
+> $taskId = @($all | Where-Object { $_.externalId -eq '\Cronsole\manual-test-lifecycle' })[0].id
 > ```
 >
 > **The id changes.** Untrack (12a) deletes the row and re-import creates a new one, so re-read
@@ -65,7 +65,7 @@ $taskId
 ## 3. ⭐ Verify it exists in Windows — not in Cronsole
 
 ```powershell
-Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle'
+Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle'
 ```
 
 **Expect:** the task exists, `State = Ready`.
@@ -76,7 +76,7 @@ lying — the highest-severity bug class in this product.
 ## 4. Verify the trigger compiled correctly
 
 ```powershell
-(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle').Triggers
+(Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle').Triggers
 ```
 
 **Expect:** the trigger matches your cron **converted from UTC to local time**. A `0 3 * * *`
@@ -86,7 +86,7 @@ whole class of "why did it run at the wrong time" bugs.
 ## 5. Verify the action is a real, unshelled command
 
 ```powershell
-(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle').Actions |
+(Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle').Actions |
   Format-List Execute, Arguments
 ```
 
@@ -106,7 +106,7 @@ Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/$taskId/run" -He
 ## 7. ⭐ Verify Windows actually ran it
 
 ```powershell
-Get-ScheduledTaskInfo -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle' |
+Get-ScheduledTaskInfo -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle' |
   Select-Object LastRunTime, LastTaskResult, NextRunTime
 ```
 
@@ -142,7 +142,7 @@ Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/$taskId/schedul
 Then **verify in Windows**:
 
 ```powershell
-(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle').Triggers
+(Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle').Triggers
 ```
 
 **Expect:** the trigger moved to the new time (again, UTC → local). This edit rides a **signed
@@ -155,7 +155,7 @@ $body = @{ status = 'DISABLED' } | ConvertTo-Json
 Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/$taskId/status" `
   -Headers $H -ContentType 'application/json' -Body $body
 
-(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle').State   # -> Disabled
+(Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle').State   # -> Disabled
 ```
 
 Then re-enable:
@@ -165,7 +165,7 @@ $body = @{ status = 'ACTIVE' } | ConvertTo-Json
 Invoke-RestMethod -Method Patch "http://localhost:3000/api/tasks/$taskId/status" `
   -Headers $H -ContentType 'application/json' -Body $body
 
-(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle').State   # -> Ready
+(Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle').State   # -> Ready
 ```
 
 **Expect:** `Disabled` then `Ready` — in **Windows**, not just in Cronsole's UI.
@@ -194,7 +194,7 @@ $bytes = [System.IO.File]::ReadAllBytes("$env:TEMP\manual-test-lifecycle.xml")
 
 ```powershell
 Register-ScheduledTask -Xml (Get-Content "$env:TEMP\manual-test-lifecycle.xml" -Raw) `
-  -TaskName 'manual-test-reimport' -TaskPath '\TaskHub\'
+  -TaskName 'manual-test-reimport' -TaskPath '\Cronsole\'
 ```
 
 **Expect:** it registers without error. That's what "exportable" actually means.
@@ -210,10 +210,10 @@ Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/$taskId/untrack"
 
 # 1. Gone from Cronsole?
 $all = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
-@($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' }).Count   # -> 0
+@($all | Where-Object { $_.externalId -eq '\Cronsole\manual-test-lifecycle' }).Count   # -> 0
 
 # 2. THE check — does Windows still have it?
-Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle'      # -> State: Ready
+Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle'      # -> State: Ready
 ```
 
 > [!WARNING]
@@ -243,12 +243,12 @@ Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $
 
 # 4. An explicit category import IS the way back
 Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
-  -ContentType 'application/json' -Body '{"categories":["TaskHub"]}'
+  -ContentType 'application/json' -Body '{"categories":["Cronsole"]}'
 #    -> exclusionsCleared = 1, and the task returns
 
 # 5. The row is NEW — re-read the id before continuing
 $all    = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
-$taskId = @($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' })[0].id
+$taskId = @($all | Where-Object { $_.externalId -eq '\Cronsole\manual-test-lifecycle' })[0].id
 $taskId
 ```
 
@@ -256,12 +256,12 @@ $taskId
 broken"), step 4 brings it back and **says so** — `exclusionsCleared` is what the toast turns
 into *"Re-imported 1 task you had removed from Cronsole."*
 
-> **The category is `TaskHub`, not `Cronsole`.** Categories for Windows tasks are derived from
-> the real Task Scheduler folder path, and that folder is still `\TaskHub\` — the product rename
+> **The category is `Cronsole`, not `Cronsole`.** Categories for Windows tasks are derived from
+> the real Task Scheduler folder path, and that folder is still `\Cronsole\` — the product rename
 > does not move it. Passing `["Cronsole"]` matches no folder and silently imports nothing, which
 > reads exactly like "untrack can't be undone."
 
-Also check `GET /api/tasks/discover` between 3 and 4: the `TaskHub` category should report
+Also check `GET /api/tasks/discover` between 3 and 4: the `Cronsole` category should report
 `excludedCount: 1`, which is the amber **+1 removed** badge in the Import modal. The number has
 to arrive **before** the click.
 
@@ -287,7 +287,7 @@ Now delete the task in Windows and re-run the dry run with `createFolders = $tru
 `create: 1`. Then commit it (`dryRun = $false`) and take the evidence from **Windows**:
 
 ```powershell
-$t = Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle'
+$t = Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle'
 $t.State; $t.Actions[0].Execute; $t.Principal.UserId; $t.Principal.LogonType; $t.Principal.RunLevel
 ```
 
@@ -310,13 +310,13 @@ re-read `$taskId` one more time before deleting:
 
 ```powershell
 Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
-  -ContentType 'application/json' -Body '{"categories":["TaskHub"]}' | Out-Null
+  -ContentType 'application/json' -Body '{"categories":["Cronsole"]}' | Out-Null
 $all    = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
-$taskId = @($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' })[0].id
+$taskId = @($all | Where-Object { $_.externalId -eq '\Cronsole\manual-test-lifecycle' })[0].id
 
 Invoke-RestMethod -Method Delete "http://localhost:3000/api/tasks/$taskId" -Headers $H
 
-Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName 'manual-test-lifecycle' -ErrorAction SilentlyContinue
+Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName 'manual-test-lifecycle' -ErrorAction SilentlyContinue
 ```
 
 **Expect:** the second command returns **nothing**. The DB row must only go **after** the
@@ -324,21 +324,21 @@ platform confirms — so if Windows still has it, Cronsole must still list it.
 
 ## 14. Empty folder auto-prunes
 
-Delete every task in `\TaskHub\` (including `manual-test-reimport` from step 12) — but the
+Delete every task in `\Cronsole\` (including `manual-test-reimport` from step 12) — but the
 **last** one has to go **through Cronsole**, so import it first:
 
 ```powershell
 Invoke-RestMethod -Method Post "http://localhost:3000/api/tasks/sync" -Headers $H `
-  -ContentType 'application/json' -Body '{"categories":["TaskHub"]}' | Out-Null
+  -ContentType 'application/json' -Body '{"categories":["Cronsole"]}' | Out-Null
 $all      = Invoke-RestMethod "http://localhost:3000/api/tasks" -Headers $H
-$reimport = @($all | Where-Object { $_.externalId -eq '\TaskHub\manual-test-reimport' })[0].id
+$reimport = @($all | Where-Object { $_.externalId -eq '\Cronsole\manual-test-reimport' })[0].id
 Invoke-RestMethod -Method Delete "http://localhost:3000/api/tasks/$reimport" -Headers $H
 
 # the folder should now be gone entirely, not merely empty
-Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue
+Get-ScheduledTask -TaskPath '\Cronsole\' -ErrorAction SilentlyContinue
 
 $svc = New-Object -ComObject Schedule.Service; $svc.Connect()
-try { $svc.GetFolder('\TaskHub'); 'FOLDER STILL EXISTS' } catch { 'folder pruned: ' + $_.Exception.Message.Trim() }
+try { $svc.GetFolder('\Cronsole'); 'FOLDER STILL EXISTS' } catch { 'folder pruned: ' + $_.Exception.Message.Trim() }
 ```
 
 > **The prune is Cronsole's, not Windows'.** It runs on Cronsole's delete path when it removes
@@ -346,7 +346,7 @@ try { $svc.GetFolder('\TaskHub'); 'FOLDER STILL EXISTS' } catch { 'folder pruned
 > ever telling Cronsole, so the folder survives and this step fails for a reason that has
 > nothing to do with pruning.
 
-**Expect:** the `\TaskHub\` folder is gone — it auto-prunes on last-task delete.
+**Expect:** the `\Cronsole\` folder is gone — it auto-prunes on last-task delete.
 
 ## 15. Elevation refusal is honest
 
@@ -378,7 +378,7 @@ error — the user now trusts a dashboard that's wrong.
 ## 🧹 Cleanup
 
 ```powershell
-Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue |
+Get-ScheduledTask -TaskPath '\Cronsole\' -ErrorAction SilentlyContinue |
   Where-Object TaskName -like 'manual-test-*' |
   Unregister-ScheduledTask -Confirm:$false
 

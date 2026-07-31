@@ -25,7 +25,7 @@ truth.
 
 **Who runs it:** whoever is about to call something done. Today that's Mike — dogfooding is
 Cronsole's primary UAT channel, and it has already produced real fixes (the PowerShell console
-flash, the empty `\TaskHub\` folder, task export).
+flash, the empty `\Cronsole\` folder, task export).
 
 **Legend:** ✅ passing · 🟡 partial / needs re-run · ⬜ never formally run
 

@@ -14,14 +14,14 @@ assume `$H` holds your auth header.
 ## 1. Every service is up
 
 ```powershell
-pwsh .\scripts\taskhub.ps1 status
+pwsh .\scripts\cronsole.ps1 status
 ```
 
 **Expect:** one table, every row up — Postgres, Redis, backend (`:3000`), frontend (`:7373`),
 agent. The whole point of this script is that you don't have to wonder which part is down.
 
-> Anything down → `pwsh .\scripts\taskhub.ps1 up`, then re-check. Still down →
-> `pwsh .\scripts\taskhub.ps1 logs`.
+> Anything down → `pwsh .\scripts\cronsole.ps1 up`, then re-check. Still down →
+> `pwsh .\scripts\cronsole.ps1 logs`.
 
 ## 2. Backend answers
 

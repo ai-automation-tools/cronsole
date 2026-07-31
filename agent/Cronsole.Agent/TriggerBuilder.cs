@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Xml;
 using Microsoft.Win32.TaskScheduler;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     /// <summary>
     /// Translates a server TriggerSpec (UTC times, ISO-8601 intervals) into a

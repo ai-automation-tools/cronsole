@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     /// <summary>
     /// Validation + normalization for Windows Task Scheduler folder paths.
@@ -19,8 +19,8 @@ namespace TaskHub.Agent
     /// </summary>
     public static class TaskFolderPath
     {
-        /// <summary>Where TaskHub puts created tasks unless told otherwise.</summary>
-        public const string Default = "\\TaskHub";
+        /// <summary>Where Cronsole puts created tasks unless told otherwise.</summary>
+        public const string Default = "\\Cronsole";
 
         /// <summary>
         /// Refused root. Windows' own scheduled tasks live under
@@ -86,9 +86,9 @@ namespace TaskHub.Agent
         public static bool IsRoot(string? folder) => Split(folder).Count == 0;
 
         /// <summary>
-        /// True when this is TaskHub's own folder (\TaskHub) — the ONLY folder the
+        /// True when this is Cronsole's own folder (\Cronsole) — the ONLY folder the
         /// agent creates, because it is also the only one it prunes. Every other
-        /// folder must already exist: TaskHub must never create something it cannot
+        /// folder must already exist: Cronsole must never create something it cannot
         /// remove, since folder deletion needs elevation the user would have to
         /// perform by hand.
         /// </summary>

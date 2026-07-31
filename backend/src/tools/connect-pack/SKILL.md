@@ -72,7 +72,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | **Schedules are 5-field cron in UTC** | Not local time. The dashboard converts for display; you convert on the way in. |
 | **Commands are tokenized, no shell** | A Windows command becomes a structured `{executable, args[]}` action. Pipes, `>`, `&&`, `%VAR%` do **not** work unless you invoke a shell explicitly. This is the injection guarantee — an implicit shell turns every parameter into arbitrary code. |
 | **`\Microsoft\` is refused** | Registering a task **silently overwrites** a same-named one, and the agent runs **elevated**. Writing there could destroy a real Windows task with no error. Refused in the backend *and* independently in the agent. |
-| **A folder must already exist** | The only folder Cronsole creates is `\TaskHub` — and the only one it removes. Deleting a folder needs elevation, so it will not create litter it cannot clean up. A create into a missing folder is refused honestly. |
+| **A folder must already exist** | The only folder Cronsole creates is `\Cronsole` — and the only one it removes. Deleting a folder needs elevation, so it will not create litter it cannot clean up. A create into a missing folder is refused honestly. |
 | **Names are unique per folder** | A collision returns **409** instead of letting Windows silently overwrite. |
 | **Disable is how you park a task** | Never encode "don't run" in the cron — see §5. |
 | **Untrack is how you tidy the dashboard** | `untrack_task` removes Cronsole's record and leaves the scheduled task running. Deleting to clean up a view destroys someone's automation. |
@@ -141,7 +141,7 @@ task firing on its own trigger is recorded by Windows, not by Cronsole.
 > witness.** Get evidence from outside Cronsole:
 
 ```powershell
-$t = Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>'
+$t = Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName '<name>'
 $t.Actions  | Select-Object Execute, Arguments      # direct exec? no stray cmd.exe /c?
 $t.Triggers | Select-Object StartBoundary, Repetition   # UTC -> local correct?
 Start-ScheduledTask -InputObject $t
@@ -161,7 +161,7 @@ Best evidence is a **real side effect** — a log line, a file, an HTTP hit.
 1. `convert_schedule` the cron — and **read the trigger**, not the score.
 2. Cron is **UTC**, 5 fields.
 3. The command tokenizes the way you intend; a shell is **explicit** if you need one.
-4. Folder **exists** (`list_folders`) — or omit it and take the default `\TaskHub`.
+4. Folder **exists** (`list_folders`) — or omit it and take the default `\Cronsole`.
    Its absence from the listing is normal: it is created on demand and pruned when empty.
 5. The name won't collide in that folder.
 6. The command **terminates**.

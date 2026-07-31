@@ -50,7 +50,7 @@ describe('useTheme', () => {
 
   it('falls back to dark when the stored value is unrecognized', () => {
     setSystemPrefersDark(false);
-    window.localStorage.setItem('taskhub.theme', 'neon');
+    window.localStorage.setItem('cronsole.theme', 'neon');
 
     const { result } = renderHook(() => useTheme());
 
@@ -59,7 +59,7 @@ describe('useTheme', () => {
   });
 
   it('honors an explicitly chosen light theme', () => {
-    window.localStorage.setItem('taskhub.theme', 'light');
+    window.localStorage.setItem('cronsole.theme', 'light');
 
     const { result } = renderHook(() => useTheme());
 
@@ -70,7 +70,7 @@ describe('useTheme', () => {
 
   it('still follows the OS when the user picks system on purpose', () => {
     setSystemPrefersDark(false);
-    window.localStorage.setItem('taskhub.theme', 'system');
+    window.localStorage.setItem('cronsole.theme', 'system');
 
     const { result } = renderHook(() => useTheme());
 
@@ -79,7 +79,7 @@ describe('useTheme', () => {
 
     // …and the other way round.
     setSystemPrefersDark(true);
-    window.localStorage.setItem('taskhub.theme', 'system');
+    window.localStorage.setItem('cronsole.theme', 'system');
     const second = renderHook(() => useTheme());
     expect(second.result.current.theme).toBe('system');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
@@ -90,7 +90,7 @@ describe('useTheme', () => {
 
     act(() => result.current.setTheme('light'));
 
-    expect(window.localStorage.getItem('taskhub.theme')).toBe('light');
+    expect(window.localStorage.getItem('cronsole.theme')).toBe('light');
     expect(document.documentElement.classList.contains('light')).toBe(true);
   });
 
@@ -98,6 +98,20 @@ describe('useTheme', () => {
     // The boot script in index.html stamps the theme before React exists. If the
     // two defaults drift, a fresh install renders one theme for a frame and the
     // other after hydration — the flash the script exists to prevent.
-    expect(indexHtml).toContain("localStorage.getItem('taskhub.theme') || 'dark'");
+    //
+    // Asserted as three independent facts rather than one exact line, because
+    // the line legitimately grew a legacy-key fallback and an exact match would
+    // have to be rewritten for every reformat — a pin that brittle gets deleted
+    // rather than fixed.
+    expect(indexHtml).toContain("localStorage.getItem('cronsole.theme')");
+    expect(indexHtml).toMatch(/\|\|\s*'dark'/);
+  });
+
+  it("index.html reads the pre-rename theme key too, so the first load doesn't flash", () => {
+    // This script runs BEFORE the module that migrates the key, so on the very
+    // first load after the rename the only place the user's choice still exists
+    // is under the old name. Without this, someone who chose light gets a dark
+    // flash exactly once — which is the bug the script exists to prevent.
+    expect(indexHtml).toContain("localStorage.getItem('taskhub.theme')");
   });
 });

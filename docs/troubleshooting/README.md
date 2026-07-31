@@ -45,12 +45,13 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 20a | …and after you **rename a category**, that whole folder silently stops syncing — no new tasks, no refresh, no error | The server filters on `extractCategory(externalId)` (re-derived from the folder path) while the caller sent the **renameable** stored `category`, so the name matched no folder. **Fixed 2026-07-25**: Sync Now sends `{ scope: 'tracked' }` and the server resolves the folders itself | [→](#20a-and-a-renamed-category-silently-stops-syncing-its-folder) |
 | 21 | Templates never update — the registry has no effect and the count never moves — while the app is otherwise perfectly healthy; the log shows `[catalog] sync failed … P2002` on `prisma.user.upsert()` | #19's bug in a **second file the #19 fix missed**: `ensureCatalogOwner()` keyed on the mutable `CATALOG_OWNER_EMAIL` while creating the fixed id. Here the caller **catches** it instead of crashing, so the only symptom is a catalog that silently never changes | [→](#21-templates-never-update-catalog-sync-failed--p2002-on-every-boot) |
 | 22 | You delete a Windows task (or a whole folder), sync, and Cronsole **still lists it** — while the sync response reports `missing: 56`, i.e. claims it marked them | The container's **generated Prisma client is stale** and lacks the `MISSING` enum, so `TaskStatus.MISSING` is `undefined` — and **Prisma treats `undefined` in `data` as "leave this field alone"**, so only `nextRunTime` was written while `updateMany` still returned a count. A *wrong* enum value throws; a **missing** one silently no-ops. `prisma migrate` updates the DB, so DB and client drifted apart invisibly (#18's shadowed `node_modules`) | [→](#22-deleted-a-windows-task-synced-and-cronsole-still-shows-it--while-reporting-missing-n) |
-| 23 | The dashboard shows a plain **network error** after a reboot / unclean shutdown. Everything looks `Up`, every request to `:3000` is `HTTP 000`, and a backend log ends with `prisma.user.upsert()` → `FATAL: the database system is starting up` (container) or `Can't reach database server at localhost:5432` (host, `logs/backend.err.log`) | **Nothing waited for Postgres to be *ready*, only to *exist*** — after an unclean shutdown it spends seconds in crash recovery refusing queries, and the boot seed dies on the refusal. It stays dead because **`tsx watch` survives the crash**, so the container never exits and `restart: unless-stopped` never fires. Compounded by **two stacks running at once** (host *and* containers) fighting over `:3000`, with `Test-Port` reporting the dead squatter as "backend already up". **Fixed 2026-07-27**: `pg_isready` healthcheck + `condition: service_healthy`, `Wait-Db` in `taskhub.ps1`, and backend/frontend moved behind `profiles: ["docker"]` | [→](#23-network-error-after-a-reboot--the-database-system-is-starting-up) |
+| 23 | The dashboard shows a plain **network error** after a reboot / unclean shutdown. Everything looks `Up`, every request to `:3000` is `HTTP 000`, and a backend log ends with `prisma.user.upsert()` → `FATAL: the database system is starting up` (container) or `Can't reach database server at localhost:5432` (host, `logs/backend.err.log`) | **Nothing waited for Postgres to be *ready*, only to *exist*** — after an unclean shutdown it spends seconds in crash recovery refusing queries, and the boot seed dies on the refusal. It stays dead because **`tsx watch` survives the crash**, so the container never exits and `restart: unless-stopped` never fires. Compounded by **two stacks running at once** (host *and* containers) fighting over `:3000`, with `Test-Port` reporting the dead squatter as "backend already up". **Fixed 2026-07-27**: `pg_isready` healthcheck + `condition: service_healthy`, `Wait-Db` in `cronsole.ps1`, and backend/frontend moved behind `profiles: ["docker"]` | [→](#23-network-error-after-a-reboot--the-database-system-is-starting-up) |
 | 23a | `cronsole status` prints `[DOWN]` for Postgres, Redis, backend **and** frontend — while `/api/health` returns 200 and the frontend serves 200 | The **same port check as #23, wrong in the other direction**: `Get-NetTCPConnection` needs the NetTCPIP CIM provider and the container check needs a resolvable docker CLI; both were wrapped in `catch { $false }`, so *"the probe could not run"* printed as *"the service is down"*. **Fixed 2026-07-28**: every service is probed by asking the service (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP `PING`), the port is corroboration only, and present-but-unconfirmable reports **`WARN`** with the signal named | [→](#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving) |
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
 | 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
 | 32 | A PowerShell check against the API returns **every** task when it should return one, or prints a header with one **blank** row — while the same endpoint's raw JSON is plainly correct | **`Invoke-RestMethod` writes its array to the pipeline without enumerating it**, so a directly-piped `Where-Object`/`Select-Object` receives one `Object[]` instead of N objects. `$_.prop -eq 'x'` then evaluates against the whole array and returns the *matching elements* — truthy — so everything passes the filter. Assign to a variable first, then filter, and wrap in `@()` before `.Count`. **Worst where a check is meant to prove a row is gone: the broken form prints `0` on no-match, so it looks right and can never fail in the direction it is testing** | [→](#32-a-powershell-check-against-the-api-matches-everything-or-renders-a-blank-row) |
+| 32 | A rename lands, every suite is green, and a working setup quietly stops working — MCP tools vanish, webhooks stop firing, an agent can't find its secret | The rename pass rewrote the **back-compat shim** that existed to survive it (`CRONSOLE_x ?? TASKHUB_x` → `CRONSOLE_x ?? CRONSOLE_x`) — a tautology that compiles and reads correctly — **and rewrote the guarding tests the same way**, so they still pass. Never write the old name as a literal in the thing meant to survive the rename: assemble it (`['TASK','HUB'].join('')`) and mutation-check the fallback | [→](#32-a-rename-pass-silently-disables-the-back-compat-it-just-added--and-rewrites-the-tests-too) |
 | 31 | The dashboard loads but every API call fails with *"No 'Access-Control-Allow-Origin' header is present"* — while `curl` against the same route returns 200 | **Read the backend log — it names the refused origin and the allowed list.** Since 2026-07-31 the REST API enforces **`ALLOWED_ORIGINS`** (it used to reflect any origin), and the browser's origin isn't on the list — after a port change, a Settings → API-origin override, or reaching Cronsole over Tailscale/a tunnel. **`curl` works because it sends no `Origin`, and a request without one is always allowed**, so a passing `curl` is not evidence the browser can reach the API. Add the exact origin (scheme + host + port) and restart the backend; the same list gates the `/ui` live-update socket | [→](#31-the-dashboard-loads-but-every-api-call-fails-with-a-cors-error) |
 | 30 | A route 500s on real data while `tsc` is green | A **cast on a query result** (`row as SomeInterface`) silenced the compiler at the one boundary that had drifted — a Prisma `select` missing a field the consumer now requires. Delete the cast; Prisma's generated select type is already the strongest check there is. *A cast at a data boundary is a promise the query cannot keep* | [→](#30-a-route-500s-on-real-data-while-tsc-is-green--a-cast-on-a-query-result) |
 | 29 | `prisma migrate` refuses to run — "migration was modified after it was applied" — and the only remedy it offers drops the database | Prisma checksums each migration **file**; editing an applied one (even adding a comment) breaks the hash. **Never `migrate reset`** on a local-first app — that is the user's real data. Verify the DB already matches the SQL, re-record the checksum, then use `--create-only` + `migrate deploy` (which also skips `generate`, dodging [#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)) | [→](#29-prisma-migrate-refuses-to-run-migration-was-modified-after-it-was-applied--and-offers-to-drop-your-database) |
@@ -113,7 +114,7 @@ rejected at the pairing handshake.
 **Cause** — `docker-compose.yml` bakes in **DEV-ONLY default secrets**
 (`JWT_SECRET=dev-jwt-secret-change-in-production`, and defaults for `ENCRYPTION_KEY` /
 `AGENT_PAIRING_SECRET`) so `docker compose up` boots out of the box. But the frontend dev
-token in `frontend/.env.local` and the agent's `TASKHUB_PAIRING_SECRET` were generated
+token in `frontend/.env.local` and the agent's `CRONSOLE_PAIRING_SECRET` were generated
 against the **rotated** secrets in `backend/.env`. The container's default `JWT_SECRET`
 can't verify a token signed with the rotated one → 403. Same story for the pairing secret.
 
@@ -209,9 +210,9 @@ A plain restart is enough (the source is already mounted — no rebuild needed u
 ## 5. Windows `OFFLINE` after running a transient test agent
 
 **Symptom** — you start a second agent instance for a dogfood/test (e.g. `dotnet
-TaskHub.Agent.dll` with `TASKHUB_AGENT_ID=dogfood-agent`), do your testing, then stop it —
+Cronsole.Agent.dll` with `CRONSOLE_AGENT_ID=dogfood-agent`), do your testing, then stop it —
 and now `GET /api/tasks/health` reports `WINDOWS_TASK_SCHEDULER: OFFLINE` and stays that way,
-even though the **real** agent process (the elevated `\Task-Hub\TaskHubAgent` scheduled task)
+even though the **real** agent process (the elevated `\Cronsole-Stack\CronsoleAgent` scheduled task)
 is still running. Polling for a minute-plus doesn't recover it.
 
 **Cause** — the backend maps one agent socket per user (single-user MVP). When the transient
@@ -309,7 +310,7 @@ wire up the backend route + connector, restart the backend, and the endpoint now
    events, so `tsx watch` never sees your edit — the new **route** 404s. See
    [entry #4](#4-backend-source-edits-not-picked-up-in-docker). Fix: `docker compose restart backend`.
 2. The **.NET agent** is a **host process** running the published exe
-   (`agent\publish\TaskHub.Agent.exe`), launched by the stack / self-heal task. It
+   (`agent\publish\Cronsole.Agent.exe`), launched by the stack / self-heal task. It
    does **not** hot-reload at all. Until you rebuild + republish it, it has no
    handler for the new command, never emits the response, and the backend's 15s
    wait times out to a 502.
@@ -333,19 +334,19 @@ Register it **once** from an **Administrator** prompt:
 After that, republish from **any** prompt — no elevation, no UAC:
 
 ```powershell
-Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'
+Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'
 Get-Content "$env:TEMP\cronsole-republish.log" -Tail 20   # it logs; read it, don't assume
 ```
 
-`\Task-Hub\TaskHubRepublish` is a **no-trigger** task at RunLevel Highest that runs
+`\Cronsole-Stack\CronsoleRepublish` is a **no-trigger** task at RunLevel Highest that runs
 [`scripts/Republish-Agent.ps1`](../../scripts/Republish-Agent.ps1) (stop → publish →
 relaunch), hidden via `run-hidden.vbs`. It only ever runs when explicitly started.
 
 > [!NOTE]
-> This is a **dev tool** and is deliberately not registered by `Register-TaskHubStack.ps1`
+> This is a **dev tool** and is deliberately not registered by `Register-CronsoleStack.ps1`
 > or any installer. It is, by construction, a way to run code elevated without a UAC
-> prompt — but it runs one fixed script from this repo, and `\Task-Hub\TaskHubStack`
-> already runs `taskhub.ps1` elevated on a recurring trigger, so anyone who can write to
+> prompt — but it runs one fixed script from this repo, and `\Cronsole-Stack\CronsoleStack`
+> already runs `cronsole.ps1` elevated on a recurring trigger, so anyone who can write to
 > this repo already has elevated execution here. It adds an entry point, not a capability.
 > Don't register it on a machine where the repo is writable by someone who shouldn't have
 > admin. Remove with `Register-RepublishTask.ps1 -Unregister`.
@@ -356,11 +357,11 @@ In an **Administrator** PowerShell:
 
 ```powershell
 # 1. Stop the running agent so its exe can be replaced
-Get-Process TaskHub.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
 # 2. Rebuild + publish (now includes the new command handler)
-dotnet publish ".\agent\TaskHub.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
+dotnet publish ".\agent\Cronsole.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
 # 3. Relaunch the stack (starts the new agent hidden)
-& ".\scripts\taskhub.ps1" up
+& ".\scripts\cronsole.ps1" up
 ```
 
 Step 1 is the one that matters: skip it and step 2 fails on the locked exe, or worse
@@ -370,13 +371,13 @@ appears to succeed while the old process keeps running.
 
 ```powershell
 # The published dll must be NEWER than the newest source file.
-Get-Item ".\agent\publish\TaskHub.Agent.dll" | Select-Object LastWriteTime
-Get-ChildItem ".\agent\TaskHub.Agent" -Recurse -Filter *.cs |
+Get-Item ".\agent\publish\Cronsole.Agent.dll" | Select-Object LastWriteTime
+Get-ChildItem ".\agent\Cronsole.Agent" -Recurse -Filter *.cs |
   Sort-Object LastWriteTime -Descending | Select-Object -First 1 LastWriteTime
 ```
 
 > [!TIP]
-> An unelevated `Get-Process TaskHub.Agent` returning **nothing does not mean the agent is
+> An unelevated `Get-Process Cronsole.Agent` returning **nothing does not mean the agent is
 > down** — it runs elevated and can be invisible to your shell. Ask the backend instead:
 > `GET /api/tasks/health` should show `WINDOWS_TASK_SCHEDULER` as `HEALTHY` with a recent
 > `lastSync`. That is the authoritative signal.
@@ -574,7 +575,7 @@ instead.
 
 > [!NOTE]
 > **This is why Cronsole refuses to create folders.** It creates exactly one — its own
-> `\TaskHub`, the same one it prunes when the last task leaves. Any other folder it created
+> `\Cronsole`, the same one it prunes when the last task leaves. Any other folder it created
 > would be a **one-way door**: Cronsole could make it but never remove it, leaving litter only
 > you could clear from an elevated prompt. *Never create what you cannot remove.* A folder
 > you made is yours and is deliberately left alone — the fix was to stop creating them, not
@@ -592,7 +593,7 @@ build fine, the agent running):
 
 ```
 Start-ScheduledTask : No MSFT_ScheduledTask objects found with property 'TaskName' equal to
-'TaskHubRepublish'
+'CronsoleRepublish'
 ```
 
 ...and/or every `cronsole` MCP tool is simply **missing** from the host — not erroring, not
@@ -602,7 +603,7 @@ Start-ScheduledTask : No MSFT_ScheduledTask objects found with property 'TaskNam
 
 | Wiped | Where it actually lives |
 |:---|:---|
-| `\Task-Hub\TaskHubRepublish` (and the other `\Task-Hub\` tasks) | Task Scheduler store on `C:` |
+| `\Cronsole-Stack\CronsoleRepublish` (and the other `\Cronsole-Stack\` tasks) | Task Scheduler store on `C:` |
 | `CRONSOLE_TOKEN` | `HKCU\Environment` (User env var) on `C:` |
 
 The *scripts* that register the task are committed and survive; only the **registration** is
@@ -640,7 +641,7 @@ already-running process, so restarting the host inside an old terminal won't pic
 > what lives on `C:` rather than in git. Scheduled tasks, User env vars, and anything under
 > `%TEMP%` are all outside the repo's blast radius — and outside its protection.
 
-*First hit: 2026-07-15 (a System Restore took `\Task-Hub\TaskHubRepublish` and `CRONSOLE_TOKEN`
+*First hit: 2026-07-15 (a System Restore took `\Cronsole-Stack\CronsoleRepublish` and `CRONSOLE_TOKEN`
 with it; the repo on `D:` was untouched, so the two failures looked unrelated).*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
@@ -690,7 +691,7 @@ powershell.exe -NoProfile -Command "Invoke-WebRequest -Uri 'https://…' -Method
 - **`powershell.exe` → always `-NoProfile`** so an unattended run doesn't depend on the
   user's profile.
 
-To clear a stuck one: `Stop-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>'`.
+To clear a stuck one: `Stop-ScheduledTask -TaskPath '\Cronsole\' -TaskName '<name>'`.
 
 > [!IMPORTANT]
 > **A green suite is not evidence a template works.** The only proof is applying it and
@@ -837,7 +838,7 @@ schedule the converter recognizes and **disable** the task, or delete it when do
 convert_schedule '0 4 1 1 *'    # score 0.7 -> read the trigger, not just the score
 
 # inspect what was really registered
-Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>' | Select-Object -Expand Triggers
+Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName '<name>' | Select-Object -Expand Triggers
 ```
 
 > [!IMPORTANT]
@@ -876,7 +877,7 @@ run_task → (15013ms) HTTP 500: Agent trigger timeout
 So you go and debug the agent connection. The agent is not the problem. The task is disabled.
 
 **Cause** — `task:run` in
-[`agent/TaskHub.Agent/AgentService.cs`](../../agent/TaskHub.Agent/AgentService.cs) only replied on
+[`agent/Cronsole.Agent/AgentService.cs`](../../agent/Cronsole.Agent/AgentService.cs) only replied on
 **success**. Every failure path emitted nothing at all:
 
 ```csharp
@@ -909,7 +910,7 @@ forger should learn nothing, and the server's timeout is the correct outcome the
 
 > [!IMPORTANT]
 > **Needs an agent republish** to take effect — see [#7](#7-new-agent-command-502-times-out-until-the-agent-is-republished).
-> `Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'`
+> `Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'`
 
 > [!TIP]
 > **Getting the agent's console when it's launched hidden.** This was only diagnosable by
@@ -917,7 +918,7 @@ forger should learn nothing, and the server's timeout is the correct outcome the
 > exe in the foreground yourself — it connects and **replaces** the elevated one in the backend's
 > agent registry, so it handles your commands and you can read its output:
 > ```bash
-> cd agent/publish && ./TaskHub.Agent.exe   # Ctrl+C, then republish to restore the real one
+> cd agent/publish && ./Cronsole.Agent.exe   # Ctrl+C, then republish to restore the real one
 > ```
 
 *First hit: 2026-07-15 (found by driving the new `set_task_status` + `run_task` MCP tools live —
@@ -943,7 +944,7 @@ Nothing about the task changed between #2 and #3. Only the clock did.
 **Cause** — the agent's console gives it away:
 
 ```
-REJECTED unsigned/invalid task:run for \TaskHub\<name>
+REJECTED unsigned/invalid task:run for \Cronsole\<name>
 ```
 
 Signed agent commands carry a **second-granular** `ts`, and the signature is over
@@ -960,7 +961,7 @@ didn't tick".
 the signed message, immediately before `ts`:
 
 ```
-task:run|\TaskHub\MyTask|3f9a…c2|1700000000
+task:run|\Cronsole\MyTask|3f9a…c2|1700000000
                          ^^^^^^ fresh 16 random bytes per emit
 ```
 
@@ -1073,7 +1074,7 @@ in transit is not a replacement you can trust.
 
 *First hit: 2026-07-15 (`backend/src/ws/agentAuth.ts`, a NUL separator whose diff couldn't be
 read). Repo-wide sweep 2026-07-16 found two more — `mcp-server/src/__tests__/tools.test.ts` and
-`agent/TaskHub.Agent.Tests/AgentAuthenticatorTests.cs` — and added the CI guard. Recurred
+`agent/Cronsole.Agent.Tests/AgentAuthenticatorTests.cs` — and added the CI guard. Recurred
 2026-07-28 in `bulkExport.ts` (above). The failure is silent and only bites the reviewer, which is
 why it survived so long.)*
 
@@ -1446,7 +1447,7 @@ immediately, gets that error, throws, and dies.
 | Backend | Gate that was missing | Error in the log |
 |:---|:---|:---|
 | **Container** | `depends_on: [db]` waits for the container to **start**, not to be **healthy** | `FATAL: the database system is starting up` |
-| **Host** (`taskhub.ps1`) | `compose up -d db redis` returns immediately; the host backend was launched on the next line | `Can't reach database server at localhost:5432` (in `logs/backend.err.log`) |
+| **Host** (`cronsole.ps1`) | `compose up -d db redis` returns immediately; the host backend was launched on the next line | `Can't reach database server at localhost:5432` (in `logs/backend.err.log`) |
 
 The reason it stays dead is the nastiest part: **`tsx watch` survives the crash**. The
 supervisor keeps running and waits for a file change, so the *container* never exits — which
@@ -1504,7 +1505,7 @@ docker compose kill db backend && docker compose --profile docker up -d
 #  Container taskhub-backend-1  Starting
 ```
 
-For the **host** backend the same gate lives in `scripts/taskhub.ps1` as `Wait-Db`, which polls
+For the **host** backend the same gate lives in `scripts/cronsole.ps1` as `Wait-Db`, which polls
 the db container's health before launching it. `cronsole up` now prints `db ready (accepting
 connections)` before `started backend` — if you don't see that line, you're on the old script.
 
@@ -1513,13 +1514,13 @@ connections)` before `started backend` — if you don't see that line, you're on
 The race is what killed it, but **duplicate stacks are what made it confusing and hard to
 see.** This repo can run the backend/frontend two ways, and both were live:
 
-- **The design** (`scripts/taskhub.ps1`, and the sign-in Scheduled Task): Docker runs **db +
+- **The design** (`scripts/cronsole.ps1`, and the sign-in Scheduled Task): Docker runs **db +
   redis only**; backend, frontend, and agent are **host** processes.
 - **A stray `docker compose up -d`**, which used to start `backend` and `frontend` containers too.
 
 The container grabbed `:3000` first. The host backend then couldn't bind it and died. When the
 container *also* died on the DB race, the port was left held by a dead process — and because
-`taskhub.ps1` tested liveness with `Test-Port 3000`, it reported **`backend already up`** and
+`cronsole.ps1` tested liveness with `Test-Port 3000`, it reported **`backend already up`** and
 refused to start the real one. Every layer was reporting something true and the sum was a lie.
 
 **Fixed 2026-07-27:** `backend` and `frontend` are now `profiles: ["docker"]`, so a plain
@@ -1576,7 +1577,7 @@ came out as the same word. Four services reported down, none of them was.
 | Frontend | `GET /` | TCP connect to `:7373` |
 | Postgres | docker healthcheck, else `pg_isready` | TCP connect to `:5432` |
 | Redis | **RESP `PING` over the socket** (no docker needed) | TCP connect to `:6379` |
-| Agent | the `TaskHub.Agent` process | — (it binds nothing; it dials **out**) |
+| Agent | the `Cronsole.Agent` process | — (it binds nothing; it dials **out**) |
 
 Three things make this honest rather than just different:
 
@@ -1731,11 +1732,11 @@ drops `undefined` from a `data` payload and reports success.
 **Fix** — stop the backend, generate, restart:
 
 ```powershell
-# host stack (scripts/taskhub.ps1 runs backend/frontend on the host)
+# host stack (scripts/cronsole.ps1 runs backend/frontend on the host)
 Get-NetTCPConnection -State Listen -LocalPort 3000 | Select-Object -First 1 |
   ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 cd backend; npx prisma generate
-pwsh scripts\taskhub.ps1 up
+pwsh scripts\cronsole.ps1 up
 ```
 
 In the **containerized** variant the DLL lives inside the container and `node_modules` is a
@@ -1819,14 +1820,14 @@ The restored copy looks identical in Task Scheduler and refuses.
 **Cause** — the restore is performed by the **Cronsole agent, which runs elevated**. Windows adds an
 ACE for the registering context, so the task — and any folder created for it — end up owned by an
 administrator. An unelevated prompt can read them and cannot remove them. This is the same
-condition [`FriendlyDeleteError`](../../agent/TaskHub.Agent/AgentService.cs) already explains for
+condition [`FriendlyDeleteError`](../../agent/Cronsole.Agent/AgentService.cs) already explains for
 `task:delete`; restore just makes it reachable for tasks you used to own outright.
 
 **Fix — for the task:** delete it *through Cronsole*, which routes the delete back through the same
 elevated agent that created it. Import the folder (Dashboard → Import), then Delete from Windows.
 Or open Task Scheduler **as administrator** and delete it there.
 
-**Fix — for the folder:** there is no in-app route. Cronsole only ever prunes its own `\TaskHub`, on
+**Fix — for the folder:** there is no in-app route. Cronsole only ever prunes its own `\Cronsole`, on
 purpose ("never delete what isn't yours"), so a folder restore created has to go from an elevated
 prompt:
 
@@ -2054,7 +2055,7 @@ $task.id
 >
 > ```powershell
 > (Invoke-RestMethod ".../api/tasks" -Headers $H |
->   Where-Object { $_.externalId -eq '\TaskHub\manual-test-lifecycle' }).Count   # -> 0
+>   Where-Object { $_.externalId -eq '\Cronsole\manual-test-lifecycle' }).Count   # -> 0
 > ```
 >
 > With nothing matching, the array is filtered out and this correctly prints `0` — so it passes
@@ -2069,6 +2070,72 @@ $task.id
 > — *a verification command that cannot fail is not verification.*
 
 *First hit: 2026-07-31, during a manual Windows Task Lifecycle run.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 32. A rename pass silently disables the back-compat it just added — and rewrites the tests too
+
+**Symptom** — a rename lands, every suite is green, and a previously working setup stops
+working: the MCP tools vanish, or failure webhooks stop firing, or an agent can't find its
+pairing secret. Nothing errors.
+
+**Cause** — the compatibility shim contained the old name as a literal, so the rename pass
+rewrote it:
+
+```ts
+// intended
+const value = process.env[`CRONSOLE_${name}`] ?? process.env[`TASKHUB_${name}`];
+// after the pass
+const value = process.env[`CRONSOLE_${name}`] ?? process.env[`CRONSOLE_${name}`];
+```
+
+The result compiles, reads correctly at a glance, and is a tautology. **The pass rewrites the
+guarding test the same way**, so `expect(legacy).toBe(...)` becomes an assertion about the new
+name and keeps passing — the shim and its alarm are disabled together, which is why nothing
+catches it.
+
+**Fix** — never write the old name as a literal in the thing meant to survive the rename.
+Assemble it, so a text pass has nothing to match:
+
+```ts
+const LEGACY_PREFIX = ['TASK', 'HUB'].join('');
+```
+
+Then mutation-check it: break the prefix on purpose and confirm a test fails. If none does,
+the shim is decoration.
+
+**Generalization: a mechanical transformation cannot be trusted near the code that exists to
+survive that transformation.** The same shape as
+[#25](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) and
+[#30](#30-a-route-500s-on-real-data-while-tsc-is-green--a-cast-on-a-query-result): when the
+thing that would have told you is itself disabled, the failure moves to production. Related
+trap found in the same migration — **a PowerShell script ending in `Stop-Process -Id $PID`
+kills its caller**, so a registrar invoked with `&` takes the calling script down with it and
+the run merely looks like it stopped early. Invoke such scripts as a child process, and verify
+their effect by querying the system, not by an exit code a self-killing script can't produce.
+
+**And a guard can have the same blind spot.** `check-control-bytes` scanned `git ls-files` —
+**tracked** files only — so a brand-new file was invisible to it until the commit that added
+it. The single commit most likely to introduce a stray byte was the one commit the check
+couldn't pre-validate, and `scripts/rename-stage2.mjs` shipped with two literal `0x01` bytes
+while the check reported OK moments earlier. It now scans `--cached --others
+--exclude-standard` (tracked *and* untracked, still honoring `.gitignore`). **When a guard
+reports "clean", ask what it looked at** — a check that cannot see new files is weakest exactly
+where new problems come from.
+
+**A second-order consequence, worth knowing before you restore anything:** a task backup
+records **absolute paths**, and paths are machine state — so any rename or move silently ages
+every archive taken before it, and the archive cannot tell you that. A `\Task-Hub\` export from
+three days before this rename still points at `Start-TaskHub.ps1` and `taskhub.ps1`; restoring
+it now would register tasks that **fail silently** at logon, because `wscript.exe` launching a
+missing `.ps1` opens no window and reports nothing. Restore's plan does not catch this — it
+validates `\Microsoft\`, folder existence, and whether the task already exists, not whether the
+action points at a file that is there. **After renaming or moving anything a scheduled task
+references, take a fresh export and treat the old one as history, not as a restore point.**
+
+*First hit: 2026-07-31, stage 2 of the TaskHub → Cronsole rename.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

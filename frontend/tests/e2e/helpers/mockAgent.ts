@@ -98,7 +98,7 @@ function authPayload(agentId: string, secret: string) {
   };
 }
 
-export class MockTaskHubAgent {
+export class MockCronsoleAgent {
   readonly runs: MockRunCommand[] = [];
   readonly creates: MockCreateCommand[] = [];
   readonly deletes: MockRunCommand[] = [];
@@ -106,7 +106,7 @@ export class MockTaskHubAgent {
   readonly actionUpdates: MockUpdateCommand[] = [];
   readonly imports: MockImportCommand[] = [];
   /** Folders the mock machine has. Restore refuses a task whose folder is missing. */
-  private folders = new Set<string>(['\\', '\\TaskHub', '\\E2E']);
+  private folders = new Set<string>(['\\', '\\Cronsole', '\\E2E']);
   private socket: Socket | null = null;
 
   constructor(
@@ -267,7 +267,7 @@ export class MockTaskHubAgent {
 
     socket.on('task:create', (payload: MockCreateCommand) => {
       this.creates.push(payload);
-      const path = `\\TaskHub\\${payload.name}`;
+      const path = `\\Cronsole\\${payload.name}`;
       this.tasks = [
         ...this.tasks,
         {
@@ -333,8 +333,8 @@ export function e2eAgentTask(): MockAgentTask {
     actions: [
       {
         path: 'powershell.exe',
-        arguments: '-NoProfile -ExecutionPolicy Bypass -File C:\\TaskHubE2E\\backup.ps1',
-        workingDirectory: 'C:\\TaskHubE2E'
+        arguments: '-NoProfile -ExecutionPolicy Bypass -File C:\\CronsoleE2E\\backup.ps1',
+        workingDirectory: 'C:\\CronsoleE2E'
       }
     ],
     enabled: true,

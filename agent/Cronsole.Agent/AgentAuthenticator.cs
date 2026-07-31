@@ -5,7 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     // Agent side of the WebSocket authentication contract. Mirrors
     // backend/src/ws/agentAuth.ts — the HMAC message strings and the SHA-256

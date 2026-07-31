@@ -52,10 +52,10 @@ describe('ApplyTemplateModal Component', () => {
     // modal is what filters them out of the picker.
     vi.mocked(api.get).mockResolvedValue({
       data: {
-        defaultFolder: '\\TaskHub',
+        defaultFolder: '\\Cronsole',
         folders: [
           { path: '\\', taskCount: 3, writable: true },
-          { path: '\\TaskHub', taskCount: 1, writable: true },
+          { path: '\\Cronsole', taskCount: 1, writable: true },
           { path: '\\Work', taskCount: 2, writable: true },
           { path: '\\Microsoft\\Windows', taskCount: 214, writable: false }
         ]
@@ -123,7 +123,7 @@ describe('ApplyTemplateModal Component', () => {
         },
         // Windows tasks carry their destination folder; untouched, it is the
         // default — so existing behavior is unchanged unless you pick one.
-        folder: '\\TaskHub'
+        folder: '\\Cronsole'
       });
     });
 

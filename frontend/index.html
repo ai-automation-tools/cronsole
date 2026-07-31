@@ -13,7 +13,12 @@
       // first frame disagrees with the app that replaces it.
       (function () {
         try {
-          var mode = localStorage.getItem('taskhub.theme') || 'dark';
+          // Reads the legacy key too: this runs BEFORE the module that migrates
+          // it, so without the fallback the first load after the rename would
+          // flash the wrong theme for someone who had chosen light.
+          var mode = localStorage.getItem('cronsole.theme')
+            || localStorage.getItem('taskhub.theme')
+            || 'dark';
           var dark =
             mode === 'dark' ||
             (mode === 'system' &&

@@ -96,7 +96,7 @@ describe('WindowsAgentConnector', () => {
           handler({
             tasks: [
               {
-                path: '\\TaskHub\\Nightly', name: 'Nightly', state: 'Ready',
+                path: '\\Cronsole\\Nightly', name: 'Nightly', state: 'Ready',
                 nextRunTime: '2026-07-09T03:00:00Z',
                 trigger: { type: 'Daily', startBoundary: '03:00', daysInterval: 1 }
               },
@@ -149,7 +149,7 @@ describe('WindowsAgentConnector', () => {
 
   it('exportTask returns "Agent offline" when the socket is missing', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
-    const result = await connector.exportTask('\\TaskHub\\Nightly', { userId: 'test_user' });
+    const result = await connector.exportTask('\\Cronsole\\Nightly', { userId: 'test_user' });
     expect(result).toEqual({ success: false, message: 'Agent offline' });
   });
 
@@ -158,7 +158,7 @@ describe('WindowsAgentConnector', () => {
     mockSocket.on.mockImplementation((event: string, handler: any) => {
       if (event === 'task:exported') {
         setTimeout(() => handler({
-          taskExternalId: '\\TaskHub\\Nightly',
+          taskExternalId: '\\Cronsole\\Nightly',
           success: true,
           xml: '<Task><Settings/></Task>',
           message: 'Exported'
@@ -166,10 +166,10 @@ describe('WindowsAgentConnector', () => {
       }
     });
 
-    const result = await connector.exportTask('\\TaskHub\\Nightly', { userId: 'test_user' });
+    const result = await connector.exportTask('\\Cronsole\\Nightly', { userId: 'test_user' });
 
     // Read-only: a plain (unsigned) emit, unlike run/delete/update.
-    expect(mockSocket.emit).toHaveBeenCalledWith('task:export', { taskPath: '\\TaskHub\\Nightly' });
+    expect(mockSocket.emit).toHaveBeenCalledWith('task:export', { taskPath: '\\Cronsole\\Nightly' });
     expect(result.success).toBe(true);
     expect(result.xml).toBe('<Task><Settings/></Task>');
   });
@@ -276,7 +276,7 @@ describe('WindowsAgentConnector', () => {
       if (event === 'task:deleted') {
         setTimeout(() => {
           handler({
-            taskExternalId: '\\TaskHub\\Task1',
+            taskExternalId: '\\Cronsole\\Task1',
             success: true,
             message: 'Task deleted'
           });
@@ -284,9 +284,9 @@ describe('WindowsAgentConnector', () => {
       }
     });
 
-    const result = await connector.deleteTask('\\TaskHub\\Task1', { userId: 'test_user' });
+    const result = await connector.deleteTask('\\Cronsole\\Task1', { userId: 'test_user' });
 
-    expectSignedCommand(mockSocket, 'task:delete', { event: 'task:delete', taskPath: '\\TaskHub\\Task1' });
+    expectSignedCommand(mockSocket, 'task:delete', { event: 'task:delete', taskPath: '\\Cronsole\\Task1' });
     expect(result.success).toBe(true);
     expect(result.message).toBe('Task deleted');
   });
@@ -368,17 +368,17 @@ describe('WindowsAgentConnector', () => {
     mockSocket.on.mockImplementation((event: string, handler: any) => {
       if (event === 'task:schedule_updated') {
         setTimeout(() => {
-          handler({ taskExternalId: '\\TaskHub\\Task1', success: true, message: 'Schedule updated' });
+          handler({ taskExternalId: '\\Cronsole\\Task1', success: true, message: 'Schedule updated' });
         }, 10);
       }
     });
 
     const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
-    const result = await connector.updateSchedule('\\TaskHub\\Task1', trigger, { userId: 'test_user' });
+    const result = await connector.updateSchedule('\\Cronsole\\Task1', trigger, { userId: 'test_user' });
 
     expectSignedCommand(mockSocket, 'task:update_schedule', {
       event: 'task:update_schedule',
-      taskPath: '\\TaskHub\\Task1',
+      taskPath: '\\Cronsole\\Task1',
       trigger
     });
     expect(result.success).toBe(true);
@@ -430,7 +430,7 @@ describe('WindowsAgentConnector', () => {
     mockSocket.on.mockImplementation((event: string, handler: any) => {
       if (event === 'task:updated') {
         setTimeout(() => {
-          handler({ taskExternalId: '\\TaskHub\\Task1', success: true, message: 'Task updated' });
+          handler({ taskExternalId: '\\Cronsole\\Task1', success: true, message: 'Task updated' });
         }, 10);
       }
     });
@@ -441,11 +441,11 @@ describe('WindowsAgentConnector', () => {
       description: 'Nightly job',
       runLevel: 'highest' as const
     };
-    const result = await connector.updateActions('\\TaskHub\\Task1', input, { userId: 'test_user' });
+    const result = await connector.updateActions('\\Cronsole\\Task1', input, { userId: 'test_user' });
 
     expectSignedCommand(mockSocket, 'task:update', {
       event: 'task:update',
-      taskPath: '\\TaskHub\\Task1',
+      taskPath: '\\Cronsole\\Task1',
       ...input
     });
     expect(result.success).toBe(true);
@@ -573,8 +573,8 @@ describe('WindowsAgentConnector', () => {
         action: { executable: 'echo', args: ['hello'] },
         trigger: null,
         // No folder passed → the default. Asserted explicitly (not It.Any-style)
-        // so this proves existing callers still land in \TaskHub.
-        folder: '\\TaskHub'
+        // so this proves existing callers still land in \Cronsole.
+        folder: '\\Cronsole'
       }
     );
     expect(result.success).toBe(true);
@@ -611,7 +611,7 @@ describe('WindowsAgentConnector', () => {
         command: 'echo hello',
         action: { executable: 'echo', args: ['hello'] },
         trigger,
-        folder: '\\TaskHub'
+        folder: '\\Cronsole'
       }
     );
     expect(result.success).toBe(true);

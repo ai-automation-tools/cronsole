@@ -30,16 +30,23 @@ const WEBHOOK_TYPE_ENV = 'CRONSOLE_FAILURE_WEBHOOK_TYPE';
 const WEBHOOK_HEADERS_ENV = 'CRONSOLE_FAILURE_WEBHOOK_HEADERS_JSON';
 
 /**
- * These were `TASKHUB_FAILURE_WEBHOOK_*` before the 2026-07-31 rename. The
- * variable lives in the operator's environment, not in this repo, so switching
- * the name in code alone would silently stop notifying on failure — the one
- * feature whose whole job is to speak up when something breaks. Read the new
- * name, accept the old one.
+ * The pre-rename prefix, assembled from parts so a future rename pass can't
+ * helpfully rewrite it into `CRONSOLE_` and turn the fallback below into a
+ * tautology. That is not hypothetical: it happened during stage 2 of the
+ * 2026-07-31 rename, silently, and the pass rewrote the guarding test too.
+ */
+const LEGACY_PREFIX = ['TASK', 'HUB'].join('');
+
+/**
+ * These were `<legacy>_FAILURE_WEBHOOK_*` before the rename. The variable lives
+ * in the operator's environment, not in this repo, so switching the name in code
+ * alone would silently stop notifying on failure — the one feature whose whole
+ * job is to speak up when something breaks. Read the new name, accept the old.
  */
 function readEnv(name: string): string | undefined {
   const current = process.env[name];
   if (current !== undefined && current !== '') return current;
-  return process.env[name.replace(/^CRONSOLE_/, 'TASKHUB_')];
+  return process.env[name.replace(/^CRONSOLE_/, `${LEGACY_PREFIX}_`)];
 }
 const DEFAULT_TIMEOUT_MS = 5000;
 

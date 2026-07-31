@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Threading;
 using Xunit;
 using FluentAssertions;
-using TaskHub.Agent;
+using Cronsole.Agent;
 
-namespace TaskHub.Agent.Tests
+namespace Cronsole.Agent.Tests
 {
     public class AgentAuthenticatorTests
     {
@@ -35,10 +35,10 @@ namespace TaskHub.Agent.Tests
         private const string ExpectedUpdateSig = "1032132b7efe16c1f45773d628783f4a0ea82f1a73f03f891ee91359f5a7e135";
         // task:create signs the structured action AND the trigger. Golden action is
         // { executable: "dir", args: [] } -> canonical "dir"; trigger null -> "none".
-        private const string ExpectedCreateSig = "99585bc2d9d95a8ed507be30c41af062cce5636bd83428885c36ee0c72f98d8e";
+        private const string ExpectedCreateSig = "4acf5293fb4eb868661d5d73959bf585a391a837468e0334d91893fc8be071b6";
         // Same command with a Weekly trigger -> canonical
         // "trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D".
-        private const string ExpectedCreateSigWithTrigger = "1c8108cea06ef53db192436d82229a1fe0a5d18a74bd202df9eb639ecd68ce37";
+        private const string ExpectedCreateSigWithTrigger = "04496da442e7d4d0ed416ad1923b7a366cd9834129f2ece220a4abf962bd4aea";
         // task:import signs the task's whole XML BY HASH, plus both blast-radius
         // flags. Golden case: the XML below, overwrite false, createFolders true.
         private const string ImportXml = "<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>";
@@ -72,7 +72,7 @@ namespace TaskHub.Agent.Tests
 
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var nullTrigger = AgentAuthenticator.CanonicalizeTrigger(null);
-            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, "\\TaskHub", CommandNonce, Ts))
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, "\\Cronsole", CommandNonce, Ts))
                 .Should().Be(ExpectedCreateSig);
 
             var weekly = new TriggerSpec
@@ -83,7 +83,7 @@ namespace TaskHub.Agent.Tests
                 Repetition = new RepetitionSpec { Interval = "PT30M", Duration = "P1D" }
             };
             var weeklyCanonical = AgentAuthenticator.CanonicalizeTrigger(weekly);
-            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, weeklyCanonical, "\\TaskHub", CommandNonce, Ts))
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, weeklyCanonical, "\\Cronsole", CommandNonce, Ts))
                 .Should().Be(ExpectedCreateSigWithTrigger);
 
             AgentAuthenticator.Hmac(ExpectedSessionKey,

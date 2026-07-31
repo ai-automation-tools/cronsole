@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_ORIGIN_STORAGE_KEY = 'taskhub.apiOrigin';
+const API_ORIGIN_STORAGE_KEY = 'cronsole.apiOrigin';
 export const DEFAULT_API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_URL ?? 'http://localhost:3000');
 
 function normalizeApiOrigin(origin: string): string {
@@ -70,7 +70,7 @@ export function resetApiOrigin(): string {
 // leaked credential, and invalid once JWT_SECRET rotates. The dev token exists
 // only to keep the E2E suite and local dev working without the login flow; a
 // real login token always wins.
-const AUTH_TOKEN_STORAGE_KEY = 'taskhub.token';
+const AUTH_TOKEN_STORAGE_KEY = 'cronsole.token';
 const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
 
 function readStoredToken(): string | null {

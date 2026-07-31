@@ -24,7 +24,7 @@ const FOLDERS = {
     { path: '\\Microsoft', taskCount: 0, writable: false },
     { path: '\\Microsoft\\Windows', taskCount: 257, writable: false }
   ],
-  defaultFolder: '\\TaskHub'
+  defaultFolder: '\\Cronsole'
 };
 
 const renderTool = () => {

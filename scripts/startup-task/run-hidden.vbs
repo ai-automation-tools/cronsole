@@ -1,8 +1,8 @@
 ' run-hidden.vbs - launch a PowerShell script with NO visible window and NO
 ' console flash.
 '
-' Why this exists: the self-heal scheduled tasks (\Task-Hub\TaskHubStack,
-' \Task-Hub\TaskHubAgent) run classic powershell.exe on a short recurring
+' Why this exists: the self-heal scheduled tasks (\Cronsole-Stack\CronsoleStack,
+' \Cronsole-Stack\CronsoleAgent) run classic powershell.exe on a short recurring
 ' trigger. Even with "-WindowStyle Hidden", powershell.exe is a console app, so
 ' Windows briefly creates a conhost window on every fire - a PowerShell window
 ' flashes on screen every few minutes. Passing -WindowStyle Hidden only hides
@@ -15,7 +15,7 @@
 ' Usage (from a scheduled task's action):
 '   Execute:   C:\Windows\System32\wscript.exe
 '   Argument:  "<...>\run-hidden.vbs" ["<path-to-script.ps1>" [args...]]
-' With no arguments it defaults to running  ..\taskhub.ps1 up  (this .vbs lives
+' With no arguments it defaults to running  ..\cronsole.ps1 up  (this .vbs lives
 ' in scripts\startup-task\, so its grandparent is the repo's scripts\ folder).
 
 Option Explicit
@@ -32,9 +32,9 @@ If args.Count >= 1 Then
         psArgs = psArgs & " " & args(i)
     Next
 Else
-    ' Default: scripts\taskhub.ps1 up
+    ' Default: scripts\cronsole.ps1 up
     scriptDir  = fso.GetParentFolderName(WScript.ScriptFullName)          ' ...\scripts\startup-task
-    scriptPath = fso.BuildPath(fso.GetParentFolderName(scriptDir), "taskhub.ps1")  ' ...\scripts\taskhub.ps1
+    scriptPath = fso.BuildPath(fso.GetParentFolderName(scriptDir), "cronsole.ps1")  ' ...\scripts\cronsole.ps1
     psArgs = " up"
 End If
 

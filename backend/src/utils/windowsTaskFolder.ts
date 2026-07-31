@@ -18,7 +18,7 @@
  */
 
 /** Where Cronsole puts created tasks unless told otherwise. */
-export const DEFAULT_TASK_FOLDER = '\\TaskHub';
+export const DEFAULT_TASK_FOLDER = '\\Cronsole';
 
 /**
  * Refused root. Windows' own scheduled tasks live under \Microsoft\Windows\,

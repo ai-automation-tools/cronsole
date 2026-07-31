@@ -20,16 +20,21 @@ import { CronsoleClient, CronsoleApiError, configFromEnv } from '../client.js';
 describe('configFromEnv', () => {
   const saved = { ...process.env };
 
+  // The pre-rename prefix, assembled rather than written literally: a rename
+  // pass rewrote this file once already, turning the legacy-name tests into
+  // assertions about the NEW name — which still passed, and so proved nothing.
+  const LEGACY = ['TASK', 'HUB'].join('');
+
   beforeEach(() => {
     delete process.env.CRONSOLE_TOKEN;
     delete process.env.CRONSOLE_API_URL;
     delete process.env.CRONSOLE_TIMEOUT_MS;
-    // The pre-rename names are still honored (see below), so a developer with
-    // TASKHUB_TOKEN still exported would otherwise make these tests pass or fail
-    // depending on their shell — which is how a suite quietly stops testing.
-    delete process.env.TASKHUB_TOKEN;
-    delete process.env.TASKHUB_API_URL;
-    delete process.env.TASKHUB_TIMEOUT_MS;
+    // The old names are still honored, so a developer with the legacy variable
+    // still exported would otherwise make these tests pass or fail depending on
+    // their shell — which is how a suite quietly stops testing.
+    delete process.env[`${LEGACY}_TOKEN`];
+    delete process.env[`${LEGACY}_API_URL`];
+    delete process.env[`${LEGACY}_TIMEOUT_MS`];
   });
 
   afterEach(() => {
@@ -40,13 +45,13 @@ describe('configFromEnv', () => {
     expect(() => configFromEnv()).toThrow(/CRONSOLE_TOKEN is not set/);
   });
 
-  it('still accepts the pre-rename TASKHUB_* names', () => {
+  it('still accepts the pre-rename variable names', () => {
     // The 2026-07-31 rename must not invalidate a working setup: the variable
     // lives in the USER's environment, not this repo, and on Windows it needs a
     // fresh terminal to even re-read (#8a). Renaming it in code alone would take
     // the tools away from anyone who hadn't re-exported yet.
-    process.env.TASKHUB_TOKEN = 'legacy-token';
-    process.env.TASKHUB_API_URL = 'http://legacy.test/api';
+    process.env[`${LEGACY}_TOKEN`] = 'legacy-token';
+    process.env[`${LEGACY}_API_URL`] = 'http://legacy.test/api';
 
     const config = configFromEnv();
     expect(config.token).toBe('legacy-token');
@@ -54,7 +59,7 @@ describe('configFromEnv', () => {
   });
 
   it('prefers the new name when both are set', () => {
-    process.env.TASKHUB_TOKEN = 'legacy-token';
+    process.env[`${LEGACY}_TOKEN`] = 'legacy-token';
     process.env.CRONSOLE_TOKEN = 'current-token';
     expect(configFromEnv().token).toBe('current-token');
   });

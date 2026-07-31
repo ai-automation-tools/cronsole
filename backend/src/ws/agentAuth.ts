@@ -21,7 +21,7 @@ import { canonicalizeTrigger, type WindowsTrigger } from '../utils/scheduler-con
  *     handshake nonce, with a freshness window to bound replay. The agent
  *     refuses to execute anything it can't verify.
  *
- * The C# counterpart is agent/TaskHub.Agent/AgentAuthenticator.cs — the HMAC
+ * The C# counterpart is agent/Cronsole.Agent/AgentAuthenticator.cs — the HMAC
  * message strings below MUST stay byte-for-byte identical on both sides.
  */
 
@@ -214,7 +214,7 @@ export type SignableCommand =
       trigger: WindowsTrigger | null;
       /**
        * Normalized Task Scheduler folder the task is registered in (e.g.
-       * \TaskHub). Signed: it decides WHERE the task lands, and Windows
+       * \Cronsole). Signed: it decides WHERE the task lands, and Windows
        * silently overwrites a same-named task in the same folder — so an
        * unsigned folder would let an on-path attacker redirect a create onto
        * an existing task and destroy it. Always a normalized string (never

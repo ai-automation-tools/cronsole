@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     /// <summary>
     /// Structured trigger sent by the server in the task:create payload.

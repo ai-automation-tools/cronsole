@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     // Join arguments into a single ExecAction argument string using Windows
     // CommandLineToArgvW quoting rules, so a value containing spaces or quotes

@@ -9,11 +9,11 @@
     That makes every agent change a manual, elevated chore.
 
     This script is that chore, scripted. It is normally invoked by the on-demand
-    scheduled task \Task-Hub\TaskHubRepublish (see
+    scheduled task \Cronsole-Stack\CronsoleRepublish (see
     scripts/startup-task/Register-RepublishTask.ps1), which runs elevated and can
     therefore be triggered from an ordinary prompt:
 
-        Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'
+        Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'
 
     It can also be run directly from an Administrator prompt.
 
@@ -57,35 +57,35 @@ $isAdmin  = (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole
 Write-Log ("elevated: {0} (user {1})" -f $isAdmin, $identity.Name)
 if (-not $isAdmin) {
     Write-Log 'ABORT: not elevated. The agent runs at RunLevel Highest, so stopping it and replacing its locked exe both require elevation.'
-    Write-Log 'Run this from an Administrator prompt, or trigger \Task-Hub\TaskHubRepublish (which runs elevated).'
+    Write-Log 'Run this from an Administrator prompt, or trigger \Cronsole-Stack\CronsoleRepublish (which runs elevated).'
     exit 2
 }
 
 # --- 1. Record the current build so the swap can be proven -------------------
-$Dll = Join-Path $RepoRoot 'agent\publish\TaskHub.Agent.dll'
+$Dll = Join-Path $RepoRoot 'agent\publish\Cronsole.Agent.dll'
 $before = if (Test-Path $Dll) { (Get-Item $Dll).LastWriteTime } else { $null }
 Write-Log ("current published dll: {0}" -f $(if ($before) { $before } else { '(none)' }))
 
 # --- 2. Stop the running agent so its exe can be replaced --------------------
-$proc = Get-Process TaskHub.Agent -ErrorAction SilentlyContinue
+$proc = Get-Process Cronsole.Agent -ErrorAction SilentlyContinue
 if ($proc) {
-    Write-Log ("stopping TaskHub.Agent (pid {0})" -f ($proc.Id -join ', '))
+    Write-Log ("stopping Cronsole.Agent (pid {0})" -f ($proc.Id -join ', '))
     $proc | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
-    if (Get-Process TaskHub.Agent -ErrorAction SilentlyContinue) {
+    if (Get-Process Cronsole.Agent -ErrorAction SilentlyContinue) {
         Write-Log 'ABORT: agent still running; publish would fail on the locked exe.'
         exit 3
     }
     Write-Log 'agent stopped'
 } else {
-    Write-Log 'no TaskHub.Agent process running'
+    Write-Log 'no Cronsole.Agent process running'
 }
 
 # --- 3. Rebuild + publish ----------------------------------------------------
 Write-Log 'dotnet publish ...'
 Push-Location $RepoRoot
 try {
-    $output = & dotnet publish '.\agent\TaskHub.Agent' -c Release -r win-x64 --self-contained false -o '.\agent\publish' 2>&1
+    $output = & dotnet publish '.\agent\Cronsole.Agent' -c Release -r win-x64 --self-contained false -o '.\agent\publish' 2>&1
     $exit = $LASTEXITCODE
 } finally {
     Pop-Location
@@ -112,17 +112,17 @@ if (Test-Path $Dll) {
 if ($NoStart) {
     Write-Log 'NoStart set; skipping stack relaunch.'
 } else {
-    Write-Log 'relaunching stack (taskhub.ps1 up) ...'
-    $up = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\taskhub.ps1') up 2>&1
+    Write-Log 'relaunching stack (cronsole.ps1 up) ...'
+    $up = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\cronsole.ps1') up 2>&1
     $up | ForEach-Object { Add-Content -Path $Log -Value ("    " + $_) -ErrorAction SilentlyContinue }
-    Write-Log "taskhub.ps1 up exit: $LASTEXITCODE"
+    Write-Log "cronsole.ps1 up exit: $LASTEXITCODE"
 
     Start-Sleep -Seconds 3
-    $new = Get-Process TaskHub.Agent -ErrorAction SilentlyContinue
+    $new = Get-Process Cronsole.Agent -ErrorAction SilentlyContinue
     if ($new) {
         Write-Log ("agent running: pid {0}, started {1}" -f $new.Id, $new.StartTime)
     } else {
-        Write-Log 'WARN: no TaskHub.Agent process after relaunch. Check the backend health endpoint before assuming it failed - the agent may still be starting.'
+        Write-Log 'WARN: no Cronsole.Agent process after relaunch. Check the backend health endpoint before assuming it failed - the agent may still be starting.'
     }
 }
 

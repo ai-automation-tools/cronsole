@@ -56,11 +56,20 @@ const VEC = {
   updateSig: '1032132b7efe16c1f45773d628783f4a0ea82f1a73f03f891ee91359f5a7e135',
   // task:create signs the structured action, the trigger, AND the destination
   // folder. Golden case: command 'dir', action { executable: 'dir', args: [] }
-  // -> canonical 'dir', trigger null -> canonical 'none', folder '\TaskHub'.
-  createSig: '99585bc2d9d95a8ed507be30c41af062cce5636bd83428885c36ee0c72f98d8e',
+  // -> canonical 'dir', trigger null -> canonical 'none', folder '\Cronsole'.
+  //
+  // This constant changed on 2026-07-31 because the folder in the fixture moved
+  // from '\TaskHub' to '\Cronsole' with the rename — the signed input changed, so
+  // the signature had to. **That is the only circumstance in which it may be
+  // updated.** Both implementations recomputed it independently and produced the
+  // same value; the disagreement was with the frozen constant, not between the
+  // languages, which is exactly what this vector exists to distinguish. Never
+  // "fix" a mismatch here by pasting in whatever one side currently emits — a
+  // divergence between C# and TypeScript is the bug it is built to catch.
+  createSig: '4acf5293fb4eb868661d5d73959bf585a391a837468e0334d91893fc8be071b6',
   // Same command with a Weekly trigger -> canonical
   // 'trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D'.
-  createSigWithTrigger: '1c8108cea06ef53db192436d82229a1fe0a5d18a74bd202df9eb639ecd68ce37',
+  createSigWithTrigger: '04496da442e7d4d0ed416ad1923b7a366cd9834129f2ece220a4abf962bd4aea',
   // task:import signs the XML BY HASH, plus both blast-radius flags. Golden
   // case: the XML below, overwrite false, createFolders true.
   importXml: '<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>',
@@ -111,7 +120,7 @@ describe('agentAuth cross-language vector', () => {
           command: 'dir',
           action: { executable: 'dir', args: [] },
           trigger: null,
-          folder: '\\TaskHub',
+          folder: '\\Cronsole',
         },
         VEC.createSig,
       ],
@@ -128,7 +137,7 @@ describe('agentAuth cross-language vector', () => {
             daysOfWeek: ['Monday', 'Wednesday'],
             repetition: { interval: 'PT30M', duration: 'P1D' },
           },
-          folder: '\\TaskHub',
+          folder: '\\Cronsole',
         },
         VEC.createSigWithTrigger,
       ],

@@ -45,7 +45,7 @@ A taste of each surface — full sets live in the subfolders.
 ```text
 Use the Cronsole MCP server to create a Windows Task Scheduler job that runs
 D:\jobs\nightly-backup.ps1 every day at 2am my time (I'm on US Pacific).
-Check the schedule conversion first and put it in the \TaskHub folder.
+Check the schedule conversion first and put it in the \Cronsole folder.
 ```
 
 **Audit what actually ran** → [more](mcp-server/README.md#-inspect--audit)

@@ -6,7 +6,7 @@ import { prisma } from '../../src/db.js';
 import { createUser } from './helpers.js';
 
 // Windows task-name guard (Apply-modal upgrades, ROADMAP P2): create paths
-// reject invalid names (400) and names colliding with a tracked \TaskHub\ task
+// reject invalid names (400) and names colliding with a tracked \Cronsole\ task
 // (409) BEFORE any connector call — RegisterTaskDefinition would otherwise
 // silently overwrite the existing scheduler entry. Both POST /tasks and
 // POST /templates/:id/apply share the guard. No agent runs in this harness, so
@@ -15,7 +15,7 @@ import { createUser } from './helpers.js';
 
 const app = createApp();
 
-async function createTrackedWindowsTask(userId: string, name: string, folder = '\\TaskHub') {
+async function createTrackedWindowsTask(userId: string, name: string, folder = '\\Cronsole') {
   return prisma.task.create({
     data: {
       userId,
@@ -39,7 +39,7 @@ describe('Windows task-name guard', () => {
     // guard BEFORE the route ever looks up a connection or connector.
   });
 
-  it('POST /tasks 409s on a name already tracked under \\TaskHub\\ (case-insensitive)', async () => {
+  it('POST /tasks 409s on a name already tracked under \\Cronsole\\ (case-insensitive)', async () => {
     await createTrackedWindowsTask(owner.user.id, 'Nightly Backup');
 
     const res = await request(app)
@@ -57,7 +57,7 @@ describe('Windows task-name guard', () => {
   });
 
   // --- Folder-aware collision (ROADMAP P2 "Windows folder selector on apply") ---
-  // The guard used to hardcode \TaskHub\<name>. Once a folder became selectable
+  // The guard used to hardcode \Cronsole\<name>. Once a folder became selectable
   // that assumption would have silently stopped matching — creating "Backup" in
   // \Work would not have seen the tracked \Work\Backup, and Windows would have
   // overwritten it with no error. Worse than no guard: the UI still implies
@@ -84,9 +84,9 @@ describe('Windows task-name guard', () => {
   });
 
   it('POST /tasks allows the same name in a DIFFERENT folder', async () => {
-    // \TaskHub\Backup and \Work\Backup are different Windows tasks — the guard
+    // \Cronsole\Backup and \Work\Backup are different Windows tasks — the guard
     // must not block this, or folders would be pointless.
-    await createTrackedWindowsTask(owner.user.id, 'Backup', '\\TaskHub');
+    await createTrackedWindowsTask(owner.user.id, 'Backup', '\\Cronsole');
 
     const res = await request(app)
       .post('/api/tasks')
@@ -128,7 +128,7 @@ describe('Windows task-name guard', () => {
       .set('Authorization', owner.auth)
       .send({
         name: 'Sneaky',
-        folder: '\\TaskHub\\..\\Microsoft\\Windows',
+        folder: '\\Cronsole\\..\\Microsoft\\Windows',
         platform: 'WINDOWS_TASK_SCHEDULER',
         schedule: '0 3 * * *',
         command: 'echo hi'

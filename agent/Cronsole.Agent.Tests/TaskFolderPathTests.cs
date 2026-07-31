@@ -1,8 +1,8 @@
 using Xunit;
 using FluentAssertions;
-using TaskHub.Agent;
+using Cronsole.Agent;
 
-namespace TaskHub.Agent.Tests
+namespace Cronsole.Agent.Tests
 {
     // The agent's own folder guard. This DUPLICATES the backend's
     // utils/windowsTaskFolder.ts on purpose: this process runs elevated and is
@@ -66,7 +66,7 @@ namespace TaskHub.Agent.Tests
 
         [Theory]
         [InlineData("\\Work\\..\\Microsoft")]
-        [InlineData("\\TaskHub\\..\\Microsoft\\Windows")]
+        [InlineData("\\Cronsole\\..\\Microsoft\\Windows")]
         [InlineData("\\..")]
         [InlineData("\\Work\\.\\Backups")]
         public void Validate_RefusesTraversal(string folder)
@@ -134,15 +134,15 @@ namespace TaskHub.Agent.Tests
         }
 
         [Theory]
-        [InlineData("\\TaskHub")]
-        [InlineData("\\taskhub")]
-        [InlineData("\\TASKHUB")]
-        [InlineData("TaskHub")]
-        [InlineData("/TaskHub")]
-        [InlineData("\\TaskHub\\")]
+        [InlineData("\\Cronsole")]
+        [InlineData("\\cronsole")]
+        [InlineData("\\CRONSOLE")]
+        [InlineData("Cronsole")]
+        [InlineData("/Cronsole")]
+        [InlineData("\\Cronsole\\")]
         public void IsDefault_RecognizesOurOwnFolderInAnyWrittenForm(string folder)
         {
-            // \TaskHub is the ONLY folder the agent creates, because it is the only
+            // \Cronsole is the ONLY folder the agent creates, because it is the only
             // one it prunes. Missing a spelling here would make CreateTask refuse to
             // create our own default folder on a fresh install.
             TaskFolderPath.IsDefault(folder).Should().BeTrue();
@@ -150,16 +150,16 @@ namespace TaskHub.Agent.Tests
 
         [Theory]
         [InlineData("\\Work")]
-        [InlineData("\\TaskHub\\Nested")]
-        [InlineData("\\TaskHubExtra")]
-        [InlineData("\\Task-Hub")]
+        [InlineData("\\Cronsole\\Nested")]
+        [InlineData("\\CronsoleExtra")]
+        [InlineData("\\Cronsole-Stack")]
         [InlineData("\\")]
         public void IsDefault_RejectsEverythingElse(string folder)
         {
             // These must NOT be auto-created: deleting a folder needs elevation, so
-            // anything TaskHub creates beyond its own is litter only the user can
-            // clear. Note \Task-Hub (the hyphenated self-heal infra folder) and
-            // \TaskHub\Nested are both distinct from \TaskHub.
+            // anything Cronsole creates beyond its own is litter only the user can
+            // clear. Note \Cronsole-Stack (the hyphenated self-heal infra folder) and
+            // \Cronsole\Nested are both distinct from \Cronsole.
             TaskFolderPath.IsDefault(folder).Should().BeFalse();
         }
 
@@ -169,7 +169,7 @@ namespace TaskHub.Agent.Tests
             // The signed message carries this exact string; if the two sides
             // normalize differently the HMAC will not verify and every create
             // fails. Pinned to the literal the backend sends.
-            TaskFolderPath.Normalize(TaskFolderPath.Default).Should().Be("\\TaskHub");
+            TaskFolderPath.Normalize(TaskFolderPath.Default).Should().Be("\\Cronsole");
         }
 
         // A restore supplies a whole task PATH rather than a folder plus a name, so

@@ -4,15 +4,15 @@ using System.Linq;
 using System.Text.Json;
 using Microsoft.Win32.TaskScheduler;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     public class Win32TaskScheduler : ITaskScheduler
     {
-        // The Task Scheduler folder TaskHub-created Windows tasks live under. Note
-        // this is distinct from the self-heal *infrastructure* folder "\Task-Hub\"
+        // The Task Scheduler folder Cronsole-created Windows tasks live under. Note
+        // this is distinct from the self-heal *infrastructure* folder "\Cronsole-Stack\"
         // (hyphenated, owned by the PowerShell setup scripts) — we only ever create
         // or delete this one.
-        private const string TaskHubFolder = "TaskHub";
+        private const string CronsoleFolder = "Cronsole";
 
         public List<AgentTaskInfo> ListTasks()
         {
@@ -155,36 +155,36 @@ namespace TaskHub.Agent
                 var task = ts.GetTask(path);
                 if (task == null) return false;
                 // Delete from the task's own containing folder so paths under
-                // \TaskHub\ (or anywhere else) resolve without string surgery.
+                // \Cronsole\ (or anywhere else) resolve without string surgery.
                 var folder = task.Folder;
                 folder.DeleteTask(task.Name, exceptionOnNotExists: false);
 
-                // If that emptied our \TaskHub\ folder, remove the folder too —
+                // If that emptied our \Cronsole\ folder, remove the folder too —
                 // Task Scheduler doesn't auto-prune empty folders, so it would
                 // otherwise linger. Guarded to *our* folder only (never the root
                 // or the hyphenated infra folder), and best-effort: a failure here
                 // must not turn a successful task delete into an error.
-                TryPruneTaskHubFolder(ts, folder);
+                TryPruneCronsoleFolder(ts, folder);
                 return true;
             }
         }
 
         /// <summary>
-        /// Delete the \TaskHub\ folder when it holds no tasks and no subfolders.
+        /// Delete the \Cronsole\ folder when it holds no tasks and no subfolders.
         /// No-op for any other folder. Swallows failures (e.g. a concurrent
         /// registration or an ACL) so the caller's delete still reports success.
         /// </summary>
-        private static void TryPruneTaskHubFolder(TaskService ts, TaskFolder folder)
+        private static void TryPruneCronsoleFolder(TaskService ts, TaskFolder folder)
         {
             try
             {
                 if (folder == null) return;
-                // Only our own top-level folder: \TaskHub\ (name == "TaskHub",
-                // parented directly on root). Never touch root or \Task-Hub\.
-                if (!string.Equals(folder.Name, TaskHubFolder, StringComparison.OrdinalIgnoreCase)) return;
+                // Only our own top-level folder: \Cronsole\ (name == "Cronsole",
+                // parented directly on root). Never touch root or \Cronsole-Stack\.
+                if (!string.Equals(folder.Name, CronsoleFolder, StringComparison.OrdinalIgnoreCase)) return;
                 if (folder.Tasks.Count != 0 || folder.SubFolders.Count != 0) return;
 
-                ts.RootFolder.DeleteFolder(TaskHubFolder, exceptionOnNotExists: false);
+                ts.RootFolder.DeleteFolder(CronsoleFolder, exceptionOnNotExists: false);
             }
             catch
             {
@@ -206,7 +206,7 @@ namespace TaskHub.Agent
         /// <summary>
         /// Register a task from its native Task Scheduler XML — the inverse of
         /// ExportTaskXml, and the only write path that accepts a whole task
-        /// definition authored outside TaskHub.
+        /// definition authored outside Cronsole.
         ///
         /// Everything is re-validated here rather than trusted from the command.
         /// This process holds the elevation and calls RegisterTaskDefinition, which
@@ -314,7 +314,7 @@ namespace TaskHub.Agent
         /// Create every missing folder along <paramref name="path"/>, recording each
         /// one it actually created into <paramref name="created"/>.
         ///
-        /// This is the single carve-out to "TaskHub creates only its own \TaskHub":
+        /// This is the single carve-out to "Cronsole creates only its own \Cronsole":
         /// a restore is the user asking for their own folder tree back by name. The
         /// created list is not optional bookkeeping — folder deletion needs
         /// elevation, so a folder created here is a door only the user can close,
@@ -355,7 +355,7 @@ namespace TaskHub.Agent
                 var task = ts.GetTask(path);
                 if (task == null) return false;
 
-                // Replace ONLY the first cron-expressible trigger — the one TaskHub
+                // Replace ONLY the first cron-expressible trigger — the one Cronsole
                 // surfaced as the schedule — and re-register under the same
                 // name/folder. Reusing the live TaskDefinition preserves the task's
                 // Actions, Principal, RegistrationInfo, and Settings; leaving the
@@ -421,10 +421,10 @@ namespace TaskHub.Agent
         /// Find the EXISTING folder at <paramref name="path"/>, or null if any
         /// segment is missing. Creates nothing.
         ///
-        /// TaskHub deliberately does not create arbitrary folders: folder deletion
+        /// Cronsole deliberately does not create arbitrary folders: folder deletion
         /// requires elevation, so anything it created would be permanent litter the
         /// user has to remove by hand from Task Scheduler. The one exception is
-        /// \TaskHub itself (see ResolveDestination) — the only folder it creates,
+        /// \Cronsole itself (see ResolveDestination) — the only folder it creates,
         /// and the only one it prunes. Never create what you cannot remove.
         ///
         /// Assumes the path already passed TaskFolderPath.Validate, so it cannot
@@ -449,8 +449,8 @@ namespace TaskHub.Agent
         }
 
         /// <summary>
-        /// Resolve the destination folder for a create. \TaskHub is created lazily
-        /// (it is ours, and TryPruneTaskHubFolder removes it again when the last
+        /// Resolve the destination folder for a create. \Cronsole is created lazily
+        /// (it is ours, and TryPruneCronsoleFolder removes it again when the last
         /// task goes); any other folder must already exist.
         /// </summary>
         private static TaskFolder? ResolveDestination(TaskService ts, string path)
@@ -510,7 +510,7 @@ namespace TaskHub.Agent
             using (TaskService ts = new TaskService())
             {
                 TaskDefinition td = ts.NewTask();
-                td.RegistrationInfo.Description = "Created via TaskHub";
+                td.RegistrationInfo.Description = "Created via Cronsole";
 
                 if (trigger != null)
                 {
@@ -543,9 +543,9 @@ namespace TaskHub.Agent
                     string.IsNullOrEmpty(argString) ? null : argString,
                     string.IsNullOrWhiteSpace(action.WorkingDirectory) ? null : action.WorkingDirectory));
 
-                // Resolve the destination folder. Defaults to \TaskHub, which keeps
-                // TaskHub-created tasks identifiable and cleanly removable (and
-                // category-extracts as "TaskHub" on sync). Created lazily — a
+                // Resolve the destination folder. Defaults to \Cronsole, which keeps
+                // Cronsole-created tasks identifiable and cleanly removable (and
+                // category-extracts as "Cronsole" on sync). Created lazily — a
                 // folder only exists while it holds tasks.
                 //
                 // Re-validated HERE even though the backend validated and SIGNED
@@ -572,8 +572,8 @@ namespace TaskHub.Agent
                 TaskFolder? destination = ResolveDestination(ts, targetFolder);
                 if (destination == null)
                 {
-                    // Refuse honestly rather than create it. TaskHub only creates
-                    // \TaskHub (which it also prunes) — folder deletion needs
+                    // Refuse honestly rather than create it. Cronsole only creates
+                    // \Cronsole (which it also prunes) — folder deletion needs
                     // elevation, so any other folder it created would be permanent
                     // litter only the user could clear.
                     return new AgentTaskResult
@@ -581,7 +581,7 @@ namespace TaskHub.Agent
                         Success = false,
                         Name = name,
                         Message = $"Task Scheduler folder '{TaskFolderPath.Normalize(targetFolder)}' does not exist. " +
-                                  "TaskHub only creates its own \\TaskHub folder — create the folder in Task Scheduler " +
+                                  "Cronsole only creates its own \\Cronsole folder — create the folder in Task Scheduler " +
                                   "first, or choose an existing one."
                     };
                 }

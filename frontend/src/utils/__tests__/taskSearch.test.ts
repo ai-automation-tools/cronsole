@@ -8,7 +8,7 @@ const task = (overrides: Partial<Task> = {}): Task => ({
   category: 'Git-Repos',
   platform: 'WINDOWS_TASK_SCHEDULER',
   status: 'ACTIVE',
-  externalId: '\\TaskHub\\Nightly Repo Backup',
+  externalId: '\\Cronsole\\Nightly Repo Backup',
   updatedAt: '2026-07-07T00:00:00Z',
   ...overrides
 });
@@ -27,7 +27,7 @@ describe('matchesTaskSearch', () => {
 
   it('matches by category and externalId path', () => {
     expect(matchesTaskSearch(task(), 'git-repos')).toBe(true);
-    expect(matchesTaskSearch(task(), 'taskhub\\nightly')).toBe(true);
+    expect(matchesTaskSearch(task(), 'cronsole\\nightly')).toBe(true);
   });
 
   it('matches command stored in metadata', () => {

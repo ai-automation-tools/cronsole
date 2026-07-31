@@ -18,7 +18,7 @@ export interface CreateTaskOptions {
   action?: StructuredAction;
   /**
    * Normalized native folder to create the task in — Windows Task Scheduler
-   * only (e.g. `\TaskHub`, `\Work\Backups`). Defaults to `\TaskHub` when unset.
+   * only (e.g. `\Cronsole`, `\Work\Backups`). Defaults to `\Cronsole` when unset.
    * Must already have passed windowsTaskFolderError: it is part of the signed
    * command, and the agent re-validates it before registering.
    */
@@ -31,7 +31,7 @@ export interface CreateTaskOptions {
  * than hiding it (leaving the user wondering) or offering it and failing late.
  */
 export interface PlatformFolder {
-  /** Normalized native path, e.g. `\`, `\TaskHub`, `\Microsoft\Windows`. */
+  /** Normalized native path, e.g. `\`, `\Cronsole`, `\Microsoft\Windows`. */
   path: string;
   /** Tasks directly in this folder, excluding subfolders. */
   taskCount: number;

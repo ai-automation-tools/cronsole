@@ -4,13 +4,13 @@ using System.Threading.Tasks;
 // Fix ambiguity between Microsoft.Win32.TaskScheduler.Task and System.Threading.Tasks.Task
 using Task = System.Threading.Tasks.Task;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     class Program
     {
         static async Task Main(string[] args)
         {
-            Console.WriteLine("TaskHub Windows Agent Starting...");
+            Console.WriteLine("Cronsole Windows Agent Starting...");
 
             // Configuration: env vars override appsettings.json, which overrides
             // defaults (see AgentConfig). WSS-capable via the URL scheme.
@@ -20,7 +20,7 @@ namespace TaskHub.Agent
             {
                 Console.Error.WriteLine(
                     "FATAL: no pairing secret configured. The agent cannot authenticate to " +
-                    "the backend without it. Set TASKHUB_PAIRING_SECRET in the environment, or " +
+                    "the backend without it. Set CRONSOLE_PAIRING_SECRET in the environment, or " +
                     "add \"pairingSecret\" to appsettings.json (copy appsettings.example.json). " +
                     "It must match the backend's AGENT_PAIRING_SECRET.");
                 Environment.Exit(1);

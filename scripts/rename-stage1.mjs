@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Stage 1 of the TaskHub -> Cronsole rename: in-repo brand + code identity only.
+ * Stage 1 of the Cronsole -> Cronsole rename: in-repo brand + code identity only.
  *
  * Everything that is *stored*, *external*, or *historical* is protected below.
  * Run with --dry to report without writing.
@@ -25,7 +25,7 @@ const EXCLUDED_DIRS = [
   '.claude/',                   // per-machine tooling, and the skill junction lives here
   'images/',                    // binary
   // The agent's identity is bound to THIS MACHINE: the published exe path, the
-  // \Task-Hub\ scheduled task that launches it at logon, and its appsettings
+  // \Cronsole-Stack\ scheduled task that launches it at logon, and its appsettings
   // beside the binary. Renaming the project here would leave the machine
   // starting a path that no longer exists — an external effect, which is the
   // one thing Stage 1 is defined not to have. It renames with Stage 2.
@@ -40,26 +40,26 @@ const PROTECTED = [
   'taskhub.apiOrigin', 'taskhub.settings', 'taskhub.theme', 'taskhub.token', 'taskhub.user',
   'taskhub.example',            // appears in example config
   // --- machine state (Stage 2) ---
-  '\\\\TaskHub',                // "\\TaskHub" in JS/C# string literals
-  '\\TaskHub',                  // "\TaskHub" in prose and paths
-  'Task-Hub',                   // the agent auto-start scheduler folder
+  '\\\\Cronsole',                // "\\Cronsole" in JS/C# string literals
+  '\\Cronsole',                  // "\Cronsole" in prose and paths
+  'Cronsole-Stack',                   // the agent auto-start scheduler folder
   // Names this machine's Task Scheduler entries and file paths point AT.
   // Renaming them in code without migrating the machine breaks logon start,
   // the self-heal, and the republish helper.
-  'TaskHub.Agent', 'TaskHubAgent', 'TaskHubRepublish', 'TaskHubStack',
-  'taskhub.ps1', 'Register-TaskHubStack', 'Start-TaskHub',
-  'taskhub_test', 'taskhub-backend', 'taskhub-frontend', 'taskhub-db', 'taskhub-redis',
-  'postgresql://taskhub', '://taskhub:',
+  'Cronsole.Agent', 'CronsoleAgent', 'CronsoleRepublish', 'CronsoleStack',
+  'cronsole.ps1', 'Register-CronsoleStack', 'Start-Cronsole',
+  'taskhub_test', 'taskhub-backend', 'taskhub-frontend', 'taskhub.apiOrigin0', 'taskhub.apiOrigin1',
+  'taskhub.apiOrigin2', 'taskhub.apiOrigin3',
   // --- public surface (Stage 3) ---
-  'taskhub-registry', 'taskhub-site', 'taskhub.mikesailab.com', 'michaelschecht/taskhub',
-  'mikesailab.com/taskhub',
+  'taskhub.apiOrigin8', 'taskhub.apiOrigin9', 'taskhub.settings0', 'taskhub.settings1',
+  'taskhub.settings2',
 ];
 
 const REPLACEMENTS = [
-  [/TaskHub/g, 'Cronsole'],
-  [/TASKHUB/g, 'CRONSOLE'],
-  [/taskhub/g, 'cronsole'],
-  [/Taskhub/g, 'Cronsole'],
+  [/Cronsole/g, 'Cronsole'],
+  [/CRONSOLE/g, 'CRONSOLE'],
+  [/cronsole/g, 'cronsole'],
+  [/Cronsole/g, 'Cronsole'],
 ];
 
 const tracked = execSync('git ls-files', { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
@@ -87,21 +87,21 @@ for (const file of tracked) {
   if (!stat.isFile()) continue;
 
   const original = readFileSync(abs, 'utf8');
-  if (!/taskhub/i.test(original)) continue;
+  if (!/cronsole/i.test(original)) continue;
 
   // Protect, replace, restore.
   let text = original;
   const sentinels = [];
   PROTECTED.forEach((token, i) => {
     if (!text.includes(token)) return;
-    const sentinel = `PROT${i}`;
+    const sentinel = `\x01PROT${i}\x01`;
     sentinels.push([sentinel, token]);
     text = text.split(token).join(sentinel);
   });
 
   let before = text;
   for (const [pattern, to] of REPLACEMENTS) text = text.replace(pattern, to);
-  const hits = (before.match(/taskhub/gi) || []).length;
+  const hits = (before.match(/cronsole/gi) || []).length;
 
   for (const [sentinel, token] of sentinels) text = text.split(sentinel).join(token);
 

@@ -194,7 +194,7 @@ const applySchema = z.object({
   name: z.string().optional(),
   /**
    * Windows only: the native Task Scheduler folder to create the task in
-   * (default \TaskHub). Validated with windowsTaskFolderError — it is signed
+   * (default \Cronsole). Validated with windowsTaskFolderError — it is signed
    * into the agent command, and the agent re-validates before registering.
    */
   folder: z.string().optional(),
@@ -232,7 +232,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   // name (400) and a name that collides with a task Cronsole already tracks IN
   // THAT FOLDER (409) — RegisterTaskDefinition would otherwise silently
   // overwrite it. The collision is per-folder because that is how Windows'
-  // overwrite works: \Work\Backup and \TaskHub\Backup are different tasks.
+  // overwrite works: \Work\Backup and \Cronsole\Backup are different tasks.
   let finalFolder = DEFAULT_TASK_FOLDER;
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
     if (typeof folder === 'string' && folder.trim()) {
@@ -328,7 +328,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   // other connector can succeed today.
   if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
     // Prefer the path the agent actually registered; fall back to the folder we
-    // asked for. The fallback must use finalFolder, not a hardcoded \TaskHub —
+    // asked for. The fallback must use finalFolder, not a hardcoded \Cronsole —
     // otherwise a task created in \Work would be tracked under the wrong
     // externalId and every later run/delete/edit would miss it.
     const externalId = result.externalId || windowsTaskPath(finalFolder, finalName);

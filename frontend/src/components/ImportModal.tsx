@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Loader2, XCircle, Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import { Modal } from './ui/Modal';
+import { useSettings } from '../hooks/useSettings';
+
+/**
+ * Categories excluded from the "non-system" preset and unticked on a first run.
+ * `Microsoft` is the OS's own tasks (257 of 352 on a real machine); tasks at the
+ * scheduler root land in `Uncategorized` and are almost never what someone means
+ * to import.
+ */
+const SYSTEM_CATEGORIES = ['Microsoft', 'Uncategorized'];
 
 interface DiscoveredCategory {
   name: string;
@@ -27,32 +36,83 @@ interface ImportModalProps {
 
 export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
   const { data: discovery, isLoading, error } = useQuery<DiscoveredPlatform[]>({
+    // No request/response logging here: `/discover` returns every task name and
+    // native path on the machine, and a local-first app's console is read over
+    // shoulders and in screenshots.
     queryKey: ['discovery'],
-    queryFn: async () => {
-      console.log('[Frontend] Fetching discovery data...');
-      const response = await api.get('/tasks/discover');
-      console.log('[Frontend] Discovery response:', response.data);
-      return response.data;
-    }
+    queryFn: async () => (await api.get('/tasks/discover')).data
   });
 
+  const { settings, update } = useSettings();
   const [selected, setSelected] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (error) console.error('[Frontend] Discovery fetch error:', error);
-  }, [error]);
+  const allCategories = useMemo(
+    () => discovery?.flatMap(p => p.categories.map(c => c.name)) ?? [],
+    [discovery]
+  );
+  const nonSystem = useMemo(
+    () => allCategories.filter(c => !SYSTEM_CATEGORIES.includes(c)),
+    [allCategories]
+  );
 
   useEffect(() => {
-    if (discovery) {
-      const all = discovery.flatMap(p => p.categories.map((c) => c.name));
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelected(all.filter(c => c !== 'Microsoft' && c !== 'Uncategorized'));
-    }
-  }, [discovery]);
+    if (!discovery) return;
+    const remembered = settings.lastImportCategories;
+    // Intersect with what actually exists now: a remembered category whose
+    // folder is gone must not appear ticked, or the count promises tasks that
+    // aren't there.
+    const restored = remembered?.filter(c => allCategories.includes(c));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelected(remembered === null ? nonSystem : (restored ?? []));
+    // `settings.lastImportCategories` is deliberately not a dependency — this
+    // seeds the initial selection, and re-running it when the import writes the
+    // setting would stamp over what the user had just ticked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discovery, allCategories, nonSystem]);
 
   const toggle = (cat: string) => {
     setSelected(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   };
+
+  // The number arrives BEFORE the click. `/discover` already returns every
+  // category's count, so this costs nothing but was never shown — and "Sync 12
+  // Categories" hides that those twelve are 214 tasks.
+  const preview = useMemo(() => {
+    const chosen = (discovery ?? [])
+      .flatMap(p => p.categories)
+      .filter(c => selected.includes(c.name));
+    return {
+      folders: chosen.length,
+      tasks: chosen.reduce((n, c) => n + c.count, 0),
+      returning: chosen.reduce((n, c) => n + (c.excludedCount ?? 0), 0)
+    };
+  }, [discovery, selected]);
+
+  const commit = () => {
+    update('lastImportCategories', selected);
+    onImport(selected);
+  };
+
+  const presets: Array<{ label: string; title: string; apply: () => void; active: boolean }> = [
+    {
+      label: 'None',
+      title: 'Untick everything',
+      apply: () => setSelected([]),
+      active: selected.length === 0
+    },
+    {
+      label: 'Non-system',
+      title: `Everything except ${SYSTEM_CATEGORIES.join(' and ')}`,
+      apply: () => setSelected(nonSystem),
+      active: selected.length === nonSystem.length && nonSystem.every(c => selected.includes(c))
+    },
+    {
+      label: 'All',
+      title: 'Every category, including the OS\'s own tasks',
+      apply: () => setSelected(allCategories),
+      active: allCategories.length > 0 && selected.length === allCategories.length
+    }
+  ];
 
   if (isLoading) return (
      <Modal onClose={onClose} overlayClassName="z-50" closeOnBackdrop={false}>
@@ -79,6 +139,34 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors"><XCircle size={20} /></button>
         </header>
         <div className="p-6 space-y-4">
+          {allCategories.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">Select</span>
+              {presets.map(p => (
+                <button
+                  key={p.label}
+                  onClick={p.apply}
+                  title={p.title}
+                  aria-pressed={p.active}
+                  className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                    p.active
+                      ? 'bg-primary/15 border-primary/40 text-foreground'
+                      : 'bg-background/50 border-border text-muted-foreground hover:border-foreground/30'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+              {settings.lastImportCategories !== null && (
+                <span
+                  className="ml-auto text-[10px] text-subtle-foreground italic"
+                  title="Your last import's selection, not everything on the machine."
+                >
+                  from last import
+                </span>
+              )}
+            </div>
+          )}
           <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
             {(error || !discovery || discovery.every(p => p.categories.length === 0)) && (
               <div className="text-center py-8 px-4 space-y-2">
@@ -86,7 +174,7 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                 <p className="text-xs text-subtle-foreground">
                   {error
                     ? 'Discovery failed — is the backend running?'
-                    : 'No platform returned any tasks. The Windows agent may be offline — check that the TaskHubAgent scheduled task is running, then try again.'}
+                    : 'No platform returned any tasks. The Windows agent may be offline — check that the CronsoleAgent scheduled task is running, then try again.'}
                 </p>
               </div>
             )}
@@ -133,15 +221,35 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
             ))}
           </div>
         </div>
-        <footer className="p-6 bg-background border-t border-border flex gap-4">
-          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-subtle-foreground hover:text-foreground transition-colors">Discard</button>
-          <button 
-            onClick={() => onImport(selected)} 
-            disabled={selected.length === 0}
-            className="flex-[2] bg-primary hover:bg-primary-hover py-3 rounded-2xl font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm"
-          >
-            Sync {selected.length} Categories
-          </button>
+        <footer className="p-6 bg-background border-t border-border space-y-3">
+          {/* Say what the click will do, before it happens. */}
+          <p className="text-xs text-center text-muted-foreground" data-testid="import-preview">
+            {preview.folders === 0 ? (
+              'Nothing selected — pick at least one category to import.'
+            ) : (
+              <>
+                This will import <span className="font-bold text-foreground">{preview.tasks}</span>{' '}
+                task{preview.tasks === 1 ? '' : 's'} across{' '}
+                <span className="font-bold text-foreground">{preview.folders}</span>{' '}
+                folder{preview.folders === 1 ? '' : 's'}.
+                {preview.returning > 0 && (
+                  <span className="text-amber-400">
+                    {' '}Includes <span className="font-bold">{preview.returning}</span> you had removed.
+                  </span>
+                )}
+              </>
+            )}
+          </p>
+          <div className="flex gap-4">
+            <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-subtle-foreground hover:text-foreground transition-colors">Discard</button>
+            <button
+              onClick={commit}
+              disabled={selected.length === 0}
+              className="flex-[2] bg-primary hover:bg-primary-hover py-3 rounded-2xl font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm"
+            >
+              Import {preview.tasks} task{preview.tasks === 1 ? '' : 's'}
+            </button>
+          </div>
         </footer>
     </Modal>
   );

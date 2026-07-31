@@ -67,7 +67,7 @@ I lose?".
 `create_task_from_template` fills the template's `{{placeholder}}` parameters from the values
 you pass. Both create tools are gated to the platforms Cronsole can actually create on today
 (**Windows Task Scheduler** + **Cronsole-native**), and their optional **`folder`** chooses the
-real Task Scheduler folder the task lands in — default `\TaskHub`, and it becomes the task's
+real Task Scheduler folder the task lands in — default `\Cronsole`, and it becomes the task's
 category in Cronsole. Any *other* folder must already exist: removing a Task Scheduler folder
 needs elevation, so Cronsole won't leave behind one you'd have to delete by hand. **`list_folders`
 is how your assistant finds one** — it shows every real folder, its task count, and whether a

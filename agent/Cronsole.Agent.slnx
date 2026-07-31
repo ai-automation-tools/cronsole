@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Cronsole.Agent.Tests/Cronsole.Agent.Tests.csproj" />
+  <Project Path="Cronsole.Agent/Cronsole.Agent.csproj" />
+</Solution>

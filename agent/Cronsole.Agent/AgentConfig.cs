@@ -2,10 +2,10 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     // Agent configuration resolved from (in precedence order):
-    //   1. environment variables  — TASKHUB_SERVER_URL / TASKHUB_PAIRING_SECRET / TASKHUB_AGENT_ID
+    //   1. environment variables  — CRONSOLE_SERVER_URL / CRONSOLE_PAIRING_SECRET / CRONSOLE_AGENT_ID
     //   2. an appsettings.json file next to the executable or in the working dir
     //   3. built-in defaults
     // Env vars win so a deployment can override the file without editing it; the
@@ -22,20 +22,33 @@ namespace TaskHub.Agent
             : !string.IsNullOrWhiteSpace(file) ? file
             : fallback;
 
+        // The variable prefix used before the 2026-07-31 rename. Built from
+        // parts deliberately: a literal here is exactly what a rename pass
+        // rewrites, which would collapse the fallback below into
+        // CRONSOLE_x ?? CRONSOLE_x — still compiling, still reading correctly,
+        // and silently dropping the compatibility it exists to provide. That
+        // happened once already during this rename.
+        private static readonly string LegacyPrefix = string.Concat("TASK", "HUB");
+
+        // Read CRONSOLE_<name>, accepting the pre-rename name. The agent's config
+        // lives on the operator's machine, not in this repo, so renaming the
+        // variable in code alone would leave an already-configured agent unable
+        // to find its pairing secret — and an agent that can't authenticate is
+        // indistinguishable from one that's simply offline.
+        public static string? Env(string name) =>
+            Environment.GetEnvironmentVariable($"CRONSOLE_{name}")
+                is string current && !string.IsNullOrWhiteSpace(current)
+                    ? current
+                    : Environment.GetEnvironmentVariable($"{LegacyPrefix}_{name}");
+
         public static AgentConfig Load()
         {
             var file = LoadFile();
             return new AgentConfig
             {
-                ServerUrl = Pick(
-                    Environment.GetEnvironmentVariable("TASKHUB_SERVER_URL"),
-                    file?.ServerUrl, "http://localhost:3000")!,
-                PairingSecret = Pick(
-                    Environment.GetEnvironmentVariable("TASKHUB_PAIRING_SECRET"),
-                    file?.PairingSecret, null),
-                AgentId = Pick(
-                    Environment.GetEnvironmentVariable("TASKHUB_AGENT_ID"),
-                    file?.AgentId, Environment.MachineName)!,
+                ServerUrl = Pick(Env("SERVER_URL"), file?.ServerUrl, "http://localhost:3000")!,
+                PairingSecret = Pick(Env("PAIRING_SECRET"), file?.PairingSecret, null),
+                AgentId = Pick(Env("AGENT_ID"), file?.AgentId, Environment.MachineName)!,
             };
         }
 

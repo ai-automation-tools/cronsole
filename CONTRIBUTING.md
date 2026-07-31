@@ -74,7 +74,7 @@ npm run dev
 Windows agent:
 
 ```bash
-cd agent/TaskHub.Agent
+cd agent/Cronsole.Agent
 dotnet run
 ```
 
@@ -111,7 +111,7 @@ npm run lint
 Run a local build when you touch `.cs` or agent protocol behavior.
 
 ```bash
-cd agent/TaskHub.Agent
+cd agent/Cronsole.Agent
 dotnet build
 ```
 

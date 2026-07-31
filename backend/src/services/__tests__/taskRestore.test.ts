@@ -28,7 +28,7 @@ const decoded = (relativePath: string, xml: string): DecodedTaskFile => ({ relat
 
 const machine = (
   tasks: string[] = [],
-  folders: string[] = ['\\', '\\TaskHub']
+  folders: string[] = ['\\', '\\Cronsole']
 ): RestoreMachineState => ({ existingTaskPaths: tasks, existingFolders: folders });
 
 const NO_MANIFEST = new Map<string, string>();
@@ -157,19 +157,19 @@ describe('folderChainFor', () => {
 describe('planRestore', () => {
   it('plans a plain create when nothing is in the way', () => {
     const plan = planRestore(
-      [decoded('TaskHub/Ping.xml', XML('\\TaskHub\\Ping'))],
+      [decoded('Cronsole/Ping.xml', XML('\\Cronsole\\Ping'))],
       NO_MANIFEST,
       machine(),
       { overwrite: false, createFolders: false }
     );
-    expect(plan.items[0]).toMatchObject({ action: 'create', taskPath: '\\TaskHub\\Ping', name: 'Ping' });
+    expect(plan.items[0]).toMatchObject({ action: 'create', taskPath: '\\Cronsole\\Ping', name: 'Ping' });
     expect(plan.counts).toMatchObject({ files: 1, create: 1, overwrite: 0, skip: 0, refuse: 0 });
   });
 
   // The headline decision: an existing task is left alone unless asked.
   it('skips an existing task by default and overwrites only when told to', () => {
-    const files = [decoded('TaskHub/Ping.xml', XML('\\TaskHub\\Ping'))];
-    const state = machine(['\\TaskHub\\Ping']);
+    const files = [decoded('Cronsole/Ping.xml', XML('\\Cronsole\\Ping'))];
+    const state = machine(['\\Cronsole\\Ping']);
 
     const skipped = planRestore(files, NO_MANIFEST, state, { overwrite: false, createFolders: false });
     expect(skipped.items[0].action).toBe('skip');
@@ -181,9 +181,9 @@ describe('planRestore', () => {
 
   it('matches existing tasks case-insensitively, as Windows does', () => {
     const plan = planRestore(
-      [decoded('a.xml', XML('\\TaskHub\\PING'))],
+      [decoded('a.xml', XML('\\Cronsole\\PING'))],
       NO_MANIFEST,
-      machine(['\\taskhub\\ping']),
+      machine(['\\cronsole\\ping']),
       { overwrite: false, createFolders: false }
     );
     expect(plan.items[0].action).toBe('skip');
@@ -259,7 +259,7 @@ describe('planRestore', () => {
   // Both would "succeed" and only one would survive — the worst kind of success.
   it('refuses a second file targeting a path an earlier one already claimed', () => {
     const plan = planRestore(
-      [decoded('a.xml', XML('\\TaskHub\\Ping')), decoded('b.xml', XML('\\TaskHub\\Ping'))],
+      [decoded('a.xml', XML('\\Cronsole\\Ping')), decoded('b.xml', XML('\\Cronsole\\Ping'))],
       NO_MANIFEST,
       machine(),
       { overwrite: false, createFolders: false }
@@ -288,17 +288,17 @@ describe('runRestore', () => {
 
   it('only sends creates and overwrites to the agent', async () => {
     const files = [
-      decoded('new.xml', XML('\\TaskHub\\New')),
-      decoded('old.xml', XML('\\TaskHub\\Old')),
+      decoded('new.xml', XML('\\Cronsole\\New')),
+      decoded('old.xml', XML('\\Cronsole\\Old')),
       { relativePath: 'bad.xml', error: 'nope' } as DecodedTaskFile
     ];
-    const plan = planOf(files, machine(['\\TaskHub\\Old']));
+    const plan = planOf(files, machine(['\\Cronsole\\Old']));
     const importOne = vi.fn().mockResolvedValue({ success: true, outcome: 'created' as const, foldersCreated: [] });
 
     const results = await runRestore(plan, xmlFor(files), importOne);
 
     expect(importOne).toHaveBeenCalledTimes(1);
-    expect(importOne).toHaveBeenCalledWith('\\TaskHub\\New', files[0].xml);
+    expect(importOne).toHaveBeenCalledWith('\\Cronsole\\New', files[0].xml);
     expect(results.map(r => r.outcome)).toEqual(['created', 'exists', 'refused']);
     // A skip carries the plan's reason, so the result explains itself without
     // the reader going back to the plan.
@@ -306,7 +306,7 @@ describe('runRestore', () => {
   });
 
   it('keeps going when one task fails, and records which', async () => {
-    const files = [decoded('a.xml', XML('\\TaskHub\\A')), decoded('b.xml', XML('\\TaskHub\\B'))];
+    const files = [decoded('a.xml', XML('\\Cronsole\\A')), decoded('b.xml', XML('\\Cronsole\\B'))];
     const plan = planOf(files, machine());
     const importOne = vi.fn(async (taskPath: string) =>
       taskPath.endsWith('A')
@@ -323,7 +323,7 @@ describe('runRestore', () => {
   it('keeps the plan\'s intent beside the agent\'s outcome when they disagree', async () => {
     // The machine changed between planning and restoring. That gap is worth
     // seeing rather than quietly reconciling.
-    const files = [decoded('a.xml', XML('\\TaskHub\\A'))];
+    const files = [decoded('a.xml', XML('\\Cronsole\\A'))];
     const plan = planOf(files, machine());
     const results = await runRestore(plan, xmlFor(files), async () => ({
       success: false,
@@ -356,7 +356,7 @@ describe('runRestore', () => {
   });
 
   it('refuses rather than guessing when a planned file has no contents', async () => {
-    const files = [decoded('a.xml', XML('\\TaskHub\\A'))];
+    const files = [decoded('a.xml', XML('\\Cronsole\\A'))];
     const plan: RestorePlan = planOf(files, machine());
     const results = await runRestore(plan, () => undefined, async () => {
       throw new Error('should never be called');

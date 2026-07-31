@@ -17,7 +17,7 @@ const resolveCommand = (tpl: string, values: Record<string, string>) =>
   tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in values ? values[k] : `{{${k}}}`));
 
 /** Mirrors DEFAULT_TASK_FOLDER in backend/src/utils/windowsTaskFolder.ts. */
-const DEFAULT_FOLDER = '\\TaskHub';
+const DEFAULT_FOLDER = '\\Cronsole';
 
 interface AgentFolder {
   path: string;
@@ -48,7 +48,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   // Windows task the "category" is a projection of this folder
   // (TaskService.extractCategory reads the root segment), so choosing a folder
   // IS choosing the category — unlike native tasks, where categories are local.
-  // Only EXISTING folders are offered: Cronsole creates just its own \TaskHub
+  // Only EXISTING folders are offered: Cronsole creates just its own \Cronsole
   // (the one folder it also prunes), because removing a folder needs elevation
   // and anything else it created would be litter only the user could clear.
   const [folder, setFolder] = useState(DEFAULT_FOLDER);

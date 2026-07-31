@@ -11,7 +11,7 @@
 > `GET /api/templates` + `POST /api/templates/:id/apply`; since 2026-07-10 the modal sends **raw
 > parameter values** and the **backend owns `{{placeholder}}` substitution per-token** (§5).
 > Also 2026-07-10: the modal gained an editable **task-name field** backed by a server-side
-> Windows name guard (invalid name → 400; name colliding with a tracked `\TaskHub\` task → 409
+> Windows name guard (invalid name → 400; name colliding with a tracked `\Cronsole\` task → 409
 > instead of Task Scheduler silently overwriting it), **cron preset chips**, and a
 > **human-readable schedule preview** (local/UTC per Settings); applied Windows tasks are
 > **tracked immediately** rather than waiting for the next sync.
@@ -288,7 +288,7 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
    a legacy pre-substituted `command` field is still accepted, deprecated). Invalidates
    `tasks` on success. *(2026-07-10)* The modal's **task-name field** is editable (prefilled
    with the template name); the backend validates it (`utils/windowsTaskName.ts` — Windows
-   filename rules, 400) and refuses a name that collides with a tracked `\TaskHub\` task
+   filename rules, 400) and refuses a name that collides with a tracked `\Cronsole\` task
    (409) so `RegisterTaskDefinition` never silently overwrites an existing task. Cron
    **preset chips** (shared `utils/cronPresets.ts`) and a **human-readable schedule preview**
    (`describeCron`, local/UTC per Settings) sit under the schedule field, and applied Windows

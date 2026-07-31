@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Xml;
 using Microsoft.Win32.TaskScheduler;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     /// <summary>
     /// Reads a Task Scheduler trigger into a server-shaped <see cref="TriggerSpec"/>

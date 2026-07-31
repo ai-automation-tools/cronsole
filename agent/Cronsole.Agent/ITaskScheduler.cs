@@ -1,18 +1,18 @@
 using System;
 using System.Collections.Generic;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     public interface ITaskScheduler
     {
         List<AgentTaskInfo> ListTasks();
         // Every Task Scheduler folder that exists, so the UI can offer real
-        // folders instead of assuming \TaskHub. Read-only.
+        // folders instead of assuming \Cronsole. Read-only.
         List<AgentFolderInfo> ListFolders();
         bool SetTaskStatus(string path, bool enabled);
         bool RunTask(string path);
         // `folder` is the Task Scheduler folder to register into (defaults to
-        // \TaskHub). It is validated HERE as well as server-side — this process
+        // \Cronsole). It is validated HERE as well as server-side — this process
         // holds the elevation and calls RegisterTaskDefinition, which silently
         // overwrites a same-named task in the same folder, so it must not trust
         // its caller. See TaskFolderPath.
@@ -40,7 +40,7 @@ namespace TaskHub.Agent
         // enforced by Windows (TaskCreation.Create) rather than only by our own
         // check, so a race can't turn a refusal into a silent overwrite.
         // `createFolders` recreates a missing folder chain: the one carve-out to
-        // "TaskHub creates only \TaskHub", because a restore is the user asking for
+        // "Cronsole creates only \Cronsole", because a restore is the user asking for
         // their own tree back by name. Both flags are inside the command signature.
         AgentImportResult ImportTaskXml(string path, string xml, bool overwrite, bool createFolders);
     }
@@ -68,8 +68,8 @@ namespace TaskHub.Agent
         // Windows' OWN verdict on the last run: the exit code, where 0 is success.
         //
         // This is the only success signal for a Windows task that does not come
-        // from TaskHub. It has to exist because TaskHub's ExecutionLog records
-        // runs TaskHub *performed* — a task firing on its own schedule writes
+        // from Cronsole. It has to exist because Cronsole's ExecutionLog records
+        // runs Cronsole *performed* — a task firing on its own schedule writes
         // nothing there, and a manual trigger logs SUCCESS meaning "the agent
         // started it", not "it worked". Scoring a task's health without this
         // would read a machine full of healthy tasks as a machine full of tasks
@@ -103,12 +103,12 @@ namespace TaskHub.Agent
         public string? WorkingDirectory { get; set; }
     }
 
-    // A real Task Scheduler folder. Reported honestly, including ones TaskHub
+    // A real Task Scheduler folder. Reported honestly, including ones Cronsole
     // will not write to: the UI shows WHY a folder is unavailable rather than
     // hiding it and letting the user wonder, or offering it and failing late.
     public class AgentFolderInfo
     {
-        // Normalized path, e.g. "\", "\TaskHub", "\Microsoft\Windows".
+        // Normalized path, e.g. "\", "\Cronsole", "\Microsoft\Windows".
         public string Path { get; set; } = string.Empty;
         // How many tasks live directly in this folder (not counting subfolders).
         public int TaskCount { get; set; }
@@ -147,7 +147,7 @@ namespace TaskHub.Agent
         public string Message { get; set; } = string.Empty;
         /// <summary>
         /// Folders this import had to create, in creation order. Always reported,
-        /// even on success: TaskHub creating a folder is the exception to a standing
+        /// even on success: Cronsole creating a folder is the exception to a standing
         /// invariant, so it may never be silent.
         /// </summary>
         public List<string> FoldersCreated { get; set; } = new List<string>();

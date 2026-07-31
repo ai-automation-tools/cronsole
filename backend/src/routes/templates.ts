@@ -38,7 +38,7 @@ const router = Router();
 
 const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 
-const isValidCron = (cron: string) => cron.trim().split(/\s+/).length === 5;
+import { isValidCron } from '../utils/cron.js';
 
 /**
  * Resolve the platform-native trigger for a schedule. Only Windows needs a

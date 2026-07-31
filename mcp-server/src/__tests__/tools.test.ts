@@ -786,6 +786,46 @@ describe('convert_schedule', () => {
     expect(out).not.toMatch(/REPLACED/);
   });
 
+  it('renders the two run lists when the registered schedule differs from the cron', async () => {
+    // The dates are the one rendering nobody can misread. "confidence 1.0" is
+    // exactly what the Monday-only bug printed, and even "REPLACED" asks the
+    // reader to know what it costs — two run lists that disagree do not.
+    const { client } = stubClient({
+      'POST /tasks/preview': preview({
+        score: 0.7,
+        lossy: 'replaced',
+        warnings: ['REPLACED with a fixed hourly trigger.'],
+        trigger: { type: 'Time', startBoundary: '00:00', repetition: { interval: 'PT1H' } },
+        requestedRuns: ['2027-01-01T04:00:00.000Z'],
+        effectiveRuns: [
+          '2026-07-31T13:00:00.000Z',
+          '2026-07-31T14:00:00.000Z',
+          '2026-07-31T15:00:00.000Z'
+        ],
+        diverges: true
+      })
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'convert_schedule', { schedule: '0 4 1 1 *' }));
+    expect(out).toMatch(/You asked for: 2027-01-01/);
+    expect(out).toMatch(/It will ACTUALLY run: 2026-07-31T13/);
+  });
+
+  it('shows plain next runs when nothing diverges', async () => {
+    const { client } = stubClient({
+      'POST /tasks/preview': preview({
+        trigger: { type: 'Daily', startBoundary: '09:00' },
+        requestedRuns: ['2026-08-01T09:00:00.000Z', '2026-08-02T09:00:00.000Z'],
+        effectiveRuns: ['2026-08-01T09:00:00.000Z', '2026-08-02T09:00:00.000Z'],
+        diverges: false
+      })
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'convert_schedule', { schedule: '0 9 * * *' }));
+    expect(out).toMatch(/Next runs \(UTC\): 2026-08-01/);
+    expect(out).not.toMatch(/ACTUALLY/);
+  });
+
   it('renders a daily trigger', async () => {
     const { client } = stubClient({
       'POST /tasks/preview': preview({ trigger: { type: 'Daily', startBoundary: '09:00', daysInterval: 1 } })

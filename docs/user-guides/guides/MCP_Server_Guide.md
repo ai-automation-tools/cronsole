@@ -42,7 +42,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`create_task`** | "Run `C:\jobs\nightly.ps1` every weekday at 6am" — any command you already know | `POST /api/tasks` |
 | **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
 | **`create_native_task`** | "Ping my health endpoint every 15 minutes and POST this JSON to the webhook" | `POST /api/tasks/native` |
-| **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?" | `POST /api/tasks/preview` |
+| **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |
 | **`get_task_history`** | "Did last night's backup work?", "why did the report task fail?" | `GET /api/tasks/:id/executions` |
 | **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" | `GET /api/tasks/:id/export` |
 | **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
@@ -247,6 +247,11 @@ lists its params, required ones marked) before calling `create_task_from_templat
 > just the confidence number next to it. A cron TaskHub can't express as a native Windows
 > trigger is **replaced** with an hourly one rather than rejected, and that arrives as a
 > mild-sounding warning. Rare schedules are the ones this bites.
+>
+> Since 2026-07-31 it also prints **the actual run times**, and both lists when they disagree
+> (*"You asked for: 2027-01-01… / It will ACTUALLY run: 2026-07-31T13:00, 14:00, 15:00…"*).
+> That is the version nobody misreads. The same comparison is available in the app without an
+> agent host — **Tools → Schedule tester**.
 
 ## Troubleshooting
 

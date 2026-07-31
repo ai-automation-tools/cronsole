@@ -652,6 +652,9 @@ export function registerTools(
           warnings: string[];
           trigger: WindowsTrigger | null;
           lossy?: 'approximated' | 'replaced';
+          requestedRuns?: string[];
+          effectiveRuns?: string[] | null;
+          diverges?: boolean;
         }>('/tasks/preview', { platform, schedule });
         const warnings = result.warnings?.length ? `\nWarnings: ${result.warnings.join('; ')}` : '';
         const trigger = result.trigger ? `\nTrigger: ${describeTrigger(result.trigger)}` : '';
@@ -663,9 +666,19 @@ export function registerTools(
             : result.lossy === 'approximated'
               ? '\nLossy: approximated — the trigger is built from your cron but drifts after the first cycle.'
               : '';
+        // Dates, because they are the only rendering nobody can misread. A bare
+        // confidence of 1.0 is exactly what the Monday-only bug printed, and
+        // "REPLACED" still requires the reader to know what that costs; two run
+        // lists that disagree do not.
+        const runs = result.diverges && result.effectiveRuns?.length
+          ? `\nYou asked for: ${(result.requestedRuns ?? []).slice(0, 3).join(', ') || 'never'}` +
+            `\nIt will ACTUALLY run: ${result.effectiveRuns.slice(0, 3).join(', ')}, …`
+          : result.requestedRuns?.length
+            ? `\nNext runs (UTC): ${result.requestedRuns.slice(0, 3).join(', ')}`
+            : '';
         const text =
           result.score > 0
-            ? `Convertible for ${platform} (confidence ${result.score}).${trigger}${lossy}${warnings}`
+            ? `Convertible for ${platform} (confidence ${result.score}).${trigger}${lossy}${runs}${warnings}`
             : `Not convertible for ${platform} (score 0).${warnings}`;
         return ok(text, { platform, schedule, ...result });
       } catch (err) {

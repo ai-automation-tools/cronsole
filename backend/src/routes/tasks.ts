@@ -34,7 +34,8 @@ const router = Router();
 
 const platformSchema = z.enum(PlatformType, { message: 'Invalid platform' });
 
-const isValidCron = (cron: string) => cron.trim().split(/\s+/).length === 5;
+import { isValidCron } from '../utils/cron.js';
+import { previewSchedule } from '../services/schedulePreview.js';
 
 // List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
@@ -319,26 +320,10 @@ const previewSchema = z.object({
 router.post('/preview', validateBody(previewSchema), async (req: Request, res: Response) => {
   const { platform, schedule } = req.body;
 
-  if (typeof schedule !== 'string' || !isValidCron(schedule)) {
-    return res.json({
-      score: 0,
-      warnings: ['Schedule must be a 5-field cron expression (min hour dom month dow).'],
-      trigger: null
-    });
-  }
-  if (platform !== PlatformType.WINDOWS_TASK_SCHEDULER) {
-    return res.json({ score: 1, warnings: [], trigger: null });
-  }
-  const conversion = convertCronToWindowsTrigger(schedule.trim());
-  res.json({
-    score: conversion.confidence,
-    warnings: conversion.warnings,
-    trigger: conversion.trigger,
-    // Discriminates the two 0.7 registers the score alone conflates: a derived
-    // step that drifts ('approximated') vs. a discarded cron replaced with an
-    // hourly default ('replaced'). Absent on an exact or invalid schedule.
-    lossy: conversion.lossy
-  });
+  // The whole body — score, warnings, trigger, the `lossy` discriminator, and
+  // the upcoming run times — comes from one service so the New Task modal and
+  // the Tools tab's schedule tester cannot answer the same question differently.
+  res.json(previewSchedule(platform, schedule));
 });
 
 const createTaskSchema = z.object({

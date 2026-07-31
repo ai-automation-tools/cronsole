@@ -846,6 +846,14 @@ Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>' | Select-Object -Expa
 > `1-5` bug, one layer up: the system told the truth in a register quiet enough to ignore.
 > `convert_schedule` renders the trigger in its text output (2026-07-15) precisely so this is
 > visible — use it.
+>
+> **Better still, look at the dates (2026-07-31).** **Tools → Schedule tester** in the app, and
+> `convert_schedule` over MCP, now print the upcoming run times — and *both* lists when they
+> disagree: `0 4 1 1 *` shows one run next January under "what you asked for" beside an hourly
+> list under "what will actually run". A trigger description still asks you to know what
+> `PT1H` costs; two disagreeing lists of dates do not. Note what neither will show you: an
+> **approximated** step gets no dates at all, because Windows' continuous repetition can't be
+> read off a cron round-trip and a guess there would defeat the purpose.
 
 *First hit: 2026-07-15 (picked `0 4 1 1 *` as a "can't possibly fire" schedule for a live MCP
 test task; it registered as daily-with-hourly-repetition and would have pinged every hour

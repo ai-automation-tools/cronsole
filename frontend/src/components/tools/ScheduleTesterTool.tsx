@@ -1,0 +1,238 @@
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, CalendarClock, Check, Info } from 'lucide-react';
+import { api } from '../../api';
+import { CRON_PRESETS } from '../../utils/cronPresets';
+
+interface SchedulePreview {
+  score: number;
+  warnings: string[];
+  trigger: { type: string; startBoundary: string; daysOfWeek?: string[]; repetition?: { interval: string } } | null;
+  lossy?: 'approximated' | 'replaced';
+  requestedRuns: string[];
+  effectiveRuns: string[] | null;
+  diverges: boolean;
+}
+
+const PLATFORMS = [
+  { value: 'WINDOWS_TASK_SCHEDULER', label: 'Windows Task Scheduler' },
+  { value: 'TASKHUB_NATIVE', label: 'TaskHub-native' }
+] as const;
+
+/** Both zones, always — the point is to remove doubt, not to honor a preference. */
+const bothZones = (iso: string): { local: string; utc: string } => {
+  const d = new Date(iso);
+  return {
+    local: d.toLocaleString(),
+    utc: `${d.toLocaleString(undefined, { timeZone: 'UTC' })} UTC`
+  };
+};
+
+const describeTrigger = (t: SchedulePreview['trigger']): string => {
+  if (!t) return 'no trigger';
+  const parts = [t.type, `at ${t.startBoundary}`];
+  if (t.daysOfWeek?.length) parts.push(`on ${t.daysOfWeek.join(', ')}`);
+  if (t.repetition?.interval) parts.push(`repeating every ${t.repetition.interval}`);
+  return parts.join(' ');
+};
+
+/**
+ * Try a schedule before it exists.
+ *
+ * This is the cheapest answer to the most expensive trap in the project: on
+ * Windows a cron does not run — a *trigger* does, and any expression the
+ * converter doesn't recognize is **discarded** for a fixed hourly trigger. So
+ * `0 4 1 1 *`, picked precisely because it can't fire during a test, registers
+ * as ~8,760 runs a year (troubleshooting #14). That was documented in three
+ * places and visible in none.
+ *
+ * The design rule the backend enforces and this UI must not undermine: run times
+ * are shown only where they can be *derived*, never inferred. An approximated
+ * step returns no effective dates at all, and this card says so in words rather
+ * than filling the gap with the cron's own times.
+ */
+export const ScheduleTesterTool = () => {
+  const [cron, setCron] = useState('0 4 1 1 *');
+  const [platform, setPlatform] = useState<string>('WINDOWS_TASK_SCHEDULER');
+  const [debounced, setDebounced] = useState(cron);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(cron), 300);
+    return () => clearTimeout(id);
+  }, [cron]);
+
+  const { data, isFetching } = useQuery<SchedulePreview>({
+    queryKey: ['schedule-preview', debounced, platform],
+    queryFn: async () => (await api.post('/tasks/preview', { platform, schedule: debounced })).data,
+    enabled: debounced.trim().length > 0
+  });
+
+  const invalid = data && data.score === 0;
+
+  return (
+    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <CalendarClock size={20} />
+        </div>
+        <div className="min-w-0">
+          <h3 className="font-bold">Schedule tester</h3>
+          <p className="text-sm text-muted-foreground">
+            Type a cron and see what the platform will actually do with it — the trigger it becomes and
+            the next five times it fires. Creates nothing.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">
+            Cron (5 fields, UTC)
+          </span>
+          <input
+            value={cron}
+            onChange={e => setCron(e.target.value)}
+            spellCheck={false}
+            aria-label="Cron expression to test"
+            className="mt-1.5 w-full bg-background border border-border rounded-xl px-4 py-2 text-sm font-mono outline-none focus:border-primary"
+          />
+        </label>
+
+        <div className="flex flex-wrap gap-1.5">
+          {CRON_PRESETS.map(p => (
+            <button
+              key={p.cron}
+              onClick={() => setCron(p.cron)}
+              className="text-[11px] px-2 py-1 rounded-lg border border-border hover:border-primary hover:text-primary transition-colors"
+            >
+              {p.label}
+            </button>
+          ))}
+          {/* The trap itself, one click away — a schedule tester that can't show
+              you the failure it exists for is a worse demo than no demo. */}
+          <button
+            onClick={() => setCron('0 4 1 1 *')}
+            className="text-[11px] px-2 py-1 rounded-lg border border-amber-500/40 text-amber-500 hover:bg-amber-500/10 transition-colors"
+          >
+            Once a year (try it)
+          </button>
+        </div>
+
+        <label className="block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">Target</span>
+          <select
+            value={platform}
+            onChange={e => setPlatform(e.target.value)}
+            aria-label="Platform to test against"
+            className="mt-1.5 w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary"
+          >
+            {PLATFORMS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+        {isFetching && !data && <p className="text-xs text-muted-foreground">Checking…</p>}
+
+        {invalid && (
+          <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-xs text-red-500 flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>{data!.warnings[0]}</span>
+          </div>
+        )}
+
+        {data && !invalid && (
+          <>
+            {data.diverges ? (
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/40 px-4 py-3 text-xs text-amber-500 flex items-start gap-2">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  <strong>This is not the schedule you typed.</strong>{' '}
+                  {data.lossy === 'replaced'
+                    ? 'Your expression was discarded and replaced with a fixed trigger that is not derived from it — it will run far more often than you asked.'
+                    : 'The registered trigger differs from your expression.'}
+                </span>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-primary/10 border border-primary/30 px-4 py-3 text-xs text-primary flex items-start gap-2">
+                <Check size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  {data.trigger
+                    ? 'Converts exactly — the trigger fires when your cron says it should.'
+                    : 'TaskHub runs this expression itself, exactly as written.'}
+                </span>
+              </div>
+            )}
+
+            {data.trigger && (
+              <div className="text-xs text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">Registers as</span>
+                <p className="font-mono mt-0.5 text-foreground">{describeTrigger(data.trigger)}</p>
+              </div>
+            )}
+
+            {data.warnings.length > 0 && (
+              <ul className="text-xs text-amber-500 space-y-1">
+                {data.warnings.map((w, i) => <li key={i}>• {w}</li>)}
+              </ul>
+            )}
+
+            <RunList
+              title={data.diverges ? 'What you asked for' : 'Next runs'}
+              runs={data.requestedRuns}
+              muted={data.diverges}
+            />
+
+            {data.diverges && data.effectiveRuns && (
+              <RunList title="What will actually run" runs={data.effectiveRuns} emphasize />
+            )}
+
+            {data.lossy === 'approximated' && (
+              <div className="rounded-xl bg-background/60 border border-border/60 px-4 py-3 text-[11px] text-muted-foreground flex items-start gap-2">
+                <Info size={13} className="mt-0.5 shrink-0 text-primary" />
+                <span>
+                  Actual run times aren't shown for this one. The step doesn't divide evenly, so Windows repeats
+                  continuously while cron restarts each hour — the two drift apart, and any dates here would be a
+                  guess rather than a reading.
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const RunList = ({
+  title,
+  runs,
+  muted,
+  emphasize
+}: {
+  title: string;
+  runs: string[];
+  muted?: boolean;
+  emphasize?: boolean;
+}) => (
+  <div>
+    <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">{title}</span>
+    {runs.length === 0 ? (
+      <p className="text-xs text-muted-foreground mt-1">
+        Never — this expression has no upcoming occurrences.
+      </p>
+    ) : (
+      <ul className={`mt-1 space-y-0.5 text-xs font-mono ${emphasize ? 'text-amber-500' : muted ? 'text-muted-foreground' : 'text-foreground'}`}>
+        {runs.map(iso => {
+          const { local, utc } = bothZones(iso);
+          return (
+            <li key={iso} className="flex flex-wrap gap-x-2">
+              <span>{local}</span>
+              <span className="text-subtle-foreground">({utc})</span>
+            </li>
+          );
+        })}
+      </ul>
+    )}
+  </div>
+);

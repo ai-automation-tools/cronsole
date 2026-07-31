@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-    Mirror the generated template registry to the public taskhub-registry repo.
+    Mirror the generated template registry to the public cronsole-registry repo.
 
 .DESCRIPTION
     Source of truth is <cronsole>/registry/ (generated from
     backend/src/catalog/bundled.ts via `npm run registry:build` and drift-tested).
     This script copies that folder into a local clone of the separate public repo
-    (github.com/michaelschecht/taskhub-registry) and pushes it. GitHub Pages then
-    rebuilds and serves it at https://mikesailab.com/taskhub-registry.
+    (github.com/michaelschecht/cronsole-registry) and pushes it. GitHub Pages then
+    rebuilds and serves it at https://mikesailab.com/cronsole-registry.
 
     Idempotent: if nothing changed, it makes no commit. It does NOT regenerate the
     registry — run `npm run registry:build` (in backend/) and commit registry/ in
@@ -19,14 +19,14 @@
 
 [CmdletBinding()]
 param(
-    [string]$RegistryRepoUrl = 'https://github.com/michaelschecht/taskhub-registry.git',
+    [string]$RegistryRepoUrl = 'https://github.com/michaelschecht/cronsole-registry.git',
     # The local reference clone (see CLAUDE.md) doubles as the publish working clone, so
     # every publish leaves it updated to the pushed state. It's a pure mirror — this script
     # runs `git reset --hard origin/main` on it, so never keep manual work here. Falls back
     # to a %TEMP% clone on any other machine where the Tools path doesn't exist.
     [string]$WorkDir = $(
-        $tools = 'D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\taskhub-registry'
-        if (Test-Path (Join-Path $tools '.git')) { $tools } else { Join-Path $env:TEMP 'taskhub-registry-publish' }
+        $tools = 'D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\cronsole-registry'
+        if (Test-Path (Join-Path $tools '.git')) { $tools } else { Join-Path $env:TEMP 'cronsole-registry-publish' }
     )
 )
 
@@ -39,7 +39,7 @@ if (-not (Test-Path (Join-Path $SrcDir 'index.json'))) {
     throw "No registry/index.json at $SrcDir — run 'npm run registry:build' in backend/ first."
 }
 # Gallery site (browse/import UI) — source of truth for the public site is <cronsole>/registry-site/.
-# Served at https://mikesailab.com/taskhub-registry/ (index.html at the clone root); it fetches
+# Served at https://mikesailab.com/cronsole-registry/ (index.html at the clone root); it fetches
 # the registry's index.json + templates/*.json from the same origin.
 $SiteDir = Join-Path $RepoRoot 'registry-site'
 
@@ -86,7 +86,7 @@ if (Test-Path (Join-Path $SiteDir 'index.html')) {
     # NB: the wildcard path (…\*) is required — `Get-ChildItem -Path <dir> -Exclude` on a
     # bare directory silently returns nothing.
     # CNAME is excluded defensively: it decides which domain a Pages repo answers
-    # on, so a stray one in registry-site/ would hand taskhub.mikesailab.com to
+    # on, so a stray one in registry-site/ would hand cronsole.mikesailab.com to
     # the REGISTRY repo — moving the registry JSON off its documented URL and
     # breaking catalog sync for every installed Cronsole. Domains belong to the
     # target repo, never to mirrored content.
@@ -106,4 +106,4 @@ if ((git -C $WorkDir status --porcelain).Length -eq 0) {
 $stamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
 git -C $WorkDir commit --quiet -m "Publish registry ($stamp)"
 git -C $WorkDir push --quiet origin main
-Write-Host 'Published. GitHub Pages will rebuild shortly (https://mikesailab.com/taskhub-registry).' -ForegroundColor Green
+Write-Host 'Published. GitHub Pages will rebuild shortly (https://mikesailab.com/cronsole-registry).' -ForegroundColor Green

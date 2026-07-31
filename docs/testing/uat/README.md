@@ -66,7 +66,7 @@ Does Cronsole deliver the "single pane of glass" it promises?
 | # | Scenario | Acceptance criteria | Status |
 |:--|:---|:---|:--|
 | U3.1 | **Fresh install feels curated** | 5 core templates read as a useful sampler, not an empty shell or a wall of noise | ✅ |
-| U3.2 | **Browse-and-import journey** | Find the [gallery](https://mikesailab.com/taskhub-registry) from in-app → browse → import → apply. The whole arc, as a user | 🟡 |
+| U3.2 | **Browse-and-import journey** | Find the [gallery](https://mikesailab.com/cronsole-registry) from in-app → browse → import → apply. The whole arc, as a user | 🟡 |
 | U3.3 | **Apply a template for real** | Pick one, fill params, apply, and **confirm the task exists in Task Scheduler** and fires on schedule | 🟡 |
 | U3.4 | **Params are understandable** | `{{placeholder}}` names and help text are guessable without reading the registry JSON | ⬜ |
 | U3.5 | **Save as template** | An existing task round-trips into a template someone else could use | 🟡 |

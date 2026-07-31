@@ -9,7 +9,7 @@
  */
 
 /** Base for deep-links into the repo's docs (deploy branch). */
-const DOCS_BASE = 'https://github.com/michaelschecht/taskhub/blob/main';
+const DOCS_BASE = 'https://github.com/michaelschecht/cronsole/blob/main';
 
 export interface OnboardingStep {
   /** Emoji shown as the step marker. */
@@ -82,6 +82,6 @@ export const HELP_GUIDES: HelpLink[] = [
   {
     label: 'Template Registry',
     description: 'The public catalog Cronsole fetches — browse or contribute',
-    url: 'https://github.com/michaelschecht/taskhub-registry'
+    url: 'https://github.com/michaelschecht/cronsole-registry'
   }
 ];

@@ -592,7 +592,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
         <Row label="Links">
           <div className="flex items-center gap-2">
             <a
-              href="https://github.com/michaelschecht/taskhub"
+              href="https://github.com/michaelschecht/cronsole"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all"
@@ -600,7 +600,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
               <Code2 size={14} /> GitHub
             </a>
             <a
-              href="https://github.com/michaelschecht/taskhub/tree/main/docs"
+              href="https://github.com/michaelschecht/cronsole/tree/main/docs"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all"

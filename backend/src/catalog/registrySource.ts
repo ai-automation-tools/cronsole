@@ -23,7 +23,7 @@ import type { TemplateCatalogSource } from './source.js';
 type FetchImpl = typeof fetch;
 
 export interface RegistrySourceOptions {
-  /** Base URL of the registry, e.g. https://cdn.example.com/taskhub-registry */
+  /** Base URL of the registry, e.g. https://cdn.example.com/cronsole-registry */
   baseUrl: string;
   /** Used when a fetch/verify fails and there's no fresh cache (e.g. bundled). */
   fallback: TemplateCatalogSource;

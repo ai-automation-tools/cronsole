@@ -73,9 +73,9 @@ catalog edit that forgets `registry:build` is caught in CI.
 This artifact is mirrored to a **separate, independent public repo** served over
 GitHub Pages:
 
-- **Repo:** https://github.com/michaelschecht/taskhub-registry
-- **Local clone:** `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\taskhub-registry`
-- **Served at:** `https://mikesailab.com/taskhub-registry` → set as `TEMPLATE_REGISTRY_URL`.
+- **Repo:** https://github.com/michaelschecht/cronsole-registry
+- **Local clone:** `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\cronsole-registry`
+- **Served at:** `https://mikesailab.com/cronsole-registry` → set as `TEMPLATE_REGISTRY_URL`.
 
 This folder is the source of truth; to ship a catalog change:
 

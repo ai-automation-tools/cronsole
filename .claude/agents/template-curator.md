@@ -24,7 +24,7 @@ backend/src/catalog/bundled.ts   (source of truth — edit HERE)
 registry/  (index.json + templates/*.json — GENERATED, never hand-edit)
         │  pwsh scripts/publish-registry.ps1
         ▼
-public taskhub-registry repo → https://mikesailab.com/taskhub-registry
+public cronsole-registry repo → https://mikesailab.com/cronsole-registry
         │  RegistryCatalogSource (sha256-verified, cached, falls back to bundled)
         ▼
 catalogSync → DB (on boot + interval)
@@ -76,7 +76,7 @@ registry→DB→export. Tags are how packs are grouped and faceted.
 5. Update `docs/ROADMAP.md` if the catalog gained a pack or a tier moved.
 
 > The publish script **resets its working clone to `origin/main`** — never keep manual work
-> in `Repos\Tools\taskhub-registry`. It also **excludes `README.md`**; the public repo owns
+> in `Repos\Tools\cronsole-registry`. It also **excludes `README.md`**; the public repo owns
 > its own front page.
 
 ## Auditing a template

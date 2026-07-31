@@ -16,7 +16,7 @@ export interface ResourceSection {
   links: ResourceLink[];
 }
 
-const REPO = 'https://github.com/michaelschecht/taskhub/blob/main';
+const REPO = 'https://github.com/michaelschecht/cronsole/blob/main';
 
 export const TEMPLATE_RESOURCES: ResourceSection[] = [
   {
@@ -70,8 +70,8 @@ export const TEMPLATE_RESOURCES: ResourceSection[] = [
     title: 'Template repositories',
     links: [
       {
-        label: 'michaelschecht/taskhub',
-        url: 'https://github.com/michaelschecht/taskhub',
+        label: 'michaelschecht/cronsole',
+        url: 'https://github.com/michaelschecht/cronsole',
         description: 'This project — seed catalog lives in backend/src/seed.ts.'
       },
       {

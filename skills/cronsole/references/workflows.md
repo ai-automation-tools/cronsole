@@ -168,8 +168,8 @@ pins the exact tool list and will fail, deliberately), both README tool tables, 
 ## Publish the sites
 
 ```powershell
-pwsh scripts/publish-registry.ps1   # registry/ + registry-site/ → taskhub-registry
-pwsh scripts/publish-landing.ps1    # landing-site/            → taskhub-site
+pwsh scripts/publish-registry.ps1   # registry/ + registry-site/ → cronsole-registry
+pwsh scripts/publish-landing.ps1    # landing-site/            → cronsole-site
 ```
 
 Both reset their working clone to `origin/main` — **never keep manual work in

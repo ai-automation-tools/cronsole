@@ -28,7 +28,7 @@ registry/                          ← GENERATED. index.json + templates/*.json 
         │                            content-addressed (sha256). NEVER hand-edit.
         │  pwsh scripts/publish-registry.ps1
         ▼
-github.com/michaelschecht/taskhub-registry  → https://mikesailab.com/taskhub-registry
+github.com/michaelschecht/cronsole-registry  → https://mikesailab.com/cronsole-registry
         │  RegistryCatalogSource (sha256-verified, cached, bundled fallback)
         ▼
 catalogSync  → DB (boot + interval)
@@ -192,8 +192,8 @@ Local clones live side by side under `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\T
 
 | Clone | Remote | Serves | Source in this repo |
 |:---|:---|:---|:---|
-| `Tools\taskhub-registry` | `michaelschecht/taskhub-registry` | `mikesailab.com/taskhub-registry` (registry JSON **+** gallery) | `registry/` + `registry-site/` |
-| `Tools\taskhub-site` | `michaelschecht/taskhub-site` | `taskhub.mikesailab.com` (landing) | `landing-site/` |
+| `Tools\cronsole-registry` | `michaelschecht/cronsole-registry` | `mikesailab.com/cronsole-registry` (registry JSON **+** gallery) | `registry/` + `registry-site/` |
+| `Tools\cronsole-site` | `michaelschecht/cronsole-site` | `cronsole.mikesailab.com` (landing) | `landing-site/` |
 
 - They are **separate, independent git repos — NOT submodules.**
 - **These clones double as the publish working clones.** The scripts default `-WorkDir` to

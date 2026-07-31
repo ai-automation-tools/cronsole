@@ -1,7 +1,7 @@
 # registry-site/ — the public Template Gallery
 
 Source of truth for the **Cronsole Template Gallery**, the browse-and-import site served at
-**`https://mikesailab.com/taskhub-registry/`**.
+**`https://mikesailab.com/cronsole-registry/`**.
 
 It's a single self-contained `index.html` (inline CSS + vanilla JS, no build step, no external
 CDN/fonts — offline-capable and CSP-safe) with a **hash-router** (works on GitHub Pages,
@@ -27,7 +27,7 @@ follow-up (roadmap part 3).
 ## How it ships
 
 Like `registry/`, this folder is the **source of truth in this (private) repo**; it is mirrored
-to the public [`taskhub-registry`](https://github.com/michaelschecht/taskhub-registry) repo by
+to the public [`cronsole-registry`](https://github.com/michaelschecht/cronsole-registry) repo by
 `scripts/publish-registry.ps1`, which copies every file here into the clone **root** (so
 `index.html` sits next to the published `index.json`). GitHub Pages then serves the gallery.
 

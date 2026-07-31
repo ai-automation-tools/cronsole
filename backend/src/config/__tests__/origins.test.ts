@@ -94,6 +94,91 @@ describe('REST CORS policy', () => {
   });
 });
 
+describe('a refused origin is explained, once', () => {
+  // The refusal is correct; the diagnosis is the expensive part. The browser
+  // shows a generic CORS error while `curl` (no Origin) keeps working, so the
+  // server — the only party that knows both the rejected origin and the
+  // configured list — has to say so. Troubleshooting #31.
+  type OriginFn = (origin: string | undefined, cb: (err: Error | null, ok?: boolean) => void) => void;
+
+  function refuser(allowed: string[], warn: (m: string) => void) {
+    const origin = corsOptions(allowed, warn).origin as unknown as OriginFn;
+    return (o: string | undefined) => origin(o, () => {});
+  }
+
+  it('names the refused origin, the allowed list, and the fix', () => {
+    const warn = vi.fn();
+    refuser(['http://localhost:7373'], warn)('http://evil.test');
+
+    expect(warn).toHaveBeenCalledOnce();
+    const message = warn.mock.calls[0][0];
+    expect(message).toContain('http://evil.test');
+    expect(message).toContain('http://localhost:7373'); // what WOULD have worked
+    expect(message).toMatch(/ALLOWED_ORIGINS/);
+    expect(message).toMatch(/restart the backend/i);
+  });
+
+  it('logs once per origin, not once per request', async () => {
+    const warn = vi.fn();
+    const refuse = refuser(['http://localhost:7373'], warn);
+
+    // A dashboard that can't reach the API retries; a warning that repeats
+    // forever is one you learn to scroll past.
+    for (let i = 0; i < 5; i++) refuse('http://evil.test');
+    expect(warn).toHaveBeenCalledOnce();
+
+    refuse('http://other.test');
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it('says nothing for an allowed origin or a request with no Origin', () => {
+    const warn = vi.fn();
+    const refuse = refuser(['http://localhost:7373'], warn);
+
+    refuse('http://localhost:7373');
+    refuse(undefined);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('stops after a cap, so a sprayed header cannot bury the log', () => {
+    const warn = vi.fn();
+    const refuse = refuser(['http://localhost:7373'], warn);
+
+    for (let i = 0; i < 50; i++) refuse(`http://spray-${i}.test`);
+
+    // 20 distinct origins + one "further refusals will not be logged".
+    expect(warn).toHaveBeenCalledTimes(21);
+    expect(warn.mock.calls[20][0]).toMatch(/further refusals will not be logged/);
+  });
+
+  it('neutralizes control characters and truncates — the origin is attacker-controlled', () => {
+    const warn = vi.fn();
+    // Driven through the callback directly: Node rejects control characters in
+    // real request headers, so this path is unreachable via supertest — and
+    // "unreachable today" is not the same as "safe to concatenate into a log".
+    refuser(['http://localhost:7373'], warn)('http://a.test\n[ERROR] forged line');
+
+    const message = warn.mock.calls[0][0];
+    expect(message).not.toContain('\n');
+    expect(message).toContain('http://a.test?[ERROR] forged line');
+  });
+
+  it('truncates an absurdly long origin rather than printing all of it', () => {
+    const warn = vi.fn();
+    refuser(['http://localhost:7373'], warn)(`http://${'a'.repeat(500)}.test`);
+
+    const message = warn.mock.calls[0][0];
+    expect(message).toContain('…');
+    expect(message).not.toContain('a'.repeat(200));
+  });
+
+  it('does not log at all when nothing is configured (permissive mode)', () => {
+    const warn = vi.fn();
+    expect(corsOptions([], warn).origin).toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
 describe('warnOnPermissiveCors', () => {
   afterEach(() => vi.restoreAllMocks());
 

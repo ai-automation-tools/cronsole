@@ -2,7 +2,13 @@
 
 All notable changes to this repository should be documented in this file.
 
-The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), adapted for the current MVP stage of TaskHub.
+The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), adapted for the current MVP stage of Cronsole.
+
+> [!NOTE]
+> **The product was called TaskHub until 2026-07-31**, and entries written before then still
+> say so — deliberately. They record what happened under the name it happened under; rewriting
+> them would make this file claim the product was always called Cronsole, which is the one
+> thing a changelog must never do. Do not "clean these up".
 
 ## [Unreleased]
 

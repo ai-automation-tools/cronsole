@@ -2,8 +2,8 @@
 
 > Project-scoped instructions for **Cronsole** — the Unified Scheduled Task Management System. This file overrides the parent workspace `CLAUDE.md` at `D:\AI_Agents\Projects\Mikes_AI_Lab\Agents\Claude\CLAUDE.md` where they conflict; otherwise the parent's general standards apply.
 
-**Local path:** `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\cronsole` *(promoted from `Other-Repos/` to a top-level workspace repo on 2026-06-01)*
-**GitHub:** [`github.com/michaelschecht/taskhub`](https://github.com/michaelschecht/taskhub) (private)
+**Local path:** `D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Live_Apps\taskhub` — **still `taskhub`, deliberately.** Every scheduled task on the machine embeds this as an absolute path, and the directory name is not user-visible branding; it moves (if ever) with the stage-3 repo rename, and the tasks get rewritten then. *(Promoted from `Other-Repos/` to a top-level workspace repo on 2026-06-01.)*
+**GitHub:** [`github.com/michaelschecht/taskhub`](https://github.com/michaelschecht/taskhub) (private) — repo rename is **stage 3**, see ROADMAP › Next up
 **Working branch:** `mike_desktop` · **Deploy branch:** `main` (per workspace convention)
 **Hosting:** **Local-first by design** — the frontend, backend, and .NET agent all run on the user's own machine, and Cronsole **launches local-first** (no hosted/SaaS instance; the earlier Hetzner "hosted control plane" plan was dropped 2026-07-13). Reaching your own local instance from other devices (Tailscale / Cloudflare Tunnel — the code-server model) is the **final, optional P3 enhancement**, delivered as docs + optional tooling: [`docs/user-guides/guides/Remote_Access_Guide.md`](docs/user-guides/guides/Remote_Access_Guide.md), [`docs/ROADMAP.md`](docs/ROADMAP.md) › P3.
 

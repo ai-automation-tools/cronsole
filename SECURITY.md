@@ -28,7 +28,11 @@ The most security-relevant surfaces are:
 - **The agent ↔ backend channel** — the agent connects *outbound* only, authenticates with
   an HMAC handshake over a shared pairing secret, and refuses any command it can't verify
   (per-session HMAC signatures + a replay guard).
-- **The REST API** — JWT-scoped per user; task routes are owner-scoped.
+- **The REST API** — JWT-scoped per user; task routes are owner-scoped. Browser origins are
+  restricted to `ALLOWED_ORIGINS` (both CORS and the Socket.IO handshake).
+- **Accounts** — TaskHub is single-user. The **only** way to create an account is `/setup`,
+  which works on first run and refuses (409) once an owner exists. There is deliberately no
+  open registration endpoint.
 - **Config at rest** — platform-connection config (API keys, pairing secrets) is encrypted
   with AES-256-GCM before it's stored.
 - **The template catalog / MCP server** — templates are untrusted, executable content that
@@ -40,10 +44,11 @@ exposure.
 
 ### Known limitations (by design, not vulnerabilities)
 
-- The dashboard currently authenticates with a development token, not a full login system —
-  a real account/login flow is on the roadmap. **Do not expose TaskHub directly to the
-  public internet.** If you access it from another device, put it behind a private network
-  layer (e.g. Tailscale) or an access-gated tunnel — see the
+- The dashboard has a real **single-user** login (one owner, created at first run). What it
+  does *not* have is the rest of a multi-user system: no password reset, no refresh tokens
+  (a 24h access token, then log in again), and no per-user agent pairing. **Do not expose
+  TaskHub directly to the public internet.** If you access it from another device, put it
+  behind a private network layer (e.g. Tailscale) or an access-gated tunnel — see the
   [Remote Access Guide](docs/user-guides/guides/Remote_Access_Guide.md).
 - The agent runs with your Windows privileges; a task you create runs as you (or elevated,
   if you configure it to). Treat template/command content you didn't author with the same

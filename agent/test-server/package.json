@@ -1,14 +1,15 @@
 {
   "name": "test-server",
+  "private": true,
   "version": "1.0.0",
-  "description": "",
+  "description": "Mock TaskHub backend for driving the .NET agent in tests. Never published.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "type": "commonjs",
   "dependencies": {
     "socket.io": "^4.8.3"

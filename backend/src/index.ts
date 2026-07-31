@@ -10,6 +10,7 @@ import { registerUiChannel } from './ws/uiChannel.js';
 import { serializeConfig } from './auth/connectionConfig.js';
 import { nativeScheduler } from './services/NativeScheduler.js';
 import { startCatalogRefresh } from './catalog/catalogSync.js';
+import { parseAllowedOrigins, warnOnPermissiveCors } from './config/origins.js';
 
 // Fail fast if the agent pairing secret is missing/weak — the socket channel is
 // remote command execution on the user's machine, so booting without it is unsafe.
@@ -20,11 +21,10 @@ const server = createServer(app);
 
 // Restrict Socket.IO CORS. Only the non-browser .NET agent connects today
 // (CORS-exempt), so browser origins default to none; set ALLOWED_ORIGINS
-// (comma-separated) once the frontend opens its own socket.
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+// (comma-separated) once the frontend opens its own socket. Parsed by the same
+// module the REST layer uses, so the two can't drift apart.
+const allowedOrigins = parseAllowedOrigins();
+warnOnPermissiveCors(allowedOrigins);
 
 export const io = new Server(server, {
   cors: {

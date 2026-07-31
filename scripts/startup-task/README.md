@@ -42,6 +42,30 @@ is itself windowless — so nothing appears on screen.
 Re-run `Register-CronsoleStack.ps1` (elevated) once to apply the no-flash + dedupe
 fix to an existing install.
 
+## The `\Cronsole-Stack\` tasks are deliberately NOT tracked in the dashboard
+
+*(Decided 2026-07-31.)* These three are **infrastructure — the thing that runs Cronsole,
+not work Cronsole runs.** Importing them puts the app in its own task list, where the
+obvious actions are wrong in the obvious way: disabling `CronsoleAgent` from the dashboard
+takes the agent offline, which is also what breaks the dashboard's ability to re-enable it.
+
+They were tracked before the rename (as `\Task-Hub\*`), so a dashboard row for them is a
+state this machine has actually been in; the three stale rows left behind by the rename are
+what prompted the call. Two independent reasons to leave the folder out:
+
+- **Scope.** The dashboard answers *"what is scheduled on this machine on my behalf?"*
+  The launcher is the answer to *"why does anything answer at all?"* Mixing them makes the
+  count less meaningful and buries real tasks a little deeper.
+- **Blast radius.** `\Cronsole-Stack\` is kept separate from the app's own `\Cronsole\`
+  precisely so the prune-its-own-folder logic can never reach it (see the rename stage 2
+  notes in `docs/ROADMAP.md`). Not tracking it keeps that separation true at the UI layer
+  too, rather than relying on a user not clicking Delete.
+
+**Nothing enforces this** — Import will happily discover `Cronsole-Stack` as a category and
+it appears ticked under the *Non-system* preset. It is a standing choice, not a guard, which
+is why it is written down here. Health and status for these tasks come from
+`cronsole.ps1 status` and Task Scheduler, not from the dashboard.
+
 ## `\Cronsole-Stack\CronsoleStack` — the self-heal watchdog
 
 A lighter, clearly-named companion to `CronsoleAgent`. It runs the idempotent

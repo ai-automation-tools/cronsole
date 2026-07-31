@@ -165,6 +165,27 @@ describe('ImportModal Component', () => {
     expect(getSettings().lastImportCategories).toHaveLength(5);
   });
 
+  it('renders platform headings through platformLabel, never the raw enum', async () => {
+    // Regression: the heading was `platform.replace(/_/g, ' ')`, so it printed
+    // "TASKHUB NATIVE" months after the product became Cronsole, and "WINDOWS TASK
+    // SCHEDULER" where every other surface says "Windows". platform.ts calls itself
+    // the single source of truth for platform display; this was the one caller
+    // re-deriving it. Found by opening the modal, not by any test.
+    vi.mocked(api.get).mockResolvedValue({
+      data: [
+        { platform: 'TASKHUB_NATIVE', categories: [{ name: 'Native', count: 1 }] },
+        { platform: 'WINDOWS_TASK_SCHEDULER', categories: [{ name: 'Backup', count: 3 }] }
+      ]
+    });
+    renderModal();
+
+    await waitFor(() => expect(screen.getByText('Cronsole')).toBeInTheDocument());
+    expect(screen.getByText('Windows')).toBeInTheDocument();
+    // The raw enum, de-underscored, must not reach the screen in any form.
+    expect(screen.queryByText(/TASKHUB/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/WINDOWS TASK SCHEDULER/i)).not.toBeInTheDocument();
+  });
+
   it('does not log the discovery payload — it carries task names and native paths', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.mocked(api.get).mockResolvedValue({ data: mockDiscovery });

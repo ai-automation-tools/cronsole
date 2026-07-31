@@ -39,6 +39,14 @@ import {
   summarizeHealth
 } from '../services/taskHealth.js';
 import {
+  analyzeDurations,
+  bucketByDay,
+  findIdleTasks,
+  isValidTimeZone,
+  type DurationInput,
+  type IdleInputTask
+} from '../services/runAnalytics.js';
+import {
   decodeTaskXml,
   isRestoreCandidate,
   planRestore,
@@ -566,6 +574,167 @@ router.get('/task-health', async (req: Request, res: Response) => {
  * bounded query rather than a full history load.
  */
 const HEALTH_EXECUTION_WINDOW = 10;
+
+/**
+ * Ceiling on the rows one analytics read pulls into memory to bucket.
+ *
+ * Lower than the history export's, because this response holds the rows *and*
+ * three analyses over them, and because the totals below do not depend on it —
+ * they come from an exact aggregate. Hitting it narrows the window the trend
+ * claims to cover rather than thinning the data inside it (see below).
+ */
+const MAX_ANALYTICS_ROWS = 20000;
+
+const DEFAULT_ANALYTICS_DAYS = 30;
+
+/** Default silence before a scheduled task is worth asking about. */
+const DEFAULT_IDLE_DAYS = 30;
+
+const analyticsQuerySchema = z.object({
+  days: z.coerce.number().int().positive().max(730).optional(),
+  /** IANA zone the daily buckets are cut on. Validated, never trusted. */
+  tz: z.string().min(1).max(64).optional(),
+  idleDays: z.coerce.number().int().positive().max(3650).optional()
+});
+
+/**
+ * Execution analytics — failure trend, duration trend, and idle tasks.
+ *
+ * The three questions `ExecutionLog` could not answer while it was readable only
+ * 20 rows at a time, per task. The bulk read landed with the health score; this
+ * is the analysis on top of it. No agent work: every input is already in the
+ * database.
+ *
+ * **Each section draws on a different source for the same reason.** `ExecutionLog`
+ * holds runs *Cronsole performed*, so it is the right source for a trend of what
+ * Cronsole did, the right source for durations **only on native tasks** (a
+ * Windows row times the agent handshake, not the job), and the *wrong* source
+ * for "has this run lately?" on Windows — which reads Windows' own `lastRunTime`
+ * from the sync snapshot instead. `runAnalytics.ts` carries the full argument.
+ *
+ * **Totals are exact; the trend can be honestly partial.** The counts come from
+ * an aggregate over the whole window, so they never depend on the row ceiling.
+ * If the ceiling is hit, the trend reports a *narrower* covered span — a
+ * complete chart of a shorter period rather than a period-shaped chart with
+ * holes in it.
+ */
+router.get('/analytics', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const parsed = analyticsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new HttpError(400, parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
+  }
+
+  const timeZone = parsed.data.tz ?? 'UTC';
+  if (!isValidTimeZone(timeZone)) {
+    // A bad zone is refused rather than quietly swapped for UTC: a chart bucketed
+    // in the wrong zone is indistinguishable from one bucketed in the right one.
+    throw new HttpError(400, `Unknown time zone "${timeZone}". Use an IANA name such as America/Los_Angeles.`);
+  }
+
+  const days = parsed.data.days ?? DEFAULT_ANALYTICS_DAYS;
+  const idleDays = parsed.data.idleDays ?? DEFAULT_IDLE_DAYS;
+  const now = new Date();
+  const from = new Date(now.getTime() - days * 86400000);
+  const where = historyWhere(userId, { from, to: now });
+
+  const [byStatus, records, tasks, lastNativeRuns] = await Promise.all([
+    // Exact over the whole window, independent of the row ceiling below.
+    prisma.executionLog.groupBy({ by: ['status'], where, _count: { _all: true } }),
+
+    prisma.executionLog.findMany({
+      where,
+      orderBy: { triggeredAt: 'desc' },
+      // One extra row purely to detect the ceiling, so "partial" is a fact
+      // rather than an inference from a suspiciously round number.
+      take: MAX_ANALYTICS_ROWS + 1,
+      select: {
+        triggeredAt: true,
+        status: true,
+        durationMs: true,
+        taskId: true,
+        task: { select: { name: true, platform: true } }
+      }
+    }),
+
+    prisma.task.findMany({
+      where: { userId, status: { not: TaskStatus.DELETED } },
+      select: {
+        id: true,
+        name: true,
+        platform: true,
+        category: true,
+        externalId: true,
+        status: true,
+        schedule: true,
+        updatedAt: true,
+        metadata: true
+      }
+    }),
+
+    // Deliberately NOT restricted to the window. "Last ran 200 days ago" is the
+    // answer the idle report exists to give, and a 30-day window would hide the
+    // date and report the task as never-run instead.
+    prisma.executionLog.groupBy({
+      by: ['taskId'],
+      where: historyWhere(userId, { platform: PlatformType.TASKHUB_NATIVE }),
+      _max: { triggeredAt: true }
+    })
+  ]);
+
+  const count = (status: ExecutionStatus) => byStatus.find(g => g.status === status)?._count._all ?? 0;
+  const totals = {
+    runs: byStatus.reduce((sum, g) => sum + g._count._all, 0),
+    succeeded: count(ExecutionStatus.SUCCESS),
+    failed: count(ExecutionStatus.FAILURE) + count(ExecutionStatus.TIMEOUT),
+    pending: count(ExecutionStatus.PENDING)
+  };
+
+  const partial = records.length > MAX_ANALYTICS_ROWS;
+  const rows = records.slice(0, MAX_ANALYTICS_ROWS);
+  // Rows come back newest-first, so the oldest one we actually hold is the
+  // earliest moment the trend can honestly speak for.
+  const coveredFrom = partial && rows.length ? rows[rows.length - 1].triggeredAt : from;
+
+  const durationRows: DurationInput[] = rows.map(row => ({
+    taskId: row.taskId,
+    taskName: row.task.name,
+    platform: row.task.platform,
+    triggeredAt: row.triggeredAt,
+    durationMs: row.durationMs,
+    status: row.status
+  }));
+
+  const lastRunByTask = new Map(lastNativeRuns.map(g => [g.taskId, g._max.triggeredAt]));
+  const idleInput: IdleInputTask[] = tasks.map(task => ({
+    ...task,
+    lastExecutionAt: lastRunByTask.get(task.id) ?? null
+  }));
+
+  res.json({
+    window: { from, to: now, days, timeZone },
+    /** Exact over the whole window — never a function of the row ceiling. */
+    totals,
+    trend: {
+      covered: { from: coveredFrom, to: now },
+      /** True when the ceiling was hit and `covered` is narrower than `window`. */
+      partial,
+      days: bucketByDay(rows, { from: coveredFrom, to: now }, timeZone)
+    },
+    duration: analyzeDurations(durationRows),
+    idle: findIdleTasks(idleInput, now, idleDays),
+    /**
+     * What the trend and duration sections are counting. Shipped in the payload
+     * rather than only in the UI so an agent reading this over MCP or a script
+     * gets the caveat too — an empty period means Cronsole triggered nothing,
+     * not that nothing ran.
+     */
+    source: {
+      runs: 'Runs Cronsole performed — manual runs from the dashboard and Cronsole-native scheduled jobs. A Windows task firing on its own schedule is not recorded.',
+      idle: "Windows tasks are judged from Windows' own last-run time in the sync snapshot; Cronsole-native tasks from Cronsole's execution records."
+    }
+  });
+});
 
 /**
  * What an AI tool needs to drive this Cronsole — the instructions half of the

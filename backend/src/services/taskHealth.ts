@@ -128,8 +128,16 @@ const WEIGHTS = {
   durationDrift: 10
 };
 
-type WindowsSnapshot = {
+export type WindowsSnapshot = {
   reportsRunResult: boolean;
+  /**
+   * Whether the agent reported a last-run time **at all** — separate from
+   * `reportsRunResult` because the two arrived in different agent builds.
+   * `lastRunTime` has been in `task:list` since long before `lastTaskResult`,
+   * so an agent that cannot answer "did the last run fail?" can still answer
+   * "when did it last run?" — which is the whole basis of the idle report.
+   */
+  reportsLastRun: boolean;
   lastRunTime: Date | null;
   lastTaskResult: number | null;
   numberOfMissedRuns: number | null;
@@ -155,6 +163,7 @@ export function readWindowsSnapshot(metadata: unknown): WindowsSnapshot {
 
   return {
     reportsRunResult: 'lastTaskResult' in m,
+    reportsLastRun: 'lastRunTime' in m,
     lastRunTime: parseDate(m.lastRunTime),
     lastTaskResult: typeof m.lastTaskResult === 'number' ? m.lastTaskResult : null,
     numberOfMissedRuns: typeof m.numberOfMissedRuns === 'number' ? m.numberOfMissedRuns : null

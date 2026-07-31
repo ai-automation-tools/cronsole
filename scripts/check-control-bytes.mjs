@@ -48,7 +48,19 @@ const ALLOWLIST = new Set([
 const isAllowedByte = (c) => c === 0x09 || c === 0x0a || c === 0x0d;
 const isControl = (c) => (c < 0x20 && !isAllowedByte(c)) || c === 0x7f;
 
-const files = execSync('git ls-files', { maxBuffer: 1 << 28 })
+// Tracked files PLUS untracked-but-not-ignored ones.
+//
+// `git ls-files` alone lists only what git already tracks, which left a blind
+// spot exactly where new bytes come from: a brand-new file is invisible to this
+// guard until the commit that adds it, so the one commit that could introduce a
+// control byte is the one commit this check couldn't pre-validate. That is not
+// hypothetical — `scripts/rename-stage2.mjs` shipped with two literal 0x01
+// bytes on 2026-07-31 while this check reported OK moments before, because the
+// file was still untracked. CI caught it only on the next run.
+//
+// `--others --exclude-standard` adds untracked files while still honoring
+// .gitignore, so build output and node_modules stay out.
+const files = execSync('git ls-files --cached --others --exclude-standard', { maxBuffer: 1 << 28 })
   .toString()
   .split('\n')
   .filter(Boolean);
@@ -86,7 +98,7 @@ for (const file of files) {
 }
 
 if (findings.length === 0) {
-  console.log(`check-control-bytes: OK — ${files.length} tracked files, no literal control bytes in text.`);
+  console.log(`check-control-bytes: OK — ${files.length} files (tracked + untracked), no literal control bytes in text.`);
   process.exit(0);
 }
 

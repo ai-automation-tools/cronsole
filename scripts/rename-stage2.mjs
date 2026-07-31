@@ -81,7 +81,7 @@ for (const file of tracked) {
   const sentinels = [];
   PROTECTED.forEach((token, i) => {
     if (!text.includes(token)) return;
-    const s = `PROT${i}`;
+    const s = `\x01PROT${i}\x01`;
     sentinels.push([s, token]);
     text = text.split(token).join(s);
   });

@@ -2116,6 +2116,25 @@ kills its caller**, so a registrar invoked with `&` takes the calling script dow
 the run merely looks like it stopped early. Invoke such scripts as a child process, and verify
 their effect by querying the system, not by an exit code a self-killing script can't produce.
 
+**And a guard can have the same blind spot.** `check-control-bytes` scanned `git ls-files` —
+**tracked** files only — so a brand-new file was invisible to it until the commit that added
+it. The single commit most likely to introduce a stray byte was the one commit the check
+couldn't pre-validate, and `scripts/rename-stage2.mjs` shipped with two literal `0x01` bytes
+while the check reported OK moments earlier. It now scans `--cached --others
+--exclude-standard` (tracked *and* untracked, still honoring `.gitignore`). **When a guard
+reports "clean", ask what it looked at** — a check that cannot see new files is weakest exactly
+where new problems come from.
+
+**A second-order consequence, worth knowing before you restore anything:** a task backup
+records **absolute paths**, and paths are machine state — so any rename or move silently ages
+every archive taken before it, and the archive cannot tell you that. A `\Task-Hub\` export from
+three days before this rename still points at `Start-TaskHub.ps1` and `taskhub.ps1`; restoring
+it now would register tasks that **fail silently** at logon, because `wscript.exe` launching a
+missing `.ps1` opens no window and reports nothing. Restore's plan does not catch this — it
+validates `\Microsoft\`, folder existence, and whether the task already exists, not whether the
+action points at a file that is there. **After renaming or moving anything a scheduled task
+references, take a fresh export and treat the old one as history, not as a restore point.**
+
 *First hit: 2026-07-31, stage 2 of the TaskHub → Cronsole rename.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>

@@ -35,6 +35,17 @@ export interface Settings {
   desktopNotifyOnFailure: boolean;
   // Onboarding: whether the first-run getting-started nudge has been dismissed
   onboardingSeen: boolean;
+  /**
+   * Categories ticked on the last successful import, or `null` if there has
+   * never been one.
+   *
+   * The distinction is the whole point. A first run must default to "everything
+   * that isn't system", because a user who imports nothing sees an empty product
+   * and concludes it doesn't work. Every run *after* that usually means "one new
+   * folder" — and inheriting the first run's answer is how a dashboard ends up
+   * with 352 rows. `null` picks the generous default exactly once.
+   */
+  lastImportCategories: string[] | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +61,7 @@ export const DEFAULT_SETTINGS: Settings = {
   toastOnFailure: true,
   desktopNotifyOnFailure: false,
   onboardingSeen: false,
+  lastImportCategories: null,
 };
 
 const STORAGE_KEY = 'cronsole.settings';

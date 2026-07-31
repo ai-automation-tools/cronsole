@@ -12,7 +12,7 @@
 
     Registers the new tasks FIRST and only removes the old ones once each
     replacement is confirmed present. If a registration fails, the old task is
-    left exactly where it is — a half-migrated machine that still starts is a far
+    left exactly where it is -- a half-migrated machine that still starts is a far
     better outcome than a tidy one that doesn't.
 
     The three tasks run at RunLevel Highest, so registering them requires
@@ -23,7 +23,7 @@
     what is already migrated.
 
 .NOTES
-    The app's own task folder (\TaskHub) needs no migration — Cronsole prunes it
+    The app's own task folder (\TaskHub) needs no migration -- Cronsole prunes it
     when its last task is deleted, so on a machine with no app-created tasks it
     does not exist, and the next created task lands in \Cronsole by itself.
 #>
@@ -71,13 +71,13 @@ foreach ($m in $Migrations) {
 
     # Each registrar runs in its OWN process, deliberately.
     #
-    # agent\setup-agent-startup.ps1 ends with `Stop-Process -Id $PID` — it closes
+    # agent\setup-agent-startup.ps1 ends with `Stop-Process -Id $PID` -- it closes
     # its own window when a user double-clicks it. Called in-process with `&`,
     # that kills the CALLER: the first registrar took this script down with it,
     # and the run looked like it had simply stopped after one task. A child
     # process can only ever kill itself.
     #
-    # The exit code is not checked for the same reason — a script that ends by
+    # The exit code is not checked for the same reason -- a script that ends by
     # killing its host has no meaningful one. Success is verified below by asking
     # Task Scheduler whether the task exists, which is the thing we actually care
     # about.
@@ -148,4 +148,4 @@ Write-Host "Tasks now registered:" -ForegroundColor Cyan
 Get-ScheduledTask -TaskPath $NewPath -ErrorAction SilentlyContinue |
     Select-Object TaskName, State | Format-Table -AutoSize
 
-Write-Host "A shell started before this run still has the old variable — open a new terminal." -ForegroundColor Yellow
+Write-Host "A shell started before this run still has the old variable -- open a new terminal." -ForegroundColor Yellow

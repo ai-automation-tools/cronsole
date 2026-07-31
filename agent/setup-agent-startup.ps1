@@ -7,7 +7,7 @@ $PublishDir = Join-Path $ScriptDir "publish"
 
 Write-Host "1. Building Cronsole C# Agent in Release mode..." -ForegroundColor Cyan
 
-# Stop any running agent first — publish fails if Cronsole.Agent.exe is locked.
+# Stop any running agent first -- publish fails if Cronsole.Agent.exe is locked.
 Stop-ScheduledTask -TaskPath "\Cronsole-Stack\" -TaskName "CronsoleAgent" -ErrorAction SilentlyContinue
 Stop-Process -Name "Cronsole.Agent" -Force -Confirm:$false -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2

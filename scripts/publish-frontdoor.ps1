@@ -5,7 +5,7 @@
 .DESCRIPTION
     Cronsole used to have two public pages: a marketing landing page at
     taskhub.mikesailab.com and the template gallery at mikesailab.com/taskhub-registry
-    (the names of the day — the product was still called TaskHub).
+    (the names of the day -- the product was still called TaskHub).
     Two front doors saying overlapping things. The landing page was retired on
     2026-07-28 and the gallery took over that domain, with the landing page's
     product pitch, quick start, and project links merged into its Home view.
@@ -13,7 +13,7 @@
     mikesailab.com/cronsole-registry, and this front door to cronsole.mikesailab.com.
 
     So this script publishes the SAME registry-site/index.html that
-    publish-registry.ps1 does — to a second host.
+    publish-registry.ps1 does -- to a second host.
 
     Why the registry lives at its own URL
     -------------------------------------
@@ -28,11 +28,11 @@
     cronsole-registry) as rename stage 3. It was safe precisely once: with
     TEMPLATE_REGISTRY_URL commented out everywhere, there were zero installs
     fetching it, so the old path 404-ing cost nothing. GitHub redirects a renamed
-    repo's *git* URLs indefinitely but NOT its Pages paths — so the same move
+    repo's *git* URLs indefinitely but NOT its Pages paths -- so the same move
     after the first real install would have been an unannounced outage. Treat the
     URL as frozen from here on.
 
-    Only the *page* is served from both hosts — it detects that index.json is not
+    Only the *page* is served from both hosts -- it detects that index.json is not
     beside it and falls back to the canonical registry origin (GitHub Pages sends
     Access-Control-Allow-Origin: *, so the cross-origin fetch is allowed).
 
@@ -51,7 +51,7 @@
 param(
     [string]$SiteRepoUrl = 'https://github.com/michaelschecht/cronsole-site.git',
     # The local reference clone doubles as the publish working clone, so every publish
-    # leaves it updated to the pushed state. It's a pure mirror — this script runs
+    # leaves it updated to the pushed state. It's a pure mirror -- this script runs
     # `git reset --hard origin/main` on it, so never keep manual work here.
     [string]$WorkDir = $(
         $tools = 'D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\cronsole-site'
@@ -78,7 +78,7 @@ if (Test-Path (Join-Path $WorkDir '.git')) {
 }
 
 # The custom domain lives or dies by this file, and it is not mirrored from the
-# source repo — so check it survived the reset rather than discovering the
+# source repo -- so check it survived the reset rather than discovering the
 # domain is down after the fact.
 $cname = Join-Path $WorkDir 'CNAME'
 if (-not (Test-Path $cname)) {

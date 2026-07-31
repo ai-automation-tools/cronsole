@@ -29,7 +29,7 @@ $templates.Count
 ## 2. Prune-on-sync spared your own templates
 
 ```powershell
-docker exec taskhub-db-1 psql -U cronsole -d cronsole `
+docker exec taskhub-db-1 psql -U taskhub -d taskhub `
   -c 'SELECT name, managed FROM "Template" ORDER BY managed, name;'
 ```
 
@@ -40,7 +40,7 @@ your own templates vanished, that's a serious data-loss bug.
 ## 3. `core` never reached the database
 
 ```powershell
-docker exec taskhub-db-1 psql -U cronsole -d cronsole -c '\d "Template"'
+docker exec taskhub-db-1 psql -U taskhub -d taskhub -c '\d "Template"'
 ```
 
 **Expect:** **no `core` column.** `normalize.ts` whitelists Prisma fields; `core` is a

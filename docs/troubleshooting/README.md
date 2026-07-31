@@ -21,6 +21,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 36 | **Every** Playwright E2E spec fails on a dashboard heading that plainly exists, against a stack that is healthy — `4 failed, 5 did not run` | `VITE_DEV_TOKEN` in `frontend/.env.local` is **empty**, signed with a rotated `JWT_SECRET`, or names a `User.id` that doesn't exist — so the browser sits on the login screen. The suite has no login step by design. **The tell is the page snapshot in `test-results/*/error-context.md` showing a Sign in form.** E2E is the one suite not in CI, so this disables the whole full-stack gate while everything else stays green | [→](#36-every-playwright-e2e-test-fails-on-a-heading-that-exists--the-browser-is-sitting-on-the-login-screen) |
+| 37 | The E2E suite passes 9/9 and your **real** Windows agent is offline immediately afterwards — and stays offline | [#5](#5-windows-offline-after-running-a-transient-test-agent) reached through the test suite: `mock-agent.spec.ts` takes the single per-user agent socket and clears the mapping on disconnect. The agent process stays UP, so every process-level check lies. `pwsh scripts/cronsole.ps1 restart`, then **check `/api/tasks/health` as the last step of the run** | [→](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) |
 | 1 | Backend crash-loops on startup with an opaque `[Object: null prototype] {}` uncaught exception | `ts-node` can't parse the installed TypeScript version | [→](#1-backend-crash-loops-with-object-null-prototype) |
 | 2 | Dashboard shows no tasks / `403 Invalid or expired token`; agent handshake rejected | Docker's default secrets don't match your rotated `backend/.env` | [→](#2-403-invalid-or-expired-token-or-agent-rejected) |
 | 3 | Port 3000 shows as `LISTENING` but every request returns `HTTP 000` / `EADDRINUSE` on restart | Docker's port proxy holds the port even though the app process died | [→](#3-port-listening-but-http-000--eaddrinuse) |
@@ -2345,6 +2347,119 @@ a rename pass keeps finding new surfaces that quietly asserted the old name, and
 *stop* things fail by reporting success.
 
 *First hit: 2026-07-31, immediately after the #35 fix, on the second run of the same migration.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 36. Every Playwright E2E test fails on a heading that exists — the browser is sitting on the login screen
+
+**Symptom** — you run `npm run test:e2e` against a healthy stack and *every* spec fails the
+same way:
+
+```
+Error: expect(locator).toBeVisible() failed
+Locator: getByRole('heading', { name: 'Unified Task Dashboard' })
+Error: element(s) not found
+```
+
+`4 failed, 5 did not run`. The stack is fine — `cronsole.ps1 status` says ALL UP, the dashboard
+works in your own browser, and the heading is right there in the source.
+
+**Cause** — `frontend/.env.local` has `VITE_DEV_TOKEN=""` (or a token signed with a **rotated**
+`JWT_SECRET`, or one whose `id` is not a real `User.id`). The E2E suite has **no login step by
+design**: the browser authenticates with that env token, and without it the app correctly falls
+through to `AuthScreen`. Every assertion then fails on a dashboard that was never supposed to
+render yet.
+
+**The tell** — the failure message never mentions auth, but Playwright saves a page snapshot.
+Open `frontend/test-results/<spec>/error-context.md` and look at the YAML:
+
+```yaml
+- heading "Cronsole" [level=1]
+- paragraph: Sign in to your dashboard
+- button "Sign in"
+```
+
+A **Sign in** form there means the credential, not the app. (If the page snapshot is *missing*
+entirely and the page rendered blank, it's a different problem — see the Vite note below.)
+
+**Fix** — mint a token for a user that actually exists and paste it in:
+
+```bash
+cd backend && node --input-type=module -e "
+import 'dotenv/config'; import jwt from 'jsonwebtoken';
+console.log(jwt.sign({ id: 'cli_user_placeholder', email: '<your login email>' }, process.env.JWT_SECRET, { expiresIn: '3650d' }));"
+```
+
+Put it in `frontend/.env.local` as `VITE_DEV_TOKEN="…"`. Vite watches `.env` files and restarts
+itself, so no manual restart is needed — confirm with:
+
+```bash
+curl -s http://localhost:7373/src/api.ts | head -c 200   # VITE_DEV_TOKEN should be non-empty
+```
+
+Verify the `id` against the DB first (`SELECT id FROM "User";`) — a **valid signature for a
+nonexistent user** 401s just like a bad token, and looks identical from the browser.
+
+**Why this one is worth its own entry:** E2E is the only suite **not in CI**, so this failure
+mode disables the entire full-stack gate while every other suite stays green. It doesn't look
+like a missing credential; it looks like the frontend is broken, which is where the time goes.
+
+> [!TIP]
+> **A blank page instead of a login form is a different cause.** If `error-context.md` has no
+> page snapshot at all, the dev server is serving stale optimized deps — usually right after a
+> dependency was added or removed while Vite was running (hit on 2026-07-31 during the
+> `react-router-dom` → `react-router` swap). Same family as [#4](#4-backend-source-edits-not-picked-up-in-docker):
+> a long-lived process holding state the source no longer matches. `pwsh scripts/cronsole.ps1 restart`.
+
+*First hit: 2026-07-31, running the full test sweep after the rename.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 37. Running the E2E suite knocks your real Windows agent offline — and it stays that way
+
+**Symptom** — the Playwright suite passes 9/9, and immediately afterwards the dashboard shows
+**Windows: Offline**:
+
+```
+[{"platform":"WINDOWS_TASK_SCHEDULER","state":"OFFLINE","reason":"Agent not connected"}, …]
+```
+
+`Cronsole.Agent` is still running (`cronsole.ps1 status` reports the process UP), and polling
+for several minutes does not recover it.
+
+**Cause** — this is [#5](#5-windows-offline-after-running-a-transient-test-agent) reached
+through the **test suite** rather than a hand-started dogfood agent. `mock-agent.spec.ts`
+connects a `MockCronsoleAgent` in `beforeEach` and disconnects it in `afterEach`. The backend
+maps **one agent socket per user**, so the mock becomes *the* Windows agent while it's
+connected, and on disconnect the backend clears the mapping. The real agent's socket is still
+alive from **its** point of view, so it never reconnects — and re-registration only happens on
+connect. It is connected-but-unregistered, indefinitely.
+
+**Fix** — drop all agent sockets so the real one reconnects and re-registers:
+
+```bash
+pwsh scripts/cronsole.ps1 restart
+curl -s http://localhost:3000/api/tasks/health -H "Authorization: Bearer <dev token>"
+# expect WINDOWS_TASK_SCHEDULER: HEALTHY
+```
+
+**Treat that health check as the last step of the E2E run, not an optional follow-up.** Nothing
+warns you: the suite reports success (it *did* succeed — the mock behaved correctly), the agent
+process is still running so every process-level check says UP, and the damage only surfaces the
+next time something actually needs the agent. If you run E2E and then go debug why a task won't
+fire, you will debug the wrong thing.
+
+> [!NOTE]
+> The suite is not doing anything wrong — a mock agent is the whole point, and it deliberately
+> seeds its task list from the real tasks so a sync can't prune them. The single-socket-per-user
+> mapping is an MVP simplification, and this is its cost. **Prefer running E2E when you are not
+> also relying on the live agent.**
+
+*First hit: 2026-07-31, running the full test sweep after the rename.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -63,7 +63,7 @@ against real SQL is the entire point.
 
 | # | Test type | What it must prove | Status |
 |:--|:---|:---|:--|
-| I2.1 | **Full auth flow** | Register → login → authed request → refresh → rotate, end to end over HTTP | ✅ `auth.integration.test.ts` |
+| I2.1 | **Full auth flow** | First-run setup → login → authed request, end to end over HTTP. **There is no refresh or rotation step** — one 24h token, and the second `/auth/setup` returns 409. `POST /auth/register` is gone; a test pins its 404 | ✅ `auth.integration.test.ts` *(read "→ refresh → rotate" until 2026-07-31, describing a flow that has never existed)* |
 | I2.2 | **Route scoping / IDOR** | User A gets **404/403**, never User B's data — on every route, including ones added later | ✅ `idor.integration.test.ts` |
 | I2.3 | **Token rejection** | Expired, malformed, and wrong-secret tokens are refused | ✅ `auth.integration.test.ts` |
 | I2.4 | **Middleware order** | Auth runs before handlers — no route accidentally left open | ⬜ |

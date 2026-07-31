@@ -56,11 +56,18 @@ $tasks.Count
 The `/api/tasks` call above already proved Prisma can reach Postgres. Confirm directly:
 
 ```powershell
-docker exec taskhub-db-1 psql -U cronsole -d cronsole -c 'SELECT COUNT(*) FROM "Task";'
+docker exec taskhub-db-1 psql -U taskhub -d taskhub -c 'SELECT COUNT(*) FROM "Task";'
 ```
 
 **Expect:** a count matching step 4. Table names are **PascalCase and quoted** — Prisma
 doesn't map them to snake_case.
+
+> [!NOTE]
+> **The role, database and container all stay `taskhub` — the rename deliberately stopped at
+> the data layer.** `docker-compose.yml` pins `name: taskhub` so the existing volume keeps its
+> identity, and `POSTGRES_USER` / `POSTGRES_DB` match it. Every `psql` line in these runbooks
+> said `-U cronsole -d cronsole` until 2026-07-31 and failed on the first step: **no such role
+> exists.** If you see `role "cronsole" does not exist`, the command is wrong, not your stack.
 
 ## 6. Agent is online
 

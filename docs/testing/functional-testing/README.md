@@ -89,11 +89,11 @@ silent data loss lives.
 | # | Test type | What it must prove | Status |
 |:--|:---|:---|:--|
 | F4.1 | **Register / login** | Credential validation, password hashing, token issuance | ✅ `auth.integration.test.ts` |
-| F4.2 | **JWT access + refresh** | Refresh works; rotation invalidates the old token | ✅ `auth.integration.test.ts` |
+| F4.2 | **JWT lifetime** | A single **24h access token** — issued at login, never rotated. **There is no refresh flow**: the auth surface is exactly `GET /status`, `POST /setup`, `POST /login`. Expiry means logging in again | ✅ `auth.integration.test.ts` *(this row claimed "Refresh works; rotation invalidates the old token" until 2026-07-31 — an aspiration in the present tense, with no `refresh` anywhere in the route or the test)* |
 | F4.3 | **Config encryption** | `PlatformConnection.config` is AES-256-GCM encrypted before write; decrypted values never logged | ✅ `encryption.test.ts`, `connectionConfig.test.ts` |
 | F4.4 | **Route scoping** | A user cannot read or mutate another user's tasks | ✅ `idor.integration.test.ts` |
 | F4.5 | **No-shell command handling** | Structured `exec` stays `{executable, args[]}` — no implicit shell, no `cmd.exe /c` | ✅ `commandParser.test.ts`, `ArgumentQuotingTests.cs` |
-| F4.6 | **Login rate limit** | 10 login attempts in 10s returns **429** | ⬜ **Not implemented** — see [ROADMAP](../../ROADMAP.md) |
+| F4.6 | **Login rate limit** | Repeated credential guesses return **429**. Shipped 2026-07-31: `makeAuthLimiter()` is a per-IP limiter (**10 attempts / 15 min**) on **both** `/auth/login` and `/auth/setup` — setup is a credential-creation surface, so leaving it unlimited would just move the target. Skipped under `NODE_ENV=test` and `DISABLE_AUTH_RATE_LIMIT=true` so the suites aren't throttled | ✅ `authLimiter.test.ts` |
 
 ## 🖥️ UI & interaction
 
@@ -103,7 +103,8 @@ silent data loss lives.
 | F5.2 | **Confirm gates** | Destructive actions prompt; cancel truly cancels, accept truly executes | ✅ `ConfirmProvider.test.tsx` |
 | F5.3 | **Mobile viewport** | Primary dashboard stays usable and actionable below **375px** | ✅ E2E `mock-agent.spec.ts` |
 | F5.4 | **Routing & deep links** | Bookmarkable sections; `/tasks/:id` and `/templates/:id` resolve cold | 🟡 |
-| F5.5 | **Dark theme default** | Dark is default on a fresh install **even when the OS prefers light** (`system` is an explicit third choice, not the fallback); persists via `localStorage` key `taskhub.theme`; `index.html`'s pre-paint fallback matches the hook's, so the first frame agrees with the app | ✅ `useTheme.test.tsx` |
+| F5.5 | **Dark theme default** | Dark is default on a fresh install **even when the OS prefers light** (`system` is an explicit third choice, not the fallback); persists via `localStorage` key **`cronsole.theme`** (`taskhub.theme` is *read* as a legacy fallback so the rename didn't reset anyone's theme); `index.html`'s pre-paint fallback matches the hook's, so the first frame agrees with the app | ✅ `useTheme.test.tsx` |
+| F5.11 | **The brand is right on the logged-out screens** | The login / first-run setup heading says **Cronsole**. It said `TaskHub` from the rename until 2026-07-31 because the markup split it as `Task<span>Hub</span>` — **ungreppable, so a rename sweep can't see it**, and the E2E suite authenticates past this screen with the dev token so it never rendered there either. Asserted on the *rendered* heading, both modes | ✅ `AuthFlow.test.tsx` |
 | F5.9 | **Closed mobile drawer is inert** | Below `md` a closed sidebar is out of the tab order **and** the accessibility tree (a transform hides it visually only); at and above `md` the same element is the real nav and must stay reachable | ✅ `Sidebar.test.tsx` |
 | F5.10 | **System/personal split** | OS-owned tasks are hidden by default from **every** count, chip, facet and view (one outermost lens, not per-place filtering); the toggle **says what it hides** and persists; the hidden count is taken over all tasks so it can't read 0 while hiding 257; `isSystem` is the server's verdict, never re-derived in the browser | ✅ `systemTasks.test.ts`, `TaskService.test.ts` |
 | F5.6 | **Live updates** | A WebSocket `task:updated` invalidates the TanStack Query cache and repaints | ✅ E2E `smoke.spec.ts` |

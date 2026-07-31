@@ -252,7 +252,12 @@ That's data loss, not a UX nit.
 
 ## Auth
 
-JWT access + refresh (OAuth2 post-MVP). Users get JWTs; **agents** get a
+**A single 24h JWT access token — there is no refresh flow and no rotation** (OAuth2
+post-MVP). Expiry means logging in again. *(This line read "JWT access + refresh" until
+2026-07-31, contradicting the route table above it in this same file — the same false claim
+that stood in CLAUDE.md and in two testing docs. An aspiration written in the present tense
+propagates across every surface that copies it.)* `/auth/login` and `/auth/setup` are both
+rate-limited per IP (**10 / 15 min** → `429`). Users get JWTs; **agents** get a
 pairing-secret-derived token. WSS only in prod. Multi-tenancy is enforced by route scoping —
 every route must scope by `userId`, and **every new route is a fresh chance to leak**. The
 IDOR integration sweep exists for exactly this; add new routes to it in the same PR.
@@ -269,6 +274,10 @@ you rotate `backend/.env` and forget the root `.env`.
 - `components/ui/` — the `Modal` primitive (Escape, focus trap, ARIA, nested-modal stack).
 - `hooks/` — `useSettings`, `useToast`, `useConfirm` (promise-based), `useLiveTaskUpdates`.
 - **TanStack Query for all server state.** Invalidate on WebSocket `task:updated`.
-- Dark by default; `darkMode: 'class'`; persisted at `localStorage['taskhub.theme']`.
+- Dark by default; `darkMode: 'class'`; persisted at **`localStorage['cronsole.theme']`**
+  (`taskhub.theme` is still *read* as a legacy fallback, assembled from parts on purpose so a
+  future rename pass can't rewrite it into a no-op that still reads correctly).
+- **The brand is one contiguous string wherever it renders.** Splitting it (`Task<span>Hub</span>`)
+  is how the login screen kept the old name through the whole rename — invisible to grep.
 - **Mobile is first-class** — every page must pass a `<375px` viewport check. The FR is
   "trigger from phone in <30 seconds."

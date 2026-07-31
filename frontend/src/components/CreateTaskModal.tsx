@@ -18,7 +18,7 @@ interface CreateTaskModalProps {
  * Creates a task on a chosen platform:
  * - Cronsole-native — scheduled and executed by the backend itself, no OS entry
  *   (docs/resources/Native_Tasks.md).
- * - Windows — registered as a real Task Scheduler task under \TaskHub\ via the
+ * - Windows — registered as a real Task Scheduler task under \Cronsole\ via the
  *   agent, with the cron converted to a native trigger (same path as templates).
  */
 export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
@@ -82,7 +82,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast(
         isWindows
-          ? `Windows task "${name}" created under the \\TaskHub\\ scheduler folder.`
+          ? `Windows task "${name}" created under the \\Cronsole\\ scheduler folder.`
           : `Cronsole task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
         'success'
       );
@@ -93,7 +93,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
       const message = err.response?.data?.error || err.message;
       toast(
         message === 'Agent offline'
-          ? 'Create failed: the Windows agent is not connected. Check that the TaskHubAgent scheduled task is running.'
+          ? 'Create failed: the Windows agent is not connected. Check that the CronsoleAgent scheduled task is running.'
           : `Create failed: ${message}`,
         'error'
       );
@@ -269,7 +269,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : 'text-violet-400'}`} />
             <span>
               {isWindows
-                ? 'Created under the \\TaskHub\\ folder in Task Scheduler, so Cronsole-made tasks stay identifiable. Requires the Windows agent to be online.'
+                ? 'Created under the \\Cronsole\\ folder in Task Scheduler, so Cronsole-made tasks stay identifiable. Requires the Windows agent to be online.'
                 : 'Runs only while the Cronsole backend is up. Use a Windows task instead for jobs that must survive Cronsole being offline.'}
             </span>
           </div>

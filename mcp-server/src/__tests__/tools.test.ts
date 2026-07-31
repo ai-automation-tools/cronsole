@@ -92,7 +92,7 @@ const task = (over: Partial<Record<string, unknown>> = {}) => ({
   category: 'Backup',
   schedule: '0 3 * * *',
   status: 'ACTIVE',
-  externalId: '\\TaskHub\\Nightly Backup',
+  externalId: '\\Cronsole\\Nightly Backup',
   nextRunTime: '2026-07-16T03:00:00.000Z',
   lastRunStatus: 'SUCCESS',
   lastRunAt: '2026-07-15T03:00:00.000Z',
@@ -377,12 +377,12 @@ describe('list_templates', () => {
 describe('list_folders', () => {
   const folders = {
     folders: [
-      { path: '\\TaskHub', taskCount: 3, writable: true },
+      { path: '\\Cronsole', taskCount: 3, writable: true },
       { path: '\\Work\\Backups', taskCount: 1, writable: true },
       { path: '\\Microsoft\\Windows', taskCount: 12, writable: false },
       { path: '\\Empty', taskCount: 0, writable: true }
     ],
-    defaultFolder: '\\TaskHub'
+    defaultFolder: '\\Cronsole'
   };
   const mk = () => stubClient({ 'GET /tasks/folders': folders });
 
@@ -419,8 +419,8 @@ describe('list_folders', () => {
   it('marks the default folder, since it needs no discovery', async () => {
     const mcp = await connect(mk().client);
     const r = await call(mcp, 'list_folders');
-    expect(text(r)).toMatch(/\\TaskHub \[default\]/);
-    expect(r.structuredContent?.defaultFolder).toBe('\\TaskHub');
+    expect(text(r)).toMatch(/\\Cronsole \[default\]/);
+    expect(r.structuredContent?.defaultFolder).toBe('\\Cronsole');
   });
 
   it('states the default folder even when the filter excludes it', async () => {
@@ -428,28 +428,28 @@ describe('list_folders', () => {
     // `folder` — otherwise it invents one.
     const mcp = await connect(mk().client);
     const out = text(await call(mcp, 'list_folders', { search: 'work' }));
-    expect(out).toMatch(/Default folder: \\TaskHub/);
+    expect(out).toMatch(/Default folder: \\Cronsole/);
   });
 
   it('still names the default folder when it does not currently exist', async () => {
-    // Observed live, not hypothesised: \TaskHub is created lazily and the agent
+    // Observed live, not hypothesised: \Cronsole is created lazily and the agent
     // PRUNES it when its last task is deleted, so the default folder is
     // routinely absent from a real listing. An agent that read absence as
     // "unusable" would go invent a folder — which Cronsole then refuses,
-    // because it only ever creates \TaskHub. The note must not depend on the
+    // because it only ever creates \Cronsole. The note must not depend on the
     // folder being present.
     const { client } = stubClient({
       'GET /tasks/folders': {
-        folders: [{ path: '\\Task-Hub', taskCount: 3, writable: true }],
-        defaultFolder: '\\TaskHub'
+        folders: [{ path: '\\Cronsole-Stack', taskCount: 3, writable: true }],
+        defaultFolder: '\\Cronsole'
       }
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'list_folders');
-    expect(text(r)).not.toMatch(/\\TaskHub \[default\]/);
-    expect(text(r)).toMatch(/Default folder: \\TaskHub/);
+    expect(text(r)).not.toMatch(/\\Cronsole \[default\]/);
+    expect(text(r)).toMatch(/Default folder: \\Cronsole/);
     expect(text(r)).toMatch(/Cronsole creates this one itself/);
-    expect(r.structuredContent?.defaultFolder).toBe('\\TaskHub');
+    expect(r.structuredContent?.defaultFolder).toBe('\\Cronsole');
   });
 
   it('filters by path, case-insensitively', async () => {
@@ -486,7 +486,7 @@ describe('list_folders', () => {
   });
 
   it('survives a folders payload with no rows', async () => {
-    const { client } = stubClient({ 'GET /tasks/folders': { folders: [], defaultFolder: '\\TaskHub' } });
+    const { client } = stubClient({ 'GET /tasks/folders': { folders: [], defaultFolder: '\\Cronsole' } });
     const mcp = await connect(client);
     const r = await call(mcp, 'list_folders');
     expect(r.isError).toBeFalsy();
@@ -644,7 +644,7 @@ describe('create_task', () => {
 
   it('surfaces a duplicate-name 409 honestly', async () => {
     const { client } = stubClient({
-      'POST /tasks': () => new CronsoleApiError('A task named "x" already exists in \\TaskHub', 409)
+      'POST /tasks': () => new CronsoleApiError('A task named "x" already exists in \\Cronsole', 409)
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'create_task', { name: 'x', command: 'c.exe', schedule: '0 9 * * *' });
@@ -672,7 +672,7 @@ describe('create_task', () => {
 describe('create_task_from_template', () => {
   const applied = {
     message: 'Template applied successfully',
-    result: { externalId: '\\TaskHub\\x' },
+    result: { externalId: '\\Cronsole\\x' },
     conversion: { confidence: 1, warnings: [] as string[] }
   };
 

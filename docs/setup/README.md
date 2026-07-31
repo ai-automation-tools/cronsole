@@ -24,12 +24,12 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 | **`TEST_DATABASE_URL`** | backend (tests) | Postgres URL for the integration suite (`npm run test:integration`). Defaults to `postgresql://taskhub:password@localhost:5432/taskhub_test` — the suite **creates, migrates, and truncates** this database, so point it at a throwaway DB, never a real one. Unit tests (`npm test`) don't use it. |
 | **`JWT_SECRET`** | backend | Signing secret for user auth tokens. Must be **≥ 16 chars**; the backend **fails to start** on a missing or weak secret. Generate: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. |
 | **`ENCRYPTION_KEY`** | backend | AES-256-GCM key that encrypts `PlatformConnection.config` (API keys, agent IDs, pairing secrets) **at rest**. Must be **exactly 32 characters**; the backend **fails to start** otherwise. |
-| **`AGENT_PAIRING_SECRET`** | backend + agent | Shared secret for the agent's WebSocket handshake. The backend **fails to start** without it; the agent must set the same value as `TASKHUB_PAIRING_SECRET`. Use a long random string (`openssl rand -hex 24`). |
+| **`AGENT_PAIRING_SECRET`** | backend + agent | Shared secret for the agent's WebSocket handshake. The backend **fails to start** without it; the agent must set the same value as `CRONSOLE_PAIRING_SECRET`. Use a long random string (`openssl rand -hex 24`). |
 | **`DISABLE_AUTH_RATE_LIMIT`** | backend | Optional. Set to `true` to disable the login/setup rate-limiter (per-IP, on `/api/auth/login` + `/setup`). The limiter is already skipped under `NODE_ENV=test`; this is an escape hatch for local load testing. Leave unset in normal use. |
 | **`ALLOWED_ORIGINS`** | backend | Comma-separated browser origins allowed to reach the backend — it gates **both** the REST API's CORS headers and the Socket.IO handshake. Set it to the frontend origin (e.g. `http://localhost:7373`); that also enables **browser live updates**, the dashboard's push channel that refreshes the task list on agent syncs / scheduled runs instead of polling. **Empty = agent-only sockets *and* a REST API any origin can read** — the backend warns at boot when that's the case. Non-browser callers (the MCP server, `curl`) send no `Origin` and are unaffected. A **refused** browser origin is logged once, naming the origin and the allowed list ([troubleshooting #31](../troubleshooting/README.md#31-the-dashboard-loads-but-every-api-call-fails-with-a-cors-error)). |
-| **`TASKHUB_SERVER_URL`** | agent | Backend URL the agent connects to (WSS-capable, e.g. `wss://taskhub.example.com`). Defaults to `http://localhost:3000`. Overrides `serverUrl` in appsettings.json. |
-| **`TASKHUB_PAIRING_SECRET`** | agent | Must equal the backend's `AGENT_PAIRING_SECRET`. Required **unless** set via `appsettings.json` — the agent exits if neither provides it. Overrides the file. |
-| **`TASKHUB_AGENT_ID`** | agent | Stable identifier for this agent. Defaults to the machine name. Overrides `agentId` in appsettings.json. |
+| **`CRONSOLE_SERVER_URL`** | agent | Backend URL the agent connects to (WSS-capable, e.g. `wss://taskhub.example.com`). Defaults to `http://localhost:3000`. Overrides `serverUrl` in appsettings.json. |
+| **`CRONSOLE_PAIRING_SECRET`** | agent | Must equal the backend's `AGENT_PAIRING_SECRET`. Required **unless** set via `appsettings.json` — the agent exits if neither provides it. Overrides the file. |
+| **`CRONSOLE_AGENT_ID`** | agent | Stable identifier for this agent. Defaults to the machine name. Overrides `agentId` in appsettings.json. |
 
 > [!IMPORTANT]
 > Secrets never belong in committed code. Copy `backend/.env.example` → `backend/.env` and
@@ -70,7 +70,7 @@ npm install
 npm run dev                 # http://localhost:7373  (uses VITE_API_URL, default :3000)
 
 # Windows agent — third terminal (Windows only)
-cd agent/TaskHub.Agent
+cd agent/Cronsole.Agent
 dotnet run                  # connects out to the backend
 ```
 
@@ -88,10 +88,10 @@ frontend dev servers (host), and the Windows agent (host `.exe`). Rather than
 starting/checking each one, use the single control script:
 
 ```powershell
-pwsh scripts\taskhub.ps1 status   # one table: every service + API health, ALL UP / PARTIAL / DOWN
-pwsh scripts\taskhub.ps1 up       # start whatever's down (idempotent)
-pwsh scripts\taskhub.ps1 restart  # bounce the app tier
-pwsh scripts\taskhub.ps1 down     # stop backend + frontend + agent
+pwsh scripts\cronsole.ps1 status   # one table: every service + API health, ALL UP / PARTIAL / DOWN
+pwsh scripts\cronsole.ps1 up       # start whatever's down (idempotent)
+pwsh scripts\cronsole.ps1 restart  # bounce the app tier
+pwsh scripts\cronsole.ps1 down     # stop backend + frontend + agent
 ```
 
 Postgres/Redis carry `restart: unless-stopped`, so they self-heal after a crash
@@ -107,12 +107,12 @@ the backend signs every task command so the agent only executes commands it can 
 
 Configure the agent one of two ways (env vars **override** the file, so a deployment can set
 them without editing anything):
-- **`agent/TaskHub.Agent/appsettings.json`** (recommended for local dev) — copy
+- **`agent/Cronsole.Agent/appsettings.json`** (recommended for local dev) — copy
   `appsettings.example.json` to `appsettings.json` and set `pairingSecret` (and optionally
   `serverUrl`/`agentId`). This file is gitignored so the secret isn't committed, and you
   don't have to re-export anything each run.
-- **Environment variables** — `TASKHUB_SERVER_URL` (WSS-capable), `TASKHUB_PAIRING_SECRET`,
-  `TASKHUB_AGENT_ID`.
+- **Environment variables** — `CRONSOLE_SERVER_URL` (WSS-capable), `CRONSOLE_PAIRING_SECRET`,
+  `CRONSOLE_AGENT_ID`.
 
 Either way the secret must match the backend's `AGENT_PAIRING_SECRET`. A per-user **pairing-code flow**
 (vs. today's single shared secret) is tracked on the [Roadmap](../ROADMAP.md) go-public

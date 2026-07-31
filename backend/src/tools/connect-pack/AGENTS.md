@@ -40,8 +40,8 @@ set, not an obstacle. Say so and offer the safe alternative. Do not route around
    an unattended run hangs forever and reports nothing useful.
 7. **`\Microsoft\` is refused.** Registering a task silently overwrites a same-named one and
    the agent runs elevated; writing there could destroy a real Windows task.
-8. **A folder must already exist.** The only folder Cronsole creates is `\TaskHub`. Use
-   `list_folders` — never guess a path. `\TaskHub` being absent from the listing is normal
+8. **A folder must already exist.** The only folder Cronsole creates is `\Cronsole`. Use
+   `list_folders` — never guess a path. `\Cronsole` being absent from the listing is normal
    (created on demand, pruned when empty).
 9. **Use `-NoProfile` on PowerShell** and `Invoke-RestMethod` (or `-UseBasicParsing`) for HTTP.
 10. **`update_task_action` replaces the action, it does not patch it.** Read current values
@@ -56,7 +56,7 @@ ran*.
 Verify from outside Cronsole:
 
 ```powershell
-Get-ScheduledTaskInfo -TaskPath '\TaskHub\' -TaskName '<name>' |
+Get-ScheduledTaskInfo -TaskPath '\Cronsole\' -TaskName '<name>' |
   Select-Object LastRunTime, LastTaskResult
 #   0      = exited cleanly
 #   267009 = still running (hung)

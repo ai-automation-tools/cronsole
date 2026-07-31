@@ -22,7 +22,7 @@ const task = (externalId: string, name?: string): TaskInfo => ({
 describe('taskFolderOf', () => {
   it('strips the task name, leaving the folder', () => {
     expect(taskFolderOf('\\Work\\Backups\\Nightly')).toBe('\\Work\\Backups');
-    expect(taskFolderOf('\\TaskHub\\MyTask')).toBe('\\TaskHub');
+    expect(taskFolderOf('\\Cronsole\\MyTask')).toBe('\\Cronsole');
   });
 
   it('reports the root for a task with no folder', () => {
@@ -52,7 +52,7 @@ describe('isSystemTaskPath', () => {
   });
 
   it('does not match ordinary user folders', () => {
-    expect(isSystemTaskPath('\\TaskHub\\Nightly')).toBe(false);
+    expect(isSystemTaskPath('\\Cronsole\\Nightly')).toBe(false);
     expect(isSystemTaskPath('\\Nightly')).toBe(false);
   });
 });
@@ -75,7 +75,7 @@ describe('isWithinFolder', () => {
 
 describe('selectExportCandidates', () => {
   const machine = [
-    task('\\TaskHub\\Nightly'),
+    task('\\Cronsole\\Nightly'),
     task('\\Work\\Backup'),
     task('\\Work\\Backups\\Deep'),
     task('\\RootTask'),
@@ -86,7 +86,7 @@ describe('selectExportCandidates', () => {
   it('excludes Windows system tasks by default and reports how many', () => {
     const result = selectExportCandidates(machine, { scope: 'all' });
     expect(result.selected.map(c => c.externalId)).toEqual([
-      '\\TaskHub\\Nightly',
+      '\\Cronsole\\Nightly',
       '\\Work\\Backup',
       '\\Work\\Backups\\Deep',
       '\\RootTask'
@@ -159,10 +159,10 @@ describe('exportRelativePath', () => {
   it('keeps same-named tasks in different folders apart', () => {
     const taken = new Set<string>();
     const a = exportRelativePath(candidate('\\Work\\Backup', 'Backup'), taken);
-    const b = exportRelativePath(candidate('\\TaskHub\\Backup', 'Backup'), taken);
+    const b = exportRelativePath(candidate('\\Cronsole\\Backup', 'Backup'), taken);
     expect(a).not.toBe(b);
     expect(a).toBe('Work/Backup.xml');
-    expect(b).toBe('TaskHub/Backup.xml');
+    expect(b).toBe('Cronsole/Backup.xml');
   });
 
   it('suffixes a residual collision instead of overwriting', () => {

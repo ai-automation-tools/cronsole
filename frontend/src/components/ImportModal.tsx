@@ -86,7 +86,7 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                 <p className="text-xs text-subtle-foreground">
                   {error
                     ? 'Discovery failed — is the backend running?'
-                    : 'No platform returned any tasks. The Windows agent may be offline — check that the TaskHubAgent scheduled task is running, then try again.'}
+                    : 'No platform returned any tasks. The Windows agent may be offline — check that the CronsoleAgent scheduled task is running, then try again.'}
                 </p>
               </div>
             )}

@@ -8,7 +8,13 @@ import { ToastProvider } from './hooks/ToastProvider.tsx'
 import { ConfirmProvider } from './hooks/ConfirmProvider.tsx'
 import { AuthProvider } from './hooks/AuthProvider.tsx'
 import { AuthGate } from './components/AuthGate.tsx'
+import { migrateLegacyStorageKeys } from './utils/storageMigration.ts'
 import './index.css'
+
+// Before anything reads a key: carry the login token, theme, settings and
+// API-origin override across the TaskHub → Cronsole rename. Without this the
+// rename would log the user out and reset their preferences.
+migrateLegacyStorageKeys()
 
 const queryClient = new QueryClient()
 

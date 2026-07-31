@@ -22,7 +22,7 @@ const planResponse = (overrides: Partial<{
     plan: {
       items: [
         { relativePath: 'Work/Nightly.xml', taskPath: '\\Work\\Nightly', source: 'manifest', name: 'Nightly', action: 'create', foldersToCreate: ['\\Work'] },
-        { relativePath: 'Cronsole/Ping.xml', taskPath: '\\TaskHub\\Ping', source: 'manifest', name: 'Ping', action: 'skip', reason: 'A task already exists at this path.', foldersToCreate: [] }
+        { relativePath: 'Cronsole/Ping.xml', taskPath: '\\Cronsole\\Ping', source: 'manifest', name: 'Ping', action: 'skip', reason: 'A task already exists at this path.', foldersToCreate: [] }
       ],
       foldersToCreate: ['\\Work'],
       counts: { files: 2, create: 1, overwrite: 0, skip: 1, refuse: 0 },
@@ -153,7 +153,7 @@ describe('RestoreTool', () => {
         counts: { files: 2, created: 1, replaced: 0, skipped: 1, refused: 0, foldersCreated: ['\\Work'] },
         results: [
           { relativePath: 'Work/Nightly.xml', taskPath: '\\Work\\Nightly', name: 'Nightly', action: 'create', outcome: 'created', foldersCreated: ['\\Work'] },
-          { relativePath: 'Cronsole/Ping.xml', taskPath: '\\TaskHub\\Ping', name: 'Ping', action: 'skip', outcome: 'exists', message: 'A task already exists at this path.', foldersCreated: [] }
+          { relativePath: 'Cronsole/Ping.xml', taskPath: '\\Cronsole\\Ping', name: 'Ping', action: 'skip', outcome: 'exists', message: 'A task already exists at this path.', foldersCreated: [] }
         ]
       }
     } as never);

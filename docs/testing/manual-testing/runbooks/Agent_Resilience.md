@@ -27,7 +27,7 @@ Open the dashboard, then stop the agent. It runs **elevated** (RunLevel Highest)
 needs an **Administrator** PowerShell:
 
 ```powershell
-Get-Process TaskHub.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
 ```
 
 **Expect, within ~60s:**
@@ -63,7 +63,7 @@ try {
 Restart the stack (this relaunches the agent hidden):
 
 ```powershell
-pwsh .\scripts\taskhub.ps1 up
+pwsh .\scripts\cronsole.ps1 up
 ```
 
 **Expect:** within ~30s, health returns to `HEALTHY` and the badge flips back **on its own** —
@@ -75,7 +75,7 @@ Stop the **backend** and watch the agent's logs:
 
 ```powershell
 docker compose stop backend
-pwsh .\scripts\taskhub.ps1 logs
+pwsh .\scripts\cronsole.ps1 logs
 ```
 
 **Expect:** reconnect attempts spaced by **exponential backoff — 1s → 2s → 4s → … capped at
@@ -92,8 +92,8 @@ docker compose start backend
 The one that will bite you during your own testing. Start a second, transient agent:
 
 ```powershell
-$env:TASKHUB_AGENT_ID = 'dogfood-agent'
-dotnet .\agent\publish\TaskHub.Agent.dll
+$env:CRONSOLE_AGENT_ID = 'dogfood-agent'
+dotnet .\agent\publish\Cronsole.Agent.dll
 ```
 
 Let it connect, then stop it (Ctrl+C).
@@ -124,9 +124,9 @@ Confirm the agent is running current code. If you've changed agent source, repub
 an **Administrator** prompt (the running exe is locked):
 
 ```powershell
-Get-Process TaskHub.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
-dotnet publish ".\agent\TaskHub.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
-pwsh .\scripts\taskhub.ps1 up
+Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
+dotnet publish ".\agent\Cronsole.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
+pwsh .\scripts\cronsole.ps1 up
 ```
 
 **Expect:** a new agent command against a **stale** agent produces a clear timeout error, not a
@@ -180,8 +180,8 @@ test: they will reboot, and they won't run a script afterward.
 ## 🧹 Cleanup
 
 ```powershell
-Remove-Item Env:\TASKHUB_AGENT_ID -ErrorAction SilentlyContinue
-pwsh .\scripts\taskhub.ps1 up
+Remove-Item Env:\CRONSOLE_AGENT_ID -ErrorAction SilentlyContinue
+pwsh .\scripts\cronsole.ps1 up
 Invoke-RestMethod http://localhost:3000/api/tasks/health -Headers $H | ConvertTo-Json -Depth 5
 ```
 

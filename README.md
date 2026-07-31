@@ -163,7 +163,7 @@ npm install
 npm run dev                 # http://localhost:7373
 
 # Windows agent — in a third terminal (Windows only)
-cd agent/TaskHub.Agent
+cd agent/Cronsole.Agent
 dotnet run                  # connects out to the backend, pushes Task Scheduler tasks
 ```
 
@@ -180,7 +180,7 @@ See [Setup & configuration](docs/setup/README.md) for every option.
 | **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS + TanStack Query + React Router |
 | **Backend** | Node.js + Express 5 + Socket.io (TypeScript) |
 | **Database** | PostgreSQL 16 + Prisma 6 ORM |
-| **Windows agent** | .NET 10 (`TaskHub.Agent`) reading Windows Task Scheduler |
+| **Windows agent** | .NET 10 (`Cronsole.Agent`) reading Windows Task Scheduler |
 | **Hosting** | Runs locally — backend + agent on your machine; dev stack via Docker Compose |
 
 ## 📖 Documentation

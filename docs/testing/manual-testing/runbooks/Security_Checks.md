@@ -132,7 +132,7 @@ docker exec taskhub-db-1 psql -U cronsole -d cronsole `
 ## 7. No implicit shell
 
 ```powershell
-Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue | ForEach-Object {
+Get-ScheduledTask -TaskPath '\Cronsole\' -ErrorAction SilentlyContinue | ForEach-Object {
   [pscustomobject]@{
     Task    = $_.TaskName
     Execute = $_.Actions.Execute
@@ -157,7 +157,7 @@ test" & calc.exe & echo "
 launch. Verify what actually got registered:
 
 ```powershell
-(Get-ScheduledTask -TaskPath '\TaskHub\' -TaskName '<name>').Actions | Format-List Execute, Arguments
+(Get-ScheduledTask -TaskPath '\Cronsole\' -TaskName '<name>').Actions | Format-List Execute, Arguments
 ```
 
 ## 9. HMAC replay rejection
@@ -265,7 +265,7 @@ docker exec taskhub-db-1 psql -U cronsole -d cronsole `
   -c "DELETE FROM \"User\" WHERE email = 'manual-test-b@example.com';"
 
 # Remove any tasks created in step 8
-Get-ScheduledTask -TaskPath '\TaskHub\' -ErrorAction SilentlyContinue |
+Get-ScheduledTask -TaskPath '\Cronsole\' -ErrorAction SilentlyContinue |
   Where-Object TaskName -like 'manual-test-*' |
   Unregister-ScheduledTask -Confirm:$false
 

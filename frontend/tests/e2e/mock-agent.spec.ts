@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { apiDelete, apiGet, apiPatch, apiPost, type ApiTask, windowsTasksAsAgentTasks } from './helpers/api';
-import { e2eAgentTask, MockTaskHubAgent } from './helpers/mockAgent';
+import { e2eAgentTask, MockCronsoleAgent } from './helpers/mockAgent';
 
 test.describe.serial('mock Windows agent flows', () => {
-  let agent: MockTaskHubAgent;
+  let agent: MockCronsoleAgent;
 
   test.beforeEach(async () => {
     const existingTasks = await apiGet<ApiTask[]>('/tasks');
     const mockTask = e2eAgentTask();
-    agent = new MockTaskHubAgent([
+    agent = new MockCronsoleAgent([
       ...windowsTasksAsAgentTasks(existingTasks).filter((task) => task.path !== mockTask.path),
       mockTask
     ]);
@@ -75,7 +75,7 @@ test.describe.serial('mock Windows agent flows', () => {
       .locator('label', { hasText: 'Script file path' })
       .locator('..')
       .locator('input')
-      .fill('C:\\TaskHubE2E\\template-run.ps1');
+      .fill('C:\\CronsoleE2E\\template-run.ps1');
     await page.getByRole('button', { name: /Create Task/ }).click();
 
     await expect(page.getByRole('status')).toContainText(
@@ -83,18 +83,18 @@ test.describe.serial('mock Windows agent flows', () => {
     );
     await expect.poll(() => agent.creates.map((create) => create.name)).toContain('E2E Applied Task');
     expect(agent.creates.at(-1)?.action?.executable).toBe('powershell.exe');
-    expect(agent.creates.at(-1)?.action?.args).toContain('C:\\TaskHubE2E\\template-run.ps1');
+    expect(agent.creates.at(-1)?.action?.args).toContain('C:\\CronsoleE2E\\template-run.ps1');
 
     // The applied task is tracked immediately (duplicate-name guard). Delete it
     // through the real signed task:delete path so repeat runs don't 409 — this
     // also covers the delete round-trip end to end.
     const tasks = await apiGet<ApiTask[]>('/tasks');
-    const applied = tasks.find((t) => t.externalId === '\\TaskHub\\E2E Applied Task');
+    const applied = tasks.find((t) => t.externalId === '\\Cronsole\\E2E Applied Task');
     expect(applied).toBeTruthy();
     await apiDelete(`/tasks/${applied!.id}`);
-    expect(agent.deletes.map((d) => d.taskPath)).toContain('\\TaskHub\\E2E Applied Task');
+    expect(agent.deletes.map((d) => d.taskPath)).toContain('\\Cronsole\\E2E Applied Task');
     const after = await apiGet<ApiTask[]>('/tasks');
-    expect(after.some((t) => t.externalId === '\\TaskHub\\E2E Applied Task')).toBe(false);
+    expect(after.some((t) => t.externalId === '\\Cronsole\\E2E Applied Task')).toBe(false);
   });
 
   test('edits a Windows task schedule through the real signed command', async () => {
@@ -125,14 +125,14 @@ test.describe.serial('mock Windows agent flows', () => {
     expect(target).toBeTruthy();
 
     const updated = await apiPatch<ApiTask>(`/tasks/${target!.id}/actions`, {
-      command: 'powershell.exe -File C:\\TaskHubE2E\\edited.ps1',
-      workingDirectory: 'C:\\TaskHubE2E',
+      command: 'powershell.exe -File C:\\CronsoleE2E\\edited.ps1',
+      workingDirectory: 'C:\\CronsoleE2E',
       description: 'Edited by E2E',
       runLevel: 'highest'
     });
     // Optimistic metadata reflects the new command after platform confirmation.
     const updatedMeta = updated.metadata as Record<string, unknown>;
-    expect(updatedMeta.command).toBe('powershell.exe -File C:\\TaskHubE2E\\edited.ps1');
+    expect(updatedMeta.command).toBe('powershell.exe -File C:\\CronsoleE2E\\edited.ps1');
     expect(updatedMeta.runLevel).toBe('Highest');
 
     // The signed task:update reached the agent, structured into { executable, args }
@@ -140,14 +140,14 @@ test.describe.serial('mock Windows agent flows', () => {
     expect(agent.actionUpdates.map((u) => u.taskPath)).toContain('\\E2E\\Mock Nightly Backup');
     const lastUpdate = agent.actionUpdates.at(-1)!;
     expect(lastUpdate.action?.executable).toBe('powershell.exe');
-    expect(lastUpdate.action?.args).toContain('C:\\TaskHubE2E\\edited.ps1');
-    expect(lastUpdate.workingDirectory).toBe('C:\\TaskHubE2E');
+    expect(lastUpdate.action?.args).toContain('C:\\CronsoleE2E\\edited.ps1');
+    expect(lastUpdate.workingDirectory).toBe('C:\\CronsoleE2E');
     expect(lastUpdate.runLevel).toBe('highest');
 
     // Restore so repeat runs are stable.
     await apiPatch(`/tasks/${target!.id}/actions`, {
-      command: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\TaskHubE2E\\backup.ps1',
-      workingDirectory: 'C:\\TaskHubE2E',
+      command: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\CronsoleE2E\\backup.ps1',
+      workingDirectory: 'C:\\CronsoleE2E',
       description: 'Deterministic task for Playwright mock-agent coverage',
       runLevel: 'least'
     });

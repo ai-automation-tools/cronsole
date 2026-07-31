@@ -49,7 +49,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; .\setup-agent-startup.ps1
 ```
 
 This compiles the agent headlessly (Release, `win-x64`), registers it under the
-`\Task-Hub\` Task Scheduler folder to launch on logon, and starts it. Full details,
+`\Cronsole-Stack\` Task Scheduler folder to launch on logon, and starts it. Full details,
 verification steps, and troubleshooting are in the
 [**🤖 Windows Agent Setup Guide**](../../user-guides/guides/Agent_Setup_Guide.md).
 

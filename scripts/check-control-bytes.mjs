@@ -41,8 +41,8 @@ const BINARY_EXT = new Set([
 // Windows re-imports), so they carry NULs by design. Keep this list SHORT and
 // justified — every entry is a hole in the guard.
 const ALLOWLIST = new Set([
-  'scripts/startup-task/TaskHubAgent.backup.xml',
-  'scripts/startup-task/TaskHubAgent.updated.xml'
+  'scripts/startup-task/CronsoleAgent.backup.xml',
+  'scripts/startup-task/CronsoleAgent.updated.xml'
 ]);
 
 const isAllowedByte = (c) => c === 0x09 || c === 0x0a || c === 0x0d;

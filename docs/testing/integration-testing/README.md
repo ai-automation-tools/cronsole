@@ -95,7 +95,7 @@ The only seam that touches real COM. Windows-only, and the hardest to fake.
 |:--|:---|:---|:--|
 | I4.1 | **Real task create** | A created task appears in Task Scheduler with the right trigger and action | 🟡 E2E `mock-agent.spec.ts` (mock agent) · ⬜ real COM |
 | I4.1b | **Action & settings edit** | Editing a Windows task's command/settings applies to the real entry | ✅ `task-actions.integration.test.ts` |
-| I4.2 | **Real task delete** | Entry actually disappears; the empty `\TaskHub\` folder auto-prunes on last delete | 🟡 |
+| I4.2 | **Real task delete** | Entry actually disappears; the empty `\Cronsole\` folder auto-prunes on last delete | 🟡 |
 | I4.3 | **Elevation refusal** | An admin-ACL'd task returns an honest "needs elevation" — never a false success | 🟡 |
 | I4.4 | **XML export fidelity** | Exported XML is valid Task Scheduler XML, **UTF-16 LE + BOM**, and re-importable into Windows | ✅ `task-export.integration.test.ts` |
 | I4.4a | **XML restore fidelity** | A restored task round-trips: action, trigger, description **and principal** (run-as account, logon type, run level) match what was exported — `TaskLogonType.None` must not silently re-register the task as somebody else | ✅ live pass 2026-07-28 (verified with `Get-ScheduledTask`, not Cronsole's own report) · ⬜ automated — `ImportTaskXml` talks to COM |

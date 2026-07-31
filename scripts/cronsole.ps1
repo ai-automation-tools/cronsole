@@ -25,7 +25,7 @@
     UP or DOWN) when something is clearly present but cannot be confirmed serving.
     See the Probes section below for why this matters in both directions.
 
-    Run it from anywhere:  pwsh <repo>\scripts\taskhub.ps1 status
+    Run it from anywhere:  pwsh <repo>\scripts\cronsole.ps1 status
 #>
 
 [CmdletBinding()]
@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Continue'
 $RepoRoot    = Split-Path -Parent (Split-Path -Parent $PSCommandPath)  # scripts\ -> repo
 $BackendDir  = Join-Path $RepoRoot 'backend'
 $FrontendDir = Join-Path $RepoRoot 'frontend'
-$AgentExe    = Join-Path $RepoRoot 'agent\publish\TaskHub.Agent.exe'
+$AgentExe    = Join-Path $RepoRoot 'agent\publish\Cronsole.Agent.exe'
 $LogDir      = Join-Path $RepoRoot 'logs'
 $Compose     = Join-Path $RepoRoot 'docker-compose.yml'
 
@@ -196,10 +196,10 @@ function Get-AgentProbe {
     # The agent binds nothing - it dials OUT - so the process is the only signal
     # available locally. Whether it is CONNECTED is a different question, and only
     # the app can answer it; say so rather than let "process running" read as "paired".
-    if (Get-Process -Name 'TaskHub.Agent' -ErrorAction SilentlyContinue) {
-        return New-Probe 'UP' 'process TaskHub.Agent running' 'process only - connection state is visible in the app sidebar, not here'
+    if (Get-Process -Name 'Cronsole.Agent' -ErrorAction SilentlyContinue) {
+        return New-Probe 'UP' 'process Cronsole.Agent running' 'process only - connection state is visible in the app sidebar, not here'
     }
-    return New-Probe 'DOWN' 'no TaskHub.Agent process' 'publish + start it, or run: cronsole up' $false
+    return New-Probe 'DOWN' 'no Cronsole.Agent process' 'publish + start it, or run: cronsole up' $false
 }
 
 function Stop-Port([int]$Port, [string]$Label) {
@@ -369,7 +369,7 @@ function Invoke-Up {
 function Invoke-Down {
     Write-Host 'Stopping the Cronsole app tier...'
     if ((Get-AgentProbe).State -eq 'UP') {
-        Stop-Process -Name 'TaskHub.Agent' -Force -ErrorAction SilentlyContinue
+        Stop-Process -Name 'Cronsole.Agent' -Force -ErrorAction SilentlyContinue
         Write-Host '  stopped agent'
     } else { Write-Host '  agent already stopped' }
     Stop-Port 3000 'backend'

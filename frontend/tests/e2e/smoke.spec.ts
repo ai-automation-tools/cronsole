@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Smoke test: proves the whole stack renders end-to-end through a real browser —
 // the frontend boots, authenticates to the backend with the dev token, fetches
 // tasks from Postgres, and client-side navigation works. Requires the dev stack
-// to be up (pwsh scripts/taskhub.ps1 up).
+// to be up (pwsh scripts/cronsole.ps1 up).
 
 test.describe('dashboard smoke', () => {
   test('loads the dashboard and renders live task data', async ({ page }) => {

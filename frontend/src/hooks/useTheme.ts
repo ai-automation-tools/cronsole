@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-const STORAGE_KEY = 'taskhub.theme';
+const STORAGE_KEY = 'cronsole.theme';
 
 /**
  * Dark is Cronsole's default, not an opt-in (CLAUDE.md §9) — the token set, the
@@ -38,7 +38,7 @@ function applyTheme(mode: ThemeMode) {
 
 /**
  * Standard light / dark / system theme control. Persists the chosen mode to
- * localStorage (`taskhub.theme`) and follows OS changes while in `system` mode.
+ * localStorage (`cronsole.theme`) and follows OS changes while in `system` mode.
  */
 export function useTheme() {
   const [theme, setThemeState] = useState<ThemeMode>(readStored);

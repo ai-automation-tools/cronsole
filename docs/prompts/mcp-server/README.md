@@ -87,7 +87,7 @@ creating anything.
 ```text
 Use the Cronsole MCP server to create a Windows Task Scheduler job that runs
 D:\jobs\nightly-backup.ps1 every day at 2am my time (US Pacific). Check the
-schedule conversion first, put it in the \TaskHub folder, and confirm it
+schedule conversion first, put it in the \Cronsole folder, and confirm it
 registered with a clean no-shell action.
 ```
 

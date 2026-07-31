@@ -1,18 +1,18 @@
 <#
 .SYNOPSIS
-    DEPRECATED - adds a repeating trigger to \Task-Hub\TaskHubAgent.
+    DEPRECATED - adds a repeating trigger to \Cronsole-Stack\CronsoleAgent.
 
 .DESCRIPTION
-    Superseded by \Task-Hub\TaskHubStack (see Register-TaskHubStack.ps1), which now
-    owns the recurring self-heal (`taskhub.ps1 up` every few minutes) and launches
+    Superseded by \Cronsole-Stack\CronsoleStack (see Register-CronsoleStack.ps1), which now
+    owns the recurring self-heal (`cronsole.ps1 up` every few minutes) and launches
     hidden via run-hidden.vbs so nothing flashes on screen. Adding a repetition to
-    TaskHubAgent as well makes BOTH tasks re-run `up` on an interval - redundant
-    work and double the PowerShell console flashing. TaskHubAgent should stay a
-    flash-free, logon-only bootstrap (Docker + up); Register-TaskHubStack.ps1
+    CronsoleAgent as well makes BOTH tasks re-run `up` on an interval - redundant
+    work and double the PowerShell console flashing. CronsoleAgent should stay a
+    flash-free, logon-only bootstrap (Docker + up); Register-CronsoleStack.ps1
     -RepairAgentTask already resets it to exactly that.
 
     Only use this script if you deliberately want a SECOND recurring self-heal on
-    TaskHubAgent (you almost certainly don't). Pass -Force to proceed.
+    CronsoleAgent (you almost certainly don't). Pass -Force to proceed.
 
     REQUIRES ELEVATION: the task runs at RunLevel Highest, so editing its
     definition needs an administrator PowerShell.
@@ -32,14 +32,14 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if (-not $Force) {
-    Write-Warning "DEPRECATED: TaskHubStack owns recurring self-heal now (Register-TaskHubStack.ps1)."
-    Write-Warning "Adding a repetition to TaskHubAgent duplicates it and doubles the console flashing."
+    Write-Warning "DEPRECATED: CronsoleStack owns recurring self-heal now (Register-CronsoleStack.ps1)."
+    Write-Warning "Adding a repetition to CronsoleAgent duplicates it and doubles the console flashing."
     Write-Warning "Re-run with -Force only if you truly want a second recurring self-heal task."
     return
 }
 
-$taskPath = '\Task-Hub\'
-$taskName = 'TaskHubAgent'
+$taskPath = '\Cronsole-Stack\'
+$taskName = 'CronsoleAgent'
 
 # Fail early with a clear message if not elevated.
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())

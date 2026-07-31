@@ -6,7 +6,7 @@ export type TimezoneMode = 'local' | 'utc';
 
 /**
  * User preferences persisted client-side. Theme is intentionally NOT here — it
- * keeps its own `taskhub.theme` key (see useTheme) for backward compatibility.
+ * keeps its own `cronsole.theme` key (see useTheme) for backward compatibility.
  */
 export interface Settings {
   // Dashboard defaults
@@ -52,7 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onboardingSeen: false,
 };
 
-const STORAGE_KEY = 'taskhub.settings';
+const STORAGE_KEY = 'cronsole.settings';
 
 function read(): Settings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;

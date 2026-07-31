@@ -17,29 +17,29 @@ the full details.
 
 | Script | What it does |
 |:---|:---|
-| **`taskhub.ps1`** | **Single control surface** for the whole local stack — one command to bring it up, take it down, restart it, or see one combined status. Use this instead of hunting for which service is down. |
+| **`cronsole.ps1`** | **Single control surface** for the whole local stack — one command to bring it up, take it down, restart it, or see one combined status. Use this instead of hunting for which service is down. |
 | **`setup-skill-links.ps1`** · **`.sh`** | Link the tracked [**🧠 skills/**](../skills/README.md) into `.claude/skills/` so Claude Code loads them. **Run once per fresh clone**; idempotent. See below. |
 | **`Republish-Agent.ps1`** | **Rebuild + republish the .NET agent** (stop → `dotnet publish` → relaunch). The agent never hot-reloads, so run this after **any** `agent/` change or you'll debug a stale agent ([troubleshooting #7](../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)). Needs elevation — or register the on-demand task below and skip that. Logs to `%TEMP%\cronsole-republish.log`. |
 | **`publish-registry.ps1`** | Mirror the generated `registry/` + `registry-site/` to the public `taskhub-registry` repo (GitHub Pages). Does **not** regenerate — run `npm run registry:build` in `backend/` first. |
 | **`publish-frontdoor.ps1`** | Mirror the same `registry-site/` page to the public `taskhub-site` repo — Cronsole's front door at `taskhub.mikesailab.com`. One page, two hosts. Excludes `README.md` and `CNAME`, which the target repos own. |
 | **`check-control-bytes.mjs`** | Fail on any literal control byte in a tracked text file (a NUL once made a security-relevant file diff as binary). Wired into CI as the `repo-hygiene` job. |
-| [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Task-Hub\TaskHubAgent` scheduled task (re-runs every 10 min as a self-heal). It now delegates to `taskhub.ps1 up`, so boot and manual control share one code path. |
+| [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Cronsole-Stack\CronsoleAgent` scheduled task (re-runs every 10 min as a self-heal). It now delegates to `cronsole.ps1 up`, so boot and manual control share one code path. |
 
-## 🎛️ Controlling the stack (`taskhub.ps1`)
+## 🎛️ Controlling the stack (`cronsole.ps1`)
 
 The local stack is five pieces: **Postgres + Redis** (Docker, auto-restart), the
 **backend** and **frontend** dev servers (host Node), and the **Windows agent**
 (host `.exe` — it needs Task Scheduler access, so it can't be containerized).
-`taskhub.ps1` controls and reports all of them at once:
+`cronsole.ps1` controls and reports all of them at once:
 
 ```powershell
 # from anywhere
-pwsh scripts\taskhub.ps1 status     # one table: every service, and how it was checked
-pwsh scripts\taskhub.ps1 up         # start whatever's down (idempotent — safe to re-run)
-pwsh scripts\taskhub.ps1 restart    # stop the app tier, then bring it back
-pwsh scripts\taskhub.ps1 down       # stop backend + frontend + agent (leaves db/redis up)
-pwsh scripts\taskhub.ps1 down -All  # ...also stop the Docker db/redis containers
-pwsh scripts\taskhub.ps1 logs       # tail the backend/frontend logs
+pwsh scripts\cronsole.ps1 status     # one table: every service, and how it was checked
+pwsh scripts\cronsole.ps1 up         # start whatever's down (idempotent — safe to re-run)
+pwsh scripts\cronsole.ps1 restart    # stop the app tier, then bring it back
+pwsh scripts\cronsole.ps1 down       # stop backend + frontend + agent (leaves db/redis up)
+pwsh scripts\cronsole.ps1 down -All  # ...also stop the Docker db/redis containers
+pwsh scripts\cronsole.ps1 logs       # tail the backend/frontend logs
 ```
 
 `status` prints **ALL UP**, **DEGRADED**, **PARTIAL (n/5)**, or **DOWN** so you can
@@ -61,7 +61,7 @@ auto-start self-heal (or immediately with `cronsole up`).
 > **`WARN`** — not a confident UP or DOWN.
 
 > [!IMPORTANT]
-> Paths in these scripts are **machine-specific** — `Start-TaskHub.ps1` and the task XMLs
+> Paths in these scripts are **machine-specific** — `Start-Cronsole.ps1` and the task XMLs
 > hardcode this machine's Node, Docker, and repo paths (and the task XML embeds a user SID).
 > Adjust them before using on another machine.
 

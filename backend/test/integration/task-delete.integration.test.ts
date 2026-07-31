@@ -41,7 +41,7 @@ describe('DELETE /tasks/:id per platform', () => {
       data: {
         userId: owner.user.id,
         platform: PlatformType.WINDOWS_TASK_SCHEDULER,
-        externalId: '\\TaskHub\\Integration-Delete',
+        externalId: '\\Cronsole\\Integration-Delete',
         name: 'Integration-Delete',
         category: 'Cronsole',
         status: TaskStatus.ACTIVE

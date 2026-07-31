@@ -29,10 +29,10 @@ The repository provides an automation script, [setup-agent-startup.ps1](../../..
    ```
 
 ### What the Script Does:
-1. **Stops Any Running Agent**: Stops the `TaskHubAgent` scheduled task and kills any running `TaskHub.Agent` process first, so the publish step never fails on a locked `.exe`. The script is safe to re-run at any time (e.g. after pulling agent code changes).
+1. **Stops Any Running Agent**: Stops the `CronsoleAgent` scheduled task and kills any running `Cronsole.Agent` process first, so the publish step never fails on a locked `.exe`. The script is safe to re-run at any time (e.g. after pulling agent code changes).
 2. **Compiles Headlessly**: Publishes the C# Agent project in `Release` mode targeting `win-x64`. Since the project's `<OutputType>` is configured as `WinExe`, it runs silently in the background without opening any console/terminal window.
-3. **Cleans Up Legacy Tasks**: Scans Windows Task Scheduler for any existing `TaskHubAgent` registrations (whether at the root `\` or in subfolders) and unregisters them to prevent duplicate executions.
-4. **Registers in dedicated Folder**: Creates and registers a new task named `TaskHubAgent` inside the `\Task-Hub\` Task Scheduler folder.
+3. **Cleans Up Legacy Tasks**: Scans Windows Task Scheduler for any existing `CronsoleAgent` registrations (whether at the root `\` or in subfolders) and unregisters them to prevent duplicate executions.
+4. **Registers in dedicated Folder**: Creates and registers a new task named `CronsoleAgent` inside the `\Cronsole-Stack\` Task Scheduler folder.
 5. **Logon Trigger**: Configures the task to trigger automatically whenever you log into Windows, using the current user context with highest privileges.
 6. **Robust Execution Settings**:
    - **No execution time limit** — Task Scheduler's default is 72 hours, which would silently kill the long-running agent after 3 days (restart-on-failure does not apply to time-limit kills).
@@ -47,18 +47,18 @@ The repository provides an automation script, [setup-agent-startup.ps1](../../..
 ### 1. Task Scheduler Check
 Open the Windows **Task Scheduler** (`taskschd.msc`):
 - Expand the **Task Scheduler Library** folder.
-- Locate the **`Task-Hub`** folder.
-- You should see the **`TaskHubAgent`** task listed inside, with the status **Running**.
+- Locate the **`Cronsole-Stack`** folder.
+- You should see the **`CronsoleAgent`** task listed inside, with the status **Running**.
 
 > [!NOTE]
 > Since the agent is a persistent background daemon, its status in Task Scheduler should remain permanently as **Running**.
 
 ### 2. Process Check
 To confirm the agent process is running silently in the background:
-- Open **Task Manager** and look for `TaskHub.Agent.exe` in the Details tab.
+- Open **Task Manager** and look for `Cronsole.Agent.exe` in the Details tab.
 - Alternatively, check via PowerShell:
   ```powershell
-  Get-Process -Name TaskHub.Agent
+  Get-Process -Name Cronsole.Agent
   ```
 
 ### 3. Connection Check
@@ -76,7 +76,7 @@ If you are developing or debugging the agent and want to run it directly inside 
 1. Open a standard terminal window.
 2. Navigate to the project folder:
    ```bash
-   cd agent/TaskHub.Agent
+   cd agent/Cronsole.Agent
    ```
 3. Run the project:
    ```bash
@@ -96,12 +96,12 @@ If you are developing or debugging the agent and want to run it directly inside 
 *   **Cause**: The operating system locks the compiled `.exe` while it is active.
 *   **Solution**: `setup-agent-startup.ps1` now stops the running agent automatically before publishing. For manual `dotnet build`/`publish` runs, stop the process yourself first:
     ```powershell
-    Stop-Process -Name "TaskHub.Agent" -Force
+    Stop-Process -Name "Cronsole.Agent" -Force
     ```
 
 ### Agent shows Offline after the backend restarts
 *   **Cause (historical)**: The socket library only retries reconnection ~10 times before giving up permanently, so a backend outage longer than about a minute used to leave the agent silently disconnected until manually restarted.
-*   **Current behavior**: The agent runs a 30-second watchdog that re-attempts the connection indefinitely — it recovers on its own within ~30s of the backend coming back, including when the agent starts at logon before the backend is running. If the agent stays Offline for minutes, verify the backend is actually listening on port 3000 and that the `TaskHub.Agent` process exists (see Verification above), then restart the scheduled task as a last resort:
+*   **Current behavior**: The agent runs a 30-second watchdog that re-attempts the connection indefinitely — it recovers on its own within ~30s of the backend coming back, including when the agent starts at logon before the backend is running. If the agent stays Offline for minutes, verify the backend is actually listening on port 3000 and that the `Cronsole.Agent` process exists (see Verification above), then restart the scheduled task as a last resort:
     ```powershell
-    Start-ScheduledTask -TaskPath "\Task-Hub\" -TaskName "TaskHubAgent"
+    Start-ScheduledTask -TaskPath "\Cronsole-Stack\" -TaskName "CronsoleAgent"
     ```

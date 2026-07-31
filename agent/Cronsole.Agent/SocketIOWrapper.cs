@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using SocketIOClient;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     // Reconnect strategy (see the Program watchdog):
     //

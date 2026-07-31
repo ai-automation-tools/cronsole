@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Register \Task-Hub\TaskHubRepublish - an on-demand, elevated task that
+    Register \Cronsole-Stack\CronsoleRepublish - an on-demand, elevated task that
     rebuilds and republishes the Cronsole agent. DEV TOOL. Run once, elevated.
 
 .DESCRIPTION
@@ -14,7 +14,7 @@
     elevated. Afterwards anyone (including an unelevated shell, or an AI agent
     working in this repo) can run:
 
-        Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'
+        Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'
         Get-Content "$env:TEMP\cronsole-republish.log" -Tail 20
 
     One elevated registration; unlimited republishes after that.
@@ -32,17 +32,17 @@
     Why it is an acceptable trade HERE:
       * It runs ONE fixed script from this repo (scripts\Republish-Agent.ps1),
         not arbitrary input.
-      * Cronsole ALREADY does this. \Task-Hub\TaskHubStack runs scripts\taskhub.ps1
+      * Cronsole ALREADY does this. \Cronsole-Stack\CronsoleStack runs scripts\cronsole.ps1
         elevated on a recurring trigger. Anyone who can write to this repo already
         has elevated code execution on this machine; this adds no new capability,
         it just adds a second entry point to the same one.
       * It is a DEV tool for this working copy. It is not part of the product and
-        is not registered by any installer or by Register-TaskHubStack.ps1.
+        is not registered by any installer or by Register-CronsoleStack.ps1.
 
     When that trade is NOT acceptable: a machine where the repo is writable by
     someone who should not have admin. Don't register it there. Unregister with:
 
-        Unregister-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish' -Confirm:$false
+        Unregister-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish' -Confirm:$false
 
     Pure ASCII on purpose (troubleshooting #6).
 #>
@@ -63,8 +63,8 @@ if (-not (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole(
     exit 1
 }
 
-$TaskName = 'TaskHubRepublish'
-$TaskPath = '\Task-Hub\'
+$TaskName = 'CronsoleRepublish'
+$TaskPath = '\Cronsole-Stack\'
 
 if ($Unregister) {
     $existing = Get-ScheduledTask -TaskPath $TaskPath -TaskName $TaskName -ErrorAction SilentlyContinue

@@ -71,7 +71,7 @@ describe('windowsTaskFolderError', () => {
     it('refuses traversal that would otherwise land in \\Microsoft', () => {
       // Belt and braces: even if a caller tries to reach the reserved root by
       // traversal, the .. check fires before the reserved-root check.
-      expect(windowsTaskFolderError('\\TaskHub\\..\\Microsoft\\Windows')).not.toBeNull();
+      expect(windowsTaskFolderError('\\Cronsole\\..\\Microsoft\\Windows')).not.toBeNull();
     });
   });
 
@@ -125,7 +125,7 @@ describe('normalizeWindowsTaskFolder', () => {
 
 describe('windowsTaskPath', () => {
   it('joins folder and name', () => {
-    expect(windowsTaskPath('\\TaskHub', 'Nightly')).toBe('\\TaskHub\\Nightly');
+    expect(windowsTaskPath('\\Cronsole', 'Nightly')).toBe('\\Cronsole\\Nightly');
     expect(windowsTaskPath('\\Work\\Backups', 'Nightly')).toBe('\\Work\\Backups\\Nightly');
   });
 
@@ -134,8 +134,8 @@ describe('windowsTaskPath', () => {
   });
 
   it('matches the legacy hardcoded path for the default folder', () => {
-    // The old code built `\TaskHub\${name}` directly; existing externalIds must
+    // The old code built `\Cronsole\${name}` directly; existing externalIds must
     // keep resolving identically or every tracked task stops matching.
-    expect(windowsTaskPath(DEFAULT_TASK_FOLDER, 'Nightly')).toBe('\\TaskHub\\Nightly');
+    expect(windowsTaskPath(DEFAULT_TASK_FOLDER, 'Nightly')).toBe('\\Cronsole\\Nightly');
   });
 });

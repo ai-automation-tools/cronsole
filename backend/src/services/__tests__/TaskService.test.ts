@@ -80,7 +80,7 @@ describe('TaskService', () => {
   it('should store derived schedule and nextRunTime on create and update', async () => {
     const next = new Date('2026-07-09T03:00:00Z');
     const tasks = [
-      { externalId: '\\TaskHub\\Nightly', name: 'Nightly', status: 'ACTIVE' as const, schedule: '0 3 * * *', nextRunTime: next }
+      { externalId: '\\Cronsole\\Nightly', name: 'Nightly', status: 'ACTIVE' as const, schedule: '0 3 * * *', nextRunTime: next }
     ];
 
     mockPrisma.task.upsert.mockResolvedValue({ id: '1' });

@@ -14,9 +14,9 @@ Load when touching the data model, connectors, the agent protocol, or the API su
 | **Postgres** | Docker | `5432` | v16 |
 | **Redis** | Docker | — | Optional for MVP; required for multi-instance WebSocket |
 | **Agent** | Host `.exe` (**never** Docker) | — | .NET 10 + `Microsoft.Win32.TaskScheduler`; needs COM access |
-| **MCP server** | On-demand, **launched by your AI host** (stdio) | — | `mcp-server/dist/index.js`; a REST client with a bearer token. Not part of `taskhub.ps1`; the host starts and stops it |
+| **MCP server** | On-demand, **launched by your AI host** (stdio) | — | `mcp-server/dist/index.js`; a REST client with a bearer token. Not part of `cronsole.ps1`; the host starts and stops it |
 
-Control the whole stack with `pwsh scripts/taskhub.ps1 <up|down|restart|status|logs>`
+Control the whole stack with `pwsh scripts/cronsole.ps1 <up|down|restart|status|logs>`
 (`down -All` also stops the Docker db/redis). It exists so you stop wondering which part is
 down. `status` asks each service directly (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP
 `PING`) and prints the signal it used; a bare port check is corroboration only, having been
@@ -147,7 +147,7 @@ converts a missing capability into a lie. Leaving it undefined *is* the design.
   - **Corollary for debugging:** `Agent trigger timeout` has at least three causes — a stale
     agent with no handler ([#7](../../../docs/troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)),
     a silent failure path (#15), and the replay guard (#16). It is the backend's *default*, not
-    a diagnosis. **To see what the agent actually did, run `agent/publish/TaskHub.Agent.exe` in
+    a diagnosis. **To see what the agent actually did, run `agent/publish/Cronsole.Agent.exe` in
     the foreground** — it replaces the hidden elevated instance in the backend's registry, so it
     handles your commands and you can read its console. Republish afterwards to restore.
 - **Everything the agent acts on is inside the signature.** `task:create` signs the name,
@@ -246,7 +246,7 @@ the resolved `trigger`. An **unparseable cron is a score-0 result with a warning
 principle expressed as an API contract.
 
 **The Windows duplicate-name guard** (`assertWindowsTaskNameAvailable`) returns **409** when a
-name collides with a task Cronsole already tracks under `\TaskHub\`. Without it,
+name collides with a task Cronsole already tracks under `\Cronsole\`. Without it,
 `RegisterTaskDefinition` **silently overwrites** — the user loses a task and is never told.
 That's data loss, not a UX nit.
 

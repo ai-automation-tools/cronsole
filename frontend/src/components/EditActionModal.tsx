@@ -54,7 +54,7 @@ export const EditActionModal = ({ task, initial, onClose }: EditActionModalProps
       const message = err.response?.data?.error || err.message;
       toast(
         message === 'Agent offline'
-          ? 'Update failed: the Windows agent is not connected. Check that the TaskHubAgent scheduled task is running.'
+          ? 'Update failed: the Windows agent is not connected. Check that the CronsoleAgent scheduled task is running.'
           : `Update failed: ${message}`,
         'error'
       );

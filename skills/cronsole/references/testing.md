@@ -96,7 +96,7 @@ backend/src/catalog/*.test.ts   catalog unit
 backend/test/integration/       integration (real Postgres)
 frontend/src/**/__tests__/      unit (vitest + RTL + jsdom)
 frontend/tests/e2e/             Playwright (+ helpers/mockAgent.ts)
-agent/TaskHub.Agent.Tests/      xUnit
+agent/Cronsole.Agent.Tests/      xUnit
 mcp-server/src/__tests__/       unit (vitest) — tools via a real MCP client
                                 over InMemoryTransport with a stubbed
                                 CronsoleClient; client.ts against a real

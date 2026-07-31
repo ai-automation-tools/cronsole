@@ -45,8 +45,8 @@ Every runbook assumes these three things. Do them first.
 ### 1. Start the stack
 
 ```powershell
-pwsh .\scripts\taskhub.ps1 up
-pwsh .\scripts\taskhub.ps1 status
+pwsh .\scripts\cronsole.ps1 up
+pwsh .\scripts\cronsole.ps1 status
 ```
 
 `status` should show every service up: Postgres, Redis, backend (`:3000`), frontend

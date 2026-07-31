@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="TaskHub.Agent.Tests/TaskHub.Agent.Tests.csproj" />
-  <Project Path="TaskHub.Agent/TaskHub.Agent.csproj" />
-</Solution>

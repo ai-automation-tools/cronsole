@@ -3,7 +3,7 @@
     Launches the full local Cronsole stack (data services, backend, frontend, agent).
 
 .DESCRIPTION
-    Single entry point used by the Windows Scheduled Task \Task-Hub\TaskHubAgent.
+    Single entry point used by the Windows Scheduled Task \Cronsole-Stack\CronsoleAgent.
     Brings up every component in dependency order and is fully idempotent: any
     component already running is left alone, so the task can be re-run or triggered
     manually without spawning duplicates.
@@ -13,7 +13,7 @@
       2. db + redis      - `docker compose up -d db redis`   (Postgres :5432, Redis :6379)
       3. backend         - `npm run dev`  (host)  -> http://localhost:3000
       4. frontend        - `npm run dev`  (host)  -> http://localhost:7373
-      5. agent           - TaskHub.Agent.exe (host, needs Windows Task Scheduler access)
+      5. agent           - Cronsole.Agent.exe (host, needs Windows Task Scheduler access)
 
     All child output is written to <repo>\logs\*.log.
 #>
@@ -35,7 +35,7 @@ while ($RepoRoot -and -not (Test-Path (Join-Path $RepoRoot 'docker-compose.yml')
 }
 $BackendDir  = Join-Path $RepoRoot 'backend'
 $FrontendDir = Join-Path $RepoRoot 'frontend'
-$AgentExe    = Join-Path $RepoRoot 'agent\publish\TaskHub.Agent.exe'
+$AgentExe    = Join-Path $RepoRoot 'agent\publish\Cronsole.Agent.exe'
 $LogDir      = Join-Path $RepoRoot 'logs'
 
 # Tool locations (resolved explicitly so the script works under a bare Task
@@ -107,7 +107,7 @@ if (Wait-Docker) {
     # boot path and a manual `cronsole up` share exactly one implementation. It's
     # idempotent (starts only what's down), which is what the 10-min self-heal
     # re-run relies on.
-    $CronsoleScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'taskhub.ps1'
+    $CronsoleScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'cronsole.ps1'
     if (Test-Path $CronsoleScript) {
         Write-Log "Bringing the stack up via $CronsoleScript"
         & $CronsoleScript up *>> $MainLog

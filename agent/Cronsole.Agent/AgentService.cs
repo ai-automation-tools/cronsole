@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     public class AgentService
     {
@@ -110,7 +110,7 @@ namespace TaskHub.Agent
             if (ex is UnauthorizedAccessException || ex.HResult == E_ACCESSDENIED)
             {
                 return "Windows denied the delete — this task requires administrator rights to remove. " +
-                       "Delete it from an elevated Task Scheduler, or run the TaskHub agent elevated.";
+                       "Delete it from an elevated Task Scheduler, or run the Cronsole agent elevated.";
             }
             return ex.Message;
         }
@@ -123,7 +123,7 @@ namespace TaskHub.Agent
             if (ex is UnauthorizedAccessException || ex.HResult == E_ACCESSDENIED)
             {
                 return "Windows denied the update — this task requires administrator rights to modify. " +
-                       "Modify it from an elevated Task Scheduler, or run the TaskHub agent elevated.";
+                       "Modify it from an elevated Task Scheduler, or run the Cronsole agent elevated.";
             }
             return ex.Message;
         }
@@ -186,7 +186,7 @@ namespace TaskHub.Agent
         {
             _socket.OnConnected += async () =>
             {
-                Console.WriteLine("Connected to TaskHub server!");
+                Console.WriteLine("Connected to Cronsole server!");
 
                 // Announce ourselves
                 await _socket.EmitAsync("agent:hello", new[] { new {
@@ -198,7 +198,7 @@ namespace TaskHub.Agent
 
             _socket.OnDisconnected += () =>
             {
-                Console.WriteLine("Disconnected from TaskHub server.");
+                Console.WriteLine("Disconnected from Cronsole server.");
             };
 
             // Event: task:list (Server requested a full sync)
@@ -247,7 +247,7 @@ namespace TaskHub.Agent
             });
 
             // Event: task:folders (Server requested the real Task Scheduler folder
-            // list so the UI can offer actual folders instead of assuming \TaskHub.
+            // list so the UI can offer actual folders instead of assuming \Cronsole.
             // Read-only, so no per-command signature, mirroring task:list.)
             _socket.On("task:folders", async _ =>
             {
@@ -480,7 +480,7 @@ namespace TaskHub.Agent
                         await EmitRunFailedAsync(
                             taskPath,
                             "No task exists at this path on the machine. It may have been deleted or renamed " +
-                            "outside TaskHub — run a sync to reconcile.");
+                            "outside Cronsole — run a sync to reconcile.");
                     }
                 }
                 catch (Exception ex)

@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace TaskHub.Agent
+namespace Cronsole.Agent
 {
     public interface ISocketClient
     {

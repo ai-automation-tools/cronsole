@@ -5,7 +5,7 @@ const crypto = require("crypto");
 // Dev stub of the backend for manually exercising the .NET agent. It mirrors the
 // real handshake + per-command signing (backend/src/ws/agentAuth.ts) so the agent
 // accepts its commands. Set AGENT_PAIRING_SECRET to match the agent's
-// TASKHUB_PAIRING_SECRET (defaults to the local dev value in backend/.env).
+// CRONSOLE_PAIRING_SECRET (defaults to the local dev value in backend/.env).
 const PAIRING_SECRET =
   process.env.AGENT_PAIRING_SECRET ||
   "48ea0bf89b69253fc6695949f777097e16a64bce8cbef51f";
@@ -16,7 +16,7 @@ const hmac = (key, msg) =>
 const httpServer = http.createServer((req, res) => {
   res.writeHead(200, { "Content-Type": "text/html" });
   res.end(`
-    <h1>TaskHub Test Server</h1>
+    <h1>Cronsole Test Server</h1>
     <p>Status: <strong>Running</strong></p>
     <p>Socket.io is listening for authenticated agent connections.</p>
     <hr>
@@ -26,7 +26,7 @@ const httpServer = http.createServer((req, res) => {
 
 const io = new Server(httpServer, { cors: { origin: false } });
 
-console.log("TaskHub Test Server starting on port 3000...");
+console.log("Cronsole Test Server starting on port 3000...");
 
 // Authenticate the handshake exactly like agentAuthMiddleware.
 io.use((socket, next) => {

@@ -5,11 +5,11 @@ Load when doing one of the common jobs. Each is the *sequence* — the docs have
 ## Run the stack
 
 ```powershell
-pwsh scripts/taskhub.ps1 up        # idempotent — starts anything not running
-pwsh scripts/taskhub.ps1 status    # one table, every service + the signal used (default)
-pwsh scripts/taskhub.ps1 logs      # tail backend/frontend/launcher
-pwsh scripts/taskhub.ps1 down      # stop app tier (leaves db/redis)
-pwsh scripts/taskhub.ps1 down -All # also stop db/redis containers
+pwsh scripts/cronsole.ps1 up        # idempotent — starts anything not running
+pwsh scripts/cronsole.ps1 status    # one table, every service + the signal used (default)
+pwsh scripts/cronsole.ps1 logs      # tail backend/frontend/launcher
+pwsh scripts/cronsole.ps1 down      # stop app tier (leaves db/redis)
+pwsh scripts/cronsole.ps1 down -All # also stop db/redis containers
 ```
 
 Five pieces: Postgres + Redis (Docker), backend + frontend (host Node), agent (host `.exe`).
@@ -54,15 +54,15 @@ agent change without republishing means testing the *old* build, which is
 
 ```powershell
 .\scripts\startup-task\Register-RepublishTask.ps1        # ONE time, Administrator
-Start-ScheduledTask -TaskPath '\Task-Hub\' -TaskName 'TaskHubRepublish'   # any prompt
+Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'   # any prompt
 Get-Content "$env:TEMP\cronsole-republish.log" -Tail 20   # it logs — read it
 ```
 
-**Manual way** — Administrator prompt, `Get-Process TaskHub.Agent | Stop-Process -Force`
-then `dotnet publish` then `taskhub.ps1 up`. The stop is the step that matters.
+**Manual way** — Administrator prompt, `Get-Process Cronsole.Agent | Stop-Process -Force`
+then `dotnet publish` then `cronsole.ps1 up`. The stop is the step that matters.
 
 **Verify it took.** The published dll must be newer than the newest `.cs`. And an unelevated
-`Get-Process TaskHub.Agent` returning nothing does **not** mean it's down — it runs elevated
+`Get-Process Cronsole.Agent` returning nothing does **not** mean it's down — it runs elevated
 and may be invisible to you. Ask `GET /api/tasks/health` instead; that's authoritative.
 
 ## Add a new agent command
@@ -77,9 +77,9 @@ The one most likely to waste your afternoon — **two processes must ship togeth
    elevated):
 
 ```powershell
-Get-Process TaskHub.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
-dotnet publish ".\agent\TaskHub.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
-pwsh .\scripts\taskhub.ps1 up
+Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
+dotnet publish ".\agent\Cronsole.Agent" -c Release -r win-x64 --self-contained false -o ".\agent\publish"
+pwsh .\scripts\cronsole.ps1 up
 ```
 
 5. **Restart the backend too** — bind-mount edits don't hot-reload: `docker restart taskhub-backend-1`

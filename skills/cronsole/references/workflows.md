@@ -172,13 +172,25 @@ pins the exact tool list and will fail, deliberately), both README tool tables, 
 ## Publish the sites
 
 ```powershell
-pwsh scripts/publish-registry.ps1   # registry/ + registry-site/ → cronsole-registry
-pwsh scripts/publish-landing.ps1    # landing-site/            → cronsole-site
+pwsh scripts/publish-registry.ps1    # registry/ + registry-site/index.html → cronsole-registry
+pwsh scripts/publish-frontdoor.ps1   # registry-site/index.html             → cronsole-site
 ```
 
+**There is one page, published to two hosts.** Both scripts ship the *same*
+`registry-site/index.html`: to `mikesailab.com/cronsole-registry` (beside the registry JSON)
+and to `cronsole.mikesailab.com` (the front door). The page works at both because it tries
+`./index.json` and falls back to the canonical registry origin when it isn't co-located.
+
+> **There is no `publish-landing.ps1` and no `landing-site/`.** The separate marketing
+> landing page was retired 2026-07-28 and the gallery took over its domain. This block gave
+> that command until 2026-07-31 — and a skill is *instructions*, so a stale command here is
+> not a stale record, it is an agent running `pwsh` on a file that does not exist.
+
 Both reset their working clone to `origin/main` — **never keep manual work in
-`Repos\Tools\cronsole-*`**. Both **exclude `README.md`** (the public repos own their front
-pages). Neither regenerates the registry.
+`Repos\Tools\cronsole-*`**. Both **exclude `README.md`** and **`CNAME`** (the public repos own
+their front pages, and CNAME decides which domain a Pages repo answers on — mirroring a stray
+one would move the registry off its documented URL). Neither regenerates the registry: run
+`cd backend && npm run registry:build` first if `bundled.ts` changed.
 
 ## Run the tests
 

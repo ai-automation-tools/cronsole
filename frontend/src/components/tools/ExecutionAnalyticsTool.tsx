@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, BarChart3, Clock, Info, Loader2, Timer, TrendingUp } from 'lucide-react';
 import { api } from '../../api';

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Folder, Plus, Play, CopyPlus, XOctagon, Power, Loader2 } from 'lucide-react';
+import { Folder, Plus, XOctagon } from 'lucide-react';
 import type { Task } from '../types';
 import { platformLabel, platformBadgeClass } from '../platform';
-import { isRunnable, runButtonTitle, canToggleStatus, toggleStatusTitle } from '../utils/taskActions';
+import { TaskRowActions } from './TaskRowActions';
+import { TaskSelectCheckbox } from './TaskSelectCheckbox';
 
 interface TaskCardProps {
   task: Task;
@@ -12,9 +13,22 @@ interface TaskCardProps {
   onClone: (task: Task) => void;
   onToggleStatus: (task: Task) => void;
   isTogglingStatus?: boolean;
+  /** Selection is optional so the card stays usable outside the dashboard. */
+  selected?: boolean;
+  onToggleSelect?: (task: Task, event: React.MouseEvent) => void;
 }
 
-export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone, onToggleStatus, isTogglingStatus }: TaskCardProps) => {
+export const TaskCard = ({
+  task,
+  onSelect,
+  onRun,
+  onCategoryUpdate,
+  onClone,
+  onToggleStatus,
+  isTogglingStatus,
+  selected,
+  onToggleSelect
+}: TaskCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
 
@@ -25,10 +39,15 @@ export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone, onT
     >
       <div className="flex justify-between items-start mb-4">
         <div className="flex flex-col gap-1">
-          <span className={`text-[10px] w-fit uppercase font-black px-2.5 py-1 rounded-lg border ${platformBadgeClass(task.platform)}`}>
-            {platformLabel(task.platform)}
-          </span>
-          
+          <div className="flex items-center gap-2">
+            {onToggleSelect && (
+              <TaskSelectCheckbox task={task} checked={!!selected} onToggle={onToggleSelect} />
+            )}
+            <span className={`text-[10px] w-fit uppercase font-black px-2.5 py-1 rounded-lg border ${platformBadgeClass(task.platform)}`}>
+              {platformLabel(task.platform)}
+            </span>
+          </div>
+
           {isEditing ? (
             <div className="flex items-center gap-1 mt-1" onClick={e => e.stopPropagation()}>
               <input 
@@ -75,33 +94,14 @@ export const TaskCard = ({ task, onSelect, onRun, onCategoryUpdate, onClone, onT
         <div className="text-[10px] text-muted-foreground">
           Last updated: <span className="text-foreground">{new Date(task.updatedAt).toLocaleTimeString()}</span>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={(e) => { e.stopPropagation(); onClone(task); }}
-            className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground shadow-md transition-all active:scale-90"
-            title="Clone Task"
-          >
-            <CopyPlus size={18} />
-          </button>
-          {canToggleStatus(task) && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleStatus(task); }}
-              disabled={isTogglingStatus}
-              className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground shadow-md transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={toggleStatusTitle(task)}
-            >
-              {isTogglingStatus ? <Loader2 size={18} className="animate-spin" /> : <Power size={18} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); if (isRunnable(task)) onRun(task); }}
-            disabled={!isRunnable(task)}
-            className="bg-success hover:bg-success-hover p-2 rounded-lg text-success-foreground shadow-lg shadow-success/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
-            title={runButtonTitle(task)}
-          >
-            <Play size={18} fill="currentColor" />
-          </button>
-        </div>
+        <TaskRowActions
+          task={task}
+          size="lg"
+          onRun={onRun}
+          onClone={onClone}
+          onToggleStatus={onToggleStatus}
+          isTogglingStatus={isTogglingStatus}
+        />
       </div>
     </div>
   );

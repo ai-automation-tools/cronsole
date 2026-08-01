@@ -19,6 +19,7 @@ import { AuthRequest } from '../auth/auth.js';
 import { deserializeConfig } from '../auth/connectionConfig.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
+import { notifyTasksChanged } from '../ws/uiChannel.js';
 import {
   buildManifest,
   runBulkExport,
@@ -56,6 +57,11 @@ import {
   type DecodedTaskFile,
   type RestoreInputFile
 } from '../services/taskRestore.js';
+import {
+  applyBulkStatus,
+  summarizeBulkStatus,
+  MAX_TASKS_PER_BULK_STATUS
+} from '../services/bulkStatus.js';
 import {
   buildDownload,
   findDownload,
@@ -773,6 +779,91 @@ router.get('/downloads/:id', async (req: Request, res: Response) => {
   res.setHeader('Content-Type', download.contentType);
   res.setHeader('Content-Disposition', `attachment; filename="${download.filename}"`);
   return res.send(body);
+});
+
+const bulkStatusSchema = z.object({
+  taskIds: z.array(z.string().min(1)).min(1, 'Select at least one task.'),
+  status: z.enum([TaskStatus.ACTIVE, TaskStatus.DISABLED])
+});
+
+/**
+ * Enable or disable many tasks at once.
+ *
+ * Lives on `/api/tools` rather than `/api/tasks` because it is a **cross-task**
+ * route, and everything on `tasks.ts` competes with `/:id` in Express's
+ * declaration-order matching (CLAUDE.md §9).
+ *
+ * It adds **no new agent verb and no new authority** — every task goes through
+ * the same signed `task:set_status` the single toggle uses, via the same
+ * connector. What it adds is one place that reports a partially-successful
+ * batch honestly: see `services/bulkStatus.ts` for why the outcome has five
+ * states and why the run stops when the agent disappears.
+ *
+ * `ACTIVE`/`DISABLED` only. `MISSING` is a status the *sync* discovers, never
+ * one a user sets, so accepting it here would let a caller assert a fact about
+ * the platform that Cronsole has not observed.
+ */
+router.post('/tasks/status', validateBody(bulkStatusSchema), async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { taskIds, status } = req.body as z.infer<typeof bulkStatusSchema>;
+
+  // De-duplicate before the size check so a repeated id can't inflate a
+  // selection past the limit, and can't cause the same task to be toggled twice.
+  const ids = [...new Set(taskIds)];
+  if (ids.length > MAX_TASKS_PER_BULK_STATUS) {
+    throw new HttpError(
+      400,
+      `That is ${ids.length} tasks, above the ${MAX_TASKS_PER_BULK_STATUS} limit for one bulk change. ` +
+        'Narrow the selection and repeat — each task is a separate round trip to the agent.'
+    );
+  }
+
+  // Scoped by userId, like every by-id task route, so a caller cannot reach
+  // another user's tasks by guessing ids (IDOR).
+  const found = await prisma.task.findMany({
+    where: { id: { in: ids }, userId },
+    select: { id: true, name: true, platform: true, externalId: true, status: true }
+  });
+
+  // An id that matched nothing is reported, not silently dropped — a caller who
+  // asked for 12 and is told about 11 has no way to know which one vanished.
+  const foundIds = new Set(found.map(t => t.id));
+  const missingIds = ids.filter(id => !foundIds.has(id));
+  if (found.length === 0) {
+    throw new HttpError(404, 'None of those tasks exist.');
+  }
+
+  // Connections are read once per platform rather than once per task: the config
+  // is identical for every task on a platform, and decrypting it N times would
+  // be N AES operations for one value.
+  const connections = await prisma.platformConnection.findMany({ where: { userId } });
+  const configByPlatform = new Map<PlatformType, unknown>(
+    connections.map(c => [c.platform, { ...deserializeConfig(c.config), userId }])
+  );
+
+  const report = await applyBulkStatus(found, status, platform => ({
+    connector: connectorRegistry.getConnector(platform),
+    config: configByPlatform.get(platform) ?? { userId }
+  }));
+
+  // Persist only what the platform confirmed. Same ack-before-write ordering as
+  // the single toggle, delete, and schedule edit: a DB row that says DISABLED
+  // while the machine says otherwise is exactly the drift this project treats as
+  // the worst kind of bug.
+  const changedIds = report.items.filter(i => i.outcome === 'updated').map(i => i.taskId);
+  if (changedIds.length > 0) {
+    await prisma.task.updateMany({
+      where: { id: { in: changedIds }, userId },
+      data: { status, ...(status === TaskStatus.ACTIVE ? {} : { nextRunTime: null }) }
+    });
+    notifyTasksChanged(userId);
+  }
+
+  res.json({
+    ...report,
+    notFound: missingIds,
+    summary: summarizeBulkStatus(report)
+  });
 });
 
 export default router;

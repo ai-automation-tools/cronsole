@@ -39,7 +39,11 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   the way in", but a reader could reasonably assume the user's "9am" was already
 //   what the app would store. It isn't, and the caller cannot see that setting — so
 //   the instruction is now to ASK the zone and confirm both readings back.
-export const CONNECT_PACK_VERSION = '1.3';
+// 1.4 (2026-07-31): bulk enable/disable — `POST /api/tools/tasks/status`. New
+//   surface, and a new reading rule: the answer is an outcome PER TASK, not a
+//   count, because partial success is the normal case at real scale. A caller
+//   that reads only `updated` will report a clean run over refusals.
+export const CONNECT_PACK_VERSION = '1.4';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

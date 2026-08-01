@@ -45,6 +45,30 @@ Instead of raw data, the Overview parses the task's synced configuration into re
 ### Run History
 The second tab lists recorded runs with their status, timestamp, duration, and a log snippet — so you can answer "did it actually run, and did it work?"
 
+## Changing many tasks at once
+
+Every task row in every view carries a checkbox, and the toolbar has **Select all N shown**.
+Shift-click extends a range from the last row you clicked, in the order you are looking at
+them. Once anything is selected, a bar appears with **Enable** and **Disable**.
+
+Three things the bar tells you on purpose:
+
+- **Each button names what it will actually change**, not how many you selected. Select twelve
+  tasks of which nine are already enabled and the button reads *Enable 3*.
+- **It says when part of your selection is off screen.** The Kanban view shows disabled tasks
+  the other three views hide, so switching views can leave selected tasks invisible. They stay
+  selected and are still acted on — the bar says `12 selected · 3 not visible here` rather than
+  quietly dropping them.
+- **The result is reported per task.** Windows applies each change through the local agent, and
+  some tasks refuse: one registered by an administrator needs elevation, one that has gone
+  missing since the last sync has nothing to toggle, and one already in the state you asked for
+  was simply left alone. The toast names every outcome — *"9 disabled · 2 already disabled · 1
+  failed"* — instead of a single number that would hide the difference. **Anything that failed
+  stays selected**, so you can retry without hunting for it again.
+
+If the agent goes offline partway through, the run stops rather than working through the rest
+one timeout at a time, and the remaining tasks are reported as not attempted.
+
 ### Editing a schedule
 The modal footer shows **Edit Schedule** for Cronsole-native tasks and Windows tasks whose trigger can be represented as a cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits require the local agent because Cronsole changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe editor for those trigger types.
 

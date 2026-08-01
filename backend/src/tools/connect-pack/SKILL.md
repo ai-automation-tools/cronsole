@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.3** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.4** · canonical copy: <https://cronsole.mikesailab.com>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -51,6 +51,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Browse templates | `list_templates` | `GET /api/templates` |
 | Validate a schedule | `convert_schedule` | `POST /api/tasks/preview` |
 | Enable / disable | `set_task_status` | `PATCH /api/tasks/:id/status` |
+| Enable / disable **many at once** | — | `POST /api/tools/tasks/status` (`{taskIds, status}`) |
 | Re-schedule | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | Edit the command | `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
@@ -75,6 +76,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | **A folder must already exist** | The only folder Cronsole creates is `\Cronsole` — and the only one it removes. Deleting a folder needs elevation, so it will not create litter it cannot clean up. A create into a missing folder is refused honestly. |
 | **Names are unique per folder** | A collision returns **409** instead of letting Windows silently overwrite. |
 | **Disable is how you park a task** | Never encode "don't run" in the cron — see §5. |
+| **A bulk result is per task, not one number** | `POST /api/tools/tasks/status` answers with an outcome for every task: `updated`, `unchanged` (already in that state), `refused` (declined before the platform was asked), `failed`, `skipped`. **Read the items, not just the count** — partial success is normal, and a task that failed is still in the state it was. If the agent goes offline mid-run the rest come back `skipped` with the reason rather than the batch grinding through a timeout each. |
 | **Untrack is how you tidy the dashboard** | `untrack_task` removes Cronsole's record and leaves the scheduled task running. Deleting to clean up a view destroys someone's automation. |
 
 ---

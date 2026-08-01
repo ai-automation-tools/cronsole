@@ -15,9 +15,6 @@ import {
   Columns,
   Calendar,
   HelpCircle,
-  CopyPlus,
-  Play,
-  Power,
   Zap,
   Search,
   X,
@@ -28,10 +25,18 @@ import {
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
+import { TaskRowActions } from '../components/TaskRowActions';
+import { TaskSelectCheckbox } from '../components/TaskSelectCheckbox';
+import { BulkActionBar } from '../components/BulkActionBar';
 import { platformLabel, platformBadgeClass } from '../platform';
-import { isRunnable, runButtonTitle, canToggleStatus, toggleStatusTitle } from '../utils/taskActions';
 import { matchesTaskSearch } from '../utils/taskSearch';
 import { applySystemLens } from '../utils/systemTasks';
+import {
+  pruneResolved,
+  summarizeSelection,
+  toggleSelectAll,
+  toggleTaskSelection
+} from '../utils/taskSelection';
 import { useSettings, type Settings } from '../hooks/useSettings';
 import { useConnections } from '../hooks/useConnections';
 import { formatDateTime, formatTime, timeAgo } from '../utils/datetime';
@@ -55,6 +60,8 @@ export const DashboardScreen = ({
   statusTogglingId,
   onShowHelp,
   onNewTask,
+  onBulkStatus,
+  isBulkPending,
   settings
 }: {
   onTaskSelect: (task: Task) => void;
@@ -72,6 +79,9 @@ export const DashboardScreen = ({
   statusTogglingId: string | null;
   onShowHelp: () => void;
   onNewTask: () => void;
+  /** Resolves to the ids that actually changed, so the selection can be pruned. */
+  onBulkStatus: (tasks: Task[], status: 'ACTIVE' | 'DISABLED') => Promise<string[]>;
+  isBulkPending: boolean;
   settings: Settings;
 }) => {
   const { data: connections } = useConnections();
@@ -228,6 +238,23 @@ export const DashboardScreen = ({
     return result;
   }, [tasks, selectedCategory, selectedPlatform, showDisabled, viewMode, searchQuery]);
 
+  // ---- Bulk selection -----------------------------------------------------
+  //
+  // One id-keyed Set for all four views. That works because all four already
+  // render from `filteredTasks`: grid and list map it, schedule re-sorts it,
+  // kanban partitions it by status. So "what is on screen" has one definition
+  // and selection needs no per-view concept.
+  //
+  // Keyed by id rather than by index or object identity so it survives a refetch
+  // (TanStack Query replaces the objects on every invalidation) and a view
+  // switch.
+  // The rules live in utils/taskSelection.ts as pure functions — the awkward
+  // parts (shift-range order, what happens to a selection when the view changes
+  // under it) are testable there without standing up the whole dashboard.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Anchor for shift-click range selection.
+  const lastClickedId = useRef<string | null>(null);
+
   const scheduledTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
       const aTime = (a.metadata as TaskMeta)?.nextRunTime || (a.metadata as TaskMeta)?.nextRun || a.updatedAt;
@@ -235,6 +262,46 @@ export const DashboardScreen = ({
       return new Date(aTime).getTime() - new Date(bTime).getTime();
     });
   }, [filteredTasks]);
+
+  // Shift-click extends in the order the user is looking at — the schedule view
+  // sorts by next run, so the same two endpoints there bracket a different set.
+  const orderedTasks = viewMode === 'schedule' ? scheduledTasks : filteredTasks;
+
+  const selection = useMemo(
+    () => summarizeSelection(selectedIds, tasks ?? [], filteredTasks),
+    [selectedIds, tasks, filteredTasks]
+  );
+
+  const toggleSelect = (task: Task, event: React.MouseEvent) => {
+    setSelectedIds(prev =>
+      toggleTaskSelection(prev, orderedTasks, task.id, {
+        shiftKey: event.shiftKey,
+        anchorId: lastClickedId.current
+      })
+    );
+    lastClickedId.current = task.id;
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    lastClickedId.current = null;
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds(prev => toggleSelectAll(prev, filteredTasks));
+    lastClickedId.current = null;
+  };
+
+  const allVisibleSelected =
+    filteredTasks.length > 0 && filteredTasks.every(t => selectedIds.has(t.id));
+
+  // Acts on the WHOLE selection, including the part this view isn't showing —
+  // the bar has already said how many that is, and acting on only what happens
+  // to be rendered would make the result depend on which view you were in.
+  const runBulkStatus = async (status: 'ACTIVE' | 'DISABLED') => {
+    const resolved = await onBulkStatus(selection.tasks, status);
+    if (resolved.length > 0) setSelectedIds(prev => pruneResolved(prev, resolved));
+  };
 
   if (isLoading) {
     return (
@@ -517,6 +584,41 @@ export const DashboardScreen = ({
             </div>
           </div>
 
+          {/* Selection: the select-all control lives in the toolbar rather than
+              as a header checkbox, because only here can it name the number it
+              is about to select — the same rule the Import modal follows. */}
+          <div className="flex flex-col gap-3">
+            {filteredTasks.length > 0 && (
+              <label className="flex items-center gap-2 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors cursor-pointer w-fit">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                  aria-label={
+                    allVisibleSelected
+                      ? `Deselect all ${filteredTasks.length} visible tasks`
+                      : `Select all ${filteredTasks.length} visible tasks`
+                  }
+                  className="h-4 w-4 cursor-pointer accent-primary rounded border-border bg-background"
+                />
+                {allVisibleSelected
+                  ? `Deselect all ${filteredTasks.length}`
+                  : `Select all ${filteredTasks.length} shown`}
+              </label>
+            )}
+
+            <BulkActionBar
+              selectedCount={selectedIds.size}
+              offscreenCount={selection.offscreenCount}
+              enabledCount={selection.enabledCount}
+              disabledCount={selection.disabledCount}
+              onEnable={() => runBulkStatus('ACTIVE')}
+              onDisable={() => runBulkStatus('DISABLED')}
+              onClear={clearSelection}
+              isPending={isBulkPending}
+            />
+          </div>
+
           {/* Grid View */}
           {viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
@@ -552,6 +654,8 @@ export const DashboardScreen = ({
                     onClone={onClone}
                     onToggleStatus={onToggleStatus}
                     isTogglingStatus={statusTogglingId === task.id}
+                    selected={selectedIds.has(task.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))
               )}
@@ -565,7 +669,8 @@ export const DashboardScreen = ({
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/80 text-[10px] uppercase font-black text-subtle-foreground tracking-wider bg-background/20">
-                      <th className="py-4 px-6">Name</th>
+                      <th className="py-4 pl-6 pr-0 w-4"><span className="sr-only">Select</span></th>
+                      <th className="py-4 px-4">Name</th>
                       <th className="py-4 px-4">Platform</th>
                       <th className="py-4 px-4">Category</th>
                       <th className="py-4 px-4">Status</th>
@@ -576,7 +681,7 @@ export const DashboardScreen = ({
                   <tbody className="divide-y divide-border/50 text-sm">
                     {filteredTasks.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-subtle-foreground font-medium italic">
+                        <td colSpan={7} className="text-center py-12 text-subtle-foreground font-medium italic">
                           No tasks match the active filters.
                         </td>
                       </tr>
@@ -587,7 +692,14 @@ export const DashboardScreen = ({
                           className="hover:bg-surface/50 transition-colors group cursor-pointer"
                           onClick={() => onTaskSelect(task)}
                         >
-                          <td className="py-4 px-6 font-bold text-foreground group-hover:text-foreground transition-colors">
+                          <td className="py-4 pl-6 pr-0">
+                            <TaskSelectCheckbox
+                              task={task}
+                              checked={selectedIds.has(task.id)}
+                              onToggle={toggleSelect}
+                            />
+                          </td>
+                          <td className="py-4 px-4 font-bold text-foreground group-hover:text-foreground transition-colors">
                             <div>
                               <span className="block truncate max-w-[240px]">{task.name}</span>
                               <span className="block text-[10px] text-subtle-foreground font-mono font-normal truncate max-w-[240px] mt-0.5">{task.externalId}</span>
@@ -619,34 +731,15 @@ export const DashboardScreen = ({
                           <td className="py-4 px-4 text-xs text-muted-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
                           </td>
-                          <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => onClone(task)}
-                                className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground border border-border transition-all active:scale-90"
-                                title="Clone Task"
-                              >
-                                <CopyPlus size={16} />
-                              </button>
-                              {canToggleStatus(task) && (
-                                <button
-                                  onClick={() => onToggleStatus(task)}
-                                  disabled={statusTogglingId === task.id}
-                                  className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground border border-border transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={toggleStatusTitle(task)}
-                                >
-                                  {statusTogglingId === task.id ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-                                </button>
-                              )}
-                              <button
-                                onClick={() => isRunnable(task) && onRun(task)}
-                                disabled={!isRunnable(task)}
-                                className="bg-success hover:bg-success-hover p-2 rounded-lg text-success-foreground shadow-lg shadow-success/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
-                                title={runButtonTitle(task)}
-                              >
-                                <Play size={16} fill="currentColor" />
-                              </button>
-                            </div>
+                          <td className="py-4 px-4">
+                            <TaskRowActions
+                              task={task}
+                              size="md"
+                              onRun={onRun}
+                              onClone={onClone}
+                              onToggleStatus={onToggleStatus}
+                              isTogglingStatus={statusTogglingId === task.id}
+                            />
                           </td>
                         </tr>
                       ))
@@ -683,8 +776,16 @@ export const DashboardScreen = ({
                         className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg"
                       >
                         <div className="flex justify-between items-start">
-                          <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
-                            {platformLabel(task.platform)}
+                          <span className="flex items-center gap-1.5">
+                            <TaskSelectCheckbox
+                              task={task}
+                              checked={selectedIds.has(task.id)}
+                              onToggle={toggleSelect}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
+                              {platformLabel(task.platform)}
+                            </span>
                           </span>
                           <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
                             <Folder size={10} /> {task.category || 'Uncategorized'}
@@ -695,33 +796,14 @@ export const DashboardScreen = ({
                           <span className="text-[9px] text-subtle-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
                           </span>
-                          <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={() => onClone(task)}
-                              className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
-                              title="Clone Task"
-                            >
-                              <CopyPlus size={12} />
-                            </button>
-                            {canToggleStatus(task) && (
-                              <button
-                                onClick={() => onToggleStatus(task)}
-                                disabled={statusTogglingId === task.id}
-                                className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={toggleStatusTitle(task)}
-                              >
-                                {statusTogglingId === task.id ? <Loader2 size={12} className="animate-spin" /> : <Power size={12} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => isRunnable(task) && onRun(task)}
-                              disabled={!isRunnable(task)}
-                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
-                              title={runButtonTitle(task)}
-                            >
-                              <Play size={12} fill="currentColor" />
-                            </button>
-                          </div>
+                          <TaskRowActions
+                            task={task}
+                            size="xs"
+                            onRun={onRun}
+                            onClone={onClone}
+                            onToggleStatus={onToggleStatus}
+                            isTogglingStatus={statusTogglingId === task.id}
+                          />
                         </div>
                       </div>
                     ))
@@ -752,8 +834,16 @@ export const DashboardScreen = ({
                         className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg opacity-60 hover:opacity-100"
                       >
                         <div className="flex justify-between items-start">
-                          <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
-                            {platformLabel(task.platform)}
+                          <span className="flex items-center gap-1.5">
+                            <TaskSelectCheckbox
+                              task={task}
+                              checked={selectedIds.has(task.id)}
+                              onToggle={toggleSelect}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
+                              {platformLabel(task.platform)}
+                            </span>
                           </span>
                           <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
                             <Folder size={10} /> {task.category || 'Uncategorized'}
@@ -764,33 +854,14 @@ export const DashboardScreen = ({
                           <span className="text-[9px] text-subtle-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
                           </span>
-                          <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={() => onClone(task)}
-                              className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
-                              title="Clone Task"
-                            >
-                              <CopyPlus size={12} />
-                            </button>
-                            {canToggleStatus(task) && (
-                              <button
-                                onClick={() => onToggleStatus(task)}
-                                disabled={statusTogglingId === task.id}
-                                className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={toggleStatusTitle(task)}
-                              >
-                                {statusTogglingId === task.id ? <Loader2 size={12} className="animate-spin" /> : <Power size={12} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => isRunnable(task) && onRun(task)}
-                              disabled={!isRunnable(task)}
-                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
-                              title={runButtonTitle(task)}
-                            >
-                              <Play size={12} fill="currentColor" />
-                            </button>
-                          </div>
+                          <TaskRowActions
+                            task={task}
+                            size="xs"
+                            onRun={onRun}
+                            onClone={onClone}
+                            onToggleStatus={onToggleStatus}
+                            isTogglingStatus={statusTogglingId === task.id}
+                          />
                         </div>
                       </div>
                     ))
@@ -827,6 +898,11 @@ export const DashboardScreen = ({
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
+                                <TaskSelectCheckbox
+                                  task={task}
+                                  checked={selectedIds.has(task.id)}
+                                  onToggle={toggleSelect}
+                                />
                                 <h4 className="font-bold text-foreground text-base">{task.name}</h4>
                                 <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                                   {platformLabel(task.platform)}
@@ -845,33 +921,14 @@ export const DashboardScreen = ({
                                   {nextRun ? formatDateTime(nextRun, settings.timezone) : 'Not set / Manual'}
                                 </span>
                               </div>
-                              <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                                <button
-                                  onClick={() => onClone(task)}
-                                  className="p-2 rounded bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all active:scale-95"
-                                  title="Clone Task"
-                                >
-                                  <CopyPlus size={14} />
-                                </button>
-                                {canToggleStatus(task) && (
-                                  <button
-                                    onClick={() => onToggleStatus(task)}
-                                    disabled={statusTogglingId === task.id}
-                                    className="p-2 rounded bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title={toggleStatusTitle(task)}
-                                  >
-                                    {statusTogglingId === task.id ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => isRunnable(task) && onRun(task)}
-                                  disabled={!isRunnable(task)}
-                                  className="p-2 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
-                                  title={runButtonTitle(task)}
-                                >
-                                  <Play size={14} fill="currentColor" />
-                                </button>
-                              </div>
+                              <TaskRowActions
+                                task={task}
+                                size="sm"
+                                onRun={onRun}
+                                onClone={onClone}
+                                onToggleStatus={onToggleStatus}
+                                isTogglingStatus={statusTogglingId === task.id}
+                              />
                             </div>
                           </div>
                         </div>

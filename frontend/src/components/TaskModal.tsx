@@ -9,6 +9,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import { Modal } from './ui/Modal';
 import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron } from '../utils/schedule';
+import { hhmmInZone, resolveZone, zoneAbbrev, zoneLabel } from '../utils/timezone';
 import { isRunnable, runButtonTitle } from '../utils/taskActions';
 import { EditScheduleModal } from './EditScheduleModal';
 import { EditActionModal } from './EditActionModal';
@@ -81,8 +82,17 @@ function scheduleInfo(task: Task, tz: TimezoneMode): { cron: string | null; huma
   if (trig && typeof trig === 'object') {
     const type = asText(trig.type);
     if (type) rows.push({ label: 'Trigger', value: type });
+    // The agent reports start boundaries in UTC (TriggerReader.ToUtcHhmm), so
+    // show them in the same zone as everything else rather than leaving one raw
+    // UTC clock reading among Pacific ones.
     const start = asText(trig.startBoundary);
-    if (start) rows.push({ label: 'Start time', value: `${start} UTC` });
+    if (start) {
+      const inZone = hhmmInZone(start, tz);
+      rows.push({
+        label: 'Start time',
+        value: inZone ? `${inZone} ${zoneAbbrev(resolveZone(tz))}` : `${start} UTC`
+      });
+    }
     if (Array.isArray(trig.daysOfWeek) && trig.daysOfWeek.length) {
       rows.push({ label: 'Days', value: trig.daysOfWeek.join(', ') });
     }
@@ -509,7 +519,9 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
               <div className="bg-background rounded-xl border border-border p-4 space-y-2">
                 {sched.human && <p className="text-sm font-semibold text-foreground">{sched.human}</p>}
                 <code className="text-xs text-foreground/80 bg-surface px-2 py-1 rounded font-mono inline-block">{sched.cron}</code>
-                <p className="text-[11px] text-subtle-foreground">Stored as UTC cron · displayed in the schedule view in your local time.</p>
+                <p className="text-[11px] text-subtle-foreground">
+                  Stored as UTC cron (shown above) · read here in {zoneLabel(prefs.timezone)}.
+                </p>
               </div>
             ) : (
               <div className="text-xs text-subtle-foreground bg-background border border-border rounded-xl px-4 py-3 flex items-start gap-2">

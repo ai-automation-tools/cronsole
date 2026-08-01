@@ -3,8 +3,10 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
-import { CRON_PRESETS } from '../utils/cronPresets';
+import { useScheduleZone } from '../hooks/useScheduleZone';
+import { CRON_PRESETS, presetLabel } from '../utils/cronPresets';
 import { Modal } from './ui/Modal';
+import { ScheduleZoneHint } from './ScheduleZoneHint';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
@@ -27,7 +29,11 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   const [platform, setPlatform] = useState<CreatePlatform>('TASKHUB_NATIVE');
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Cronsole');
+  const zone = useScheduleZone();
+  // Held in the user's zone; converted to UTC once, on submit. "0 8" now means
+  // 8am where you are rather than 8am UTC.
   const [schedule, setSchedule] = useState('0 8 * * *');
+  const storedSchedule = zone.toUtc(schedule);
   // Native (HTTP job) fields
   const [url, setUrl] = useState('');
   const [method, setMethod] = useState('GET');
@@ -51,14 +57,16 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
     if (!isWindows) return;
     const handle = setTimeout(async () => {
       try {
-        const res = await api.post('/tasks/preview', { platform, schedule });
+        // UTC on the wire — the backend converts to a trigger and the agent
+        // converts that back to local; sending zone-local would double-shift.
+        const res = await api.post('/tasks/preview', { platform, schedule: storedSchedule.cron });
         setPreview(res.data);
       } catch {
         setPreview(null);
       }
     }, 400);
     return () => clearTimeout(handle);
-  }, [isWindows, platform, schedule]);
+  }, [isWindows, platform, storedSchedule.cron]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -67,14 +75,14 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           name,
           platform,
           category: category.trim() || undefined,
-          schedule,
+          schedule: storedSchedule.cron,
           command
         });
       }
       return api.post('/tasks/native', {
         name,
         category,
-        schedule,
+        schedule: storedSchedule.cron,
         job: { jobType: 'HTTP', url, method, body: body || undefined }
       });
     },
@@ -173,7 +181,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Clock size={11} /> Schedule (cron · UTC) <span className="text-red-400">*</span>
+              <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-red-400">*</span>
             </label>
             <input
               value={schedule}
@@ -193,10 +201,16 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                       : 'bg-background border-border text-muted-foreground hover:border-foreground/30'
                   }`}
                 >
-                  {p.label}
+                  {presetLabel(p, zone.label)}
                 </button>
               ))}
             </div>
+            <ScheduleZoneHint
+              typed={schedule}
+              stored={storedSchedule}
+              zoneLabel={zone.label}
+              driftsWithDst={!isWindows}
+            />
             {isWindows && preview && (
               preview.warnings.length > 0 ? (
                 <div className="text-[11px] text-amber-500 bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2 space-y-1">

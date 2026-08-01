@@ -2,7 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type DashboardView = 'grid' | 'list' | 'kanban' | 'schedule';
 export type TemplateView = 'grid' | 'list' | 'kanban';
-export type TimezoneMode = 'local' | 'utc';
+/**
+ * The zone schedules are read and written in.
+ *
+ * `'local'` follows the machine and `'utc'` is UTC; anything else is an IANA
+ * zone id (`'America/Los_Angeles'`). The two keywords predate the zone ids and
+ * are kept because they are already in users' `localStorage` — widening the
+ * type rather than replacing it means an existing preference keeps working
+ * instead of silently resetting.
+ *
+ * This affects **authoring and display only**. Storage stays 5-field cron in
+ * UTC (CLAUDE.md §9); `utils/timezone.ts` converts at the edge.
+ */
+export type TimezoneMode = 'local' | 'utc' | (string & {});
 
 /**
  * User preferences persisted client-side. Theme is intentionally NOT here — it
@@ -28,6 +40,12 @@ export interface Settings {
   templateView: TemplateView;
   // Behavior
   confirmBeforeRun: boolean;
+  /**
+   * The zone you read and write schedules in. Defaults to Pacific rather than
+   * UTC: every cron field in the app used to be labelled UTC, so applying a
+   * template whose schedule reads `0 8 * * *` quietly created a task that runs
+   * at 1 AM — correct, stored honestly, and useless as a thing to reason about.
+   */
   timezone: TimezoneMode;
   // Notifications
   toastOnSuccess: boolean;
@@ -56,7 +74,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showSystemTasks: false,
   templateView: 'grid',
   confirmBeforeRun: true,
-  timezone: 'local',
+  timezone: 'America/Los_Angeles',
   toastOnSuccess: true,
   toastOnFailure: true,
   desktopNotifyOnFailure: false,

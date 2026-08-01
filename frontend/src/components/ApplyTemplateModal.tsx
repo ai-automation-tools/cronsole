@@ -6,9 +6,11 @@ import { api } from '../api';
 import { platformLabel, isCreatablePlatform } from '../platform';
 import { useToast } from '../hooks/useToast';
 import { useSettings } from '../hooks/useSettings';
+import { useScheduleZone } from '../hooks/useScheduleZone';
 import { describeCron } from '../utils/schedule';
-import { CRON_PRESETS } from '../utils/cronPresets';
+import { CRON_PRESETS, presetLabel } from '../utils/cronPresets';
 import { Modal } from './ui/Modal';
+import { ScheduleZoneHint } from './ScheduleZoneHint';
 
 // Substitute {{key}} placeholders — preview only. The apply request sends the
 // raw parameter values; the backend owns the real substitution per-token, so a
@@ -43,7 +45,13 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const creatableTargets = template.targetPlatforms.filter(isCreatablePlatform);
   const [platform, setPlatform] = useState(creatableTargets[0] ?? '');
   const [name, setName] = useState(template.name);
-  const [schedule, setSchedule] = useState(template.scheduleExpression);
+  const zone = useScheduleZone();
+  // The template's `scheduleExpression` is UTC (registry schedules always are),
+  // so it is read into the user's zone for editing and converted back on apply.
+  // A template that says "daily at 8" should mean 8 o'clock where the user
+  // lives, not 8 UTC — which is 1 AM in Pacific and was the bug.
+  const [schedule, setSchedule] = useState(() => zone.toZone(template.scheduleExpression).cron);
+  const storedSchedule = zone.toUtc(schedule);
   // Windows only: the REAL Task Scheduler folder the task lands in. For a
   // Windows task the "category" is a projection of this folder
   // (TaskService.extractCategory reads the root segment), so choosing a folder
@@ -55,21 +63,25 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const { settings: prefs } = useSettings();
 
-  // Honest human reading of the cron (null when we can't describe it); local
-  // vs UTC follows the Settings timezone mode, like the task detail view.
-  const humanSchedule = describeCron(schedule, prefs.timezone);
+  // Honest human reading of the cron (null when we can't describe it), rendered
+  // in the Settings zone like the task detail view. `describeCron` takes the
+  // STORED (UTC) expression and does its own shift, so it is fed the converted
+  // form rather than what's in the input.
+  const humanSchedule = describeCron(storedSchedule.cron, prefs.timezone);
 
   const baseCommand = template.commandTemplate ?? template.command ?? '';
   const resolved = resolveCommand(baseCommand, values).trim();
   const missing = params.filter(p => p.required && !values[p.key]?.trim());
   const incomplete = missing.length > 0 || resolved.includes('{{');
 
-  // Debounce the schedule so the preview doesn't fire per keystroke.
-  const [debouncedSchedule, setDebouncedSchedule] = useState(schedule);
+  // Debounce the schedule so the preview doesn't fire per keystroke. The backend
+  // only ever sees UTC — it converts to a Windows trigger and the agent converts
+  // back to local, so sending the zone-local form would double-apply the offset.
+  const [debouncedSchedule, setDebouncedSchedule] = useState(storedSchedule.cron);
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSchedule(schedule), 400);
+    const t = setTimeout(() => setDebouncedSchedule(storedSchedule.cron), 400);
     return () => clearTimeout(t);
-  }, [schedule]);
+  }, [storedSchedule.cron]);
 
   interface SchedulePreview {
     score: number;
@@ -125,7 +137,8 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
     mutationFn: async () => {
       return api.post(`/templates/${template.id}/apply`, {
         platform,
-        schedule,
+        // Always UTC on the wire — the zone lives in the browser only.
+        schedule: storedSchedule.cron,
         name: name.trim(),
         parameters: values,
         // Windows only — other platforms have no native folder hierarchy and
@@ -262,7 +275,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Clock size={11} /> Schedule (cron · UTC)
+              <Clock size={11} /> Schedule (cron · {zone.label})
             </label>
             <input
               value={schedule}
@@ -280,15 +293,21 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
                       : 'bg-background border-border text-muted-foreground hover:border-foreground/30'
                   }`}
                 >
-                  {p.label}
+                  {presetLabel(p, zone.label)}
                 </button>
               ))}
             </div>
             {humanSchedule && (
               <p className="text-[10px] text-subtle-foreground flex items-center gap-1.5">
-                <Clock size={10} className="shrink-0" /> Runs {humanSchedule.charAt(0).toLowerCase() + humanSchedule.slice(1)}{prefs.timezone === 'local' ? ' (your local time)' : ''}
+                <Clock size={10} className="shrink-0" /> Runs {humanSchedule.charAt(0).toLowerCase() + humanSchedule.slice(1)}
               </p>
             )}
+            <ScheduleZoneHint
+              typed={schedule}
+              stored={storedSchedule}
+              zoneLabel={zone.label}
+              driftsWithDst={!isWindows}
+            />
             {preview && preview.score >= 1 && (
               <p className="text-[10px] text-green-500 flex items-center gap-1.5">
                 <CheckCircle2 size={11} className="shrink-0" /> Schedule converts cleanly to a native trigger.

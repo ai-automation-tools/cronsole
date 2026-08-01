@@ -118,7 +118,8 @@ security or honesty.
 
 | Invariant | Why it exists |
 |:---|:---|
-| **All schedules stored as 5-field cron in UTC** | Display converts to local. Storing local time is a whole bug class (wrong-time runs, DST drift). |
+| **All schedules stored as 5-field cron in UTC** | Storing local time is a whole bug class (wrong-time runs, DST drift). This is the storage, REST, signed-command and MCP contract — **it does not move**. |
+| **The user's timezone lives at the browser's edge and nowhere else** | Cron *fields* read and accept `settings.timezone` (an IANA id, default **`America/Los_Angeles`**); `useScheduleZone().toUtc()` runs **once, on submit**. A zone that reached storage would fork the meaning of every cron in the DB by author, and `create_task` has no access to a browser preference — so the machine surface stays unambiguously UTC and only the human surface converts. Every shifted field prints the stored UTC form beside it. Two refusals rather than guesses: a date-pinned cron whose shift crosses midnight (`0 4 1 1 *` → 31 Dec in Pacific) is unexpressible and stays UTC with a reason; and **DST is asymmetric** — Windows holds its local wall-clock across a transition, a Cronsole-native task does not, and the UI names that. `describeCron` and `/tasks/preview` both take the **UTC** form. |
 | **Structured `exec` stays no-shell** (`{executable, args[]}`) | The P0 injection guarantee. A shell is opted into **explicitly** (`cmd.exe /c "…"`), never implicit. Implicit shell = arbitrary params become arbitrary code. |
 | **`PlatformConnection.config` is AES-256-GCM encrypted** before Prisma write | At-rest guarantee. **Never log decrypted values.** |
 | **Agent always initiates the WebSocket** | It lives on the user's machine behind their NAT. Inbound = a different (worse) product. |

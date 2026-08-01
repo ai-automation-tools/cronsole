@@ -294,7 +294,7 @@ These are scoped to this project and override any same-named global skill/agent.
 These are project-specific overrides on top of the parent workspace's general standards.
 
 ### Data model
-- **All schedules stored as 5-field cron in UTC.** Display in the user's local timezone; convert on the way in/out.
+- **All schedules stored as 5-field cron in UTC.** That is the storage, API, signed-agent-command and MCP contract, and it does not move. **Conversion happens at the browser's edge only** (`frontend/src/utils/timezone.ts` + `useScheduleZone`): the cron *fields* read and accept the user's zone — `Settings › Schedule timezone`, an IANA id defaulting to **`America/Los_Angeles`** — and `zoneCronToUtc` runs once on submit. Two consequences worth holding onto: **a zone must never reach storage or an MCP tool** (a cron whose meaning depends on its author forks every expression in the DB, and `create_task` cannot see a browser preference), and **every field that shifts prints the stored UTC form beside it**, so the dashboard and `list_tasks` never appear to disagree. Two honest refusals: a date-pinned cron whose shift crosses midnight (`0 4 1 1 *`) is unexpressible and stays UTC with a reason; and **DST is asymmetric** — a Windows task holds its local wall-clock across a transition (the agent converts UTC→local at registration), a Cronsole-native task does not (`NativeScheduler` evaluates the stored UTC cron forever), and the UI says so.
 - `Task.externalId` is the platform's native ID (e.g., Windows task path, Claude routine ID). `(platform, externalId)` is unique.
 - `PlatformConnection.config` is **encrypted at the application layer** (AES-256-GCM) before Prisma write. Never log decrypted values.
 
@@ -310,6 +310,7 @@ These are project-specific overrides on top of the parent workspace's general st
 
 ### Frontend
 - Dark theme is the **default**, not an opt-in. The light variant is the toggle.
+- **Schedules are read and written in `settings.timezone`** (default Pacific), never raw UTC. A new cron input must hold its value in that zone and call `useScheduleZone().toUtc()` exactly once, on submit — converting per keystroke fights the cursor, and converting twice double-applies the offset. `describeCron` and the `/tasks/preview` route both take the **UTC** form.
 - Tailwind `darkMode: 'class'`. Theme persists via `localStorage` keyed **`cronsole.theme`** (`frontend/src/hooks/useTheme.ts`). The pre-rename `taskhub.theme` is **read** as a legacy fallback — in `index.html`'s inline no-flash script and in `utils/storageMigration.ts`, which copies `taskhub.*` forward — so the rename doesn't reset anyone's theme. That legacy prefix is **assembled from parts on purpose** so a future rename pass cannot rewrite it into `cronsole` and turn the fallback into a no-op that still reads correctly.
 - Use TanStack Query for all server state. Invalidate on WebSocket `task:updated` events.
 - Mobile is a first-class target — every page must pass `<375px` viewport check.

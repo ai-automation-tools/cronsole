@@ -37,7 +37,7 @@ Clicking a task card opens the **Task Details** modal, which has two tabs.
 ### Overview
 Instead of raw data, the Overview parses the task's synced configuration into readable panels:
 - **Summary:** Status, last result (success/failure), next run, and last run.
-- **Schedule:** A human-readable description (e.g. *"Daily at 9:00 AM UTC"*) alongside the underlying cron expression. Schedules are stored in UTC. If Cronsole can't express the trigger as cron (boot, logon, event, or on-demand tasks), it says so honestly rather than guessing.
+- **Schedule:** A human-readable description (e.g. *"Daily at 9:00 AM PDT"*) alongside the underlying cron expression. Schedules are **stored** in UTC but **read and written in your own timezone** — Pacific by default, changeable under Settings → Behavior → Schedule timezone. If Cronsole can't express the trigger as cron (boot, logon, event, or on-demand tasks), it says so honestly rather than guessing.
 - **Action:** What the task actually runs — an HTTP request for Cronsole-native tasks, or the executable/arguments/working directory for Windows tasks. If your agent build doesn't yet report a task's action, the panel says so rather than showing a blank.
 - **Settings:** Scheduler state, whether the task is enabled, the account it runs as, run level, logon type, author, and description — shown when the agent reports them.
 - **Raw platform metadata:** The full untouched sync payload is still available under a collapsible section at the bottom.
@@ -78,7 +78,9 @@ entry. The task stops existing and will never run again.
 > If your goal is a tidier dashboard, you almost always want **Remove from Cronsole**. Deleting
 > to clean up a view destroys automation that may have been running for years.
 
-> **Note on schedule times:** the recurring clock time in the Schedule panel follows your **Settings → Behavior → schedule-time display** choice — your local time by default, or UTC. Absolute timestamps (next/last run) are always shown in your local time.
+> **Note on schedule times:** every clock time in the app — the Schedule panel, the cron fields you type into, the preset chips, and absolute next/last-run timestamps — follows **Settings → Behavior → Schedule timezone**. It defaults to **Pacific**; you can pick another zone, your machine's, or UTC.
+>
+> Schedules are still **stored** as UTC cron, which is what the API, the MCP tools and Windows Task Scheduler see, so each cron field prints the stored UTC expression beside it. Two cases are called out rather than guessed at: a schedule pinned to a specific date whose conversion crosses midnight can't be expressed in cron, so it stays in UTC and says so; and across a daylight-saving change a **Windows** task keeps its local clock time while a **Cronsole-native** task shifts by an hour, because Cronsole runs the stored UTC expression directly.
 
 ---
 
@@ -125,7 +127,7 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 - **OS & Tags filters:** Faceted chips (with counts) narrow by operating system and category tag. Like the Dashboard chips, they only show combinations that actually have templates, and collapse when a single choice remains. Use **Clear** to reset everything.
 
 ### Applying a template
-- Each card shows its target platforms, script type, intended schedule (UTC), and the command it will run.
+- Each card shows its target platforms, script type, intended schedule — read in your schedule timezone, the same reading the Apply modal pre-fills — and the command it will run.
 - Click **"Apply Template"** to open the creation flow. For starters, you'll fill in the required parameters (validated as you go). Cronsole then registers the new task on your machine via the local agent (Windows) or the relevant API.
 - **Task name:** prefilled with the template's name but yours to edit — give each applied task its own name if you reuse a template. A name that matches a task Cronsole already created **in the same folder** is **rejected** (instead of Windows silently overwriting the existing task), and names with characters Windows forbids (`\ / : * ? " < > |`, trailing dots) are refused with a clear message.
 - **Task Scheduler folder** *(Windows only)*: choose where the task actually lives in Windows Task Scheduler. The list is read from your machine and defaults to `\Cronsole`. **This is also the task's category in Cronsole** — for a Windows task the category *is* its top-level folder, which is why an imported task shows up under `Microsoft` or whatever folder it really lives in. Because the collision check is per folder, the same name in two different folders is fine: `\Cronsole\Backup` and `\Work\Backup` are genuinely different Windows tasks.
@@ -133,7 +135,7 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
   - `\Microsoft\` isn't offered. Windows keeps its own scheduled tasks there, and creating one with a matching name would **silently overwrite** a real system task — no error, no warning. Cronsole refuses it rather than hand you that footgun.
   - If the agent is offline the list can't be read; you can still create in `\Cronsole`.
 - **Other platforms** keep Cronsole's own categories — only Windows has a real folder hierarchy to point at.
-- **Schedule:** quick preset chips fill common crons, and a plain-language preview under the field ("Runs daily at 8:00 AM UTC" — or your local time, per Settings) confirms what the cron means before you create anything. Conversion warnings appear when a cron can't map cleanly onto a native Windows trigger.
+- **Schedule:** the field is labelled with the zone it reads in (`Schedule (cron · PDT)`), quick preset chips fill common crons in that same zone, and a plain-language preview under the field ("Runs daily at 8:00 AM PDT") confirms what the cron means before you create anything. The stored UTC expression is printed underneath. Conversion warnings appear when a cron can't map cleanly onto a native Windows trigger.
 - The created task appears on the Dashboard immediately — no need to wait for a sync.
 
 ---

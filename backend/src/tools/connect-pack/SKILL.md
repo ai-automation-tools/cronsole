@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.2** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.3** · canonical copy: <https://cronsole.mikesailab.com>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -69,7 +69,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 
 | Rule | Why it exists |
 |:---|:---|
-| **Schedules are 5-field cron in UTC** | Not local time. The dashboard converts for display; you convert on the way in. |
+| **Schedules are 5-field cron in UTC** | Not local time. The dashboard reads *and writes* in the user's own zone (Pacific by default) and converts before calling the API — **you can't see that setting, so you convert on the way in**. Ask which zone "9am" means, and confirm both readings back. See §3 of the task-authoring reference. |
 | **Commands are tokenized, no shell** | A Windows command becomes a structured `{executable, args[]}` action. Pipes, `>`, `&&`, `%VAR%` do **not** work unless you invoke a shell explicitly. This is the injection guarantee — an implicit shell turns every parameter into arbitrary code. |
 | **`\Microsoft\` is refused** | Registering a task **silently overwrites** a same-named one, and the agent runs **elevated**. Writing there could destroy a real Windows task with no error. Refused in the backend *and* independently in the agent. |
 | **A folder must already exist** | The only folder Cronsole creates is `\Cronsole` — and the only one it removes. Deleting a folder needs elevation, so it will not create litter it cannot clean up. A create into a missing folder is refused honestly. |

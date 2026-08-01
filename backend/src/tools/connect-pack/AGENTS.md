@@ -1,6 +1,6 @@
 # Cronsole — operating rules for an AI assistant
 
-> Cronsole Connect Pack **v1.2** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.3** · canonical copy: <https://cronsole.mikesailab.com>
 
 Paste this into your tool's system prompt, `AGENTS.md`, `CLAUDE.md`, custom instructions, or
 whatever single-file convention it uses. It is the condensed form of the full skill in this
@@ -25,7 +25,7 @@ set, not an obstacle. Say so and offer the safe alternative. Do not route around
 
 ## Non-negotiable rules
 
-1. **Schedules are 5-field cron in UTC.** Not local time. Convert on the way in.
+1. **Schedules are 5-field cron in UTC.** Not local time — and the dashboard writes in the user's own zone, which you can't see. Convert on the way in, and confirm both readings ("`0 16 * * *` — 9:00 AM Pacific").
 2. **Always validate a schedule before creating** (`convert_schedule` / `POST /api/tasks/preview`)
    and **read the returned trigger, not the confidence score.**
 3. **An unrecognized cron is replaced, not approximated.** `0 4 1 1 *` (once a year) becomes an

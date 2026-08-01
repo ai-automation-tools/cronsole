@@ -34,7 +34,12 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   domain — which redirects today, so it degrades to a slow link rather than a dead
 //   one — but "where to find a newer copy" changing IS a content change, and this
 //   stamp is the only way that copy can tell its reader it predates the move.
-export const CONNECT_PACK_VERSION = '1.2';
+// 1.3 (2026-07-31): the dashboard now authors schedules in the user's own zone
+//   (Pacific by default) while the API stays UTC. The pack always said "convert on
+//   the way in", but a reader could reasonably assume the user's "9am" was already
+//   what the app would store. It isn't, and the caller cannot see that setting — so
+//   the instruction is now to ASK the zone and confirm both readings back.
+export const CONNECT_PACK_VERSION = '1.3';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

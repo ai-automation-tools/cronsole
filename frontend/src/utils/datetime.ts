@@ -1,18 +1,35 @@
 import type { TimezoneMode } from '../hooks/useSettings';
+import { machineZone, resolveZone, zoneAbbrev } from './timezone';
 
 /**
- * Format an ISO timestamp for display, honoring the user's timezone preference.
- * Schedules are stored in UTC (see CLAUDE.md §9); `local` converts to the
- * viewer's zone, `utc` keeps it in UTC with a trailing `UTC` marker.
+ * Format an ISO timestamp for display in the user's chosen zone.
+ *
+ * Timestamps arrive from the API as UTC ISO strings (schedules are stored in
+ * UTC — CLAUDE.md §9); this renders them wherever the Settings zone points.
+ * The zone marker is appended whenever the reading is NOT the machine's own
+ * zone, because a time in a zone other than the one on your taskbar is exactly
+ * the case where an unlabelled clock reading is a lie.
  */
-export function formatDateTime(iso: string | null | undefined, tz: TimezoneMode): string {
+function withZone(
+  iso: string | null | undefined,
+  tz: TimezoneMode,
+  render: (d: Date, opts: Intl.DateTimeFormatOptions) => string
+): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  if (tz === 'utc') {
-    return `${d.toLocaleString(undefined, { timeZone: 'UTC' })} UTC`;
-  }
-  return d.toLocaleString();
+  const zone = resolveZone(tz);
+  const text = render(d, { timeZone: zone });
+  return zone === machineZone() ? text : `${text} ${zoneAbbrev(zone, d)}`;
+}
+
+export function formatDateTime(iso: string | null | undefined, tz: TimezoneMode): string {
+  return withZone(iso, tz, (d, opts) => d.toLocaleString(undefined, opts));
+}
+
+/** Time-only variant (used in dense list rows). */
+export function formatTime(iso: string | null | undefined, tz: TimezoneMode): string {
+  return withZone(iso, tz, (d, opts) => d.toLocaleTimeString(undefined, opts));
 }
 
 /** Compact relative time ("just now", "5m ago", "3h ago", "2d ago"). */
@@ -31,15 +48,4 @@ export function timeAgo(iso: string | null | undefined): string {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months}mo ago`;
   return `${Math.floor(months / 12)}y ago`;
-}
-
-/** Time-only variant (used in dense list rows). */
-export function formatTime(iso: string | null | undefined, tz: TimezoneMode): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  if (tz === 'utc') {
-    return `${d.toLocaleTimeString(undefined, { timeZone: 'UTC' })} UTC`;
-  }
-  return d.toLocaleTimeString();
 }

@@ -26,6 +26,7 @@ import type { Template, ImportResult } from '../types';
 import { ApplyTemplateModal } from '../components/ApplyTemplateModal';
 import { isCreatablePlatform, platformLabel } from '../platform';
 import { useSettings, type TemplateView } from '../hooks/useSettings';
+import { useScheduleZone } from '../hooks/useScheduleZone';
 import { TEMPLATE_RESOURCES } from '../data/templateResources';
 import { useToast } from '../hooks/useToast';
 
@@ -121,6 +122,28 @@ const FavoriteStar = ({ template, onToggle, size = 16 }: { template: Template; o
   </button>
 );
 
+/**
+ * A template's schedule as the Apply modal will pre-fill it.
+ *
+ * Registry schedules are UTC, but Apply now reads them into the user's zone —
+ * so printing the raw expression here meant the card said `0 8 * * *` and the
+ * modal it opened said `0 1 * * *`, with nothing connecting the two. Showing one
+ * reading in both places is the fix; the zone marker keeps it honest.
+ */
+const TemplateSchedule = ({ template, className }: { template: Template; className?: string }) => {
+  const zone = useScheduleZone();
+  const shifted = zone.toZone(template.scheduleExpression);
+  return (
+    <>
+      <code className={className}>{shifted.cron}</code>
+      {/* A refusal leaves the expression in UTC, so it must not be labelled otherwise. */}
+      <span className="text-subtle-foreground italic ml-auto">
+        {shifted.reason ? 'UTC' : zone.label}
+      </span>
+    </>
+  );
+};
+
 const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void }) => (
   <div className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
     <div className="p-6 flex-1">
@@ -165,8 +188,7 @@ const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Templ
       <div className="space-y-3">
         <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
           <Clock size={14} className="text-foreground" />
-          <code className="text-foreground font-mono">{template.scheduleExpression}</code>
-          <span className="text-subtle-foreground italic ml-auto">UTC</span>
+          <TemplateSchedule template={template} className="text-foreground font-mono" />
         </div>
         <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
           <ExternalLink size={14} className="text-purple-500" />
@@ -207,7 +229,9 @@ const TemplateListRow = ({ template, onApply, onToggleFavorite }: { template: Te
       </div>
       <p className="text-xs text-muted-foreground truncate">{template.description}</p>
     </div>
-    <code className="hidden sm:block text-[11px] font-mono text-subtle-foreground shrink-0">{template.scheduleExpression}</code>
+    <div className="hidden sm:flex items-center gap-1.5 text-[11px] shrink-0">
+      <TemplateSchedule template={template} className="font-mono text-subtle-foreground" />
+    </div>
     <button
       onClick={() => onApply(template)}
       className="shrink-0 bg-muted hover:bg-primary-hover text-foreground hover:text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all border border-border"
@@ -261,7 +285,9 @@ const TemplateKanbanCard = ({ template, onApply, onToggleFavorite }: { template:
     </div>
     <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">{template.description}</p>
     <div className="flex items-center justify-between gap-2 pt-1">
-      <code className="text-[10px] font-mono text-subtle-foreground truncate">{template.scheduleExpression}</code>
+      <div className="flex items-center gap-1.5 text-[10px] min-w-0">
+        <TemplateSchedule template={template} className="font-mono text-subtle-foreground truncate" />
+      </div>
       <button onClick={() => onApply(template)} className="shrink-0 text-[11px] font-bold text-primary hover:text-primary-hover flex items-center gap-1">
         Apply <ArrowRight size={11} />
       </button>

@@ -148,6 +148,84 @@ const Dashboard = () => {
     }
   });
 
+  /**
+   * Enable or disable a whole selection in one request.
+   *
+   * Goes through `POST /api/tools/tasks/status` rather than N calls to the
+   * per-task route: cross-task routes live on `/api/tools` (CLAUDE.md §9), and
+   * more importantly the server is the only place that can report a partially
+   * successful batch coherently — an ACL'd task refuses, a MISSING one is
+   * refused before the platform is asked, and if the agent disappears the run
+   * stops instead of collecting the same error fifty times.
+   *
+   * Returns the ids that actually changed so the caller can prune exactly those
+   * from its selection, leaving failures selected for a retry.
+   */
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({ tasks: selected, status }: { tasks: Task[]; status: 'ACTIVE' | 'DISABLED' }) => {
+      const verb = status === 'ACTIVE' ? 'Enable' : 'Disable';
+      // Only the tasks the request will actually change are worth confirming —
+      // and naming that number rather than the selection size keeps the dialog
+      // honest about the blast radius.
+      const changing = selected.filter(t => t.status !== status && t.status !== 'MISSING');
+      const ok = await confirm({
+        title: `${verb} ${changing.length} task${changing.length === 1 ? '' : 's'}?`,
+        message:
+          status === 'ACTIVE'
+            ? `${changing.length} of the ${selected.length} selected task${selected.length === 1 ? ' is' : 's are'} disabled and will start running on their schedules again. Each Windows task is applied through the local agent.`
+            : `${changing.length} of the ${selected.length} selected task${selected.length === 1 ? ' is' : 's are'} active and will stop running on their schedules. Nothing is deleted — re-enable them any time.`,
+        confirmText: `${verb} ${changing.length}`
+      });
+      if (!ok) throw new Error('Cancelled');
+
+      const res = await api.post('/tools/tasks/status', {
+        taskIds: selected.map(t => t.id),
+        status
+      });
+      return res.data as {
+        summary: string;
+        updated: number;
+        failed: number;
+        skipped: number;
+        haltedReason?: string;
+        items: { taskId: string; name: string; outcome: string; message?: string }[];
+      };
+    },
+    onSuccess: report => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // A partial result is the normal case at this scale, so the toast reports
+      // the whole summary and its tone follows the worst outcome — a green
+      // "12 enabled" over three silent failures is the confident lie again.
+      const bad = report.failed + report.skipped;
+      if (bad > 0) {
+        if (settings.toastOnFailure) {
+          toast(`${report.summary}${report.haltedReason ? ` — ${report.haltedReason}` : ''}`, 'error');
+        }
+      } else if (settings.toastOnSuccess) {
+        toast(report.summary, 'success');
+      }
+    },
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      if (err.message === 'Cancelled') return;
+      const detail = err.response?.data?.error || err.message;
+      if (settings.toastOnFailure) toast(`Bulk update failed: ${detail}`, 'error');
+    }
+  });
+
+  const handleBulkStatus = async (selected: Task[], status: 'ACTIVE' | 'DISABLED') => {
+    try {
+      const report = await bulkStatusMutation.mutateAsync({ tasks: selected, status });
+      return report.items
+        .filter(i => i.outcome === 'updated' || i.outcome === 'unchanged')
+        .map(i => i.taskId);
+    } catch {
+      // Cancelled or failed — the mutation's own handlers have already reported
+      // it; the selection stays intact so the user can retry.
+      return [];
+    }
+  };
+
   // Two callers, two shapes. Import sends the categories the user ticked in the
   // modal (path-derived names, straight from /discover). Sync Now sends
   // `scope: 'tracked'` and lets the server work out which folders that means —
@@ -284,6 +362,8 @@ const Dashboard = () => {
             statusTogglingId={statusMutation.isPending ? statusMutation.variables?.id ?? null : null}
             onShowHelp={() => setShowHelp(true)}
             onNewTask={() => setShowCreateNative(true)}
+            onBulkStatus={handleBulkStatus}
+            isBulkPending={bulkStatusMutation.isPending}
             settings={settings}
           />
         )}

@@ -75,14 +75,30 @@ export const TaskHealthTool = () => {
   // never act on — precisely the burial the lens exists to stop. They stay
   // reachable behind the toggle, with the count named, because silently
   // dropping 99 rows is the other half of the same mistake.
-  const unhealthy = (data?.tasks ?? []).filter(t => t.tier !== 'ok');
-  const systemHidden = includeSystem ? 0 : unhealthy.filter(t => t.isSystem).length;
-  const visible = includeSystem ? unhealthy : unhealthy.filter(t => !t.isSystem);
+  // ONE population, and every number below is drawn from it.
+  //
+  // This used to take three tiers from the personal-filtered list and the
+  // fourth (`Healthy`) from `data.counts.ok`, which is the whole machine. On a
+  // real 352-task box that printed `12 / 25 / 1 / 218` under the label "across
+  // 352 tasks" — a row summing to 256, mixing 38 personal tasks with 218 of
+  // everyone's. Mixing populations in one row is the same class of error as
+  // two mechanisms answering one question: nothing throws, and the numbers
+  // quietly stop describing anything.
+  //
+  // The server's `counts` are deliberately no longer read here. They summarize
+  // every task, and this card is scoped; keeping them as a shortcut for one
+  // tile is exactly how the two drifted apart.
+  const all = data?.tasks ?? [];
+  const scoped = includeSystem ? all : all.filter(t => !t.isSystem);
+  const systemHidden = includeSystem ? 0 : all.filter(t => t.isSystem).length;
+
+  const visible = scoped.filter(t => t.tier !== 'ok');
   const shown = showAll ? visible : visible.slice(0, 6);
 
   const critical = visible.filter(t => t.tier === 'critical').length;
   const attention = visible.filter(t => t.tier === 'attention').length;
   const unknown = visible.filter(t => t.tier === 'unknown').length;
+  const healthy = scoped.length - visible.length;
 
   return (
     <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
@@ -124,7 +140,7 @@ export const TaskHealthTool = () => {
               { label: 'Critical', value: critical, className: 'text-red-500' },
               { label: 'Attention', value: attention, className: 'text-amber-500' },
               { label: 'Unmeasured', value: unknown, className: 'text-slate-400' },
-              { label: 'Healthy', value: data.counts.ok, className: 'text-emerald-500' }
+              { label: 'Healthy', value: healthy, className: 'text-emerald-500' }
             ].map(stat => (
               <div key={stat.label} className="text-center">
                 <div className={`text-2xl font-bold tabular-nums ${stat.value === 0 ? 'text-subtle-foreground' : stat.className}`}>
@@ -139,7 +155,7 @@ export const TaskHealthTool = () => {
 
           <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
             <span className="text-muted-foreground">
-              across {data.counts.tasks} task{data.counts.tasks === 1 ? '' : 's'}
+              across {scoped.length} task{scoped.length === 1 ? '' : 's'}
             </span>
             {(systemHidden > 0 || includeSystem) && (
               <button

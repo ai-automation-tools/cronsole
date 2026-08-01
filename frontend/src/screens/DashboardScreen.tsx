@@ -15,26 +15,52 @@ import {
   Columns,
   Calendar,
   HelpCircle,
-  CopyPlus,
-  Play,
-  Power,
   Zap,
   Search,
   X,
   Download,
   Trash2,
   Cpu,
-  User
+  User,
+  Filter
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
+import { TaskRowActions } from '../components/TaskRowActions';
+import { TaskSelectCheckbox } from '../components/TaskSelectCheckbox';
+import { BulkActionBar } from '../components/BulkActionBar';
+import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
-import { isRunnable, runButtonTitle, canToggleStatus, toggleStatusTitle } from '../utils/taskActions';
-import { matchesTaskSearch } from '../utils/taskSearch';
 import { applySystemLens } from '../utils/systemTasks';
+import {
+  applyTaskFilters,
+  DEFAULT_FILTERS,
+  effectiveFilters,
+  needsHealthData,
+  type TaskFilters
+} from '../utils/taskFilters';
+import {
+  allViews,
+  describeFilters,
+  FILTER_PARAM_KEYS,
+  filtersFromParams,
+  filtersToParams,
+  matchView,
+  newViewId,
+  type SavedView
+} from '../utils/savedViews';
+import {
+  pruneResolved,
+  summarizeSelection,
+  toggleSelectAll,
+  toggleTaskSelection
+} from '../utils/taskSelection';
 import { useSettings, type Settings } from '../hooks/useSettings';
 import { useConnections } from '../hooks/useConnections';
+import { useTaskHealthTiers } from '../hooks/useTaskHealthTiers';
+import { useMinuteClock } from '../hooks/useMinuteClock';
 import { formatDateTime, formatTime, timeAgo } from '../utils/datetime';
+import { useSearchParams } from 'react-router';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
@@ -55,6 +81,8 @@ export const DashboardScreen = ({
   statusTogglingId,
   onShowHelp,
   onNewTask,
+  onBulkStatus,
+  isBulkPending,
   settings
 }: {
   onTaskSelect: (task: Task) => void;
@@ -72,6 +100,9 @@ export const DashboardScreen = ({
   statusTogglingId: string | null;
   onShowHelp: () => void;
   onNewTask: () => void;
+  /** Resolves to the ids that actually changed, so the selection can be pruned. */
+  onBulkStatus: (tasks: Task[], status: 'ACTIVE' | 'DISABLED') => Promise<string[]>;
+  isBulkPending: boolean;
   settings: Settings;
 }) => {
   const { data: connections } = useConnections();
@@ -89,12 +120,53 @@ export const DashboardScreen = ({
   // filter exists to stop.
   const { update } = useSettings();
 
-  // Initialize view/filter state from the user's saved dashboard defaults.
-  const [selectedCategory, setSelectedTaskCategory] = useState<string>(settings.defaultCategory);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>(settings.defaultPlatform);
-  const [showDisabled, setShowDisabled] = useState(settings.defaultShowDisabled);
+  // ---- Filter state ------------------------------------------------------
+  //
+  // One object, and it lives in the URL rather than in `useState`. Saved views
+  // need a combination that can be *named*, and "bookmarkable" means the state
+  // has to survive a copy-paste into another window — which local state cannot
+  // do no matter how carefully it is threaded.
+  //
+  // History is written with `replace`, not `push`. Filters are a state of this
+  // page, not a sequence of pages, and search-as-you-type would otherwise make
+  // Back an undo-one-character button and bury the route you actually came from.
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // What a bare URL means: the user's persisted dashboard defaults. Note the
+  // two toggles that predate views map onto the wider dimensions rather than
+  // being replaced by them, so nobody's first screen changed.
+  const settingsFilters = useMemo<TaskFilters>(
+    () => ({
+      ...DEFAULT_FILTERS,
+      status: settings.defaultShowDisabled ? 'any' : 'active',
+      system: settings.showSystemTasks ? 'include' : 'personal',
+      platform: settings.defaultPlatform,
+      category: settings.defaultCategory
+    }),
+    [
+      settings.defaultShowDisabled,
+      settings.showSystemTasks,
+      settings.defaultPlatform,
+      settings.defaultCategory
+    ]
+  );
+
+  const hasFilterParams = FILTER_PARAM_KEYS.some(k => searchParams.has(k));
+  const filters = useMemo(
+    () =>
+      hasFilterParams
+        ? filtersFromParams(searchParams, settings.savedViews)
+        : settingsFilters,
+    [hasFilterParams, searchParams, settings.savedViews, settingsFilters]
+  );
+
+  const setFilters = (next: TaskFilters) => {
+    setSearchParams(filtersToParams(next, settings.savedViews), { replace: true });
+  };
+  const setFilter = <K extends keyof TaskFilters>(key: K, value: TaskFilters[K]) =>
+    setFilters({ ...filters, [key]: value });
+
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>(settings.defaultView);
-  const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // "/" focuses search (unless already typing somewhere); Escape clears it.
@@ -107,13 +179,14 @@ export const DashboardScreen = ({
         searchInputRef.current?.focus();
       }
       if (e.key === 'Escape' && target === searchInputRef.current) {
-        setSearchQuery('');
+        setFilter('search', '');
         searchInputRef.current?.blur();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   // The system/personal split is the OUTERMOST lens: every count, chip, facet and
   // view below works from `tasks`, so hiding OS-owned tasks here hides them
@@ -128,33 +201,47 @@ export const DashboardScreen = ({
   // The two rules — outermost lens, count over ALL tasks — live in applySystemLens
   // so they are pinned by tests instead of by whoever reads this component next.
   const { visible: tasks, hidden: hiddenBySystemFilter } = useMemo(
-    () => applySystemLens(allTasks, settings.showSystemTasks),
-    [allTasks, settings.showSystemTasks]
+    () => applySystemLens(allTasks, filters.system),
+    [allTasks, filters.system]
   );
 
-  // Apply the active/disabled filter the same way the task grid does (kanban
-  // shows both columns, so it never hides disabled tasks).
-  const applyActiveFilter = (list: Task[]) =>
-    viewMode !== 'kanban' && !showDisabled ? list.filter(t => t.status === 'ACTIVE') : list;
+  // The run-outcome filter is answered by the SERVER's health scan — see
+  // useTaskHealthTiers. Fetched only when a view actually asks about outcome,
+  // because it is a scan of every task and its executions.
+  const { tiers, isPending: healthPending } = useTaskHealthTiers(needsHealthData(filters));
 
-  // Category chips are faceted: they reflect the active/disabled + platform
-  // filters so an empty category (e.g. no *active* tasks in it) drops out
-  // instead of showing a 0-count tag. The currently-selected category stays
-  // pinned even if it empties, so the view doesn't jump out from under you.
+  // One instant, shared by every date-sensitive predicate and every count in
+  // this render, advancing once a minute. See useMinuteClock for why it is
+  // neither read during render nor recreated on each one.
+  const now = useMinuteClock();
+
+  // What the current view mode does to the filters (kanban relaxes `active`,
+  // because its two columns ARE the active/disabled split).
+  const viewFilters = useMemo(() => effectiveFilters(filters, viewMode), [filters, viewMode]);
+
+  // Facet counts: what would remain if you changed ONE dimension. Each chip
+  // therefore reflects every other constraint — an empty category drops out
+  // instead of showing a 0 — while never filtering by the dimension it is
+  // offering, or you could never switch off the value you are on.
+  const facetBase = (ignore: 'category' | 'platform') =>
+    applyTaskFilters(tasks ?? [], { ...viewFilters, [ignore]: 'All' }, {
+      now,
+      timezone: settings.timezone,
+      tiers
+    });
+
   const { categories, categoryCounts } = useMemo(() => {
     const counts = new Map<string, number>();
-    if (tasks) {
-      let base = applyActiveFilter(tasks);
-      if (selectedPlatform !== 'All') base = base.filter(t => t.platform === selectedPlatform);
-      for (const t of base) {
-        const c = t.category || 'Uncategorized';
-        counts.set(c, (counts.get(c) ?? 0) + 1);
-      }
-      if (selectedCategory !== 'All' && !counts.has(selectedCategory)) counts.set(selectedCategory, 0);
+    for (const t of facetBase('category')) {
+      const c = t.category || 'Uncategorized';
+      counts.set(c, (counts.get(c) ?? 0) + 1);
     }
+    // The selected category stays pinned even when it empties, so the view
+    // doesn't jump out from under you the moment its last task is filtered out.
+    if (filters.category !== 'All' && !counts.has(filters.category)) counts.set(filters.category, 0);
     return { categories: ['All', ...Array.from(counts.keys()).sort()], categoryCounts: counts };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, viewMode, showDisabled, selectedPlatform, selectedCategory]);
+  }, [tasks, viewFilters, now, settings.timezone, tiers]);
 
   // How many tasks the active-only filter is holding back. Counted across every
   // task the system lens lets through — not the category/platform selection, and
@@ -186,47 +273,99 @@ export const DashboardScreen = ({
     [categoryCounts]
   );
 
-  // Platform chips are faceted the same way (active/disabled + selected
-  // category), but never filtered by the platform selection itself — you must
-  // still be able to switch platforms. Keep the selected platform pinned.
+  // Platform chips are faceted the same way, but never by the platform
+  // selection itself — you must still be able to switch platforms.
   const { platforms, platformCounts } = useMemo(() => {
     const counts = new Map<string, number>();
-    if (tasks) {
-      let base = applyActiveFilter(tasks);
-      if (selectedCategory !== 'All') base = base.filter(t => (t.category || 'Uncategorized') === selectedCategory);
-      for (const t of base) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
-      if (selectedPlatform !== 'All' && !counts.has(selectedPlatform)) counts.set(selectedPlatform, 0);
-    }
+    for (const t of facetBase('platform')) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
+    if (filters.platform !== 'All' && !counts.has(filters.platform)) counts.set(filters.platform, 0);
     return { platforms: Array.from(counts.keys()).sort(), platformCounts: counts };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, viewMode, showDisabled, selectedCategory, selectedPlatform]);
+  }, [tasks, viewFilters, now, settings.timezone, tiers]);
 
-  const filteredTasks = useMemo(() => {
-    if (!tasks) return [];
+  // One pipeline, in one place. This used to be four hand-rolled `.filter()`
+  // passes inline, which is fine at four and is exactly how the fifth ends up
+  // applied to the list but not to the counts beside it.
+  const filteredTasks = useMemo(
+    () =>
+      applyTaskFilters(tasks ?? [], viewFilters, {
+        now,
+        timezone: settings.timezone,
+        tiers
+      }),
+    [tasks, viewFilters, now, settings.timezone, tiers]
+  );
 
-    // First apply the active/disabled filter (except for kanban view where we show both columns)
-    let result = tasks;
-    if (viewMode !== 'kanban') {
-      result = showDisabled ? tasks : tasks.filter(t => t.status === 'ACTIVE');
+  // ---- Saved views --------------------------------------------------------
+
+  const views = useMemo(() => allViews(settings.savedViews), [settings.savedViews]);
+  const activeView = useMemo(() => matchView(filters, settings.savedViews), [filters, settings.savedViews]);
+
+  // Per-view counts, computed against the FULL task list rather than the
+  // filtered one — a view chip has to say how many tasks it would show, not how
+  // many survive the filters you are currently looking through.
+  //
+  // A view whose answer depends on the health scan reports `null` until that
+  // arrives, and the bar renders `–`. Printing 0 would assert "nothing is
+  // failing", which is a claim, and a far more comforting one than "not looked
+  // yet". Same rule as the health scorer itself: absence of evidence is not ok.
+  const viewCounts = useMemo(() => {
+    const counts = new Map<string, number | null>();
+    for (const v of views) {
+      counts.set(
+        v.id,
+        needsHealthData(v.filters) && !tiers
+          ? null
+          : applyTaskFilters(allTasks ?? [], effectiveFilters(v.filters, viewMode), {
+              now,
+              timezone: settings.timezone,
+              tiers
+            }).length
+      );
     }
+    return counts;
+  }, [views, allTasks, viewMode, now, settings.timezone, tiers]);
 
-    // Platform isolation (e.g. only Cronsole-native, only Windows)
-    if (selectedPlatform !== 'All') {
-      result = result.filter(t => t.platform === selectedPlatform);
-    }
+  const saveCurrentView = (name: string) => {
+    const view: SavedView = {
+      id: newViewId(settings.savedViews),
+      name,
+      filters,
+      blurb: describeFilters(filters)
+    };
+    const next = [...settings.savedViews, view];
+    update('savedViews', next);
+    // Re-encode the URL against the new list so it collapses from the explicit
+    // field-by-field form to `?view=<id>` — otherwise the chip lights up but the
+    // address bar still shows the ad-hoc query, and the two disagree.
+    setSearchParams(filtersToParams(filters, next), { replace: true });
+  };
 
-    // Then apply category filter
-    if (selectedCategory !== 'All') {
-      result = result.filter(t => (t.category || 'Uncategorized') === selectedCategory);
-    }
+  const deleteView = (view: SavedView) => {
+    const next = settings.savedViews.filter(v => v.id !== view.id);
+    update('savedViews', next);
+    // If the deleted view is the one on screen, the filters stay exactly as they
+    // are — deleting a bookmark should not silently change what you are looking
+    // at. It simply stops having a name, and the bar says "Custom".
+    setSearchParams(filtersToParams(filters, next), { replace: true });
+  };
 
-    // Finally, free-text search (name / category / path / command / schedule)
-    if (searchQuery.trim()) {
-      result = result.filter(t => matchesTaskSearch(t, searchQuery));
-    }
-
-    return result;
-  }, [tasks, selectedCategory, selectedPlatform, showDisabled, viewMode, searchQuery]);
+  // ---- Bulk selection -----------------------------------------------------
+  //
+  // One id-keyed Set for all four views. That works because all four already
+  // render from `filteredTasks`: grid and list map it, schedule re-sorts it,
+  // kanban partitions it by status. So "what is on screen" has one definition
+  // and selection needs no per-view concept.
+  //
+  // Keyed by id rather than by index or object identity so it survives a refetch
+  // (TanStack Query replaces the objects on every invalidation) and a view
+  // switch.
+  // The rules live in utils/taskSelection.ts as pure functions — the awkward
+  // parts (shift-range order, what happens to a selection when the view changes
+  // under it) are testable there without standing up the whole dashboard.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Anchor for shift-click range selection.
+  const lastClickedId = useRef<string | null>(null);
 
   const scheduledTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
@@ -235,6 +374,46 @@ export const DashboardScreen = ({
       return new Date(aTime).getTime() - new Date(bTime).getTime();
     });
   }, [filteredTasks]);
+
+  // Shift-click extends in the order the user is looking at — the schedule view
+  // sorts by next run, so the same two endpoints there bracket a different set.
+  const orderedTasks = viewMode === 'schedule' ? scheduledTasks : filteredTasks;
+
+  const selection = useMemo(
+    () => summarizeSelection(selectedIds, tasks ?? [], filteredTasks),
+    [selectedIds, tasks, filteredTasks]
+  );
+
+  const toggleSelect = (task: Task, event: React.MouseEvent) => {
+    setSelectedIds(prev =>
+      toggleTaskSelection(prev, orderedTasks, task.id, {
+        shiftKey: event.shiftKey,
+        anchorId: lastClickedId.current
+      })
+    );
+    lastClickedId.current = task.id;
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    lastClickedId.current = null;
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds(prev => toggleSelectAll(prev, filteredTasks));
+    lastClickedId.current = null;
+  };
+
+  const allVisibleSelected =
+    filteredTasks.length > 0 && filteredTasks.every(t => selectedIds.has(t.id));
+
+  // Acts on the WHOLE selection, including the part this view isn't showing —
+  // the bar has already said how many that is, and acting on only what happens
+  // to be rendered would make the result depend on which view you were in.
+  const runBulkStatus = async (status: 'ACTIVE' | 'DISABLED') => {
+    const resolved = await onBulkStatus(selection.tasks, status);
+    if (resolved.length > 0) setSelectedIds(prev => pruneResolved(prev, resolved));
+  };
 
   if (isLoading) {
     return (
@@ -246,6 +425,12 @@ export const DashboardScreen = ({
   }
 
   const isEmpty = !tasks || tasks.length === 0;
+
+  // The two pre-view toggles are two-state controls over dimensions that now
+  // have more than two states. Rather than let them mislabel a state they
+  // cannot express, each renders a third treatment and says what it is.
+  const isolatedStatus = filters.status === 'disabled' || filters.status === 'missing';
+  const statusNoun = filters.status === 'missing' ? 'Missing' : 'Disabled';
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -281,28 +466,43 @@ export const DashboardScreen = ({
           */}
           {!isEmpty && viewMode !== 'kanban' && (
             <button
-              onClick={() => setShowDisabled(!showDisabled)}
-              aria-pressed={!showDisabled}
+              // Isolation ('disabled'/'missing') is reachable only from a saved
+              // view, and clicking out of it means "stop isolating" — i.e. show
+              // everything — rather than snapping back to active-only, which
+              // would hide the very rows you just went looking for.
+              onClick={() => setFilter('status', filters.status === 'active' ? 'any' : filters.status === 'any' ? 'active' : 'any')}
+              aria-pressed={filters.status === 'active'}
               title={
-                showDisabled
-                  ? `Showing all ${tasks?.length ?? 0} tasks, including disabled and missing ones. Click to show only active tasks.`
-                  : hiddenByActiveFilter > 0
-                    ? `Showing only active tasks — ${hiddenByActiveFilter} hidden (disabled, missing, or unknown). Click to show everything.`
-                    : 'Showing only active tasks. Nothing is hidden right now. Click to show everything.'
+                isolatedStatus
+                  ? `Showing only ${statusNoun} tasks — this view isolates them. Click to show everything.`
+                  : filters.status === 'any'
+                    ? `Showing all ${tasks?.length ?? 0} tasks, including disabled and missing ones. Click to show only active tasks.`
+                    : hiddenByActiveFilter > 0
+                      ? `Showing only active tasks — ${hiddenByActiveFilter} hidden (disabled, missing, or unknown). Click to show everything.`
+                      : 'Showing only active tasks. Nothing is hidden right now. Click to show everything.'
               }
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
-                showDisabled
-                  ? 'bg-amber-500/10 border-amber-500/40 text-foreground hover:border-amber-500/70'
-                  : 'bg-green-500/10 border-green-500/40 text-foreground hover:border-green-500/70'
+                isolatedStatus
+                  ? 'bg-rose-500/10 border-rose-500/40 text-foreground hover:border-rose-500/70'
+                  : filters.status === 'any'
+                    ? 'bg-amber-500/10 border-amber-500/40 text-foreground hover:border-amber-500/70'
+                    : 'bg-green-500/10 border-green-500/40 text-foreground hover:border-green-500/70'
               }`}
             >
-              {showDisabled
-                ? <Eye size={16} className="text-amber-400" />
-                : <EyeOff size={16} className="text-green-400" />}
-              {showDisabled ? 'Showing All' : 'Active Only'}
+              {/* A third state needs a third treatment. Reusing "Showing All"
+                  amber for an isolation would say the opposite of what the list
+                  is doing — it is showing *less*, not more. */}
+              {isolatedStatus
+                ? <Filter size={16} className="text-rose-400" />
+                : filters.status === 'any'
+                  ? <Eye size={16} className="text-amber-400" />
+                  : <EyeOff size={16} className="text-green-400" />}
+              {isolatedStatus ? `${statusNoun} only` : filters.status === 'any' ? 'Showing All' : 'Active Only'}
               {/* The count is the part that actually removes the ambiguity: the
                   label alone reads as either a state or an action. */}
-              {showDisabled ? (
+              {isolatedStatus ? (
+                <span className="text-[10px] font-bold text-rose-400/90 tabular-nums">{filteredTasks.length}</span>
+              ) : filters.status === 'any' ? (
                 <span className="text-[10px] font-bold text-amber-400/90 tabular-nums">{tasks?.length ?? 0}</span>
               ) : hiddenByActiveFilter > 0 && (
                 <span className="text-[10px] font-bold text-green-400/90 tabular-nums whitespace-nowrap">
@@ -326,25 +526,44 @@ export const DashboardScreen = ({
           */}
           {!isEmpty && hiddenBySystemFilter > 0 && (
             <button
-              onClick={() => update('showSystemTasks', !settings.showSystemTasks)}
-              aria-pressed={!settings.showSystemTasks}
+              onClick={() => {
+                // Clicking the control directly is a standing answer to "whose
+                // machine is this dashboard about", so it writes the persisted
+                // preference too. A saved view that sets the lens does NOT —
+                // a view is a lens you look through, not a new default, and
+                // leaving one must give you your own dashboard back.
+                const next = filters.system === 'personal' ? 'include' : 'personal';
+                update('showSystemTasks', next === 'include');
+                setFilter('system', next);
+              }}
+              aria-pressed={filters.system === 'personal'}
               title={
-                settings.showSystemTasks
-                  ? `Showing Windows' own scheduled tasks alongside yours (${hiddenBySystemFilter} of them). Click to hide them.`
-                  : `Hiding ${hiddenBySystemFilter} tasks owned by Windows itself (under \\Microsoft\\). They still exist and still run — this only affects what the dashboard shows. Click to include them.`
+                filters.system === 'only'
+                  ? `Showing ONLY the ${hiddenBySystemFilter} tasks Windows itself owns — your own tasks are hidden. Click to go back to yours.`
+                  : filters.system === 'include'
+                    ? `Showing Windows' own scheduled tasks alongside yours (${hiddenBySystemFilter} of them). Click to hide them.`
+                    : `Hiding ${hiddenBySystemFilter} tasks owned by Windows itself (under \\Microsoft\\). They still exist and still run — this only affects what the dashboard shows. Click to include them.`
               }
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
-                settings.showSystemTasks
-                  ? 'bg-sky-500/10 border-sky-500/40 text-foreground hover:border-sky-500/70'
-                  : 'bg-violet-500/10 border-violet-500/40 text-foreground hover:border-violet-500/70'
+                filters.system === 'only'
+                  ? 'bg-rose-500/10 border-rose-500/40 text-foreground hover:border-rose-500/70'
+                  : filters.system === 'include'
+                    ? 'bg-sky-500/10 border-sky-500/40 text-foreground hover:border-sky-500/70'
+                    : 'bg-violet-500/10 border-violet-500/40 text-foreground hover:border-violet-500/70'
               }`}
             >
-              {settings.showSystemTasks
-                ? <Cpu size={16} className="text-sky-400" />
-                : <User size={16} className="text-violet-400" />}
-              {settings.showSystemTasks ? 'Incl. System' : 'Personal'}
-              <span className={`text-[10px] font-bold tabular-nums whitespace-nowrap ${settings.showSystemTasks ? 'text-sky-400/90' : 'text-violet-400/90'}`}>
-                {settings.showSystemTasks ? `${hiddenBySystemFilter} system` : `${hiddenBySystemFilter} system hidden`}
+              {filters.system === 'personal'
+                ? <User size={16} className="text-violet-400" />
+                : <Cpu size={16} className={filters.system === 'only' ? 'text-rose-400' : 'text-sky-400'} />}
+              {filters.system === 'only' ? 'System only' : filters.system === 'include' ? 'Incl. System' : 'Personal'}
+              <span className={`text-[10px] font-bold tabular-nums whitespace-nowrap ${
+                filters.system === 'only' ? 'text-rose-400/90' : filters.system === 'include' ? 'text-sky-400/90' : 'text-violet-400/90'
+              }`}>
+                {filters.system === 'only'
+                  ? `yours hidden`
+                  : filters.system === 'include'
+                    ? `${hiddenBySystemFilter} system`
+                    : `${hiddenBySystemFilter} system hidden`}
               </span>
             </button>
           )}
@@ -411,6 +630,31 @@ export const DashboardScreen = ({
         </div>
       ) : (
         <>
+          <ViewBar
+            views={views}
+            activeViewId={activeView?.id ?? null}
+            counts={viewCounts}
+            currentDescription={describeFilters(filters)}
+            onSelect={v => setFilters(v.filters)}
+            onSave={saveCurrentView}
+            onDelete={deleteView}
+            onReset={() => setFilters(DEFAULT_FILTERS)}
+          />
+
+          {/*
+            The run-outcome filter has asked a question the health scan has not
+            answered yet. Saying so is not politeness: with no tiers every task
+            reads `unknown`, so "Failures" renders an empty list — and an empty
+            list means "nothing is failing", which is a claim this app has not
+            earned the right to make.
+          */}
+          {healthPending && (
+            <div className="flex items-center gap-2 text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+              <Loader2 size={13} className="animate-spin" />
+              Checking task health — this view is filtered by run outcome, so the list below is incomplete until it finishes.
+            </div>
+          )}
+
           {/* Category Tabs & Views */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
             <div className="flex flex-wrap items-center gap-2">
@@ -418,14 +662,14 @@ export const DashboardScreen = ({
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground pointer-events-none" />
                 <input
                   ref={searchInputRef}
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  value={filters.search}
+                  onChange={e => setFilter('search', e.target.value)}
                   placeholder="Search tasks…  /"
                   className="w-44 focus:w-60 bg-surface border border-border rounded-xl pl-8 pr-7 py-1.5 text-xs font-medium text-foreground placeholder:text-subtle-foreground outline-none focus:border-primary transition-all shadow-md"
                 />
-                {searchQuery && (
+                {filters.search && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => setFilter('search', '')}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-subtle-foreground hover:text-foreground transition-colors"
                     title="Clear search (Esc)"
                   >
@@ -433,7 +677,7 @@ export const DashboardScreen = ({
                   </button>
                 )}
               </div>
-              {searchQuery.trim() && (
+              {filters.search.trim() && (
                 <span className="text-[10px] font-bold text-subtle-foreground px-1">
                   {filteredTasks.length} match{filteredTasks.length === 1 ? '' : 'es'}
                 </span>
@@ -441,16 +685,16 @@ export const DashboardScreen = ({
               {categories.map(cat => (
                 <button
                   key={cat}
-                  onClick={() => setSelectedTaskCategory(cat)}
+                  onClick={() => setFilter('category', cat)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                    selectedCategory === cat 
-                      ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20' 
+                    filters.category === cat
+                      ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20'
                       : 'bg-surface border-border text-muted-foreground hover:border-foreground/20'
                   }`}
                 >
                   {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
                   {cat}
-                  <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>
+                  <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${filters.category === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>
                     {cat === 'All' ? totalVisibleCount : categoryCounts.get(cat) ?? 0}
                   </span>
                 </button>
@@ -462,24 +706,24 @@ export const DashboardScreen = ({
             {platforms.length > 1 && (
               <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md">
                 <button
-                  onClick={() => setSelectedPlatform('All')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPlatform === 'All' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setFilter('platform', 'All')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filters.platform === 'All' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   All
                 </button>
                 {platforms.map(p => (
                   <button
                     key={p}
-                    onClick={() => setSelectedPlatform(p)}
+                    onClick={() => setFilter('platform', p)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      selectedPlatform === p
+                      filters.platform === p
                         ? p === 'TASKHUB_NATIVE' ? 'bg-violet-600 text-white' : 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {p === 'TASKHUB_NATIVE' && <Zap size={11} />}
                     {platformLabel(p)}
-                    <span className={`px-1 py-0.5 rounded text-[9px] ${selectedPlatform === p ? 'bg-black/20' : 'bg-muted text-subtle-foreground'}`}>
+                    <span className={`px-1 py-0.5 rounded text-[9px] ${filters.platform === p ? 'bg-black/20' : 'bg-muted text-subtle-foreground'}`}>
                       {platformCounts.get(p) ?? 0}
                     </span>
                   </button>
@@ -517,6 +761,41 @@ export const DashboardScreen = ({
             </div>
           </div>
 
+          {/* Selection: the select-all control lives in the toolbar rather than
+              as a header checkbox, because only here can it name the number it
+              is about to select — the same rule the Import modal follows. */}
+          <div className="flex flex-col gap-3">
+            {filteredTasks.length > 0 && (
+              <label className="flex items-center gap-2 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors cursor-pointer w-fit">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                  aria-label={
+                    allVisibleSelected
+                      ? `Deselect all ${filteredTasks.length} visible tasks`
+                      : `Select all ${filteredTasks.length} visible tasks`
+                  }
+                  className="h-4 w-4 cursor-pointer accent-primary rounded border-border bg-background"
+                />
+                {allVisibleSelected
+                  ? `Deselect all ${filteredTasks.length}`
+                  : `Select all ${filteredTasks.length} shown`}
+              </label>
+            )}
+
+            <BulkActionBar
+              selectedCount={selectedIds.size}
+              offscreenCount={selection.offscreenCount}
+              enabledCount={selection.enabledCount}
+              disabledCount={selection.disabledCount}
+              onEnable={() => runBulkStatus('ACTIVE')}
+              onDisable={() => runBulkStatus('DISABLED')}
+              onClear={clearSelection}
+              isPending={isBulkPending}
+            />
+          </div>
+
           {/* Grid View */}
           {viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
@@ -524,20 +803,31 @@ export const DashboardScreen = ({
                 <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-3xl text-subtle-foreground">
                    <Tag size={48} className="mb-4 opacity-20" />
                    <p className="font-bold">No tasks found</p>
-                   {searchQuery.trim() && (
+                   {/*
+                     An empty list is ambiguous — "you have none" and "your
+                     filters excluded them all" look identical, and with six
+                     dimensions the second is far likelier. So it names the
+                     constraints in force before offering a way out.
+                   */}
+                   <p className="mt-2 text-xs max-w-md text-center">
+                     {allTasks && allTasks.length > 0
+                       ? <>You have {allTasks.length} tasks. This view shows none of them — it is filtered by <span className="text-foreground font-semibold">{describeFilters(filters)}</span>.</>
+                       : 'Nothing is being filtered — there are no tasks to show yet.'}
+                   </p>
+                   {filters.search.trim() && (
                      <button
-                       onClick={() => setSearchQuery('')}
+                       onClick={() => setFilter('search', '')}
                        className="mt-4 text-foreground hover:text-foreground text-sm font-bold underline underline-offset-4"
                      >
-                       Clear search "{searchQuery.trim()}"
+                       Clear search "{filters.search.trim()}"
                      </button>
                    )}
-                   {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
-                     <button 
-                       onClick={() => setShowDisabled(true)}
+                   {allTasks && allTasks.length > 0 && (
+                     <button
+                       onClick={() => setFilters(DEFAULT_FILTERS)}
                        className="mt-4 text-foreground hover:text-foreground text-sm font-bold underline underline-offset-4"
                      >
-                       Show disabled tasks in this category
+                       Reset to the default view
                      </button>
                    )}
                 </div>
@@ -552,6 +842,8 @@ export const DashboardScreen = ({
                     onClone={onClone}
                     onToggleStatus={onToggleStatus}
                     isTogglingStatus={statusTogglingId === task.id}
+                    selected={selectedIds.has(task.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))
               )}
@@ -565,7 +857,8 @@ export const DashboardScreen = ({
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/80 text-[10px] uppercase font-black text-subtle-foreground tracking-wider bg-background/20">
-                      <th className="py-4 px-6">Name</th>
+                      <th className="py-4 pl-6 pr-0 w-4"><span className="sr-only">Select</span></th>
+                      <th className="py-4 px-4">Name</th>
                       <th className="py-4 px-4">Platform</th>
                       <th className="py-4 px-4">Category</th>
                       <th className="py-4 px-4">Status</th>
@@ -576,7 +869,7 @@ export const DashboardScreen = ({
                   <tbody className="divide-y divide-border/50 text-sm">
                     {filteredTasks.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-subtle-foreground font-medium italic">
+                        <td colSpan={7} className="text-center py-12 text-subtle-foreground font-medium italic">
                           No tasks match the active filters.
                         </td>
                       </tr>
@@ -587,7 +880,14 @@ export const DashboardScreen = ({
                           className="hover:bg-surface/50 transition-colors group cursor-pointer"
                           onClick={() => onTaskSelect(task)}
                         >
-                          <td className="py-4 px-6 font-bold text-foreground group-hover:text-foreground transition-colors">
+                          <td className="py-4 pl-6 pr-0">
+                            <TaskSelectCheckbox
+                              task={task}
+                              checked={selectedIds.has(task.id)}
+                              onToggle={toggleSelect}
+                            />
+                          </td>
+                          <td className="py-4 px-4 font-bold text-foreground group-hover:text-foreground transition-colors">
                             <div>
                               <span className="block truncate max-w-[240px]">{task.name}</span>
                               <span className="block text-[10px] text-subtle-foreground font-mono font-normal truncate max-w-[240px] mt-0.5">{task.externalId}</span>
@@ -619,34 +919,15 @@ export const DashboardScreen = ({
                           <td className="py-4 px-4 text-xs text-muted-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
                           </td>
-                          <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => onClone(task)}
-                                className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground border border-border transition-all active:scale-90"
-                                title="Clone Task"
-                              >
-                                <CopyPlus size={16} />
-                              </button>
-                              {canToggleStatus(task) && (
-                                <button
-                                  onClick={() => onToggleStatus(task)}
-                                  disabled={statusTogglingId === task.id}
-                                  className="bg-muted hover:bg-muted hover:text-foreground p-2 rounded-lg text-muted-foreground border border-border transition-all active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={toggleStatusTitle(task)}
-                                >
-                                  {statusTogglingId === task.id ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-                                </button>
-                              )}
-                              <button
-                                onClick={() => isRunnable(task) && onRun(task)}
-                                disabled={!isRunnable(task)}
-                                className="bg-success hover:bg-success-hover p-2 rounded-lg text-success-foreground shadow-lg shadow-success/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
-                                title={runButtonTitle(task)}
-                              >
-                                <Play size={16} fill="currentColor" />
-                              </button>
-                            </div>
+                          <td className="py-4 px-4">
+                            <TaskRowActions
+                              task={task}
+                              size="md"
+                              onRun={onRun}
+                              onClone={onClone}
+                              onToggleStatus={onToggleStatus}
+                              isTogglingStatus={statusTogglingId === task.id}
+                            />
                           </td>
                         </tr>
                       ))
@@ -683,8 +964,16 @@ export const DashboardScreen = ({
                         className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg"
                       >
                         <div className="flex justify-between items-start">
-                          <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
-                            {platformLabel(task.platform)}
+                          <span className="flex items-center gap-1.5">
+                            <TaskSelectCheckbox
+                              task={task}
+                              checked={selectedIds.has(task.id)}
+                              onToggle={toggleSelect}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
+                              {platformLabel(task.platform)}
+                            </span>
                           </span>
                           <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
                             <Folder size={10} /> {task.category || 'Uncategorized'}
@@ -695,33 +984,14 @@ export const DashboardScreen = ({
                           <span className="text-[9px] text-subtle-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
                           </span>
-                          <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={() => onClone(task)}
-                              className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
-                              title="Clone Task"
-                            >
-                              <CopyPlus size={12} />
-                            </button>
-                            {canToggleStatus(task) && (
-                              <button
-                                onClick={() => onToggleStatus(task)}
-                                disabled={statusTogglingId === task.id}
-                                className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={toggleStatusTitle(task)}
-                              >
-                                {statusTogglingId === task.id ? <Loader2 size={12} className="animate-spin" /> : <Power size={12} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => isRunnable(task) && onRun(task)}
-                              disabled={!isRunnable(task)}
-                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
-                              title={runButtonTitle(task)}
-                            >
-                              <Play size={12} fill="currentColor" />
-                            </button>
-                          </div>
+                          <TaskRowActions
+                            task={task}
+                            size="xs"
+                            onRun={onRun}
+                            onClone={onClone}
+                            onToggleStatus={onToggleStatus}
+                            isTogglingStatus={statusTogglingId === task.id}
+                          />
                         </div>
                       </div>
                     ))
@@ -752,8 +1022,16 @@ export const DashboardScreen = ({
                         className="bg-surface border border-border hover:border-primary/40 p-4 rounded-2xl cursor-pointer hover:-translate-y-0.5 active:translate-y-0 transition-all flex flex-col gap-2 shadow-lg opacity-60 hover:opacity-100"
                       >
                         <div className="flex justify-between items-start">
-                          <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
-                            {platformLabel(task.platform)}
+                          <span className="flex items-center gap-1.5">
+                            <TaskSelectCheckbox
+                              task={task}
+                              checked={selectedIds.has(task.id)}
+                              onToggle={toggleSelect}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
+                              {platformLabel(task.platform)}
+                            </span>
                           </span>
                           <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
                             <Folder size={10} /> {task.category || 'Uncategorized'}
@@ -764,33 +1042,14 @@ export const DashboardScreen = ({
                           <span className="text-[9px] text-subtle-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
                           </span>
-                          <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={() => onClone(task)}
-                              className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
-                              title="Clone Task"
-                            >
-                              <CopyPlus size={12} />
-                            </button>
-                            {canToggleStatus(task) && (
-                              <button
-                                onClick={() => onToggleStatus(task)}
-                                disabled={statusTogglingId === task.id}
-                                className="p-1.5 rounded bg-surface hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={toggleStatusTitle(task)}
-                              >
-                                {statusTogglingId === task.id ? <Loader2 size={12} className="animate-spin" /> : <Power size={12} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => isRunnable(task) && onRun(task)}
-                              disabled={!isRunnable(task)}
-                              className="p-1.5 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
-                              title={runButtonTitle(task)}
-                            >
-                              <Play size={12} fill="currentColor" />
-                            </button>
-                          </div>
+                          <TaskRowActions
+                            task={task}
+                            size="xs"
+                            onRun={onRun}
+                            onClone={onClone}
+                            onToggleStatus={onToggleStatus}
+                            isTogglingStatus={statusTogglingId === task.id}
+                          />
                         </div>
                       </div>
                     ))
@@ -827,6 +1086,11 @@ export const DashboardScreen = ({
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
+                                <TaskSelectCheckbox
+                                  task={task}
+                                  checked={selectedIds.has(task.id)}
+                                  onToggle={toggleSelect}
+                                />
                                 <h4 className="font-bold text-foreground text-base">{task.name}</h4>
                                 <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                                   {platformLabel(task.platform)}
@@ -845,33 +1109,14 @@ export const DashboardScreen = ({
                                   {nextRun ? formatDateTime(nextRun, settings.timezone) : 'Not set / Manual'}
                                 </span>
                               </div>
-                              <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                                <button
-                                  onClick={() => onClone(task)}
-                                  className="p-2 rounded bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all active:scale-95"
-                                  title="Clone Task"
-                                >
-                                  <CopyPlus size={14} />
-                                </button>
-                                {canToggleStatus(task) && (
-                                  <button
-                                    onClick={() => onToggleStatus(task)}
-                                    disabled={statusTogglingId === task.id}
-                                    className="p-2 rounded bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title={toggleStatusTitle(task)}
-                                  >
-                                    {statusTogglingId === task.id ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />}
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => isRunnable(task) && onRun(task)}
-                                  disabled={!isRunnable(task)}
-                                  className="p-2 rounded bg-success hover:bg-success-hover text-success-foreground transition-all shadow-md shadow-success/10 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none"
-                                  title={runButtonTitle(task)}
-                                >
-                                  <Play size={14} fill="currentColor" />
-                                </button>
-                              </div>
+                              <TaskRowActions
+                                task={task}
+                                size="sm"
+                                onRun={onRun}
+                                onClone={onClone}
+                                onToggleStatus={onToggleStatus}
+                                isTogglingStatus={statusTogglingId === task.id}
+                              />
                             </div>
                           </div>
                         </div>

@@ -21,11 +21,29 @@ Each task is represented by a card showing:
 - **Clone (Copy Icon):** Duplicates a task as a starting point for a new one.
 - **View Details:** Clicking anywhere on the card (except the action icons) opens the **Task Details** modal (see §2).
 
+### Saved views
+Across the top of the dashboard is a row of **views** — named filter combinations, so the question
+you actually ask ("what's failing?", "what runs today?") is one click instead of four filters
+rebuilt from scratch on every visit. Five ship built in:
+
+| View | Shows |
+|---|---|
+| **My jobs** | Your active tasks — the default. Hides Windows' own tasks and anything disabled or missing. |
+| **Failures** | Tasks the health check rates *critical* or *needs attention*. |
+| **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
+| **Disabled** | Only the tasks you've parked. Note this **isolates** them — it is not the same as the *Showing All* toggle, which merely stops hiding them. |
+| **System** | Only the tasks Windows itself owns under `\Microsoft\`, which the dashboard hides by default. |
+
+- **Saving your own:** change any filters and the row shows a **Custom** chip plus **Save view**. Name it and it becomes a chip of its own, with a count, kept between visits. Delete one with the `×` on its chip — that only removes the name; the tasks and the filters you're currently looking at are untouched.
+- **Every view is a link.** The URL carries the view (`?view=failures`) or the individual filters, so you can bookmark one or paste it to another machine. A link to a saved view *someone else* made falls back to the normal dashboard rather than showing you nothing.
+- **The counts are honest about what they don't know.** *Failures* is answered by the health check (the same one on the Tools tab), which has to read every task first. Until it finishes, the chip shows **`–`, not `0`** — because `0` would claim nothing is failing, and the app hasn't looked yet. A banner above the list says the same thing while it loads. A task with no run evidence at all counts as *unmeasured*, not as passing.
+- **Changing a filter drops you to Custom.** The chip goes dark on purpose: once you narrow "Failures" to one category, the list is no longer what that label says it is.
+
 ### Views, Search & Filters
-- **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right.
+- **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
-- **Active Only:** Toggle to hide disabled tasks. It shows how many it's holding back (`12 hidden`) — that count includes **missing** and unknown-state tasks too, not just disabled ones.
-- **Personal / Incl. System:** Windows keeps hundreds of its own scheduled tasks under `\Microsoft\` — on a typical machine they outnumber yours roughly 3:1 — so once they're imported they drown out everything you actually care about. Cronsole hides them by default and says how many (`257 system hidden`); click to include them. The choice is remembered between visits, and the button only appears if you've actually imported some. This is **independent of Active Only**, so the normal view is *personal **and** active* — either can be turned off without touching the other.
+- **Active Only:** Toggle to hide disabled tasks. It shows how many it's holding back (`12 hidden`) — that count includes **missing** and unknown-state tasks too, not just disabled ones. If a saved view has *isolated* one state instead, the button says so (`Disabled only`) in a third colour rather than pretending to be one of its two normal states; clicking it then shows everything again.
+- **Personal / Incl. System:** Windows keeps hundreds of its own scheduled tasks under `\Microsoft\` — on a typical machine they outnumber yours roughly 3:1 — so once they're imported they drown out everything you actually care about. Cronsole hides them by default and says how many (`257 system hidden`); click to include them. The choice is remembered between visits, and the button only appears if you've actually imported some. This is **independent of Active Only**, so the normal view is *personal **and** active* — either can be turned off without touching the other. The **System** view sets a third state (`System only`) for as long as you're in it; that is a lens you look through, not a new default, so leaving the view gives you your own dashboard back.
 - **Category & platform chips:** Filter to a single category or platform. These chips are **faceted** — they only show categories/platforms that actually have tasks *under the current filters* (with a live count), so turning on **Active Only** or a platform filter drops any now-empty tags instead of showing zero-count noise.
 
 ---
@@ -44,6 +62,30 @@ Instead of raw data, the Overview parses the task's synced configuration into re
 
 ### Run History
 The second tab lists recorded runs with their status, timestamp, duration, and a log snippet — so you can answer "did it actually run, and did it work?"
+
+## Changing many tasks at once
+
+Every task row in every view carries a checkbox, and the toolbar has **Select all N shown**.
+Shift-click extends a range from the last row you clicked, in the order you are looking at
+them. Once anything is selected, a bar appears with **Enable** and **Disable**.
+
+Three things the bar tells you on purpose:
+
+- **Each button names what it will actually change**, not how many you selected. Select twelve
+  tasks of which nine are already enabled and the button reads *Enable 3*.
+- **It says when part of your selection is off screen.** The Kanban view shows disabled tasks
+  the other three views hide, so switching views can leave selected tasks invisible. They stay
+  selected and are still acted on — the bar says `12 selected · 3 not visible here` rather than
+  quietly dropping them.
+- **The result is reported per task.** Windows applies each change through the local agent, and
+  some tasks refuse: one registered by an administrator needs elevation, one that has gone
+  missing since the last sync has nothing to toggle, and one already in the state you asked for
+  was simply left alone. The toast names every outcome — *"9 disabled · 2 already disabled · 1
+  failed"* — instead of a single number that would hide the difference. **Anything that failed
+  stays selected**, so you can retry without hunting for it again.
+
+If the agent goes offline partway through, the run stops rather than working through the rest
+one timeout at a time, and the remaining tasks are reported as not attempted.
 
 ### Editing a schedule
 The modal footer shows **Edit Schedule** for Cronsole-native tasks and Windows tasks whose trigger can be represented as a cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits require the local agent because Cronsole changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe editor for those trigger types.

@@ -1,0 +1,161 @@
+import { describe, it, expect } from 'vitest';
+import { DEFAULT_FILTERS, type TaskFilters } from '../taskFilters';
+import {
+  allViews,
+  BUILTIN_VIEWS,
+  describeFilters,
+  filtersFromParams,
+  filtersToParams,
+  isBuiltinView,
+  matchView,
+  newViewId,
+  type SavedView
+} from '../savedViews';
+
+const filters = (over: Partial<TaskFilters> = {}): TaskFilters => ({ ...DEFAULT_FILTERS, ...over });
+
+const mine: SavedView = {
+  id: 'v-mine',
+  name: 'Nightly backups',
+  filters: filters({ category: 'Backup', due: 'today' })
+};
+
+describe('BUILTIN_VIEWS', () => {
+  it('ships the five views the roadmap named', () => {
+    expect(BUILTIN_VIEWS.map(v => v.id))
+      .toEqual(['my-jobs', 'failures', 'due-today', 'disabled', 'system']);
+  });
+
+  it('gives every built-in a blurb naming what it leaves out', () => {
+    // A named view that silently withholds rows is the `Active Only · 110
+    // hidden` problem wearing a friendlier label.
+    for (const v of BUILTIN_VIEWS) {
+      expect(v.blurb, `${v.id} needs a blurb`).toBeTruthy();
+    }
+  });
+
+  it('uses the dimensions that did not exist before this feature', () => {
+    // Four of the five are only expressible because status, the system lens,
+    // outcome and due were widened. If one of these silently reverted to the
+    // old binary toggles, the view would still render and quietly mean
+    // something else.
+    const by = (id: string) => BUILTIN_VIEWS.find(v => v.id === id)!.filters;
+    expect(by('failures').outcome).toBe('failing');
+    expect(by('due-today').due).toBe('today');
+    expect(by('disabled').status).toBe('disabled');
+    expect(by('system').system).toBe('only');
+  });
+
+  it('makes "My jobs" exactly the default dashboard', () => {
+    expect(BUILTIN_VIEWS[0].filters).toEqual(DEFAULT_FILTERS);
+  });
+});
+
+describe('matchView', () => {
+  it('names the view a filter set is', () => {
+    expect(matchView(DEFAULT_FILTERS, [])?.id).toBe('my-jobs');
+    expect(matchView(filters({ system: 'only', status: 'any' }), [])?.id).toBe('system');
+  });
+
+  it('finds a user view alongside the built-ins', () => {
+    expect(matchView(mine.filters, [mine])?.id).toBe('v-mine');
+  });
+
+  it('returns null once any dimension is tweaked', () => {
+    // The chip must go dark: leaving "Failures" lit over a list narrowed to one
+    // category makes the label a lie about its own contents.
+    const tweaked = filters({ ...BUILTIN_VIEWS[1].filters, category: 'Backup' });
+    expect(matchView(tweaked, [])).toBeNull();
+  });
+});
+
+describe('allViews / isBuiltinView', () => {
+  it('puts built-ins first and never duplicates one', () => {
+    const shadow: SavedView = { id: 'failures', name: 'Mine', filters: DEFAULT_FILTERS };
+    const out = allViews([mine, shadow]);
+    expect(out.map(v => v.id)).toEqual([...BUILTIN_VIEWS.map(v => v.id), 'v-mine']);
+  });
+
+  it('knows which ids cannot be deleted', () => {
+    expect(isBuiltinView('failures')).toBe(true);
+    expect(isBuiltinView('v-mine')).toBe(false);
+  });
+});
+
+describe('URL codec', () => {
+  it('writes a matched view as just its id', () => {
+    expect(filtersToParams(BUILTIN_VIEWS[1].filters, []).toString()).toBe('view=failures');
+    expect(filtersToParams(mine.filters, [mine]).toString()).toBe('view=v-mine');
+  });
+
+  it('writes the default view explicitly rather than as a bare URL', () => {
+    // The regression this pins: a bare URL already means "this user's saved
+    // dashboard defaults", which need not be these defaults. Someone with
+    // defaultPlatform=WINDOWS would click "My jobs", get an empty query string,
+    // and land back on a Windows-only list. Two states, two encodings.
+    expect(filtersToParams(DEFAULT_FILTERS, []).toString()).toBe('view=my-jobs');
+  });
+
+  it('writes an ad-hoc combination field by field, omitting defaults', () => {
+    const params = filtersToParams(filters({ category: 'Backup', search: 'nightly' }), []);
+    expect(params.get('category')).toBe('Backup');
+    expect(params.get('q')).toBe('nightly');
+    expect(params.has('status')).toBe(false);
+    expect(params.has('view')).toBe(false);
+  });
+
+  it('round-trips every dimension', () => {
+    const rich = filters({
+      status: 'missing', system: 'include', outcome: 'unknown', due: 'week',
+      platform: 'TASKHUB_NATIVE', category: 'Reports', search: 'db dump'
+    });
+    expect(filtersFromParams(filtersToParams(rich, []), [])).toEqual(rich);
+  });
+
+  it('round-trips a saved view through its id', () => {
+    expect(filtersFromParams(filtersToParams(mine.filters, [mine]), [mine])).toEqual(mine.filters);
+  });
+
+  it('falls back to the defaults for an unknown value instead of filtering to nothing', () => {
+    // A hand-edited or truncated URL should show the default dashboard, not
+    // zero rows that read as "your tasks are gone".
+    const out = filtersFromParams(new URLSearchParams('status=banana&due=whenever'), []);
+    expect(out.status).toBe(DEFAULT_FILTERS.status);
+    expect(out.due).toBe(DEFAULT_FILTERS.due);
+  });
+
+  it('degrades a link to a view the reader does not have', () => {
+    // Shared from another machine, or since deleted. It must not resolve to an
+    // empty dashboard.
+    expect(filtersFromParams(new URLSearchParams('view=v-someone-elses'), [])).toEqual(DEFAULT_FILTERS);
+  });
+
+  it('lets an unknown view id fall through to explicit fields', () => {
+    const out = filtersFromParams(new URLSearchParams('view=v-gone&status=disabled'), []);
+    expect(out.status).toBe('disabled');
+  });
+
+  it('trims the search term it writes', () => {
+    expect(filtersToParams(filters({ search: '  db  ' }), []).get('q')).toBe('db');
+  });
+});
+
+describe('newViewId', () => {
+  it('never collides with an existing id', () => {
+    const taken = Array.from({ length: 5 }, (_, i) => ({ ...mine, id: `v-${i + 1}` }));
+    expect(taken.map(v => v.id)).not.toContain(newViewId(taken));
+  });
+});
+
+describe('describeFilters', () => {
+  it('names each active constraint', () => {
+    const text = describeFilters(filters({ outcome: 'failing', due: 'today', category: 'Backup' }));
+    expect(text).toContain('failing health');
+    expect(text).toContain('due today');
+    expect(text).toContain('Backup');
+  });
+
+  it('says so plainly when nothing is constrained', () => {
+    expect(describeFilters(filters({ status: 'any', system: 'include' }))).toBe('no filters — every task');
+  });
+});

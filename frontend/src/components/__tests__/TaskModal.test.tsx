@@ -31,6 +31,28 @@ vi.mock('../../hooks/useConfirm', () => ({
   useConfirm: () => confirmMock
 }));
 
+/**
+ * The schedule timezone defaults to Pacific, so cron fields and clock readings
+ * would otherwise shift with the date the suite runs (PST vs PDT). Pin it to
+ * UTC; the zone conversion has its own tests in utils/__tests__/timezone.test.ts
+ * and the authoring path is covered in ApplyTemplateModal.test.tsx.
+ */
+const { zone } = vi.hoisted(() => ({ zone: { mode: 'utc' } }));
+vi.mock('../../hooks/useSettings', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../hooks/useSettings')>();
+  const settings = () => ({ ...actual.DEFAULT_SETTINGS, timezone: zone.mode });
+  return {
+    ...actual,
+    getSettings: settings,
+    useSettings: () => ({
+      settings: settings(),
+      update: vi.fn(),
+      replaceAll: vi.fn(),
+      reset: vi.fn()
+    })
+  };
+});
+
 const mockTask: Task = {
   id: 'task-123',
   name: 'Test Modal Task',

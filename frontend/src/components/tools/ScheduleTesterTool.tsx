@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CalendarClock, Check, Info } from 'lucide-react';
 import { api } from '../../api';
-import { CRON_PRESETS } from '../../utils/cronPresets';
+import { CRON_PRESETS, presetLabel } from '../../utils/cronPresets';
+import { useScheduleZone } from '../../hooks/useScheduleZone';
 
 interface SchedulePreview {
   score: number;
@@ -19,11 +20,16 @@ const PLATFORMS = [
   { value: 'TASKHUB_NATIVE', label: 'Cronsole-native' }
 ] as const;
 
-/** Both zones, always — the point is to remove doubt, not to honor a preference. */
-const bothZones = (iso: string): { local: string; utc: string } => {
+/**
+ * Both zones, always — the point is to remove doubt, not to honor a preference.
+ * The primary reading follows the Settings zone (so it matches every other
+ * surface) and UTC stays beside it, because UTC is what the API and Task
+ * Scheduler actually hold.
+ */
+const bothZones = (iso: string, zone: string): { primary: string; utc: string } => {
   const d = new Date(iso);
   return {
-    local: d.toLocaleString(),
+    primary: d.toLocaleString(undefined, { timeZone: zone }),
     utc: `${d.toLocaleString(undefined, { timeZone: 'UTC' })} UTC`
   };
 };
@@ -52,14 +58,18 @@ const describeTrigger = (t: SchedulePreview['trigger']): string => {
  * than filling the gap with the cron's own times.
  */
 export const ScheduleTesterTool = () => {
+  const zone = useScheduleZone();
+  // Typed in the user's zone like every other cron field; converted once before
+  // it goes to the preview route, which reads UTC like the rest of the backend.
   const [cron, setCron] = useState('0 4 1 1 *');
   const [platform, setPlatform] = useState<string>('WINDOWS_TASK_SCHEDULER');
-  const [debounced, setDebounced] = useState(cron);
+  const stored = zone.toUtc(cron);
+  const [debounced, setDebounced] = useState(stored.cron);
 
   useEffect(() => {
-    const id = setTimeout(() => setDebounced(cron), 300);
+    const id = setTimeout(() => setDebounced(stored.cron), 300);
     return () => clearTimeout(id);
-  }, [cron]);
+  }, [stored.cron]);
 
   const { data, isFetching } = useQuery<SchedulePreview>({
     queryKey: ['schedule-preview', debounced, platform],
@@ -87,7 +97,7 @@ export const ScheduleTesterTool = () => {
       <div className="space-y-3">
         <label className="block">
           <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">
-            Cron (5 fields, UTC)
+            Cron (5 fields, {zone.label})
           </span>
           <input
             value={cron}
@@ -96,6 +106,13 @@ export const ScheduleTesterTool = () => {
             aria-label="Cron expression to test"
             className="mt-1.5 w-full bg-background border border-border rounded-xl px-4 py-2 text-sm font-mono outline-none focus:border-primary"
           />
+          {stored.reason ? (
+            <span className="mt-1 block text-[10px] text-amber-500">{stored.reason}</span>
+          ) : stored.shifted ? (
+            <span className="mt-1 block text-[10px] text-subtle-foreground">
+              Stored and tested as <span className="font-mono text-foreground">{stored.cron}</span> UTC.
+            </span>
+          ) : null}
         </label>
 
         <div className="flex flex-wrap gap-1.5">
@@ -105,7 +122,7 @@ export const ScheduleTesterTool = () => {
               onClick={() => setCron(p.cron)}
               className="text-[11px] px-2 py-1 rounded-lg border border-border hover:border-primary hover:text-primary transition-colors"
             >
-              {p.label}
+              {presetLabel(p, zone.label)}
             </button>
           ))}
           {/* The trap itself, one click away — a schedule tester that can't show
@@ -180,11 +197,17 @@ export const ScheduleTesterTool = () => {
             <RunList
               title={data.diverges ? 'What you asked for' : 'Next runs'}
               runs={data.requestedRuns}
+              zone={zone.zone}
               muted={data.diverges}
             />
 
             {data.diverges && data.effectiveRuns && (
-              <RunList title="What will actually run" runs={data.effectiveRuns} emphasize />
+              <RunList
+                title="What will actually run"
+                runs={data.effectiveRuns}
+                zone={zone.zone}
+                emphasize
+              />
             )}
 
             {data.lossy === 'approximated' && (
@@ -207,11 +230,13 @@ export const ScheduleTesterTool = () => {
 const RunList = ({
   title,
   runs,
+  zone,
   muted,
   emphasize
 }: {
   title: string;
   runs: string[];
+  zone: string;
   muted?: boolean;
   emphasize?: boolean;
 }) => (
@@ -224,10 +249,10 @@ const RunList = ({
     ) : (
       <ul className={`mt-1 space-y-0.5 text-xs font-mono ${emphasize ? 'text-amber-500' : muted ? 'text-muted-foreground' : 'text-foreground'}`}>
         {runs.map(iso => {
-          const { local, utc } = bothZones(iso);
+          const { primary, utc } = bothZones(iso, zone);
           return (
             <li key={iso} className="flex flex-wrap gap-x-2">
-              <span>{local}</span>
+              <span>{primary}</span>
               <span className="text-subtle-foreground">({utc})</span>
             </li>
           );

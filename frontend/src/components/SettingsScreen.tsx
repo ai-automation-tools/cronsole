@@ -32,6 +32,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { platformLabel } from '../platform';
 import { formatDateTime } from '../utils/datetime';
+import { machineZone, zoneAbbrev } from '../utils/timezone';
 import {
   API_ORIGIN,
   DEFAULT_API_ORIGIN,
@@ -44,6 +45,21 @@ import {
 import type { Task } from '../types';
 
 const PLATFORM_LINKS_KEY = 'cronsole_platform_links';
+
+/** Zones offered in the schedule-timezone picker, in rough west-to-east order. */
+const COMMON_ZONES: { id: string; name: string }[] = [
+  { id: 'America/Los_Angeles', name: 'Pacific' },
+  { id: 'America/Denver', name: 'Mountain' },
+  { id: 'America/Chicago', name: 'Central' },
+  { id: 'America/New_York', name: 'Eastern' },
+  { id: 'America/Sao_Paulo', name: 'São Paulo' },
+  { id: 'Europe/London', name: 'London' },
+  { id: 'Europe/Berlin', name: 'Central Europe' },
+  { id: 'Asia/Kolkata', name: 'India' },
+  { id: 'Asia/Singapore', name: 'Singapore' },
+  { id: 'Asia/Tokyo', name: 'Tokyo' },
+  { id: 'Australia/Sydney', name: 'Sydney' },
+];
 
 const VIEW_OPTIONS: { value: DashboardView; label: string; Icon: typeof Grid }[] = [
   { value: 'grid', label: 'Grid', Icon: Grid },
@@ -153,13 +169,16 @@ const Segmented = <T extends string>({
   </div>
 );
 
+/** An option whose stored value differs from its label (e.g. an IANA zone id). */
+type SelectOption = string | { value: string; label: string };
+
 const Select = ({
   value,
   options,
   onChange,
 }: {
   value: string;
-  options: string[];
+  options: readonly SelectOption[];
   onChange: (v: string) => void;
 }) => (
   <select
@@ -167,11 +186,14 @@ const Select = ({
     onChange={e => onChange(e.target.value)}
     className="bg-background border border-border rounded-xl px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-primary shadow-sm min-w-[140px]"
   >
-    {options.map(o => (
-      <option key={o} value={o}>
-        {o}
-      </option>
-    ))}
+    {options.map(o => {
+      const { value: v, label } = typeof o === 'string' ? { value: o, label: o } : o;
+      return (
+        <option key={v} value={v}>
+          {label}
+        </option>
+      );
+    })}
   </select>
 );
 
@@ -349,6 +371,36 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
     return ['All', ...unique.sort()];
   }, [tasks]);
 
+  /**
+   * A short curated zone list rather than all ~400 the browser knows — this is a
+   * local-first app run by one person on one machine, and a 400-row select is a
+   * worse answer than a 12-row one. The machine's own zone is appended when it
+   * isn't already listed, so the list is never missing the one that matters.
+   * Labels carry the live abbreviation (PDT vs PST), which is also what every
+   * cron field is labelled with.
+   */
+  const timezoneOptions = useMemo(() => {
+    const now = new Date();
+    const named = COMMON_ZONES.map(z => ({
+      value: z.id,
+      label: `${z.name} — ${zoneAbbrev(z.id, now)}`
+    }));
+    const machine = machineZone();
+    const options = [
+      { value: 'local', label: `Machine local — ${zoneAbbrev(machine, now)}` },
+      ...named,
+      { value: 'utc', label: 'UTC — no conversion' }
+    ];
+    if (!COMMON_ZONES.some(z => z.id === machine)) {
+      options.splice(1, 0, { value: machine, label: `${machine.split('/').pop()?.replace(/_/g, ' ')} — ${zoneAbbrev(machine, now)}` });
+    }
+    // A stored zone that isn't offered would render as a blank select.
+    if (!options.some(o => o.value === settings.timezone)) {
+      options.push({ value: settings.timezone, label: settings.timezone });
+    }
+    return options;
+  }, [settings.timezone]);
+
   const exportSettings = () => {
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -467,15 +519,11 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
             label="Confirm before running a task"
           />
         </Row>
-        <Row label="Schedule timezone" description="Schedules are stored in UTC; choose how times are displayed.">
-          <Segmented
-            value={settings.timezone}
-            options={[
-              { value: 'local', label: 'Local' },
-              { value: 'utc', label: 'UTC' },
-            ]}
-            onChange={v => update('timezone', v)}
-          />
+        <Row
+          label="Schedule timezone"
+          description="The zone you read and write schedules in. Schedules are still stored — and sent to Windows, the API and the MCP tools — as UTC cron; this converts at the edge so you don't do the arithmetic yourself."
+        >
+          <Select value={settings.timezone} options={timezoneOptions} onChange={v => update('timezone', v)} />
         </Row>
       </Section>
 

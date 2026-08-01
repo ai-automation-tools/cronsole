@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.2** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.3** · canonical copy: <https://cronsole.mikesailab.com>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -69,6 +69,15 @@ every parameter into arbitrary code.
 ## 3. Get the schedule right
 
 **All schedules are 5-field cron in UTC.** Not local time.
+
+**The API is UTC; the person talking to you is not, and neither is their dashboard.** Cronsole's UI
+reads and writes schedules in the user's own timezone (Pacific by default) and converts before it
+calls the API — you have no access to that setting, so **you must convert yourself**. When someone
+says "run it at 9am", ask which zone if you don't know it, convert to UTC, and **state both** in your
+confirmation ("`0 16 * * *` — 9:00 AM Pacific"). Sending `0 9 * * *` for a 9am request is the single
+easiest way to create a task that runs in the middle of the night and looks correct in every log.
+Watch the day-of-week too: converting an evening or early-morning time crosses midnight, so
+`0 22 * * 1-5` local becomes `0 6 * * 2,3,4,5,6` in UTC — the days move with the hour.
 
 **Always `convert_schedule` first — and read the returned `trigger`, not the score.**
 

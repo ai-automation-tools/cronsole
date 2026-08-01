@@ -5,9 +5,11 @@ import type { Task } from '../types';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useSettings } from '../hooks/useSettings';
-import { CRON_PRESETS } from '../utils/cronPresets';
+import { useScheduleZone } from '../hooks/useScheduleZone';
+import { CRON_PRESETS, presetLabel } from '../utils/cronPresets';
 import { describeCron } from '../utils/schedule';
 import { Modal } from './ui/Modal';
+import { ScheduleZoneHint } from './ScheduleZoneHint';
 
 interface EditScheduleModalProps {
   task: Task;
@@ -23,18 +25,23 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { settings: prefs } = useSettings();
-  const [schedule, setSchedule] = useState(task.schedule ?? '');
+  const zone = useScheduleZone();
+  // `task.schedule` is the stored UTC cron; the field edits it in the user's
+  // zone and converts back on save, so the value on the wire never changes shape.
+  const [schedule, setSchedule] = useState(() => zone.toZone(task.schedule ?? '').cron);
+  const storedSchedule = zone.toUtc(schedule);
   const [preview, setPreview] = useState<{ score: number; warnings: string[] } | null>(null);
 
   const isWindows = task.platform === 'WINDOWS_TASK_SCHEDULER';
 
-  // Live cron preview, debounced (mirrors the New Task / Apply modals).
+  // Live cron preview, debounced (mirrors the New Task / Apply modals). Always
+  // the UTC form — the backend's converter and the agent both assume it.
   useEffect(() => {
     const handle = setTimeout(async () => {
       try {
         const res = await api.post('/tasks/preview', {
           platform: task.platform,
-          schedule
+          schedule: storedSchedule.cron
         });
         setPreview(res.data);
       } catch {
@@ -42,10 +49,11 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
       }
     }, 400);
     return () => clearTimeout(handle);
-  }, [schedule, task.platform]);
+  }, [storedSchedule.cron, task.platform]);
 
   const mutation = useMutation({
-    mutationFn: async () => api.patch(`/tasks/${task.id}/schedule`, { schedule }),
+    mutationFn: async () =>
+      api.patch(`/tasks/${task.id}/schedule`, { schedule: storedSchedule.cron }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast(`Schedule updated for "${task.name}".`, 'success');
@@ -63,8 +71,11 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
     }
   });
 
-  const human = describeCron(schedule, prefs.timezone);
-  const changed = schedule.trim() !== (task.schedule ?? '').trim();
+  const human = describeCron(storedSchedule.cron, prefs.timezone);
+  // Compare what would be SAVED, not what's typed. The field is zone-local, so
+  // comparing it against the stored UTC cron would report every schedule as
+  // changed the moment the modal opened.
+  const changed = storedSchedule.cron.trim() !== (task.schedule ?? '').trim();
   const canSave = !!schedule.trim() && changed && !mutation.isPending;
 
   return (
@@ -95,7 +106,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
         <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Clock size={11} /> Schedule (cron · UTC) <span className="text-red-400">*</span>
+              <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-red-400">*</span>
             </label>
             <input
               value={schedule}
@@ -113,15 +124,17 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
                       : 'bg-background border-border text-muted-foreground hover:border-foreground/30'
                   }`}
                 >
-                  {p.label}
+                  {presetLabel(p, zone.label)}
                 </button>
               ))}
             </div>
-            {human && (
-              <p className="text-[11px] text-subtle-foreground">
-                {human}{prefs.timezone === 'local' ? ' (your local time)' : ''}
-              </p>
-            )}
+            {human && <p className="text-[11px] text-subtle-foreground">{human}</p>}
+            <ScheduleZoneHint
+              typed={schedule}
+              stored={storedSchedule}
+              zoneLabel={zone.label}
+              driftsWithDst={!isWindows}
+            />
             {preview && (
               preview.warnings.length > 0 ? (
                 <div className="text-[11px] text-amber-500 bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2 space-y-1">

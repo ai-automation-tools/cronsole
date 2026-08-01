@@ -5,7 +5,15 @@ import { describeCron } from '../schedule';
 // tests need so the app build (tsc -b, which includes test files) stays clean.
 declare const process: { env: Record<string, string | undefined> };
 
-describe('describeCron', () => {
+// Fixed instants so every offset is deterministic. January is standard time in
+// both hemispheres' northern zones used here (EST −05:00, PST −08:00); July is
+// daylight time (EDT −04:00, PDT −07:00) — both are exercised, because a
+// conversion that only works in one half of the year is the bug this layer is
+// most likely to grow.
+const JAN = new Date('2024-01-15T12:00:00Z'); // a Monday
+const JUL = new Date('2024-07-15T12:00:00Z'); // a Monday
+
+describe('describeCron — UTC', () => {
   it('describes daily schedules', () => {
     expect(describeCron('0 3 * * *')).toBe('Daily at 3:00 AM UTC');
     expect(describeCron('30 15 * * *')).toBe('Daily at 3:30 PM UTC');
@@ -40,43 +48,55 @@ describe('describeCron', () => {
   });
 });
 
-describe('describeCron — local timezone conversion', () => {
-  // Pin the runner to a fixed offset so the conversion is deterministic.
-  // America/New_York in January = EST (UTC-5, no DST).
-  const NOW = new Date('2024-01-15T12:00:00Z'); // a Monday
+describe('describeCron — named zone conversion', () => {
+  const PACIFIC = 'America/Los_Angeles';
+
+  it('reads a daily UTC time in Pacific, naming the zone', () => {
+    // The defect this whole layer exists for: a template scheduled `0 8 * * *`
+    // is 8 AM UTC, which is the middle of the night in Pacific.
+    expect(describeCron('0 8 * * *', PACIFIC, JAN)).toBe('Daily at 12:00 AM PST');
+    expect(describeCron('0 16 * * *', PACIFIC, JAN)).toBe('Daily at 8:00 AM PST');
+  });
+
+  it('tracks daylight saving rather than assuming a fixed offset', () => {
+    // Same expression, six months apart: PST is −08:00, PDT is −07:00.
+    expect(describeCron('0 15 * * *', PACIFIC, JAN)).toBe('Daily at 7:00 AM PST');
+    expect(describeCron('0 15 * * *', PACIFIC, JUL)).toBe('Daily at 8:00 AM PDT');
+  });
+
+  it('rolls the weekday back when the conversion crosses midnight', () => {
+    // Mon 02:00 UTC is Sunday evening in Pacific.
+    expect(describeCron('0 2 * * 1', PACIFIC, JAN)).toBe('Weekly on Sunday at 6:00 PM PST');
+  });
+
+  it('rolls every day of a multi-day weekly schedule', () => {
+    expect(describeCron('0 2 * * 1,3,5', PACIFIC, JAN)).toBe(
+      'Weekly on Sunday, Tuesday, Thursday at 6:00 PM PST'
+    );
+  });
+
+  it('keeps a same-day conversion on the same day', () => {
+    expect(describeCron('0 18 * * 3', PACIFIC, JAN)).toBe('Weekly on Wednesday at 10:00 AM PST');
+  });
+
+  it('leaves interval schedules zone-independent and unlabelled', () => {
+    expect(describeCron('*/15 * * * *', PACIFIC, JAN)).toBe('Every 15 minutes');
+    expect(describeCron('0 * * * *', PACIFIC, JAN)).toBe('Hourly at :00');
+  });
+
+  it('still labels UTC mode with UTC', () => {
+    expect(describeCron('0 3 * * *', 'utc', JAN)).toBe('Daily at 3:00 AM UTC');
+    expect(describeCron('0 3 * * *', undefined, JAN)).toBe('Daily at 3:00 AM UTC');
+  });
+});
+
+describe('describeCron — machine local', () => {
   const origTZ = process.env.TZ;
   beforeAll(() => { process.env.TZ = 'America/New_York'; });
   afterAll(() => { process.env.TZ = origTZ; });
 
-  it('converts a daily UTC time to local, dropping the UTC label', () => {
-    // 03:00 UTC = 22:00 (10:00 PM) EST
-    expect(describeCron('0 3 * * *', 'local', NOW)).toBe('Daily at 10:00 PM');
-  });
-
-  it('rolls the weekday back a day when the local time crosses midnight', () => {
-    // Mon 02:00 UTC = Sun 21:00 (9:00 PM) EST
-    expect(describeCron('0 2 * * 1', 'local', NOW)).toBe('Weekly on Sunday at 9:00 PM');
-  });
-
-  it('keeps a same-day weekly conversion on the same day', () => {
-    // Wed 18:00 UTC = Wed 13:00 (1:00 PM) EST
-    expect(describeCron('0 18 * * 3', 'local', NOW)).toBe('Weekly on Wednesday at 1:00 PM');
-  });
-
-  it('converts each day of a multi-day weekly schedule', () => {
-    // 02:00 UTC on Mon/Wed/Fri = 21:00 EST on Sun/Tue/Thu
-    expect(describeCron('0 2 * * 1,3,5', 'local', NOW)).toBe(
-      'Weekly on Sunday, Tuesday, Thursday at 9:00 PM'
-    );
-  });
-
-  it('still labels UTC mode with UTC (unchanged)', () => {
-    expect(describeCron('0 3 * * *', 'utc', NOW)).toBe('Daily at 3:00 AM UTC');
-    expect(describeCron('0 3 * * *', undefined, NOW)).toBe('Daily at 3:00 AM UTC');
-  });
-
-  it('leaves interval schedules timezone-independent', () => {
-    expect(describeCron('*/15 * * * *', 'local', NOW)).toBe('Every 15 minutes');
-    expect(describeCron('0 * * * *', 'local', NOW)).toBe('Hourly at :00');
+  it('follows the machine zone and names it', () => {
+    // 03:00 UTC = 22:00 (10:00 PM) EST.
+    expect(describeCron('0 3 * * *', 'local', JAN)).toBe('Daily at 10:00 PM EST');
   });
 });

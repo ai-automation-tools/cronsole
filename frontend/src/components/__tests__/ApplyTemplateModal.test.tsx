@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ApplyTemplateModal } from '../ApplyTemplateModal';
 import { api } from '../../api';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Template } from '../../types';
 
 vi.mock('../../api', () => ({
@@ -17,6 +17,28 @@ const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock('../../hooks/useToast', () => ({
   useToast: () => ({ toast: toastMock })
 }));
+
+/**
+ * The schedule timezone defaults to Pacific, which would make every cron
+ * assertion in this file depend on the date the suite runs (PST vs PDT). Pin it
+ * instead: most tests aren't about the zone and run in UTC, and the ones that
+ * are set `zone.mode` explicitly alongside a fixed system time.
+ */
+const { zone } = vi.hoisted(() => ({ zone: { mode: 'utc' } }));
+vi.mock('../../hooks/useSettings', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../hooks/useSettings')>();
+  const settings = () => ({ ...actual.DEFAULT_SETTINGS, timezone: zone.mode });
+  return {
+    ...actual,
+    getSettings: settings,
+    useSettings: () => ({
+      settings: settings(),
+      update: vi.fn(),
+      replaceAll: vi.fn(),
+      reset: vi.fn()
+    })
+  };
+});
 
 const mockTemplate: Template = {
   id: 'template-cron-backup',
@@ -46,6 +68,7 @@ describe('ApplyTemplateModal Component', () => {
       },
     });
     vi.clearAllMocks();
+    zone.mode = 'utc';
     // The Windows folder selector reads the machine's real Task Scheduler
     // folders. \Microsoft\Windows comes back writable: false — the backend
     // reports unwritable folders honestly rather than hiding them, and the
@@ -208,5 +231,65 @@ describe('ApplyTemplateModal Component', () => {
     expect(screen.getByDisplayValue('0 0 * * *')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Hourly' }));
     expect(screen.getByDisplayValue('0 * * * *')).toBeInTheDocument();
+  });
+
+  /**
+   * The reported defect: applying a template silently produced a task on UTC
+   * clock time. `0 0 * * *` is midnight UTC, which is 4 PM the previous day in
+   * Pacific — the field must show the Pacific reading and the request must still
+   * carry UTC, because everything below the browser (the trigger converter, the
+   * signed agent command, Task Scheduler) reads UTC.
+   */
+  describe('schedule timezone', () => {
+    beforeEach(() => {
+      zone.mode = 'America/Los_Angeles';
+      // January so the offset is PST (−08:00) regardless of when this runs.
+      // `shouldAdvanceTime` keeps the clock ticking so `waitFor` can still poll
+      // — a frozen clock makes it hang for its full timeout and report the
+      // assertion as the failure, which sends you debugging the wrong thing.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('pre-fills the template schedule in the user’s zone, not UTC', () => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+        </QueryClientProvider>
+      );
+
+      expect(screen.getByDisplayValue('0 16 * * *')).toBeInTheDocument();
+      expect(screen.queryByDisplayValue('0 0 * * *')).not.toBeInTheDocument();
+      // The field must name the zone it is read in, or the number is a guess.
+      expect(screen.getByText(/Schedule \(cron · PST\)/)).toBeInTheDocument();
+    });
+
+    it('applies the UTC form of what was typed', async () => {
+      vi.mocked(api.post).mockResolvedValue({ data: { id: 'task-new' } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+        </QueryClientProvider>
+      );
+
+      // 8 AM Pacific.
+      fireEvent.change(screen.getByDisplayValue('0 16 * * *'), { target: { value: '0 8 * * *' } });
+      // Two path params share a placeholder; srcDir has a default, destDir is
+      // the required empty one.
+      fireEvent.change(screen.getAllByPlaceholderText('C:\\path\\to\\file')[1], {
+        target: { value: 'C:\\dest' }
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Create Task/i }));
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith(
+          `/templates/${mockTemplate.id}/apply`,
+          expect.objectContaining({ schedule: '0 16 * * *' })
+        );
+      });
+    });
   });
 });

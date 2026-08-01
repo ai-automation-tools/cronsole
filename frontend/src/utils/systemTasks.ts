@@ -1,4 +1,5 @@
 import type { Task } from '../types';
+import { matchesSystem, type SystemFilter } from './taskFilters';
 
 /**
  * The system/personal lens.
@@ -27,17 +28,29 @@ import type { Task } from '../types';
  */
 export function applySystemLens(
   tasks: Task[] | undefined,
-  showSystemTasks: boolean
+  /**
+   * The boolean form is the original two-state toggle and still works, so every
+   * caller and test written against it keeps its meaning. Saved views needed a
+   * third state — `'only'`, "what is Windows itself running?" — which the
+   * include-everything state answers by burying it among the user's own tasks.
+   */
+  lens: SystemFilter | boolean
 ): { visible: Task[] | undefined; hidden: number } {
+  const mode: SystemFilter =
+    typeof lens === 'boolean' ? (lens ? 'include' : 'personal') : lens;
+
   // `undefined` means "not loaded yet" and must stay distinguishable from "no
   // tasks" — collapsing the two would flash an empty-state over a live fetch.
   if (!tasks) return { visible: tasks, hidden: 0 };
 
   const hidden = tasks.filter(t => t.isSystem).length;
   return {
-    visible: showSystemTasks ? tasks : tasks.filter(t => !t.isSystem),
+    visible: tasks.filter(t => matchesSystem(t, mode)),
     // Reported even while showing system tasks: the toggle needs a number in
     // both directions, or its "on" state is a label with nothing behind it.
+    // It counts system tasks that EXIST, not ones this lens happens to hide —
+    // under `'only'` nothing is hidden by the lens, but the number the toggle
+    // has to print is still "how many of these are there".
     hidden
   };
 }

@@ -33,15 +33,32 @@ const health = (overrides: Partial<TaskHealth> = {}): TaskHealth => ({
   ...overrides
 });
 
-const respond = (tasks: TaskHealth[], ok = 12) => {
+/**
+ * Build a response in the shape the route actually returns.
+ *
+ * The healthy tasks are materialised into `tasks`, because that is what
+ * `GET /tools/task-health` sends — it returns every scored task, not only the
+ * failing ones. The earlier fixture faked them by bumping `counts.ok` and left
+ * `tasks` holding unhealthy rows only, so the card's `Healthy` tile could read
+ * an unscoped total while the other three were personal-filtered and no test
+ * could see the mismatch. A fixture that models a different payload than the
+ * server sends is a suite that agrees with itself.
+ */
+const respond = (tasks: TaskHealth[], ok = 12, okAreSystem = false) => {
+  const healthy = Array.from({ length: ok }, (_, i) =>
+    health({ taskId: `ok${i}`, name: `Healthy ${i}`, tier: 'ok', score: 100, signals: [], isSystem: okAreSystem })
+  );
+  const allTasks = [...tasks, ...healthy];
   const counts = {
-    tasks: tasks.length + ok,
+    tasks: allTasks.length,
     critical: tasks.filter(t => t.tier === 'critical').length,
     attention: tasks.filter(t => t.tier === 'attention').length,
     unknown: tasks.filter(t => t.tier === 'unknown').length,
     ok
   };
-  vi.mocked(api.get).mockResolvedValue({ data: { evaluatedAt: '2026-07-28T12:00:00Z', counts, tasks } } as never);
+  vi.mocked(api.get).mockResolvedValue({
+    data: { evaluatedAt: '2026-07-28T12:00:00Z', counts, tasks: allTasks }
+  } as never);
 };
 
 const renderTool = () => {
@@ -94,6 +111,31 @@ describe('TaskHealthTool', () => {
     expect(screen.getByText('Task health')).toBeInTheDocument();
     // No disclosure to click when there is no list behind it.
     expect(screen.queryByRole('button', { name: /needing attention/i })).not.toBeInTheDocument();
+  });
+
+  // Found on a real 352-task machine, and by no test: the row read
+  // `12 / 25 / 1 / 218` under "across 352 tasks" — three tiers counted over the
+  // user's own tasks and `Healthy` counted over everyone's, so it summed to 256
+  // and described no population at all.
+  it('counts every tier over the same population as the label', async () => {
+    respond(
+      [health({ taskId: 'mine', isSystem: false }), health({ taskId: 'sys', isSystem: true })],
+      10,
+      true // the healthy tasks are Windows' own
+    );
+    renderTool();
+
+    // Personal view: 1 unhealthy task, 0 healthy — the 10 healthy ones are all
+    // system and must not leak into a row that excludes system tasks.
+    expect(await screen.findByText(/across 1 task$/i)).toBeInTheDocument();
+    // Anchored: `toHaveTextContent('0')` matches "10" by substring, so the
+    // unscoped value this test exists to reject would sail straight through it.
+    expect(screen.getByText('Healthy').previousElementSibling).toHaveTextContent(/^0$/);
+
+    // Including system: 12 tasks, 10 of them healthy.
+    fireEvent.click(screen.getByRole('button', { name: /1 system hidden/i }));
+    expect(await screen.findByText(/across 12 tasks/i)).toBeInTheDocument();
+    expect(screen.getByText('Healthy').previousElementSibling).toHaveTextContent(/^10$/);
   });
 
   it('leads with the failing task and its headline signal, not a score', async () => {

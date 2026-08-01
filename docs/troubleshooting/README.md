@@ -2465,6 +2465,53 @@ fire, you will debug the wrong thing.
 
 ---
 
+## 38. A row of summary numbers doesn't add up — one of them counts a different population
+
+**Symptom.** The Tools › Task health card read `12 critical · 25 attention · 1 unmeasured · 218 healthy`
+under the label **"across 352 tasks"**. Those four sum to **256**. Nothing errored, no test failed,
+and each individual number was correct about *something*.
+
+**Cause.** Three tiers were counted over the **personal** list (`\Microsoft\` tasks excluded, which
+is what the card intends) while `Healthy` was read straight from the server's `data.counts.ok` —
+a summary of **every** task on the machine. One row, two populations. The true personal row is
+`12 · 25 · 1 · 57` across **95** tasks; 218 was the healthy count for all 352.
+
+```ts
+// before — three from the scoped list, one from the server's whole-machine summary
+const critical = visible.filter(t => t.tier === 'critical').length;   // personal
+{ label: 'Healthy', value: data.counts.ok }                           // everyone
+```
+
+**Fix.** Derive every tier, the `across N` label, and the system-hidden count from **one scoped
+list**, and stop reading the server's `counts` in that component entirely — they summarize the
+whole machine, and keeping them as a shortcut for a single tile is precisely how the two drifted.
+
+**Why no test caught it.** The fixture built `data.tasks` from the *unhealthy* tasks only and faked
+the healthy ones by incrementing `counts.ok` — but the route returns **every scored task**. So the
+suite modelled a payload the server never sends, and the one tile reading the unscoped field was the
+only thing that could tell the difference. **A fixture that disagrees with the server is a suite
+that agrees with itself** — the same family as the stubbed Prisma client in
+[#22](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n)
+and the stubbed serializer in [#9](#9-agent-payload-arrives-with-every-field-empty).
+
+**And the regression test didn't work on the first attempt.** `expect(tile).toHaveTextContent('0')`
+passes against `"10"` — `toHaveTextContent` matches substrings — so the unscoped value the test
+existed to reject sailed straight through it. Only the mutation check revealed that; anchoring to
+`/^0$/` made it fail as it should. **When asserting a number, anchor it.** A digit assertion that
+can be satisfied by a longer number is a test that cannot fail in the direction you care about.
+
+> [!TIP]
+> **Generalizable: check that a summary row adds up to its own label.** It is the cheapest possible
+> audit of a stats display and it catches the entire class — mixed populations, a stale total, a
+> tier quietly dropped from the render. Found here by cross-checking one number (the new *Failures*
+> view's 37) against the panel that ought to agree with it.
+
+*First hit: 2026-07-31, verifying the saved-views feature live on the 352-task machine.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
 ## ➕ Adding a new entry
 
 Keep it short and greppable. For each problem, capture:

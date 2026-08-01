@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { SavedView } from '../utils/savedViews';
 
 export type DashboardView = 'grid' | 'list' | 'kanban' | 'schedule';
 export type TemplateView = 'grid' | 'list' | 'kanban';
@@ -64,6 +65,13 @@ export interface Settings {
    * with 352 rows. `null` picks the generous default exactly once.
    */
   lastImportCategories: string[] | null;
+  /**
+   * The user's own named filter combinations. The five built-ins are code, not
+   * data, so they are **not** stored here — that way a later fix to what
+   * "Failures" means reaches everyone, instead of only users who had not opened
+   * the dashboard before the change froze a copy into their localStorage.
+   */
+  savedViews: SavedView[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -80,6 +88,7 @@ export const DEFAULT_SETTINGS: Settings = {
   desktopNotifyOnFailure: false,
   onboardingSeen: false,
   lastImportCategories: null,
+  savedViews: [],
 };
 
 const STORAGE_KEY = 'cronsole.settings';

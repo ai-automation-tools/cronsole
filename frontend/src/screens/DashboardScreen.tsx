@@ -21,16 +21,34 @@ import {
   Download,
   Trash2,
   Cpu,
-  User
+  User,
+  Filter
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskSelectCheckbox } from '../components/TaskSelectCheckbox';
 import { BulkActionBar } from '../components/BulkActionBar';
+import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
-import { matchesTaskSearch } from '../utils/taskSearch';
 import { applySystemLens } from '../utils/systemTasks';
+import {
+  applyTaskFilters,
+  DEFAULT_FILTERS,
+  effectiveFilters,
+  needsHealthData,
+  type TaskFilters
+} from '../utils/taskFilters';
+import {
+  allViews,
+  describeFilters,
+  FILTER_PARAM_KEYS,
+  filtersFromParams,
+  filtersToParams,
+  matchView,
+  newViewId,
+  type SavedView
+} from '../utils/savedViews';
 import {
   pruneResolved,
   summarizeSelection,
@@ -39,7 +57,10 @@ import {
 } from '../utils/taskSelection';
 import { useSettings, type Settings } from '../hooks/useSettings';
 import { useConnections } from '../hooks/useConnections';
+import { useTaskHealthTiers } from '../hooks/useTaskHealthTiers';
+import { useMinuteClock } from '../hooks/useMinuteClock';
 import { formatDateTime, formatTime, timeAgo } from '../utils/datetime';
+import { useSearchParams } from 'react-router';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
@@ -99,12 +120,53 @@ export const DashboardScreen = ({
   // filter exists to stop.
   const { update } = useSettings();
 
-  // Initialize view/filter state from the user's saved dashboard defaults.
-  const [selectedCategory, setSelectedTaskCategory] = useState<string>(settings.defaultCategory);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>(settings.defaultPlatform);
-  const [showDisabled, setShowDisabled] = useState(settings.defaultShowDisabled);
+  // ---- Filter state ------------------------------------------------------
+  //
+  // One object, and it lives in the URL rather than in `useState`. Saved views
+  // need a combination that can be *named*, and "bookmarkable" means the state
+  // has to survive a copy-paste into another window — which local state cannot
+  // do no matter how carefully it is threaded.
+  //
+  // History is written with `replace`, not `push`. Filters are a state of this
+  // page, not a sequence of pages, and search-as-you-type would otherwise make
+  // Back an undo-one-character button and bury the route you actually came from.
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // What a bare URL means: the user's persisted dashboard defaults. Note the
+  // two toggles that predate views map onto the wider dimensions rather than
+  // being replaced by them, so nobody's first screen changed.
+  const settingsFilters = useMemo<TaskFilters>(
+    () => ({
+      ...DEFAULT_FILTERS,
+      status: settings.defaultShowDisabled ? 'any' : 'active',
+      system: settings.showSystemTasks ? 'include' : 'personal',
+      platform: settings.defaultPlatform,
+      category: settings.defaultCategory
+    }),
+    [
+      settings.defaultShowDisabled,
+      settings.showSystemTasks,
+      settings.defaultPlatform,
+      settings.defaultCategory
+    ]
+  );
+
+  const hasFilterParams = FILTER_PARAM_KEYS.some(k => searchParams.has(k));
+  const filters = useMemo(
+    () =>
+      hasFilterParams
+        ? filtersFromParams(searchParams, settings.savedViews)
+        : settingsFilters,
+    [hasFilterParams, searchParams, settings.savedViews, settingsFilters]
+  );
+
+  const setFilters = (next: TaskFilters) => {
+    setSearchParams(filtersToParams(next, settings.savedViews), { replace: true });
+  };
+  const setFilter = <K extends keyof TaskFilters>(key: K, value: TaskFilters[K]) =>
+    setFilters({ ...filters, [key]: value });
+
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>(settings.defaultView);
-  const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // "/" focuses search (unless already typing somewhere); Escape clears it.
@@ -117,13 +179,14 @@ export const DashboardScreen = ({
         searchInputRef.current?.focus();
       }
       if (e.key === 'Escape' && target === searchInputRef.current) {
-        setSearchQuery('');
+        setFilter('search', '');
         searchInputRef.current?.blur();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   // The system/personal split is the OUTERMOST lens: every count, chip, facet and
   // view below works from `tasks`, so hiding OS-owned tasks here hides them
@@ -138,33 +201,47 @@ export const DashboardScreen = ({
   // The two rules — outermost lens, count over ALL tasks — live in applySystemLens
   // so they are pinned by tests instead of by whoever reads this component next.
   const { visible: tasks, hidden: hiddenBySystemFilter } = useMemo(
-    () => applySystemLens(allTasks, settings.showSystemTasks),
-    [allTasks, settings.showSystemTasks]
+    () => applySystemLens(allTasks, filters.system),
+    [allTasks, filters.system]
   );
 
-  // Apply the active/disabled filter the same way the task grid does (kanban
-  // shows both columns, so it never hides disabled tasks).
-  const applyActiveFilter = (list: Task[]) =>
-    viewMode !== 'kanban' && !showDisabled ? list.filter(t => t.status === 'ACTIVE') : list;
+  // The run-outcome filter is answered by the SERVER's health scan — see
+  // useTaskHealthTiers. Fetched only when a view actually asks about outcome,
+  // because it is a scan of every task and its executions.
+  const { tiers, isPending: healthPending } = useTaskHealthTiers(needsHealthData(filters));
 
-  // Category chips are faceted: they reflect the active/disabled + platform
-  // filters so an empty category (e.g. no *active* tasks in it) drops out
-  // instead of showing a 0-count tag. The currently-selected category stays
-  // pinned even if it empties, so the view doesn't jump out from under you.
+  // One instant, shared by every date-sensitive predicate and every count in
+  // this render, advancing once a minute. See useMinuteClock for why it is
+  // neither read during render nor recreated on each one.
+  const now = useMinuteClock();
+
+  // What the current view mode does to the filters (kanban relaxes `active`,
+  // because its two columns ARE the active/disabled split).
+  const viewFilters = useMemo(() => effectiveFilters(filters, viewMode), [filters, viewMode]);
+
+  // Facet counts: what would remain if you changed ONE dimension. Each chip
+  // therefore reflects every other constraint — an empty category drops out
+  // instead of showing a 0 — while never filtering by the dimension it is
+  // offering, or you could never switch off the value you are on.
+  const facetBase = (ignore: 'category' | 'platform') =>
+    applyTaskFilters(tasks ?? [], { ...viewFilters, [ignore]: 'All' }, {
+      now,
+      timezone: settings.timezone,
+      tiers
+    });
+
   const { categories, categoryCounts } = useMemo(() => {
     const counts = new Map<string, number>();
-    if (tasks) {
-      let base = applyActiveFilter(tasks);
-      if (selectedPlatform !== 'All') base = base.filter(t => t.platform === selectedPlatform);
-      for (const t of base) {
-        const c = t.category || 'Uncategorized';
-        counts.set(c, (counts.get(c) ?? 0) + 1);
-      }
-      if (selectedCategory !== 'All' && !counts.has(selectedCategory)) counts.set(selectedCategory, 0);
+    for (const t of facetBase('category')) {
+      const c = t.category || 'Uncategorized';
+      counts.set(c, (counts.get(c) ?? 0) + 1);
     }
+    // The selected category stays pinned even when it empties, so the view
+    // doesn't jump out from under you the moment its last task is filtered out.
+    if (filters.category !== 'All' && !counts.has(filters.category)) counts.set(filters.category, 0);
     return { categories: ['All', ...Array.from(counts.keys()).sort()], categoryCounts: counts };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, viewMode, showDisabled, selectedPlatform, selectedCategory]);
+  }, [tasks, viewFilters, now, settings.timezone, tiers]);
 
   // How many tasks the active-only filter is holding back. Counted across every
   // task the system lens lets through — not the category/platform selection, and
@@ -196,47 +273,82 @@ export const DashboardScreen = ({
     [categoryCounts]
   );
 
-  // Platform chips are faceted the same way (active/disabled + selected
-  // category), but never filtered by the platform selection itself — you must
-  // still be able to switch platforms. Keep the selected platform pinned.
+  // Platform chips are faceted the same way, but never by the platform
+  // selection itself — you must still be able to switch platforms.
   const { platforms, platformCounts } = useMemo(() => {
     const counts = new Map<string, number>();
-    if (tasks) {
-      let base = applyActiveFilter(tasks);
-      if (selectedCategory !== 'All') base = base.filter(t => (t.category || 'Uncategorized') === selectedCategory);
-      for (const t of base) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
-      if (selectedPlatform !== 'All' && !counts.has(selectedPlatform)) counts.set(selectedPlatform, 0);
-    }
+    for (const t of facetBase('platform')) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
+    if (filters.platform !== 'All' && !counts.has(filters.platform)) counts.set(filters.platform, 0);
     return { platforms: Array.from(counts.keys()).sort(), platformCounts: counts };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, viewMode, showDisabled, selectedCategory, selectedPlatform]);
+  }, [tasks, viewFilters, now, settings.timezone, tiers]);
 
-  const filteredTasks = useMemo(() => {
-    if (!tasks) return [];
+  // One pipeline, in one place. This used to be four hand-rolled `.filter()`
+  // passes inline, which is fine at four and is exactly how the fifth ends up
+  // applied to the list but not to the counts beside it.
+  const filteredTasks = useMemo(
+    () =>
+      applyTaskFilters(tasks ?? [], viewFilters, {
+        now,
+        timezone: settings.timezone,
+        tiers
+      }),
+    [tasks, viewFilters, now, settings.timezone, tiers]
+  );
 
-    // First apply the active/disabled filter (except for kanban view where we show both columns)
-    let result = tasks;
-    if (viewMode !== 'kanban') {
-      result = showDisabled ? tasks : tasks.filter(t => t.status === 'ACTIVE');
+  // ---- Saved views --------------------------------------------------------
+
+  const views = useMemo(() => allViews(settings.savedViews), [settings.savedViews]);
+  const activeView = useMemo(() => matchView(filters, settings.savedViews), [filters, settings.savedViews]);
+
+  // Per-view counts, computed against the FULL task list rather than the
+  // filtered one — a view chip has to say how many tasks it would show, not how
+  // many survive the filters you are currently looking through.
+  //
+  // A view whose answer depends on the health scan reports `null` until that
+  // arrives, and the bar renders `–`. Printing 0 would assert "nothing is
+  // failing", which is a claim, and a far more comforting one than "not looked
+  // yet". Same rule as the health scorer itself: absence of evidence is not ok.
+  const viewCounts = useMemo(() => {
+    const counts = new Map<string, number | null>();
+    for (const v of views) {
+      counts.set(
+        v.id,
+        needsHealthData(v.filters) && !tiers
+          ? null
+          : applyTaskFilters(allTasks ?? [], effectiveFilters(v.filters, viewMode), {
+              now,
+              timezone: settings.timezone,
+              tiers
+            }).length
+      );
     }
+    return counts;
+  }, [views, allTasks, viewMode, now, settings.timezone, tiers]);
 
-    // Platform isolation (e.g. only Cronsole-native, only Windows)
-    if (selectedPlatform !== 'All') {
-      result = result.filter(t => t.platform === selectedPlatform);
-    }
+  const saveCurrentView = (name: string) => {
+    const view: SavedView = {
+      id: newViewId(settings.savedViews),
+      name,
+      filters,
+      blurb: describeFilters(filters)
+    };
+    const next = [...settings.savedViews, view];
+    update('savedViews', next);
+    // Re-encode the URL against the new list so it collapses from the explicit
+    // field-by-field form to `?view=<id>` — otherwise the chip lights up but the
+    // address bar still shows the ad-hoc query, and the two disagree.
+    setSearchParams(filtersToParams(filters, next), { replace: true });
+  };
 
-    // Then apply category filter
-    if (selectedCategory !== 'All') {
-      result = result.filter(t => (t.category || 'Uncategorized') === selectedCategory);
-    }
-
-    // Finally, free-text search (name / category / path / command / schedule)
-    if (searchQuery.trim()) {
-      result = result.filter(t => matchesTaskSearch(t, searchQuery));
-    }
-
-    return result;
-  }, [tasks, selectedCategory, selectedPlatform, showDisabled, viewMode, searchQuery]);
+  const deleteView = (view: SavedView) => {
+    const next = settings.savedViews.filter(v => v.id !== view.id);
+    update('savedViews', next);
+    // If the deleted view is the one on screen, the filters stay exactly as they
+    // are — deleting a bookmark should not silently change what you are looking
+    // at. It simply stops having a name, and the bar says "Custom".
+    setSearchParams(filtersToParams(filters, next), { replace: true });
+  };
 
   // ---- Bulk selection -----------------------------------------------------
   //
@@ -314,6 +426,12 @@ export const DashboardScreen = ({
 
   const isEmpty = !tasks || tasks.length === 0;
 
+  // The two pre-view toggles are two-state controls over dimensions that now
+  // have more than two states. Rather than let them mislabel a state they
+  // cannot express, each renders a third treatment and says what it is.
+  const isolatedStatus = filters.status === 'disabled' || filters.status === 'missing';
+  const statusNoun = filters.status === 'missing' ? 'Missing' : 'Disabled';
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -348,28 +466,43 @@ export const DashboardScreen = ({
           */}
           {!isEmpty && viewMode !== 'kanban' && (
             <button
-              onClick={() => setShowDisabled(!showDisabled)}
-              aria-pressed={!showDisabled}
+              // Isolation ('disabled'/'missing') is reachable only from a saved
+              // view, and clicking out of it means "stop isolating" — i.e. show
+              // everything — rather than snapping back to active-only, which
+              // would hide the very rows you just went looking for.
+              onClick={() => setFilter('status', filters.status === 'active' ? 'any' : filters.status === 'any' ? 'active' : 'any')}
+              aria-pressed={filters.status === 'active'}
               title={
-                showDisabled
-                  ? `Showing all ${tasks?.length ?? 0} tasks, including disabled and missing ones. Click to show only active tasks.`
-                  : hiddenByActiveFilter > 0
-                    ? `Showing only active tasks — ${hiddenByActiveFilter} hidden (disabled, missing, or unknown). Click to show everything.`
-                    : 'Showing only active tasks. Nothing is hidden right now. Click to show everything.'
+                isolatedStatus
+                  ? `Showing only ${statusNoun} tasks — this view isolates them. Click to show everything.`
+                  : filters.status === 'any'
+                    ? `Showing all ${tasks?.length ?? 0} tasks, including disabled and missing ones. Click to show only active tasks.`
+                    : hiddenByActiveFilter > 0
+                      ? `Showing only active tasks — ${hiddenByActiveFilter} hidden (disabled, missing, or unknown). Click to show everything.`
+                      : 'Showing only active tasks. Nothing is hidden right now. Click to show everything.'
               }
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
-                showDisabled
-                  ? 'bg-amber-500/10 border-amber-500/40 text-foreground hover:border-amber-500/70'
-                  : 'bg-green-500/10 border-green-500/40 text-foreground hover:border-green-500/70'
+                isolatedStatus
+                  ? 'bg-rose-500/10 border-rose-500/40 text-foreground hover:border-rose-500/70'
+                  : filters.status === 'any'
+                    ? 'bg-amber-500/10 border-amber-500/40 text-foreground hover:border-amber-500/70'
+                    : 'bg-green-500/10 border-green-500/40 text-foreground hover:border-green-500/70'
               }`}
             >
-              {showDisabled
-                ? <Eye size={16} className="text-amber-400" />
-                : <EyeOff size={16} className="text-green-400" />}
-              {showDisabled ? 'Showing All' : 'Active Only'}
+              {/* A third state needs a third treatment. Reusing "Showing All"
+                  amber for an isolation would say the opposite of what the list
+                  is doing — it is showing *less*, not more. */}
+              {isolatedStatus
+                ? <Filter size={16} className="text-rose-400" />
+                : filters.status === 'any'
+                  ? <Eye size={16} className="text-amber-400" />
+                  : <EyeOff size={16} className="text-green-400" />}
+              {isolatedStatus ? `${statusNoun} only` : filters.status === 'any' ? 'Showing All' : 'Active Only'}
               {/* The count is the part that actually removes the ambiguity: the
                   label alone reads as either a state or an action. */}
-              {showDisabled ? (
+              {isolatedStatus ? (
+                <span className="text-[10px] font-bold text-rose-400/90 tabular-nums">{filteredTasks.length}</span>
+              ) : filters.status === 'any' ? (
                 <span className="text-[10px] font-bold text-amber-400/90 tabular-nums">{tasks?.length ?? 0}</span>
               ) : hiddenByActiveFilter > 0 && (
                 <span className="text-[10px] font-bold text-green-400/90 tabular-nums whitespace-nowrap">
@@ -393,25 +526,44 @@ export const DashboardScreen = ({
           */}
           {!isEmpty && hiddenBySystemFilter > 0 && (
             <button
-              onClick={() => update('showSystemTasks', !settings.showSystemTasks)}
-              aria-pressed={!settings.showSystemTasks}
+              onClick={() => {
+                // Clicking the control directly is a standing answer to "whose
+                // machine is this dashboard about", so it writes the persisted
+                // preference too. A saved view that sets the lens does NOT —
+                // a view is a lens you look through, not a new default, and
+                // leaving one must give you your own dashboard back.
+                const next = filters.system === 'personal' ? 'include' : 'personal';
+                update('showSystemTasks', next === 'include');
+                setFilter('system', next);
+              }}
+              aria-pressed={filters.system === 'personal'}
               title={
-                settings.showSystemTasks
-                  ? `Showing Windows' own scheduled tasks alongside yours (${hiddenBySystemFilter} of them). Click to hide them.`
-                  : `Hiding ${hiddenBySystemFilter} tasks owned by Windows itself (under \\Microsoft\\). They still exist and still run — this only affects what the dashboard shows. Click to include them.`
+                filters.system === 'only'
+                  ? `Showing ONLY the ${hiddenBySystemFilter} tasks Windows itself owns — your own tasks are hidden. Click to go back to yours.`
+                  : filters.system === 'include'
+                    ? `Showing Windows' own scheduled tasks alongside yours (${hiddenBySystemFilter} of them). Click to hide them.`
+                    : `Hiding ${hiddenBySystemFilter} tasks owned by Windows itself (under \\Microsoft\\). They still exist and still run — this only affects what the dashboard shows. Click to include them.`
               }
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
-                settings.showSystemTasks
-                  ? 'bg-sky-500/10 border-sky-500/40 text-foreground hover:border-sky-500/70'
-                  : 'bg-violet-500/10 border-violet-500/40 text-foreground hover:border-violet-500/70'
+                filters.system === 'only'
+                  ? 'bg-rose-500/10 border-rose-500/40 text-foreground hover:border-rose-500/70'
+                  : filters.system === 'include'
+                    ? 'bg-sky-500/10 border-sky-500/40 text-foreground hover:border-sky-500/70'
+                    : 'bg-violet-500/10 border-violet-500/40 text-foreground hover:border-violet-500/70'
               }`}
             >
-              {settings.showSystemTasks
-                ? <Cpu size={16} className="text-sky-400" />
-                : <User size={16} className="text-violet-400" />}
-              {settings.showSystemTasks ? 'Incl. System' : 'Personal'}
-              <span className={`text-[10px] font-bold tabular-nums whitespace-nowrap ${settings.showSystemTasks ? 'text-sky-400/90' : 'text-violet-400/90'}`}>
-                {settings.showSystemTasks ? `${hiddenBySystemFilter} system` : `${hiddenBySystemFilter} system hidden`}
+              {filters.system === 'personal'
+                ? <User size={16} className="text-violet-400" />
+                : <Cpu size={16} className={filters.system === 'only' ? 'text-rose-400' : 'text-sky-400'} />}
+              {filters.system === 'only' ? 'System only' : filters.system === 'include' ? 'Incl. System' : 'Personal'}
+              <span className={`text-[10px] font-bold tabular-nums whitespace-nowrap ${
+                filters.system === 'only' ? 'text-rose-400/90' : filters.system === 'include' ? 'text-sky-400/90' : 'text-violet-400/90'
+              }`}>
+                {filters.system === 'only'
+                  ? `yours hidden`
+                  : filters.system === 'include'
+                    ? `${hiddenBySystemFilter} system`
+                    : `${hiddenBySystemFilter} system hidden`}
               </span>
             </button>
           )}
@@ -478,6 +630,31 @@ export const DashboardScreen = ({
         </div>
       ) : (
         <>
+          <ViewBar
+            views={views}
+            activeViewId={activeView?.id ?? null}
+            counts={viewCounts}
+            currentDescription={describeFilters(filters)}
+            onSelect={v => setFilters(v.filters)}
+            onSave={saveCurrentView}
+            onDelete={deleteView}
+            onReset={() => setFilters(DEFAULT_FILTERS)}
+          />
+
+          {/*
+            The run-outcome filter has asked a question the health scan has not
+            answered yet. Saying so is not politeness: with no tiers every task
+            reads `unknown`, so "Failures" renders an empty list — and an empty
+            list means "nothing is failing", which is a claim this app has not
+            earned the right to make.
+          */}
+          {healthPending && (
+            <div className="flex items-center gap-2 text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+              <Loader2 size={13} className="animate-spin" />
+              Checking task health — this view is filtered by run outcome, so the list below is incomplete until it finishes.
+            </div>
+          )}
+
           {/* Category Tabs & Views */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
             <div className="flex flex-wrap items-center gap-2">
@@ -485,14 +662,14 @@ export const DashboardScreen = ({
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground pointer-events-none" />
                 <input
                   ref={searchInputRef}
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  value={filters.search}
+                  onChange={e => setFilter('search', e.target.value)}
                   placeholder="Search tasks…  /"
                   className="w-44 focus:w-60 bg-surface border border-border rounded-xl pl-8 pr-7 py-1.5 text-xs font-medium text-foreground placeholder:text-subtle-foreground outline-none focus:border-primary transition-all shadow-md"
                 />
-                {searchQuery && (
+                {filters.search && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => setFilter('search', '')}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-subtle-foreground hover:text-foreground transition-colors"
                     title="Clear search (Esc)"
                   >
@@ -500,7 +677,7 @@ export const DashboardScreen = ({
                   </button>
                 )}
               </div>
-              {searchQuery.trim() && (
+              {filters.search.trim() && (
                 <span className="text-[10px] font-bold text-subtle-foreground px-1">
                   {filteredTasks.length} match{filteredTasks.length === 1 ? '' : 'es'}
                 </span>
@@ -508,16 +685,16 @@ export const DashboardScreen = ({
               {categories.map(cat => (
                 <button
                   key={cat}
-                  onClick={() => setSelectedTaskCategory(cat)}
+                  onClick={() => setFilter('category', cat)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                    selectedCategory === cat 
-                      ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20' 
+                    filters.category === cat
+                      ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20'
                       : 'bg-surface border-border text-muted-foreground hover:border-foreground/20'
                   }`}
                 >
                   {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
                   {cat}
-                  <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>
+                  <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${filters.category === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>
                     {cat === 'All' ? totalVisibleCount : categoryCounts.get(cat) ?? 0}
                   </span>
                 </button>
@@ -529,24 +706,24 @@ export const DashboardScreen = ({
             {platforms.length > 1 && (
               <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md">
                 <button
-                  onClick={() => setSelectedPlatform('All')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedPlatform === 'All' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setFilter('platform', 'All')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filters.platform === 'All' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   All
                 </button>
                 {platforms.map(p => (
                   <button
                     key={p}
-                    onClick={() => setSelectedPlatform(p)}
+                    onClick={() => setFilter('platform', p)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      selectedPlatform === p
+                      filters.platform === p
                         ? p === 'TASKHUB_NATIVE' ? 'bg-violet-600 text-white' : 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {p === 'TASKHUB_NATIVE' && <Zap size={11} />}
                     {platformLabel(p)}
-                    <span className={`px-1 py-0.5 rounded text-[9px] ${selectedPlatform === p ? 'bg-black/20' : 'bg-muted text-subtle-foreground'}`}>
+                    <span className={`px-1 py-0.5 rounded text-[9px] ${filters.platform === p ? 'bg-black/20' : 'bg-muted text-subtle-foreground'}`}>
                       {platformCounts.get(p) ?? 0}
                     </span>
                   </button>
@@ -626,20 +803,31 @@ export const DashboardScreen = ({
                 <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-3xl text-subtle-foreground">
                    <Tag size={48} className="mb-4 opacity-20" />
                    <p className="font-bold">No tasks found</p>
-                   {searchQuery.trim() && (
+                   {/*
+                     An empty list is ambiguous — "you have none" and "your
+                     filters excluded them all" look identical, and with six
+                     dimensions the second is far likelier. So it names the
+                     constraints in force before offering a way out.
+                   */}
+                   <p className="mt-2 text-xs max-w-md text-center">
+                     {allTasks && allTasks.length > 0
+                       ? <>You have {allTasks.length} tasks. This view shows none of them — it is filtered by <span className="text-foreground font-semibold">{describeFilters(filters)}</span>.</>
+                       : 'Nothing is being filtered — there are no tasks to show yet.'}
+                   </p>
+                   {filters.search.trim() && (
                      <button
-                       onClick={() => setSearchQuery('')}
+                       onClick={() => setFilter('search', '')}
                        className="mt-4 text-foreground hover:text-foreground text-sm font-bold underline underline-offset-4"
                      >
-                       Clear search "{searchQuery.trim()}"
+                       Clear search "{filters.search.trim()}"
                      </button>
                    )}
-                   {!showDisabled && tasks?.some(t => t.status !== 'ACTIVE' && (selectedCategory === 'All' || t.category === selectedCategory)) && (
-                     <button 
-                       onClick={() => setShowDisabled(true)}
+                   {allTasks && allTasks.length > 0 && (
+                     <button
+                       onClick={() => setFilters(DEFAULT_FILTERS)}
                        className="mt-4 text-foreground hover:text-foreground text-sm font-bold underline underline-offset-4"
                      >
-                       Show disabled tasks in this category
+                       Reset to the default view
                      </button>
                    )}
                 </div>

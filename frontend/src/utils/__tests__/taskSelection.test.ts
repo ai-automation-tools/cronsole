@@ -136,6 +136,37 @@ describe('summarizeSelection', () => {
     expect(summary.offscreenCount).toBe(1);
     expect(summary.tasks).toHaveLength(1);
   });
+
+  it('excludes Cronsole-native tasks from the untrackable count', () => {
+    // A native task's row IS the task, so "remove it from Cronsole but keep it
+    // running" cannot be true and the server refuses it per item. The button
+    // has to say 1, not 2, or it promises something that will be declined.
+    const mixed = [task('win'), { ...task('native'), platform: 'TASKHUB_NATIVE' as const }];
+    const summary = summarizeSelection(new Set(['win', 'native']), mixed, mixed);
+    expect(summary.untrackableCount).toBe(1);
+  });
+
+  it('counts only Windows tasks as exportable', () => {
+    const mixed = [task('win'), { ...task('native'), platform: 'TASKHUB_NATIVE' as const }];
+    const summary = summarizeSelection(new Set(['win', 'native']), mixed, mixed);
+    expect(summary.exportableCount).toBe(1);
+  });
+
+  it('counts eligibility against the whole selection, not what is on screen', () => {
+    // The action runs on the whole selection — the bar already warns when part
+    // of it is off screen — so a button labelled from the visible list would
+    // promise the wrong number in exactly that case.
+    const summary = summarizeSelection(new Set(['a', 'b', 'c']), all, [all[0]]);
+    expect(summary.untrackableCount).toBe(3);
+    expect(summary.exportableCount).toBe(3);
+  });
+
+  it('counts a MISSING task as untrackable — untrack is how you clear one', () => {
+    // It is gone from the platform, so there is nothing to keep running, but
+    // removing Cronsole's row is exactly the right move and needs no agent.
+    const summary = summarizeSelection(new Set(['d']), all, all);
+    expect(summary.untrackableCount).toBe(1);
+  });
 });
 
 describe('pruneResolved', () => {

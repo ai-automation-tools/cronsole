@@ -29,6 +29,7 @@ import { TaskCard } from '../components/TaskCard';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskSelectCheckbox } from '../components/TaskSelectCheckbox';
 import { BulkActionBar } from '../components/BulkActionBar';
+import { BulkCategoryModal } from '../components/BulkCategoryModal';
 import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
@@ -82,6 +83,9 @@ export const DashboardScreen = ({
   onShowHelp,
   onNewTask,
   onBulkStatus,
+  onBulkCategory,
+  onBulkUntrack,
+  onBulkExport,
   isBulkPending,
   settings
 }: {
@@ -100,8 +104,15 @@ export const DashboardScreen = ({
   statusTogglingId: string | null;
   onShowHelp: () => void;
   onNewTask: () => void;
-  /** Resolves to the ids that actually changed, so the selection can be pruned. */
+  /**
+   * Each resolves to the ids that were actually resolved, so the selection can
+   * be pruned to exactly what still needs attention. Export resolves to nothing
+   * on purpose — it changes no task, so it consumes no rows.
+   */
   onBulkStatus: (tasks: Task[], status: 'ACTIVE' | 'DISABLED') => Promise<string[]>;
+  onBulkCategory: (tasks: Task[], category: string) => Promise<string[]>;
+  onBulkUntrack: (tasks: Task[]) => Promise<string[]>;
+  onBulkExport: (tasks: Task[]) => Promise<string[]>;
   isBulkPending: boolean;
   settings: Settings;
 }) => {
@@ -407,12 +418,25 @@ export const DashboardScreen = ({
   const allVisibleSelected =
     filteredTasks.length > 0 && filteredTasks.every(t => selectedIds.has(t.id));
 
-  // Acts on the WHOLE selection, including the part this view isn't showing —
-  // the bar has already said how many that is, and acting on only what happens
-  // to be rendered would make the result depend on which view you were in.
-  const runBulkStatus = async (status: 'ACTIVE' | 'DISABLED') => {
-    const resolved = await onBulkStatus(selection.tasks, status);
+  // Every bulk action acts on the WHOLE selection, including the part this view
+  // isn't showing — the bar has already said how many that is, and acting on
+  // only what happens to be rendered would make the result depend on which view
+  // you were in.
+  const runBulk = async (action: (tasks: Task[]) => Promise<string[]>) => {
+    const resolved = await action(selection.tasks);
     if (resolved.length > 0) setSelectedIds(prev => pruneResolved(prev, resolved));
+  };
+
+  const runBulkStatus = (status: 'ACTIVE' | 'DISABLED') =>
+    runBulk(tasks => onBulkStatus(tasks, status));
+
+  // The category is collected by a modal rather than a confirm dialog: it needs
+  // a value, and a free-text prompt is how one folder becomes "Backups",
+  // "backups" and "Back ups".
+  const [showBulkCategory, setShowBulkCategory] = useState(false);
+  const applyBulkCategory = async (category: string) => {
+    setShowBulkCategory(false);
+    await runBulk(tasks => onBulkCategory(tasks, category));
   };
 
   if (isLoading) {
@@ -789,11 +813,31 @@ export const DashboardScreen = ({
               offscreenCount={selection.offscreenCount}
               enabledCount={selection.enabledCount}
               disabledCount={selection.disabledCount}
+              untrackableCount={selection.untrackableCount}
+              exportableCount={selection.exportableCount}
               onEnable={() => runBulkStatus('ACTIVE')}
               onDisable={() => runBulkStatus('DISABLED')}
+              onRecategorize={() => setShowBulkCategory(true)}
+              onUntrack={() => runBulk(onBulkUntrack)}
+              onExport={() => runBulk(onBulkExport)}
               onClear={clearSelection}
               isPending={isBulkPending}
             />
+
+            {showBulkCategory && (
+              <BulkCategoryModal
+                taskCount={selection.tasks.length}
+                // The same predicate as `exportableCount` — a Windows task is
+                // both the one that exports as XML and the one whose category
+                // is really a folder. Two names for one count because they will
+                // stop agreeing the moment a second agent-backed platform lands.
+                windowsCount={selection.tasks.filter(t => t.platform === 'WINDOWS_TASK_SCHEDULER').length}
+                existingCategories={categories}
+                onApply={applyBulkCategory}
+                onClose={() => setShowBulkCategory(false)}
+                isPending={isBulkPending}
+              />
+            )}
           </div>
 
           {/* Grid View */}

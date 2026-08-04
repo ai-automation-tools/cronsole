@@ -49,11 +49,17 @@ export interface ExportCandidate {
 }
 
 export interface BulkExportSelection {
-  /** `all` = every folder on the machine; `folder` = one folder. */
-  scope: 'all' | 'folder';
+  /**
+   * `all` = every folder on the machine; `folder` = one folder; `selection` =
+   * exactly the tasks named in `externalIds` — what the dashboard's bulk bar
+   * sends for a hand-picked set of rows.
+   */
+  scope: 'all' | 'folder' | 'selection';
   /** Required when `scope === 'folder'`. */
   folder?: string;
-  /** Include tasks under \Microsoft\. Default false. */
+  /** Required when `scope === 'selection'`: the native paths to export. */
+  externalIds?: string[];
+  /** Include tasks under \Microsoft\. Default false. Ignored by `selection`. */
   includeSystem?: boolean;
   /** For `scope: 'folder'`, also take nested folders. Default true. */
   includeSubfolders?: boolean;
@@ -65,6 +71,19 @@ export interface SelectionResult {
   skippedSystem: number;
   /** Everything the agent enumerated, before any filter. */
   totalSeen: number;
+  /**
+   * Only for `scope: 'selection'` — native paths the caller asked for that the
+   * machine did not report.
+   *
+   * The whole reason the selection scope needs its own field. `all` and
+   * `folder` describe a *region* of the machine, so whatever is there is the
+   * answer. A selection names specific tasks, and a named task that isn't there
+   * is a fact about the request: it was deleted natively, or its row is
+   * `MISSING`, or it is a Cronsole-native task that was never on Windows at
+   * all. Exporting the other 19 and reporting "19 tasks exported" would be an
+   * archive silently missing the one thing the user most needed backed up.
+   */
+  requestedMissing: string[];
 }
 
 export interface ExportedFile {
@@ -129,6 +148,15 @@ export function selectExportCandidates(
   const includeSubfolders = selection.includeSubfolders !== false;
   const target = selection.scope === 'folder' ? normalizeFolder(selection.folder ?? '\\') : null;
 
+  // Matched case-insensitively, like every other Task Scheduler path comparison
+  // here: the agent's enumeration and a stored `externalId` can differ in case
+  // and mean the same task, and a case-sensitive miss would report a task the
+  // user is looking at as absent from their own machine.
+  const wanted =
+    selection.scope === 'selection'
+      ? new Map((selection.externalIds ?? []).map(id => [id.toLowerCase(), id]))
+      : null;
+
   let skippedSystem = 0;
   const selected: ExportCandidate[] = [];
 
@@ -138,16 +166,25 @@ export function selectExportCandidates(
 
     const folder = taskFolderOf(externalId);
 
-    if (!selection.includeSystem && isSystemTaskPath(externalId)) {
-      skippedSystem++;
-      continue;
-    }
+    if (wanted !== null) {
+      // An explicit selection is an explicit request, so `includeSystem` does
+      // not apply: if the user ticked a \Microsoft\ task, exporting it is what
+      // they asked for, and reading is harmless (writing there is what is
+      // refused, in the backend and again in the agent). Same rule as
+      // `filterExcluded` — a fence must never swallow a direct request.
+      if (!wanted.delete(externalId.toLowerCase())) continue;
+    } else {
+      if (!selection.includeSystem && isSystemTaskPath(externalId)) {
+        skippedSystem++;
+        continue;
+      }
 
-    if (target !== null) {
-      const inScope = includeSubfolders
-        ? isWithinFolder(folder, target)
-        : normalizeFolder(folder).toLowerCase() === target.toLowerCase();
-      if (!inScope) continue;
+      if (target !== null) {
+        const inScope = includeSubfolders
+          ? isWithinFolder(folder, target)
+          : normalizeFolder(folder).toLowerCase() === target.toLowerCase();
+        if (!inScope) continue;
+      }
     }
 
     selected.push({
@@ -157,7 +194,15 @@ export function selectExportCandidates(
     });
   }
 
-  return { selected, skippedSystem, totalSeen: tasks.length };
+  return {
+    selected,
+    skippedSystem,
+    totalSeen: tasks.length,
+    // Whatever is left in `wanted` was asked for and never seen. Deleting on
+    // match is what makes this the remainder rather than a second pass that
+    // could disagree with the first.
+    requestedMissing: wanted ? [...wanted.values()] : []
+  };
 }
 
 /** One path segment made safe as a filename, without becoming empty. */
@@ -290,9 +335,19 @@ export interface ExportManifest {
     exported: number;
     failed: number;
     skippedSystem: number;
+    /** Only meaningful for `scope: 'selection'`. */
+    requestedMissing: number;
   };
   files: { relativePath: string; taskPath: string }[];
   failures: ExportFailure[];
+  /**
+   * Native paths that were asked for and not found on the machine. Written into
+   * the archive, not just returned to the browser: the manifest is what the
+   * archive can still say about itself a year later, and "this backup is
+   * missing these three tasks on purpose" is exactly the kind of thing nobody
+   * remembers.
+   */
+  requestedMissing?: string[];
 }
 
 /**
@@ -316,6 +371,9 @@ export function buildManifest(
     machineScope: {
       scope: selection.scope,
       folder: selection.scope === 'folder' ? normalizeFolder(selection.folder ?? '\\') : undefined,
+      // Recorded for a selection so the archive says *what was asked for*, not
+      // only what came back — the two differ exactly when it matters.
+      externalIds: selection.scope === 'selection' ? selection.externalIds : undefined,
       includeSystem: !!selection.includeSystem,
       includeSubfolders: selection.includeSubfolders !== false
     },
@@ -324,9 +382,13 @@ export function buildManifest(
       selected: selectionResult.selected.length,
       exported: files.length,
       failed: failures.length,
-      skippedSystem: selectionResult.skippedSystem
+      skippedSystem: selectionResult.skippedSystem,
+      requestedMissing: selectionResult.requestedMissing.length
     },
     files: files.map(f => ({ relativePath: f.relativePath, taskPath: f.externalId })),
-    failures
+    failures,
+    ...(selectionResult.requestedMissing.length > 0
+      ? { requestedMissing: selectionResult.requestedMissing }
+      : {})
   };
 }

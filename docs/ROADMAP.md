@@ -25,11 +25,12 @@ belongs in the CHANGELOG.
 
 1. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
    deliberately-skipped `version` fields in the package manifests.
-2. **Bulk task actions, remaining verbs** — bulk recategorize (DB-only), bulk untrack,
-   export-selected. Selection model and per-task reporting already shipped; reuse
-   `POST /api/tools/tasks/status`'s five-outcome shape rather than inventing a second convention.
-3. **Live browser click-through of the two 2026-07-31 ships that only have test coverage** —
-   Execution analytics on the Tools tab, and the Import-defaults modal.
+2. **Live browser click-through of the ships that only have test coverage** — Execution analytics
+   on the Tools tab and the Import-defaults modal, both 2026-07-31. *(The three bulk verbs were
+   clicked through 2026-08-04 and found a real defect; the export's directory-picker branch is
+   still undriven — it opens a native dialog.)*
+3. **Restore's plan doesn't check that a task's action points at anything that exists** — the
+   advisory resolvability column, logged 2026-07-31 (see P2 Open).
 
 ---
 
@@ -75,9 +76,6 @@ belongs in the CHANGELOG.
       *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
       executable and file-looking arguments resolve on this machine. Not a refusal — an executable
       missing here may exist on the machine being restored to.
-- [~] **Bulk task actions** — bulk enable/disable **shipped 2026-07-31**; **recategorize**,
-      **untrack**, and **export-selected** remain. Selection model, shared row-action component and
-      the five-outcome reporting convention already landed.
 - [ ] **Task-detail trust indicators — say how old the truth is**: per-task last platform-confirmed
       sync, last agent result, and Windows' own `lastTaskResult` in the modal.
 - [ ] **Optional periodic Windows sync**: opt-in interval sync, interval stated, last run shown,
@@ -117,6 +115,8 @@ belongs in the CHANGELOG.
 - [x] Import defaults — None/Non-system/All presets, remembered selection, count before the click *(2026-07-31)*
 - [x] Saved views — five built-ins + user-named views, URL-backed *(2026-07-31)*
 - [x] Bulk enable/disable across all four views *(2026-07-31)*
+- [x] Bulk task actions complete — recategorize, untrack, export-selected; the five-outcome
+      convention extracted to one shared definition; verified live in the browser *(2026-08-04)*
 - [x] Schedule timezone — author and display in your own zone, storage stays UTC *(2026-07-31)*
 - [x] `createFolder` on `POST /api/tasks` + MCP `create_task` — opt-in, signed, reports what it created; second and last carve-out to "Cronsole creates only `\Cronsole`" *(2026-08-04)*
 

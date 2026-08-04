@@ -62,6 +62,15 @@ import {
   summarizeBulkStatus,
   MAX_TASKS_PER_BULK_STATUS
 } from '../services/bulkStatus.js';
+import { MAX_TASKS_PER_BULK } from '../services/bulkOutcome.js';
+import {
+  idsToUpdate,
+  planBulkCategory,
+  summarizeBulkCategory,
+  type BulkCategoryTask
+} from '../services/bulkCategory.js';
+import { planBulkUntrack, summarizeBulkUntrack } from '../services/bulkUntrack.js';
+import { TaskService } from '../services/TaskService.js';
 import {
   buildDownload,
   findDownload,
@@ -84,8 +93,15 @@ const MAX_TASKS_PER_EXPORT = 2000;
 
 const exportTasksSchema = z
   .object({
-    scope: z.enum(['all', 'folder']),
+    scope: z.enum(['all', 'folder', 'selection']),
     folder: z.string().trim().max(512).optional(),
+    /**
+     * For `scope: 'selection'` — Cronsole task ids, not native paths. The
+     * caller is the dashboard, which has rows; resolving those to native paths
+     * here is what keeps the request owner-scoped. Accepting raw paths would
+     * let any authenticated caller export any task on the machine by naming it.
+     */
+    taskIds: z.array(z.string().min(1)).min(1).max(MAX_TASKS_PER_BULK).optional(),
     includeSystem: z.boolean().optional(),
     includeSubfolders: z.boolean().optional(),
     /**
@@ -98,6 +114,10 @@ const exportTasksSchema = z
   .refine(body => body.scope !== 'folder' || !!body.folder, {
     message: 'A folder is required when scope is "folder"',
     path: ['folder']
+  })
+  .refine(body => body.scope !== 'selection' || !!body.taskIds?.length, {
+    message: 'taskIds are required when scope is "selection"',
+    path: ['taskIds']
   });
 
 const timestampSlug = (d: Date) => d.toISOString().replace(/[:.]/g, '-').replace(/T/, '_').slice(0, 19);
@@ -116,9 +136,49 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
   const body = req.body as z.infer<typeof exportTasksSchema>;
   const platform = PlatformType.WINDOWS_TASK_SCHEDULER;
 
+  // A selection arrives as Cronsole task ids and has to become native paths.
+  // Two things are decided here rather than in the exporter: ownership (scoped
+  // by userId, so ids cannot be used to reach another user's tasks) and which
+  // platforms can produce Task Scheduler XML at all.
+  let unsupported: { taskId: string; name: string; platform: PlatformType; message: string }[] = [];
+  let selectedExternalIds: string[] | undefined;
+
+  if (body.scope === 'selection') {
+    const rows = await prisma.task.findMany({
+      where: { id: { in: [...new Set(body.taskIds ?? [])] }, userId },
+      select: { id: true, name: true, platform: true, externalId: true }
+    });
+    if (rows.length === 0) {
+      throw new HttpError(404, 'None of those tasks exist.');
+    }
+
+    // A Cronsole-native task has no Task Scheduler XML — it is not on the
+    // machine at all. Reported per task rather than filtered out, because a
+    // selection of 5 native tasks would otherwise produce an empty export with
+    // nothing to explain it. `GET /api/tasks/:id/export` gives them as JSON.
+    unsupported = rows
+      .filter(r => r.platform !== platform)
+      .map(r => ({
+        taskId: r.id,
+        name: r.name,
+        platform: r.platform,
+        message:
+          'Only Windows Task Scheduler tasks export as native XML. Export this one on its own for JSON.'
+      }));
+
+    selectedExternalIds = rows.filter(r => r.platform === platform).map(r => r.externalId);
+    if (selectedExternalIds.length === 0) {
+      throw new HttpError(
+        400,
+        'None of the selected tasks are Windows Task Scheduler tasks, so there is no XML to export.'
+      );
+    }
+  }
+
   const selection: BulkExportSelection = {
     scope: body.scope,
     folder: body.folder,
+    externalIds: selectedExternalIds,
     includeSystem: !!body.includeSystem,
     includeSubfolders: body.includeSubfolders !== false
   };
@@ -152,6 +212,15 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
   const selectionResult = selectExportCandidates(enumerated, selection);
 
   if (selectionResult.selected.length === 0) {
+    if (body.scope === 'selection') {
+      // Every selected task was absent from the machine. Named, not counted:
+      // "0 of 5 exported" sends someone hunting a bug in the export, while the
+      // paths say plainly that these tasks are no longer there.
+      throw new HttpError(
+        404,
+        `None of the selected tasks were found on this machine — they may have been deleted in Task Scheduler: ${selectionResult.requestedMissing.join(', ')}`
+      );
+    }
     throw new HttpError(
       404,
       body.scope === 'folder'
@@ -191,8 +260,14 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="cronsole-tasks-${timestampSlug(now)}.zip"`);
     // The counts the UI would otherwise lose on a binary response — a download
-    // has no JSON body to report "3 of 95 failed" in.
-    res.setHeader('X-Cronsole-Export-Counts', JSON.stringify(manifest.counts));
+    // has no JSON body to report "3 of 95 failed" in. `unsupported` rides here
+    // too: it is a fact about the *request* rather than about the machine, so
+    // it does not belong in the archive's manifest, but the user still has to
+    // be told their 3 native tasks were not in the file they just saved.
+    res.setHeader(
+      'X-Cronsole-Export-Counts',
+      JSON.stringify({ ...manifest.counts, unsupported: unsupported.length })
+    );
     return res.send(archive);
   }
 
@@ -201,8 +276,12 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
   // decoding UTF-16 as UTF-8 into mojibake. base64 round-trips the exact bytes,
   // so what the browser writes to disk is byte-identical to what Windows sent.
   res.json({
-    counts: manifest.counts,
+    counts: { ...manifest.counts, unsupported: unsupported.length },
     failures,
+    /** Selected but not on the machine — named, so the gap is not a subtraction. */
+    requestedMissing: selectionResult.requestedMissing,
+    /** Selected but not a Windows task, so there is no XML for them. */
+    unsupported,
     files: [
       ...files.map(f => ({
         relativePath: f.relativePath,
@@ -863,6 +942,188 @@ router.post('/tasks/status', validateBody(bulkStatusSchema), async (req: Request
     ...report,
     notFound: missingIds,
     summary: summarizeBulkStatus(report)
+  });
+});
+
+/**
+ * De-duplicate a bulk request's ids and enforce the batch ceiling.
+ *
+ * **De-duplication happens before the size check**, deliberately: a repeated id
+ * must not inflate a selection past the limit, and must not cause one task to be
+ * acted on twice.
+ */
+function bulkIds(taskIds: string[]): string[] {
+  const ids = [...new Set(taskIds)];
+  if (ids.length > MAX_TASKS_PER_BULK) {
+    throw new HttpError(
+      400,
+      `That is ${ids.length} tasks, above the ${MAX_TASKS_PER_BULK} limit for one bulk change. ` +
+        'Narrow the selection and repeat.'
+    );
+  }
+  return ids;
+}
+
+/**
+ * Which requested ids matched nothing — and a 404 when *none* did.
+ *
+ * The ids are reported rather than silently dropped: a caller who asked for 12
+ * and is told about 11 has no way to know which one vanished.
+ *
+ * Deliberately takes the rows a route has **already** fetched, rather than doing
+ * the query itself with a caller-supplied `select`. That version existed and was
+ * wrong: a generic over the select shape can only be satisfied with a cast on a
+ * query result, which is [#30](../../docs/troubleshooting/README.md) exactly —
+ * the compiler stops checking at the boundary most likely to drift, and the
+ * failure moves to a 500 on real data. Each route runs its own `findMany` with a
+ * literal select, so Prisma's inference does the checking; the ownership scoping
+ * that keeps ids from reaching another user's tasks lives in that query's
+ * `where`, next to the fields it selects.
+ */
+function bulkNotFound(ids: string[], found: readonly { id: string }[]): string[] {
+  if (found.length === 0) {
+    throw new HttpError(404, 'None of those tasks exist.');
+  }
+  const foundIds = new Set(found.map(t => t.id));
+  return ids.filter(id => !foundIds.has(id));
+}
+
+const bulkCategorySchema = z.object({
+  taskIds: z.array(z.string().min(1)).min(1, 'Select at least one task.'),
+  category: z.string().trim().min(1).max(100)
+});
+
+/**
+ * Move many tasks into one category.
+ *
+ * The only bulk verb that touches nothing but Cronsole's own database — no
+ * connector, no signed command, no agent. It is the bulk form of
+ * `PATCH /api/tasks/:id`, and it is here rather than there for the usual
+ * reason: cross-task routes cannot live on `tasks.ts`, where everything
+ * competes with `/:id`.
+ *
+ * **A Windows task's category is a label, and this does not move the task on
+ * the machine.** `services/bulkCategory.ts` carries the full argument; the
+ * response carries `detachedFromFolder` so a user who has just relabelled
+ * twenty tasks is told their dashboard now groups them differently from Task
+ * Scheduler. Not a refusal — it is a legitimate thing to want, and it was
+ * already possible one task at a time. Just never silent.
+ */
+router.post('/tasks/category', validateBody(bulkCategorySchema), async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { taskIds, category } = req.body as z.infer<typeof bulkCategorySchema>;
+
+  const ids = bulkIds(taskIds);
+  // Scoped by userId, like every by-id task route, so a caller cannot reach
+  // another user's tasks by guessing ids (IDOR).
+  const found = await prisma.task.findMany({
+    where: { id: { in: ids }, userId },
+    select: { id: true, name: true, platform: true, externalId: true, category: true }
+  });
+  const notFound = bulkNotFound(ids, found);
+
+  // The one definition of "which folder is this task in?" stays on TaskService
+  // and is passed *into* the planner. Re-deriving a path rule elsewhere is the
+  // shape that silently took a whole folder out of every sync (#20a).
+  const targets: BulkCategoryTask[] = found.map(task => ({
+    id: task.id,
+    name: task.name,
+    platform: task.platform,
+    category: task.category,
+    folderCategory: TaskService.extractCategory(task.externalId, task.platform)
+  }));
+
+  const report = planBulkCategory(targets, category);
+
+  const changedIds = idsToUpdate(report);
+  if (changedIds.length > 0) {
+    await prisma.task.updateMany({
+      where: { id: { in: changedIds }, userId },
+      data: { category }
+    });
+    notifyTasksChanged(userId);
+  }
+
+  res.json({
+    ...report,
+    // What was asked for after de-duplication — not what was found, so a
+    // selection holding an id that no longer exists still reports its own size.
+    requested: ids.length,
+    notFound,
+    summary: summarizeBulkCategory(report)
+  });
+});
+
+const bulkUntrackSchema = z.object({
+  taskIds: z.array(z.string().min(1)).min(1, 'Select at least one task.')
+});
+
+/**
+ * Untrack many tasks — remove them from Cronsole, leave them running.
+ *
+ * Mirrors `POST /api/tasks/:id/untrack` exactly, including the `TaskExclusion`
+ * that stops the next sync quietly re-importing what the user just removed.
+ * It makes **no platform call**, which is what makes it safe to offer beside
+ * bulk delete and what makes it work while the agent is offline.
+ *
+ * The whole operation is one transaction. A partial untrack is the one outcome
+ * worse than none: a deleted row whose exclusion never landed comes back on the
+ * next sync, so the user does the work twice and the second time trusts it less.
+ * That is affordable here precisely *because* there is no platform round-trip to
+ * hold it open — `bulkStatus` cannot do the same, since each of its writes is
+ * only legitimate after the machine has confirmed it.
+ */
+router.post('/tasks/untrack', validateBody(bulkUntrackSchema), async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { taskIds } = req.body as z.infer<typeof bulkUntrackSchema>;
+
+  const ids = bulkIds(taskIds);
+  const found = await prisma.task.findMany({
+    where: { id: { in: ids }, userId },
+    select: { id: true, name: true, platform: true, externalId: true }
+  });
+  const notFound = bulkNotFound(ids, found);
+
+  const { report, plan } = planBulkUntrack(found);
+
+  if (plan.length > 0) {
+    const ids = plan.map(p => p.taskId);
+    await prisma.$transaction([
+      prisma.executionLog.deleteMany({ where: { taskId: { in: ids } } }),
+      prisma.task.deleteMany({ where: { id: { in: ids }, userId } }),
+      // Upsert, not create: re-untracking a task that was re-imported and
+      // removed again must not 409 on the unique key.
+      ...plan.map(entry =>
+        prisma.taskExclusion.upsert({
+          where: {
+            userId_platform_externalId: {
+              userId,
+              platform: entry.platform,
+              externalId: entry.externalId
+            }
+          },
+          create: { userId, platform: entry.platform, externalId: entry.externalId },
+          update: {}
+        })
+      )
+    ]);
+    notifyTasksChanged(userId);
+  }
+
+  res.json({
+    ...report,
+    // What was asked for after de-duplication — not what was found, so a
+    // selection holding an id that no longer exists still reports its own size.
+    requested: ids.length,
+    notFound,
+    // Said in the payload, not only in the button copy: an MCP client or script
+    // has no UI to read, and this is the one fact that distinguishes untrack
+    // from delete.
+    platformEntriesKept: true,
+    summary: summarizeBulkUntrack(report),
+    detail:
+      'These tasks are no longer tracked by Cronsole. They still exist on their platform and will ' +
+      'keep running on their own schedules. Re-import their category to track them again.'
   });
 });
 

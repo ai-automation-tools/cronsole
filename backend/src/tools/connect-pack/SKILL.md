@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.4** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.5** · canonical copy: <https://cronsole.mikesailab.com>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -52,13 +52,15 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Validate a schedule | `convert_schedule` | `POST /api/tasks/preview` |
 | Enable / disable | `set_task_status` | `PATCH /api/tasks/:id/status` |
 | Enable / disable **many at once** | — | `POST /api/tools/tasks/status` (`{taskIds, status}`) |
+| Recategorize **many at once** | — | `POST /api/tools/tasks/category` (`{taskIds, category}`) |
+| Remove **many** from Cronsole, keep them running | — | `POST /api/tools/tasks/untrack` (`{taskIds}`) |
 | Re-schedule | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | Edit the command | `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` |
 | Remove from Cronsole, keep it running | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
-| Bulk export / backup | — | `POST /api/tools/export/tasks` |
+| Bulk export / backup | — | `POST /api/tools/export/tasks` (`scope: 'all' \| 'folder' \| 'selection'`; `selection` takes `taskIds`) |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
 | Run history across all tasks | — | `GET /api/tools/history` (`?format=csv`) |
 | What needs attention | — | `GET /api/tools/task-health` |
@@ -73,11 +75,12 @@ leaves it running), or the dashboard. Do not route around a gate.
 | **Schedules are 5-field cron in UTC** | Not local time. The dashboard reads *and writes* in the user's own zone (Pacific by default) and converts before calling the API — **you can't see that setting, so you convert on the way in**. Ask which zone "9am" means, and confirm both readings back. See §3 of the task-authoring reference. |
 | **Commands are tokenized, no shell** | A Windows command becomes a structured `{executable, args[]}` action. Pipes, `>`, `&&`, `%VAR%` do **not** work unless you invoke a shell explicitly. This is the injection guarantee — an implicit shell turns every parameter into arbitrary code. |
 | **`\Microsoft\` is refused** | Registering a task **silently overwrites** a same-named one, and the agent runs **elevated**. Writing there could destroy a real Windows task with no error. Refused in the backend *and* independently in the agent. |
-| **A folder must already exist** | The only folder Cronsole creates is `\Cronsole` — and the only one it removes. Deleting a folder needs elevation, so it will not create litter it cannot clean up. A create into a missing folder is refused honestly. |
+| **A folder must already exist — unless you ask for it, and say so** | The only folder Cronsole creates *unasked* is `\Cronsole`, and it is the only one it removes. A create into a missing folder is refused honestly; pass **`createFolder: true`** on `create_task` to make the chain instead. **Do not reach for that flag to get past an error.** Deleting a Task Scheduler folder needs elevation, and the agent is elevated — so a folder it creates is a door only an *administrator* can close. Tell the user what you are about to create and why, and prefer an existing folder from `list_folders`. The response names every folder it made. |
 | **Names are unique per folder** | A collision returns **409** instead of letting Windows silently overwrite. |
 | **Disable is how you park a task** | Never encode "don't run" in the cron — see §5. |
-| **A bulk result is per task, not one number** | `POST /api/tools/tasks/status` answers with an outcome for every task: `updated`, `unchanged` (already in that state), `refused` (declined before the platform was asked), `failed`, `skipped`. **Read the items, not just the count** — partial success is normal, and a task that failed is still in the state it was. If the agent goes offline mid-run the rest come back `skipped` with the reason rather than the batch grinding through a timeout each. |
-| **Untrack is how you tidy the dashboard** | `untrack_task` removes Cronsole's record and leaves the scheduled task running. Deleting to clean up a view destroys someone's automation. |
+| **A bulk result is per task, not one number** | **Every** `/api/tools` bulk route — status, category, untrack — answers in the same shape: an outcome for each task, one of `updated`, `unchanged` (already in that state), `refused` (declined before the platform was asked), `failed`, `skipped`. **Read the items, not just the count** — partial success is normal, and a task that failed is still in the state it was. If the agent goes offline mid-run the rest come back `skipped` with the reason rather than the batch grinding through a timeout each. Category and untrack never touch a platform, so they cannot halt and their `skipped` is always `0`. |
+| **Untrack is how you tidy the dashboard** | `untrack_task` (or `POST /api/tools/tasks/untrack` for many) removes Cronsole's record and leaves the scheduled task running. Deleting to clean up a view destroys someone's automation. Untrack needs no agent, so it works when Windows is unreachable. |
+| **A category is a label, not a folder** | Recategorizing a Windows task changes how the dashboard groups it and **does not move it on the machine** — its Task Scheduler folder is unchanged. The response says how many labels that detached from their real folder (`detachedFromFolder`); pass it on rather than reporting a clean success. |
 
 ---
 

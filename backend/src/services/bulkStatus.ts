@@ -1,5 +1,14 @@
 import { PlatformType, TaskStatus } from '@prisma/client';
 import type { PlatformConnector } from '../connectors/platform.interface.js';
+import {
+  isAgentDownMessage,
+  summarizeBulk,
+  tallyOutcomes,
+  MAX_TASKS_PER_BULK,
+  type BulkItem,
+  type BulkOutcome,
+  type BulkReport
+} from './bulkOutcome.js';
 
 /**
  * Enable or disable many tasks in one request.
@@ -19,44 +28,18 @@ import type { PlatformConnector } from '../connectors/platform.interface.js';
  */
 
 /**
- * What happened to one task. Five states rather than a boolean, because three of
- * them are neither success nor failure and collapsing them misleads in both
- * directions:
- *   - `updated`  — the platform confirmed the change.
- *   - `unchanged`— already in the requested state. Nothing went wrong and
- *                  nothing was done; counting it as `updated` inflates the
- *                  number, counting it as `failed` invents an error.
- *   - `refused`  — Cronsole declined before touching the platform (a MISSING
- *                  task has nothing to toggle).
- *   - `failed`   — the platform was asked and said no (elevation, ACL).
- *   - `skipped`  — never attempted, because the batch stopped early. See below.
+ * The five outcomes, the item shape and the report shape now live in
+ * `bulkOutcome.ts` — this verb worked them out first, and the later bulk verbs
+ * (recategorize, untrack, export-selected) share them rather than each inventing
+ * a response body of its own. Re-exported under the original names so nothing
+ * that already imports from here has to change.
  */
-export type BulkStatusOutcome = 'updated' | 'unchanged' | 'refused' | 'failed' | 'skipped';
+export type BulkStatusOutcome = BulkOutcome;
+export type BulkStatusItem = BulkItem;
 
-export interface BulkStatusItem {
-  taskId: string;
-  name: string;
-  platform: PlatformType;
-  outcome: BulkStatusOutcome;
-  /** Why, for every outcome that isn't `updated`. Never absent on those. */
-  message?: string;
-}
-
-export interface BulkStatusReport {
+export interface BulkStatusReport extends BulkReport {
   /** The status every task was asked to reach. */
   status: TaskStatus;
-  requested: number;
-  updated: number;
-  unchanged: number;
-  refused: number;
-  failed: number;
-  skipped: number;
-  /**
-   * Set when the run stopped early, naming the reason. Present exactly when
-   * `skipped > 0` — a caller must never have to infer a halt from arithmetic.
-   */
-  haltedReason?: string;
-  items: BulkStatusItem[];
 }
 
 /** The task fields this service needs; a narrow shape so tests need no Prisma. */
@@ -68,26 +51,10 @@ export interface BulkStatusTask {
   status: TaskStatus;
 }
 
-/**
- * Upper bound on one batch.
- *
- * Not a performance guard — a correctness one. Each Windows task is a round trip
- * to an elevated agent that can take up to its 15s timeout, so an unbounded list
- * turns one HTTP request into an arbitrarily long hang holding a connection. 100
- * is well above the size of any real selection and far below the point where
- * that matters.
- */
-export const MAX_TASKS_PER_BULK_STATUS = 100;
+/** The shared batch ceiling. Kept under its original name for existing callers. */
+export const MAX_TASKS_PER_BULK_STATUS = MAX_TASKS_PER_BULK;
 
-/**
- * Errors that mean "the agent is not there", as opposed to "this particular task
- * could not be changed". The distinction decides whether the batch continues.
- */
-const AGENT_DOWN = /agent offline|agent .*timeout|not connected|econnrefused/i;
-
-export function isAgentDownMessage(message: string | undefined): boolean {
-  return !!message && AGENT_DOWN.test(message);
-}
+export { isAgentDownMessage };
 
 /**
  * Apply `status` to every task, in order, reporting each one.
@@ -178,32 +145,16 @@ export async function applyBulkStatus(
     }
   }
 
-  const count = (outcome: BulkStatusOutcome) => items.filter(i => i.outcome === outcome).length;
-
   return {
     status,
-    requested: tasks.length,
-    updated: count('updated'),
-    unchanged: count('unchanged'),
-    refused: count('refused'),
-    failed: count('failed'),
-    skipped: count('skipped'),
+    ...tallyOutcomes(items, tasks.length),
     ...(haltedReason ? { haltedReason } : {}),
     items
   };
 }
 
-/**
- * One-line summary for a toast. Names every non-zero outcome — a bulk result
- * that reports only its successes is the same omission as a dashboard that
- * hides 110 rows without saying so.
- */
+/** One-line summary for a toast, in this verb's vocabulary. */
 export function summarizeBulkStatus(report: BulkStatusReport): string {
   const verb = report.status === TaskStatus.ACTIVE ? 'enabled' : 'disabled';
-  const parts = [`${report.updated} ${verb}`];
-  if (report.unchanged) parts.push(`${report.unchanged} already ${verb}`);
-  if (report.refused) parts.push(`${report.refused} refused`);
-  if (report.failed) parts.push(`${report.failed} failed`);
-  if (report.skipped) parts.push(`${report.skipped} not attempted`);
-  return parts.join(' · ');
+  return summarizeBulk(report, verb, `already ${verb}`);
 }

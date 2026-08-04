@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.4** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.5** · canonical copy: <https://cronsole.mikesailab.com>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -108,8 +108,8 @@ minute step (`*/15 * * * *`), hour step (`0 */4 * * *`). Everything else hits th
 
 | Rule | Behavior |
 |:---|:---|
-| **Default folder is `\Cronsole`** | The only folder Cronsole creates — and the only one it prunes when the last task leaves. |
-| **Any other folder must ALREADY EXIST** | Deleting a folder needs elevation, so Cronsole will not create one it cannot remove. A create into a missing folder is refused honestly. |
+| **Default folder is `\Cronsole`** | The only folder Cronsole creates *unasked* — and the only one it prunes when the last task leaves. |
+| **Any other folder must ALREADY EXIST — or be asked for explicitly** | A create into a missing folder is refused honestly. `create_task` takes **`createFolder: true`** (default false) to build the missing chain instead, and the response **names every folder it made**. Treat it as a decision, not an error-handler: deleting a Task Scheduler folder needs elevation and the agent *is* elevated, so a folder it creates is a door only an **administrator** can close — the user cannot tidy it up themselves. Prefer a folder `list_folders` already reports; when you do use the flag, say which folder you are creating before you create it. |
 | **`\Microsoft\` is refused outright** | Registering a task **silently overwrites** a same-named one, and the agent runs **elevated** — writing there could destroy a real Windows task with no error. Refused in the backend **and** independently in the agent. |
 | **Name must be unique per folder** | A collision returns **409** rather than letting Windows silently overwrite. `\Work\Backup` and `\Cronsole\Backup` are different tasks. |
 

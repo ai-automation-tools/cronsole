@@ -43,7 +43,17 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   surface, and a new reading rule: the answer is an outcome PER TASK, not a
 //   count, because partial success is the normal case at real scale. A caller
 //   that reads only `updated` will report a clean run over refusals.
-export const CONNECT_PACK_VERSION = '1.4';
+// 1.5 (2026-08-04): the remaining bulk verbs — `POST /api/tools/tasks/category`,
+//   `POST /api/tools/tasks/untrack`, and `scope: 'selection'` on the bulk export.
+//   The per-task reading rule from 1.4 now covers all three, and one new claim a
+//   caller can get wrong in the user's favour or against it: a category is a
+//   LABEL, so recategorizing a Windows task does not move it on the machine.
+//   Also corrects a claim that went false one day earlier and was caught by
+//   /sync-surfaces rather than by anything failing: three artifacts still said a
+//   folder "must already exist", after `createFolder` shipped 2026-08-04. A pack
+//   in someone's hand cannot be corrected later, so stamping a new version over
+//   a known-false invariant is the one thing this version number must not do.
+export const CONNECT_PACK_VERSION = '1.5';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

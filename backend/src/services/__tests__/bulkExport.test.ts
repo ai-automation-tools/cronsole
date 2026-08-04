@@ -137,6 +137,71 @@ describe('selectExportCandidates', () => {
     const result = selectExportCandidates([task(''), task('\\Real')], { scope: 'all' });
     expect(result.selected.map(c => c.externalId)).toEqual(['\\Real']);
   });
+
+  describe("scope: 'selection'", () => {
+    it('takes exactly the named tasks, in machine order', () => {
+      const result = selectExportCandidates(machine, {
+        scope: 'selection',
+        externalIds: ['\\RootTask', '\\Work\\Backup']
+      });
+      expect(result.selected.map(c => c.externalId)).toEqual(['\\Work\\Backup', '\\RootTask']);
+      expect(result.requestedMissing).toEqual([]);
+    });
+
+    it('names what was asked for and not found, rather than quietly exporting fewer', () => {
+      // The reason this scope needs its own field. A region-based scope returns
+      // whatever is there; a selection names specific tasks, and a named task
+      // that is gone is a fact about the request — an archive silently missing
+      // the one task the user most needed is the failure worth spending a field
+      // on.
+      const result = selectExportCandidates(machine, {
+        scope: 'selection',
+        externalIds: ['\\Work\\Backup', '\\Work\\DeletedNatively']
+      });
+      expect(result.selected.map(c => c.externalId)).toEqual(['\\Work\\Backup']);
+      expect(result.requestedMissing).toEqual(['\\Work\\DeletedNatively']);
+    });
+
+    it('matches paths case-insensitively, like every other path comparison here', () => {
+      // A stored externalId and the agent's enumeration can differ in case and
+      // mean the same task. A case-sensitive miss would report a task the user
+      // is looking at as absent from their own machine.
+      const result = selectExportCandidates(machine, {
+        scope: 'selection',
+        externalIds: ['\\work\\BACKUP']
+      });
+      expect(result.selected.map(c => c.externalId)).toEqual(['\\Work\\Backup']);
+      expect(result.requestedMissing).toEqual([]);
+    });
+
+    it('exports a selected system task without needing includeSystem', () => {
+      // An explicit selection is an explicit request: the fence exists so a
+      // machine-wide export is not buried under ~257 \Microsoft\ tasks, not to
+      // override a row the user deliberately ticked. Same rule as
+      // filterExcluded — a fence must never swallow a direct request.
+      const result = selectExportCandidates(machine, {
+        scope: 'selection',
+        externalIds: ['\\Microsoft\\Windows\\Update\\Scan']
+      });
+      expect(result.selected).toHaveLength(1);
+      expect(result.skippedSystem).toBe(0);
+    });
+
+    it('reports a requested path only once, however many times it was asked for', () => {
+      const result = selectExportCandidates(machine, {
+        scope: 'selection',
+        externalIds: ['\\Gone', '\\Gone']
+      });
+      expect(result.requestedMissing).toEqual(['\\Gone']);
+    });
+
+    it('leaves requestedMissing empty for the region-based scopes', () => {
+      expect(selectExportCandidates(machine, { scope: 'all' }).requestedMissing).toEqual([]);
+      expect(
+        selectExportCandidates(machine, { scope: 'folder', folder: '\\Work' }).requestedMissing
+      ).toEqual([]);
+    });
+  });
 });
 
 describe('exportRelativePath', () => {
@@ -296,7 +361,8 @@ describe('buildManifest', () => {
     const selectionResult = {
       selected: [{ externalId: '\\A\\One', name: 'One', folder: '\\A' }],
       skippedSystem: 257,
-      totalSeen: 352
+      totalSeen: 352,
+      requestedMissing: []
     };
     const files = [{ relativePath: 'A/One.xml', externalId: '\\A\\One', bytes: Buffer.from('x') }];
     const failures = [{ externalId: '\\A\\Two', name: 'Two', message: 'nope' }];
@@ -308,7 +374,8 @@ describe('buildManifest', () => {
       selected: 1,
       exported: 1,
       failed: 1,
-      skippedSystem: 257
+      skippedSystem: 257,
+      requestedMissing: 0
     });
     expect(manifest.exportedAt).toBe('2026-07-28T10:00:00.000Z');
     expect(manifest.files).toEqual([{ relativePath: 'A/One.xml', taskPath: '\\A\\One' }]);
@@ -318,7 +385,7 @@ describe('buildManifest', () => {
   it('normalizes the recorded folder so the manifest says what was really scoped', () => {
     const manifest = buildManifest(
       { scope: 'folder', folder: 'Work/Backups/' },
-      { selected: [], skippedSystem: 0, totalSeen: 0 },
+      { selected: [], skippedSystem: 0, totalSeen: 0, requestedMissing: [] },
       [],
       [],
       new Date()

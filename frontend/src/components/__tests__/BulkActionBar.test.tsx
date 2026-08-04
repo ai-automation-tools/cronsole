@@ -8,8 +8,13 @@ const renderBar = (over: Partial<React.ComponentProps<typeof BulkActionBar>> = {
     offscreenCount: 0,
     enabledCount: 2,
     disabledCount: 1,
+    untrackableCount: 3,
+    exportableCount: 3,
     onEnable: vi.fn(),
     onDisable: vi.fn(),
+    onRecategorize: vi.fn(),
+    onUntrack: vi.fn(),
+    onExport: vi.fn(),
     onClear: vi.fn(),
     isPending: false,
     ...over
@@ -64,22 +69,66 @@ describe('BulkActionBar', () => {
   });
 
   it('fires the handlers', () => {
-    const { onEnable, onDisable, onClear } = renderBar();
+    const { onEnable, onDisable, onRecategorize, onUntrack, onExport, onClear } = renderBar();
     fireEvent.click(screen.getByRole('button', { name: /Enable 1 task/ }));
     fireEvent.click(screen.getByRole('button', { name: /Disable 2 tasks/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Move 3 tasks into a category/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Remove 3 tasks from Cronsole/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Export 3 tasks as Task Scheduler XML/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
     expect(onEnable).toHaveBeenCalled();
     expect(onDisable).toHaveBeenCalled();
+    expect(onRecategorize).toHaveBeenCalled();
+    expect(onUntrack).toHaveBeenCalled();
+    expect(onExport).toHaveBeenCalled();
     expect(onClear).toHaveBeenCalled();
   });
 
-  it('blocks both actions while a bulk request is in flight', () => {
-    // Each task is a round trip to an elevated agent; a second batch launched
-    // over the first would interleave signed commands for no benefit.
-    const { onEnable } = renderBar({ isPending: true });
-    const enable = screen.getByRole('button', { name: /Enable 1 task/ });
-    expect(enable).toBeDisabled();
-    fireEvent.click(enable);
+  it('blocks every action while a bulk request is in flight', () => {
+    // Each task can be a round trip to an elevated agent; a second batch
+    // launched over the first would interleave signed commands for no benefit.
+    const { onEnable, onUntrack, onExport } = renderBar({ isPending: true });
+    for (const name of [/Enable 1 task/, /Remove 3 tasks from Cronsole/, /Export 3 tasks/]) {
+      const button = screen.getByRole('button', { name });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+    }
     expect(onEnable).not.toHaveBeenCalled();
+    expect(onUntrack).not.toHaveBeenCalled();
+    expect(onExport).not.toHaveBeenCalled();
+  });
+
+  it('never labels untrack as a plain "Remove"', () => {
+    // The label is the only thing standing between this and the delete it is
+    // deliberately not: removing 40 rows and destroying 40 real scheduled tasks
+    // are one click apart and a world apart in consequence.
+    renderBar();
+    const untrack = screen.getByRole('button', { name: /Remove 3 tasks from Cronsole/ });
+    expect(untrack).toHaveAccessibleName(/leaving them running on their platform/);
+  });
+
+  it('counts only the tasks each action can actually touch', () => {
+    // A selection of 5 holding 2 Cronsole-native tasks is a 3-task untrack. The
+    // same rule as Enable/Disable: promising 5 and delivering 3 is the inflation
+    // the server's per-item reporting exists to avoid.
+    renderBar({ selectedCount: 5, untrackableCount: 3, exportableCount: 2 });
+    expect(screen.getByRole('button', { name: /Remove 3 tasks from Cronsole/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Export 2 tasks as Task Scheduler XML/ })).toBeInTheDocument();
+  });
+
+  it('disables untrack when nothing in the selection can be untracked, and says why', () => {
+    renderBar({ selectedCount: 2, untrackableCount: 0 });
+    const untrack = screen.getByRole('button', { name: /Cronsole-native tasks exist only here/ });
+    expect(untrack).toBeDisabled();
+  });
+
+  it('disables export when nothing in the selection is a Windows task, and says why', () => {
+    renderBar({ selectedCount: 2, exportableCount: 0 });
+    expect(screen.getByRole('button', { name: /only Windows Task Scheduler tasks/i })).toBeDisabled();
+  });
+
+  it('never disables Categorize — it applies to every task and can refuse none', () => {
+    renderBar({ selectedCount: 4, enabledCount: 0, disabledCount: 0, untrackableCount: 0, exportableCount: 0 });
+    expect(screen.getByRole('button', { name: /Move 4 tasks into a category/ })).toBeEnabled();
   });
 });

@@ -1,9 +1,9 @@
-import { CheckSquare, Loader2, Power, PowerOff, X } from 'lucide-react';
+import { CheckSquare, Download, EyeOff, FolderInput, Loader2, Power, PowerOff, X } from 'lucide-react';
 
 /**
  * The bulk-action toolbar, shown only while something is selected.
  *
- * Two things here are load-bearing rather than decorative.
+ * Three things here are load-bearing rather than decorative.
  *
  * **It names how many selected tasks are not on screen.** All four views render
  * from one `filteredTasks` array, but that array itself branches on view mode:
@@ -15,17 +15,36 @@ import { CheckSquare, Loader2, Power, PowerOff, X } from 'lucide-react';
  *
  * **It states the count before the click**, in the button itself — the same
  * shape the Import modal settled on ("Import 354 tasks"), for the same reason:
- * a number that arrives after the action is a report, not a decision.
+ * a number that arrives after the action is a report, not a decision. Every
+ * button counts what it will *actually* change, never the selection size: a
+ * selection of 12 whose 9 enabled rows are already enabled is a 3-task Enable.
+ *
+ * **Untrack sits beside the destructive actions and is not one of them.**
+ * Removing 40 accidentally-imported rows and destroying 40 real scheduled tasks
+ * are one click apart in the UI and a world apart in consequence, so the safe
+ * one is present, labelled for what it does ("Remove from Cronsole", never
+ * "Remove"), and is the one that reads as ordinary. A safe path that is harder
+ * to find than the destructive one stops being used.
  */
 interface BulkActionBarProps {
   selectedCount: number;
   /** Of the selection, how many are not in the current view's task list. */
   offscreenCount: number;
-  /** How many of the selected, on-screen tasks are currently ACTIVE / not. */
+  /** How many of the selected tasks are currently ACTIVE / not. */
   enabledCount: number;
   disabledCount: number;
+  /**
+   * How many can be untracked — i.e. exist on a platform outside Cronsole. A
+   * Cronsole-native task's row *is* the task, so there is nothing to keep.
+   */
+  untrackableCount: number;
+  /** How many can be exported as Task Scheduler XML (Windows tasks). */
+  exportableCount: number;
   onEnable: () => void;
   onDisable: () => void;
+  onRecategorize: () => void;
+  onUntrack: () => void;
+  onExport: () => void;
   onClear: () => void;
   isPending: boolean;
 }
@@ -37,8 +56,13 @@ export const BulkActionBar = ({
   offscreenCount,
   enabledCount,
   disabledCount,
+  untrackableCount,
+  exportableCount,
   onEnable,
   onDisable,
+  onRecategorize,
+  onUntrack,
+  onExport,
   onClear,
   isPending
 }: BulkActionBarProps) => {
@@ -52,6 +76,18 @@ export const BulkActionBar = ({
     disabledCount === 0 ? 'Enable — every selected task is already enabled' : `Enable ${plural(disabledCount)}`;
   const disableLabel =
     enabledCount === 0 ? 'Disable — every selected task is already disabled' : `Disable ${plural(enabledCount)}`;
+  const untrackLabel =
+    untrackableCount === 0
+      ? 'Remove from Cronsole — Cronsole-native tasks exist only here, so there is nothing to keep'
+      : `Remove ${plural(untrackableCount)} from Cronsole, leaving them running on their platform`;
+  const exportLabel =
+    exportableCount === 0
+      ? 'Export XML — only Windows Task Scheduler tasks export as native XML'
+      : `Export ${plural(exportableCount)} as Task Scheduler XML`;
+
+  const buttonBase =
+    'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100';
+  const neutralButton = `${buttonBase} bg-muted hover:bg-muted/80 text-foreground border border-border`;
 
   return (
     <div
@@ -80,7 +116,7 @@ export const BulkActionBar = ({
         <button
           onClick={onEnable}
           disabled={isPending || disabledCount === 0}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-success hover:bg-success-hover text-success-foreground transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+          className={`${buttonBase} bg-success hover:bg-success-hover text-success-foreground`}
           title={enableLabel}
           aria-label={enableLabel}
         >
@@ -91,12 +127,49 @@ export const BulkActionBar = ({
         <button
           onClick={onDisable}
           disabled={isPending || enabledCount === 0}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+          className={neutralButton}
           title={disableLabel}
           aria-label={disableLabel}
         >
           {isPending ? <Loader2 size={13} className="animate-spin" /> : <PowerOff size={13} />}
           Disable {enabledCount > 0 && enabledCount}
+        </button>
+
+        {/* Recategorize applies to every selected task and cannot refuse any of
+            them, so it is the one button with no eligibility count to state. */}
+        <button
+          onClick={onRecategorize}
+          disabled={isPending}
+          className={neutralButton}
+          title={`Move ${plural(selectedCount)} into a category`}
+          aria-label={`Move ${plural(selectedCount)} into a category`}
+        >
+          <FolderInput size={13} />
+          Categorize
+        </button>
+
+        <button
+          onClick={onExport}
+          disabled={isPending || exportableCount === 0}
+          className={neutralButton}
+          title={exportLabel}
+          aria-label={exportLabel}
+        >
+          <Download size={13} />
+          Export {exportableCount > 0 && exportableCount}
+        </button>
+
+        {/* "Remove from Cronsole", never "Remove". The label is the only thing
+            standing between this and the delete it is deliberately not. */}
+        <button
+          onClick={onUntrack}
+          disabled={isPending || untrackableCount === 0}
+          className={neutralButton}
+          title={untrackLabel}
+          aria-label={untrackLabel}
+        >
+          <EyeOff size={13} />
+          Untrack {untrackableCount > 0 && untrackableCount}
         </button>
 
         <button

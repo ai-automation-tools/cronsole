@@ -1,6 +1,6 @@
 # Cronsole — operating rules for an AI assistant
 
-> Cronsole Connect Pack **v1.4** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.5** · canonical copy: <https://cronsole.mikesailab.com>
 
 Paste this into your tool's system prompt, `AGENTS.md`, `CLAUDE.md`, custom instructions, or
 whatever single-file convention it uses. It is the condensed form of the full skill in this
@@ -40,9 +40,12 @@ set, not an obstacle. Say so and offer the safe alternative. Do not route around
    an unattended run hangs forever and reports nothing useful.
 7. **`\Microsoft\` is refused.** Registering a task silently overwrites a same-named one and
    the agent runs elevated; writing there could destroy a real Windows task.
-8. **A folder must already exist.** The only folder Cronsole creates is `\Cronsole`. Use
-   `list_folders` — never guess a path. `\Cronsole` being absent from the listing is normal
-   (created on demand, pruned when empty).
+8. **A folder must already exist, unless you ask for it.** The only folder Cronsole creates
+   *unasked* is `\Cronsole`. Use `list_folders` — never guess a path. `\Cronsole` being absent
+   from the listing is normal (created on demand, pruned when empty). `create_task` takes
+   **`createFolder: true`** to make a missing chain instead of refusing — say what you are
+   creating first, and don't use it merely to clear an error: the agent is elevated, so a
+   folder it creates can only be deleted by an administrator.
 9. **Use `-NoProfile` on PowerShell** and `Invoke-RestMethod` (or `-UseBasicParsing`) for HTTP.
 10. **`update_task_action` replaces the action, it does not patch it.** Read current values
     before changing one field.

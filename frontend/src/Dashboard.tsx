@@ -20,6 +20,20 @@ import { useConfirm } from './hooks/useConfirm';
 import { useNavigate, useLocation } from 'react-router';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { describeUntracked, type SyncResponse } from './utils/syncSummary';
+import {
+  bulkToastMessage,
+  hasBadNews,
+  resolvedIds,
+  type BulkReport
+} from './utils/bulkReport';
+import {
+  downloadBlob,
+  filenameFromDisposition,
+  pickDirectory,
+  supportsDirectoryPicker,
+  writeFilesToDirectory,
+  type ExportFilePayload
+} from './utils/saveExport';
 
 
 
@@ -149,6 +163,29 @@ const Dashboard = () => {
   });
 
   /**
+   * Report a bulk result, with the tone following the *worst* outcome.
+   *
+   * Shared by all four bulk verbs so none of them can drift into announcing its
+   * successes and swallowing its failures — a green "12 enabled" over three
+   * silent refusals is the confident lie, and it is one careless `onSuccess`
+   * away at any time.
+   */
+  const reportBulk = (report: BulkReport) => {
+    if (hasBadNews(report)) {
+      if (settings.toastOnFailure) toast(bulkToastMessage(report), 'error');
+    } else if (settings.toastOnSuccess) {
+      toast(report.summary, 'success');
+    }
+  };
+
+  const reportBulkError = (error: unknown, prefix: string) => {
+    const err = error as Error & { response?: { data?: { error?: string } } };
+    if (err.message === 'Cancelled') return;
+    const detail = err.response?.data?.error || err.message;
+    if (settings.toastOnFailure) toast(`${prefix}: ${detail}`, 'error');
+  };
+
+  /**
    * Enable or disable a whole selection in one request.
    *
    * Goes through `POST /api/tools/tasks/status` rather than N calls to the
@@ -182,48 +219,196 @@ const Dashboard = () => {
         taskIds: selected.map(t => t.id),
         status
       });
-      return res.data as {
-        summary: string;
-        updated: number;
-        failed: number;
-        skipped: number;
-        haltedReason?: string;
-        items: { taskId: string; name: string; outcome: string; message?: string }[];
-      };
+      return res.data as BulkReport;
     },
     onSuccess: report => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       // A partial result is the normal case at this scale, so the toast reports
-      // the whole summary and its tone follows the worst outcome — a green
-      // "12 enabled" over three silent failures is the confident lie again.
-      const bad = report.failed + report.skipped;
-      if (bad > 0) {
-        if (settings.toastOnFailure) {
-          toast(`${report.summary}${report.haltedReason ? ` — ${report.haltedReason}` : ''}`, 'error');
-        }
-      } else if (settings.toastOnSuccess) {
-        toast(report.summary, 'success');
-      }
+      // the whole summary and its tone follows the worst outcome.
+      reportBulk(report);
     },
-    onError: (error: unknown) => {
-      const err = error as Error & { response?: { data?: { error?: string } } };
-      if (err.message === 'Cancelled') return;
-      const detail = err.response?.data?.error || err.message;
-      if (settings.toastOnFailure) toast(`Bulk update failed: ${detail}`, 'error');
-    }
+    onError: (error: unknown) => reportBulkError(error, 'Bulk update failed')
   });
 
   const handleBulkStatus = async (selected: Task[], status: 'ACTIVE' | 'DISABLED') => {
     try {
       const report = await bulkStatusMutation.mutateAsync({ tasks: selected, status });
-      return report.items
-        .filter(i => i.outcome === 'updated' || i.outcome === 'unchanged')
-        .map(i => i.taskId);
+      return resolvedIds(report);
     } catch {
       // Cancelled or failed — the mutation's own handlers have already reported
       // it; the selection stays intact so the user can retry.
       return [];
     }
+  };
+
+  /**
+   * Move a whole selection into one category.
+   *
+   * The only bulk verb that touches nothing but Cronsole's database — no agent,
+   * no signed command, nothing on the machine changes. The confirmation is the
+   * modal that collected the category, so there is no second dialog here.
+   */
+  const bulkCategoryMutation = useMutation({
+    mutationFn: async ({ tasks: selected, category }: { tasks: Task[]; category: string }) => {
+      const res = await api.post('/tools/tasks/category', {
+        taskIds: selected.map(t => t.id),
+        category
+      });
+      return res.data as BulkReport & { detachedFromFolder: number };
+    },
+    onSuccess: report => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      reportBulk(report);
+    },
+    onError: (error: unknown) => reportBulkError(error, 'Bulk categorize failed')
+  });
+
+  /**
+   * Remove a whole selection from Cronsole, **leaving every scheduled task
+   * running**.
+   *
+   * The undo for an over-import, which arrives in bulk because the Import modal
+   * makes a whole folder one click away. It makes no platform call, so it works
+   * with the agent offline — and the confirmation has to spend its words on the
+   * distinction from Delete, since that is the mistake it exists to prevent.
+   */
+  const bulkUntrackMutation = useMutation({
+    mutationFn: async (selected: Task[]) => {
+      // Native tasks cannot be untracked at all, so the number in the dialog is
+      // the number that will actually be removed — not the selection size.
+      const removable = selected.filter(t => t.platform !== 'TASKHUB_NATIVE');
+      const ok = await confirm({
+        title: `Remove ${removable.length} task${removable.length === 1 ? '' : 's'} from Cronsole?`,
+        message:
+          // Plain text, not markdown: useConfirm renders the message as a text
+          // node, so asterisks reach the screen as asterisks. Caught in a live
+          // click-through, invisible to every test — the suites assert the
+          // string that was passed in, which is exactly the string that was
+          // wrong.
+          `This removes Cronsole's records and their run history. Nothing on your machine is touched — ` +
+          `these scheduled tasks keep running on their own schedules. Re-import their category to track them again.` +
+          (removable.length < selected.length
+            ? ` ${selected.length - removable.length} Cronsole-native task${selected.length - removable.length === 1 ? '' : 's'} cannot be untracked and will be left alone.`
+            : ''),
+        confirmText: `Remove ${removable.length} from Cronsole`
+      });
+      if (!ok) throw new Error('Cancelled');
+
+      const res = await api.post('/tools/tasks/untrack', { taskIds: selected.map(t => t.id) });
+      return res.data as BulkReport;
+    },
+    onSuccess: report => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      reportBulk(report);
+    },
+    onError: (error: unknown) => reportBulkError(error, 'Bulk untrack failed')
+  });
+
+  /**
+   * Export a selection as native Task Scheduler XML.
+   *
+   * Same two delivery paths as the Tools tab's whole-machine backup, and for the
+   * same reasons: the directory picker needs transient user activation so it
+   * opens **before** the request, and the ZIP fallback carries its counts in a
+   * header because a binary response has no body to put them in. What differs is
+   * the scope — the server resolves these task ids to native paths itself, so a
+   * caller cannot name an arbitrary path on the machine.
+   */
+  const bulkExportMutation = useMutation({
+    mutationFn: async (selected: Task[]) => {
+      const exportable = selected.filter(t => t.platform === 'WINDOWS_TASK_SCHEDULER');
+      if (exportable.length === 0) {
+        throw new Error('Only Windows Task Scheduler tasks export as native XML.');
+      }
+      const body = { scope: 'selection' as const, taskIds: exportable.map(t => t.id) };
+
+      // Before the request, not after: an awaited network call spends the user
+      // activation the picker needs, and cancelling then would throw away a
+      // finished export (troubleshooting #24).
+      let directory = null;
+      if (supportsDirectoryPicker()) {
+        directory = await pickDirectory();
+        if (!directory) throw new Error('Cancelled');
+      }
+
+      if (directory) {
+        const res = await api.post('/tools/export/tasks', { ...body, format: 'files' });
+        const payload = res.data as {
+          counts: { exported: number; failed: number; requestedMissing: number; unsupported: number };
+          requestedMissing: string[];
+          files: ExportFilePayload[];
+        };
+        await writeFilesToDirectory(directory, payload.files);
+        return { counts: payload.counts, requestedMissing: payload.requestedMissing, destination: directory.name };
+      }
+
+      const res = await api.post('/tools/export/tasks', { ...body, format: 'zip' }, { responseType: 'blob' });
+      const filename = filenameFromDisposition(
+        res.headers['content-disposition'] as string | undefined,
+        'cronsole-tasks.zip'
+      );
+      downloadBlob(res.data as Blob, filename);
+      const counts = JSON.parse((res.headers['x-cronsole-export-counts'] as string) || 'null');
+      return { counts, requestedMissing: [] as string[], destination: filename };
+    },
+    onSuccess: ({ counts, requestedMissing, destination }) => {
+      const exported = counts?.exported ?? 0;
+      // The gaps are named in the toast, not left to be inferred from a smaller
+      // number than expected. A backup silently missing the one task that
+      // mattered is the failure this whole feature exists to prevent.
+      const gaps: string[] = [];
+      if (counts?.failed) gaps.push(`${counts.failed} failed`);
+      if (requestedMissing.length) gaps.push(`${requestedMissing.length} no longer on this machine`);
+      else if (counts?.requestedMissing) gaps.push(`${counts.requestedMissing} no longer on this machine`);
+      if (counts?.unsupported) gaps.push(`${counts.unsupported} not Windows tasks`);
+
+      const message = `Exported ${exported} task${exported === 1 ? '' : 's'} to "${destination}"${gaps.length ? ` · ${gaps.join(' · ')}` : ''}.`;
+      if (gaps.length > 0) {
+        if (settings.toastOnFailure) toast(message, 'error');
+      } else if (settings.toastOnSuccess) {
+        toast(message, 'success');
+      }
+    },
+    onError: async (error: unknown) => {
+      const err = error as Error & { response?: { data?: unknown } };
+      if (err.message === 'Cancelled') return;
+      let detail = err.message;
+      // With responseType 'blob' the error body is a Blob — read it back so the
+      // server's real message ("The Windows agent is offline…") survives.
+      const data = err.response?.data;
+      if (data instanceof Blob) {
+        try {
+          detail = JSON.parse(await data.text())?.error ?? detail;
+        } catch { /* keep the original */ }
+      } else if (data && typeof data === 'object' && 'error' in data) {
+        detail = String((data as { error: unknown }).error);
+      }
+      if (settings.toastOnFailure) toast(`Export failed: ${detail}`, 'error');
+    }
+  });
+
+  const handleBulkCategory = async (selected: Task[], category: string) => {
+    try {
+      return resolvedIds(await bulkCategoryMutation.mutateAsync({ tasks: selected, category }));
+    } catch {
+      return [];
+    }
+  };
+
+  const handleBulkUntrack = async (selected: Task[]) => {
+    try {
+      return resolvedIds(await bulkUntrackMutation.mutateAsync(selected));
+    } catch {
+      return [];
+    }
+  };
+
+  const handleBulkExport = async (selected: Task[]) => {
+    // Deliberately resolves to nothing: an export changes no task, so the
+    // selection is exactly as relevant afterwards as it was before. Clearing it
+    // would make a read-only action look like it consumed the rows.
+    await bulkExportMutation.mutateAsync(selected).catch(() => undefined);
+    return [];
   };
 
   // Two callers, two shapes. Import sends the categories the user ticked in the
@@ -363,7 +548,15 @@ const Dashboard = () => {
             onShowHelp={() => setShowHelp(true)}
             onNewTask={() => setShowCreateNative(true)}
             onBulkStatus={handleBulkStatus}
-            isBulkPending={bulkStatusMutation.isPending}
+            onBulkCategory={handleBulkCategory}
+            onBulkUntrack={handleBulkUntrack}
+            onBulkExport={handleBulkExport}
+            isBulkPending={
+              bulkStatusMutation.isPending ||
+              bulkCategoryMutation.isPending ||
+              bulkUntrackMutation.isPending ||
+              bulkExportMutation.isPending
+            }
             settings={settings}
           />
         )}

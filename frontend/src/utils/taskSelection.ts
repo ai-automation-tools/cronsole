@@ -75,6 +75,19 @@ export interface SelectionSummary {
   offscreenCount: number;
   enabledCount: number;
   disabledCount: number;
+  /**
+   * How many can be untracked — i.e. exist on a platform outside Cronsole. A
+   * Cronsole-native task's row *is* the task, so "remove it from Cronsole but
+   * keep it running" is not a thing that can be true, and the server refuses it
+   * per item. Counted here so the button can say what it will really do rather
+   * than promising 12 and delivering 9.
+   */
+  untrackableCount: number;
+  /**
+   * How many can be exported as Task Scheduler XML. Only Windows tasks have
+   * any; a native task exports as JSON, one at a time.
+   */
+  exportableCount: number;
 }
 
 /**
@@ -102,7 +115,13 @@ export function summarizeSelection(
     // is genuinely not visible, and rounding it away would understate the gap.
     offscreenCount: selectedIds.size - visibleSelected,
     enabledCount: tasks.filter(t => t.status === 'ACTIVE').length,
-    disabledCount: tasks.filter(t => t.status === 'DISABLED').length
+    disabledCount: tasks.filter(t => t.status === 'DISABLED').length,
+    // Both counted from `tasks` — what is actually selected — not from the
+    // visible list. The action runs on the whole selection, so a button labelled
+    // from what happens to be on screen would promise the wrong number in
+    // exactly the case the bar already warns about.
+    untrackableCount: tasks.filter(t => t.platform !== 'TASKHUB_NATIVE').length,
+    exportableCount: tasks.filter(t => t.platform === 'WINDOWS_TASK_SCHEDULER').length
   };
 }
 

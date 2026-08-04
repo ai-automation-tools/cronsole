@@ -366,12 +366,12 @@ export class WindowsAgentConnector implements PlatformConnector {
     return { state: HealthState.HEALTHY, lastSync: new Date() };
   }
 
-  async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }> {
+  async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated: string[] }> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
 
     if (!socket) {
-      return { success: false, message: 'Agent offline' };
+      return { success: false, message: 'Agent offline', foldersCreated: [] };
     }
 
     return new Promise((resolve) => {
@@ -381,7 +381,15 @@ export class WindowsAgentConnector implements PlatformConnector {
           resolve({
             success: payload.success,
             externalId: payload.path,
-            message: payload.message
+            message: payload.message,
+            // Carried through on BOTH outcomes. A create can make the folder
+            // chain and then fail to register into it, and that folder is real
+            // and needs an admin to remove — reporting it only on success would
+            // hide exactly the case the user most needs to hear about. An older
+            // agent omits the field entirely, which reads correctly as [].
+            foldersCreated: Array.isArray(payload.foldersCreated)
+              ? payload.foldersCreated.map(String)
+              : []
           });
         }
       };
@@ -408,12 +416,16 @@ export class WindowsAgentConnector implements PlatformConnector {
         command,
         action,
         trigger,
-        folder: normalizeWindowsTaskFolder(options?.folder ?? DEFAULT_TASK_FOLDER)
+        folder: normalizeWindowsTaskFolder(options?.folder ?? DEFAULT_TASK_FOLDER),
+        // Coerced to a real boolean rather than passed through: it is signed, so
+        // an undefined here and a `false` on the agent would produce different
+        // canonical strings and fail every create.
+        createFolder: options?.createFolder === true
       });
 
       setTimeout(() => {
         socket.off('task:created', handler);
-        resolve({ success: false, message: 'Agent creation timeout' });
+        resolve({ success: false, message: 'Agent creation timeout', foldersCreated: [] });
       }, 15000);
     });
   }

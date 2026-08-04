@@ -221,6 +221,16 @@ export type SignableCommand =
        * undefined) so the canonical form is unambiguous.
        */
       folder: string;
+      /**
+       * Create `folder` if its chain is missing, instead of refusing. The second
+       * and last carve-out to "Cronsole creates only \Cronsole" (the first is
+       * task:import's `createFolders`). Signed for the same reason as `folder`
+       * itself: it widens what one command may bring into existence, and the
+       * agent is elevated, so a folder it creates needs administrator rights to
+       * remove. Always a boolean (never undefined) so it canonicalizes to a
+       * stable 1/0 on both sides.
+       */
+      createFolder: boolean;
     };
 
 /**
@@ -275,8 +285,11 @@ function commandMessage(cmd: SignableCommand, nonce: string, ts: number): string
       // WHERE the task is registered, and RegisterTaskDefinition silently
       // overwrites a same-named task in the same folder — so an unsigned folder
       // would let an on-path attacker redirect a create onto an existing task
-      // and destroy it.
-      return `task:create|${cmd.name}|${cmd.schedule}|${cmd.command}|${canonicalizeAction(cmd.action)}|${canonicalizeTrigger(cmd.trigger)}|${cmd.folder}|${nonce}|${ts}`;
+      // and destroy it. `createFolder` follows it immediately and is signed for
+      // the matching reason: it decides whether that folder may be brought into
+      // existence, and an unsigned flag could turn an honest refusal into a
+      // folder the user never asked for and cannot remove without elevation.
+      return `task:create|${cmd.name}|${cmd.schedule}|${cmd.command}|${canonicalizeAction(cmd.action)}|${canonicalizeTrigger(cmd.trigger)}|${cmd.folder}|${cmd.createFolder ? 1 : 0}|${nonce}|${ts}`;
   }
 }
 

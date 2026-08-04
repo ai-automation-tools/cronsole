@@ -33,12 +33,19 @@ namespace Cronsole.Agent.Tests
         // "C:\\x.ps1"] } -> canonical "powershell.exe\x1f-File\x1fC:\\x.ps1",
         // working dir "C:\\scripts", description "Nightly job", runLevel "highest".
         private const string ExpectedUpdateSig = "1032132b7efe16c1f45773d628783f4a0ea82f1a73f03f891ee91359f5a7e135";
-        // task:create signs the structured action AND the trigger. Golden action is
-        // { executable: "dir", args: [] } -> canonical "dir"; trigger null -> "none".
-        private const string ExpectedCreateSig = "4acf5293fb4eb868661d5d73959bf585a391a837468e0334d91893fc8be071b6";
+        // task:create signs the structured action, the trigger, the folder AND the
+        // createFolder flag. Golden action is { executable: "dir", args: [] } ->
+        // canonical "dir"; trigger null -> "none"; folder "\Cronsole";
+        // createFolder false -> "0".
+        private const string ExpectedCreateSig = "e3c75a695f47bd2c3324cff295543b5b2b846efeb6f27e1b53939017a44ddb8c";
         // Same command with a Weekly trigger -> canonical
         // "trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D".
-        private const string ExpectedCreateSigWithTrigger = "04496da442e7d4d0ed416ad1923b7a366cd9834129f2ece220a4abf962bd4aea";
+        private const string ExpectedCreateSigWithTrigger = "0071cff5171a0dacafaf07673b372867e7ab2e5ebaebbf66af24139b762295a9";
+        // Identical to ExpectedCreateSig except createFolder is TRUE. Pinned as its
+        // own case on purpose: with only a false case, an implementation that
+        // hard-coded "0" would pass. Two vectors differing in exactly one bit are
+        // what prove the bit is genuinely inside the signature.
+        private const string ExpectedCreateSigWithFolderCreate = "d525bcc9f125bb4c77db4c53f6110946fb71884f949f5ffa7636582dfb2337fe";
         // task:import signs the task's whole XML BY HASH, plus both blast-radius
         // flags. Golden case: the XML below, overwrite false, createFolders true.
         private const string ImportXml = "<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>";
@@ -72,8 +79,12 @@ namespace Cronsole.Agent.Tests
 
             var actionCanonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var nullTrigger = AgentAuthenticator.CanonicalizeTrigger(null);
-            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, "\\Cronsole", CommandNonce, Ts))
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, "\\Cronsole", false, CommandNonce, Ts))
                 .Should().Be(ExpectedCreateSig);
+
+            // Same inputs, createFolder flipped — proves the flag is signed.
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, nullTrigger, "\\Cronsole", true, CommandNonce, Ts))
+                .Should().Be(ExpectedCreateSigWithFolderCreate);
 
             var weekly = new TriggerSpec
             {
@@ -83,7 +94,7 @@ namespace Cronsole.Agent.Tests
                 Repetition = new RepetitionSpec { Interval = "PT30M", Duration = "P1D" }
             };
             var weeklyCanonical = AgentAuthenticator.CanonicalizeTrigger(weekly);
-            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, weeklyCanonical, "\\Cronsole", CommandNonce, Ts))
+            AgentAuthenticator.Hmac(ExpectedSessionKey, AgentAuthenticator.CreateMessage("Job", "0 3 * * *", "dir", actionCanonical, weeklyCanonical, "\\Cronsole", false, CommandNonce, Ts))
                 .Should().Be(ExpectedCreateSigWithTrigger);
 
             AgentAuthenticator.Hmac(ExpectedSessionKey,

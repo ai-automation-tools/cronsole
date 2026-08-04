@@ -257,7 +257,7 @@ namespace Cronsole.Agent.Tests
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
             var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
-                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\Cronsole", nonce, ts));
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\Cronsole", false, nonce, ts));
 
             _mockScheduler
                 .Setup(s => s.CreateTask("MyTestTask", "0 * * * *", It.IsAny<AgentExecAction>(), null, "\\Cronsole"))
@@ -935,7 +935,7 @@ namespace Cronsole.Agent.Tests
             var nonce = TestNonce();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\Cronsole", nonce, ts));
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\Cronsole", false, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -967,6 +967,116 @@ namespace Cronsole.Agent.Tests
         }
 
         [Fact]
+        public void TaskCreate_Event_PassesCreateFolderThroughAndReportsWhatItCreated()
+        {
+            var ts = Now();
+            var nonce = TestNonce();
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\NewTree", true, nonce, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(Payload(new
+            {
+                name = "MyTestTask",
+                schedule = "0 * * * *",
+                command = "dir",
+                action = new { executable = "dir", args = new string[0] },
+                folder = "\\NewTree",
+                createFolder = true,
+                nonce,
+                ts,
+                sig
+            }));
+
+            _mockScheduler.Setup(s => s.CreateTask("MyTestTask", "0 * * * *", It.IsAny<AgentExecAction>(), null, "\\NewTree", true))
+                .Returns(new AgentTaskResult
+                {
+                    Success = true,
+                    Path = "\\NewTree\\MyTestTask",
+                    Name = "MyTestTask",
+                    FoldersCreated = new List<string> { "\\NewTree" }
+                });
+
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            _mockScheduler.Verify(s => s.CreateTask(
+                "MyTestTask", "0 * * * *", It.IsAny<AgentExecAction>(), null, "\\NewTree", true), Times.Once);
+            _mockSocket.Verify(s => s.EmitAsync("task:created", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public void TaskCreate_Event_DefaultsCreateFolderToFalseWhenAbsent()
+        {
+            // The safe direction. An omitted flag must sign and behave as 0 on
+            // both sides, or an ordinary create would quietly gain the ability to
+            // make folders nothing can remove without elevation.
+            var ts = Now();
+            var nonce = TestNonce();
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\Cronsole", false, nonce, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(Payload(new
+            {
+                name = "MyTestTask",
+                schedule = "0 * * * *",
+                command = "dir",
+                action = new { executable = "dir", args = new string[0] },
+                nonce,
+                ts,
+                sig
+            }));
+
+            _mockScheduler.Setup(s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentExecAction>(), It.IsAny<TriggerSpec?>(), It.IsAny<string?>(), It.IsAny<bool>()))
+                .Returns(new AgentTaskResult { Success = true, Path = "\\Cronsole\\MyTestTask", Name = "MyTestTask" });
+
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            _mockScheduler.Verify(s => s.CreateTask(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentExecAction>(), null, "\\Cronsole", false), Times.Once);
+        }
+
+        [Fact]
+        public void TaskCreate_Event_RejectsCreateFolderThatIsNotInTheSignature()
+        {
+            // THE load-bearing case. The flag decides whether a folder the user
+            // cannot remove without elevation comes into existence, so an on-path
+            // attacker flipping it must fail verification — not be honoured.
+            // Signed with createFolder FALSE, sent with createFolder TRUE.
+            var ts = Now();
+            var nonce = TestNonce();
+            var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
+            var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!,
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\NewTree", false, nonce, ts));
+
+            var mockResponse = new Mock<ISocketResponse>();
+            mockResponse.Setup(r => r.GetValue<JsonElement>(0)).Returns(Payload(new
+            {
+                name = "MyTestTask",
+                schedule = "0 * * * *",
+                command = "dir",
+                action = new { executable = "dir", args = new string[0] },
+                folder = "\\NewTree",
+                createFolder = true,   // tampered
+                nonce,
+                ts,
+                sig
+            }));
+
+            _socketHandlers["task:create"].Invoke(mockResponse.Object);
+
+            _mockScheduler.Verify(s => s.CreateTask(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentExecAction>(), It.IsAny<TriggerSpec?>(), It.IsAny<string?>(), It.IsAny<bool>()), Times.Never);
+            // Silent, like every other unverifiable command: a forger learns nothing.
+            _mockSocket.Verify(s => s.EmitAsync("task:created", It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
         public void TaskCreate_Event_ParsesStructuredTrigger()
         {
             // Arrange — payload as emitted by WindowsAgentConnector.createTask.
@@ -981,7 +1091,7 @@ namespace Cronsole.Agent.Tests
                 StartBoundary = "08:00",
                 DaysOfWeek = new List<string> { "Monday" }
             });
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", canonical, triggerCanonical, "\\Cronsole", nonce, ts));
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 8 * * 1", "dir", canonical, triggerCanonical, "\\Cronsole", false, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -1024,7 +1134,7 @@ namespace Cronsole.Agent.Tests
             var nonce = TestNonce();
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var triggerCanonical = AgentAuthenticator.CanonicalizeTrigger(null);
-            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\Cronsole", nonce, ts));
+            var sig = AgentAuthenticator.Hmac(_auth.SessionKey!, AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, triggerCanonical, "\\Cronsole", false, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))
@@ -1061,7 +1171,7 @@ namespace Cronsole.Agent.Tests
             var canonical = AgentAuthenticator.CanonicalizeAction("dir", new string[0]);
             var sigWithoutTrigger = AgentAuthenticator.Hmac(
                 _auth.SessionKey!,
-                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, AgentAuthenticator.CanonicalizeTrigger(null), "\\Cronsole", nonce, ts));
+                AgentAuthenticator.CreateMessage("MyTestTask", "0 * * * *", "dir", canonical, AgentAuthenticator.CanonicalizeTrigger(null), "\\Cronsole", false, nonce, ts));
 
             var mockResponse = new Mock<ISocketResponse>();
             mockResponse.Setup(r => r.GetValue<JsonElement>(0))

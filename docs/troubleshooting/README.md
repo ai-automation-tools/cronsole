@@ -2512,6 +2512,40 @@ can be satisfied by a longer number is a test that cannot fail in the direction 
 
 ---
 
+## 39. A mutation test still fails after you restore the file — `dotnet test` ran a stale build
+
+**Symptom.** Standard mutation-check cycle on the agent: patch a source file, run `dotnet test`,
+watch the right tests fail, restore the file, re-run to confirm green. The mutation failed 2 tests
+as designed. After restoring, the *same 2 tests still failed* — which reads as "the restore didn't
+work", or worse, "the mutation found a real bug and my fix is wrong".
+
+**Cause.** The restore was a `mv` of a backup file, so the source came back with the backup's
+**older** mtime. MSBuild's incremental build compares timestamps: the `.cs` looked no newer than
+the existing `.dll`, so it skipped the compile and `dotnet test` ran the **mutated assembly** —
+against correct source. `grep` on the file showed the flag was back, which is exactly what makes
+this confusing: the file and the test disagree, and the file is right.
+
+**Fix.** Force a real compile before trusting the re-run:
+
+```bash
+dotnet build <Tests.csproj> --no-incremental && dotnet test <Tests.csproj> --no-build
+```
+
+Or restore by rewriting the content (`git checkout -- <file>`, or write the text back) rather than
+moving a file whose mtime predates the build.
+
+> **The generalizable bit:** a mutation test's *restore* step is a test too, and it is the one you
+> are least likely to check, because you already believe the answer. Any restore that preserves an
+> old timestamp can be silently skipped by an incremental build — so a mutation cycle should end
+> with a **forced** rebuild, not a fast one. Same family as [#18](#18-code-changes-dont-take-effect-in-the-docker-backend)
+> and the three-things-that-run-stale rule: the artifact that runs is not the source you edited.
+
+*First hit: 2026-08-04, mutation-checking the signed `createFolder` flag on `task:create`.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
 ## ➕ Adding a new entry
 
 Keep it short and greppable. For each problem, capture:

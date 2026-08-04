@@ -336,13 +336,22 @@ const createTaskSchema = z.object({
    * into the agent command, and the agent re-validates before registering.
    */
   folder: z.string().optional(),
+  /**
+   * Windows only: create `folder` when its chain is missing, instead of
+   * refusing. Defaults to false — the safe direction, and the reason this is
+   * opt-in at all: the agent is elevated, so a folder it creates carries an
+   * administrator ACE and needs administrator rights to remove (#28). It never
+   * widens WHERE a task may land; `\Microsoft\` is refused below with or
+   * without it, and independently by the agent.
+   */
+  createFolder: z.boolean().optional().default(false),
   schedule: z.string().trim().min(1, 'schedule is required'),
   command: z.string().trim().min(1, 'command is required')
 });
 
 // Create a new task (New Task modal Windows path, cloning, custom creation)
 router.post('/', validateBody(createTaskSchema), async (req: Request, res: Response) => {
-  const { name, platform, category, schedule, command, folder } = req.body;
+  const { name, platform, category, schedule, command, folder, createFolder } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   if (!isValidCron(schedule)) {
@@ -397,11 +406,18 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     schedule,
     command,
     { ...deserializeConfig(connection.config), userId },
-    { trigger, folder: finalFolder }
+    { trigger, folder: finalFolder, createFolder: createFolder === true }
   );
 
   if (!result.success) {
-    return res.status(500).json({ error: result.message || 'Failed to create task' });
+    // foldersCreated rides the ERROR too. A create can build the folder chain
+    // and then fail to register into it, and Cronsole does not delete folders —
+    // so the folder is real, needs an admin to remove, and the one response the
+    // caller will ever see must say so rather than reporting a clean failure.
+    return res.status(500).json({
+      error: result.message || 'Failed to create task',
+      ...(result.foldersCreated?.length ? { foldersCreated: result.foldersCreated } : {})
+    });
   }
 
   // Upsert the created task right away so the frontend shows it immediately
@@ -435,7 +451,12 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
   res.json({
     message: 'Task created successfully',
     task: upserted[0],
-    conversion: { warnings: conversionWarnings, lossy: conversionLossy }
+    conversion: { warnings: conversionWarnings, lossy: conversionLossy },
+    // Always present (empty array when nothing was created), never conditional:
+    // Cronsole creating a folder is the exception to a standing invariant, so
+    // the caller must be able to read the answer rather than infer it from an
+    // absent key.
+    foldersCreated: result.foldersCreated ?? []
   });
 });
 

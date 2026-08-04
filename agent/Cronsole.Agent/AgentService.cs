@@ -579,31 +579,55 @@ namespace Cronsole.Agent
                         ? folderElement.GetString() ?? TaskFolderPath.Default
                         : TaskFolderPath.Default;
 
+                    // Parsed BEFORE verifying, like folder and trigger, because it is
+                    // part of the signed message. Absent or non-true degrades to
+                    // false: the safe direction is refusing to create a folder, and
+                    // an omitted flag signs as 0 on both sides so it stays honest.
+                    bool createFolder = data.TryGetProperty("createFolder", out var cfElement) &&
+                                        cfElement.ValueKind == JsonValueKind.True;
+
                     if (!TryReadSignature(data, out var nonce, out var ts, out var sig) ||
-                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, triggerCanonical, folder, nonce, ts), ts, sig))
+                        !_auth.VerifyCommand(AgentAuthenticator.CreateMessage(name, schedule, command, actionCanonical, triggerCanonical, folder, createFolder, nonce, ts), ts, sig))
                     {
                         Console.WriteLine($"REJECTED unsigned/invalid task:create for {name}");
                         return;
                     }
 
-                    Console.WriteLine($"Server command: task:create -> {name} (exe={action.Executable}, args={action.Args.Count}, trigger={(trigger?.Type ?? "none")}, folder={folder})");
+                    Console.WriteLine($"Server command: task:create -> {name} (exe={action.Executable}, args={action.Args.Count}, trigger={(trigger?.Type ?? "none")}, folder={folder}, createFolder={createFolder})");
 
-                    var result = _scheduler.CreateTask(name, schedule, action, trigger, folder);
+                    var result = _scheduler.CreateTask(name, schedule, action, trigger, folder, createFolder);
 
                     if (result.Success)
                     {
-                        Console.WriteLine($"Task {name} created successfully at {result.Path}.");
+                        Console.WriteLine($"Task {name} created successfully at {result.Path}." +
+                            (result.FoldersCreated.Count > 0 ? $" Created folder(s): {string.Join(", ", result.FoldersCreated)}." : ""));
 
                         await _socket.EmitAsync("task:created", new[] { new {
                             success = true,
                             path = result.Path,
                             name = name,
-                            message = "Task created successfully"
+                            message = "Task created successfully",
+                            // Always present, even when empty: the server reports it
+                            // verbatim, and "no folders were created" is an answer the
+                            // caller needs as much as the list itself.
+                            foldersCreated = result.FoldersCreated
                         }});
                     }
                     else
                     {
-                        throw new Exception(result.Message);
+                        // Emitted here rather than thrown into the catch below: a
+                        // refusal can still have created a folder (chain made, then
+                        // RegisterTaskDefinition threw), and rethrowing as a bare
+                        // Exception would drop that list on the floor — leaving a
+                        // folder on the machine that nothing ever told the user about.
+                        Console.WriteLine($"Task {name} refused: {result.Message}");
+
+                        await _socket.EmitAsync("task:created", new[] { new {
+                            success = false,
+                            name = name,
+                            message = result.Message,
+                            foldersCreated = result.FoldersCreated
+                        }});
                     }
                 }
                 catch (Exception ex)

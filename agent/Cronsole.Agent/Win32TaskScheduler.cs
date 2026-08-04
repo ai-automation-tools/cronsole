@@ -451,9 +451,17 @@ namespace Cronsole.Agent
         /// <summary>
         /// Resolve the destination folder for a create. \Cronsole is created lazily
         /// (it is ours, and TryPruneCronsoleFolder removes it again when the last
-        /// task goes); any other folder must already exist.
+        /// task goes); any other folder must already exist — UNLESS the caller
+        /// opted in with a signed <paramref name="createFolder"/>, in which case the
+        /// missing chain is created and every segment lands in
+        /// <paramref name="created"/>.
+        ///
+        /// \Cronsole is deliberately NOT recorded in `created`: it is the invariant,
+        /// not an exception to it, and it is the one folder Cronsole prunes again by
+        /// itself. Recording it would tell the user they now own something to clean
+        /// up when they do not.
         /// </summary>
-        private static TaskFolder? ResolveDestination(TaskService ts, string path)
+        private static TaskFolder? ResolveDestination(TaskService ts, string path, bool createFolder, List<string> created)
         {
             var existing = ResolveFolder(ts, path);
             if (existing != null) return existing;
@@ -464,7 +472,11 @@ namespace Cronsole.Agent
                 return ts.RootFolder.CreateFolder(TaskFolderPath.Default.TrimStart('\\'));
             }
 
-            return null;
+            if (!createFolder) return null;
+
+            // The path already passed TaskFolderPath.Validate above, so this cannot
+            // reach \Microsoft\ or walk out via traversal segments.
+            return CreateFolderChain(ts, path, created);
         }
 
         /// <summary>
@@ -505,7 +517,7 @@ namespace Cronsole.Agent
             catch { /* unreadable subfolder list */ }
         }
 
-        public AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null, string? folder = null)
+        public AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null, string? folder = null, bool createFolder = false)
         {
             using (TaskService ts = new TaskService())
             {
@@ -569,31 +581,58 @@ namespace Cronsole.Agent
                     };
                 }
 
-                TaskFolder? destination = ResolveDestination(ts, targetFolder);
+                var foldersCreated = new List<string>();
+                TaskFolder? destination = ResolveDestination(ts, targetFolder, createFolder, foldersCreated);
                 if (destination == null)
                 {
-                    // Refuse honestly rather than create it. Cronsole only creates
-                    // \Cronsole (which it also prunes) — folder deletion needs
-                    // elevation, so any other folder it created would be permanent
-                    // litter only the user could clear.
+                    // Refuse honestly rather than create it. Without the opt-in,
+                    // Cronsole only creates \Cronsole (which it also prunes) —
+                    // folder deletion needs elevation, so any other folder it
+                    // created would be permanent litter only an admin could clear.
+                    // The message names the opt-in AND its cost, so the way
+                    // forward is visible without making the cost a surprise.
                     return new AgentTaskResult
                     {
                         Success = false,
                         Name = name,
                         Message = $"Task Scheduler folder '{TaskFolderPath.Normalize(targetFolder)}' does not exist. " +
-                                  "Cronsole only creates its own \\Cronsole folder — create the folder in Task Scheduler " +
-                                  "first, or choose an existing one."
+                                  "Create it in Task Scheduler first, choose an existing folder, or re-send with " +
+                                  "createFolder to have Cronsole create it — note that removing it again needs " +
+                                  "administrator rights, because the agent is elevated."
                     };
                 }
 
-                var task = destination.RegisterTaskDefinition(name, td);
+                // Fully qualified: ImplicitUsings pulls in System.Threading.Tasks,
+                // so a bare `Task` here is ambiguous with the scheduler's own type.
+                Microsoft.Win32.TaskScheduler.Task task;
+                try
+                {
+                    task = destination.RegisterTaskDefinition(name, td);
+                }
+                catch (Exception ex) when (foldersCreated.Count > 0)
+                {
+                    // We just created a folder and then failed to put anything in
+                    // it. Cronsole does not delete folders (only \Cronsole), so it
+                    // stays — and an empty folder the caller was never told about
+                    // is precisely the litter the invariant exists to prevent.
+                    // Report it rather than letting the raw exception swallow it.
+                    return new AgentTaskResult
+                    {
+                        Success = false,
+                        Name = name,
+                        Message = $"{ex.Message} (Note: created {string.Join(", ", foldersCreated)} before failing; " +
+                                  "the empty folder is still there and needs administrator rights to remove.)",
+                        FoldersCreated = foldersCreated
+                    };
+                }
 
                 return new AgentTaskResult
                 {
                     Success = true,
                     Path = task.Path,
                     Name = name,
-                    Message = "Task created successfully"
+                    Message = "Task created successfully",
+                    FoldersCreated = foldersCreated
                 };
             }
         }

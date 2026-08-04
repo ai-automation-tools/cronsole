@@ -539,9 +539,122 @@ describe('WindowsAgentConnector', () => {
         command: 'echo hello',
         action: { executable: 'echo', args: ['hello'] },
         trigger: null,
-        folder: '\\Work\\Backups'
+        folder: '\\Work\\Backups',
+        // Asserted explicitly: a create that did not ask for a folder must sign
+        // false, or every existing caller would silently gain the ability to
+        // create folders it can't remove.
+        createFolder: false
       }
     );
+  });
+
+  it('signs createFolder when the caller opts in', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:created') {
+        setTimeout(() => {
+          handler({ name: 'NewTask', success: true, path: '\\NewTree\\NewTask', message: 'Success' });
+        }, 10);
+      }
+    });
+
+    await connector.createTask(
+      'NewTask',
+      '0 3 * * *',
+      'echo hello',
+      { userId: 'test_user' },
+      { folder: '\\NewTree', createFolder: true }
+    );
+
+    expectSignedCommand(
+      mockSocket,
+      'task:create',
+      {
+        event: 'task:create',
+        name: 'NewTask',
+        schedule: '0 3 * * *',
+        command: 'echo hello',
+        action: { executable: 'echo', args: ['hello'] },
+        trigger: null,
+        folder: '\\NewTree',
+        createFolder: true
+      }
+    );
+  });
+
+  it('reports the folders a create had to make, on success and on failure', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:created') {
+        setTimeout(() => {
+          handler({
+            name: 'NewTask',
+            success: true,
+            path: '\\NewTree\\NewTask',
+            message: 'Success',
+            foldersCreated: ['\\NewTree']
+          });
+        }, 10);
+      }
+    });
+
+    const result = await connector.createTask(
+      'NewTask', '0 3 * * *', 'echo hello',
+      { userId: 'test_user' }, { folder: '\\NewTree', createFolder: true }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.foldersCreated).toEqual(['\\NewTree']);
+  });
+
+  it('carries foldersCreated through a FAILED create', async () => {
+    // The case that matters most and is easiest to lose: the chain was made and
+    // the registration then failed, so a real folder exists that needs an admin
+    // to remove. Reporting it only on success would hide exactly that.
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:created') {
+        setTimeout(() => {
+          handler({
+            name: 'NewTask',
+            success: false,
+            message: 'Access is denied.',
+            foldersCreated: ['\\NewTree']
+          });
+        }, 10);
+      }
+    });
+
+    const result = await connector.createTask(
+      'NewTask', '0 3 * * *', 'echo hello',
+      { userId: 'test_user' }, { folder: '\\NewTree', createFolder: true }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.foldersCreated).toEqual(['\\NewTree']);
+  });
+
+  it('reads an agent that omits foldersCreated as "created nothing"', async () => {
+    // A pre-republish agent sends no such field. That must read as [], not
+    // undefined — the route spreads it and the MCP tool renders it.
+    vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+
+    mockSocket.on.mockImplementation((event: string, handler: any) => {
+      if (event === 'task:created') {
+        setTimeout(() => {
+          handler({ name: 'NewTask', success: true, path: '\\NewTask', message: 'Success' });
+        }, 10);
+      }
+    });
+
+    const result = await connector.createTask(
+      'NewTask', '0 3 * * *', 'echo hello', { userId: 'test_user' }
+    );
+
+    expect(result.foldersCreated).toEqual([]);
   });
 
   it('should create a task successfully', async () => {
@@ -574,7 +687,8 @@ describe('WindowsAgentConnector', () => {
         trigger: null,
         // No folder passed → the default. Asserted explicitly (not It.Any-style)
         // so this proves existing callers still land in \Cronsole.
-        folder: '\\Cronsole'
+        folder: '\\Cronsole',
+        createFolder: false
       }
     );
     expect(result.success).toBe(true);
@@ -611,7 +725,8 @@ describe('WindowsAgentConnector', () => {
         command: 'echo hello',
         action: { executable: 'echo', args: ['hello'] },
         trigger,
-        folder: '\\Cronsole'
+        folder: '\\Cronsole',
+        createFolder: false
       }
     );
     expect(result.success).toBe(true);

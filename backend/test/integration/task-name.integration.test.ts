@@ -122,6 +122,47 @@ describe('Windows task-name guard', () => {
     }
   });
 
+  it('POST /tasks still 400s on \\Microsoft\\ WITH createFolder set', async () => {
+    // The whole safety case for createFolder is that it widens whether a folder
+    // may be CREATED, never WHERE a task may land. If the flag could carry a
+    // create into \Microsoft\, it would hand an elevated agent the ability to
+    // overwrite a real system task — so the refusal must be independent of it.
+    for (const folder of ['\\Microsoft', '\\microsoft\\Windows']) {
+      const res = await request(app)
+        .post('/api/tasks')
+        .set('Authorization', owner.auth)
+        .send({
+          name: 'Sneaky',
+          folder,
+          createFolder: true,
+          platform: 'WINDOWS_TASK_SCHEDULER',
+          schedule: '0 3 * * *',
+          command: 'echo hi'
+        });
+
+      expect(res.status, folder).toBe(400);
+      expect(res.body.error, folder).toMatch(/Microsoft/i);
+    }
+  });
+
+  it('POST /tasks rejects a non-boolean createFolder rather than coercing it', async () => {
+    // A truthy string must not become an opt-in. The flag is signed, so a
+    // silently coerced value would be signed too — an opt-in nobody typed.
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', owner.auth)
+      .send({
+        name: 'Coerced',
+        folder: '\\NewTree',
+        createFolder: 'yes',
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        schedule: '0 3 * * *',
+        command: 'echo hi'
+      });
+
+    expect(res.status).toBe(400);
+  });
+
   it('POST /tasks 400s on a traversal folder', async () => {
     const res = await request(app)
       .post('/api/tasks')

@@ -23,6 +23,19 @@ export interface CreateTaskOptions {
    * command, and the agent re-validates it before registering.
    */
   folder?: string;
+  /**
+   * Create `folder` when its chain is missing, instead of refusing the create.
+   * Windows Task Scheduler only, and **false by default** — this is the second
+   * and last carve-out to "Cronsole creates only `\Cronsole`" (the first being
+   * restore's `createFolders`).
+   *
+   * It is part of the signed command, because the agent is elevated: a folder it
+   * creates carries an administrator ACE and needs administrator rights to
+   * remove (troubleshooting #28). It never widens *where* a task may go —
+   * `\Microsoft\` is refused by windowsTaskFolderError here and independently by
+   * the agent, with or without this flag.
+   */
+  createFolder?: boolean;
 }
 
 /**
@@ -99,7 +112,14 @@ export interface PlatformConnector {
    * cron (UTC); `options.trigger` carries the platform-native trigger when
    * the server was able to convert the cron.
    */
-  createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }>;
+  /**
+   * `foldersCreated` names every folder the create had to make, in creation
+   * order — always present (empty when none), never optional, because Cronsole
+   * creating a folder is the exception to a standing invariant and may not be
+   * silent. Reported on failure too: a chain can be created and the
+   * registration then fail, which leaves a real folder behind.
+   */
+  createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated?: string[] }>;
 
   /**
    * Change the schedule (trigger) of an existing platform task, leaving its

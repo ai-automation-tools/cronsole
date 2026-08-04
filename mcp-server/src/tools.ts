@@ -500,20 +500,38 @@ export function registerTools(
             '"\\\\Work\\\\Backups". The folder MUST ALREADY EXIST — Cronsole creates only its own "\\\\Cronsole" ' +
             'folder, because removing a folder needs elevation and it will not leave behind one the user has to ' +
             'delete by hand. Folders under "\\\\Microsoft\\\\" are refused outright: Windows keeps its own ' +
-            'scheduled tasks there and a name collision would silently overwrite one.'
+            'scheduled tasks there and a name collision would silently overwrite one. ' +
+            'Set createFolder if you want a missing folder created instead of refused.'
+          ),
+        createFolder: z
+          .boolean()
+          .optional()
+          .describe(
+            'Windows only. Create `folder` when it does not exist, instead of refusing. Default false. ' +
+            'THINK BEFORE SETTING THIS: the local agent runs elevated, so a folder it creates carries an ' +
+            'administrator ACE — the user will need administrator rights to delete it again, and Cronsole ' +
+            'never removes it for them (it only ever prunes its own "\\\\Cronsole"). Prefer list_folders and ' +
+            'an existing folder. Use this when the user has asked for a specific new folder by name, not to ' +
+            'recover from a typo — a misspelled path becomes a permanent folder. It does not widen WHERE a ' +
+            'task may go: "\\\\Microsoft\\\\" is still refused. Any folder created is named in the response.'
           )
       }
     },
-    async ({ name, command, schedule, platform, category, folder }) => {
+    async ({ name, command, schedule, platform, category, folder, createFolder }) => {
       try {
         const body: Record<string, unknown> = { name, command, schedule, platform };
         if (category) body.category = category;
         if (folder) body.folder = folder;
+        // Only sent when true. The route defaults it to false, and putting an
+        // explicit `false` on the wire for every ordinary create would make the
+        // opt-in look like a routine field rather than a deliberate one.
+        if (createFolder) body.createFolder = true;
 
         const result = await client.post<{
           message?: string;
           task?: TaskRow;
           conversion?: { warnings?: string[]; lossy?: 'approximated' | 'replaced' };
+          foldersCreated?: string[];
         }>('/tasks', body);
 
         // Surface lossy conversion at the same volume as success. The backend
@@ -537,11 +555,20 @@ export function registerTools(
         const created = task
           ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})`
           : '';
+        // Rendered at the same volume as a warning, not tucked into the
+        // structured payload: creating a folder is the exception to a standing
+        // invariant, and the caller cannot undo it without elevation. A model
+        // that only reads the text must still learn it happened.
+        const folders = result.foldersCreated?.length
+          ? `\nCreated Task Scheduler folder(s): ${result.foldersCreated.join(', ')}. ` +
+            'Removing these again needs administrator rights — Cronsole will not delete them.'
+          : '';
         const msg = typeof result.message === 'string' ? result.message : 'Task created';
-        return ok(`${msg}${created}${warnings}`, {
+        return ok(`${msg}${created}${warnings}${folders}`, {
           platform,
           task: task ? compactTask(task) : null,
-          conversion: result.conversion ?? { warnings: [] }
+          conversion: result.conversion ?? { warnings: [] },
+          foldersCreated: result.foldersCreated ?? []
         });
       } catch (err) {
         return toolError(err);

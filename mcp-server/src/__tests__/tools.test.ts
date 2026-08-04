@@ -545,6 +545,47 @@ describe('create_task', () => {
     expect(calls[0].body).toMatchObject({ folder: '\\Work\\Backups', category: 'Ops' });
   });
 
+  it('sends createFolder only when the caller opts in', async () => {
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_task', {
+      name: 'x',
+      command: 'c.exe',
+      schedule: '0 9 * * *',
+      folder: '\\NewTree',
+      createFolder: true
+    });
+    expect(calls[0].body).toMatchObject({ folder: '\\NewTree', createFolder: true });
+  });
+
+  it('leaves createFolder off the wire entirely by default', async () => {
+    // The default must be absence, not `false`: an ordinary create should not
+    // even mention a flag whose only job is to widen what one call can create.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_task', { name: 'x', command: 'c.exe', schedule: '0 9 * * *' });
+    expect(calls[0].body).not.toHaveProperty('createFolder');
+  });
+
+  it('says out loud which folders were created, and that removing them needs an admin', async () => {
+    // Rendered into the TEXT, not just the structured payload: a model that
+    // reads only the message must still learn a permanent folder now exists.
+    const { client } = stubClient({
+      'POST /tasks': { ...created, foldersCreated: ['\\NewTree'] }
+    });
+    const mcp = await connect(client);
+    const res = await call(mcp, 'create_task', {
+      name: 'x',
+      command: 'c.exe',
+      schedule: '0 9 * * *',
+      folder: '\\NewTree',
+      createFolder: true
+    });
+    const text = res.content.map((c: { text?: string }) => c.text ?? '').join('\n');
+    expect(text).toContain('\\NewTree');
+    expect(text).toMatch(/administrator rights/i);
+  });
+
   it('creates on Cronsole-native when asked', async () => {
     const { client, calls } = stubClient({ 'POST /tasks': created });
     const mcp = await connect(client);

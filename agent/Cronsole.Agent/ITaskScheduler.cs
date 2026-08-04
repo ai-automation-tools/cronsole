@@ -16,7 +16,15 @@ namespace Cronsole.Agent
         // holds the elevation and calls RegisterTaskDefinition, which silently
         // overwrites a same-named task in the same folder, so it must not trust
         // its caller. See TaskFolderPath.
-        AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null, string? folder = null);
+        //
+        // `createFolder` is the second (and last) carve-out to "Cronsole creates
+        // only \Cronsole" — the first being ImportTaskXml's `createFolders`. A
+        // missing chain is created instead of refused, and every segment created
+        // comes back in AgentTaskResult.FoldersCreated. It is false by default and
+        // inside the command signature, because it widens what one command may
+        // create. Still never under \Microsoft\: TaskFolderPath.Validate runs first
+        // and the flag cannot reach past it.
+        AgentTaskResult CreateTask(string name, string schedule, AgentExecAction action, TriggerSpec? trigger = null, string? folder = null, bool createFolder = false);
         // Returns false when no task exists at the path (treated as an
         // idempotent success by the caller — the end state already holds).
         bool DeleteTask(string path);
@@ -123,6 +131,17 @@ namespace Cronsole.Agent
         public string Path { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
+        /// <summary>
+        /// Folders this create had to make, in creation order — empty unless the
+        /// caller passed createFolder and the chain was genuinely missing.
+        /// Mirrors AgentImportResult.FoldersCreated and exists for the same
+        /// reason: the agent is elevated, so a folder it creates carries an
+        /// administrator ACE (troubleshooting #28) and needs an administrator to
+        /// remove. Reported on the FAILURE path too — if the folder was created
+        /// and RegisterTaskDefinition then threw, the folder is still there, and
+        /// that is exactly the case a caller must not have to guess about.
+        /// </summary>
+        public List<string> FoldersCreated { get; set; } = new List<string>();
     }
 
     /// <summary>

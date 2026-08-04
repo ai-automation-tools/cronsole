@@ -223,8 +223,14 @@ namespace Cronsole.Agent
         // task is registered, and RegisterTaskDefinition silently overwrites a
         // same-named task in the same folder — so an unsigned folder would let
         // an on-path attacker redirect a create onto an existing task.
-        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, string folder, string nonce, long ts) =>
-            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{folder}|{nonce}|{ts}";
+        // `createFolder` sits immediately after `folder` for the same reason
+        // ImportMessage signs its two flags: `folder` decides WHERE the task lands
+        // and `createFolder` decides whether Cronsole may bring that folder into
+        // existence. Unsigned, an on-path attacker could flip it and turn an honest
+        // "that folder does not exist" refusal into a folder the user never asked
+        // for and needs administrator rights to remove.
+        public static string CreateMessage(string name, string schedule, string command, string actionCanonical, string triggerCanonical, string folder, bool createFolder, string nonce, long ts) =>
+            $"task:create|{name}|{schedule}|{command}|{actionCanonical}|{triggerCanonical}|{folder}|{(createFolder ? 1 : 0)}|{nonce}|{ts}";
 
         // Canonical action string the create signature covers. MUST match the
         // backend's canonicalizeAction (utils/commandParser.ts): the executable and

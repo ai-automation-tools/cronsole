@@ -54,22 +54,33 @@ const VEC = {
   // 'C:\\x.ps1'] } -> canonical 'powershell.exe\x1f-File\x1fC:\\x.ps1', working
   // dir 'C:\\scripts', description 'Nightly job', runLevel 'highest'.
   updateSig: '1032132b7efe16c1f45773d628783f4a0ea82f1a73f03f891ee91359f5a7e135',
-  // task:create signs the structured action, the trigger, AND the destination
-  // folder. Golden case: command 'dir', action { executable: 'dir', args: [] }
-  // -> canonical 'dir', trigger null -> canonical 'none', folder '\Cronsole'.
+  // task:create signs the structured action, the trigger, the destination
+  // folder, AND the createFolder flag. Golden case: command 'dir', action
+  // { executable: 'dir', args: [] } -> canonical 'dir', trigger null ->
+  // canonical 'none', folder '\Cronsole', createFolder false -> '0'.
   //
-  // This constant changed on 2026-07-31 because the folder in the fixture moved
-  // from '\TaskHub' to '\Cronsole' with the rename — the signed input changed, so
-  // the signature had to. **That is the only circumstance in which it may be
-  // updated.** Both implementations recomputed it independently and produced the
+  // This constant has changed exactly twice, both times because the signed INPUT
+  // changed: on 2026-07-31 the fixture's folder moved '\TaskHub' -> '\Cronsole'
+  // with the rename, and on 2026-08-04 the createFolder flag joined the message
+  // after `folder`. **Those are the only circumstances in which it may be
+  // updated.** Both regenerations were validated by first reproducing the
+  // PREVIOUS committed vectors from the previous format — a generator that
+  // can't reproduce what's already in the repo emits new values that are
+  // confidently wrong and then get pinned by both suites, i.e. a lie agreed on
+  // twice. Both implementations then recomputed independently and produced the
   // same value; the disagreement was with the frozen constant, not between the
   // languages, which is exactly what this vector exists to distinguish. Never
   // "fix" a mismatch here by pasting in whatever one side currently emits — a
   // divergence between C# and TypeScript is the bug it is built to catch.
-  createSig: '4acf5293fb4eb868661d5d73959bf585a391a837468e0334d91893fc8be071b6',
+  createSig: 'e3c75a695f47bd2c3324cff295543b5b2b846efeb6f27e1b53939017a44ddb8c',
   // Same command with a Weekly trigger -> canonical
   // 'trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D'.
-  createSigWithTrigger: '04496da442e7d4d0ed416ad1923b7a366cd9834129f2ece220a4abf962bd4aea',
+  createSigWithTrigger: '0071cff5171a0dacafaf07673b372867e7ab2e5ebaebbf66af24139b762295a9',
+  // Same command as createSig but with createFolder TRUE. Pinned separately and
+  // deliberately: with only a false case, an implementation that hard-coded '0'
+  // — or dropped the field entirely and happened to match — would pass. Two
+  // cases differing in exactly one bit are what prove the bit is actually signed.
+  createSigWithFolderCreate: 'd525bcc9f125bb4c77db4c53f6110946fb71884f949f5ffa7636582dfb2337fe',
   // task:import signs the XML BY HASH, plus both blast-radius flags. Golden
   // case: the XML below, overwrite false, createFolders true.
   importXml: '<Task><RegistrationInfo><URI>\\Work\\Job</URI></RegistrationInfo></Task>',
@@ -121,6 +132,7 @@ describe('agentAuth cross-language vector', () => {
           action: { executable: 'dir', args: [] },
           trigger: null,
           folder: '\\Cronsole',
+          createFolder: false,
         },
         VEC.createSig,
       ],
@@ -138,8 +150,25 @@ describe('agentAuth cross-language vector', () => {
             repetition: { interval: 'PT30M', duration: 'P1D' },
           },
           folder: '\\Cronsole',
+          createFolder: false,
         },
         VEC.createSigWithTrigger,
+      ],
+      // Identical to the createSig case above except createFolder — so the pair
+      // proves the flag reaches the signature, not merely that the message is
+      // stable.
+      [
+        {
+          event: 'task:create',
+          name: 'Job',
+          schedule: '0 3 * * *',
+          command: 'dir',
+          action: { executable: 'dir', args: [] },
+          trigger: null,
+          folder: '\\Cronsole',
+          createFolder: true,
+        },
+        VEC.createSigWithFolderCreate,
       ],
       [
         {

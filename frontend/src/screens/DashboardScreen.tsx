@@ -5,7 +5,6 @@ import {
   RefreshCw,
   Loader2,
   Info,
-  Clock,
   Folder,
   Tag,
   Eye,
@@ -26,6 +25,7 @@ import {
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
+import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskSelectCheckbox } from '../components/TaskSelectCheckbox';
 import { BulkActionBar } from '../components/BulkActionBar';
@@ -1024,6 +1024,7 @@ export const DashboardScreen = ({
                           </span>
                         </div>
                         <h4 className="font-bold text-foreground text-sm truncate">{task.name}</h4>
+                        <TaskSchedule task={task} size="xs" />
                         <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
                           <span className="text-[9px] text-subtle-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
@@ -1082,6 +1083,7 @@ export const DashboardScreen = ({
                           </span>
                         </div>
                         <h4 className="font-bold text-muted-foreground text-sm truncate">{task.name}</h4>
+                        <TaskSchedule task={task} size="xs" />
                         <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
                           <span className="text-[9px] text-subtle-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
@@ -1117,7 +1119,6 @@ export const DashboardScreen = ({
                 ) : (
                   scheduledTasks.map(task => {
                     const nextRun = (task.metadata as TaskMeta)?.nextRunTime || (task.metadata as TaskMeta)?.nextRun || null;
-                    const scheduleStr = task.schedule || (task.metadata as TaskMeta)?.schedule || 'No direct schedule';
                     return (
                       <div key={task.id} className="relative group">
                         {/* Timeline node */}
@@ -1142,7 +1143,7 @@ export const DashboardScreen = ({
                               </div>
                               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-subtle-foreground">
                                 <span className="flex items-center gap-1"><Folder size={12} /> {task.category || 'Uncategorized'}</span>
-                                <span className="flex items-center gap-1 font-mono text-foreground/80"><Clock size={12} /> {scheduleStr}</span>
+                                <TaskSchedule task={task} />
                               </div>
                             </div>
                             

@@ -41,6 +41,27 @@ describe('TaskCard Component', () => {
     expect(screen.getByText('ACTIVE')).toBeInTheDocument();
   });
 
+  // --- schedule preview (added 2026-08-11) ---
+  //
+  // The card is the surface most people read; it has to answer "when does this
+  // run?" without a click. Settings default to Pacific, so a UTC cron is shown
+  // shifted — the same reading the detail modal gives.
+
+  it('shows the schedule in words on the card', () => {
+    renderCard({ ...mockTask, schedule: '0 15 * * *' });
+    expect(screen.getByText(/^Daily at 8:00 AM P[DS]T$/)).toBeInTheDocument();
+  });
+
+  it('shows the raw cron when the shape is one describeCron will not guess at', () => {
+    renderCard({ ...mockTask, schedule: '0 4 1 * *' });
+    expect(screen.getByText('0 4 1 * *')).toBeInTheDocument();
+  });
+
+  it('says there is no cron schedule rather than rendering nothing', () => {
+    renderCard();
+    expect(screen.getByText('No cron schedule')).toBeInTheDocument();
+  });
+
   it('shows a red indicator when the last run failed', () => {
     renderCard({ ...mockTask, lastRunStatus: 'FAILURE', lastRunAt: '2026-07-07T16:00:00Z' });
     expect(screen.getByText('Run failed')).toBeInTheDocument();

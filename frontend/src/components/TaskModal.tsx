@@ -8,7 +8,7 @@ import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { Modal } from './ui/Modal';
 import { useSettings, type TimezoneMode } from '../hooks/useSettings';
-import { describeCron } from '../utils/schedule';
+import { describeCron, taskCron } from '../utils/schedule';
 import { hhmmInZone, resolveZone, zoneAbbrev, zoneLabel } from '../utils/timezone';
 import { isRunnable, runButtonTitle } from '../utils/taskActions';
 import { EditScheduleModal } from './EditScheduleModal';
@@ -75,7 +75,9 @@ const humanizeIso = (iso: string): string => {
 
 function scheduleInfo(task: Task, tz: TimezoneMode): { cron: string | null; human: string | null; rows: DetailRow[] } {
   const meta = (task.metadata ?? {}) as Meta;
-  const cron = asText(task.schedule) ?? asText(meta.schedule) ?? asText(meta.cron) ?? null;
+  // Same lookup the card previews use, so the two can't disagree about whether
+  // this task has a schedule at all.
+  const cron = taskCron(task);
   const human = describeCron(cron, tz);
   const rows: DetailRow[] = [];
   const trig = meta.trigger as Meta | undefined;

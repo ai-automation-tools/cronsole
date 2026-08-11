@@ -14,6 +14,12 @@ Each task is represented by a card showing:
 *   **Status Indicator:** A green dot for `ACTIVE` tasks and a gray dot for `DISABLED` tasks.
 *   **Local Category:** A folder icon showing the Cronsole-specific category.
 *   **External ID:** The native path or ID used by the source platform.
+*   **Schedule:** When the task runs, in plain words — *"Daily at 8:00 AM PDT"* — read in your
+    **schedule timezone** (Settings › Schedule timezone), the same reading the details modal gives.
+    Two other things it may say, both facts rather than gaps: a **raw cron expression**, when the
+    schedule is a shape Cronsole won't put into words rather than guess at it; and **"No cron
+    schedule"**, when the task runs on a trigger cron can't express at all (boot, logon, an event,
+    or on demand only). Hover for the stored UTC cron behind the reading.
 *   **Last Updated:** The last time Cronsole synced state for this task.
 
 ### Quick Actions

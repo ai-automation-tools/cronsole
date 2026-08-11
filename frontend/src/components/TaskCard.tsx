@@ -4,6 +4,7 @@ import type { Task } from '../types';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { TaskRowActions } from './TaskRowActions';
 import { TaskSelectCheckbox } from './TaskSelectCheckbox';
+import { TaskSchedule } from './TaskSchedule';
 
 interface TaskCardProps {
   task: Task;
@@ -89,7 +90,8 @@ export const TaskCard = ({
         </div>
       </div>
       <h3 className="font-bold text-lg mb-1 truncate">{task.name}</h3>
-      <p className="text-xs text-subtle-foreground mb-6 italic truncate">{task.externalId}</p>
+      <p className="text-xs text-subtle-foreground mb-3 italic truncate">{task.externalId}</p>
+      <TaskSchedule task={task} className="mb-5" />
       <div className="flex items-center justify-between border-t border-border pt-4">
         <div className="text-[10px] text-muted-foreground">
           Last updated: <span className="text-foreground">{new Date(task.updatedAt).toLocaleTimeString()}</span>

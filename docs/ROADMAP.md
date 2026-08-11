@@ -25,12 +25,11 @@ belongs in the CHANGELOG.
 
 1. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
    deliberately-skipped `version` fields in the package manifests.
-2. **Live browser click-through of the ships that only have test coverage** — Execution analytics
-   on the Tools tab and the Import-defaults modal, both 2026-07-31. *(The three bulk verbs were
-   clicked through 2026-08-04 and found a real defect; the export's directory-picker branch is
-   still undriven — it opens a native dialog.)*
-3. **Restore's plan doesn't check that a task's action points at anything that exists** — the
+2. **Restore's plan doesn't check that a task's action points at anything that exists** — the
    advisory resolvability column, logged 2026-07-31 (see P2 Open).
+3. **Bulk export's directory-picker branch is still undriven** — the one part of the Tools tab no
+   click-through has reached, because it opens a native dialog. Low priority; noted so its absence
+   stays visible rather than being mistaken for coverage.
 
 ---
 
@@ -49,6 +48,12 @@ belongs in the CHANGELOG.
 - [ ] **System-status honesty — residual** *(mostly shipped 2026-07-08)*: live per-platform health,
       the "synced N ago" chip and the honest Sync/Import split all ship; what remains is periodic
       review that no status surface has drifted back to asserting something it can't evidence.
+      **The review found one on 2026-08-11 and it is fixed** — `getHealth` reported `HEALTHY` from a
+      socket object existing and stamped `lastSync: new Date()`, so a wedged agent read as online and
+      "synced just now" while every request against it timed out
+      ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
+      Keep the item open: the lesson is that this class returns, and the tell is a status field
+      derived from a precondition that cannot change when the subject fails.
 
 <details>
 <summary>Completed P1 items</summary>
@@ -150,6 +155,11 @@ belongs in the CHANGELOG.
 - [x] Run history export (CSV) + automation health score *(2026-07-28)*
 - [x] Schedule tester — shows what you asked for **and** what will actually run *(2026-07-31)*
 - [x] Richer execution analytics — failure trend, duration trend, idle-task list *(2026-07-31)*
+- [x] Live browser click-through of Execution analytics + the Import-defaults modal — every rendered
+      number checked against the API; found four defects, all fixed: platform health asserting
+      HEALTHY/"synced just now" from socket presence ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)),
+      the idle all-clear rendering beside its own contradiction, an empty platform heading in the
+      Import modal, and `1 tasks` *(2026-08-11)*
 
 </details>
 

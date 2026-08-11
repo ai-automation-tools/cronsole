@@ -179,7 +179,12 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                 </p>
               </div>
             )}
-            {discovery?.map(platform => (
+            {/* A platform with nothing to offer gets no heading. Rendering one
+                anyway put a bare "CRONSOLE" label above an empty space — and in
+                the agent-offline case it landed directly under "No tasks
+                discovered", so the modal denied and promised a list at once. A
+                section header is a claim that there is a section. */}
+            {discovery?.filter(p => p.categories.length > 0).map(platform => (
                <div key={platform.platform} className="space-y-2 mb-6 last:mb-0">
                   {/* platformLabel, not the raw enum: `TASKHUB_NATIVE`.replace(/_/g,' ')
                       rendered "TASKHUB NATIVE" here long after the product became Cronsole,
@@ -215,7 +220,7 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                               +{cat.excludedCount} removed
                             </span>
                           )}
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-colors ${selected.includes(cat.name) ? 'bg-primary/20 border-primary/20 text-foreground' : 'bg-surface border-border text-subtle-foreground'}`}>{cat.count} tasks</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-colors ${selected.includes(cat.name) ? 'bg-primary/20 border-primary/20 text-foreground' : 'bg-surface border-border text-subtle-foreground'}`}>{cat.count} task{cat.count === 1 ? '' : 's'}</span>
                         </div>
                         <input type="checkbox" className="hidden" checked={selected.includes(cat.name)} onChange={() => toggle(cat.name)} />
                       </label>

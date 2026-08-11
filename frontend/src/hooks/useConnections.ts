@@ -13,7 +13,10 @@ export function useConnections() {
       const res = await api.get('/tasks/health');
       return res.data;
     },
-    // getHealth pings each connector; 45s keeps status fresh without hammering.
+    // 45s keeps status fresh without hammering. Note this does NOT ping the
+    // agent — the server reports from evidence it already has (the last event
+    // the agent sent, versus the last request that timed out), so polling
+    // faster would not buy a fresher verdict, only more requests.
     refetchInterval: 45_000,
     staleTime: 30_000,
   });

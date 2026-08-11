@@ -579,18 +579,31 @@ router.get('/health', async (req: Request, res: Response) => {
     const connector = connectorRegistry.getConnector(conn.platform);
     if (connector) {
       const health = await connector.getHealth({ ...deserializeConfig(conn.config), userId });
+      // A health probe is not a sync. When the connector has no fresher
+      // first-hand evidence it reports no `lastSync` at all, and the stored
+      // column — written by POST /sync, where a sync really happened — is the
+      // honest answer. Reporting the probe's own timestamp is what made this
+      // endpoint say "synced just now" about an agent that was answering nothing.
+      const lastSync = health.lastSync ?? conn.lastSync ?? undefined;
       results.push({
         platform: conn.platform,
-        ...health
+        ...health,
+        lastSync
       });
 
-      // Update health in DB
+      // Update health in DB. `lastSync` is deliberately not written here: this
+      // endpoint observes, it does not sync. (Prisma treats `undefined` as
+      // "leave alone", so the stored value survives regardless — but saying so
+      // by omission is what troubleshooting #22 warns against.)
       await prisma.platformConnection.update({
         where: { id: conn.id },
         data: {
           healthState: health.state,
-          healthReason: health.reason,
-          lastSync: health.lastSync
+          // `?? null` and not bare `health.reason`: Prisma reads `undefined` as
+          // "leave this column alone", so a recovered platform would keep the
+          // reason from the last time it was unhealthy — a stale explanation
+          // filed under a healthy state.
+          healthReason: health.reason ?? null
         }
       });
     }
@@ -687,6 +700,26 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
         if (conn.platform !== 'TASKHUB_NATIVE' && allExternalIds.length > 0) {
           missing = await TaskService.reconcileMissingTasks(userId, conn.platform, allExternalIds);
         }
+
+        // The one place a sync actually happened, so the one place allowed to
+        // stamp it. `lastSync` used to be written only by the health probe,
+        // from a `new Date()` the probe invented — which made the dashboard's
+        // "synced N ago" chip a clock reading rather than a fact. Written here,
+        // after the upsert landed, it means what it says.
+        //
+        // TASKHUB_NATIVE gets `null` for the same reason it is skipped by
+        // reconciliation above: its connector returns [] because this database
+        // IS the source of truth, so there is no external state to be stale
+        // against. It is cleared rather than left alone because the chip takes
+        // the newest lastSync across ALL platforms — so the fabricated values
+        // the old probe already wrote would keep the whole dashboard reading
+        // "synced just now" however stale Windows really was. `null` renders as
+        // "Never" in Settings, which is exactly true: it has never synced,
+        // because there is nothing for it to sync from.
+        await prisma.platformConnection.update({
+          where: { id: conn.id },
+          data: { lastSync: conn.platform === 'TASKHUB_NATIVE' ? null : new Date() }
+        });
 
         results.push({ platform: conn.platform, count: tasks.length, missing, untracked, exclusionsCleared });
       } catch (err: any) {

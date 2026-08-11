@@ -64,6 +64,7 @@ export class WindowsAgentConnector implements PlatformConnector {
       // Timeout after 15s
       setTimeout(() => {
         socket.off('task:full_list', handler);
+        agentManager.markUnresponsive(userId, 'task:list');
         reject(new Error('Agent sync timeout'));
       }, 15000);
     });
@@ -93,6 +94,7 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:executed', handler);
+        agentManager.markUnresponsive(userId, 'task:run');
         resolve({ success: false, message: 'Agent trigger timeout' });
       }, 15000);
     });
@@ -122,6 +124,7 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:deleted', handler);
+        agentManager.markUnresponsive(userId, 'task:delete');
         resolve({ success: false, message: 'Agent delete timeout' });
       }, 15000);
     });
@@ -161,6 +164,7 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:folders_list', handler);
+        agentManager.markUnresponsive(userId, 'task:folders');
         resolve({ success: false, folders: [], message: 'Agent folder list timeout' });
       }, 15000);
     });
@@ -193,6 +197,7 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:exported', handler);
+        agentManager.markUnresponsive(userId, 'task:export');
         resolve({ success: false, message: 'Agent export timeout' });
       }, 15000);
     });
@@ -249,6 +254,7 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:imported', handler);
+        agentManager.markUnresponsive(userId, 'task:import');
         resolve({
           success: false,
           outcome: 'refused',
@@ -283,6 +289,7 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:status_set', handler);
+        agentManager.markUnresponsive(userId, 'task:set_status');
         resolve({ success: false, message: 'Agent status update timeout' });
       }, 15000);
     });
@@ -312,6 +319,7 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:schedule_updated', handler);
+        agentManager.markUnresponsive(userId, 'task:update_schedule');
         resolve({ success: false, message: 'Agent schedule update timeout' });
       }, 15000);
     });
@@ -350,11 +358,33 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:updated', handler);
+        agentManager.markUnresponsive(userId, 'task:update');
         resolve({ success: false, message: 'Agent action update timeout' });
       }, 15000);
     });
   }
 
+  /**
+   * Health from evidence, not from the socket existing.
+   *
+   * This used to return `HEALTHY` whenever a socket object was present and
+   * stamp `lastSync: new Date()` — a timestamp created by the act of asking.
+   * A wedged agent therefore reported healthy and "synced just now" forever
+   * while every request against it timed out (troubleshooting #40).
+   *
+   * Three states, each earned:
+   *  - no socket                    → OFFLINE. Nothing is connected.
+   *  - a request timed out most recently → DEGRADED, naming the verb. The
+   *    handshake proved the agent was alive once; a later timeout is newer
+   *    evidence and outranks it.
+   *  - otherwise                    → HEALTHY, justified by the authenticated
+   *    handshake or a real response.
+   *
+   * `lastSync` is only ever a real inbound-event time. When the agent has
+   * connected but not yet answered anything it is **absent**, not now — the
+   * dashboard then shows no "synced" chip rather than a fabricated one.
+   * Connected is not synced.
+   */
   async getHealth(config: any): Promise<ConnectorHealth> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
@@ -363,7 +393,19 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { state: HealthState.OFFLINE, reason: 'Agent not connected' };
     }
 
-    return { state: HealthState.HEALTHY, lastSync: new Date() };
+    const liveness = agentManager.getLiveness(userId);
+    const lastSync = liveness?.lastResponseAt;
+    const failedAt = liveness?.lastFailureAt;
+
+    if (failedAt && (!lastSync || failedAt > lastSync)) {
+      return {
+        state: HealthState.DEGRADED,
+        reason: `Agent connected but not responding (${liveness?.lastFailureVerb ?? 'last request'} timed out)`,
+        lastSync
+      };
+    }
+
+    return { state: HealthState.HEALTHY, lastSync };
   }
 
   async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated: string[] }> {
@@ -425,6 +467,7 @@ export class WindowsAgentConnector implements PlatformConnector {
 
       setTimeout(() => {
         socket.off('task:created', handler);
+        agentManager.markUnresponsive(userId, 'task:create');
         resolve({ success: false, message: 'Agent creation timeout', foldersCreated: [] });
       }, 15000);
     });

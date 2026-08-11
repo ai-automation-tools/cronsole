@@ -324,12 +324,16 @@ Cronsole — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection 
 
 ## 6. System Status & Connections
 
-- **Sidebar:** Shows a live per-platform health summary (Online / Degraded / Offline) driven by real connection checks, plus a "synced N ago" indicator.
-- **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand.
+- **Sidebar:** Shows a live per-platform health summary plus a "synced N ago" indicator. The three states mean different things, and the difference matters:
+  - **Online** — the agent is connected and has not failed to answer.
+  - **Degraded** — the agent is *connected but not answering*: a request to it timed out, and the reason names which one. This is the state that used to read as Online. An agent can be running, with a healthy-looking connection, and still be wedged — so if things that need the agent are failing while the dot is green, look here first, then restart the stack ([troubleshooting #40](../../troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
+  - **Offline** — nothing is connected.
+- **"synced N ago" is about syncing, not about being connected.** It appears only once a sync has actually happened, so a freshly connected agent shows **no** indicator rather than "just now". If it is missing, nothing has been pulled from that platform yet — run **Sync Now**. Cronsole-native never shows one at all: its tasks live in Cronsole's own database, so there is nothing for it to sync *from*, and Settings shows its last sync as **Never** on purpose.
+- **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand. **Check now** re-reads status; it does not sync, so it will not change "synced N ago".
 - **Settings → About → API origin:** Shows the backend URL the dashboard is using. You can override it in the browser when testing a different backend; **Reset** returns to the configured `VITE_API_URL` default.
 - **Sync vs. Import:** **Sync Now** re-pulls status and schedules for categories you already track; **Import** opens the discovery picker to add new tasks. **Sync Now cannot discover a folder you don't already track** — that's what Import is for.
 - **"N tasks aren't imported":** because of the above, tasks can exist on your machine that Cronsole is deliberately ignoring. Sync Now now tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. If you don't want them, Import is not required — the message is informational, and it disappears once nothing is outstanding.
 
 ---
 
-*Last Updated: July 28, 2026*
+*Last Updated: August 11, 2026*

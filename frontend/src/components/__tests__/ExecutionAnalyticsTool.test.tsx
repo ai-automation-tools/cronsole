@@ -253,8 +253,57 @@ describe('ExecutionAnalyticsTool', () => {
     expect(await screen.findByText('1 system hidden')).toBeInTheDocument();
     expect(screen.queryByText('AikCertEnrollTask')).not.toBeInTheDocument();
 
+    // Hiding a row must not turn into a claim that the row does not exist. This
+    // assertion is the point of the test: the previous version only checked what
+    // SHOULD appear, so the card rendering "every scheduled task has run
+    // recently" beside "1 system hidden" passed for months.
+    expect(screen.queryByText(/Every scheduled task has run recently/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/1 system task is idle/)).toBeInTheDocument();
+
     fireEvent.click(screen.getByText('1 system hidden'));
     expect(await screen.findByText('AikCertEnrollTask')).toBeInTheDocument();
+  });
+
+  it('reveals the hidden idle tasks when the scoped message is used as the way in', async () => {
+    // The scoped message names a number the reader cannot otherwise act on, so
+    // the number itself has to be the control that shows them.
+    respond({
+      idle: {
+        thresholdDays: 30,
+        tasks: [
+          {
+            taskId: 'm1',
+            name: 'AikCertEnrollTask',
+            platform: 'WINDOWS_TASK_SCHEDULER',
+            category: 'Microsoft',
+            isSystem: true,
+            lastRunAt: '2026-06-13T03:00:00.000Z',
+            daysSinceLastRun: 45,
+            evidence: 'Windows reported a last run at 2026-06-13T03:00:00.000Z'
+          }
+        ],
+        unassessed: []
+      }
+    });
+    renderTool();
+
+    await screen.findByText('Runs');
+    switchTo(/idle/i);
+
+    fireEvent.click(await screen.findByText(/1 system task is idle/));
+    expect(await screen.findByText('AikCertEnrollTask')).toBeInTheDocument();
+  });
+
+  it('still gives the plain all-clear when nothing at all is idle', async () => {
+    // The scoping must not cost the honest good-news case its clarity.
+    respond({ idle: { thresholdDays: 30, tasks: [], unassessed: [] } });
+    renderTool();
+
+    await screen.findByText('Runs');
+    switchTo(/idle/i);
+
+    expect(await screen.findByText(/Every scheduled task has run recently/i)).toBeInTheDocument();
+    expect(screen.queryByText(/system hidden/)).not.toBeInTheDocument();
   });
 
   it('reports what it did not assess, so an empty list is not read as all-clear', async () => {

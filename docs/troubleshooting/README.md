@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 40 | The sidebar says Windows is **Online** and *"synced just now"*, while `/api/tasks/folders` 502s, `/discover` omits the Windows platform entirely, and the backend log reads `Agent sync timeout` | The agent is **wedged**: connected but not answering. `getHealth` asserted `HEALTHY` from a socket object existing (Socket.IO's heartbeat is answered by the transport, not by the agent's command loop) and stamped `lastSync: new Date()` — a timestamp created by the act of asking, so it could never be stale and never be true. Fixed to report from real evidence; recover a wedged agent with `pwsh scripts/cronsole.ps1 restart`, then confirm `/api/tasks/health`. The **inverse** lie is [#5](#5-windows-offline-after-running-a-transient-test-agent)/[#37](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) | [→](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) |
 | 36 | **Every** Playwright E2E spec fails on a dashboard heading that plainly exists, against a stack that is healthy — `4 failed, 5 did not run` | `VITE_DEV_TOKEN` in `frontend/.env.local` is **empty**, signed with a rotated `JWT_SECRET`, or names a `User.id` that doesn't exist — so the browser sits on the login screen. The suite has no login step by design. **The tell is the page snapshot in `test-results/*/error-context.md` showing a Sign in form.** E2E is the one suite not in CI, so this disables the whole full-stack gate while everything else stays green | [→](#36-every-playwright-e2e-test-fails-on-a-heading-that-exists--the-browser-is-sitting-on-the-login-screen) |
 | 37 | The E2E suite passes 9/9 and your **real** Windows agent is offline immediately afterwards — and stays offline | [#5](#5-windows-offline-after-running-a-transient-test-agent) reached through the test suite: `mock-agent.spec.ts` takes the single per-user agent socket and clears the mapping on disconnect. The agent process stays UP, so every process-level check lies. `pwsh scripts/cronsole.ps1 restart`, then **check `/api/tasks/health` as the last step of the run** | [→](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) |
 | 1 | Backend crash-loops on startup with an opaque `[Object: null prototype] {}` uncaught exception | `ts-node` can't parse the installed TypeScript version | [→](#1-backend-crash-loops-with-object-null-prototype) |
@@ -2541,6 +2542,81 @@ moving a file whose mtime predates the build.
 > and the three-things-that-run-stale rule: the artifact that runs is not the source you edited.
 
 *First hit: 2026-08-04, mutation-checking the signed `createFolder` flag on `task:create`.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 40. The sidebar says Windows is **Online** and "synced just now" while every agent request times out
+
+**Symptom.** The dashboard shows `Windows ● Online`, the header reads *"synced just now"*, and
+`GET /api/tasks/health` returns `{"platform":"WINDOWS_TASK_SCHEDULER","state":"HEALTHY","lastSync":"<a second ago>"}`.
+At the same moment nothing that needs the agent works:
+
+- `GET /api/tasks/folders` → `502 {"error":"Could not list folders"}`
+- `GET /api/tasks/discover` → `[{"platform":"TASKHUB_NATIVE","categories":[]}]` — the Windows
+  platform is **absent from the response entirely**, so the Import modal says *"No tasks
+  discovered — the Windows agent may be offline"* two inches below the sidebar saying it is online.
+- `logs/backend.err.log` → `[Discovery] Error for WINDOWS_TASK_SCHEDULER: Error: Agent sync timeout`
+
+The `Cronsole.Agent` process is running, so `cronsole.ps1 status` reports it UP too.
+
+**Cause.** Two separate fabrications in one four-line function:
+
+```ts
+// before — WindowsAgentConnector.getHealth
+const socket = agentManager.getSocket(userId);
+if (!socket) return { state: HealthState.OFFLINE, reason: 'Agent not connected' };
+return { state: HealthState.HEALTHY, lastSync: new Date() };   // ← both of them
+```
+
+1. **`HEALTHY` was asserted from a socket object existing.** Socket.IO's heartbeat is answered by
+   the *transport*, so an agent whose command loop has wedged keeps a perfectly healthy socket while
+   answering nothing. Presence of a socket is evidence the agent connected once — it is not evidence
+   it is still working.
+2. **`lastSync: new Date()` was a timestamp created by the act of asking.** Nothing synced. And
+   because `PlatformConnection.lastSync` was written *only* here, the column never held a real sync
+   time either — while the dashboard's "synced N ago" chip takes the newest `lastSync` across all
+   connections, so the native connector (which does the same thing and never syncs at all) pinned
+   the chip to "just now" regardless.
+
+**Fix.** Report from evidence the agent actually produced. `AgentManager` now records
+`lastResponseAt` (set centrally by `socket.onAny` — every inbound event) against `lastFailureAt`
+(set at each of the connector's ten request timeouts, naming the verb), and whichever is newer wins:
+
+| Evidence | State |
+|:---|:---|
+| no socket | `OFFLINE` |
+| newest evidence is a timeout | `DEGRADED` — *"Agent connected but not responding (task:list timed out)"* |
+| otherwise | `HEALTHY` |
+
+`lastSync` is now only ever a real timestamp: the agent's last inbound event, else the stored column
+written by `POST /api/tasks/sync` where a sync genuinely happened, else **absent**. A connected agent
+that has answered nothing reports no `lastSync` at all — the chip disappears rather than lying.
+**Connected is not synced.**
+
+**Recovery, when you hit the wedged state itself:** `pwsh scripts/cronsole.ps1 restart`, then confirm
+`/api/tasks/health` reports `HEALTHY` — same remedy as
+[#5](#5-windows-offline-after-running-a-transient-test-agent) and
+[#37](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way),
+which produce the *opposite* lie (a stranded socket reporting OFFLINE while the agent runs).
+
+**Why no test caught it.** Every existing `getHealth` test asserted the socket-present branch
+returned `HEALTHY` — they pinned the bug as the specification. There was no case for "socket present,
+agent not answering", because the code had no way to represent it.
+
+> [!TIP]
+> **Generalizable: a status surface must report evidence, not preconditions.** "A socket exists"
+> and "a config is non-empty" are preconditions for health, not health — and neither is falsified by
+> the thing actually being broken. The tell is a status field derived from something that cannot
+> change when the subject fails. Its sharpest form is a **timestamp generated by the observer**:
+> `lastSync: new Date()` inside a health check can never be stale, which is exactly why it can
+> never be true. Same family as [#23a](#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving)
+> (a probe that couldn't run reported the service down) and
+> [#38](#38-a-row-of-summary-numbers-doesnt-add-up--one-of-them-counts-a-different-population).
+
+*First hit: 2026-08-11, clicking through the Tools tab and the Import modal for the roadmap's
+live-verification item.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

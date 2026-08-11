@@ -76,9 +76,13 @@ export class ClaudeConnector implements PlatformConnector {
     if (!config || !config.routines || config.routines.length === 0) {
       return { state: HealthState.DEGRADED, reason: 'No routines configured' };
     }
-    // We could potentially try a dry-run or check one token,
-    // but for now we'll assume healthy if config exists.
-    return { state: HealthState.HEALTHY, lastSync: new Date() };
+    // We could potentially try a dry-run or check one token, but for now we'll
+    // assume healthy if config exists. That assumption is why there is no
+    // `lastSync` here: nothing has been fetched, so any timestamp would be
+    // invented. This connector is still an experimental scaffold — when it
+    // makes a real call, report the time of that call and derive the state
+    // from it rather than from the config being non-empty.
+    return { state: HealthState.HEALTHY };
   }
 
   async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }> {

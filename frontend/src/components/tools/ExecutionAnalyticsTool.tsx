@@ -423,9 +423,34 @@ export const ExecutionAnalyticsTool = () => {
           </div>
 
           {idleVisible.length === 0 ? (
-            <div className="text-sm text-emerald-500 font-semibold">
-              Every scheduled task has run recently.
-            </div>
+            /*
+             * The all-clear is only the all-clear when there is genuinely
+             * nothing idle. If every idle task happens to be one of Windows'
+             * own, filtering them out empties the list — and printing "every
+             * scheduled task has run recently" next to "N system hidden" states
+             * a fact and its own contradiction in the same breath.
+             *
+             * So the message is scoped to the population it actually describes.
+             * Same rule as the health card summing to a different total than its
+             * label (troubleshooting #38): never let a filtered list narrate an
+             * unfiltered claim.
+             */
+            idleSystemHidden > 0 ? (
+              <div className="text-sm text-muted-foreground">
+                No idle tasks outside Windows' own —{' '}
+                <button
+                  onClick={() => setIncludeSystem(true)}
+                  className="font-semibold text-foreground hover:text-primary transition-colors underline underline-offset-2"
+                >
+                  {idleSystemHidden} system task{idleSystemHidden === 1 ? ' is' : 's are'} idle
+                </button>
+                .
+              </div>
+            ) : (
+              <div className="text-sm text-emerald-500 font-semibold">
+                Every scheduled task has run recently.
+              </div>
+            )
           ) : (
             <ul className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-72 overflow-y-auto">
               {idleVisible.map(task => (

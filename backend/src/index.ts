@@ -50,6 +50,12 @@ io.on('connection', (socket: Socket) => {
 
   agentManager.registerAgent(userId, socket);
 
+  // Every inbound event is evidence this agent is still answering. Hooked once
+  // here rather than in each connector handler: the connectors already listen
+  // per-request and would each have to remember, and a verb that forgot would
+  // make an active agent look wedged. `onAny` cannot miss one.
+  socket.onAny(() => agentManager.markResponsive(userId));
+
   // We no longer emit 'task:list' here to prevent auto-sync on startup/connection.
   // Sync is now explicitly triggered by the user via the frontend.
 

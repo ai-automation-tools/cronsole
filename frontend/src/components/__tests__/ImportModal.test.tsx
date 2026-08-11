@@ -186,6 +186,46 @@ describe('ImportModal Component', () => {
     expect(screen.queryByText(/WINDOWS TASK SCHEDULER/i)).not.toBeInTheDocument();
   });
 
+  it('gives no heading to a platform that discovered nothing', async () => {
+    // The live shape: Cronsole-native reports zero categories on every machine
+    // with no native tasks, so a bare "Cronsole" heading sat above empty space.
+    vi.mocked(api.get).mockResolvedValue({
+      data: [
+        { platform: 'TASKHUB_NATIVE', categories: [] },
+        { platform: 'WINDOWS_TASK_SCHEDULER', categories: [{ name: 'Backup', count: 3 }] }
+      ]
+    });
+    renderModal();
+
+    await waitFor(() => expect(screen.getByText('Windows')).toBeInTheDocument());
+    expect(screen.queryByText('Cronsole')).not.toBeInTheDocument();
+  });
+
+  it('does not contradict "No tasks discovered" with a heading underneath it', async () => {
+    // The agent-offline case. Every platform is empty, so the modal says so —
+    // and must not then print a section header promising a list.
+    vi.mocked(api.get).mockResolvedValue({
+      data: [{ platform: 'TASKHUB_NATIVE', categories: [] }]
+    });
+    renderModal();
+
+    await waitFor(() => expect(screen.getByText('No tasks discovered')).toBeInTheDocument());
+    expect(screen.queryByText('Cronsole')).not.toBeInTheDocument();
+  });
+
+  it('says "1 task", not "1 tasks"', async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: [{
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        categories: [{ name: 'Solo', count: 1 }, { name: 'Several', count: 4 }]
+      }]
+    });
+    renderModal();
+
+    await waitFor(() => expect(screen.getByText('1 task')).toBeInTheDocument());
+    expect(screen.getByText('4 tasks')).toBeInTheDocument();
+  });
+
   it('does not log the discovery payload — it carries task names and native paths', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.mocked(api.get).mockResolvedValue({ data: mockDiscovery });

@@ -61,7 +61,12 @@ export class CronsoleNativeConnector implements PlatformConnector {
 
   async getHealth(_config: any): Promise<ConnectorHealth> {
     // The scheduler runs in-process with this server; if we can answer, it's up.
-    return { state: HealthState.HEALTHY, lastSync: new Date() };
+    // No `lastSync`: native tasks are not synced from anywhere — they live in
+    // this database. Stamping `new Date()` here would be a timestamp created by
+    // the act of asking, and because the dashboard's "synced N ago" chip takes
+    // the newest lastSync across all connections, this one connector would have
+    // pinned it to "just now" no matter how stale every other platform was.
+    return { state: HealthState.HEALTHY };
   }
 
   async createTask(name: string, schedule: string, command: string, config: any, _options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }> {

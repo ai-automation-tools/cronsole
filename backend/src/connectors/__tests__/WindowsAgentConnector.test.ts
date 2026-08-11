@@ -6,7 +6,10 @@ import { signCommand, type SignableCommand } from '../../ws/agentAuth.js';
 // Mock AgentManager
 vi.mock('../../ws/AgentManager.js', () => ({
   agentManager: {
-    getSocket: vi.fn()
+    getSocket: vi.fn(),
+    markResponsive: vi.fn(),
+    markUnresponsive: vi.fn(),
+    getLiveness: vi.fn()
   }
 }));
 
@@ -750,5 +753,101 @@ describe('WindowsAgentConnector', () => {
     expect(result.success).toBe(false);
     expect(result.message).toBe('Agent creation timeout');
     vi.useRealTimers();
+  });
+
+  /**
+   * Health is a claim about the agent, and the agent is the only thing that can
+   * evidence it. These pin the rule that a socket object is not evidence — the
+   * bug that let a wedged agent report HEALTHY and "synced just now" while every
+   * request against it timed out (troubleshooting #40).
+   */
+  describe('getHealth', () => {
+    const CONFIG = { userId: 'test_user' };
+
+    it('is OFFLINE with no socket', async () => {
+      vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
+
+      const health = await connector.getHealth(CONFIG);
+
+      expect(health.state).toBe('OFFLINE');
+      expect(health.reason).toBe('Agent not connected');
+      expect(health.lastSync).toBeUndefined();
+    });
+
+    it('never invents a lastSync: a connected agent that has answered nothing reports none', async () => {
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({ connectedAt: new Date() });
+
+      const health = await connector.getHealth(CONFIG);
+
+      // Healthy — the authenticated handshake is real evidence it was alive.
+      expect(health.state).toBe('HEALTHY');
+      // But nothing has been synced, so there is no sync time to report.
+      // Connected is not synced.
+      expect(health.lastSync).toBeUndefined();
+    });
+
+    it('reports the real time of the agent\'s last response as lastSync', async () => {
+      const answered = new Date('2026-08-11T10:00:00.000Z');
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({
+        connectedAt: new Date('2026-08-11T09:00:00.000Z'),
+        lastResponseAt: answered
+      });
+
+      const health = await connector.getHealth(CONFIG);
+
+      expect(health.state).toBe('HEALTHY');
+      expect(health.lastSync).toBe(answered);
+    });
+
+    it('is DEGRADED when the newest evidence is a timeout, and names the verb', async () => {
+      // The exact live case: the socket is present and the handshake succeeded,
+      // but discovery timed out afterwards. A later timeout outranks an earlier
+      // handshake — otherwise the wedged agent reads as healthy forever.
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({
+        connectedAt: new Date('2026-08-11T09:00:00.000Z'),
+        lastResponseAt: new Date('2026-08-11T10:00:00.000Z'),
+        lastFailureAt: new Date('2026-08-11T10:05:00.000Z'),
+        lastFailureVerb: 'task:list'
+      });
+
+      const health = await connector.getHealth(CONFIG);
+
+      expect(health.state).toBe('DEGRADED');
+      expect(health.reason).toContain('task:list');
+      // The last real sync is still reported — it happened, it is just older
+      // than the failure. Degraded means "stale", not "we know nothing".
+      expect(health.lastSync).toEqual(new Date('2026-08-11T10:00:00.000Z'));
+    });
+
+    it('is HEALTHY again once a response arrives after a timeout', async () => {
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({
+        connectedAt: new Date('2026-08-11T09:00:00.000Z'),
+        lastFailureAt: new Date('2026-08-11T10:00:00.000Z'),
+        lastFailureVerb: 'task:list',
+        lastResponseAt: new Date('2026-08-11T10:05:00.000Z')
+      });
+
+      const health = await connector.getHealth(CONFIG);
+
+      expect(health.state).toBe('HEALTHY');
+    });
+
+    it('records the agent as unresponsive when a request times out', async () => {
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.useFakeTimers();
+
+      const syncPromise = connector.syncTasks(CONFIG);
+      vi.advanceTimersByTime(15500);
+      await expect(syncPromise).rejects.toThrow('Agent sync timeout');
+
+      // Without this the timeout is invisible to getHealth and the wedged agent
+      // keeps reporting HEALTHY — the whole defect in one assertion.
+      expect(agentManager.markUnresponsive).toHaveBeenCalledWith('test_user', 'task:list');
+      vi.useRealTimers();
+    });
   });
 });

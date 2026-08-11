@@ -84,6 +84,24 @@ getHealth(config): Promise<ConnectorHealth>
 createTask(name, schedule, command, config, options?): Promise<{ success, externalId?, message? }>
 ```
 
+**`getHealth` has a contract beyond its signature, and every connector broke it the same way.**
+`ConnectorHealth` is `{ state, reason?, lastSync? }`, and both optional fields are optional
+*because absence is a legitimate answer*:
+
+- **Derive `state` from evidence the platform produced, never from a precondition.** All three
+  connectors returned `HEALTHY` from something that cannot change when the platform fails — a
+  socket object existing (Windows), being in-process (native), a non-empty config (Claude). A
+  wedged agent therefore read as Online through a run of `Agent sync timeout`s.
+- **Never synthesize `lastSync`.** It is the time the platform last gave you data. A `new Date()`
+  inside a health check can never be stale, which is exactly why it can never be true. If you have
+  no real timestamp, **omit it** — `POST /api/tasks/sync` records the real one.
+- The blast radius is global, not per-connector: the dashboard's *"synced N ago"* chip takes the
+  **newest `lastSync` across every platform**, so one connector inventing a time defeats the
+  honesty of all the others. That is why a connector with nothing to sync from reports none at all.
+
+See the invariants table in [`SKILL.md`](../SKILL.md) and
+[troubleshooting #40](../../../docs/troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out).
+
 **Optional** methods (note the `?`) — a connector only declares what it can honestly do:
 
 ```ts

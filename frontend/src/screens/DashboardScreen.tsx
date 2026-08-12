@@ -16,20 +16,14 @@ import {
   Search,
   X,
   Download,
-  Trash2,
-  Layers
+  Trash2
 } from 'lucide-react';
-import { useNavigate } from 'react-router';
 import type { Task } from '../types';
-import { MAX_TASKS_PER_BULK } from '../utils/massActions';
 import { TaskCard } from '../components/TaskCard';
 import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { TaskRowActions } from '../components/TaskRowActions';
-import { TaskSelectCheckbox } from '../components/TaskSelectCheckbox';
-import { BulkActionBar } from '../components/BulkActionBar';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
-import { BulkCategoryModal } from '../components/BulkCategoryModal';
 import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
@@ -53,12 +47,6 @@ import {
   openingFilters,
   type SavedView
 } from '../utils/savedViews';
-import {
-  pruneResolved,
-  summarizeSelection,
-  toggleSelectAll,
-  toggleTaskSelection
-} from '../utils/taskSelection';
 import { useSettings, type Settings } from '../hooks/useSettings';
 import { useConnections } from '../hooks/useConnections';
 import { useTaskHealthTiers } from '../hooks/useTaskHealthTiers';
@@ -86,11 +74,6 @@ export const DashboardScreen = ({
   statusTogglingId,
   onShowHelp,
   onNewTask,
-  onBulkStatus,
-  onBulkCategory,
-  onBulkUntrack,
-  onBulkExport,
-  isBulkPending,
   settings
 }: {
   onTaskSelect: (task: Task) => void;
@@ -109,19 +92,8 @@ export const DashboardScreen = ({
   statusTogglingId: string | null;
   onShowHelp: () => void;
   onNewTask: () => void;
-  /**
-   * Each resolves to the ids that were actually resolved, so the selection can
-   * be pruned to exactly what still needs attention. Export resolves to nothing
-   * on purpose — it changes no task, so it consumes no rows.
-   */
-  onBulkStatus: (tasks: Task[], status: 'ACTIVE' | 'DISABLED') => Promise<string[]>;
-  onBulkCategory: (tasks: Task[], category: string) => Promise<string[]>;
-  onBulkUntrack: (tasks: Task[]) => Promise<string[]>;
-  onBulkExport: (tasks: Task[]) => Promise<string[]>;
-  isBulkPending: boolean;
   settings: Settings;
 }) => {
-  const navigate = useNavigate();
   const { data: connections } = useConnections();
   // "Last synced" = the most recent per-connection sync timestamp.
   const lastSync = useMemo(() => {
@@ -413,23 +385,6 @@ export const DashboardScreen = ({
     setSearchParams(filtersToParams(filters, next), { replace: true });
   };
 
-  // ---- Bulk selection -----------------------------------------------------
-  //
-  // One id-keyed Set for all four views. That works because all four already
-  // render from `filteredTasks`: grid and list map it, schedule re-sorts it,
-  // kanban partitions it by status. So "what is on screen" has one definition
-  // and selection needs no per-view concept.
-  //
-  // Keyed by id rather than by index or object identity so it survives a refetch
-  // (TanStack Query replaces the objects on every invalidation) and a view
-  // switch.
-  // The rules live in utils/taskSelection.ts as pure functions — the awkward
-  // parts (shift-range order, what happens to a selection when the view changes
-  // under it) are testable there without standing up the whole dashboard.
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  // Anchor for shift-click range selection.
-  const lastClickedId = useRef<string | null>(null);
-
   const scheduledTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
       const aTime = (a.metadata as TaskMeta)?.nextRunTime || (a.metadata as TaskMeta)?.nextRun || a.updatedAt;
@@ -437,63 +392,6 @@ export const DashboardScreen = ({
       return new Date(aTime).getTime() - new Date(bTime).getTime();
     });
   }, [filteredTasks]);
-
-  // Shift-click extends in the order the user is looking at — the schedule view
-  // sorts by next run, so the same two endpoints there bracket a different set.
-  const orderedTasks = viewMode === 'schedule' ? scheduledTasks : filteredTasks;
-
-  const selection = useMemo(
-    () => summarizeSelection(selectedIds, tasks ?? [], filteredTasks),
-    [selectedIds, tasks, filteredTasks]
-  );
-
-  const toggleSelect = (task: Task, event: React.MouseEvent) => {
-    setSelectedIds(prev =>
-      toggleTaskSelection(prev, orderedTasks, task.id, {
-        shiftKey: event.shiftKey,
-        anchorId: lastClickedId.current
-      })
-    );
-    lastClickedId.current = task.id;
-  };
-
-  const clearSelection = () => {
-    setSelectedIds(new Set());
-    lastClickedId.current = null;
-  };
-
-  const toggleSelectAllVisible = () => {
-    setSelectedIds(prev => toggleSelectAll(prev, filteredTasks));
-    lastClickedId.current = null;
-  };
-
-  const allVisibleSelected =
-    filteredTasks.length > 0 && filteredTasks.every(t => selectedIds.has(t.id));
-
-  // Select-all is only offered while the resulting selection is one the bulk
-  // routes would accept. Above the ceiling it is an offer the app cannot keep.
-  const selectAllTooLarge = filteredTasks.length > MAX_TASKS_PER_BULK;
-
-  // Every bulk action acts on the WHOLE selection, including the part this view
-  // isn't showing — the bar has already said how many that is, and acting on
-  // only what happens to be rendered would make the result depend on which view
-  // you were in.
-  const runBulk = async (action: (tasks: Task[]) => Promise<string[]>) => {
-    const resolved = await action(selection.tasks);
-    if (resolved.length > 0) setSelectedIds(prev => pruneResolved(prev, resolved));
-  };
-
-  const runBulkStatus = (status: 'ACTIVE' | 'DISABLED') =>
-    runBulk(tasks => onBulkStatus(tasks, status));
-
-  // The category is collected by a modal rather than a confirm dialog: it needs
-  // a value, and a free-text prompt is how one folder becomes "Backups",
-  // "backups" and "Back ups".
-  const [showBulkCategory, setShowBulkCategory] = useState(false);
-  const applyBulkCategory = async (category: string) => {
-    setShowBulkCategory(false);
-    await runBulk(tasks => onBulkCategory(tasks, category));
-  };
 
   if (isLoading) {
     return (
@@ -712,89 +610,18 @@ export const DashboardScreen = ({
             </div>
           </div>
 
-          {/* Selection: the select-all control lives in the toolbar rather than
-              as a header checkbox, because only here can it name the number it
-              is about to select — the same rule the Import modal follows.
+          {/* Bulk work lives on the Tools tab now, not here.
 
-              **It is capped at what one bulk request can actually do.** Every
-              bulk route refuses above `MAX_TASKS_PER_BULK`, so on a real machine
-              "Select all 269" built a selection whose every button then failed
-              with a 400 — an offer the app could not keep. Past the cap this
-              hands off to the Mass actions console, which is scope-based and
-              batches, rather than pretending the dashboard can do it.
+              Selection was removed from the dashboard on 2026-08-12: a checkbox
+              per row plus a select-all is a second way to express "these tasks",
+              and it was the worse one — it cannot survive into a confirmation as
+              anything a person can check, and it capped out at what a single
+              request would accept. Mass actions is scope-based and batches.
 
-              Per-task selection stays available throughout: the point is to stop
-              *one click* becoming a machine-wide operation, not to make small
-              batches harder. §9's rule cuts both ways — Untrack lives here as
-              the safe neighbour of Delete, and moving it away would push people
-              toward the destructive one. */}
+              The safe-path concern this raised does not apply: "Remove from
+              Cronsole" sits beside "Delete from Windows" in the **task modal**,
+              per task, which is where that pairing always actually lived. */}
           <div className="flex flex-col gap-3">
-            {filteredTasks.length > 0 && (
-              selectAllTooLarge ? (
-                <p className="flex items-center gap-2 text-[11px] font-bold text-subtle-foreground w-fit">
-                  <Layers size={13} className="text-primary" />
-                  <span>
-                    {filteredTasks.length} tasks shown — too many to select at once (one bulk change
-                    tops out at {MAX_TASKS_PER_BULK}).{' '}
-                    <button
-                      onClick={() => navigate('/tools')}
-                      className="text-primary hover:underline font-bold"
-                    >
-                      Use Mass actions
-                    </button>{' '}
-                    for a change this size, or tick the ones you want.
-                  </span>
-                </p>
-              ) : (
-                <label className="flex items-center gap-2 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors cursor-pointer w-fit">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={toggleSelectAllVisible}
-                    aria-label={
-                      allVisibleSelected
-                        ? `Deselect all ${filteredTasks.length} visible tasks`
-                        : `Select all ${filteredTasks.length} visible tasks`
-                    }
-                    className="h-4 w-4 cursor-pointer accent-primary rounded border-border bg-background"
-                  />
-                  {allVisibleSelected
-                    ? `Deselect all ${filteredTasks.length}`
-                    : `Select all ${filteredTasks.length} shown`}
-                </label>
-              )
-            )}
-
-            <BulkActionBar
-              selectedCount={selectedIds.size}
-              offscreenCount={selection.offscreenCount}
-              enabledCount={selection.enabledCount}
-              disabledCount={selection.disabledCount}
-              untrackableCount={selection.untrackableCount}
-              exportableCount={selection.exportableCount}
-              onEnable={() => runBulkStatus('ACTIVE')}
-              onDisable={() => runBulkStatus('DISABLED')}
-              onRecategorize={() => setShowBulkCategory(true)}
-              onUntrack={() => runBulk(onBulkUntrack)}
-              onExport={() => runBulk(onBulkExport)}
-              onClear={clearSelection}
-              isPending={isBulkPending}
-            />
-
-            {showBulkCategory && (
-              <BulkCategoryModal
-                taskCount={selection.tasks.length}
-                // The same predicate as `exportableCount` — a Windows task is
-                // both the one that exports as XML and the one whose category
-                // is really a folder. Two names for one count because they will
-                // stop agreeing the moment a second agent-backed platform lands.
-                windowsCount={selection.tasks.filter(t => t.platform === 'WINDOWS_TASK_SCHEDULER').length}
-                existingCategories={categories}
-                onApply={applyBulkCategory}
-                onClose={() => setShowBulkCategory(false)}
-                isPending={isBulkPending}
-              />
-            )}
           {/*
             The dashboard filtered itself, so it says so — in the page, not in a
             tooltip.
@@ -871,8 +698,6 @@ export const DashboardScreen = ({
                     onToggleStatus={onToggleStatus}
                     onToggleFavorite={onToggleFavorite}
                     isTogglingStatus={statusTogglingId === task.id}
-                    selected={selectedIds.has(task.id)}
-                    onToggleSelect={toggleSelect}
                   />
                 ))
               )}
@@ -909,13 +734,6 @@ export const DashboardScreen = ({
                           className="hover:bg-surface/50 transition-colors group cursor-pointer"
                           onClick={() => onTaskSelect(task)}
                         >
-                          <td className="py-4 pl-6 pr-0">
-                            <TaskSelectCheckbox
-                              task={task}
-                              checked={selectedIds.has(task.id)}
-                              onToggle={toggleSelect}
-                            />
-                          </td>
                           <td className="py-4 px-4 font-bold text-foreground group-hover:text-foreground transition-colors">
                             <div className="flex items-start gap-2">
                               <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} className="mt-0.5" />
@@ -997,12 +815,6 @@ export const DashboardScreen = ({
                       >
                         <div className="flex justify-between items-start">
                           <span className="flex items-center gap-1.5">
-                            <TaskSelectCheckbox
-                              task={task}
-                              checked={selectedIds.has(task.id)}
-                              onToggle={toggleSelect}
-                              className="h-3.5 w-3.5"
-                            />
                             <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                               {platformLabel(task.platform)}
                             </span>
@@ -1059,12 +871,6 @@ export const DashboardScreen = ({
                       >
                         <div className="flex justify-between items-start">
                           <span className="flex items-center gap-1.5">
-                            <TaskSelectCheckbox
-                              task={task}
-                              checked={selectedIds.has(task.id)}
-                              onToggle={toggleSelect}
-                              className="h-3.5 w-3.5"
-                            />
                             <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                               {platformLabel(task.platform)}
                             </span>
@@ -1125,11 +931,6 @@ export const DashboardScreen = ({
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
-                                <TaskSelectCheckbox
-                                  task={task}
-                                  checked={selectedIds.has(task.id)}
-                                  onToggle={toggleSelect}
-                                />
                                 <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} />
                                 <h4 className="font-bold text-foreground text-base">{task.name}</h4>
                                 <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>

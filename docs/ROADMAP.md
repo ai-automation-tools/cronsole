@@ -149,11 +149,14 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       health tier), plan visible before anything is asked of a platform, typed confirmation at
       **≥25 tasks**, chunked at the server's 100-task ceiling with halt propagation, per-task
       five-outcome report, and undo for enable/disable only. No backend added — every verb is an
-      existing `/api/tools/tasks/*` route. Dashboard select-all now capped at what one bulk request
-      can accept (it previously offered `Select all 269`, which every button then 400'd on) and
-      hands off to the console; per-task selection is untouched, so Untrack stays beside Delete as
-      the safe neighbour. Absorbed *bulk enable/disable by folder*. Export and import stay in their
-      own tools rather than being duplicated here. Verified live at zero mutation — see CHANGELOG.
+      existing `/api/tools/tasks/*` route. **Dashboard row selection was removed entirely
+      *(2026-08-12)*** — checkboxes, select-all, the bulk bar, the bulk-category modal and
+      `taskSelection.ts` are gone, and bulk work is only this console. The safe-path objection to
+      that did not survive checking: *Remove from Cronsole* sits beside *Delete from Windows* in the
+      **task modal**, per task, which is where that pairing always lived. The console is
+      **action-first**: a vertical list of verbs, each opening its own scope step. Absorbed *bulk
+      enable/disable by folder*. Export and import stay in their own tools rather than being
+      duplicated here. Verified live at zero mutation — see CHANGELOG.
       **Deferred:** running a real agent-backed enable/disable end to end (it mutates real
       scheduled tasks), and the mid-flight progress indicator, which a DB-only run completes too
       fast to observe.

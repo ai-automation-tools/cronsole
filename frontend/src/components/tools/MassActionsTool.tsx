@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
+  ChevronRight,
   EyeOff,
   FolderInput,
   Layers,
@@ -35,26 +37,27 @@ import { useToast } from '../../hooks/useToast';
 import { MassActionConfirm } from './MassActionConfirm';
 
 /**
- * The Mass Actions console — fleet-scale operations, chosen by scope.
+ * The Mass Actions console — **the only** place Cronsole changes many tasks at
+ * once. Pick an action, then pick which tasks it applies to.
  *
- * **Why this is not just the dashboard's bulk bar behind an extra click.**
- * A checkbox selection answers "these ones", which is exactly right for three
- * tasks on screen and useless at 250: `254 selected` cannot survive into a
- * confirmation as anything a person can verify. A scope can — *"Disable 47 tasks
- * in Backups"* names the set in the terms it was chosen by, so the dialog is
- * re-readable instead of a number to be trusted. Everything else here follows
- * from that: the plan is visible before anything is asked of a platform, the
- * confirmation hardens as the blast radius grows, and the result is reported per
- * task because at this scale partial success *is* the normal case.
+ * **This replaced row selection entirely** (2026-08-12). The dashboard used to
+ * carry a checkbox per row, a select-all and a bulk bar; all of it is gone. Two
+ * ways to say "these tasks" is one too many, and selection was the weaker one:
+ * `254 selected` cannot survive into a confirmation as anything a person can
+ * check, and it capped out at what a single request would accept — on a real
+ * machine "Select all 269" built a batch every button then 400'd on. A scope
+ * survives — *"Disable 47 tasks in Backups"* names the set in the terms it was
+ * chosen by — and it batches.
  *
- * **The dashboard keeps its selection.** Moving these verbs here is an
- * organizing win, not the safety one — friction by obscurity wears off in a
- * week. The safety mechanism is the typed confirmation above
- * `TYPE_TO_CONFIRM_THRESHOLD`. And "Remove from Cronsole" deliberately still
- * sits one click from Delete on the dashboard, because §9's rule cuts both ways:
- * *a gate that makes the safe path harder than the unsafe one is worse than no
- * gate*, and exiling the safe alternative would push people toward the
- * destructive one.
+ * The safe-path worry that argued for keeping selection turned out not to
+ * apply: **"Remove from Cronsole" sits beside "Delete from Windows" in the task
+ * modal, per task**, which is where that pairing always actually lived. The bulk
+ * bar was never what kept the safe option next to the destructive one.
+ *
+ * What carries the safety here is the **typed confirmation above
+ * `TYPE_TO_CONFIRM_THRESHOLD`** — a dialog that hardens as the blast radius
+ * grows. Being on another tab is organisation, not protection; friction by
+ * obscurity wears off in a week.
  *
  * **It adds no backend.** Every verb is an existing `/api/tools` route under the
  * five-outcome contract; the console chunks at the server's own 100-task ceiling
@@ -125,13 +128,36 @@ const OUTCOME_STYLE: Record<BulkItem['outcome'], { label: string; className: str
  * be a permanently-disabled control that reads as broken. The card points at
  * them instead.
  */
-const VERB_META: Record<Exclude<MassVerb, 'export'>, { label: string; icon: typeof Power }> = {
-  enable: { label: 'Enable', icon: Power },
-  disable: { label: 'Disable', icon: PowerOff },
-  categorize: { label: 'Categorize', icon: FolderInput },
+const VERB_META: Record<
+  Exclude<MassVerb, 'export'>,
+  { label: string; blurb: string; icon: typeof Power; tint: string }
+> = {
+  enable: {
+    label: 'Enable tasks',
+    blurb: 'Turn tasks back on so they run on their schedules again.',
+    icon: Power,
+    tint: 'bg-success/15 text-success-text'
+  },
+  disable: {
+    label: 'Disable tasks',
+    blurb: 'Stop tasks running, without deleting anything. Reversible.',
+    icon: PowerOff,
+    tint: 'bg-warning/15 text-warning-text'
+  },
+  categorize: {
+    label: 'Move to a category',
+    blurb: 'Relabel tasks in Cronsole. Nothing moves on your machine.',
+    icon: FolderInput,
+    tint: 'bg-info/15 text-info-text'
+  },
   // Never "Remove" on its own — the label is the only thing standing between
   // this and the delete it is deliberately not.
-  untrack: { label: 'Remove from Cronsole', icon: EyeOff }
+  untrack: {
+    label: 'Remove from Cronsole',
+    blurb: 'Stop tracking them here. They keep running on their platform.',
+    icon: EyeOff,
+    tint: 'bg-isolate/15 text-isolate-text'
+  }
 };
 
 const VERBS = Object.keys(VERB_META) as Exclude<MassVerb, 'export'>[];
@@ -140,6 +166,15 @@ export const MassActionsTool = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  /**
+   * The action the user picked from the list, and the step they are on.
+   *
+   * `null` = the action list; anything else = configuring the scope for that
+   * one verb. Deliberately **not** shared with `pendingVerb` (the confirmation):
+   * backing out of a configured action must not leave a half-built scope
+   * pointed at whatever they open next.
+   */
+  const [activeVerb, setActiveVerb] = useState<Exclude<MassVerb, 'export'> | null>(null);
   const [scope, setScope] = useState<MassScope>(DEFAULT_SCOPE);
   const [pendingVerb, setPendingVerb] = useState<MassVerb | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -186,7 +221,15 @@ export const MassActionsTool = () => {
     [tasks, scope, tiers]
   );
 
-  const eligible = pendingVerb ? eligibleFor(inScope, pendingVerb) : [];
+  /**
+   * What the chosen action would actually change, inside the chosen scope.
+   *
+   * Everything downstream — the plan list, the button count, the confirmation —
+   * reads this one value, so the number on the button and the number in the
+   * dialog cannot drift apart. It is the eligible set, never the scope size:
+   * asking to enable 80 tasks of which 70 already run is a 10-task operation.
+   */
+  const willChange = activeVerb ? eligibleFor(inScope, activeVerb) : [];
 
   const setKind = (kind: MassScopeKind) => {
     // Each kind needs a value that exists, or the scope resolves to nothing and
@@ -278,11 +321,6 @@ export const MassActionsTool = () => {
     }
   });
 
-  const start = (verb: MassVerb) => {
-    setReport(null);
-    setPendingVerb(verb);
-  };
-
   const confirmed = (category?: string) => {
     const verb = pendingVerb!;
     const targets = eligibleFor(inScope, verb);
@@ -304,6 +342,24 @@ export const MassActionsTool = () => {
   const busy = phase === 'running';
   const undoable = lastRun && inverseOf(lastRun.verb) && lastRun.changedIds.length > 0;
 
+  // ---- Action-first flow --------------------------------------------------
+  //
+  // The console asks "what do you want to do?" before "to which tasks?" — the
+  // opposite of both the dashboard's old row selection and this card's first
+  // version. Two reasons that order is better here:
+  //
+  //  - **It is discoverable.** A vertical list of verbs answers "what can this
+  //    do?" on sight. A scope picker with four buttons under it answers that
+  //    only after you have already made a choice you had no basis for.
+  //  - **Each verb asks only for what it needs.** Categorize wants a target
+  //    category; the others do not. Per-action configuration means the
+  //    confirmation is the last thing you meet, rather than the place you
+  //    discover a required field.
+  //
+  // The scope belongs to the chosen action, not to the card: backing out must
+  // never leave a half-built scope aimed at whatever you open next.
+  const chosen = activeVerb ? VERB_META[activeVerb] : null;
+
   return (
     <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem] xl:col-span-2">
       <div className="flex items-start justify-between gap-4">
@@ -312,167 +368,198 @@ export const MassActionsTool = () => {
             <Layers size={18} className="text-primary" /> Mass actions
           </h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-            Act on many tasks at once by choosing <strong>what</strong> rather than ticking each one.
-            Pick a scope, check what it resolved to, then run. Nothing is asked of a platform until
-            you confirm.
+            Change many tasks at once. Pick what you want to do, then choose which tasks it applies
+            to. Nothing is asked of a platform until you confirm.
           </p>
         </div>
-      </div>
-
-      {/* ---- Scope ------------------------------------------------------- */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          {(['all', 'category', 'platform', 'status', 'health'] as MassScopeKind[]).map(kind => (
-            <button
-              key={kind}
-              onClick={() => setKind(kind)}
-              disabled={busy}
-              aria-pressed={scope.kind === kind}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-40 ${
-                scope.kind === kind
-                  ? 'bg-primary/15 border-primary/50 text-foreground'
-                  : 'bg-background border-border text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {kind === 'all' ? 'All tasks'
-                : kind === 'category' ? 'Category'
-                  : kind === 'platform' ? 'Platform'
-                    : kind === 'status' ? 'Status' : 'Health'}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {scope.kind !== 'all' && (
-            <select
-              value={scope.value}
-              disabled={busy}
-              onChange={e => { setScope(s => ({ ...s, value: e.target.value })); setReport(null); }}
-              aria-label={`${scope.kind} to act on`}
-              className="bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-40"
-            >
-              {scope.kind === 'category' && categories.map(c => <option key={c} value={c}>{c}</option>)}
-              {scope.kind === 'platform' && platforms.map(p => <option key={p} value={p}>{platformLabel(p)}</option>)}
-              {scope.kind === 'status' && ['ACTIVE', 'DISABLED', 'MISSING'].map(s => <option key={s} value={s}>{s}</option>)}
-              {scope.kind === 'health' && ['critical', 'attention', 'unknown', 'ok'].map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          )}
-
-          {/*
-            The system fence. Off by default, and its cost is always printed —
-            the same rule bulk export follows, because a fence nobody can see is
-            indistinguishable from there being nothing behind it.
-          */}
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              checked={scope.includeSystem}
-              disabled={busy}
-              onChange={e => { setScope(s => ({ ...s, includeSystem: e.target.checked })); setReport(null); }}
-              className="accent-primary"
-            />
-            Include Windows' own tasks
-            {!scope.includeSystem && systemExcluded > 0 && (
-              <span className="text-warning-text font-bold tabular-nums">({systemExcluded} excluded)</span>
-            )}
-          </label>
-        </div>
-      </div>
-
-      {/* ---- The plan ----------------------------------------------------
-          `bg-raised`, not `bg-background`: this panel sits *inside* a
-          `bg-surface` card, and painting it with the page colour made the inner
-          panel darker than its parent — a recessed well, which is the language
-          of an input, not of the thing the card is about. The raised step is
-          what the ramp was missing. */}
-      <div className="bg-raised border border-border rounded-xl p-4 space-y-3">
-        <div className="flex items-baseline justify-between gap-3 flex-wrap">
-          <span className="text-sm font-bold">
-            {inScope.length} task{inScope.length === 1 ? '' : 's'} in scope
-          </span>
-          <span className="text-[11px] text-subtle-foreground">
-            {describeScope(scope, platformLabel)}
-            {inScope.length > MAX_TASKS_PER_BULK &&
-              ` · ${chunk(inScope).length} batches of up to ${MAX_TASKS_PER_BULK}`}
-          </span>
-        </div>
-
-        {inScope.length > 0 && (
-          <ul className="max-h-40 overflow-y-auto text-xs space-y-1 pr-1">
-            {inScope.slice(0, 200).map(t => (
-              <li key={t.id} className="flex items-center justify-between gap-3 text-muted-foreground">
-                <span className="truncate">{t.name}</span>
-                <span className="text-subtle-foreground shrink-0 tabular-nums">{t.status}</span>
-              </li>
-            ))}
-            {inScope.length > 200 && (
-              <li className="text-subtle-foreground italic pt-1">
-                …and {inScope.length - 200} more. All {inScope.length} are in scope; the list is
-                truncated, not the operation.
-              </li>
-            )}
-          </ul>
-        )}
-
-        {inScope.length === 0 && (
-          <p className="text-xs text-subtle-foreground">
-            Nothing matches this scope
-            {!scope.includeSystem && systemExcluded > 0
-              ? ` — though ${systemExcluded} of Windows' own tasks do. Tick "Include Windows' own tasks" to reach them.`
-              : '.'}
-          </p>
-        )}
-      </div>
-
-      {/* ---- Verbs ------------------------------------------------------- */}
-      <div className="flex flex-wrap gap-2">
-        {VERBS.map(verb => {
-          const meta = VERB_META[verb];
-          const Icon = meta.icon;
-          // Each button states what it would actually change, never the scope
-          // size — the same rule the server's `unchanged` outcome exists for.
-          const n = eligibleFor(inScope, verb).length;
-          return (
-            <button
-              key={verb}
-              onClick={() => start(verb)}
-              disabled={busy || n === 0}
-              title={
-                n === 0
-                  ? `${meta.label} — nothing in this scope would change`
-                  : `${meta.label} ${n} task${n === 1 ? '' : 's'}`
-              }
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 ${
-                verb === 'enable'
-                  ? 'bg-success hover:bg-success-hover text-success-foreground border-transparent'
-                  : 'bg-muted hover:bg-muted/80 text-foreground border-border'
-              }`}
-            >
-              <Icon size={13} />
-              {meta.label}
-              {n > 0 && <span className="tabular-nums opacity-80">{n}</span>}
-            </button>
-          );
-        })}
-
-        {undoable && !busy && (
+        {activeVerb && !busy && (
           <button
-            onClick={undo}
-            title={`Put those ${lastRun!.changedIds.length} tasks back the way they were`}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-primary/50 text-foreground hover:border-primary transition-all active:scale-95 ml-auto"
+            onClick={() => { setActiveVerb(null); setReport(null); }}
+            className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
-            <Undo2 size={13} /> Undo ({lastRun!.changedIds.length})
+            <ArrowLeft size={13} /> All actions
           </button>
         )}
       </div>
+
+      {/* ---- Step 1: what do you want to do? ----------------------------- */}
+      {!activeVerb && (
+        <ul className="space-y-2">
+          {VERBS.map(verb => {
+            const meta = VERB_META[verb];
+            const Icon = meta.icon;
+            return (
+              <li key={verb}>
+                <button
+                  onClick={() => { setActiveVerb(verb); setScope(DEFAULT_SCOPE); setReport(null); }}
+                  className="w-full flex items-center gap-4 text-left bg-raised border border-border rounded-xl px-4 py-3 hover:border-primary/50 transition-all active:scale-[0.99] group"
+                >
+                  <span className={`p-2 rounded-lg shrink-0 ${meta.tint}`}>
+                    <Icon size={16} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-foreground">{meta.label}</span>
+                    <span className="block text-xs text-muted-foreground">{meta.blurb}</span>
+                  </span>
+                  <ChevronRight
+                    size={16}
+                    className="text-subtle-foreground group-hover:text-foreground transition-colors shrink-0"
+                  />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* ---- Step 2: to which tasks? ------------------------------------- */}
+      {activeVerb && chosen && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span className={`p-2 rounded-lg ${chosen.tint}`}>
+              <chosen.icon size={16} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold">{chosen.label}</p>
+              <p className="text-xs text-muted-foreground">{chosen.blurb}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground">
+              Which tasks?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(['all', 'category', 'platform', 'status', 'health'] as MassScopeKind[]).map(kind => (
+                <button
+                  key={kind}
+                  onClick={() => setKind(kind)}
+                  disabled={busy}
+                  aria-pressed={scope.kind === kind}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-40 ${
+                    scope.kind === kind
+                      ? 'bg-primary/15 border-primary/50 text-foreground'
+                      : 'bg-background border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {kind === 'all' ? 'All tasks'
+                    : kind === 'category' ? 'By category'
+                      : kind === 'platform' ? 'By platform'
+                        : kind === 'status' ? 'By status' : 'By health'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {scope.kind !== 'all' && (
+                <select
+                  value={scope.value}
+                  disabled={busy}
+                  onChange={e => { setScope(s => ({ ...s, value: e.target.value })); setReport(null); }}
+                  aria-label={`Which ${scope.kind}`}
+                  className="bg-background border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-40"
+                >
+                  {scope.kind === 'category' && categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  {scope.kind === 'platform' && platforms.map(p => <option key={p} value={p}>{platformLabel(p)}</option>)}
+                  {scope.kind === 'status' && ['ACTIVE', 'DISABLED', 'MISSING'].map(s => <option key={s} value={s}>{s}</option>)}
+                  {scope.kind === 'health' && ['critical', 'attention', 'unknown', 'ok'].map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
+
+              {/* The system fence. Off by default, and what it costs is always
+                  printed — a fence nobody can see is indistinguishable from
+                  there being nothing behind it. */}
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={scope.includeSystem}
+                  disabled={busy}
+                  onChange={e => { setScope(s => ({ ...s, includeSystem: e.target.checked })); setReport(null); }}
+                  className="accent-primary"
+                />
+                Include Windows&rsquo; own tasks
+                {!scope.includeSystem && systemExcluded > 0 && (
+                  <span className="text-warning-text font-bold tabular-nums">({systemExcluded} excluded)</span>
+                )}
+              </label>
+            </div>
+          </div>
+
+          {/* ---- The plan ------------------------------------------------- */}
+          <div className="bg-raised border border-border rounded-xl p-4 space-y-3">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <span className="text-sm font-bold">
+                {willChange.length} task{willChange.length === 1 ? '' : 's'} will be {VERB_PAST[activeVerb]}
+              </span>
+              <span className="text-[11px] text-subtle-foreground">
+                {describeScope(scope, platformLabel)}
+                {inScope.length > willChange.length &&
+                  ` · ${inScope.length} in scope, ${inScope.length - willChange.length} need no change`}
+                {willChange.length > MAX_TASKS_PER_BULK &&
+                  ` · ${chunk(willChange).length} batches of up to ${MAX_TASKS_PER_BULK}`}
+              </span>
+            </div>
+
+            {willChange.length > 0 ? (
+              <ul className="max-h-40 overflow-y-auto text-xs space-y-1 pr-1">
+                {willChange.slice(0, 200).map(t => (
+                  <li key={t.id} className="flex items-center justify-between gap-3 text-muted-foreground">
+                    <span className="truncate">{t.name}</span>
+                    <span className="text-subtle-foreground shrink-0 tabular-nums">{t.status}</span>
+                  </li>
+                ))}
+                {willChange.length > 200 && (
+                  <li className="text-subtle-foreground italic pt-1">
+                    …and {willChange.length - 200} more. All {willChange.length} are included; the
+                    list is truncated, not the operation.
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="text-xs text-subtle-foreground">
+                Nothing here would change
+                {!scope.includeSystem && systemExcluded > 0
+                  ? ` — though ${systemExcluded} of Windows’ own tasks are in this scope. Tick “Include Windows’ own tasks” to reach them.`
+                  : inScope.length > 0
+                    ? ` — all ${inScope.length} tasks in this scope are already in that state.`
+                    : '.'}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setPendingVerb(activeVerb)}
+              disabled={busy || willChange.length === 0}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 ${
+                activeVerb === 'enable'
+                  ? 'bg-success hover:bg-success-hover text-success-foreground border-transparent'
+                  : 'bg-primary hover:bg-primary-hover text-primary-foreground border-transparent'
+              }`}
+            >
+              <chosen.icon size={13} />
+              {chosen.label}
+              {willChange.length > 0 && <span className="tabular-nums opacity-80">{willChange.length}</span>}
+            </button>
+
+            {undoable && !busy && (
+              <button
+                onClick={undo}
+                title={`Put those ${lastRun!.changedIds.length} tasks back the way they were`}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-primary/50 text-foreground hover:border-primary transition-all active:scale-95"
+              >
+                <Undo2 size={13} /> Undo ({lastRun!.changedIds.length})
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ---- Progress & result ------------------------------------------- */}
       {busy && (
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <Loader2 size={14} className="animate-spin text-primary" />
-          <span className="tabular-nums">
-            {progress.done} of {progress.total} processed
-          </span>
+          <span className="tabular-nums">{progress.done} of {progress.total} processed</span>
           <span className="text-subtle-foreground">
             Each Windows task is a round trip to the agent, so this is not instant.
           </span>
@@ -496,8 +583,8 @@ export const MassActionsTool = () => {
               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
               <span>
                 Stopped early: {report.haltedReason} Everything after that point is listed as not
-                attempted — nothing was silently dropped. Fix the agent and run the same scope again;
-                tasks already done will come back as "already so".
+                attempted — nothing was silently dropped. Fix the agent and run the same scope
+                again; tasks already done will come back as &ldquo;already so&rdquo;.
               </span>
             </p>
           )}
@@ -506,17 +593,15 @@ export const MassActionsTool = () => {
               which is the whole reason the report is per task. */}
           {report.items.some(i => i.outcome !== 'updated') && (
             <ul className="max-h-48 overflow-y-auto text-xs space-y-1 pr-1 border-t border-border pt-3">
-              {report.items
-                .filter(i => i.outcome !== 'updated')
-                .map(i => (
-                  <li key={i.taskId} className="flex items-start justify-between gap-3">
-                    <span className="truncate text-muted-foreground">{i.name}</span>
-                    <span className={`shrink-0 font-bold ${OUTCOME_STYLE[i.outcome].className}`}>
-                      {OUTCOME_STYLE[i.outcome].label}
-                      {i.message && <span className="font-normal opacity-80"> — {i.message}</span>}
-                    </span>
-                  </li>
-                ))}
+              {report.items.filter(i => i.outcome !== 'updated').map(i => (
+                <li key={i.taskId} className="flex items-start justify-between gap-3">
+                  <span className="truncate text-muted-foreground">{i.name}</span>
+                  <span className={`shrink-0 font-bold ${OUTCOME_STYLE[i.outcome].className}`}>
+                    {OUTCOME_STYLE[i.outcome].label}
+                    {i.message && <span className="font-normal opacity-80"> — {i.message}</span>}
+                  </span>
+                </li>
+              ))}
             </ul>
           )}
 
@@ -533,10 +618,10 @@ export const MassActionsTool = () => {
         <MassActionConfirm
           verb={pendingVerb}
           scopeLabel={describeScope(scope, platformLabel)}
-          count={eligible.length}
+          count={willChange.length}
           scopeSize={inScope.length}
           categories={categories}
-          detachedCount={cat => detachedByCategorize(eligible, cat)}
+          detachedCount={cat => detachedByCategorize(willChange, cat)}
           onCancel={() => setPendingVerb(null)}
           onConfirm={confirmed}
         />

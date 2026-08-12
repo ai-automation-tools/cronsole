@@ -4,6 +4,7 @@ import type { HealthTier } from '../taskFilters';
 import {
   chunk,
   DEFAULT_SCOPE,
+  defaultScopeValue,
   describeScope,
   detachedByCategorize,
   eligibleFor,
@@ -37,18 +38,23 @@ describe('resolveScope', () => {
     task('off', { status: 'DISABLED' })
   ];
 
+  // These two are about the system fence, so they name the scope kind
+  // explicitly rather than leaning on DEFAULT_SCOPE — which is `category`, and
+  // whose job is a different question (see the `defaultScopeValue` block below).
+  const allScope = { kind: 'all' as const, value: '', includeSystem: false };
+
   it('excludes system tasks by default and says how many', () => {
     // The fence exists so a machine-wide scope isn't dominated by ~257 tasks
     // the user will never act on — but an invisible fence is indistinguishable
     // from an empty one, so the count is part of the answer, not a footnote.
-    const { tasks: out, systemExcluded } = resolveScope(tasks, DEFAULT_SCOPE);
+    const { tasks: out, systemExcluded } = resolveScope(tasks, allScope);
     expect(out.map(t => t.id)).toEqual(['mine', 'reports', 'native', 'off']);
     expect(systemExcluded).toBe(1);
   });
 
   it('includes system tasks when asked, and then excludes nothing', () => {
     const { tasks: out, systemExcluded } = resolveScope(tasks, {
-      ...DEFAULT_SCOPE,
+      ...allScope,
       includeSystem: true
     });
     expect(out).toHaveLength(5);
@@ -86,7 +92,41 @@ describe('resolveScope', () => {
   });
 
   it('survives an unloaded task list', () => {
-    expect(resolveScope(undefined, DEFAULT_SCOPE)).toEqual({ tasks: [], systemExcluded: 0 });
+    expect(resolveScope(undefined, allScope)).toEqual({ tasks: [], systemExcluded: 0 });
+  });
+});
+
+describe('DEFAULT_SCOPE and defaultScopeValue', () => {
+  it('opens on a category rather than on every task', () => {
+    // A mass action pointed at everything makes the widest possible operation
+    // the path of least resistance — you would have to narrow it to do the
+    // ordinary thing. Category is how these tasks are already organised.
+    expect(DEFAULT_SCOPE.kind).toBe('category');
+    expect(DEFAULT_SCOPE.includeSystem).toBe(false);
+  });
+
+  it('leaves the default value empty, because it cannot be known statically', () => {
+    // The categories come from the loaded task list. This is exactly why the
+    // console must go through defaultScopeValue rather than using the literal:
+    // a category scope with an empty value resolves to NOTHING, which would
+    // read as "there are no tasks here" the moment you open an action.
+    expect(DEFAULT_SCOPE.value).toBe('');
+    expect(resolveScope([task('a', { category: 'Backups' })], DEFAULT_SCOPE).tasks).toEqual([]);
+  });
+
+  it('picks a starting value that exists for every kind', () => {
+    const opts = { categories: ['AI-Maintenance', 'Backups'], platforms: ['WINDOWS_TASK_SCHEDULER'] };
+    expect(defaultScopeValue('category', opts)).toBe('AI-Maintenance');
+    expect(defaultScopeValue('platform', opts)).toBe('WINDOWS_TASK_SCHEDULER');
+    expect(defaultScopeValue('status', opts)).toBe('ACTIVE');
+    expect(defaultScopeValue('health', opts)).toBe('critical');
+    expect(defaultScopeValue('all', opts)).toBe('');
+  });
+
+  it('degrades to empty rather than throwing when the machine has none', () => {
+    const empty = { categories: [], platforms: [] };
+    expect(defaultScopeValue('category', empty)).toBe('');
+    expect(defaultScopeValue('platform', empty)).toBe('');
   });
 });
 

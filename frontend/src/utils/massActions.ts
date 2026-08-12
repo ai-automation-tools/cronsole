@@ -53,7 +53,46 @@ export interface MassScope {
   includeSystem: boolean;
 }
 
-export const DEFAULT_SCOPE: MassScope = { kind: 'all', value: '', includeSystem: false };
+/**
+ * The scope an action opens on: **by category**, not everything.
+ *
+ * A mass action that starts pointed at every task makes the widest possible
+ * operation the path of least resistance — you would have to actively narrow it
+ * to do the ordinary thing. Category is how these tasks are already organised
+ * (a Windows task's category comes from its Task Scheduler folder), so it is
+ * both the common case and a scope the user can read back.
+ *
+ * `value` is empty here because the categories are not known until the task list
+ * loads; the console fills it through `defaultScopeValue`. A category scope with
+ * an empty value resolves to **nothing**, which would render as "no tasks here"
+ * on open — so callers must not use this literal without that step.
+ */
+export const DEFAULT_SCOPE: MassScope = { kind: 'category', value: '', includeSystem: false };
+
+/**
+ * The value a scope kind should start on, given what this machine actually has.
+ *
+ * One definition, used both when an action is opened and when the kind is
+ * switched — two spellings of "pick a sensible starting value" is how one of
+ * them ends up leaving `value` empty and silently resolving to nothing.
+ */
+export function defaultScopeValue(
+  kind: MassScopeKind,
+  options: { categories: string[]; platforms: string[] }
+): string {
+  switch (kind) {
+    case 'all':
+      return '';
+    case 'category':
+      return options.categories[0] ?? '';
+    case 'platform':
+      return options.platforms[0] ?? '';
+    case 'status':
+      return 'ACTIVE';
+    case 'health':
+      return 'critical';
+  }
+}
 
 /** The five verbs the console offers. Import is a different flow — see the tool. */
 export type MassVerb = 'enable' | 'disable' | 'categorize' | 'untrack' | 'export';

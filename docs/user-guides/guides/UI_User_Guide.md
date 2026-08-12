@@ -212,9 +212,10 @@ The one place Cronsole changes many tasks at once. It works in two steps, in tha
    - **Disable tasks** — stop them running, without deleting anything. Reversible.
    - **Move to a category** — relabel them in Cronsole. Nothing moves on your machine.
    - **Remove from Cronsole** — stop tracking them here; they keep running on their platform.
-2. **Which tasks?** Pick **all tasks**, or narrow by **category**, **platform**, **status** or
-   **health**. The card then lists exactly which tasks would change, before anything happens.
-   **All actions** takes you back.
+2. **Which tasks?** Opens on **By category** — the way your tasks are already organised, and a
+   deliberately narrow starting point rather than "everything". Switch to **all tasks**, or narrow
+   by **platform**, **status** or **health** instead. The card then lists exactly which tasks would
+   change, before anything happens. **All actions** takes you back.
 
 - **Windows' own tasks are excluded unless you ask for them**, and the number kept out is printed
   next to the checkbox. On a typical machine that is most of them.

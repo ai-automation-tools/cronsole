@@ -32,6 +32,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { platformLabel } from '../platform';
 import { formatDateTime } from '../utils/datetime';
+import { errorMessage } from '../utils/errorMessage';
 import { machineZone, zoneAbbrev } from '../utils/timezone';
 import {
   API_ORIGIN,
@@ -272,11 +273,6 @@ const ConnectionsSection = ({ timezone }: { timezone: Settings['timezone'] }) =>
 };
 
 // ---- Account (single-user local login) -------------------------------------
-
-function errorMessage(err: unknown, fallback: string): string {
-  const anyErr = err as { response?: { data?: { error?: string } }; message?: string };
-  return anyErr?.response?.data?.error || anyErr?.message || fallback;
-}
 
 const AccountSection = () => {
   const { user, logout, changePassword } = useAuth();

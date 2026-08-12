@@ -104,7 +104,10 @@ describe('native task creation', () => {
         .set('Authorization', auth)
         .send({});
 
-      expect(res.status).toBe(500);
+      // 502, not 500: the run itself failed, which is not Cronsole breaking.
+      // The notification below is the point of the test either way — the code
+      // only decides where a reader goes to debug it.
+      expect(res.status).toBe(502);
       await flushFailureNotifications();
       expect(requests).toHaveLength(1);
       expect(JSON.parse(requests[0]).event).toEqual(expect.objectContaining({

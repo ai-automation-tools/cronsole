@@ -119,7 +119,7 @@ export const BulkCategoryModal = ({
 
         {windowsCount > 0 && (
           <p
-            className="flex gap-2 text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-xl px-3 py-2"
+            className="flex gap-2 text-xs text-warning-text bg-warning/10 border border-warning/30 rounded-xl px-3 py-2"
             role="note"
           >
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />

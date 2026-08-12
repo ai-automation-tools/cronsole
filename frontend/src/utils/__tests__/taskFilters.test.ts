@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Task } from '../../types';
 import {
+  activeFilterCount,
   applyTaskFilters,
   applyTaskFiltersExcept,
   DEFAULT_FILTERS,
@@ -13,6 +14,7 @@ import {
   matchesSystem,
   needsHealthData,
   nextRunOf,
+  withheldBy,
   type HealthTier
 } from '../taskFilters';
 
@@ -357,6 +359,62 @@ describe('applyTaskFiltersExcept', () => {
     // Clicking the chip reveals the one disabled Backups task, so "1 hidden" is
     // the only honest number here — the two Reports rows are not on offer.
     expect(governed.length - shown.length).toBe(1);
+  });
+});
+
+describe('activeFilterCount', () => {
+  it('is zero for the default question', () => {
+    expect(activeFilterCount(DEFAULT_FILTERS)).toBe(0);
+  });
+
+  it('counts each dimension that has moved', () => {
+    // The number on the Filters trigger. A closed drawer over a filtered list
+    // would be the invisible fence with a nicer lid, so the count is what stops
+    // the collapse from hiding *that* filters are set.
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, status: 'any' })).toBe(1);
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, status: 'any', category: 'Backups' })).toBe(2);
+    expect(
+      activeFilterCount({ ...DEFAULT_FILTERS, status: 'any', system: 'include', favorites: 'only' })
+    ).toBe(3);
+  });
+
+  it('ignores whitespace-only search, like filtersEqual does', () => {
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, search: '   ' })).toBe(0);
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, search: 'nightly' })).toBe(1);
+  });
+});
+
+describe('withheldBy', () => {
+  /*
+   * The rule: a lens that names itself needs no count; a lens that withholds
+   * silently must print one. Category and platform get their own pills, so they
+   * are absent here by design. System and status are *defaults* nobody chose
+   * today, and they are the ones that quietly hold back 189 and 10 rows.
+   */
+  it('reports the two silent lenses, with what each is holding back', () => {
+    const out = withheldBy(DEFAULT_FILTERS, { system: 189, status: 10 });
+    expect(out).toEqual([
+      { dimension: 'system', count: 189, label: 'system' },
+      { dimension: 'status', count: 10, label: 'inactive' }
+    ]);
+  });
+
+  it('says nothing when a lens is withholding nothing', () => {
+    expect(withheldBy(DEFAULT_FILTERS, { system: 0, status: 0 })).toEqual([]);
+  });
+
+  it('says nothing once the user has opened each lens up', () => {
+    // Including system tasks, or showing every status, means that lens is no
+    // longer keeping anything from you — so claiming otherwise would be noise.
+    const open = { ...DEFAULT_FILTERS, system: 'include' as const, status: 'any' as const };
+    expect(withheldBy(open, { system: 189, status: 10 })).toEqual([]);
+  });
+
+  it('does not report an isolating lens as withholding', () => {
+    // `disabled`/`missing` isolate rather than hide — the user asked for exactly
+    // those rows by name, and the chip already says so.
+    const isolated = { ...DEFAULT_FILTERS, status: 'disabled' as const };
+    expect(withheldBy(isolated, { system: 0, status: 10 })).toEqual([]);
   });
 });
 

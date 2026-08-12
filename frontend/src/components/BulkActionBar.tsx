@@ -100,7 +100,7 @@ export const BulkActionBar = ({
         {selectedCount} selected
         {offscreenCount > 0 && (
           <span
-            className="text-amber-400 font-semibold"
+            className="text-warning-text font-semibold"
             title="Kanban shows disabled tasks the other views hide, so switching views can leave part of your selection off screen. It is still selected and will still be acted on."
           >
             · {offscreenCount} not visible here

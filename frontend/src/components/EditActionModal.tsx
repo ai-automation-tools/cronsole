@@ -94,7 +94,7 @@ export const EditActionModal = ({ task, initial, onClose }: EditActionModalProps
         <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Terminal size={11} /> Command <span className="text-red-400">*</span>
+              <Terminal size={11} /> Command <span className="text-danger-text">*</span>
             </label>
             <textarea
               value={command}
@@ -156,7 +156,7 @@ export const EditActionModal = ({ task, initial, onClose }: EditActionModalProps
               ))}
             </div>
             {runLevel === 'highest' && (
-              <p className="text-[11px] text-amber-500">
+              <p className="text-[11px] text-warning-text">
                 Saving may require the agent to run elevated; Windows can refuse the change if the task is admin-owned.
               </p>
             )}

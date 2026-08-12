@@ -68,9 +68,12 @@ platform, so starring works fine with the agent offline.
 ### Views, Search & Filters
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
-- **Active Only:** Toggle to hide disabled tasks. It shows how many it's holding back (`12 hidden`) — that count includes **missing** and unknown-state tasks too, not just disabled ones. If a saved view has *isolated* one state instead, the button says so (`Disabled only`) in a third colour rather than pretending to be one of its two normal states; clicking it then shows everything again.
-- **Personal / Incl. System:** Windows keeps hundreds of its own scheduled tasks under `\Microsoft\` — on a typical machine they outnumber yours roughly 3:1 — so once they're imported they drown out everything you actually care about. Cronsole hides them by default and says how many (`257 system hidden`); click to include them. The choice is remembered between visits, and the button only appears if you've actually imported some. This is **independent of Active Only**, so the normal view is *personal **and** active* — either can be turned off without touching the other. The **System** view sets a third state (`System only`) for as long as you're in it; that is a lens you look through, not a new default, so leaving the view gives you your own dashboard back.
-- **Category & platform chips:** Filter to a single category or platform. These chips are **faceted** — they only show categories/platforms that actually have tasks *under the current filters* (with a live count), so turning on **Active Only** or a platform filter drops any now-empty tags instead of showing zero-count noise.
+- **The Filters button** holds status, ownership, platform and category. The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
+  - **Status** — *Active only* (the default), *All statuses*, or **isolate** just the *Disabled* or just the *Missing* ones. Isolating is not the same as including: it shows you **less**, and an isolated state appears as its own pill outside the menu so it can't be mistaken for normal.
+  - **Ownership** — Windows keeps hundreds of its own scheduled tasks under `\Microsoft\`; on a typical machine they outnumber yours roughly 3:1, so Cronsole hides them by default. This is **independent of Status**, so the normal view is *yours **and** active* — either can be opened up without touching the other. The choice is remembered between visits, and the section only appears if you've actually imported some.
+  - **Platform** and **Category** — both **faceted**: each option shows a live count *under the filters already applied*, and options with nothing under them drop out rather than showing zero-count noise.
+- **What a filter is hiding is never inside the menu.** Two of these lenses are defaults you didn't pick today, and they hold rows back while looking like a neutral starting state — so they say so on the toolbar itself: `189 system hidden`, `10 inactive hidden`. Each is also the button that undoes it. Category and platform don't need this: they appear as **pills** you can read and dismiss (`Backups ×`), which tells you the rest is elsewhere without needing a number.
+- **Counts describe the view you're in, not the whole dashboard.** A count beside a filter is a promise about what clicking it will reveal, so it's taken over everything the *other* filters allow. On the Favorites view with two stars, the status filter counts against those two — not against all 269.
 
 ---
 
@@ -174,9 +177,10 @@ Your categorization in Cronsole is **local and persistent**.
 - Cronsole will not overwrite your manual categorization with the source platform's folder structure once the task is imported.
 
 ### Viewing Categories
-At the top of the Dashboard, you'll see a horizontal chip bar:
-- **"All":** Shows every task (within the current Active Only / platform filters).
-- **Dynamic chips:** Each category that has matching tasks appears as a filterable chip with a count. Categories with no tasks under the current filters are hidden.
+Categories live under **Filters › Category** on the Dashboard toolbar:
+- **"All":** every task the other filters allow.
+- **Dynamic list:** each category with matching tasks appears with a live count. Categories with nothing under the current filters drop out rather than showing a zero.
+- Picking one puts a **pill** on the toolbar (`Backups ×`) so you can see and clear it without reopening the menu.
 
 ### Re-categorizing a Task (Two Ways)
 1. **Directly on the Card:**

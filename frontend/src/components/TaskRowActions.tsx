@@ -78,7 +78,7 @@ export const TaskRowActions = ({
           {isTogglingStatus ? (
             <Loader2 size={icon} className="animate-spin" />
           ) : (
-            <Power size={icon} className={task.status === 'ACTIVE' ? 'text-green-400' : ''} />
+            <Power size={icon} className={task.status === 'ACTIVE' ? 'text-success-text' : ''} />
           )}
         </button>
       )}

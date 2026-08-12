@@ -13,7 +13,7 @@ import { ConfirmContext, type ConfirmFn, type ConfirmOptions } from './useConfir
 
 const CONFIRM_BTN: Record<NonNullable<ConfirmOptions['tone']>, string> = {
   default: 'bg-primary text-primary-foreground hover:opacity-90',
-  danger: 'bg-red-500 text-white hover:bg-red-600'
+  danger: 'bg-danger text-danger-foreground hover:bg-danger/85'
 };
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
@@ -52,7 +52,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         >
           <div className="flex items-start gap-3">
             {tone === 'danger' && (
-              <AlertTriangle className="text-red-400 shrink-0 mt-0.5" size={20} aria-hidden />
+              <AlertTriangle className="text-danger-text shrink-0 mt-0.5" size={20} aria-hidden />
             )}
             <div className="flex-1 min-w-0">
               <h2 id="confirm-dialog-title" className="text-lg font-bold text-foreground">

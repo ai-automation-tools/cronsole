@@ -88,7 +88,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
           {/* Tips Section */}
           <div className="space-y-3">
             <h3 className="text-xs font-black text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <Sparkles size={14} className="text-amber-400" />
+              <Sparkles size={14} className="text-warning-text" />
               Pro Automation Tips
             </h3>
             

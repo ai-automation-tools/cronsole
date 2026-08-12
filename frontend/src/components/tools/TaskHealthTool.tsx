@@ -33,9 +33,9 @@ interface HealthResponse {
 }
 
 const TIER_STYLE: Record<Exclude<HealthTier, 'ok'>, { label: string; dot: string; text: string }> = {
-  critical: { label: 'Critical', dot: 'bg-red-500', text: 'text-red-500' },
-  attention: { label: 'Attention', dot: 'bg-amber-500', text: 'text-amber-500' },
-  unknown: { label: 'Unknown', dot: 'bg-slate-400', text: 'text-slate-400' }
+  critical: { label: 'Critical', dot: 'bg-danger', text: 'text-danger-text' },
+  attention: { label: 'Attention', dot: 'bg-warning', text: 'text-warning-text' },
+  unknown: { label: 'Unknown', dot: 'bg-neutral-text', text: 'text-neutral-text' }
 };
 
 /**
@@ -122,7 +122,7 @@ export const TaskHealthTool = () => {
       )}
 
       {error && (
-        <div className="text-sm rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-500 px-4 py-3">
+        <div className="text-sm rounded-xl border border-warning/40 bg-warning/10 text-warning-text px-4 py-3">
           Couldn't read task health right now.
         </div>
       )}
@@ -137,10 +137,10 @@ export const TaskHealthTool = () => {
           <div className="flex-1 flex flex-col justify-center gap-4 border-t border-border pt-4">
           <div className="grid grid-cols-4 gap-2">
             {[
-              { label: 'Critical', value: critical, className: 'text-red-500' },
-              { label: 'Attention', value: attention, className: 'text-amber-500' },
-              { label: 'Unmeasured', value: unknown, className: 'text-slate-400' },
-              { label: 'Healthy', value: healthy, className: 'text-emerald-500' }
+              { label: 'Critical', value: critical, className: 'text-danger-text' },
+              { label: 'Attention', value: attention, className: 'text-warning-text' },
+              { label: 'Unmeasured', value: unknown, className: 'text-neutral-text' },
+              { label: 'Healthy', value: healthy, className: 'text-success-text' }
             ].map(stat => (
               <div key={stat.label} className="text-center">
                 <div className={`text-2xl font-bold tabular-nums ${stat.value === 0 ? 'text-subtle-foreground' : stat.className}`}>
@@ -171,7 +171,7 @@ export const TaskHealthTool = () => {
 
           <div className="pt-1">
             {visible.length === 0 ? (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-semibold">
+              <div className="flex items-center gap-1.5 text-xs text-success-text font-semibold">
                 <ShieldCheck size={13} /> Nothing needs attention
               </div>
             ) : (
@@ -223,8 +223,8 @@ export const TaskHealthTool = () => {
                         {health.signals.map(signal => (
                           <div key={signal.code} className="text-xs">
                             <div className="flex items-start gap-1.5">
-                              {signal.severity === 'critical' && <AlertOctagon size={12} className="mt-0.5 shrink-0 text-red-500" />}
-                              {signal.severity === 'warn' && <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-500" />}
+                              {signal.severity === 'critical' && <AlertOctagon size={12} className="mt-0.5 shrink-0 text-danger-text" />}
+                              {signal.severity === 'warn' && <AlertTriangle size={12} className="mt-0.5 shrink-0 text-warning-text" />}
                               {signal.severity === 'info' && <HelpCircle size={12} className="mt-0.5 shrink-0 text-muted-foreground" />}
                               <span className="font-medium">{signal.summary}</span>
                             </div>

@@ -214,7 +214,7 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                           */}
                           {!!cat.excludedCount && (
                             <span
-                              className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-400"
+                              className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-warning/10 border-warning/30 text-warning-text"
                               title={`${cat.excludedCount} task${cat.excludedCount === 1 ? '' : 's'} you removed from Cronsole will be tracked again if you import this category.`}
                             >
                               +{cat.excludedCount} removed
@@ -242,7 +242,7 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                 <span className="font-bold text-foreground">{preview.folders}</span>{' '}
                 folder{preview.folders === 1 ? '' : 's'}.
                 {preview.returning > 0 && (
-                  <span className="text-amber-400">
+                  <span className="text-warning-text">
                     {' '}Includes <span className="font-bold">{preview.returning}</span> you had removed.
                   </span>
                 )}

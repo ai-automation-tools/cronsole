@@ -26,11 +26,11 @@ export function useConnections() {
 export function healthMeta(state: HealthState | string): { label: string; dot: string; text: string } {
   switch (state) {
     case 'HEALTHY':
-      return { label: 'Online', dot: 'bg-green-500', text: 'text-green-500' };
+      return { label: 'Online', dot: 'bg-success', text: 'text-success-text' };
     case 'DEGRADED':
-      return { label: 'Degraded', dot: 'bg-amber-500', text: 'text-amber-500' };
+      return { label: 'Degraded', dot: 'bg-warning', text: 'text-warning-text' };
     case 'OFFLINE':
-      return { label: 'Offline', dot: 'bg-red-500', text: 'text-red-500' };
+      return { label: 'Offline', dot: 'bg-danger', text: 'text-danger-text' };
     default:
       return { label: 'Unknown', dot: 'bg-muted', text: 'text-muted-foreground' };
   }

@@ -116,7 +116,7 @@ const FavoriteStar = ({ template, onToggle, size = 16 }: { template: Template; o
     onClick={e => { e.stopPropagation(); onToggle(template); }}
     aria-pressed={!!template.isFavorite}
     title={template.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-    className={`shrink-0 transition-colors ${template.isFavorite ? 'text-amber-400 hover:text-amber-500' : 'text-subtle-foreground hover:text-amber-400'}`}
+    className={`shrink-0 transition-colors ${template.isFavorite ? 'text-warning-text hover:text-warning-text' : 'text-subtle-foreground hover:text-warning-text'}`}
   >
     <Star size={size} className={template.isFavorite ? 'fill-current' : ''} />
   </button>
@@ -155,7 +155,7 @@ const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Templ
             </span>
           )}
           {template.scriptType && (
-            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-claude/10 text-claude-text border border-claude/20">
               {template.scriptType.replace(/_/g, ' ')}
             </span>
           )}
@@ -191,7 +191,7 @@ const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Templ
           <TemplateSchedule template={template} className="text-foreground font-mono" />
         </div>
         <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
-          <ExternalLink size={14} className="text-purple-500" />
+          <ExternalLink size={14} className="text-claude-text" />
           <span className="truncate text-foreground italic">{template.command}</span>
         </div>
       </div>
@@ -224,7 +224,7 @@ const TemplateListRow = ({ template, onApply, onToggleFavorite }: { template: Te
           <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30">Starter</span>
         )}
         {template.scriptType && (
-          <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">{template.scriptType.replace(/_/g, ' ')}</span>
+          <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-claude/10 text-claude-text border border-claude/20">{template.scriptType.replace(/_/g, ' ')}</span>
         )}
       </div>
       <p className="text-xs text-muted-foreground truncate">{template.description}</p>
@@ -701,11 +701,11 @@ export const TemplatesScreen = () => {
                 onClick={() => setFavoritesOnly(v => !v)}
                 title={favoritesOnly ? 'Show all templates' : 'Show favorites only'}
                 aria-pressed={favoritesOnly}
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${favoritesOnly ? 'bg-amber-400/15 text-amber-500 border-amber-400/40' : 'bg-background text-muted-foreground border-border hover:text-foreground'}`}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${favoritesOnly ? 'bg-warning/15 text-warning-text border-warning/40' : 'bg-background text-muted-foreground border-border hover:text-foreground'}`}
               >
                 <Star size={13} className={favoritesOnly ? 'fill-current' : ''} /> Favorites
                 {favoriteCount > 0 && (
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${favoritesOnly ? 'bg-amber-400/20' : 'bg-muted text-subtle-foreground'}`}>{favoriteCount}</span>
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${favoritesOnly ? 'bg-warning/20' : 'bg-muted text-subtle-foreground'}`}>{favoriteCount}</span>
                 )}
               </button>
               <div className="flex items-center gap-1.5 bg-background border border-border p-1 rounded-xl shrink-0">

@@ -588,7 +588,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
               resetApiOrigin();
               toast('All preferences reset to defaults.', 'info');
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-danger/10 border border-danger/30 text-danger-text hover:bg-danger/20 transition-all active:scale-95"
           >
             <Trash2 size={14} /> Reset all
           </button>
@@ -602,7 +602,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
         </Row>
         <Row label="Backend">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold">
-            <span className={`h-1.5 w-1.5 rounded-full ${backendStatus === 'ok' ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${backendStatus === 'ok' ? 'bg-success' : 'bg-danger'}`} />
             {backendStatus === 'ok' ? 'Reachable' : 'Unreachable'}
           </span>
         </Row>
@@ -660,7 +660,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
       </Section>
 
       <p className="flex items-center gap-2 text-[11px] text-subtle-foreground px-1">
-        <Activity size={11} className="text-green-500" />
+        <Activity size={11} className="text-success-text" />
         Changes save automatically. Defaults: {Object.keys(DEFAULT_SETTINGS).length} preferences.
       </p>
     </div>

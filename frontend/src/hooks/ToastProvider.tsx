@@ -9,8 +9,8 @@ interface Toast {
 }
 
 const VARIANT_STYLES: Record<ToastVariant, { ring: string; Icon: typeof Info; icon: string }> = {
-  success: { ring: 'border-green-500/40', Icon: CheckCircle2, icon: 'text-green-400' },
-  error: { ring: 'border-red-500/40', Icon: XCircle, icon: 'text-red-400' },
+  success: { ring: 'border-success/40', Icon: CheckCircle2, icon: 'text-success-text' },
+  error: { ring: 'border-danger/40', Icon: XCircle, icon: 'text-danger-text' },
   info: { ring: 'border-primary/40', Icon: Info, icon: 'text-foreground' },
 };
 

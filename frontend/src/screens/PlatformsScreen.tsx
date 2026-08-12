@@ -133,8 +133,8 @@ const PlatformRow = ({ link, onDelete }: { link: PlatformLink; onDelete: (id: st
         className="bg-surface border border-border p-4 rounded-2xl flex items-center gap-6 hover:border-primary/50 hover:bg-surface/50 transition-all shadow-xl group/card"
       >
         <div className={`p-3 rounded-xl flex-shrink-0 ${
-          link.iconType === 'claude' ? 'bg-purple-500/10 text-purple-400' :
-          link.iconType === 'chatgpt' ? 'bg-green-500/10 text-green-400' :
+          link.iconType === 'claude' ? 'bg-claude/10 text-claude-text' :
+          link.iconType === 'chatgpt' ? 'bg-success/10 text-success-text' :
           link.iconType === 'gemini' ? 'bg-primary/10 text-foreground' :
           'bg-muted/10 text-muted-foreground'
         }`}>
@@ -157,7 +157,7 @@ const PlatformRow = ({ link, onDelete }: { link: PlatformLink; onDelete: (id: st
       {link.iconType === 'custom' && (
         <button
           onClick={(e) => { e.preventDefault(); onDelete(link.id); }}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 p-2 bg-background border border-border rounded-full text-subtle-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shadow-lg z-10"
+          className="absolute -right-3 top-1/2 -translate-y-1/2 p-2 bg-background border border-border rounded-full text-subtle-foreground hover:text-danger-text opacity-0 group-hover:opacity-100 transition-all shadow-lg z-10"
         >
           <Trash2 size={14} />
         </button>

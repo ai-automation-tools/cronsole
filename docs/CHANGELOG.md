@@ -12,6 +12,41 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+- **The dashboard's first viewport is thinner, and the filters live behind one control** (2026-08-12): status, ownership, platform and category moved into a **Filters** popover (`TaskFilterMenu`) with an active-filter count on the trigger. Two full rows of category chips and the platform toggle are gone from the top level; on a real 269-task machine the first task now sits roughly a row-and-a-half higher.
+
+  **The rule that shaped it: collapsing the controls must not collapse what they are withholding.** A closed drawer over a filtered list is the invisible fence with a nicer lid, which this project has paid for twice. So the split is by whether a lens speaks for itself. **Category and platform** became dismissible pills — you can read "Backups" and know the rest is elsewhere, and a count would add nothing. **System and status** print what they hold back *outside* the drawer, always (`189 system hidden`, `10 inactive hidden`), because they are **defaults nobody chose today** that withhold rows while looking like a neutral starting state — the one case where the user cannot be assumed to know. Each of those chips is also the control that undoes it. Verified live: opening the status lens made `10 inactive hidden` disappear while `189 system hidden` correctly stayed.
+
+  `withheldBy` and `activeFilterCount` are pure and pinned by tests, so the rule survives edits to the component rather than living in JSX. The filter zone is now a `bg-raised` panel — the neutral step added earlier finally spent on the thing it was added for, separating the controls from the results they describe.
+
+- **`TaskCard` is memoised** (2026-08-12): the dashboard re-renders the whole list on every search keystroke, and a full teardown of 255 cards measured ~63ms — a few dropped frames per character. The default shallow compare suffices only because the handlers are stable dashboard mutations rather than inline closures; if that stops being true the memo silently becomes a no-op, which is noted at the call site as the thing to watch.
+
+  *Context worth recording: this was investigated because a browser pass appeared to show the dashboard freezing for 45s at 269 tasks. **It did not.** The tab was hidden, so `requestAnimationFrame` never fired and my probe awaited a frame that could not come; Chrome's intensive throttling of long-hidden tabs explains the rest. Measured properly, a theme toggle is 0.8ms at 13,228 DOM nodes. **No virtualization was added, because none is warranted** — the fix that isn't needed is worth naming as loudly as the one that is.*
+
+### Fixed
+- **Every status colour in the light theme failed WCAG AA, and could not be fixed where it was written** (2026-08-12): status colour lived as **263 raw Tailwind palette utilities across 8 hues**, and a raw utility has one value for both themes. So light mode was wearing dark mode's colours. Measured against white, before → after:
+
+  | role | before | after |
+  |---|---|---|
+  | `warning` | **1.67** | 5.05 |
+  | `success` | **1.92** | 5.65 |
+  | `info` | **2.14** | 5.80 |
+  | `system` | **2.72** | 8.65 |
+  | `danger` | **2.77** | 6.42 |
+
+  AA for small text is 4.5, so all five were failing and `text-amber-400` at 1.67:1 was very nearly invisible. Dark mode was already fine and stayed fine (7.15–11.70, i.e. AAA). **This is why the fix had to be tokens rather than better values**: one literal cannot be light-on-black and dark-on-white at once, so no amount of tuning at the call site could have fixed light mode without breaking dark.
+
+  Each role now carries a pair — `--x` (the accent, for fills and borders at low opacity) and `--x-text` (the role as text on the page background, which inverts between themes). Zero raw palette utilities remain in `frontend/src`.
+
+- **The chip distinguishing a Cronsole-native task from a Windows one drew no distinction** (2026-08-12): found while tokenising. `bg-violet-600` and `bg-primary` are both `262 83% 58%` — the same colour — so `p === 'TASKHUB_NATIVE' ? 'bg-violet-600 …' : 'bg-primary …'` rendered identically in both branches. Native now has its own `--native` token, deliberately offset from `--primary`.
+
+### Changed
+- **Status colour is a semantic role, not a hue** (2026-08-12): `--success` · `--warning` · `--danger` · `--isolate` · `--info` · `--system` · `--neutral-text`, plus platform identity (`--native`, `--claude`, `--chatgpt`) and a `--danger-surface` pair for the backend-down alarm. A restrained theme pass is now an edit to one file instead of a 263-site sweep.
+
+  **Three "duplicate hue pairs" were logged from a frequency count; checking each before merging, only one survived — and the check caught a real bug.** green + emerald genuinely were one role (*good*) and merged into `success` — **except in `platform.ts`, where emerald is ChatGPT's brand colour**, so a blind merge would have recoloured a live badge. violet vs purple are not duplicates at all: violet is the system/personal lens, purple is Claude's identity. red vs rose are not either: red is failure, rose marks a lens that is *isolating* — which is also why it has to stay distinct from `--warning`, the lens that shows you more. The roadmap item asserting three pairs has been corrected rather than quietly dropped.
+
+  Also added the missing neutral step, `--raised`, so a panel can sit *above* `surface` — `background → surface → muted` had no raised level, which is the mechanical reason controls all read at one weight. It is applied to the Mass Actions plan panel (which was painting an inner panel with the page colour, reading as a recessed input well rather than as the thing the card is about); using it across the app is the *thin the first viewport* work, still open.
+
 ### Added
 - **Mass Actions console on the Tools tab — scope-first bulk operations with graduated confirmation** (2026-08-12): pick *what* (all tasks / a category / a platform / a status / a health tier) rather than ticking each row, see exactly what it resolved to, then run. Enable, Disable, Categorize and Remove from Cronsole, each stating what it would **actually change** rather than the scope size.
 

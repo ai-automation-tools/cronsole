@@ -182,7 +182,7 @@ export const BulkExportTool = () => {
       </div>
 
       {error && (
-        <div className="text-sm rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-500 px-4 py-3">
+        <div className="text-sm rounded-xl border border-warning/40 bg-warning/10 text-warning-text px-4 py-3">
           Couldn't read this machine's folders — the Windows agent may be offline. Export needs the agent.
         </div>
       )}
@@ -266,7 +266,7 @@ export const BulkExportTool = () => {
       </label>
 
       <div className="rounded-xl bg-background/60 border border-border/60 px-4 py-3 text-xs text-muted-foreground flex items-start gap-2">
-        <ShieldAlert size={14} className="mt-0.5 shrink-0 text-amber-500" />
+        <ShieldAlert size={14} className="mt-0.5 shrink-0 text-warning-text" />
         <span>
           Exported XML contains each task's full command line and arguments, and the account it runs as.
           If any of your tasks pass secrets on the command line, they will be in these files — save them somewhere you'd keep a password.
@@ -313,8 +313,8 @@ export const BulkExportTool = () => {
           </ul>
 
           {result.counts.failed > 0 && (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-amber-500 mb-1">
+            <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-warning-text mb-1">
                 <AlertTriangle size={12} /> {result.counts.failed} task{result.counts.failed === 1 ? '' : 's'} could not be exported
               </div>
               <ul className="text-[11px] text-muted-foreground space-y-0.5">

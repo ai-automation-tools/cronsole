@@ -36,7 +36,7 @@ export const ScheduleZoneHint = ({
   return (
     <div className="space-y-1">
       {stored.reason ? (
-        <p className="text-[10px] text-amber-400 flex items-start gap-1.5">
+        <p className="text-[10px] text-warning-text flex items-start gap-1.5">
           <AlertTriangle size={11} className="shrink-0 mt-0.5" />
           {stored.reason}
         </p>

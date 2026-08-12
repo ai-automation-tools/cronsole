@@ -135,7 +135,7 @@ export const Sidebar = ({ activeTab, setActiveTab, open = false, onClose }: Side
 
           <div className="p-4 bg-surface/40 rounded-2xl border border-border/50">
             <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-subtle-foreground mb-3">
-              <Activity size={10} className="text-green-500" /> System Status
+              <Activity size={10} className="text-success-text" /> System Status
             </div>
             <div className="space-y-3">
               {isLoading ? (

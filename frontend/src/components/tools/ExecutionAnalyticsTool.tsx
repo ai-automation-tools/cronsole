@@ -113,9 +113,9 @@ const TrendChart = ({ days, onHover }: { days: TrendDay[]; onHover: (day: TrendD
         {days.map((day, i) => {
           const total = day.runs === 0 ? 0 : (day.runs / peak) * 38;
           const parts = [
-            { key: 'failed', value: day.failed, className: 'fill-red-500' },
-            { key: 'pending', value: day.pending, className: 'fill-slate-500 dark:fill-slate-400' },
-            { key: 'succeeded', value: day.succeeded, className: 'fill-emerald-500' }
+            { key: 'failed', value: day.failed, className: 'fill-danger' },
+            { key: 'pending', value: day.pending, className: 'fill-neutral-text dark:fill-neutral-text' },
+            { key: 'succeeded', value: day.succeeded, className: 'fill-success' }
           ].filter(p => p.value > 0);
 
           const description = `${dayLabel(day.day)}: ${day.runs} run${day.runs === 1 ? '' : 's'}, ${day.failed} failed`;
@@ -269,7 +269,7 @@ export const ExecutionAnalyticsTool = () => {
       )}
 
       {error && (
-        <div className="text-sm rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-500 px-4 py-3">
+        <div className="text-sm rounded-xl border border-warning/40 bg-warning/10 text-warning-text px-4 py-3">
           Couldn't read execution analytics right now.
         </div>
       )}
@@ -279,8 +279,8 @@ export const ExecutionAnalyticsTool = () => {
           <div className="grid grid-cols-3 gap-2 border-t border-border pt-4">
             {[
               { label: 'Runs', value: data.totals.runs, className: 'text-foreground' },
-              { label: 'Failed', value: data.totals.failed, className: 'text-red-500' },
-              { label: 'Succeeded', value: data.totals.succeeded, className: 'text-emerald-500' }
+              { label: 'Failed', value: data.totals.failed, className: 'text-danger-text' },
+              { label: 'Succeeded', value: data.totals.succeeded, className: 'text-success-text' }
             ].map(stat => (
               <div key={stat.label} className="text-center">
                 <div className={`text-2xl font-bold tabular-nums ${stat.value === 0 ? 'text-subtle-foreground' : stat.className}`}>
@@ -305,7 +305,7 @@ export const ExecutionAnalyticsTool = () => {
               <>
                 <span className="font-semibold text-foreground">{dayLabel(hovered.day)}</span>
                 {' · '}{hovered.runs} run{hovered.runs === 1 ? '' : 's'}
-                {hovered.failed > 0 && <span className="text-red-500 font-semibold">{' · '}{hovered.failed} failed</span>}
+                {hovered.failed > 0 && <span className="text-danger-text font-semibold">{' · '}{hovered.failed} failed</span>}
               </>
             ) : (
               <span className="text-subtle-foreground">Hover or tab a bar for that day's numbers</span>
@@ -315,13 +315,13 @@ export const ExecutionAnalyticsTool = () => {
           <TrendChart days={data.trend.days} onHover={setHovered} />
 
           <div className="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-wide text-subtle-foreground">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-emerald-500" />Succeeded</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-red-500" />Failed</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-slate-500 dark:bg-slate-400" />Pending</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-success" />Succeeded</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger" />Failed</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-neutral-text dark:bg-neutral-text" />Pending</span>
           </div>
 
           {data.trend.partial && (
-            <div className="text-xs rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-500 px-3 py-2">
+            <div className="text-xs rounded-xl border border-warning/40 bg-warning/10 text-warning-text px-3 py-2">
               Too many runs to chart the whole period. The bars above cover
               {' '}{dayLabel(data.trend.covered.from.slice(0, 10))} onwards; the totals cover all {data.totals.runs}.
             </div>
@@ -384,7 +384,7 @@ export const ExecutionAnalyticsTool = () => {
                       </span>
                       <span
                         className={`text-xs font-bold tabular-nums shrink-0 ${
-                          task.changeRatio >= 2 ? 'text-amber-500' : 'text-muted-foreground'
+                          task.changeRatio >= 2 ? 'text-warning-text' : 'text-muted-foreground'
                         }`}
                       >
                         {slower ? '↑' : '↓'} {(slower ? task.changeRatio : 1 / task.changeRatio).toFixed(1)}×
@@ -447,7 +447,7 @@ export const ExecutionAnalyticsTool = () => {
                 .
               </div>
             ) : (
-              <div className="text-sm text-emerald-500 font-semibold">
+              <div className="text-sm text-success-text font-semibold">
                 Every scheduled task has run recently.
               </div>
             )
@@ -455,7 +455,7 @@ export const ExecutionAnalyticsTool = () => {
             <ul className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-72 overflow-y-auto">
               {idleVisible.map(task => (
                 <li key={task.taskId} className="px-4 py-3 flex items-center gap-3">
-                  <AlertTriangle size={13} className="shrink-0 text-amber-500" />
+                  <AlertTriangle size={13} className="shrink-0 text-warning-text" />
                   <span className="min-w-0 flex-1">
                     <button
                       onClick={() => navigate(`/tasks/${task.taskId}`)}
@@ -469,7 +469,7 @@ export const ExecutionAnalyticsTool = () => {
                       {task.evidence}
                     </span>
                   </span>
-                  <span className="text-xs font-bold tabular-nums shrink-0 text-amber-500">
+                  <span className="text-xs font-bold tabular-nums shrink-0 text-warning-text">
                     {task.daysSinceLastRun}d
                   </span>
                 </li>

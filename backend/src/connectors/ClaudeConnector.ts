@@ -317,13 +317,26 @@ function describeFireError(error: any): string {
   const retryAfter = error?.response?.headers?.['retry-after'];
 
   switch (status) {
-    case 400:
-      // The docs give this status three causes; a paused routine is by far the
-      // most likely one to reach a user, and the least self-explanatory.
+    case 400: {
+      // The docs give this status three causes — paused routine, missing beta
+      // header, oversized `text` — and a paused routine is both the likeliest
+      // to reach a user and the least self-explanatory. So the hint is worth
+      // having, but ONLY when Anthropic did not already say what was wrong.
+      //
+      // It used to be appended unconditionally, which produced this on a live
+      // run: "Refused (400): invalid routine ID: Refresh sidebar links. Most
+      // often the routine is paused — resume it at claude.ai/code/routines."
+      // The API had named the exact cause and the guess buried it, sending the
+      // user to unpause a routine that was fine. **A specific answer from the
+      // platform outranks our most-likely-cause heuristic**; the heuristic is
+      // for filling a silence, not for talking over one.
+      const generic = !apiMessage || /^(invalid request|bad request)\.?$/i.test(apiMessage.trim());
+      if (!generic) return `Refused (400): ${apiMessage}`;
       return (
-        `Refused (400): ${apiMessage ?? 'invalid request'}. ` +
+        'Refused (400): the request was rejected without a reason. ' +
         'Most often the routine is paused — resume it at claude.ai/code/routines.'
       );
+    }
     case 401:
       return 'Token rejected (401). Each token is scoped to one routine and is revoked when regenerated.';
     case 403:

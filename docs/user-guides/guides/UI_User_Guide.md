@@ -113,6 +113,13 @@ Three things the bar tells you on purpose:
 If the agent goes offline partway through, the run stops rather than working through the rest
 one timeout at a time, and the remaining tasks are reported as not attempted.
 
+**Select all has a ceiling.** One bulk change tops out at 100 tasks, so when more than that are
+shown the toolbar says so and points you at **Mass actions** on the Tools tab instead of offering
+a Select all that every button would then refuse. You can still tick individual rows at any size —
+the limit is on selecting everything in one click, not on working with a handful of tasks.
+
+For anything bigger, see [Mass actions](#mass-actions) below.
+
 ### Editing a schedule
 The modal footer shows **Edit Schedule** for Cronsole-native tasks and Windows tasks whose trigger can be represented as a cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits require the local agent because Cronsole changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe editor for those trigger types.
 
@@ -211,6 +218,33 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 ## 5. Tools — health, analytics, backup and restore
 
 The **Tools** tab holds the things that act across *all* your tasks rather than one of them.
+
+### Mass actions
+
+Changes many tasks at once by choosing **what** rather than ticking each row. Pick a scope — all
+tasks, a category, a platform, a status, or a health tier — and the card shows exactly which tasks
+it resolved to before anything happens. Then **Enable**, **Disable**, **Categorize**, or **Remove
+from Cronsole**.
+
+- **Windows' own tasks are excluded unless you ask for them**, and the number kept out is printed
+  next to the checkbox. On a typical machine that is most of them.
+- **Every button counts what it would actually change.** A scope of 80 tasks where 70 are already
+  running gives you *Enable 10*.
+- **Big changes must be typed, not clicked.** At 25 tasks or more the confirmation asks you to type
+  the number. This is the point of the whole surface: a dialog you can dismiss with the same click
+  in the same place stops being a decision once you have seen it a few times.
+- **The confirmation names the scope in words** — *"Scope: the Backups category"* — because a bare
+  count is not something you can check.
+- **Large runs are split into batches of 100** and reported as they go. If the agent disappears
+  partway, the run stops and everything after that point is listed as not attempted rather than
+  silently dropped. Re-running the same scope is safe: anything already done comes back as
+  *already so*.
+- **Enable and disable can be undone** with one click, which puts back exactly the tasks that
+  changed. Removing from Cronsole is undone by re-importing, and recategorizing cannot be undone —
+  so the card says that instead of offering a button that would not work.
+
+Exporting in bulk stays in **Back up scheduled tasks** below, and importing stays on the Dashboard,
+where task discovery lives.
 
 ### Task health
 

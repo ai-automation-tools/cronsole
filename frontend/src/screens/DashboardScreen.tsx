@@ -22,9 +22,12 @@ import {
   Trash2,
   Cpu,
   User,
-  Filter
+  Filter,
+  Layers
 } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import type { Task } from '../types';
+import { MAX_TASKS_PER_BULK } from '../utils/massActions';
 import { TaskCard } from '../components/TaskCard';
 import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
@@ -37,9 +40,11 @@ import { platformLabel, platformBadgeClass } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
 import {
   applyTaskFilters,
+  applyTaskFiltersExcept,
   DEFAULT_FILTERS,
   effectiveFilters,
   needsHealthData,
+  type FilterDimension,
   type TaskFilters
 } from '../utils/taskFilters';
 import {
@@ -121,6 +126,7 @@ export const DashboardScreen = ({
   isBulkPending: boolean;
   settings: Settings;
 }) => {
+  const navigate = useNavigate();
   const { data: connections } = useConnections();
   // "Last synced" = the most recent per-connection sync timestamp.
   const lastSync = useMemo(() => {
@@ -268,8 +274,13 @@ export const DashboardScreen = ({
   // therefore reflects every other constraint — an empty category drops out
   // instead of showing a 0 — while never filtering by the dimension it is
   // offering, or you could never switch off the value you are on.
-  const facetBase = (ignore: 'category' | 'platform') =>
-    applyTaskFilters(tasks ?? [], { ...viewFilters, [ignore]: 'All' }, {
+  //
+  // Goes through `applyTaskFiltersExcept` rather than hand-writing
+  // `{ ...viewFilters, category: 'All' }`: naming the dimension is the same
+  // operation the status toggle needs, and two spellings of "leave this one out"
+  // is how one of them ends up leaving out a dimension the other doesn't.
+  const facetBase = (ignore: FilterDimension) =>
+    applyTaskFiltersExcept(tasks ?? [], viewFilters, ignore, {
       now,
       timezone: settings.timezone,
       tiers
@@ -288,19 +299,25 @@ export const DashboardScreen = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, viewFilters, now, settings.timezone, tiers]);
 
-  // How many tasks the active-only filter is holding back. Counted across every
-  // task the system lens lets through — not the category/platform selection, and
-  // deliberately NOT the raw list either: in Personal mode it must report what
-  // *this view* is withholding (12), not what both filters withhold together
-  // (56), or the number describes a view the user isn't looking at. This answers
-  // "is anything being kept from me right now?", which is the question the
-  // toggle's own state can't answer. Note it covers MISSING and UNKNOWN too,
-  // not just DISABLED — the filter keeps only `ACTIVE`, so a natively-deleted
-  // task flagged MISSING is invisible in Active Only, which is exactly the kind
-  // of thing you don't want silently hidden.
-  const hiddenByActiveFilter = useMemo(
-    () => (tasks ?? []).filter(t => t.status !== 'ACTIVE').length,
-    [tasks]
+  // The population the status toggle governs: every task that passes every
+  // OTHER lens. This is the number the chip must speak in — see
+  // `applyTaskFiltersExcept`.
+  //
+  // It used to be counted over the raw system-lens output, on the reasoning that
+  // the toggle should report what the *dashboard* is withholding rather than
+  // what the current category is. That was defensible with four dimensions and
+  // stopped being so once views could pin favorites, due and outcome: opening on
+  // two starred tasks printed `Showing All 269` above two rows. The rule that
+  // settles it is that the count predicts the click — reveal one row after
+  // promising twelve and the number was never about this list.
+  //
+  // Note it covers MISSING and UNKNOWN too, not just DISABLED — the filter keeps
+  // only `ACTIVE`, so a natively-deleted task flagged MISSING is invisible in
+  // Active Only, which is exactly the kind of thing you don't want silently hidden.
+  const statusGoverned = useMemo(
+    () => facetBase('status'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tasks, viewFilters, now, settings.timezone, tiers]
   );
 
   // Tasks the last sync couldn't find on their platform. Drives the bulk-clear
@@ -340,6 +357,12 @@ export const DashboardScreen = ({
       }),
     [tasks, viewFilters, now, settings.timezone, tiers]
   );
+
+  // How many of the governed population the status filter is holding back —
+  // derived as the difference rather than counted separately, so it cannot
+  // disagree with the list it sits above. `statusGoverned` is `filteredTasks`
+  // plus exactly the rows status removes, so this is 0 whenever status is 'any'.
+  const hiddenByActiveFilter = statusGoverned.length - filteredTasks.length;
 
   // ---- Saved views --------------------------------------------------------
 
@@ -452,6 +475,10 @@ export const DashboardScreen = ({
   const allVisibleSelected =
     filteredTasks.length > 0 && filteredTasks.every(t => selectedIds.has(t.id));
 
+  // Select-all is only offered while the resulting selection is one the bulk
+  // routes would accept. Above the ceiling it is an offer the app cannot keep.
+  const selectAllTooLarge = filteredTasks.length > MAX_TASKS_PER_BULK;
+
   // Every bulk action acts on the WHOLE selection, including the part this view
   // isn't showing — the bar has already said how many that is, and acting on
   // only what happens to be rendered would make the result depend on which view
@@ -530,14 +557,17 @@ export const DashboardScreen = ({
               // would hide the very rows you just went looking for.
               onClick={() => setFilter('status', filters.status === 'active' ? 'any' : filters.status === 'any' ? 'active' : 'any')}
               aria-pressed={filters.status === 'active'}
+              // Every number here is counted within the rest of the view, not
+              // across the whole dashboard — the tooltip is where the promise is
+              // made explicit, so it is the one place it must not overreach.
               title={
                 isolatedStatus
-                  ? `Showing only ${statusNoun} tasks — this view isolates them. Click to show everything.`
+                  ? `Showing only ${statusNoun} tasks — this view isolates them. Click to show every status.`
                   : filters.status === 'any'
-                    ? `Showing all ${tasks?.length ?? 0} tasks, including disabled and missing ones. Click to show only active tasks.`
+                    ? `Showing all ${filteredTasks.length} tasks in this view, whatever their status. Click to show only active ones.`
                     : hiddenByActiveFilter > 0
-                      ? `Showing only active tasks — ${hiddenByActiveFilter} hidden (disabled, missing, or unknown). Click to show everything.`
-                      : 'Showing only active tasks. Nothing is hidden right now. Click to show everything.'
+                      ? `Showing only active tasks — ${hiddenByActiveFilter} more in this view are hidden (disabled, missing, or unknown). Click to show them.`
+                      : 'Showing only active tasks. Nothing in this view is hidden right now. Click to show every status.'
               }
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
                 isolatedStatus
@@ -547,7 +577,7 @@ export const DashboardScreen = ({
                     : 'bg-green-500/10 border-green-500/40 text-foreground hover:border-green-500/70'
               }`}
             >
-              {/* A third state needs a third treatment. Reusing "Showing All"
+              {/* A third state needs a third treatment. Reusing "All statuses"
                   amber for an isolation would say the opposite of what the list
                   is doing — it is showing *less*, not more. */}
               {isolatedStatus
@@ -555,13 +585,18 @@ export const DashboardScreen = ({
                 : filters.status === 'any'
                   ? <Eye size={16} className="text-amber-400" />
                   : <EyeOff size={16} className="text-green-400" />}
-              {isolatedStatus ? `${statusNoun} only` : filters.status === 'any' ? 'Showing All' : 'Active Only'}
+              {/* Names the dimension it owns. "Showing All" described the whole
+                  list, which is a claim this control is not entitled to make —
+                  it governs status, and every other lens is still in force
+                  underneath it. On the Favorites view that read `Showing All 269`
+                  above two rows. */}
+              {isolatedStatus ? `${statusNoun} only` : filters.status === 'any' ? 'All statuses' : 'Active only'}
               {/* The count is the part that actually removes the ambiguity: the
                   label alone reads as either a state or an action. */}
               {isolatedStatus ? (
                 <span className="text-[10px] font-bold text-rose-400/90 tabular-nums">{filteredTasks.length}</span>
               ) : filters.status === 'any' ? (
-                <span className="text-[10px] font-bold text-amber-400/90 tabular-nums">{tasks?.length ?? 0}</span>
+                <span className="text-[10px] font-bold text-amber-400/90 tabular-nums">{filteredTasks.length}</span>
               ) : hiddenByActiveFilter > 0 && (
                 <span className="text-[10px] font-bold text-green-400/90 tabular-nums whitespace-nowrap">
                   {hiddenByActiveFilter} hidden
@@ -821,25 +856,55 @@ export const DashboardScreen = ({
 
           {/* Selection: the select-all control lives in the toolbar rather than
               as a header checkbox, because only here can it name the number it
-              is about to select — the same rule the Import modal follows. */}
+              is about to select — the same rule the Import modal follows.
+
+              **It is capped at what one bulk request can actually do.** Every
+              bulk route refuses above `MAX_TASKS_PER_BULK`, so on a real machine
+              "Select all 269" built a selection whose every button then failed
+              with a 400 — an offer the app could not keep. Past the cap this
+              hands off to the Mass actions console, which is scope-based and
+              batches, rather than pretending the dashboard can do it.
+
+              Per-task selection stays available throughout: the point is to stop
+              *one click* becoming a machine-wide operation, not to make small
+              batches harder. §9's rule cuts both ways — Untrack lives here as
+              the safe neighbour of Delete, and moving it away would push people
+              toward the destructive one. */}
           <div className="flex flex-col gap-3">
             {filteredTasks.length > 0 && (
-              <label className="flex items-center gap-2 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors cursor-pointer w-fit">
-                <input
-                  type="checkbox"
-                  checked={allVisibleSelected}
-                  onChange={toggleSelectAllVisible}
-                  aria-label={
-                    allVisibleSelected
-                      ? `Deselect all ${filteredTasks.length} visible tasks`
-                      : `Select all ${filteredTasks.length} visible tasks`
-                  }
-                  className="h-4 w-4 cursor-pointer accent-primary rounded border-border bg-background"
-                />
-                {allVisibleSelected
-                  ? `Deselect all ${filteredTasks.length}`
-                  : `Select all ${filteredTasks.length} shown`}
-              </label>
+              selectAllTooLarge ? (
+                <p className="flex items-center gap-2 text-[11px] font-bold text-subtle-foreground w-fit">
+                  <Layers size={13} className="text-primary" />
+                  <span>
+                    {filteredTasks.length} tasks shown — too many to select at once (one bulk change
+                    tops out at {MAX_TASKS_PER_BULK}).{' '}
+                    <button
+                      onClick={() => navigate('/tools')}
+                      className="text-primary hover:underline font-bold"
+                    >
+                      Use Mass actions
+                    </button>{' '}
+                    for a change this size, or tick the ones you want.
+                  </span>
+                </p>
+              ) : (
+                <label className="flex items-center gap-2 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors cursor-pointer w-fit">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={toggleSelectAllVisible}
+                    aria-label={
+                      allVisibleSelected
+                        ? `Deselect all ${filteredTasks.length} visible tasks`
+                        : `Select all ${filteredTasks.length} visible tasks`
+                    }
+                    className="h-4 w-4 cursor-pointer accent-primary rounded border-border bg-background"
+                  />
+                  {allVisibleSelected
+                    ? `Deselect all ${filteredTasks.length}`
+                    : `Select all ${filteredTasks.length} shown`}
+                </label>
+              )
             )}
 
             <BulkActionBar

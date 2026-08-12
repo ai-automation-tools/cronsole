@@ -23,11 +23,13 @@ belongs in the CHANGELOG.
 
 ## ▶ Next up
 
-1. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
+1. **UX & UI refinement pass** — tokenize status colour, thin the first viewport, grow Platforms
+   into a real capability matrix (see P2 Open; logged from the 2026-08-12 review).
+2. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
    deliberately-skipped `version` fields in the package manifests.
-2. **Restore's plan doesn't check that a task's action points at anything that exists** — the
+3. **Restore's plan doesn't check that a task's action points at anything that exists** — the
    advisory resolvability column, logged 2026-07-31 (see P2 Open).
-3. **Bulk export's directory-picker branch is still undriven** — the one part of the Tools tab no
+4. **Bulk export's directory-picker branch is still undriven** — the one part of the Tools tab no
    click-through has reached, because it opens a native dialog. Low priority; noted so its absence
    stays visible rather than being mistaken for coverage.
 
@@ -43,7 +45,15 @@ belongs in the CHANGELOG.
 
 ## 🟠 P1 — Correctness & honesty
 
-**All logged P1 items are closed.** New correctness work lands here as it is found.
+New correctness work lands here as it is found. Everything logged before 2026-08-12 is closed.
+
+- [x] **The filter chips counted every task, while the list showed the filtered ones**
+      *(logged and fixed 2026-08-12, from the UX review)*: `Showing All 269` above two rows on the
+      Favorites view — exactly the failure §9 predicts (*"the fifth filter applied to the list but
+      not to the counts beside it"*), arriving with the sixth. Both counts now come from
+      `applyTaskFiltersExcept`, the population the control governs; the chip names its dimension
+      (`All statuses` / `Active only`); the facet chips share the same helper. Verified in the
+      browser against rendered rows.
 
 - [ ] **System-status honesty — residual** *(mostly shipped 2026-07-08)*: live per-platform health,
       the "synced N ago" chip and the honest Sync/Import split all ship; what remains is periodic
@@ -75,24 +85,95 @@ belongs in the CHANGELOG.
 
 ## 🟡 P2 — Product value
 
+### Open — UX & UI refinement pass *(logged 2026-08-12)*
+
+> A full-app review on 2026-08-12 (`.claude/temp/cronsole-review-8_12_26/`, live app + repo) found
+> the product powerful but reading as a dense internal admin panel rather than a control plane.
+> Every item below was re-verified against the source and is stated as what the code actually
+> does, not as the review phrased it. **Ordered.** The counts bug the same review found is P1
+> above and should ship first — it is the one that makes the dashboard say something untrue.
+
+- [ ] **Status colour isn't themeable — it's 263 hard-coded Tailwind utilities across 8 hues.**
+      The tokens in `index.css` cover neutrals + `primary` + `success`; every warning, failure,
+      system and isolation colour is written raw at the call site (`amber-500`, `rose-500`,
+      `sky-500`, `violet-500`, …). Three pairs are **synonyms carrying the same meaning in
+      different files** — red/rose (77 uses), green/emerald (32), violet/purple (32) — so the same
+      state is two colours depending on which component you're looking at. Fix the cause before the
+      symptom: promote the status roles to tokens (`--warning`, `--danger`, `--info`, `--system`),
+      collapse each synonym pair, then the "restrained theme pass" is one file instead of a
+      263-site sweep. Also add the missing neutral step — `background` 4% → `surface` 7% → `muted`
+      14% gives no *raised* or *active* panel level, which is why controls all read at one weight.
+- [ ] **Thin the first viewport.** Desktop stacks onboarding banner · title+sync · Help Center ·
+      status chip · system chip · New Task · Import · Sync Now · saved views · search · category
+      chips · view switcher · select-all · favorites banner before any task. Several are
+      conditional, but on a real machine (269 tasks, system tasks present) nearly all render.
+      Keep title, primary action, health and search always visible; move secondary filters behind
+      one **Filters** control showing the active-filter count; make category chips a compact
+      scroller. Saved views stay as the top-level navigation — they already are it.
+      **Constraint:** whatever moves into a drawer must keep saying what it is hiding — the
+      hidden-count on each chip is the invisible-fence guard, not decoration, so the drawer
+      trigger has to carry it out to the surface.
+- [ ] **Grow the Platforms tab into a capability matrix** *(the open decision is now resolved —
+      **grow**, 2026-08-12)*. Today `PlatformsScreen.tsx` is 167 lines of `localStorage`
+      bookmarks to Claude / ChatGPT / Gemini, and **does not mention Windows Task Scheduler or
+      Cronsole-native at all** — the two platforms that actually work are visible only as a sidebar
+      chip. Replace with a per-platform row: connection, sync, and which verbs are real
+      (run / create / edit schedule / edit action / export / delete), plus last-verified. Every
+      cell must be evidence, not a spec table — same rule as `getHealth` ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)):
+      a capability the connector declares but has never demonstrated says *declared*, not *yes*.
+      Keep the custom-links section; it is the honest home for link-only platforms.
+- [ ] **Dashboard health strip** *(pairs with the task-detail trust indicators below)*: agent
+      online / last sync / last command outcome in the header, so "what should I do next" doesn't
+      require reading the sidebar. Bound by the same rule — no field a health probe can stamp itself.
+- [ ] **Icon-only controls need tooltips and accessible names**, everywhere. Task cards carry
+      select / star / clone / enable / run plus the card-open target; the review flagged misclick
+      risk, and the cheap half of that is naming every control. A hover/focus "Open details"
+      affordance makes the card's default click discoverable without redesigning the card.
+- [ ] **Screenshot regression coverage** on the dense surfaces — dashboard desktop + 375px, task
+      detail, New Task, Import, Templates, Tools. The UI is tight enough that spacing regressions
+      are real regressions, and there is currently nothing that would catch one.
+
 ### Open
+
+- [x] **Mass Actions console on the Tools tab — and a scale cap on dashboard selection**
+      *(requested and shipped 2026-08-12)*. Scope-first (all / category / platform / status /
+      health tier), plan visible before anything is asked of a platform, typed confirmation at
+      **≥25 tasks**, chunked at the server's 100-task ceiling with halt propagation, per-task
+      five-outcome report, and undo for enable/disable only. No backend added — every verb is an
+      existing `/api/tools/tasks/*` route. Dashboard select-all now capped at what one bulk request
+      can accept (it previously offered `Select all 269`, which every button then 400'd on) and
+      hands off to the console; per-task selection is untouched, so Untrack stays beside Delete as
+      the safe neighbour. Absorbed *bulk enable/disable by folder*. Export and import stay in their
+      own tools rather than being duplicated here. Verified live at zero mutation — see CHANGELOG.
+      **Deferred:** running a real agent-backed enable/disable end to end (it mutates real
+      scheduled tasks), and the mid-flight progress indicator, which a DB-only run completes too
+      fast to observe.
 
 - [ ] **Restore's plan doesn't check that a task's action points at anything that exists**
       *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
       executable and file-looking arguments resolve on this machine. Not a refusal — an executable
       missing here may exist on the machine being restored to.
 - [ ] **Task-detail trust indicators — say how old the truth is**: per-task last platform-confirmed
-      sync, last agent result, and Windows' own `lastTaskResult` in the modal.
+      sync, last agent result, and Windows' own `lastTaskResult` in the modal. *(Re-raised by the
+      2026-08-12 review, which adds a fourth: whether the displayed action was reported by the
+      **current** agent version — an un-republished agent omits fields rather than erroring, so a
+      stale panel and a correct one look identical.)*
 - [ ] **Optional periodic Windows sync**: opt-in interval sync, interval stated, last run shown,
       the `untracked` remainder surfaced. Must stay `scope: 'tracked'`.
-- [ ] **UI polish pass**: full-path tooltip/copy on truncated task paths · auto-retire the
-      onboarding banner once the user has imported or created · Apply-modal footer crowding ·
-      Help Center reachability at ~720px · the two dev-mode Socket.IO console warnings.
-- [ ] **Console noise in user-facing flows**: remaining backend/Dashboard `console.log`s carrying
-      task names, native paths and command lines. Do it with the structured-logging work under
-      *Production operations*.
-- [ ] **Reframe or grow the Platforms tab**: lean is **grow** it into a per-platform status +
-      capability matrix rather than rename it to `Links`.
+- [ ] **UI polish pass**: full-path tooltip/copy on truncated task paths · Apply-modal footer
+      crowding · Help Center reachability at ~720px · the two dev-mode Socket.IO console warnings
+      (worth clearing before any demo capture — they bury real console errors).
+- [ ] **Onboarding becomes contextual instead of global** *(absorbs the banner half of the polish
+      pass; sharpened 2026-08-12)*: the banner lives in `Dashboard.tsx` **above the tab switch**, so
+      it rides along on Templates, Tools and Platforms too, and clears only on an explicit click.
+      Auto-retire it once the user has imported, created or starred; replace it with per-tab
+      first-use cards, which is where the advice is actually actionable.
+- [ ] **Console noise in user-facing flows**: **37 backend + 3 frontend** `console.*` calls
+      *(counted 2026-08-12)*, the worst carrying task names, native paths and full command lines —
+      in `routes/tasks.ts`, `WindowsAgentConnector.ts`, `NativeScheduler.ts`, `TaskService.ts`,
+      `AgentManager.ts` and `Dashboard.tsx`. Do it with the structured-logging work under
+      *Production operations*: levels + redaction, with full command lines gated behind an explicit
+      diagnostics export rather than on by default.
 - [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
 - [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
       launchd plist, Claude routine payload). Lands as connectors and the macOS agent do.
@@ -100,7 +181,8 @@ belongs in the CHANGELOG.
 - [ ] **Native task follow-ups**: `CLAUDE_PROMPT` job type, and a Redis lock before multi-instance.
 - [ ] **Tools tab — further candidate tools** *(candidates only, none scheduled)*: scheduled
       automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
-      since your last backup") · a user-facing diagnostics panel · bulk enable/disable by folder.
+      since your last backup") · a user-facing diagnostics panel. *(Bulk enable/disable by folder
+      was absorbed into the Mass Actions console above on 2026-08-12.)*
       Rule for the tab: everything on it must be genuinely cross-cutting, or it is a junk drawer.
 
 ### Completed
@@ -200,10 +282,15 @@ belongs in the CHANGELOG.
       Secrets must be generated **per machine at install time**, and uninstall must sweep Task
       Scheduler. Signing is a hard prerequisite (SmartScreen), not polish. ~1 week to installable,
       ~1 more to trustworthy.
-- [ ] **Split the files that have become fault lines** — `mcp-server/src/tools.ts` (1,041),
-      `backend/src/routes/tasks.ts` (993), `DashboardScreen.tsx` (823), `TemplatesScreen.tsx` (768),
-      `AgentService.cs` (694), `TaskModal.tsx` (684). **Not a refactor sprint** — split along the
-      named seams only when next touching that area.
+- [ ] **Split the files that have become fault lines** — *(re-counted 2026-08-12; every one grew,
+      and one was missing from the list)*: `DashboardScreen.tsx` (1,251), `routes/tasks.ts` (1,182),
+      `mcp-server/src/tools.ts` (1,140), **`routes/tools.ts` (1,130 — not previously listed)**,
+      `TemplatesScreen.tsx` (794), `AgentService.cs` (782), `TaskModal.tsx` (757).
+      **Still not a refactor sprint** — split along the named seams only when next touching that
+      area. Named seams: dashboard filters/saved views · dashboard bulk actions · dashboard view
+      renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
+      vs. template vs. diagnostic tools. The UX pass above lands squarely in `DashboardScreen.tsx`,
+      so that is the one to split *while you are there*, not afterwards.
 - [ ] **Claude Code connector** — promote from experimental scaffold to production-ready.
 - [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
 - [~] **Template gallery site** — parts 1, 2, 4, 5 shipped; **part 3, the one-click "Add to my
@@ -316,8 +403,6 @@ items cover the repo and product going public, not standing up a multi-tenant cl
       but needs **no schema or test changes**; SQLite gives a single-file install but
       `Template.tags String[]` is Postgres-only, forcing a migration and forking the integration
       suite. **Lean: bundle Postgres for v1.**
-- [ ] **Rename the Platforms tab, or grow it?** *(opened 2026-07-28)* — **lean: grow it** into a
-      per-platform capability/status surface; revisit renaming only if connectors stall.
 - [ ] **Agent transport** — WebSocket only, or hybrid with long-polling for restricted networks?
 - [ ] **Template registry — static vs. dynamic at launch** — static JSON registry is leading; earn
       a DB-backed API + admin/submission UI later. *(Format is already decided: target-agnostic
@@ -332,6 +417,9 @@ items cover the repo and product going public, not standing up a multi-tenant cl
 - [x] Default theme — **dark** *(2026-07-28)*
 - [x] Does untrack need an exclusion memory — **yes, subtractive-only `TaskExclusion`** *(2026-07-28)*
 - [x] Keep the "TaskHub" name or rebrand — **rebrand to `Cronsole`** *(2026-07-31)*
+- [x] Rename the Platforms tab, or grow it — **grow it** into a per-platform capability/status
+      matrix *(opened 2026-07-28, decided 2026-08-12)*. The review settled it: the tab currently
+      omits the only two platforms that work, so renaming it to `Links` would make that permanent.
 
 </details>
 

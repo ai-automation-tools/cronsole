@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Task } from '../../types';
 import {
   applyTaskFilters,
+  applyTaskFiltersExcept,
   DEFAULT_FILTERS,
   effectiveFilters,
   filtersEqual,
@@ -275,6 +276,87 @@ describe('applyTaskFilters', () => {
   it('searches within the already-narrowed set', () => {
     const out = applyTaskFilters(tasks, { ...DEFAULT_FILTERS, search: 'native' }, opts);
     expect(out.map(t => t.id)).toEqual(['native']);
+  });
+});
+
+describe('applyTaskFiltersExcept', () => {
+  const now = at('2026-07-31T16:00:00Z');
+  const opts = { now, timezone: 'America/Los_Angeles' as const };
+
+  it('is applyTaskFilters when nothing is excluded', () => {
+    const tasks = [task('a'), task('b', { status: 'DISABLED' })];
+    expect(applyTaskFiltersExcept(tasks, DEFAULT_FILTERS, null, opts))
+      .toEqual(applyTaskFilters(tasks, DEFAULT_FILTERS, opts));
+  });
+
+  it('drops only the named dimension, keeping every other one in force', () => {
+    const tasks = [
+      task('active-reports', { category: 'Reports' }),
+      task('off-reports', { status: 'DISABLED', category: 'Reports' }),
+      task('off-backups', { status: 'DISABLED', category: 'Backups' })
+    ];
+    // Excluding status must not also let the Backups task through.
+    const out = applyTaskFiltersExcept(
+      tasks,
+      { ...DEFAULT_FILTERS, category: 'Reports' },
+      'status',
+      opts
+    );
+    expect(out.map(t => t.id)).toEqual(['active-reports', 'off-reports']);
+  });
+
+  /*
+   * The regression this whole helper exists for.
+   *
+   * The status chip counts the population it governs. Counted over the raw list
+   * it printed the dashboard's total — `Showing All 269` sitting directly above
+   * the two rows the Favorites view was actually showing. The count has to be
+   * taken within every other lens, because it is a promise about what clicking
+   * will reveal.
+   */
+  it('counts the status population within the Favorites view, not across the dashboard', () => {
+    const tasks = [
+      task('star-on', { isFavorite: true }),
+      task('star-off', { status: 'DISABLED', isFavorite: true }),
+      ...Array.from({ length: 267 }, (_, i) => task(`crowd-${i}`, { status: 'DISABLED' }))
+    ];
+    const favorites = {
+      ...DEFAULT_FILTERS,
+      status: 'any' as const,
+      system: 'include' as const,
+      favorites: 'only' as const
+    };
+
+    const shown = applyTaskFilters(tasks, favorites, opts);
+    const governed = applyTaskFiltersExcept(tasks, favorites, 'status', opts);
+
+    // With status 'any' the chip prints the list's own length and hides nothing.
+    expect(shown).toHaveLength(2);
+    expect(governed).toHaveLength(2);
+    expect(governed.length - shown.length).toBe(0);
+
+    // Narrowing to active hides exactly one of the two starred tasks — not 267.
+    const active = applyTaskFilters(tasks, { ...favorites, status: 'active' }, opts);
+    const hidden = applyTaskFiltersExcept(tasks, { ...favorites, status: 'active' }, 'status', opts)
+      .length - active.length;
+    expect(hidden).toBe(1);
+  });
+
+  it('counts within the selected category, so the number predicts the click', () => {
+    const tasks = [
+      task('b-active', { category: 'Backups' }),
+      task('b-off', { status: 'DISABLED', category: 'Backups' }),
+      task('r-off-1', { status: 'DISABLED', category: 'Reports' }),
+      task('r-off-2', { status: 'DISABLED', category: 'Reports' })
+    ];
+    const filters = { ...DEFAULT_FILTERS, category: 'Backups' };
+
+    const shown = applyTaskFilters(tasks, filters, opts);
+    const governed = applyTaskFiltersExcept(tasks, filters, 'status', opts);
+
+    // Clicking the chip reveals the one disabled Backups task, so "1 hidden" is
+    // the only honest number here — the two Reports rows are not on offer.
+    expect(governed.length - shown.length).toBe(1);
   });
 });
 

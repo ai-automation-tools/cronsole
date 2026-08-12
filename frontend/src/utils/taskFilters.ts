@@ -245,6 +245,17 @@ export function needsHealthData(filters: TaskFilters): boolean {
   return filters.outcome !== 'any';
 }
 
+/** One filterable dimension of `TaskFilters`, nameable so it can be left out. */
+export type FilterDimension =
+  | 'status'
+  | 'system'
+  | 'favorites'
+  | 'platform'
+  | 'category'
+  | 'due'
+  | 'outcome'
+  | 'search';
+
 /**
  * Apply every dimension. Order is by cost, cheapest first — the string compares
  * eliminate most of the list before the date maths or the search tokenizer run.
@@ -262,18 +273,57 @@ export function applyTaskFilters(
     tiers?: Map<string, HealthTier>;
   }
 ): Task[] {
+  return applyTaskFiltersExcept(tasks, filters, null, options);
+}
+
+/**
+ * The same pipeline with **one dimension left out** — the population a single
+ * control governs.
+ *
+ * This is what a filter control has to count over, and the rule is sharper than
+ * "show a number": **the count is a promise about what clicking will do.** A
+ * chip that says `12 hidden` and then reveals one row on click is the same lie
+ * as a lit chip over a list it no longer describes, just delayed by a click.
+ * Leaving out exactly the dimension the control owns — and applying every other
+ * one — is what makes that promise true.
+ *
+ * The facet chips already worked this way (they were passing `{...filters,
+ * category: 'All'}` by hand); the status toggle did not, and counted over the
+ * raw list instead. With four dimensions that was survivable. Favorites made it
+ * visible: opening on two starred tasks printed `Showing All 269` directly above
+ * two rows. Both now come through here, so there is one definition of "the
+ * population this control governs" rather than one per control.
+ */
+export function applyTaskFiltersExcept(
+  tasks: Task[],
+  filters: TaskFilters,
+  /** The dimension this population is *for*. `null` applies everything. */
+  except: FilterDimension | null,
+  options: {
+    now: Date;
+    timezone: TimezoneMode;
+    tiers?: Map<string, HealthTier>;
+  }
+): Task[] {
   const zone = resolveZone(options.timezone);
+  const skip = (dimension: FilterDimension) => dimension === except;
+
   return tasks.filter(
     task =>
-      matchesSystem(task, filters.system) &&
-      matchesStatus(task, filters.status) &&
-      matchesFavorites(task, filters.favorites) &&
-      (filters.platform === 'All' || task.platform === filters.platform) &&
-      (filters.category === 'All' ||
+      (skip('system') || matchesSystem(task, filters.system)) &&
+      (skip('status') || matchesStatus(task, filters.status)) &&
+      (skip('favorites') || matchesFavorites(task, filters.favorites)) &&
+      (skip('platform') ||
+        filters.platform === 'All' ||
+        task.platform === filters.platform) &&
+      (skip('category') ||
+        filters.category === 'All' ||
         (task.category || 'Uncategorized') === filters.category) &&
-      matchesDue(task, filters.due, options.now, zone) &&
-      matchesOutcome(task, filters.outcome, options.tiers) &&
-      (!filters.search.trim() || matchesTaskSearch(task, filters.search))
+      (skip('due') || matchesDue(task, filters.due, options.now, zone)) &&
+      (skip('outcome') || matchesOutcome(task, filters.outcome, options.tiers)) &&
+      (skip('search') ||
+        !filters.search.trim() ||
+        matchesTaskSearch(task, filters.search))
   );
 }
 

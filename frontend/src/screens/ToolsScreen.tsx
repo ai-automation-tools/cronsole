@@ -1,6 +1,7 @@
 import { BulkExportTool } from '../components/tools/BulkExportTool';
 import { ConnectPackTool } from '../components/tools/ConnectPackTool';
 import { ExecutionAnalyticsTool } from '../components/tools/ExecutionAnalyticsTool';
+import { MassActionsTool } from '../components/tools/MassActionsTool';
 import { RestoreTool } from '../components/tools/RestoreTool';
 import { RunHistoryTool } from '../components/tools/RunHistoryTool';
 import { ScheduleTesterTool } from '../components/tools/ScheduleTesterTool';
@@ -24,7 +25,7 @@ export const ToolsScreen = () => (
   <div className="space-y-8 animate-in fade-in duration-500 pb-20">
     <div>
       <h2 className="text-2xl font-bold mb-1">Tools</h2>
-      <p className="text-muted-foreground">Check task health, see what failed or stalled, try a schedule, back up and restore tasks, and connect AI tools.</p>
+      <p className="text-muted-foreground">Act on many tasks at once, check task health, see what failed or stalled, try a schedule, back up and restore tasks, and connect AI tools.</p>
     </div>
 
     {/* No `items-start`: the default `stretch` plus `h-full` on every card is
@@ -33,6 +34,9 @@ export const ToolsScreen = () => (
         anything that can grow (a restore plan, the health list) scrolls inside
         its own card rather than stretching the whole row. */}
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      {/* Full width, and first: it is the only card here that *acts*, and its
+          scope list needs the room. Everything below it reports. */}
+      <MassActionsTool />
       <TaskHealthTool />
       <ExecutionAnalyticsTool />
       <ScheduleTesterTool />

@@ -140,7 +140,12 @@ const Dashboard = () => {
   const favoriteMutation = useMutation({
     mutationFn: async (task: Task) => {
       const next = !task.isFavorite;
-      next ? await api.post(`/tasks/${task.id}/favorite`) : await api.delete(`/tasks/${task.id}/favorite`);
+      const url = `/tasks/${task.id}/favorite`;
+      if (next) {
+        await api.post(url);
+      } else {
+        await api.delete(url);
+      }
       return { task, next };
     },
     onMutate: async (task: Task) => {

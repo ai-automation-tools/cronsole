@@ -184,6 +184,20 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Open
 
+- [x] **Source-first dashboard** *(requested and shipped 2026-08-12)*: a source bar above the
+      saved views — *All sources* / *Windows Task Scheduler* / *Cronsole (Native)* / … — as the
+      first-level axis, ahead of views and categories. Platform left the Filters popover in the
+      same change (two controls for one dimension). **Source is an outer lens**: it survives
+      clicking a view (`filtersEqual` ignores it, so both chips stay lit), rides alongside the view
+      id in the URL, is stripped from saved views by `viewFiltersFrom`, is not counted by the
+      Filters badge, and **scopes every view count** — `My jobs 88` above a list of one is the same
+      broken promise as `Showing All 269` above two rows.
+      **The bug worth remembering:** the button list was first derived from the *faceted*
+      population, so on a view whose matches were all one source the bar vanished — taking the only
+      control that could switch away. Existence now comes from the whole task list; only the counts
+      stay faceted, which is why a source may legitimately read `0`.
+      Groundwork for adding AI systems and other operating systems as further sources.
+
 - [x] **Mass Actions console on the Tools tab — now the only bulk surface**
       *(requested and shipped 2026-08-12)*. **Action-first**: a vertical list of verbs, each opening
       its own scope step (category — the default — / all / platform / status / health tier). Plan

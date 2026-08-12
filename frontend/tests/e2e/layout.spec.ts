@@ -50,6 +50,8 @@ const volatile = (page: Page) => [
   page.locator('[data-testid="health-strip"]'),
   // View chips carry live counts.
   page.locator('[role="group"][aria-label="Saved views"]'),
+  // So do the source buttons.
+  page.locator('[role="group"][aria-label="Task source"]'),
   // "Manage 269 tasks across your ecosystem."
   page.locator('[data-testid="task-count-line"]'),
   // "Showing your 2 starred tasks — 267 other tasks are hidden."
@@ -121,6 +123,29 @@ test.describe('mobile layout — 375px', () => {
     // And it really does scroll rather than clipping its tail off.
     const scrollable = await bar.evaluate(el => el.scrollWidth > el.clientWidth);
     expect(scrollable).toBe(true);
+  });
+
+  test('the source bar is one scrolling row and survives a narrowing view', async ({ page }) => {
+    await page.goto('/');
+    await dashboardReady(page);
+
+    const bar = page.locator('[role="group"][aria-label="Task source"]');
+    await expect(bar).toBeVisible();
+
+    // One row. "Windows Task Scheduler" alone is most of a 375px screen, so this
+    // has to scroll rather than wrap the way the views bar does.
+    const box = await bar.boundingBox();
+    expect(box!.height).toBeLessThan(60);
+    expect(await bar.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+
+    // The regression this pins: the button list was first derived from the
+    // *faceted* population, so on a view whose matches were all one source the
+    // bar saw a single option, concluded there was nothing to choose, and
+    // removed the only control that could switch away. An outer lens may not
+    // vanish because an inner filter narrowed the list.
+    await page.goto('/?view=favorites');
+    await expect(bar).toBeVisible();
+    await expect(bar.getByRole('button', { name: /Cronsole \(Native\)/ })).toBeVisible();
   });
 
   test('the filter toolbar stays reachable after scrolling the list', async ({ page }) => {
@@ -264,6 +289,32 @@ test.describe('desktop layout — 1280px', () => {
     await expect(page.getByRole('heading', { name: 'Import & Sync' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Close import' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Discard' })).toBeVisible();
+  });
+});
+
+test.describe('source is the outer lens', () => {
+  test.use({ viewport: DESKTOP });
+
+  test('selecting a source keeps the view lit and scopes its count', async ({ page }) => {
+    await page.goto('/?view=my-jobs&platform=TASKHUB_NATIVE');
+    await dashboardReady(page);
+
+    const views = page.locator('[role="group"][aria-label="Saved views"]');
+    const sources = page.locator('[role="group"][aria-label="Task source"]');
+
+    // Both constraints lit at once, and no "Custom" — that is the whole
+    // decision. It is legal only because both are on screen; the rule about
+    // lit chips is about *hidden* constraints.
+    await expect(sources.getByRole('button', { name: /Cronsole \(Native\)/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(views.getByRole('button', { name: /^My jobs/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(views.getByText('Custom')).toHaveCount(0);
+
+    // And the view's count is taken *inside* the source. Reading "My jobs 88"
+    // above a list of one is the same broken promise as "Showing All 269" above
+    // two rows — a count predicts the click, and the click lands in the source.
+    const rows = await page.getByRole('button', { name: /^Open details for / }).count();
+    const label = await views.getByRole('button', { name: /^My jobs/ }).innerText();
+    expect(label).toContain(String(rows));
   });
 });
 

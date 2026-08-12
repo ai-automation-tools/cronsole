@@ -99,7 +99,23 @@ export const isBuiltinView = (id: string): boolean =>
  * filtered list would make the answer depend on the filters this is choosing.
  */
 export function openingFilters(hasFavorites: boolean, defaults: TaskFilters): TaskFilters {
-  return hasFavorites ? { ...FAVORITES_VIEW.filters } : defaults;
+  // The default **source** survives either branch. It is the outer lens, so it
+  // is not something the Favorites view gets to overrule — the same reason a
+  // view no longer stores a platform at all.
+  return hasFavorites
+    ? { ...FAVORITES_VIEW.filters, platform: defaults.platform }
+    : defaults;
+}
+
+/**
+ * The filters a saved view should actually store.
+ *
+ * Source is stripped, because a view does not own one: it is the outer lens,
+ * `filtersEqual` ignores it, and a view carrying `platform: WINDOWS` would be a
+ * value nothing reads — dead state that reads as meaningful to the next person.
+ */
+export function viewFiltersFrom(filters: TaskFilters): TaskFilters {
+  return { ...filters, platform: DEFAULT_FILTERS.platform };
 }
 
 /** Built-ins first, then the user's own, for the view bar. */
@@ -207,6 +223,12 @@ export function filtersToParams(
   const match = matchView(filters, saved);
   if (match) {
     params.set('view', match.id);
+    // Source rides *alongside* the view id rather than being folded into it.
+    // It is the outer lens (see `filtersEqual`), so a view no longer carries a
+    // platform — and if this were dropped here, selecting a source would vanish
+    // from the URL the moment the rest of the filters happened to match a view,
+    // and reload as "All sources". A bookmark has to reproduce what you see.
+    if (filters.platform !== DEFAULT_FILTERS.platform) params.set('platform', filters.platform);
     return params;
   }
   if (filters.status !== DEFAULT_FILTERS.status) params.set('status', filters.status);
@@ -236,7 +258,14 @@ export function filtersFromParams(
   const id = params.get('view');
   if (id) {
     const found = allViews(saved).find(v => v.id === id);
-    if (found) return { ...found.filters };
+    // The view supplies every dimension except source, which is read from its
+    // own param — the mirror of how `filtersToParams` writes it.
+    if (found) {
+      return {
+        ...found.filters,
+        platform: params.get('platform') || DEFAULT_FILTERS.platform
+      };
+    }
   }
   return {
     status: oneOf(params.get('status'), STATUS, DEFAULT_FILTERS.status),

@@ -14,6 +14,30 @@ export const platformLabel = (p: string) =>
     TASKHUB_NATIVE: 'Cronsole'
   }[p] ?? p.split('_')[0]);
 
+/**
+ * The full name of a task's **source**, for the dashboard's source bar.
+ *
+ * Longer than `platformLabel` on purpose. A badge on a card sits beside the
+ * task it describes and can afford "Windows"; a top-level axis is answering
+ * *"where do these come from?"* before you have any context, and "Windows" vs
+ * "Cronsole" does not tell a new user that one is their OS scheduler and the
+ * other is Cronsole running the job itself.
+ *
+ * Falls back to `platformLabel` so a source added to `PlatformType` before it
+ * is named here still renders as something, rather than a raw enum.
+ */
+export const platformSourceLabel = (p: string) =>
+  ({
+    WINDOWS_TASK_SCHEDULER: 'Windows Task Scheduler',
+    MACOS_LAUNCHD: 'macOS (launchd)',
+    CLAUDE_CODE: 'Claude Code',
+    CHATGPT: 'ChatGPT',
+    JULES: 'Jules',
+    OPEN_CLAW: 'Open Claw',
+    HERMES: 'Hermes',
+    TASKHUB_NATIVE: 'Cronsole (Native)'
+  }[p] ?? platformLabel(p));
+
 export const platformBadgeClass = (p: string) =>
   ({
     WINDOWS_TASK_SCHEDULER: 'bg-primary/10 text-foreground border-primary/20',

@@ -352,6 +352,12 @@ export function effectiveFilters(filters: TaskFilters, viewMode: string): TaskFi
  * The number on the Filters trigger. It exists so collapsing the controls into
  * a popover cannot hide *that* they are set — a closed drawer over a filtered
  * list is the invisible fence again, just with a nicer lid.
+ *
+ * **`platform` is not counted, because the popover no longer holds it.** Source
+ * is the bar above the view bar, always visible and always showing its own
+ * selection, so counting it here would attribute a constraint to a control that
+ * cannot clear it — a badge saying "1 filter" over a drawer with nothing set.
+ * The count must only ever describe what is behind *this* trigger.
  */
 export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFAULT_FILTERS): number {
   let n = 0;
@@ -360,7 +366,6 @@ export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFA
   if (filters.outcome !== base.outcome) n++;
   if (filters.due !== base.due) n++;
   if (filters.favorites !== base.favorites) n++;
-  if (filters.platform !== base.platform) n++;
   if (filters.category !== base.category) n++;
   if (filters.search.trim() !== base.search.trim()) n++;
   return n;
@@ -403,7 +408,19 @@ export function withheldBy(
   return out;
 }
 
-/** Are two filter sets the same question? Used to name the active view. */
+/**
+ * Are two filter sets the same question? Used to name the active view.
+ *
+ * **`platform` is deliberately excluded.** Source is the dashboard's outer lens
+ * — its own control above the view bar — so "Failures" and "Failures, Windows
+ * only" are the same *question* asked of different sources, and the view chip
+ * stays lit for both. That is not the lit-chip-over-a-list-it-no-longer-
+ * describes problem this comparison exists to prevent: the source is on screen,
+ * selected, one line above. A constraint the reader can see is not a hidden one.
+ *
+ * Every other dimension still counts, so narrowing a category or flipping the
+ * status lens drops you to "Custom" exactly as before.
+ */
 export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
   return (
     a.status === b.status &&
@@ -411,7 +428,6 @@ export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
     a.outcome === b.outcome &&
     a.due === b.due &&
     a.favorites === b.favorites &&
-    a.platform === b.platform &&
     a.category === b.category &&
     a.search.trim() === b.search.trim()
   );

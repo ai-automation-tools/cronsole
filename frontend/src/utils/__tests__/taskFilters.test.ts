@@ -423,16 +423,27 @@ describe('filtersEqual', () => {
     expect(filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, search: '   ' })).toBe(true);
   });
 
-  it('separates every dimension', () => {
+  it('separates every dimension the view bar owns', () => {
     // A view is named by an exact filter match, so a dimension this misses would
     // light up the wrong chip over the wrong list.
     const variants: Partial<typeof DEFAULT_FILTERS>[] = [
       { status: 'any' }, { system: 'only' }, { outcome: 'failing' },
-      { due: 'today' }, { favorites: 'only' }, { platform: 'WINDOWS_TASK_SCHEDULER' },
+      { due: 'today' }, { favorites: 'only' },
       { category: 'Backup' }, { search: 'x' }
     ];
     for (const v of variants) {
       expect(filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, ...v })).toBe(false);
     }
+  });
+
+  it('does NOT separate source — it is the outer lens', () => {
+    // Deliberate, and the one exception. Source has its own always-visible bar
+    // above the view bar, so "Failures" and "Failures, Windows only" are the
+    // same question asked of different sources and the view chip stays lit for
+    // both. The rule this bends is about *hidden* constraints; a selected
+    // button one line above the chip is not hidden.
+    expect(
+      filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, platform: 'WINDOWS_TASK_SCHEDULER' })
+    ).toBe(true);
   });
 });

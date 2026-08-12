@@ -10,6 +10,7 @@ import {
   matchView,
   newViewId,
   openingFilters,
+  viewFiltersFrom,
   type SavedView
 } from '../savedViews';
 
@@ -74,7 +75,14 @@ describe('openingFilters — what a bare dashboard URL means', () => {
   const myDefaults = filters({ platform: 'WINDOWS_TASK_SCHEDULER' });
 
   it('opens on Favorites once you have any', () => {
-    expect(openingFilters(true, myDefaults)).toEqual(builtin('favorites').filters);
+    expect(openingFilters(true, myDefaults)).toEqual({
+      ...builtin('favorites').filters,
+      // Source survives the Favorites default. It is the outer lens, so it is
+      // not the Favorites view's to overrule — and a user whose default source
+      // is Windows should not silently land on every source because they
+      // happened to star something.
+      platform: myDefaults.platform
+    });
   });
 
   it('falls back to the user’s own defaults when nothing is starred', () => {
@@ -185,6 +193,52 @@ describe('URL codec', () => {
 
   it('trims the search term it writes', () => {
     expect(filtersToParams(filters({ search: '  db  ' }), []).get('q')).toBe('db');
+  });
+});
+
+describe('source is the outer lens, not part of a view', () => {
+  const saved = [mine];
+
+  it('rides alongside a view id in the URL instead of being swallowed by it', () => {
+    // The failure this prevents: a matched view writes `?view=failures` and
+    // returns early, so a selected source vanishes from the URL and the page
+    // reloads showing every source. A bookmark has to reproduce what you see.
+    const p = filtersToParams(
+      filters({ ...builtin('failures').filters, platform: 'TASKHUB_NATIVE' }),
+      saved
+    );
+    expect(p.get('view')).toBe('failures');
+    expect(p.get('platform')).toBe('TASKHUB_NATIVE');
+  });
+
+  it('is omitted when it is All, so a plain view URL stays short', () => {
+    const p = filtersToParams(filters(builtin('failures').filters), saved);
+    expect(p.get('view')).toBe('failures');
+    expect(p.has('platform')).toBe(false);
+  });
+
+  it('round-trips through the URL on top of a view', () => {
+    const original = filters({ ...builtin('my-jobs').filters, platform: 'WINDOWS_TASK_SCHEDULER' });
+    expect(filtersFromParams(filtersToParams(original, saved), saved)).toEqual(original);
+  });
+
+  it('a view URL without a source param reads back as All', () => {
+    const back = filtersFromParams(new URLSearchParams('view=failures'), saved);
+    expect(back.platform).toBe('All');
+  });
+
+  it('does not drop the view bar to Custom', () => {
+    // The whole point of the decision: picking a source keeps the view lit,
+    // because both constraints are on screen at the same time.
+    const withSource = filters({ ...builtin('failures').filters, platform: 'TASKHUB_NATIVE' });
+    expect(matchView(withSource, saved)?.id).toBe('failures');
+  });
+
+  it('viewFiltersFrom strips the source before a view stores it', () => {
+    // A stored platform would be state nothing reads — matchView ignores it —
+    // while looking meaningful to whoever opens the JSON next.
+    expect(viewFiltersFrom(filters({ platform: 'TASKHUB_NATIVE', category: 'Backup' })))
+      .toEqual(filters({ category: 'Backup' }));
   });
 });
 

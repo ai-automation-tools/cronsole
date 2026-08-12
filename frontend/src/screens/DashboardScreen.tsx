@@ -25,6 +25,7 @@ import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
+import { SourceBar } from '../components/SourceBar';
 import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
@@ -40,6 +41,7 @@ import {
 import {
   allViews,
   describeFilters,
+  viewFiltersFrom,
   FILTER_PARAM_KEYS,
   filtersFromParams,
   filtersToParams,
@@ -297,15 +299,46 @@ export const DashboardScreen = ({
     [categoryCounts]
   );
 
-  // Platform chips are faceted the same way, but never by the platform
-  // selection itself — you must still be able to switch platforms.
-  const { platforms, platformCounts } = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const t of facetBase('platform')) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
-    if (filters.platform !== 'All' && !counts.has(filters.platform)) counts.set(filters.platform, 0);
-    return { platforms: Array.from(counts.keys()).sort(), platformCounts: counts };
+  // The population the source bar governs: every task passing every OTHER lens.
+  // Faceted the same way the category chips are, and never by the source
+  // selection itself — you must still be able to switch sources.
+  //
+  // Kept as an array, not just its counts, because the bar's "All sources"
+  // number is this length. Deriving it from the same pass that produces the
+  // per-source counts is what stops the two disagreeing: `All` is exactly the
+  // sum of the parts because it *is* the thing the parts partition.
+  const platformGoverned = useMemo(
+    () => facetBase('platform'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, viewFilters, now, settings.timezone, tiers]);
+    [tasks, viewFilters, now, settings.timezone, tiers]
+  );
+
+  const platformCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of platformGoverned) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
+    return counts;
+  }, [platformGoverned]);
+
+  /**
+   * Which source buttons exist — taken from **every** task the user has, not
+   * from the faceted population the counts come from.
+   *
+   * These are two different questions and conflating them broke the axis. Built
+   * from the facet, the bar vanished on the Favorites view: both starred tasks
+   * were Windows, so it saw one source, decided there was nothing to choose
+   * between, and removed the only control that could have switched away. An
+   * outer lens may not disappear because an inner filter narrowed the list.
+   *
+   * So: **existence** answers "do you have this source at all" and comes from
+   * the whole list; the **count** answers "what will I see if I click" and stays
+   * faceted, which is why a source can legitimately read `0` here. That zero is
+   * the honest version — it predicts the empty list instead of hiding the way to
+   * it, and it is the same promise every other count on this screen makes.
+   */
+  const sourceOptions = useMemo(
+    () => Array.from(new Set((allTasks ?? []).map(t => t.platform))).sort(),
+    [allTasks]
+  );
 
   // One pipeline, in one place. This used to be four hand-rolled `.filter()`
   // passes inline, which is fine at four and is exactly how the fifth ends up
@@ -331,9 +364,15 @@ export const DashboardScreen = ({
   const views = useMemo(() => allViews(settings.savedViews), [settings.savedViews]);
   const activeView = useMemo(() => matchView(filters, settings.savedViews), [filters, settings.savedViews]);
 
-  // Per-view counts, computed against the FULL task list rather than the
+  // Per-view counts, computed against the full task list rather than the
   // filtered one — a view chip has to say how many tasks it would show, not how
   // many survive the filters you are currently looking through.
+  //
+  // **Except the source**, which is applied. It is the outer lens: clicking a
+  // view keeps your source, so the count has to be taken inside it or the chip
+  // over-promises. Selecting Cronsole-native and reading `My jobs 88` above a
+  // list of one is the same broken promise as `Showing All 269` above two rows;
+  // a count predicts the click, and here the click lands inside the source.
   //
   // A view whose answer depends on the health scan reports `null` until that
   // arrives, and the bar renders `–`. Printing 0 would assert "nothing is
@@ -342,11 +381,12 @@ export const DashboardScreen = ({
   const viewCounts = useMemo(() => {
     const counts = new Map<string, number | null>();
     for (const v of views) {
+      const scoped = { ...v.filters, platform: filters.platform };
       counts.set(
         v.id,
         needsHealthData(v.filters) && !tiers
           ? null
-          : applyTaskFilters(allTasks ?? [], effectiveFilters(v.filters, viewMode), {
+          : applyTaskFilters(allTasks ?? [], effectiveFilters(scoped, viewMode), {
               now,
               timezone: settings.timezone,
               tiers
@@ -354,14 +394,20 @@ export const DashboardScreen = ({
       );
     }
     return counts;
-  }, [views, allTasks, viewMode, now, settings.timezone, tiers]);
+  }, [views, allTasks, viewMode, now, settings.timezone, tiers, filters.platform]);
 
   const saveCurrentView = (name: string) => {
+    // Source is stripped before storing. A view is a question asked *of* a
+    // source, not a question about one — `filtersEqual` ignores platform, so a
+    // stored one would be state nothing reads while looking meaningful. The
+    // blurb is generated from the stripped set for the same reason: it must
+    // describe what the view actually reapplies.
+    const viewFilters = viewFiltersFrom(filters);
     const view: SavedView = {
       id: newViewId(settings.savedViews),
       name,
-      filters,
-      blurb: describeFilters(filters)
+      filters: viewFilters,
+      blurb: describeFilters(viewFilters)
     };
     const next = [...settings.savedViews, view];
     update('savedViews', next);
@@ -517,6 +563,17 @@ export const DashboardScreen = ({
         </div>
       ) : (
         <>
+          {/* The first-level axis: where a task comes from. Above the view
+              bar because it is the outer lens — see SourceBar for why picking
+              a source does not drop the view bar to "Custom". */}
+          <SourceBar
+            sources={sourceOptions}
+            counts={platformCounts}
+            totalCount={platformGoverned.length}
+            selected={filters.platform}
+            onSelect={next => setFilter('platform', next)}
+          />
+
           <ViewBar
             views={views}
             activeViewId={activeView?.id ?? null}
@@ -606,8 +663,6 @@ export const DashboardScreen = ({
                 categories={categories}
                 categoryCounts={categoryCounts}
                 totalVisibleCount={totalVisibleCount}
-                platforms={platforms}
-                platformCounts={platformCounts}
                 hiddenBySystemFilter={hiddenBySystemFilter}
                 hiddenByActiveFilter={hiddenByActiveFilter}
               />

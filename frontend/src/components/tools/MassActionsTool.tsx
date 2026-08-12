@@ -21,6 +21,7 @@ import type { HealthTier } from '../../utils/taskFilters';
 import {
   chunk,
   DEFAULT_SCOPE,
+  defaultScopeValue,
   describeScope,
   detachedByCategorize,
   eligibleFor,
@@ -231,16 +232,21 @@ export const MassActionsTool = () => {
    */
   const willChange = activeVerb ? eligibleFor(inScope, activeVerb) : [];
 
+  /**
+   * The scope an action opens on. Goes through `defaultScopeValue` rather than
+   * using `DEFAULT_SCOPE` literally: the default kind is `category`, whose value
+   * cannot be known until the task list has loaded, and an empty one resolves to
+   * nothing — which would read as "there are no tasks here" on open.
+   */
+  const openingScope = (): MassScope => ({
+    ...DEFAULT_SCOPE,
+    value: defaultScopeValue(DEFAULT_SCOPE.kind, { categories, platforms })
+  });
+
   const setKind = (kind: MassScopeKind) => {
     // Each kind needs a value that exists, or the scope resolves to nothing and
     // reads as "there is nothing here" rather than "you haven't chosen yet".
-    const value =
-      kind === 'category' ? categories[0] ?? ''
-        : kind === 'platform' ? platforms[0] ?? ''
-          : kind === 'status' ? 'ACTIVE'
-            : kind === 'health' ? 'critical'
-              : '';
-    setScope(s => ({ ...s, kind, value }));
+    setScope(s => ({ ...s, kind, value: defaultScopeValue(kind, { categories, platforms }) }));
     setReport(null);
     setLastRun(null);
   };
@@ -391,7 +397,7 @@ export const MassActionsTool = () => {
             return (
               <li key={verb}>
                 <button
-                  onClick={() => { setActiveVerb(verb); setScope(DEFAULT_SCOPE); setReport(null); }}
+                  onClick={() => { setActiveVerb(verb); setScope(openingScope()); setReport(null); }}
                   className="w-full flex items-center gap-4 text-left bg-raised border border-border rounded-xl px-4 py-3 hover:border-primary/50 transition-all active:scale-[0.99] group"
                 >
                   <span className={`p-2 rounded-lg shrink-0 ${meta.tint}`}>

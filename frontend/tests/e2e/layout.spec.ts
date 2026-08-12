@@ -54,11 +54,16 @@ const volatile = (page: Page) => [
   page.locator('[role="group"][aria-label="Task source"]'),
   // "Manage 269 tasks across your ecosystem."
   page.locator('[data-testid="task-count-line"]'),
-  // "Showing your 2 starred tasks — 267 other tasks are hidden."
-  page.locator('[data-testid="default-view-banner"]'),
   // Swaps between "Sync Now" and "Syncing…" with a spinning icon, so its pixels
   // depend on whether a sync happened to be in flight when the shot was taken.
-  page.getByRole('button', { name: /^Sync/ })
+  page.getByRole('button', { name: /^Sync/ }),
+  // The task cards themselves. They entered the first viewport when the
+  // dashboard's default changed from Favorites to All, bringing per-card
+  // "Last updated" clocks with them — and the E2E suite re-syncs one of those
+  // tasks during its own run, so the value moves *because the suite ran*.
+  // This is the file's own rule applied to itself: screenshot the chrome,
+  // assert the content.
+  page.locator('[data-testid="task-list"]')
 ];
 
 /** Wait for the task list to have settled, so a screenshot isn't of a spinner. */

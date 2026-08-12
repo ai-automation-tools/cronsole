@@ -105,22 +105,28 @@ export const isBuiltinView = (id: string): boolean =>
   BUILTIN_VIEWS.some(v => v.id === id);
 
 /**
- * What a **bare** dashboard URL resolves to: your favorites if you have any,
- * otherwise your saved defaults.
+ * What a **bare** dashboard URL resolves to: **everything**.
+ *
+ * It opened on Favorites from 2026-08-11 until 2026-08-12. That was defensible —
+ * a starred task is an explicit choice — but it made the first screen a *subset*
+ * chosen by a gesture the user may have made once, weeks ago, and the machinery
+ * needed to keep it honest (a banner naming the filter, counting what it held
+ * back, and offering the way out) is itself the evidence that opening filtered
+ * wants apologising for. Opening on **All** needs no apology: nothing is
+ * withheld, so there is nothing to disclose.
+ *
+ * **Two of the user's saved defaults survive and two are superseded**, and the
+ * split is not arbitrary — `status` and `system` are precisely the lenses "All"
+ * is *about*, so honouring them would make the opening view not-All. `category`
+ * and `source` narrow along axes All says nothing about, so they still apply.
+ * (If that leaves *Show disabled tasks* looking vestigial, it is — see the note
+ * in ROADMAP › Open.)
  *
  * A function rather than a branch inside the screen so the rule can be pinned
- * without rendering a dashboard — and so it stays one rule with one answer.
- *
- * `hasFavorites` must be computed from the **unlensed** task list. Asking the
- * filtered list would make the answer depend on the filters this is choosing.
+ * without rendering a dashboard, and so it stays one rule with one answer.
  */
-export function openingFilters(hasFavorites: boolean, defaults: TaskFilters): TaskFilters {
-  // The default **source** survives either branch. It is the outer lens, so it
-  // is not something the Favorites view gets to overrule — the same reason a
-  // view no longer stores a platform at all.
-  return hasFavorites
-    ? { ...FAVORITES_VIEW.filters, source: defaults.source }
-    : defaults;
+export function openingFilters(defaults: TaskFilters): TaskFilters {
+  return { ...defaults, status: 'any', system: 'include' };
 }
 
 /**

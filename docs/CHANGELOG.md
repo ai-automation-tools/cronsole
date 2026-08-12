@@ -13,6 +13,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **The dashboard opens on All, not on Favorites** (2026-08-12): a bare URL now resolves to the widest view. It opened on Favorites for about a day.
+
+  The reasoning for reverting it is the machinery the old default needed. Opening on a subset the user chose by a gesture they may have made weeks ago is a constraint they did not ask for *today*, so it required a banner to stay honest — naming the filter, counting the tasks it withheld, and offering the way out. **That apparatus was itself the evidence the default wanted apologising for.** Opening on everything withholds nothing, so there is nothing to disclose, and the banner is deleted rather than left as dead code describing behaviour that no longer exists.
+
+  The rule the banner encoded still stands and is kept in `CLAUDE.md` §9 for the next self-applied default: *a constraint the user did not choose must be named in the page, not in a tooltip.* Two of the four saved defaults still apply on open — `category` and `source` narrow along axes All says nothing about — while `status` and `system` are superseded, because they are exactly the lenses All *is*.
+
+  The **Favorites** chip now carries the same amber star its tasks do, so the set is recognisable at a glance rather than by reading. It is the `warning` role token, not a raw `text-yellow-…` utility: one literal cannot stay legible in both themes.
+
 - **The source bar splits Cronsole-native, and the views gain an All tab** (2026-08-12): the bar now reads *All sources · Cronsole (Scripts) · Cronsole (HTTP) · Windows Task Scheduler*. One bucket called "Cronsole" made the bar's most granular entry its least informative the moment native could hold two genuinely different kinds of task.
 
   **A source is now finer than a platform, and the two are kept apart deliberately.** A platform is what Cronsole talks to — one connector, one capability row, one `PlatformConnection`; a source is what you navigate by. The key is `PLATFORM` or `PLATFORM:SUBTYPE`, derived **server-side** (`services/taskSource.ts`) and sent per task like `isSystem`, because deciding it means reading the native job spec and a browser-side copy of that judgement is the drift that once took a folder out of every sync. Three consequences: **the Platforms tab does not split** (native HTTP and native scripts are the same connector with identical capabilities); **matching is prefix-aware**, so selecting the bare `TASKHUB_NATIVE` still matches both subtypes — which is what let this ship without silently emptying every stored default and every existing link; and **the selected source stays listed even when no task derives it**, or a pre-split link would filter the list while leaving the whole bar unlit, which is the lit-chip problem inverted.

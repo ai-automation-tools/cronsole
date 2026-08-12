@@ -96,7 +96,7 @@ rebuilt from scratch on every visit. Six ship built in:
 | View | Shows |
 |---|---|
 | **All** | Every task, with no lens at all — including the ones Windows owns and anything disabled or missing. The one click that means "stop hiding things". |
-| **Favorites** | Only the tasks you've starred (see *Favorites* below). Deliberately ignores every other lens — a starred task shows even if it's disabled, missing, or one of Windows' own. |
+| ⭐ **Favorites** | Only the tasks you've starred (see *Favorites* below). Deliberately ignores every other lens — a starred task shows even if it's disabled, missing, or one of Windows' own. |
 | **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. The default *until you star something*. |
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |
 | **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
@@ -113,13 +113,10 @@ Click the **star** on any task — on a card, a list row, a kanban card, the Sch
 the task's own detail modal — to mark it a favorite. Stars are yours alone and change nothing on the
 platform, so starring works fine with the agent offline.
 
-- **The dashboard opens on your favorites** once you have at least one. With none, it opens on your
-  normal defaults, exactly as before — so this stays invisible until you use it.
-- **It says so when it does.** Opening filtered is something you didn't ask for, so a banner names
-  the filter, says how many tasks it's holding back, and offers **Show the full dashboard**. You
-  won't see that banner when you pick *Favorites* from the view bar yourself — there, you know.
-- **It can't trap you.** Click any other view, chip or filter and the dashboard stays where you put
-  it; the favorites default only applies to a "clean" visit with no filters in the URL.
+- **The dashboard opens on *All*, not on your favorites.** Click the **Favorites** chip — the one
+  with the star — whenever you want just the starred ones. It briefly opened on Favorites; showing
+  you a subset you picked weeks ago, and then having to explain itself, turned out to be worse than
+  simply showing everything.
 - **A star outranks every other filter.** *Favorites* shows a starred task even when it's disabled,
   missing, or one of Windows' own — you starred it deliberately, so nothing hides it by default.
 - **Un-tracking or deleting a task takes its star with it.** Starring is a preference about a task

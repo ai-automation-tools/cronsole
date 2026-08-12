@@ -83,31 +83,32 @@ describe('BUILTIN_VIEWS', () => {
 });
 
 describe('openingFilters — what a bare dashboard URL means', () => {
-  // The user's ask, as a rule: favorites by default, the normal dashboard when
-  // there are none.
-  const myDefaults = filters({ source: 'WINDOWS_TASK_SCHEDULER' });
+  const myDefaults = filters({ source: 'WINDOWS_TASK_SCHEDULER', category: 'Backups' });
 
-  it('opens on Favorites once you have any', () => {
-    expect(openingFilters(true, myDefaults)).toEqual({
-      ...builtin('favorites').filters,
-      // Source survives the Favorites default. It is the outer lens, so it is
-      // not the Favorites view's to overrule — and a user whose default source
-      // is Windows should not silently land on every source because they
-      // happened to star something.
-      source: myDefaults.source
-    });
+  it('opens on everything', () => {
+    // Changed 2026-08-12 from "Favorites once you have any". Opening on a subset
+    // chosen by a gesture the user may have made weeks ago needed a banner to
+    // stay honest — naming the filter, counting what it withheld, offering the
+    // way out. Opening on everything needs no such apology.
+    const open = openingFilters(myDefaults);
+    expect(open.status).toBe('any');
+    expect(open.system).toBe('include');
+    expect(open.favorites).toBe('any');
   });
 
-  it('falls back to the user’s own defaults when nothing is starred', () => {
-    // Not DEFAULT_FILTERS — this user set a default platform, and un-starring
-    // your last task must return you to *your* dashboard, not to a generic one.
-    expect(openingFilters(false, myDefaults)).toEqual(myDefaults);
+  it('keeps the saved defaults that All says nothing about', () => {
+    // `status` and `system` are exactly the lenses All is *about*, so honouring
+    // them would make the opening view not-All. `category` and `source` narrow
+    // along other axes and still apply.
+    const open = openingFilters(myDefaults);
+    expect(open.source).toBe('WINDOWS_TASK_SCHEDULER');
+    expect(open.category).toBe('Backups');
   });
 
-  it('resolves to a view the bar can name, so the filter announces itself', () => {
-    // A dashboard that opens filtered and does not say so is `Active Only · 110
-    // hidden` again — and worse here, because the user did not choose it.
-    expect(matchView(openingFilters(true, myDefaults), [])?.name).toBe('Favorites');
+  it('resolves to a view the bar can name', () => {
+    // The state must never be nameless: a list with no lit chip is one whose
+    // constraints the user has no way to read off the page.
+    expect(matchView(openingFilters(filters()), [])?.name).toBe('All');
   });
 });
 

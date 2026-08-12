@@ -315,6 +315,15 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       scheduled tasks), and the mid-flight progress indicator, which a DB-only run completes too
       fast to observe.
 
+- [ ] **Two Settings toggles are now vestigial** *(logged 2026-08-12, created by the same change)*:
+      the dashboard opens on **All**, which hard-sets `status: any` and `system: include` — exactly
+      what *Show disabled tasks* and the persisted system lens control. So neither affects the
+      opening view any more. `defaultCategory` and `defaultPlatform` still do.
+      **Not silently removed**, because the system lens is still written when you change it from the
+      dashboard and both may want to become "what the All view means for you" instead. Decide
+      between making them apply again, repurposing them, or deleting them — but do not leave two
+      settings that look like they do something and don't.
+
 - [ ] **Restore's plan doesn't check that a task's action points at anything that exists**
       *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
       executable and file-looking arguments resolve on this machine. Not a refusal — an executable

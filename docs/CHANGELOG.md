@@ -12,6 +12,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+- **The dashboard's first viewport is thinner, and the filters live behind one control** (2026-08-12): status, ownership, platform and category moved into a **Filters** popover (`TaskFilterMenu`) with an active-filter count on the trigger. Two full rows of category chips and the platform toggle are gone from the top level; on a real 269-task machine the first task now sits roughly a row-and-a-half higher.
+
+  **The rule that shaped it: collapsing the controls must not collapse what they are withholding.** A closed drawer over a filtered list is the invisible fence with a nicer lid, which this project has paid for twice. So the split is by whether a lens speaks for itself. **Category and platform** became dismissible pills — you can read "Backups" and know the rest is elsewhere, and a count would add nothing. **System and status** print what they hold back *outside* the drawer, always (`189 system hidden`, `10 inactive hidden`), because they are **defaults nobody chose today** that withhold rows while looking like a neutral starting state — the one case where the user cannot be assumed to know. Each of those chips is also the control that undoes it. Verified live: opening the status lens made `10 inactive hidden` disappear while `189 system hidden` correctly stayed.
+
+  `withheldBy` and `activeFilterCount` are pure and pinned by tests, so the rule survives edits to the component rather than living in JSX. The filter zone is now a `bg-raised` panel — the neutral step added earlier finally spent on the thing it was added for, separating the controls from the results they describe.
+
+- **`TaskCard` is memoised** (2026-08-12): the dashboard re-renders the whole list on every search keystroke, and a full teardown of 255 cards measured ~63ms — a few dropped frames per character. The default shallow compare suffices only because the handlers are stable dashboard mutations rather than inline closures; if that stops being true the memo silently becomes a no-op, which is noted at the call site as the thing to watch.
+
+  *Context worth recording: this was investigated because a browser pass appeared to show the dashboard freezing for 45s at 269 tasks. **It did not.** The tab was hidden, so `requestAnimationFrame` never fired and my probe awaited a frame that could not come; Chrome's intensive throttling of long-hidden tabs explains the rest. Measured properly, a theme toggle is 0.8ms at 13,228 DOM nodes. **No virtualization was added, because none is warranted** — the fix that isn't needed is worth naming as loudly as the one that is.*
+
 ### Fixed
 - **Every status colour in the light theme failed WCAG AA, and could not be fixed where it was written** (2026-08-12): status colour lived as **263 raw Tailwind palette utilities across 8 hues**, and a raw utility has one value for both themes. So light mode was wearing dark mode's colours. Measured against white, before → after:
 

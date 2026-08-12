@@ -346,6 +346,63 @@ export function effectiveFilters(filters: TaskFilters, viewMode: string): TaskFi
   return filters;
 }
 
+/**
+ * How many dimensions differ from the dashboard's default question.
+ *
+ * The number on the Filters trigger. It exists so collapsing the controls into
+ * a popover cannot hide *that* they are set — a closed drawer over a filtered
+ * list is the invisible fence again, just with a nicer lid.
+ */
+export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFAULT_FILTERS): number {
+  let n = 0;
+  if (filters.status !== base.status) n++;
+  if (filters.system !== base.system) n++;
+  if (filters.outcome !== base.outcome) n++;
+  if (filters.due !== base.due) n++;
+  if (filters.favorites !== base.favorites) n++;
+  if (filters.platform !== base.platform) n++;
+  if (filters.category !== base.category) n++;
+  if (filters.search.trim() !== base.search.trim()) n++;
+  return n;
+}
+
+/** One lens that is currently withholding rows, and how many. */
+export interface Withheld {
+  dimension: 'system' | 'status';
+  count: number;
+  /** Plain-language noun for what is being kept back. */
+  label: string;
+}
+
+/**
+ * What the current filters are hiding **without saying so on their own**.
+ *
+ * The distinction this encodes is the whole reason the Filters popover is safe
+ * to build: **a lens that names itself needs no count, and a lens that
+ * withholds silently must print one.** Category and platform appear as their
+ * own pills — you can read "Backups" and know the rest is elsewhere. The
+ * system and status lenses are different: they are *defaults*, nobody chose
+ * them today, and on a real machine they withhold 189 and 10 rows while
+ * looking like a neutral starting state. That is `Active Only · 110 hidden`,
+ * the failure this codebase keeps naming.
+ *
+ * So this summary is rendered **outside** the popover, always, and the popover
+ * is only allowed to hold the controls.
+ */
+export function withheldBy(
+  filters: TaskFilters,
+  counts: { system: number; status: number }
+): Withheld[] {
+  const out: Withheld[] = [];
+  if (filters.system === 'personal' && counts.system > 0) {
+    out.push({ dimension: 'system', count: counts.system, label: 'system' });
+  }
+  if (filters.status === 'active' && counts.status > 0) {
+    out.push({ dimension: 'status', count: counts.status, label: 'inactive' });
+  }
+  return out;
+}
+
 /** Are two filter sets the same question? Used to name the active view. */
 export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
   return (

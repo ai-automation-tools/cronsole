@@ -1,15 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Activity,
-  LayoutDashboard,
   RefreshCw,
   Loader2,
   Info,
   Folder,
   Star,
   Tag,
-  Eye,
-  EyeOff,
   Grid,
   List,
   Columns,
@@ -20,9 +17,6 @@ import {
   X,
   Download,
   Trash2,
-  Cpu,
-  User,
-  Filter,
   Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router';
@@ -34,6 +28,7 @@ import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskSelectCheckbox } from '../components/TaskSelectCheckbox';
 import { BulkActionBar } from '../components/BulkActionBar';
+import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { BulkCategoryModal } from '../components/BulkCategoryModal';
 import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
@@ -511,11 +506,6 @@ export const DashboardScreen = ({
 
   const isEmpty = !tasks || tasks.length === 0;
 
-  // The two pre-view toggles are two-state controls over dimensions that now
-  // have more than two states. Rather than let them mislabel a state they
-  // cannot express, each renders a third treatment and says what it is.
-  const isolatedStatus = filters.status === 'disabled' || filters.status === 'missing';
-  const statusNoun = filters.status === 'missing' ? 'Missing' : 'Disabled';
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -540,126 +530,14 @@ export const DashboardScreen = ({
           </button>
 
           {/*
-            Filter toggle. Both states carry a deliberate, saturated treatment
-            because the previous design differentiated them only by a `bg-primary/10`
-            tint and the eye's slash — at 10% opacity on a dark surface those read
-            as the same button, so you couldn't tell which state you were in.
-            Green = "only the live ones" (matching the ACTIVE dot on every task
-            card); amber = "this includes tasks that will never fire". Three
-            redundant signals — colour, icon, and the hidden-count — so meaning
-            never rests on colour alone.
+            The status and system lenses moved into the Filters popover below
+            (TaskFilterMenu) as part of thinning the first viewport. What did NOT
+            move is what they withhold: that is rendered beside the trigger,
+            always, because these two are defaults nobody chose today and a
+            closed drawer over a filtered list is the invisible fence with a
+            nicer lid. See TaskFilterMenu for the rule and `withheldBy` for the
+            pinned version of it.
           */}
-          {!isEmpty && viewMode !== 'kanban' && (
-            <button
-              // Isolation ('disabled'/'missing') is reachable only from a saved
-              // view, and clicking out of it means "stop isolating" — i.e. show
-              // everything — rather than snapping back to active-only, which
-              // would hide the very rows you just went looking for.
-              onClick={() => setFilter('status', filters.status === 'active' ? 'any' : filters.status === 'any' ? 'active' : 'any')}
-              aria-pressed={filters.status === 'active'}
-              // Every number here is counted within the rest of the view, not
-              // across the whole dashboard — the tooltip is where the promise is
-              // made explicit, so it is the one place it must not overreach.
-              title={
-                isolatedStatus
-                  ? `Showing only ${statusNoun} tasks — this view isolates them. Click to show every status.`
-                  : filters.status === 'any'
-                    ? `Showing all ${filteredTasks.length} tasks in this view, whatever their status. Click to show only active ones.`
-                    : hiddenByActiveFilter > 0
-                      ? `Showing only active tasks — ${hiddenByActiveFilter} more in this view are hidden (disabled, missing, or unknown). Click to show them.`
-                      : 'Showing only active tasks. Nothing in this view is hidden right now. Click to show every status.'
-              }
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
-                isolatedStatus
-                  ? 'bg-isolate/10 border-isolate/40 text-foreground hover:border-isolate/70'
-                  : filters.status === 'any'
-                    ? 'bg-warning/10 border-warning/40 text-foreground hover:border-warning/70'
-                    : 'bg-success/10 border-success/40 text-foreground hover:border-success/70'
-              }`}
-            >
-              {/* A third state needs a third treatment. Reusing "All statuses"
-                  amber for an isolation would say the opposite of what the list
-                  is doing — it is showing *less*, not more. */}
-              {isolatedStatus
-                ? <Filter size={16} className="text-isolate-text" />
-                : filters.status === 'any'
-                  ? <Eye size={16} className="text-warning-text" />
-                  : <EyeOff size={16} className="text-success-text" />}
-              {/* Names the dimension it owns. "Showing All" described the whole
-                  list, which is a claim this control is not entitled to make —
-                  it governs status, and every other lens is still in force
-                  underneath it. On the Favorites view that read `Showing All 269`
-                  above two rows. */}
-              {isolatedStatus ? `${statusNoun} only` : filters.status === 'any' ? 'All statuses' : 'Active only'}
-              {/* The count is the part that actually removes the ambiguity: the
-                  label alone reads as either a state or an action. */}
-              {isolatedStatus ? (
-                <span className="text-[10px] font-bold text-isolate-text/90 tabular-nums">{filteredTasks.length}</span>
-              ) : filters.status === 'any' ? (
-                <span className="text-[10px] font-bold text-warning-text/90 tabular-nums">{filteredTasks.length}</span>
-              ) : hiddenByActiveFilter > 0 && (
-                <span className="text-[10px] font-bold text-success-text/90 tabular-nums whitespace-nowrap">
-                  {hiddenByActiveFilter} hidden
-                </span>
-              )}
-            </button>
-          )}
-
-          {/*
-            The system/personal split. Rendered only when the machine actually has
-            OS-owned tasks — a "0 system hidden" toggle on a clean install is noise
-            for a problem that user doesn't have.
-
-            Deliberately a SEPARATE control from Active Only rather than a mode
-            they share: they answer different questions ("whose task is this?" vs
-            "will it ever fire?") and the useful default is both at once. Same
-            three redundant signals as its neighbour, and the same rule — it says
-            what it is hiding, because a filter that silently withholds 257 of 352
-            rows is the invisible fence again.
-          */}
-          {!isEmpty && hiddenBySystemFilter > 0 && (
-            <button
-              onClick={() => {
-                // Clicking the control directly is a standing answer to "whose
-                // machine is this dashboard about", so it writes the persisted
-                // preference too. A saved view that sets the lens does NOT —
-                // a view is a lens you look through, not a new default, and
-                // leaving one must give you your own dashboard back.
-                const next = filters.system === 'personal' ? 'include' : 'personal';
-                update('showSystemTasks', next === 'include');
-                setFilter('system', next);
-              }}
-              aria-pressed={filters.system === 'personal'}
-              title={
-                filters.system === 'only'
-                  ? `Showing ONLY the ${hiddenBySystemFilter} tasks Windows itself owns — your own tasks are hidden. Click to go back to yours.`
-                  : filters.system === 'include'
-                    ? `Showing Windows' own scheduled tasks alongside yours (${hiddenBySystemFilter} of them). Click to hide them.`
-                    : `Hiding ${hiddenBySystemFilter} tasks owned by Windows itself (under \\Microsoft\\). They still exist and still run — this only affects what the dashboard shows. Click to include them.`
-              }
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
-                filters.system === 'only'
-                  ? 'bg-isolate/10 border-isolate/40 text-foreground hover:border-isolate/70'
-                  : filters.system === 'include'
-                    ? 'bg-info/10 border-info/40 text-foreground hover:border-info/70'
-                    : 'bg-system/10 border-system/40 text-foreground hover:border-system/70'
-              }`}
-            >
-              {filters.system === 'personal'
-                ? <User size={16} className="text-system-text" />
-                : <Cpu size={16} className={filters.system === 'only' ? 'text-isolate-text' : 'text-info-text'} />}
-              {filters.system === 'only' ? 'System only' : filters.system === 'include' ? 'Incl. System' : 'Personal'}
-              <span className={`text-[10px] font-bold tabular-nums whitespace-nowrap ${
-                filters.system === 'only' ? 'text-isolate-text/90' : filters.system === 'include' ? 'text-info-text/90' : 'text-system-text/90'
-              }`}>
-                {filters.system === 'only'
-                  ? `yours hidden`
-                  : filters.system === 'include'
-                    ? `${hiddenBySystemFilter} system`
-                    : `${hiddenBySystemFilter} system hidden`}
-              </span>
-            </button>
-          )}
 
           {/*
             Only rendered when something is actually missing: the mess arrives in
@@ -748,8 +626,14 @@ export const DashboardScreen = ({
             </div>
           )}
 
-          {/* Category Tabs & Views */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+          {/* The filter zone.
+              `bg-raised` and its own rounded container rather than a bare
+              bottom border: this is where the neutral step earns its keep. The
+              review's point was that everything read at one weight, and the
+              specific consequence here was that the controls and the results
+              they describe ran together — a border alone was doing all the work
+              of separating a *zone* from a *list*. */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-raised border border-border rounded-2xl px-3 py-2.5">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground pointer-events-none" />
@@ -775,54 +659,28 @@ export const DashboardScreen = ({
                   {filteredTasks.length} match{filteredTasks.length === 1 ? '' : 'es'}
                 </span>
               )}
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setFilter('category', cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                    filters.category === cat
-                      ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20'
-                      : 'bg-surface border-border text-muted-foreground hover:border-foreground/20'
-                  }`}
-                >
-                  {cat === 'All' ? <LayoutDashboard size={12} className="inline mr-2" /> : <Folder size={12} className="inline mr-2" />}
-                  {cat}
-                  <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${filters.category === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>
-                    {cat === 'All' ? totalVisibleCount : categoryCounts.get(cat) ?? 0}
-                  </span>
-                </button>
-              ))}
+              <TaskFilterMenu
+                filters={filters}
+                setFilter={setFilter}
+                onSystemLensChange={next => {
+                  // Clicking the lens directly is a standing answer to "whose
+                  // machine is this dashboard about", so it writes the persisted
+                  // preference too. A saved view that sets the lens does NOT — a
+                  // view is a lens you look through, not a new default.
+                  update('showSystemTasks', next === 'include');
+                  setFilter('system', next);
+                }}
+                categories={categories}
+                categoryCounts={categoryCounts}
+                totalVisibleCount={totalVisibleCount}
+                platforms={platforms}
+                platformCounts={platformCounts}
+                hiddenBySystemFilter={hiddenBySystemFilter}
+                hiddenByActiveFilter={hiddenByActiveFilter}
+              />
             </div>
             
             <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
-            {/* Platform Isolation Filter */}
-            {platforms.length > 1 && (
-              <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md">
-                <button
-                  onClick={() => setFilter('platform', 'All')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filters.platform === 'All' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  All
-                </button>
-                {platforms.map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setFilter('platform', p)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      filters.platform === p
-                        ? p === 'TASKHUB_NATIVE' ? 'bg-native text-white' : 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {p === 'TASKHUB_NATIVE' && <Zap size={11} />}
-                    {platformLabel(p)}
-                    <span className={`px-1 py-0.5 rounded text-[9px] ${filters.platform === p ? 'bg-black/20' : 'bg-muted text-subtle-foreground'}`}>
-                      {platformCounts.get(p) ?? 0}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* View Mode Toggle */}
             <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md shrink-0">

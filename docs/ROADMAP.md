@@ -109,16 +109,19 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       (failure vs isolating lens) are distinct roles that happen to share a hue.
       `--raised` is added and applied to one panel; **spending it across the app to build real
       hierarchy is the *thin the first viewport* item below**, not done here.
-- [ ] **Thin the first viewport.** Desktop stacks onboarding banner · title+sync · Help Center ·
-      status chip · system chip · New Task · Import · Sync Now · saved views · search · category
-      chips · view switcher · select-all · favorites banner before any task. Several are
-      conditional, but on a real machine (269 tasks, system tasks present) nearly all render.
-      Keep title, primary action, health and search always visible; move secondary filters behind
-      one **Filters** control showing the active-filter count; make category chips a compact
-      scroller. Saved views stay as the top-level navigation — they already are it.
-      **Constraint:** whatever moves into a drawer must keep saying what it is hiding — the
-      hidden-count on each chip is the invisible-fence guard, not decoration, so the drawer
-      trigger has to carry it out to the surface.
+- [~] **Thin the first viewport** *(desktop shipped 2026-08-12)*. Status, ownership, platform and
+      category moved into one **Filters** popover (`components/TaskFilterMenu.tsx`) carrying an
+      active-filter count; two full rows of category chips and the platform toggle are gone. The
+      constraint held: **what a lens withholds did not move inside.** Category and platform became
+      dismissible pills (they name themselves), while system and status — defaults nobody chose
+      today — print `189 system hidden` / `10 inactive hidden` beside the trigger, each also being
+      the control that undoes it. `withheldBy` + `activeFilterCount` are pure and pinned by tests
+      so the rule survives edits. The filter zone is now a `bg-raised` panel, which is where the
+      neutral step earns its keep. `TaskCard` is memoised (a search keystroke re-rendered all 269).
+      **Remaining:** the mobile-specific half — sticky compact toolbar, saved views as a scrolling
+      segmented row, `New Task` as a FAB — plus a **375px verification that has not been done**
+      (the browser resize would not reach the tab; the layout is structurally unchanged
+      `flex-col sm:flex-row` + `flex-wrap`, which is suggestive, not evidence).
 - [ ] **Grow the Platforms tab into a capability matrix** *(the open decision is now resolved —
       **grow**, 2026-08-12)*. Today `PlatformsScreen.tsx` is 167 lines of `localStorage`
       bookmarks to Claude / ChatGPT / Gemini, and **does not mention Windows Task Scheduler or

@@ -145,7 +145,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                 : 'Scheduled and executed by Cronsole itself — nothing is created in Windows Task Scheduler.'}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
+          <button onClick={onClose} aria-label="Close new task" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
             <XCircle size={20} />
           </button>
         </header>

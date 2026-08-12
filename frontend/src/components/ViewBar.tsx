@@ -62,9 +62,19 @@ export const ViewBar = ({
     <div
       role="group"
       aria-label="Saved views"
-      className="flex flex-wrap items-center gap-2"
+      /*
+        One scrolling row on a phone, wrapping chips on a desktop.
+        Wrapping is right when there is width to wrap into; at 375px six views
+        became four stacked rows before a single task was visible, which is the
+        first-viewport problem this pass exists to fix. A horizontal scroller
+        costs one gesture and keeps the list one line tall.
+        `-mx-4 px-4` bleeds it to the screen edge so the last chip is visibly
+        cut off rather than sitting flush — an edge-aligned row reads as complete
+        and nobody swipes it.
+      */
+      className="flex items-center gap-2 overflow-x-auto sm:overflow-visible sm:flex-wrap -mx-4 px-4 sm:mx-0 sm:px-0 pb-1.5 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-subtle-foreground">
+      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-subtle-foreground shrink-0">
         <Bookmark size={12} /> Views
       </span>
 
@@ -72,12 +82,12 @@ export const ViewBar = ({
         const active = view.id === activeViewId;
         const count = counts.get(view.id);
         return (
-          <span key={view.id} className="relative group/view">
+          <span key={view.id} className="relative group/view shrink-0">
             <button
               onClick={() => onSelect(view)}
               aria-pressed={active}
               title={view.blurb}
-              className={`flex items-center gap-1.5 pl-3 pr-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+              className={`flex items-center gap-1.5 whitespace-nowrap pl-3 pr-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
                 active
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-surface text-muted-foreground border-border hover:text-foreground hover:border-foreground/20'
@@ -120,7 +130,7 @@ export const ViewBar = ({
       */}
       {activeViewId === null && (
         <span
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-warning/15 text-warning-text border border-warning/40"
+          className="flex items-center gap-1.5 shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-bold bg-warning/15 text-warning-text border border-warning/40"
           title={`Custom filters — ${currentDescription}. Not one of your saved views.`}
         >
           Custom
@@ -136,7 +146,7 @@ export const ViewBar = ({
       )}
 
       {naming ? (
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1 shrink-0">
           <input
             autoFocus
             value={name}
@@ -175,7 +185,7 @@ export const ViewBar = ({
         activeViewId === null && (
           <button
             onClick={() => setNaming(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-surface border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all active:scale-95"
+            className="flex items-center gap-1.5 shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-bold bg-surface border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all active:scale-95"
             title={`Save these filters as a named view — ${currentDescription}`}
           >
             <BookmarkPlus size={13} /> Save view

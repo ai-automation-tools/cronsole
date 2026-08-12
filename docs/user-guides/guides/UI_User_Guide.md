@@ -8,6 +8,21 @@ Welcome to the **Cronsole** interface! This guide provides a comprehensive overv
 
 The Dashboard is your "one pane of glass" for monitoring every scheduled task in your ecosystem.
 
+### The health strip
+
+A single line under the title, answering *"is anything wrong, and what did Cronsole last do?"* —
+so deciding what to do next doesn't mean reading the sidebar. Three facts:
+
+- **Connection.** *"All 2 platforms online"*, or the platform that isn't, with the reason. It
+  names a platform only when something is wrong with it.
+- **Last sync.** How long ago Cronsole last pulled your task list. This is a **real sync**, never
+  a heartbeat: if the agent is alive but nothing has synced since yesterday, it says *"Synced 19h
+  ago"*, and adds *"agent replied 2m ago"* so both facts are visible. **Never synced** is a
+  legitimate answer and appears as those words.
+- **Last command.** The most recent thing Cronsole asked a platform to do and how it went —
+  including when it **failed**, in red with the platform's reason. Before anything has been run
+  it says *"No commands run yet"* rather than showing a tick it hasn't earned.
+
 ### Task Cards
 Each task is represented by a card showing:
 - **Platform Badge:** Identifies where the task lives (e.g., Windows, Claude, or Cronsole-native).
@@ -26,7 +41,7 @@ Each task is represented by a card showing:
 ### Quick Actions
 - **Run Now (Play Icon):** Manually triggers the task immediately. This requires a confirmation dialog to prevent accidental triggers.
 - **Clone (Copy Icon):** Duplicates a task as a starting point for a new one.
-- **View Details:** Clicking anywhere on the card (except the action icons) opens the **Task Details** modal (see §2).
+- **View Details:** Clicking anywhere on the card (except the action icons) opens the **Task Details** modal (see §2) — hovering the card names this in its footer. By keyboard, Tab to the task's **title** and press Enter; the title is the card's real control, so the dashboard's main action is not mouse-only.
 
 ### Saved views
 Across the top of the dashboard is a row of **views** — named filter combinations, so the question
@@ -373,7 +388,33 @@ Cronsole — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection 
 
 ---
 
-## 6. System Status & Connections
+## 6. Platforms — what Cronsole can actually do
+
+The **Platforms** tab answers one question per platform: *what will happen if I click this?*
+
+Each connected platform gets a row with its connection state, how many tasks Cronsole tracks
+there, its last real sync, and ten capability chips — Sync, List folders, Run now, Create,
+Enable/disable, Edit schedule, Edit action, Export, Restore, Delete. **Show the evidence behind
+each capability** expands the row into a table with, per verb, its state, when it last succeeded,
+and when it last failed and why.
+
+**The three states, and why the middle one exists:**
+
+| State | Means |
+|:--|:--|
+| **Verified** | This has actually worked on *this machine*. The row carries the timestamp that proved it. |
+| **Declared** | Cronsole will attempt it, but it has never been observed to succeed here. **Not a promise.** |
+| **Unsupported** | Cronsole cannot do this on this platform — the request would be refused. Shown struck through. |
+
+A fresh install shows almost everything as *Declared*, and that is correct rather than pessimistic:
+nothing has been tried yet. Use a verb once and its chip turns *Verified* with a timestamp. This is
+deliberate — a table that claimed capabilities from the code rather than from your machine would be
+a specification, and you already have one of those.
+
+**Quick links** below the matrix are bookmarks to schedulers Cronsole has no connector for
+(Claude, ChatGPT, Gemini, and any you add). Nothing is read or written through them.
+
+## 7. System Status & Connections
 
 - **Sidebar:** Shows a live per-platform health summary plus a "synced N ago" indicator. The three states mean different things, and the difference matters:
   - **Online** — the agent is connected and has not failed to answer.
@@ -387,4 +428,4 @@ Cronsole — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection 
 
 ---
 
-*Last Updated: August 11, 2026*
+*Last Updated: August 12, 2026*

@@ -771,10 +771,10 @@ describe('WindowsAgentConnector', () => {
 
       expect(health.state).toBe('OFFLINE');
       expect(health.reason).toBe('Agent not connected');
-      expect(health.lastSync).toBeUndefined();
+      expect(health.lastContactAt).toBeUndefined();
     });
 
-    it('never invents a lastSync: a connected agent that has answered nothing reports none', async () => {
+    it('never invents a contact time: a connected agent that has answered nothing reports none', async () => {
       vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
       vi.mocked(agentManager.getLiveness).mockReturnValue({ connectedAt: new Date() });
 
@@ -782,9 +782,8 @@ describe('WindowsAgentConnector', () => {
 
       // Healthy — the authenticated handshake is real evidence it was alive.
       expect(health.state).toBe('HEALTHY');
-      // But nothing has been synced, so there is no sync time to report.
-      // Connected is not synced.
-      expect(health.lastSync).toBeUndefined();
+      // But it has said nothing, so there is no contact time to report.
+      expect(health.lastContactAt).toBeUndefined();
     });
 
     it('reports the real time of the agent\'s last response as lastSync', async () => {
@@ -798,7 +797,11 @@ describe('WindowsAgentConnector', () => {
       const health = await connector.getHealth(CONFIG);
 
       expect(health.state).toBe('HEALTHY');
-      expect(health.lastSync).toBe(answered);
+      expect(health.lastContactAt).toBe(answered);
+      // And NOT as a sync. An inbound event of any kind proves the agent is
+      // alive; it says nothing about when the task list was last pulled, and
+      // conflating the two printed "Synced 7m ago" over day-old data (#41).
+      expect('lastSync' in health).toBe(false);
     });
 
     it('is DEGRADED when the newest evidence is a timeout, and names the verb', async () => {
@@ -817,9 +820,9 @@ describe('WindowsAgentConnector', () => {
 
       expect(health.state).toBe('DEGRADED');
       expect(health.reason).toContain('task:list');
-      // The last real sync is still reported — it happened, it is just older
-      // than the failure. Degraded means "stale", not "we know nothing".
-      expect(health.lastSync).toEqual(new Date('2026-08-11T10:00:00.000Z'));
+      // The last contact is still reported — it happened, it is just older than
+      // the failure. Degraded means "stale", not "we know nothing".
+      expect(health.lastContactAt).toEqual(new Date('2026-08-11T10:00:00.000Z'));
     });
 
     it('is HEALTHY again once a response arrives after a timeout', async () => {

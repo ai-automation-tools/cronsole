@@ -23,17 +23,18 @@ belongs in the CHANGELOG.
 
 ## ▶ Next up
 
-1. **UX & UI refinement pass — what's left** *(colour tokens and the desktop first-viewport pass
-   shipped 2026-08-12)*: grow Platforms into a real capability matrix, the dashboard health
-   strip, accessible names on icon-only controls, screenshot regression coverage, and the
-   mobile half of the viewport work (see P2 Open).
-2. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
+1. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
    deliberately-skipped `version` fields in the package manifests.
-3. **Restore's plan doesn't check that a task's action points at anything that exists** — the
+2. **Restore's plan doesn't check that a task's action points at anything that exists** — the
    advisory resolvability column, logged 2026-07-31 (see P2 Open).
+3. **Task-detail trust indicators** — say how old the truth is, per task (see P2 Open). The
+   dashboard health strip now answers this at the *platform* level; the per-task half is open.
 4. **Bulk export's directory-picker branch is still undriven** — the one part of the Tools tab no
    click-through has reached, because it opens a native dialog. Low priority; noted so its absence
    stays visible rather than being mistaken for coverage.
+
+> **The UX & UI refinement pass is complete** *(2026-08-12)* — all six items, plus two defects it
+> uncovered. Details in [`CHANGELOG.md`](CHANGELOG.md) and P2 below.
 
 ---
 
@@ -57,6 +58,20 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       (`All statuses` / `Active only`); the facet chips share the same helper. Verified in the
       browser against rendered rows.
 
+- [x] **The dashboard reported a folder listing as a sync** *(logged and fixed 2026-08-12, while
+      building the health strip)*: `getHealth` returned the agent's last inbound event of any kind
+      under the name `lastSync`, so *"Synced 7m ago"* sat above a task list from the previous day
+      ([#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)).
+      **This survived the fix for #40** — a *real* timestamp of the wrong event passes every
+      honesty check an invented one fails, which is the residual item below happening again in a
+      harder-to-see form. Fixed structurally: `ConnectorHealth.lastSync` is deleted, connectors
+      report `lastContactAt`, and `lastSync` has exactly one writer.
+
+- [x] **The health strip changed its own height and shoved the page down** *(2026-08-12)*: a
+      `flex-wrap` status line went one row to two whenever a segment appeared, moving everything
+      below it by ~22px on a 45-second poll. Now one scrolling line. Caught by the new screenshot
+      suite.
+
 - [ ] **System-status honesty — residual** *(mostly shipped 2026-07-08)*: live per-platform health,
       the "synced N ago" chip and the honest Sync/Import split all ship; what remains is periodic
       review that no status surface has drifted back to asserting something it can't evidence.
@@ -66,6 +81,10 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
       Keep the item open: the lesson is that this class returns, and the tell is a status field
       derived from a precondition that cannot change when the subject fails.
+      **It returned the next day** ([#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday),
+      fixed above) — through the *replacement value*, not the old one, which sharpens the tell:
+      a status field can be first-hand, correctly absent, and correctly stale, and still be
+      **the wrong event**. Ask what writes it, and whether that is what the label names.
 
 <details>
 <summary>Completed P1 items</summary>
@@ -120,32 +139,48 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       the control that undoes it. `withheldBy` + `activeFilterCount` are pure and pinned by tests
       so the rule survives edits. The filter zone is now a `bg-raised` panel, which is where the
       neutral step earns its keep. `TaskCard` is memoised (a search keystroke re-rendered all 269).
-      **Remaining:** the mobile-specific half — sticky compact toolbar, saved views as a scrolling
-      segmented row, `New Task` as a FAB — plus a **375px verification that has not been done**
-      (the browser resize would not reach the tab; the layout is structurally unchanged
-      `flex-col sm:flex-row` + `flex-wrap`, which is suggestive, not evidence).
-- [ ] **Grow the Platforms tab into a capability matrix** *(the open decision is now resolved —
-      **grow**, 2026-08-12)*. Today `PlatformsScreen.tsx` is 167 lines of `localStorage`
-      bookmarks to Claude / ChatGPT / Gemini, and **does not mention Windows Task Scheduler or
-      Cronsole-native at all** — the two platforms that actually work are visible only as a sidebar
-      chip. Replace with a per-platform row: connection, sync, and which verbs are real
-      (run / create / edit schedule / edit action / export / delete), plus last-verified. Every
-      cell must be evidence, not a spec table — same rule as `getHealth` ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)):
-      a capability the connector declares but has never demonstrated says *declared*, not *yes*.
-      Keep the custom-links section; it is the honest home for link-only platforms.
-- [ ] **Dashboard health strip** *(pairs with the task-detail trust indicators below)*: agent
-      online / last sync / last command outcome in the header, so "what should I do next" doesn't
-      require reading the sidebar. Bound by the same rule — no field a health probe can stamp itself.
-- [ ] **Icon-only controls need accessible names** *(counted 2026-08-12: **8 modal close buttons**
-      — Apply, Clone, Create, EditAction, EditSchedule, Help, Import, TaskModal — carry neither
-      `title` nor `aria-label`, so every modal's dismiss is unnamed to a screen reader; the card
-      row actions and the favorite star already have them)*. Task cards carry
-      select / star / clone / enable / run plus the card-open target; the review flagged misclick
-      risk, and the cheap half of that is naming every control. A hover/focus "Open details"
-      affordance makes the card's default click discoverable without redesigning the card.
-- [ ] **Screenshot regression coverage** on the dense surfaces — dashboard desktop + 375px, task
-      detail, New Task, Import, Templates, Tools. The UI is tight enough that spacing regressions
-      are real regressions, and there is currently nothing that would catch one.
+      **Mobile half shipped 2026-08-12**: saved views became one horizontally-scrolling row bled to
+      the screen edge, Help Center and Import dropped to icons (names kept as `aria-label`),
+      `New Task` became a FAB — the *same* control, with the header button hidden at that width —
+      and the filter toolbar became one scrolling row that **sticks to the top**, since on a phone
+      it is the only way back out of a filtered list. **The 375px verification is now done and
+      automated** (`tests/e2e/layout.spec.ts`): the browser-resize route never reached the tab, so
+      it moved into Playwright, where `setViewportSize` does. It asserts no horizontal overflow, a
+      one-row views bar, the toolbar surviving a 2000px scroll, and a 44px FAB.
+- [x] **Grow the Platforms tab into a capability matrix** *(shipped 2026-08-12; the open decision
+      resolved **grow**)*. Three platform rows — Windows, Cronsole-native, Claude (experimental) —
+      each with connection, tracked count, last real sync, last verified, and ten capability chips
+      over an expandable per-verb evidence table. The bookmarks stay as *Quick links*.
+      **Verified / Declared / Unsupported**, and the middle one is the point: reachable but never
+      observed to work is not *yes*.
+      **What the item's own wording would have got wrong:** deriving a cell from
+      `typeof connector.deleteTask === 'function'` is false for Cronsole-native, whose delete,
+      reschedule and export are handled by `routes/tasks.ts` directly (the DB row *is* the task) —
+      so a connector-derived matrix reports that platform as unable to do three things it does
+      daily. Reachability is therefore a property of the **route**
+      (`services/platformCapabilities.ts`, pinned against both the connector objects and the route
+      source), and evidence is a new `PlatformCapability` table the routes write as they run.
+- [x] **Dashboard health strip** *(shipped 2026-08-12)*: connection state, last real sync, and the
+      newest recorded command outcome — **success or failure**, since a status line that hid
+      failures would go quiet exactly when something is wrong. Nothing recorded reads *"No commands
+      run yet"*, not a tick. It found the `lastSync` defect (P1 above) and its own layout shift.
+- [x] **Icon-only controls need accessible names** *(shipped 2026-08-12)*: all 8 modal close
+      buttons named; the card's category control became a real button. **The card itself was the
+      bigger defect** — a clickable `<div>`, so the dashboard's primary action was mouse-only. The
+      title is now the control (*"Open details for &lt;task&gt;"*), which is where it had to go: the
+      card contains the row-action buttons, and a button may not nest in a button. A hover/focus
+      *"Open details ›"* hint names the card's default click.
+- [x] **Screenshot regression coverage** *(shipped 2026-08-12, `tests/e2e/layout.spec.ts`)*:
+      dashboard at 1280px and 375px, Templates, Tools, Platforms, New Task and Import.
+      **Split by what each surface can honestly assert** — pixels for chrome that does not move
+      (live regions masked, `maxDiffPixels: 40` for antialiasing noise), structure for everything
+      else. Platforms and the Import modal get **no** pixel baseline: both are almost entirely live
+      evidence, and masking hides colour but not geometry, so the baseline would be an empty frame
+      that still breaks whenever a row's height moves
+      ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
+      Green on 6 consecutive runs.
+      **Not covered:** the task-detail modal (its body is one live task) and the Tools tab's
+      individual tool panels — named here so the gap stays visible rather than reading as coverage.
 
 ### Open
 

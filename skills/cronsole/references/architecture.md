@@ -85,22 +85,36 @@ createTask(name, schedule, command, config, options?): Promise<{ success, extern
 ```
 
 **`getHealth` has a contract beyond its signature, and every connector broke it the same way.**
-`ConnectorHealth` is `{ state, reason?, lastSync? }`, and both optional fields are optional
+`ConnectorHealth` is `{ state, reason?, lastContactAt? }`, and both optional fields are optional
 *because absence is a legitimate answer*:
 
 - **Derive `state` from evidence the platform produced, never from a precondition.** All three
   connectors returned `HEALTHY` from something that cannot change when the platform fails — a
   socket object existing (Windows), being in-process (native), a non-empty config (Claude). A
   wedged agent therefore read as Online through a run of `Agent sync timeout`s.
-- **Never synthesize `lastSync`.** It is the time the platform last gave you data. A `new Date()`
-  inside a health check can never be stale, which is exactly why it can never be true. If you have
-  no real timestamp, **omit it** — `POST /api/tasks/sync` records the real one.
+- **There is no `lastSync` on this interface, and that is the fix.** It had one until
+  2026-08-12, and *it could not be filled honestly*: `WindowsAgentConnector` set it to
+  `lastResponseAt` — the agent's last inbound event of any kind — so a **folder listing** made a
+  19-hour-old task list render as *"Synced 7m ago"*. `lastSync` now has exactly one writer, the
+  `PlatformConnection.lastSync` column that `POST /api/tasks/sync` records, and no connector can
+  override it because there is no field to override it with.
+- **What a connector *may* report is `lastContactAt`** — when the platform last said anything.
+  That is liveness, and it is genuinely useful, which is why it gets its own name rather than
+  being smuggled in under a label that means something else. If you have no real timestamp,
+  **omit it**; a `new Date()` inside a health check can never be stale, which is exactly why it
+  can never be true.
 - The blast radius is global, not per-connector: the dashboard's *"synced N ago"* chip takes the
   **newest `lastSync` across every platform**, so one connector inventing a time defeats the
   honesty of all the others. That is why a connector with nothing to sync from reports none at all.
 
-See the invariants table in [`SKILL.md`](../SKILL.md) and
-[troubleshooting #40](../../../docs/troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out).
+**The sequence is the lesson.** #40 was a *fabricated* timestamp; #42 was a **real timestamp of
+the wrong event**, introduced by #40's own fix, and it passed every check that fix installed —
+first-hand, absent without evidence, correctly stale when the agent went quiet. Ask what event
+writes a status field and whether that is what the label names.
+
+See the invariants table in [`SKILL.md`](../SKILL.md),
+[troubleshooting #40](../../../docs/troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+and [#42](../../../docs/troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday).
 
 **Optional** methods (note the `?`) — a connector only declares what it can honestly do:
 

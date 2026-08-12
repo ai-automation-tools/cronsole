@@ -48,6 +48,44 @@ Split by **the question each answers**, not by tooling — a single Playwright s
 | **UAT** | Would a real user accept it? | Before a release |
 | **Manual runbooks** | *(procedures, not a layer)* — the ⬜ gaps: real COM, real Windows | Before a release |
 
+## Visual regression — what it can and cannot assert
+
+`frontend/tests/e2e/layout.spec.ts` covers the dense surfaces. It is **split on purpose**, and
+the split is the lesson:
+
+- **Pixels, only for chrome that does not move** — headers, the filter zone, the New Task modal.
+  Live regions are masked (`data-testid="health-strip"`, `task-count-line`,
+  `default-view-banner`, the saved-views bar, the Sync button).
+- **Structure, for everything else** — the **Platforms matrix** and the **Import modal** get no
+  baseline at all. Both are almost entirely live evidence, so a masked baseline is a picture of
+  an empty frame that *still* breaks whenever a row's height changes.
+
+Three things that look like flake and are not
+([#43](../../docs/troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)):
+
+1. **`maxDiffPixels` defaults to 0** and GPU antialiasing is not deterministic. `playwright.config.ts`
+   sets **40** — far above one-pixel noise, far below a one-character shift.
+2. **Masking hides colour, not geometry.** A masked element whose text length varies still changes
+   its own width and rewraps the row beside it.
+3. **A wrapping status line changes its own height** — which is a real layout shift, not a test
+   problem. Fix the component.
+
+**Rule of thumb: screenshot the chrome, assert the content.** If choosing what to mask is getting
+hard, the surface is telling you it wants a structural test.
+
+The **375px verification lives here**, because it is the only place it can actually run — a
+browser-driven resize does not reach the tab, `page.setViewportSize` does. It asserts no
+horizontal overflow (walking *all* ancestors for a deliberate `overflow-x` scroller, not just the
+parent), a one-row saved-views bar, the sticky toolbar surviving a 2000px scroll, and a 44px FAB.
+
+**Baselines are per-platform** (Playwright's default suffix), so Windows and a Linux runner keep
+separate sets — font rasterization differs too much to share one. A new surface writes its
+baseline on first run and *fails that run by design*; re-run to confirm.
+
+> **Renaming an accessible name breaks E2E locators.** `getByRole('button', { name })` matches the
+> **accessible** name, so adding `aria-label="Import tasks"` to a button labelled *Import* silently
+> broke `mock-agent.spec.ts`. Grep `tests/e2e` when you name an icon-only control.
+
 ## What CI enforces — and doesn't
 
 `.github/workflows/ci.yml`, **5 jobs** on push to `main`/`mike_desktop` and every PR:
@@ -96,6 +134,9 @@ backend/src/catalog/*.test.ts   catalog unit
 backend/test/integration/       integration (real Postgres)
 frontend/src/**/__tests__/      unit (vitest + RTL + jsdom)
 frontend/tests/e2e/             Playwright (+ helpers/mockAgent.ts)
+  smoke / mock-agent            full-stack flows
+  layout.spec.ts                layout + visual regression, 1280px & 375px
+  layout.spec.ts-snapshots/     per-platform baselines (never hand-edit)
 agent/Cronsole.Agent.Tests/      xUnit
 mcp-server/src/__tests__/       unit (vitest) — tools via a real MCP client
                                 over InMemoryTransport with a stubbed

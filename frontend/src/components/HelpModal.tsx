@@ -25,7 +25,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
               Get started, master the basics, and find the full guides.
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
+          <button onClick={onClose} aria-label="Close help center" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
             <XCircle size={20} />
           </button>
         </header>

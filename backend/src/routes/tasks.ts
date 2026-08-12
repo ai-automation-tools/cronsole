@@ -26,6 +26,7 @@ import { validateBody } from '../middleware/validate.js';
 import { importTemplates } from '../catalog/importCatalog.js';
 import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateFromTask.js';
 import { toTaskXmlBuffer } from '../services/bulkExport.js';
+import { recordCapability } from '../services/platformCapabilities.js';
 
 const router = Router();
 
@@ -165,6 +166,11 @@ router.patch('/:id/status', validateBody(patchTaskStatusSchema), async (req: Req
 
   const enabled = status === TaskStatus.ACTIVE;
   const result = await connector.setTaskStatus(task.externalId, enabled, config);
+  // Evidence for the Platforms matrix. Recorded from the platform's own answer,
+  // before the refusal below — a failure is as much a fact about the capability
+  // as a success, and only recording the happy path would make every verb look
+  // either verified or untried.
+  await recordCapability(userId, task.platform, 'setStatus', result.success, result.message);
   if (!result.success) {
     throw new HttpError(502, result.message || 'The platform failed to update the task status');
   }
@@ -224,6 +230,10 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
         metadata: { ...meta, schedule } as unknown as Prisma.InputJsonValue
       }
     });
+    // Native reschedules never touch a connector — the DB row is the task. The
+    // matrix must still learn that the verb works here, or it would report
+    // Cronsole-native as unable to do something it just did.
+    await recordCapability(userId, task.platform, 'updateSchedule', true);
     notifyTasksChanged(userId);
     return res.json(updatedTask);
   }
@@ -249,6 +259,7 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
     ...deserializeConfig(connection?.config),
     userId
   });
+  await recordCapability(userId, task.platform, 'updateSchedule', result.success, result.message);
   if (!result.success) {
     throw new HttpError(502, result.message || 'The platform failed to update the schedule');
   }
@@ -321,6 +332,7 @@ router.patch('/:id/actions', validateBody(patchTaskActionsSchema), async (req: R
     { action, workingDirectory: workingDir, description: desc, runLevel },
     { ...deserializeConfig(connection?.config), userId }
   );
+  await recordCapability(userId, task.platform, 'updateAction', result.success, result.message);
   if (!result.success) {
     throw new HttpError(502, result.message || 'The platform failed to update the task');
   }
@@ -454,6 +466,8 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     { trigger, folder: finalFolder, createFolder: createFolder === true }
   );
 
+  await recordCapability(userId, platform, 'create', result.success, result.message);
+
   if (!result.success) {
     // foldersCreated rides the ERROR too. A create can build the folder chain
     // and then fail to register into it, and Cronsole does not delete folders —
@@ -551,6 +565,7 @@ router.post('/native', validateBody(createNativeSchema), async (req: Request, re
     }
   });
 
+  await recordCapability(userId, PlatformType.TASKHUB_NATIVE, 'create', true);
   notifyTasksChanged(userId);
   res.json({ message: 'Native task created', task });
 });
@@ -590,6 +605,8 @@ router.get('/folders', async (req: Request, res: Response) => {
     userId
   });
 
+  await recordCapability(userId, platform as PlatformType, 'listFolders', result.success, result.message);
+
   if (!result.success) {
     // The agent being offline is not a server fault — say so honestly rather
     // than returning an empty list the UI would render as "no folders exist".
@@ -624,16 +641,21 @@ router.get('/health', async (req: Request, res: Response) => {
     const connector = connectorRegistry.getConnector(conn.platform);
     if (connector) {
       const health = await connector.getHealth({ ...deserializeConfig(conn.config), userId });
-      // A health probe is not a sync. When the connector has no fresher
-      // first-hand evidence it reports no `lastSync` at all, and the stored
-      // column — written by POST /sync, where a sync really happened — is the
-      // honest answer. Reporting the probe's own timestamp is what made this
-      // endpoint say "synced just now" about an agent that was answering nothing.
-      const lastSync = health.lastSync ?? conn.lastSync ?? undefined;
+      // A health probe is not a sync, and neither is a reply. `lastSync` comes
+      // from ONE place — the column POST /sync writes, where a sync really
+      // happened — and a connector cannot override it, because there is no
+      // longer a field for it to override it with.
+      //
+      // It used to be `health.lastSync ?? conn.lastSync`, and the Windows
+      // connector filled `health.lastSync` with the time of its last inbound
+      // event of any kind. That is a real timestamp of the wrong thing, which
+      // read as "Synced 7m ago" over a task list from the previous day
+      // (troubleshooting #41). Liveness is reported separately, under its own
+      // name, because it is genuinely useful and genuinely not this.
       results.push({
         platform: conn.platform,
         ...health,
-        lastSync
+        lastSync: conn.lastSync ?? undefined
       });
 
       // Update health in DB. `lastSync` is deliberately not written here: this
@@ -766,8 +788,10 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
           data: { lastSync: conn.platform === 'TASKHUB_NATIVE' ? null : new Date() }
         });
 
+        await recordCapability(userId, conn.platform, 'sync', true);
         results.push({ platform: conn.platform, count: tasks.length, missing, untracked, exclusionsCleared });
       } catch (err: any) {
+        await recordCapability(userId, conn.platform, 'sync', false, err?.message);
         results.push({ platform: conn.platform, error: err.message });
       }
     }
@@ -980,9 +1004,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
       ...deserializeConfig(connection?.config),
       userId
     });
+    await recordCapability(userId, task.platform, 'delete', result.success, result.message);
     if (!result.success) {
       throw new HttpError(502, result.message || 'The platform failed to delete the task');
     }
+  } else {
+    // Native tasks are deleted by the transaction below, not by a connector.
+    await recordCapability(userId, task.platform, 'delete', true);
   }
 
   await prisma.$transaction([
@@ -1077,6 +1105,7 @@ router.get('/:id/export', async (req: Request, res: Response) => {
       ...deserializeConfig(connection?.config),
       userId
     });
+    await recordCapability(userId, task.platform, 'export', Boolean(result.success && result.xml), result.message);
     if (!result.success || !result.xml) {
       throw new HttpError(502, result.message || 'The agent could not export this task');
     }
@@ -1113,6 +1142,8 @@ router.get('/:id/export', async (req: Request, res: Response) => {
     };
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${safeFilePart(task.name)}.json"`);
+    // Native exports never reach a connector either — same reason as reschedule.
+    await recordCapability(userId, task.platform, 'export', true);
     return res.json(bundle);
   }
 
@@ -1149,6 +1180,12 @@ router.post('/:id/run', async (req: Request, res: Response) => {
   const runStartedAt = Date.now();
   const result = await connector.runTask(task.externalId, config);
   const durationMs = Date.now() - runStartedAt;
+
+  // For Windows this records that the agent *accepted the start* — the same
+  // thing `ExecutionLog.SUCCESS` means here, and no more. The matrix cell says
+  // "Cronsole can trigger a run on this platform", which is exactly that claim;
+  // whether the task then did its job is Windows' `lastTaskResult`, elsewhere.
+  await recordCapability(userId, task.platform, 'run', result.success, result.message);
 
   const execution = await prisma.executionLog.create({
     data: {

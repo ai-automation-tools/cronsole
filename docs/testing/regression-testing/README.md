@@ -37,7 +37,7 @@ Everything that runs on every PR. This *is* the safety net — the whole list is
 | R1.5 | **Type check / build** | `tsc` strict mode passing — no `any` creep | ✅ `backend` + `frontend` jobs |
 | R1.6 | **Agent unit sweep** | Trigger building/reading, quoting, config, auth | ✅ `windows-agent` job |
 | R1.7 | **MCP build** | The wrapper still compiles against the SDK | ✅ `mcp-server` job |
-| R1.8 | **E2E sweep** | Full-stack flows: sync, run, apply, offline, mobile | ⬜ **Not in CI** — run locally |
+| R1.8 | **E2E sweep** | Full-stack flows: sync, run, apply, offline — **plus layout + visual regression at 1280px and 375px** (`layout.spec.ts`) | ⬜ **Not in CI** — run locally |
 
 ## 🧬 Invariant guards
 
@@ -54,6 +54,9 @@ to violate accidentally.
 | R2.5 | **Prune safety** | `managed: false` rows are **never** pruned; an empty core **cannot** wipe the catalog | ✅ `catalogSync.test.ts` |
 | R2.6 | **No DB field leakage** | `normalize.ts` whitelists Prisma fields — `core` must never reach the DB | ✅ `catalogSync.test.ts` |
 | R2.7 | **LF line endings** | `.gitattributes` holds; registry hashes stay stable across machines | ⬜ |
+| R2.8 | **Platform capability reachability** | The Platforms matrix says what the **route** would do, not what the connector object happens to implement. Pinned two ways: connector-derived verbs must agree with the connector, and Cronsole-native's three **route-level** carve-outs (reschedule / export / delete) are checked against the route source — delete that branch and the test fails, rather than the tab quietly promising something the API now 400s | ✅ `platformCapabilities.test.ts` |
+| R2.9 | **A capability is never claimed without evidence** | `capabilitySupport` is `unsupported` when the route would refuse *regardless of a stale success*, `declared` when reachable but unobserved, `verified` only with a real timestamp behind it. Absence of evidence may never read as `ok` | ✅ `platformCapabilities.test.ts` |
+| R2.10 | **A status line does not go quiet when things break** | `newestOutcome` takes the newest *event*, success **or** failure — a failure newer than the success on the same verb must surface as a failure | ✅ `usePlatformMatrix.test.ts` |
 
 ## 🔒 Security regression
 
@@ -96,8 +99,8 @@ one), **#6** (non-ASCII in PowerShell scripts), **#7** (agent command with no ha
 | R5.1 | **Performance budget** | Dashboard load **< 2s** (NFR1). A baseline exists; nothing fails when we drift past it | ⬜ See [`artifacts/cronsole_performance_2026-07-10.md`](../../../artifacts/cronsole_performance_2026-07-10.md) |
 | R5.2 | **Bundle size** | Frontend bundle doesn't creep | ⬜ |
 | R5.3 | **Resilience / soak** | Reconnect behavior + stale-pruning guard hold under network blips | 🟡 See [`artifacts/cronsole_resilience_2026-07-10.md`](../../../artifacts/cronsole_resilience_2026-07-10.md) |
-| R5.4 | **Visual regression** | Dark/light theme and layout don't break silently | ⬜ |
-| R5.5 | **Mobile layout** | Stays usable below 375px | 🟡 E2E only |
+| R5.4 | **Visual regression** | Layout and spacing on the dense surfaces don't break silently. **Chrome only** — Platforms, Import and the task-detail modal are asserted structurally, since masking hides colour but not geometry. **Theme pairs are still uncovered** | 🟡 `layout.spec.ts`, local (E2E is not in CI) |
+| R5.5 | **Mobile layout** | Stays usable at 375px: no horizontal overflow, one-row views bar, sticky toolbar survives a long scroll, 44px FAB | ✅ `layout.spec.ts` — the resize finally *applies* (`page.setViewportSize`); a real device check is still open |
 | R5.6 | **Migration safety** | A migration applies cleanly to a **populated** DB, not just an empty one | ⬜ |
 | R5.7 | **Dependency upgrade** | Full sweep after any dep bump — the suite is the upgrade gate | 🟡 |
 

@@ -64,6 +64,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
 | Run history across all tasks | — | `GET /api/tools/history` (`?format=csv`) |
 | What needs attention | — | `GET /api/tools/task-health` |
+| **What Cronsole can actually do with a platform** | — | `GET /api/tools/platforms` — each verb reads **`verified`** (has worked on this machine), **`declared`** (Cronsole will try; never observed to work here) or **`unsupported`** (would be refused). **Check this before promising the user a capability.** `declared` is not a yes |
 | Star / un-star a task | — | `POST` / `DELETE /api/tasks/:id/favorite` (`isFavorite` comes back on `GET /api/tasks`) |
 | Template import/export, sync, pairing | — | REST / dashboard only |
 

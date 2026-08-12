@@ -68,7 +68,26 @@ export interface UpdateActionsInput {
 export interface ConnectorHealth {
   state: HealthState;
   reason?: string;
-  lastSync?: Date;
+  /**
+   * When the platform last said anything to us — liveness, not freshness.
+   *
+   * This field used to be called `lastSync`, and `WindowsAgentConnector` filled
+   * it with `lastResponseAt`: the time of the newest *inbound event of any kind*
+   * (a folder listing, a run ack, a heartbeat reply). The dashboard renders
+   * `lastSync` as "Synced N ago", so a folder listing made a 19-hour-old task
+   * list read as seven minutes old (troubleshooting #41).
+   *
+   * That is troubleshooting #40 one level down. #40 stopped `getHealth`
+   * inventing a timestamp; the replacement was a real timestamp of the wrong
+   * event, which is harder to spot and just as false. **Connected is not
+   * synced** — the sentence was already in the comment above the bug.
+   *
+   * So there is no `lastSync` on this interface at all. A connector has no
+   * honest way to fill one: a sync happens in exactly one place,
+   * `POST /api/tasks/sync`, and that writes `PlatformConnection.lastSync`
+   * itself. A field only a mistake can fill should not exist.
+   */
+  lastContactAt?: Date;
 }
 
 export interface TaskInfo {

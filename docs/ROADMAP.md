@@ -23,8 +23,10 @@ belongs in the CHANGELOG.
 
 ## ▶ Next up
 
-1. **UX & UI refinement pass** — tokenize status colour, thin the first viewport, grow Platforms
-   into a real capability matrix (see P2 Open; logged from the 2026-08-12 review).
+1. **UX & UI refinement pass — what's left** *(colour tokens and the desktop first-viewport pass
+   shipped 2026-08-12)*: grow Platforms into a real capability matrix, the dashboard health
+   strip, accessible names on icon-only controls, screenshot regression coverage, and the
+   mobile half of the viewport work (see P2 Open).
 2. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
    deliberately-skipped `version` fields in the package manifests.
 3. **Restore's plan doesn't check that a task's action points at anything that exists** — the
@@ -134,7 +136,10 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 - [ ] **Dashboard health strip** *(pairs with the task-detail trust indicators below)*: agent
       online / last sync / last command outcome in the header, so "what should I do next" doesn't
       require reading the sidebar. Bound by the same rule — no field a health probe can stamp itself.
-- [ ] **Icon-only controls need tooltips and accessible names**, everywhere. Task cards carry
+- [ ] **Icon-only controls need accessible names** *(counted 2026-08-12: **8 modal close buttons**
+      — Apply, Clone, Create, EditAction, EditSchedule, Help, Import, TaskModal — carry neither
+      `title` nor `aria-label`, so every modal's dismiss is unnamed to a screen reader; the card
+      row actions and the favorite star already have them)*. Task cards carry
       select / star / clone / enable / run plus the card-open target; the review flagged misclick
       risk, and the cheap half of that is naming every control. A hover/focus "Open details"
       affordance makes the card's default click discoverable without redesigning the card.
@@ -144,17 +149,20 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Open
 
-- [x] **Mass Actions console on the Tools tab — and a scale cap on dashboard selection**
-      *(requested and shipped 2026-08-12)*. Scope-first (all / category / platform / status /
-      health tier), plan visible before anything is asked of a platform, typed confirmation at
+- [x] **Mass Actions console on the Tools tab — now the only bulk surface**
+      *(requested and shipped 2026-08-12)*. **Action-first**: a vertical list of verbs, each opening
+      its own scope step (category — the default — / all / platform / status / health tier). Plan
+      visible before anything is asked of a platform, typed confirmation at
       **≥25 tasks**, chunked at the server's 100-task ceiling with halt propagation, per-task
       five-outcome report, and undo for enable/disable only. No backend added — every verb is an
       existing `/api/tools/tasks/*` route. **Dashboard row selection was removed entirely
       *(2026-08-12)*** — checkboxes, select-all, the bulk bar, the bulk-category modal and
       `taskSelection.ts` are gone, and bulk work is only this console. The safe-path objection to
       that did not survive checking: *Remove from Cronsole* sits beside *Delete from Windows* in the
-      **task modal**, per task, which is where that pairing always lived. The console is
-      **action-first**: a vertical list of verbs, each opening its own scope step. Absorbed *bulk
+      **task modal**, per task, which is where that pairing always lived. The scope opens on
+      **By category**, not *All tasks* — defaulting to everything would make the widest possible
+      operation the path of least resistance; its starting value comes from `defaultScopeValue`,
+      because a category scope with an empty value resolves to nothing. Absorbed *bulk
       enable/disable by folder*. Export and import stay in their own tools rather than being
       duplicated here. Verified live at zero mutation — see CHANGELOG.
       **Deferred:** running a real agent-backed enable/disable end to end (it mutates real

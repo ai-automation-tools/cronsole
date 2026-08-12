@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.5** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.6** · canonical copy: <https://cronsole.mikesailab.com>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -64,6 +64,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
 | Run history across all tasks | — | `GET /api/tools/history` (`?format=csv`) |
 | What needs attention | — | `GET /api/tools/task-health` |
+| Star / un-star a task | — | `POST` / `DELETE /api/tasks/:id/favorite` (`isFavorite` comes back on `GET /api/tasks`) |
 | Template import/export, sync, pairing | — | REST / dashboard only |
 
 ---

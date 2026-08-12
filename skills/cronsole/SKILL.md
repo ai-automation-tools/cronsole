@@ -90,7 +90,7 @@ can fail to start.
 | **Act** | `run_task` |
 | **Modify** (reversible) | `set_task_status`, `update_task_schedule`, `update_task_action`, **`untrack_task`** (removes the task from Cronsole, **leaves the platform entry running**; refuses `TASKHUB_NATIVE`) |
 | **Destroy** (gated) | `delete_task` — registered **only** when `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`; otherwise **absent from `tools/list`**, not present-and-erroring |
-| **REST-only** (no MCP tool) | bulk export `POST /api/tools/export/tasks` (`scope: all \| folder \| selection`), **restore `POST /api/tools/restore/tasks`**, the three bulk verbs — **enable/disable `POST /api/tools/tasks/status`**, **recategorize `POST /api/tools/tasks/category`**, **untrack `POST /api/tools/tasks/untrack`** — **run history `GET /api/tools/history`** (JSON/CSV), **health `GET /api/tools/task-health`**, **analytics `GET /api/tools/analytics`**, connect-pack downloads `GET /api/tools/downloads[/:id]`, plus template import/export, save-as-template, sync, pairing |
+| **REST-only** (no MCP tool) | bulk export `POST /api/tools/export/tasks` (`scope: all \| folder \| selection`), **restore `POST /api/tools/restore/tasks`**, the three bulk verbs — **enable/disable `POST /api/tools/tasks/status`**, **recategorize `POST /api/tools/tasks/category`**, **untrack `POST /api/tools/tasks/untrack`** — **run history `GET /api/tools/history`** (JSON/CSV), **health `GET /api/tools/task-health`**, **analytics `GET /api/tools/analytics`**, **favorites `POST` / `DELETE /api/tasks/:id/favorite`** (the `isFavorite` flag rides on `GET /api/tasks`; `compactTask` does not forward it, so `list_tasks` cannot see stars), connect-pack downloads `GET /api/tools/downloads[/:id]`, plus template import/export, save-as-template, sync, pairing |
 
 **The gating is tiered, and the tiering is the point** (decided 2026-07-15). Irreversible is
 gated; reversible is not. `set_task_status` ships ungated *on purpose*: it is the honest way to
@@ -102,9 +102,9 @@ for it. `untrack_task` (2026-07-28) is the same argument applied to *removal*: g
 only honest once a **safe** way to remove a task from the dashboard exists ungated — otherwise an
 agent asked to "clean this up" has one tool for the job and it's the irreversible one.
 
-**Still REST-only:** template import/export, save-as-template, sync, agent pairing. If a user asks
-for one over MCP, say the tool doesn't exist and offer the REST call or the UI — **never
-improvise a substitute.**
+**Still REST-only:** template import/export, save-as-template, sync, agent pairing, **favorites**
+(`POST` / `DELETE /api/tasks/:id/favorite`). If a user asks for one over MCP, say the tool doesn't
+exist and offer the REST call or the UI — **never improvise a substitute.**
 
 **Creating a task on a real machine? Read
 [references/task-authoring.md](references/task-authoring.md) first** — the creation paths,

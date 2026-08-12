@@ -148,7 +148,9 @@ The 15 tools and their routes:
 **absent** from `tools/list` when off; reversible ones are not. The gate is an **env var, not a
 tool param** — a param is filled in by the model, so it's the caller assuring itself it's sure.
 **The route existing is not by itself a reason to expose it.** Still REST-only: template
-import/export, save-as-template, sync, agent pairing.
+import/export, save-as-template, sync, agent pairing, **favorites** (`POST` / `DELETE
+/api/tasks/:id/favorite`) — a star is a *per-user display preference*, and `compactTask` does not
+forward `isFavorite`, so `list_tasks` cannot read one either.
 
 **Adding a tool ships with**: the vitest suite (`src/__tests__/tools.test.ts` — its surface test
 pins the exact tool list and will fail, deliberately), both README tool tables, and the skill

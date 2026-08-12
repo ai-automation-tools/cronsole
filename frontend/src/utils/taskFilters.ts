@@ -49,8 +49,16 @@ export interface TaskFilters {
    * view bar can't match, and the counts beside the list don't know about.
    */
   favorites: FavoritesFilter;
-  /** `'All'` or an exact platform. */
-  platform: string;
+  /**
+   * `'All'`, a platform (`WINDOWS_TASK_SCHEDULER`), or a platform **and
+   * subtype** (`TASKHUB_NATIVE:EXEC`) — see `matchesSource`.
+   *
+   * Named `source` rather than `platform` because it stopped being one: a
+   * Cronsole-native HTTP job and a Cronsole-native script are the same platform
+   * and different sources, and calling the field `platform` while it holds
+   * `TASKHUB_NATIVE:EXEC` would be a name that lies about its own contents.
+   */
+  source: string;
   /** `'All'` or an exact category (`'Uncategorized'` for tasks with none). */
   category: string;
   /** Free text, matched by `matchesTaskSearch`. */
@@ -77,7 +85,7 @@ export const DEFAULT_FILTERS: TaskFilters = {
   outcome: 'any',
   due: 'any',
   favorites: 'any',
-  platform: 'All',
+  source: 'All',
   category: 'All',
   search: ''
 };
@@ -125,6 +133,31 @@ export function matchesSystem(task: Task, filter: SystemFilter): boolean {
  */
 export function matchesFavorites(task: Task, filter: FavoritesFilter): boolean {
   return filter === 'any' || task.isFavorite === true;
+}
+
+/** Separator between a platform and its subtype in a source key. */
+export const SOURCE_SEP = ':';
+
+/**
+ * The source lens — the dashboard's first-level axis.
+ *
+ * `task.source` is the **server's** key (`WINDOWS_TASK_SCHEDULER`,
+ * `TASKHUB_NATIVE:EXEC`, …), because deciding it means reading the native job
+ * spec and a browser-side copy of that would be a second definition of the same
+ * judgement. It falls back to `task.platform`, which is exactly what a source key
+ * is when nothing subdivides — so an older backend degrades to platform-level
+ * sources rather than to nothing matching.
+ *
+ * **Matching is prefix-aware**, and that is what makes the split safe to add:
+ * selecting the bare `TASKHUB_NATIVE` still matches both its subtypes, so a saved
+ * view or a persisted `defaultPlatform` naming a *platform* keeps working
+ * unchanged now that sources are finer than platforms. Without it, splitting
+ * native would have silently emptied every stored preference pointing at it.
+ */
+export function matchesSource(task: Task, filter: string): boolean {
+  if (filter === 'All') return true;
+  const key = task.source ?? task.platform;
+  return key === filter || key.startsWith(`${filter}${SOURCE_SEP}`);
 }
 
 /**
@@ -250,7 +283,7 @@ export type FilterDimension =
   | 'status'
   | 'system'
   | 'favorites'
-  | 'platform'
+  | 'source'
   | 'category'
   | 'due'
   | 'outcome'
@@ -313,9 +346,7 @@ export function applyTaskFiltersExcept(
       (skip('system') || matchesSystem(task, filters.system)) &&
       (skip('status') || matchesStatus(task, filters.status)) &&
       (skip('favorites') || matchesFavorites(task, filters.favorites)) &&
-      (skip('platform') ||
-        filters.platform === 'All' ||
-        task.platform === filters.platform) &&
+      (skip('source') || matchesSource(task, filters.source)) &&
       (skip('category') ||
         filters.category === 'All' ||
         (task.category || 'Uncategorized') === filters.category) &&

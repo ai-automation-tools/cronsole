@@ -27,7 +27,8 @@ belongs in the CHANGELOG.
 dashboard's first-level axis is now where a task comes from, and the plan is to fill it in. In order:
 
 1. ~~**Native job types — scripts**~~ — **shipped 2026-08-12.**
-2. **API / Web Services source** — *blocked on an open decision about its shape.*
+2. ~~**API / Web Services source**~~ — **resolved and shipped 2026-08-12** as a subtype split of
+   Cronsole-native (HTTP / Scripts), not a new platform.
 3. **POSIX agent** — launchd · cron · systemd timers in one build. The one that actually broadens
    the product.
 4. **Claude Code routines** — promote the connector out of scaffold.
@@ -80,11 +81,18 @@ Everything below the sources track, unchanged in priority relative to each other
       Real `ExecutionLog` rows (exit code, duration, output snippet) — native's genuine advantage
       over Windows, where `SUCCESS` only means the agent accepted a start.
 
-- [ ] **API / Web Services source** *(shape undecided — see [Open decisions](#open-decisions))*:
-      requested 2026-08-12. The decision that blocks it is whether this is a **new platform**, a
-      **job-type split inside Cronsole-native**, or an **umbrella grouping** over the hosted
-      schedulers below; the three produce different data models and are not refinements of each
-      other. Do not start until that is settled.
+- [x] **API / Web Services source — resolved as a subtype split** *(decided and shipped
+      2026-08-12)*: Cronsole-native divides in the source bar into **Cronsole (HTTP)** and
+      **Cronsole (Scripts)** rather than becoming a new platform. A source key is `PLATFORM` or
+      `PLATFORM:SUBTYPE`, derived server-side in `services/taskSource.ts`.
+      **Platform and source are deliberately different things:** the Platforms tab does not split,
+      because native HTTP and native scripts are the same connector with identical capabilities.
+      Matching is prefix-aware, which is what let this ship without emptying every stored
+      `defaultPlatform`; and the selected source stays listed even when no task derives it, or a
+      pre-split link filters the list with the whole bar unlit.
+      **The umbrella-grouping reading (c) is still open** for when three hosted observers exist to
+      group — it is a presentation question about the bar, not a data-model one, so it no longer
+      blocks anything.
 
 - [ ] **POSIX agent — launchd · cron · systemd timers** *(the big one, and the one that actually
       broadens the product)*: all three are **local OS schedulers**, structurally identical to
@@ -565,8 +573,11 @@ items cover the repo and product going public, not standing up a multi-tenant cl
       but needs **no schema or test changes**; SQLite gives a single-file install but
       `Template.tags String[]` is Postgres-only, forcing a migration and forking the integration
       suite. **Lean: bundle Postgres for v1.**
-- [ ] **What shape is the "API / Web Services" source?** *(opened 2026-08-12, requested the same
-      day; blocks that item under [Sources](#-sources--where-a-task-comes-from))*. Three readings,
+- [x] **What shape is the "API / Web Services" source?** *(opened and resolved 2026-08-12)* —
+      **resolved (b): a subtype split inside Cronsole-native**, surfaced in the source bar as
+      *Cronsole (HTTP)* and *Cronsole (Scripts)*. Reading (a) was rejected for the reason predicted
+      below; (c) remains open as a presentation question once there are three hosted observers to
+      group, and blocks nothing. The original framing follows. Three readings,
       producing three different data models, and they are not refinements of one another:
       **(a) a new `PlatformType`** for schedules that live in an external service Cronsole observes
       rather than executes — coherent, but it must be distinguishable from Cronsole-native, which

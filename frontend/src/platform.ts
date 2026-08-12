@@ -38,6 +38,28 @@ export const platformSourceLabel = (p: string) =>
     TASKHUB_NATIVE: 'Cronsole (Native)'
   }[p] ?? platformLabel(p));
 
+/**
+ * The label for a **source** key — a platform, or a platform and a subtype.
+ *
+ * Sources are finer than platforms: Cronsole-native holds two genuinely
+ * different kinds of task, and one bucket called "Cronsole" made the source
+ * bar's most granular entry its least informative. Splitting happens here, in
+ * presentation, and nowhere else — the connector, the capability matrix and
+ * `PlatformConnection` all still see one platform, because native HTTP and
+ * native scripts have identical capabilities and the same connection.
+ *
+ * An unknown subtype falls back to the platform's own label rather than showing
+ * a raw key, so a source added server-side before it is named here still reads.
+ */
+export const sourceLabel = (key: string) =>
+  ({
+    'TASKHUB_NATIVE:HTTP': 'Cronsole (HTTP)',
+    'TASKHUB_NATIVE:EXEC': 'Cronsole (Scripts)'
+  }[key] ?? platformSourceLabel(key.split(':')[0]));
+
+/** Which platform a source key belongs to — for identity colour and icons. */
+export const sourcePlatform = (key: string) => key.split(':')[0];
+
 export const platformBadgeClass = (p: string) =>
   ({
     WINDOWS_TASK_SCHEDULER: 'bg-primary/10 text-foreground border-primary/20',

@@ -58,6 +58,20 @@ interface Props {
   categories: string[];
   categoryCounts: Map<string, number>;
   totalVisibleCount: number;
+  /**
+   * What the count on the trigger is measured *against*.
+   *
+   * The filters of the view you are on, or the dashboard default when the
+   * combination is ad-hoc. Not always `DEFAULT_FILTERS`: on the **All** view —
+   * the widest possible state, withholding nothing — comparing to the default
+   * lit the badge with `2` while the withheld chips beside it correctly showed
+   * nothing hidden. A badge that fires when nothing is constrained is one people
+   * learn to ignore, which costs exactly the case it exists for.
+   *
+   * Measured this way the number means "filters you have added on top of this
+   * view", which is the only thing the drawer can clear.
+   */
+  baseFilters?: TaskFilters;
   /** Tasks Windows itself owns, counted over everything the other lenses allow. */
   hiddenBySystemFilter: number;
   /** Tasks the status lens is holding back, in this view. */
@@ -84,6 +98,7 @@ export const TaskFilterMenu = ({
   categories,
   categoryCounts,
   totalVisibleCount,
+  baseFilters,
   hiddenBySystemFilter,
   hiddenByActiveFilter
 }: Props) => {
@@ -108,7 +123,7 @@ export const TaskFilterMenu = ({
     };
   }, [open]);
 
-  const active = activeFilterCount(filters);
+  const active = activeFilterCount(filters, baseFilters);
   const withheld = withheldBy(filters, {
     system: hiddenBySystemFilter,
     status: hiddenByActiveFilter

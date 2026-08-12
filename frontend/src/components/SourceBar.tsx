@@ -1,5 +1,5 @@
-import { Layers, Monitor, Zap, Bot, Globe } from 'lucide-react';
-import { platformSourceLabel } from '../platform';
+import { Layers, Monitor, Zap, Bot, Globe, Terminal } from 'lucide-react';
+import { sourceLabel, sourcePlatform } from '../platform';
 
 /**
  * **Where a task comes from** — the dashboard's first-level axis.
@@ -31,12 +31,22 @@ import { platformSourceLabel } from '../platform';
  * A count beside a control is a promise about what clicking it reveals.
  */
 
-/** Icon per source. Falls back to a globe for one we have not styled yet. */
+/**
+ * Icon per source. Keyed on the full source key first so a subtype can differ
+ * from its platform — a native HTTP job and a native script are the same
+ * platform and should not look identical in the one control that separates them.
+ * Falls back to the platform, then to a globe for a source we have not styled.
+ */
 const SOURCE_ICON: Record<string, typeof Monitor> = {
   WINDOWS_TASK_SCHEDULER: Monitor,
+  'TASKHUB_NATIVE:HTTP': Globe,
+  'TASKHUB_NATIVE:EXEC': Terminal,
   TASKHUB_NATIVE: Zap,
   CLAUDE_CODE: Bot
 };
+
+const iconFor = (key: string) =>
+  SOURCE_ICON[key] ?? SOURCE_ICON[sourcePlatform(key)] ?? Globe;
 
 /**
  * Selected styling per source, from the identity role tokens.
@@ -50,6 +60,10 @@ const SOURCE_ON: Record<string, string> = {
   TASKHUB_NATIVE: 'bg-native text-white border-native',
   CLAUDE_CODE: 'bg-claude text-white border-claude'
 };
+
+/** Selected styling: identity is a property of the platform, not the subtype. */
+const onClassFor = (key: string) =>
+  SOURCE_ON[key] ?? SOURCE_ON[sourcePlatform(key)] ?? FALLBACK_ON;
 
 const FALLBACK_ON = 'bg-primary text-primary-foreground border-primary';
 const OFF = 'bg-surface text-muted-foreground border-border hover:text-foreground hover:border-foreground/25';
@@ -81,7 +95,7 @@ export const SourceBar = ({ sources, counts, totalCount, selected, onSelect }: S
         aria-pressed={active}
         title={value === 'All' ? 'Tasks from every source' : `Only tasks from ${label}`}
         className={`flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
-          active ? (SOURCE_ON[value] ?? FALLBACK_ON) : OFF
+          active ? onClassFor(value) : OFF
         }`}
       >
         <Icon size={13} />
@@ -109,9 +123,7 @@ export const SourceBar = ({ sources, counts, totalCount, selected, onSelect }: S
         <Layers size={12} /> Source
       </span>
       {button('All', 'All sources', Layers, totalCount)}
-      {sources.map(p =>
-        button(p, platformSourceLabel(p), SOURCE_ICON[p] ?? Globe, counts.get(p) ?? 0)
-      )}
+      {sources.map(key => button(key, sourceLabel(key), iconFor(key), counts.get(key) ?? 0))}
     </div>
   );
 };

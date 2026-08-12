@@ -27,6 +27,7 @@ import { importTemplates } from '../catalog/importCatalog.js';
 import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateFromTask.js';
 import { toTaskXmlBuffer } from '../services/bulkExport.js';
 import { recordCapability } from '../services/platformCapabilities.js';
+import { taskSourceKey } from '../services/taskSource.js';
 
 const router = Router();
 
@@ -69,7 +70,13 @@ router.get('/', async (req: Request, res: Response) => {
     // summarizeUntracked uses), and a second copy in the frontend is the shape
     // that let a renamed category silently stop syncing (#20a). The dashboard
     // gets the answer; it never gets the predicate.
-    isSystem: TaskService.isSystemTask(task.externalId, task.platform)
+    isSystem: TaskService.isSystemTask(task.externalId, task.platform),
+    // Which source bar entry this task belongs to. Server-derived for the same
+    // reason `isSystem` is: it reads `metadata.job.jobType`, and a second copy of
+    // "what kind of native task is this" in the browser is the drift shape of
+    // #20a. Platform stays what it was — this is finer, and only the dashboard's
+    // first-level axis reads it.
+    source: taskSourceKey(task.platform, task.metadata)
   })));
 });
 

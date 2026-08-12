@@ -126,7 +126,7 @@ export const DashboardScreen = ({
       ...DEFAULT_FILTERS,
       status: settings.defaultShowDisabled ? 'any' : 'active',
       system: settings.showSystemTasks ? 'include' : 'personal',
-      platform: settings.defaultPlatform,
+      source: settings.defaultPlatform,
       category: settings.defaultCategory
     }),
     [
@@ -307,17 +307,20 @@ export const DashboardScreen = ({
   // number is this length. Deriving it from the same pass that produces the
   // per-source counts is what stops the two disagreeing: `All` is exactly the
   // sum of the parts because it *is* the thing the parts partition.
-  const platformGoverned = useMemo(
-    () => facetBase('platform'),
+  const sourceGoverned = useMemo(
+    () => facetBase('source'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tasks, viewFilters, now, settings.timezone, tiers]
   );
 
   const platformCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const t of platformGoverned) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
+    for (const t of sourceGoverned) {
+      const key = t.source ?? t.platform;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
     return counts;
-  }, [platformGoverned]);
+  }, [sourceGoverned]);
 
   /**
    * Which source buttons exist — taken from **every** task the user has, not
@@ -335,10 +338,18 @@ export const DashboardScreen = ({
    * the honest version — it predicts the empty list instead of hiding the way to
    * it, and it is the same promise every other count on this screen makes.
    */
-  const sourceOptions = useMemo(
-    () => Array.from(new Set((allTasks ?? []).map(t => t.platform))).sort(),
-    [allTasks]
-  );
+  const sourceOptions = useMemo(() => {
+    const keys = new Set((allTasks ?? []).map(t => t.source ?? t.platform));
+    // Keep the *selected* source listed even when nothing derives it. A link
+    // written before Cronsole-native split — `?platform=TASKHUB_NATIVE` — still
+    // filters correctly by prefix, but no button equals it, so the bar would sit
+    // entirely unlit above a filtered list. That is the inverse of the lit-chip
+    // problem and just as dishonest: the constraint is real and nothing on
+    // screen names it. Same rule the category facet already follows for a
+    // selection that empties.
+    if (filters.source !== 'All') keys.add(filters.source);
+    return Array.from(keys).sort();
+  }, [allTasks, filters.source]);
 
   // One pipeline, in one place. This used to be four hand-rolled `.filter()`
   // passes inline, which is fine at four and is exactly how the fifth ends up
@@ -381,7 +392,7 @@ export const DashboardScreen = ({
   const viewCounts = useMemo(() => {
     const counts = new Map<string, number | null>();
     for (const v of views) {
-      const scoped = { ...v.filters, platform: filters.platform };
+      const scoped = { ...v.filters, source: filters.source };
       counts.set(
         v.id,
         needsHealthData(v.filters) && !tiers
@@ -394,7 +405,7 @@ export const DashboardScreen = ({
       );
     }
     return counts;
-  }, [views, allTasks, viewMode, now, settings.timezone, tiers, filters.platform]);
+  }, [views, allTasks, viewMode, now, settings.timezone, tiers, filters.source]);
 
   const saveCurrentView = (name: string) => {
     // Source is stripped before storing. A view is a question asked *of* a
@@ -569,9 +580,9 @@ export const DashboardScreen = ({
           <SourceBar
             sources={sourceOptions}
             counts={platformCounts}
-            totalCount={platformGoverned.length}
-            selected={filters.platform}
-            onSelect={next => setFilter('platform', next)}
+            totalCount={sourceGoverned.length}
+            selected={filters.source}
+            onSelect={next => setFilter('source', next)}
           />
 
           <ViewBar
@@ -663,6 +674,7 @@ export const DashboardScreen = ({
                 categories={categories}
                 categoryCounts={categoryCounts}
                 totalVisibleCount={totalVisibleCount}
+                baseFilters={activeView?.filters}
                 hiddenBySystemFilter={hiddenBySystemFilter}
                 hiddenByActiveFilter={hiddenByActiveFilter}
               />

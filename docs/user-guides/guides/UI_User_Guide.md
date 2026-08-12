@@ -72,8 +72,13 @@ when Cronsole is down.
 ### Source — where a task comes from
 
 The row above the saved views is the dashboard's **first level of organisation**: one button per
-system your tasks come from — *All sources*, *Windows Task Scheduler*, *Cronsole (Native)*, and
-whatever you connect next. It appears once you have tasks from more than one source.
+system your tasks come from — *All sources*, *Windows Task Scheduler*, *Cronsole (HTTP)*,
+*Cronsole (Scripts)*, and whatever you connect next. It appears once you have tasks from more than
+one source.
+
+**Cronsole-native splits by what the task does**, because "call a URL every 15 minutes" and "run
+this script nightly" are different enough to want separating. They are still the same platform on
+the **Platforms** tab — same connector, same capabilities — so only this bar divides them.
 
 - **It composes with views instead of replacing them.** Picking a source does *not* reset the view
   bar. Select *Windows Task Scheduler* and click *Failures* and both stay lit — you are looking at
@@ -90,6 +95,7 @@ rebuilt from scratch on every visit. Six ship built in:
 
 | View | Shows |
 |---|---|
+| **All** | Every task, with no lens at all — including the ones Windows owns and anything disabled or missing. The one click that means "stop hiding things". |
 | **Favorites** | Only the tasks you've starred (see *Favorites* below). Deliberately ignores every other lens — a starred task shows even if it's disabled, missing, or one of Windows' own. |
 | **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. The default *until you star something*. |
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |

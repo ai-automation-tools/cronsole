@@ -28,9 +28,22 @@ const mine: SavedView = {
 const builtin = (id: string) => BUILTIN_VIEWS.find(v => v.id === id)!;
 
 describe('BUILTIN_VIEWS', () => {
-  it('ships Favorites plus the five views the roadmap named, in bar order', () => {
+  it('ships All and Favorites plus the five views the roadmap named, in bar order', () => {
     expect(BUILTIN_VIEWS.map(v => v.id))
-      .toEqual(['favorites', 'my-jobs', 'failures', 'due-today', 'disabled', 'system']);
+      .toEqual(['all', 'favorites', 'my-jobs', 'failures', 'due-today', 'disabled', 'system']);
+  });
+
+  it('makes All actually mean all — no lens at all', () => {
+    // Every other built-in withholds something; this is the one click that means
+    // "stop withholding". If it kept the system or status lens it would be a
+    // narrower view wearing the widest possible name.
+    const all = builtin('all').filters;
+    expect(all.status).toBe('any');
+    expect(all.system).toBe('include');
+    expect(all.favorites).toBe('any');
+    expect(all.outcome).toBe('any');
+    expect(all.due).toBe('any');
+    expect(all.category).toBe('All');
   });
 
   it('makes Favorites ignore every other lens', () => {
@@ -72,7 +85,7 @@ describe('BUILTIN_VIEWS', () => {
 describe('openingFilters — what a bare dashboard URL means', () => {
   // The user's ask, as a rule: favorites by default, the normal dashboard when
   // there are none.
-  const myDefaults = filters({ platform: 'WINDOWS_TASK_SCHEDULER' });
+  const myDefaults = filters({ source: 'WINDOWS_TASK_SCHEDULER' });
 
   it('opens on Favorites once you have any', () => {
     expect(openingFilters(true, myDefaults)).toEqual({
@@ -81,7 +94,7 @@ describe('openingFilters — what a bare dashboard URL means', () => {
       // not the Favorites view's to overrule — and a user whose default source
       // is Windows should not silently land on every source because they
       // happened to star something.
-      platform: myDefaults.platform
+      source: myDefaults.source
     });
   });
 
@@ -154,7 +167,7 @@ describe('URL codec', () => {
   it('round-trips every dimension', () => {
     const rich = filters({
       status: 'missing', system: 'include', outcome: 'unknown', due: 'week',
-      favorites: 'only', platform: 'TASKHUB_NATIVE', category: 'Reports', search: 'db dump'
+      favorites: 'only', source: 'TASKHUB_NATIVE', category: 'Reports', search: 'db dump'
     });
     expect(filtersFromParams(filtersToParams(rich, []), [])).toEqual(rich);
   });
@@ -204,40 +217,40 @@ describe('source is the outer lens, not part of a view', () => {
     // returns early, so a selected source vanishes from the URL and the page
     // reloads showing every source. A bookmark has to reproduce what you see.
     const p = filtersToParams(
-      filters({ ...builtin('failures').filters, platform: 'TASKHUB_NATIVE' }),
+      filters({ ...builtin('failures').filters, source: 'TASKHUB_NATIVE' }),
       saved
     );
     expect(p.get('view')).toBe('failures');
-    expect(p.get('platform')).toBe('TASKHUB_NATIVE');
+    expect(p.get('source')).toBe('TASKHUB_NATIVE');
   });
 
   it('is omitted when it is All, so a plain view URL stays short', () => {
     const p = filtersToParams(filters(builtin('failures').filters), saved);
     expect(p.get('view')).toBe('failures');
-    expect(p.has('platform')).toBe(false);
+    expect(p.has('source')).toBe(false);
   });
 
   it('round-trips through the URL on top of a view', () => {
-    const original = filters({ ...builtin('my-jobs').filters, platform: 'WINDOWS_TASK_SCHEDULER' });
+    const original = filters({ ...builtin('my-jobs').filters, source: 'WINDOWS_TASK_SCHEDULER' });
     expect(filtersFromParams(filtersToParams(original, saved), saved)).toEqual(original);
   });
 
   it('a view URL without a source param reads back as All', () => {
     const back = filtersFromParams(new URLSearchParams('view=failures'), saved);
-    expect(back.platform).toBe('All');
+    expect(back.source).toBe('All');
   });
 
   it('does not drop the view bar to Custom', () => {
     // The whole point of the decision: picking a source keeps the view lit,
     // because both constraints are on screen at the same time.
-    const withSource = filters({ ...builtin('failures').filters, platform: 'TASKHUB_NATIVE' });
+    const withSource = filters({ ...builtin('failures').filters, source: 'TASKHUB_NATIVE' });
     expect(matchView(withSource, saved)?.id).toBe('failures');
   });
 
   it('viewFiltersFrom strips the source before a view stores it', () => {
     // A stored platform would be state nothing reads — matchView ignores it —
     // while looking meaningful to whoever opens the JSON next.
-    expect(viewFiltersFrom(filters({ platform: 'TASKHUB_NATIVE', category: 'Backup' })))
+    expect(viewFiltersFrom(filters({ source: 'TASKHUB_NATIVE', category: 'Backup' })))
       .toEqual(filters({ category: 'Backup' }));
   });
 });

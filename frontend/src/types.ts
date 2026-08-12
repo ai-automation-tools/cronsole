@@ -18,6 +18,16 @@ export interface Task {
    */
   isSystem?: boolean;
   /**
+   * Which **source** bar entry this task belongs to: a platform, or a platform
+   * and a subtype (`TASKHUB_NATIVE:EXEC`).
+   *
+   * Server-derived like `isSystem`, because deciding it means reading
+   * `metadata.job.jobType` and a browser-side copy of that judgement is a second
+   * definition of the same rule. Absent on older payloads — callers fall back to
+   * `platform`, which is exactly what a source key is when nothing subdivides.
+   */
+  source?: string;
+  /**
    * Has *this viewer* starred the task? From the `TaskFavorite` join, per user —
    * never a column on Task. Optional on the wire so an older backend degrades to
    * "nothing is favorited" (which shows the normal dashboard) rather than to an

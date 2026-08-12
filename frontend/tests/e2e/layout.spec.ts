@@ -145,7 +145,7 @@ test.describe('mobile layout — 375px', () => {
     // vanish because an inner filter narrowed the list.
     await page.goto('/?view=favorites');
     await expect(bar).toBeVisible();
-    await expect(bar.getByRole('button', { name: /Cronsole \(Native\)/ })).toBeVisible();
+    await expect(bar.getByRole('button', { name: /Cronsole \(Scripts\)/ })).toBeVisible();
   });
 
   test('the filter toolbar stays reachable after scrolling the list', async ({ page }) => {
@@ -296,7 +296,7 @@ test.describe('source is the outer lens', () => {
   test.use({ viewport: DESKTOP });
 
   test('selecting a source keeps the view lit and scopes its count', async ({ page }) => {
-    await page.goto('/?view=my-jobs&platform=TASKHUB_NATIVE');
+    await page.goto('/?view=my-jobs&source=TASKHUB_NATIVE:EXEC');
     await dashboardReady(page);
 
     const views = page.locator('[role="group"][aria-label="Saved views"]');
@@ -305,7 +305,7 @@ test.describe('source is the outer lens', () => {
     // Both constraints lit at once, and no "Custom" — that is the whole
     // decision. It is legal only because both are on screen; the rule about
     // lit chips is about *hidden* constraints.
-    await expect(sources.getByRole('button', { name: /Cronsole \(Native\)/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(sources.getByRole('button', { name: /Cronsole \(Scripts\)/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(views.getByRole('button', { name: /^My jobs/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(views.getByText('Custom')).toHaveCount(0);
 
@@ -315,6 +315,43 @@ test.describe('source is the outer lens', () => {
     const rows = await page.getByRole('button', { name: /^Open details for / }).count();
     const label = await views.getByRole('button', { name: /^My jobs/ }).innerText();
     expect(label).toContain(String(rows));
+  });
+});
+
+test.describe('the source split', () => {
+  test.use({ viewport: DESKTOP });
+
+  test('separates Cronsole-native into HTTP and script sources', async ({ page }) => {
+    await page.goto('/?view=all');
+    await dashboardReady(page);
+    const bar = page.locator('[role="group"][aria-label="Task source"]');
+    await expect(bar.getByRole('button', { name: /Cronsole \(HTTP\)/ })).toBeVisible();
+    await expect(bar.getByRole('button', { name: /Cronsole \(Scripts\)/ })).toBeVisible();
+  });
+
+  test('a pre-split link still filters, and the bar still names what it did', async ({ page }) => {
+    // `?platform=` was the param for exactly one day. It is still read, and
+    // matches both subtypes by prefix — but a filtered list above a bar with
+    // nothing lit is the lit-chip problem inverted, so the selection is listed
+    // even though no task derives it.
+    await page.goto('/?view=all&platform=TASKHUB_NATIVE');
+    await dashboardReady(page);
+    const bar = page.locator('[role="group"][aria-label="Task source"]');
+    await expect(bar.getByRole('button', { name: /Cronsole \(Native\)/ })).toHaveAttribute('aria-pressed', 'true');
+    // And it really is filtering: only native tasks survive.
+    const names = await page.getByRole('button', { name: /^Open details for / }).allInnerTexts();
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every(n => n.startsWith('Test -'))).toBe(true);
+  });
+
+  test('the All view exists and is the widest lens', async ({ page }) => {
+    await page.goto('/?view=all');
+    await dashboardReady(page);
+    const views = page.locator('[role="group"][aria-label="Saved views"]');
+    await expect(views.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
+    // Nothing is withheld, so the Filters trigger carries no count — a badge
+    // that fires when nothing is constrained is one people learn to ignore.
+    await expect(page.getByRole('button', { name: 'Filters' })).toHaveText(/^Filters/);
   });
 });
 

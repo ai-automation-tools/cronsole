@@ -22,6 +22,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 40 | The sidebar says Windows is **Online** and *"synced just now"*, while `/api/tasks/folders` 502s, `/discover` omits the Windows platform entirely, and the backend log reads `Agent sync timeout` | The agent is **wedged**: connected but not answering. `getHealth` asserted `HEALTHY` from a socket object existing (Socket.IO's heartbeat is answered by the transport, not by the agent's command loop) and stamped `lastSync: new Date()` — a timestamp created by the act of asking, so it could never be stale and never be true. Fixed to report from real evidence; recover a wedged agent with `pwsh scripts/cronsole.ps1 restart`, then confirm `/api/tasks/health`. The **inverse** lie is [#5](#5-windows-offline-after-running-a-transient-test-agent)/[#37](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) | [→](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) |
+| 41 | A browser verification hangs 45s with `Runtime.evaluate timed out` / `Script injection timed out`, but the page is alive afterwards and the action completed | The tab is **hidden**: `requestAnimationFrame` fires **0 times**, so any probe awaiting a frame waits forever, and timers are throttled (`setTimeout(50)` → 620ms; intensive throttling clamps to ~1/min). Not an app problem. Tell: `setTimeout` fires while `rAF` never does. Measure synchronously (`performance.now()` + forced reflow) or with a `MutationObserver` | [→](#41-a-browser-verification-freezes-for-45s--the-tab-is-hidden-and-requestanimationframe-never-fires) |
 | 36 | **Every** Playwright E2E spec fails on a dashboard heading that plainly exists, against a stack that is healthy — `4 failed, 5 did not run` | `VITE_DEV_TOKEN` in `frontend/.env.local` is **empty**, signed with a rotated `JWT_SECRET`, or names a `User.id` that doesn't exist — so the browser sits on the login screen. The suite has no login step by design. **The tell is the page snapshot in `test-results/*/error-context.md` showing a Sign in form.** E2E is the one suite not in CI, so this disables the whole full-stack gate while everything else stays green | [→](#36-every-playwright-e2e-test-fails-on-a-heading-that-exists--the-browser-is-sitting-on-the-login-screen) |
 | 37 | The E2E suite passes 9/9 and your **real** Windows agent is offline immediately afterwards — and stays offline | [#5](#5-windows-offline-after-running-a-transient-test-agent) reached through the test suite: `mock-agent.spec.ts` takes the single per-user agent socket and clears the mapping on disconnect. The agent process stays UP, so every process-level check lies. `pwsh scripts/cronsole.ps1 restart`, then **check `/api/tasks/health` as the last step of the run** | [→](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) |
 | 1 | Backend crash-loops on startup with an opaque `[Object: null prototype] {}` uncaught exception | `ts-node` can't parse the installed TypeScript version | [→](#1-backend-crash-loops-with-object-null-prototype) |
@@ -2617,6 +2618,55 @@ agent not answering", because the code had no way to represent it.
 
 *First hit: 2026-08-11, clicking through the Tools tab and the Import modal for the roadmap's
 live-verification item.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 41. A browser verification "freezes" for 45s — the tab is hidden, and `requestAnimationFrame` never fires
+
+**Symptom.** Driving the app through the Chrome tools, a call dies with:
+
+```
+CDP sendCommand "Runtime.evaluate" timed out after 45000ms on tab <id>.
+The renderer may be frozen or unresponsive.
+```
+
+Screenshots then fail with `Script injection timed out`. Reconnecting a few seconds later shows
+the page **alive and the action completed** — the theme really did change, the filter really did
+apply. It looks exactly like a rendering performance problem on a large list, and on a 269-task
+dashboard that is a very easy conclusion to reach.
+
+**Cause.** The tab is **hidden** (the Chrome window is in the background). Two consequences, and
+neither is the app:
+
+- **`requestAnimationFrame` never fires at all.** Measured: 0 firings in a hidden tab. Any probe
+  that `await`s a frame — `await new Promise(r => requestAnimationFrame(r))`, or a
+  settle-after-paint helper — waits forever, and CDP gives up at 45s.
+- **Timers are throttled hard.** `setTimeout(50)` took **620ms**; and after a tab has been hidden
+  for several minutes Chrome applies *intensive throttling*, clamping timers to roughly once per
+  minute. That is enough to push even a `setTimeout(600)` past the 45s limit on its own.
+
+**The tell:** a `setTimeout` callback fires while an `rAF` callback never does. If both hang, the
+page really is busy; if only `rAF` hangs, it is this.
+
+**Fix — measure in ways a hidden tab cannot distort:**
+
+- **Synchronously.** Wrap the action and force layout: `const t0 = performance.now(); act();
+  void document.body.offsetHeight;` — no timer, no frame, nothing to throttle.
+- **With a `MutationObserver`**, whose callbacks are microtasks, to time when React's commit
+  actually lands in the DOM.
+- Check `document.visibilityState` **first** if a browser measurement looks absurd.
+
+**Why it is worth an entry.** It produced a confidently wrong finding — a reported dashboard
+performance bug that did not exist — which then had to be retracted. Measured properly, a theme
+toggle is **0.8ms** at 13,228 DOM nodes, and no virtualization was warranted. This repo verifies
+in a real browser as a matter of course, so this ambush is waiting for the next person who does.
+The general lesson is the same one [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+teaches about status: **when your instrument shares a failure mode with the thing you are
+measuring, it cannot be your witness.**
+
+*First hit: 2026-08-12, verifying the dashboard filter work in the browser.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -49,12 +49,13 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
 | **`update_task_schedule`** | "Move the digest to 7am on weekdays" | `PATCH /api/tasks/:id/schedule` |
 | **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
-| **`untrack_task`** | "Stop showing all those Microsoft tasks", "I imported that folder by mistake" — removes it from Cronsole, **leaves the scheduled task running** | `POST /api/tasks/:id/untrack` |
+| **`rename_task`** | "Call that one 'Nightly report' instead" — renames it **in Cronsole only**; Task Scheduler still shows the original name | `PATCH /api/tasks/:id` |
+| **`untrack_task`** | "Stop showing all those Microsoft tasks", "I imported that folder by mistake" — removes it from Cronsole, **leaves the scheduled task running**. Not for Claude routines — disconnect those | `POST /api/tasks/:id/untrack` |
 | **`list_platforms`** | "What can Cronsole actually do with Windows?" — per platform, which actions work here, which are untested, and which are impossible | `GET /api/tools/platforms` |
 | **`list_claude_routines`** | "Which Claude routines can you run?" — only the ones connected to Cronsole; Claude Code has no list API | `GET /api/tools/platforms/claude/routines` |
 | **`connect_claude_routine`** | "Add my nightly PR review routine" — stores its id and token so you can trigger it. **Cannot create a routine** — make it at claude.ai first | `POST /api/tools/platforms/claude/routines` |
 | **`edit_claude_routine`** | "I pasted the wrong routine id" — fixes it **without asking for the token again** | `PATCH /api/tools/platforms/claude/routines/:id` |
-| **`disconnect_claude_routine`** | "Forget that routine" — removes it from Cronsole; **it keeps running at claude.ai** | `DELETE /api/tools/platforms/claude/routines/:id` |
+| **`disconnect_claude_routine`** | "Forget that routine" — removes it and its task from Cronsole; **it keeps running at claude.ai**. The only way to take a Claude task off the dashboard | `DELETE /api/tools/platforms/claude/routines/:id` |
 | **`sync_tasks`** | "Import my Backups folder", "refresh everything" — importing needs the category named; a bare refresh adds nothing new | `POST /api/tasks/sync` |
 | **`get_task_health`** | "What's broken?" — every task scored and ranked worst-first, with the evidence for each verdict | `GET /api/tools/task-health` |
 | **`list_run_history`** | "What failed this month?" — across all tasks, unlike the per-task history | `GET /api/tools/history` |

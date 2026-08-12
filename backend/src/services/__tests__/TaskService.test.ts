@@ -91,6 +91,38 @@ describe('TaskService', () => {
     }));
   });
 
+  it('sets the name on create but never on update, so a rename survives sync', async () => {
+    // This one line was the whole reason renaming a task was not offered: sync
+    // wrote `name` back from the platform on every pass, so a Cronsole-side
+    // rename silently reverted minutes later.
+    //
+    // Removing it costs nothing, and the reason is structural rather than a
+    // preference: no platform can supply a NEW name for an EXISTING row. A
+    // Windows task's name is the last segment of its path, and the path is
+    // `externalId` — the key this upsert matches on. So renaming on the machine
+    // produces a different task (old path MISSING, new path imported), never a
+    // new name on this one. Measured before shipping: 354 Windows tasks, zero
+    // whose stored name differed from their path leaf.
+    //
+    // Same protection `category` has had since the beginning, and for the same
+    // reason: both are Cronsole labels, and a sync must not undo a user's edit.
+    const tasks = [
+      { externalId: '\\Mikes\\Task1', name: 'Task 1', status: 'ACTIVE' as const }
+    ];
+
+    mockPrisma.task.upsert.mockResolvedValue({ id: '1' });
+
+    await TaskService.upsertTasks('user-1', 'WINDOWS_TASK_SCHEDULER' as any, tasks);
+
+    const call = mockPrisma.task.upsert.mock.calls[0][0];
+    expect(call.create.name).toBe('Task 1');
+    expect(call.update).not.toHaveProperty('name');
+    // The pairing matters: status and metadata are platform facts and MUST keep
+    // refreshing, so this is not "stop updating on sync", it is "labels are ours".
+    expect(call.update).toHaveProperty('status');
+    expect(call.update).not.toHaveProperty('category');
+  });
+
   it('should store derived schedule and nextRunTime on create and update', async () => {
     const next = new Date('2026-07-09T03:00:00Z');
     const tasks = [

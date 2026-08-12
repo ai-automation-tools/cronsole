@@ -11,7 +11,7 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *             create_task_from_template
  *   act       run_task
  *   modify    set_task_status · update_task_schedule · update_task_action ·
- *             untrack_task
+ *             rename_task            untrack_task
  *   destroy   delete_task            (only when allowDestructive — see below)
  *
  * Each tool is a thin call through CronsoleClient into the REST API. Business
@@ -1205,6 +1205,57 @@ Next run: ${task.nextRunTime}` : '')
   );
 
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // rename_task — a Cronsole label, not the machine
+  // -------------------------------------------------------------------------
+  //
+  // The one thing this tool must not let a caller believe is that it renamed
+  // anything outside Cronsole. It writes the DB row and stops there, so a
+  // renamed Windows task still answers to its old path in Task Scheduler — and
+  // `externalId` still carries that path, which is why the description points at
+  // it rather than leaving an agent to infer the divergence.
+  //
+  // Ungated and safe to retry: purely a label, reversible by renaming back, and
+  // it survives sync (upsertTasks stopped writing `name` on update, because no
+  // platform can supply a new name for an existing row — a Windows rename
+  // changes the path, and the path is the id).
+  server.registerTool(
+    'rename_task',
+    {
+      title: "Rename a task's Cronsole label",
+      description:
+        'Change the name Cronsole shows for a task. This is a **Cronsole label only** — it does NOT rename the ' +
+        'task on the platform: a Windows task keeps its Task Scheduler path and still appears there under its ' +
+        'original name, so tell the user that if they might go looking for it. The task\'s `externalId` is ' +
+        'unchanged and remains the way to find it on the machine. ' +
+        'The new name survives future syncs. It cannot collide with anything — Cronsole\'s duplicate-name guard ' +
+        'applies when creating a task (where the name becomes part of the Windows path), and a rename never ' +
+        'touches the path. Works on every platform.',
+      inputSchema: {
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
+        name: z
+          .string()
+          .min(1)
+          .max(200)
+          .describe('The new display name, 1–200 characters. Leading and trailing whitespace is trimmed.')
+      }
+    },
+    async ({ taskId, name }) => {
+      try {
+        const task = await client.patch<TaskRow>(`/tasks/${encodeURIComponent(taskId)}`, { name });
+        return ok(
+          `Renamed to "${task.name}" [${task.platform}].` +
+          '\nThis is Cronsole\'s label only — the task is unchanged on its platform and still lives at ' +
+          `\`${task.externalId}\`.`,
+          { taskId, name: task.name, externalId: task.externalId, task: compactTask(task) }
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // untrack_task — the reversible removal. Deliberately UNGATED.
   // -------------------------------------------------------------------------
   //
@@ -1232,7 +1283,10 @@ Next run: ${task.nextRunTime}` : '')
         'stop existing. ' +
         'Reversible: importing that category again in the Cronsole UI starts tracking the task once more. ' +
         'Not available for TASKHUB_NATIVE tasks, which exist only inside Cronsole and therefore have nothing to ' +
-        'be kept — disable or delete those instead.',
+        'be kept — disable or delete those instead. Not available for CLAUDE_CODE tasks either, for the same ' +
+        'reason one level over: a Claude task exists because the routine is declared in the connection config, ' +
+        'so removing the row leaves the declaration and the next sync brings it back — use ' +
+        'disconnect_claude_routine, which removes both.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).')
       }
@@ -1522,8 +1576,10 @@ Next run: ${task.nextRunTime}` : '')
         'One cost worth stating before you call it: the stored token is discarded and cannot be recovered, ' +
         'because claude.ai shows a token once. Re-connecting later means generating a new token there (which ' +
         'also revokes any other copy of the old one). ' +
-        'Tracked tasks pointing at the routine survive and stay on the dashboard, but their Run will fail until ' +
-        'it is re-connected; the count is reported back so you can say what was stranded.',
+        'Tracked tasks pointing at the routine are removed with it, and the count is reported back. That is not ' +
+        'incidental cleanup — it is why this tool exists: a Claude task is tracked BECAUSE the routine is ' +
+        'declared here, so untrack_task refuses for this platform and this is the only way to take one off the ' +
+        'dashboard.',
       inputSchema: {
         routineId: z.string().min(1).describe('The trig_… id (from list_claude_routines).')
       }
@@ -1532,11 +1588,11 @@ Next run: ${task.nextRunTime}` : '')
       try {
         const result = await client.delete<{
           removed: string;
-          orphanedTasks: number;
+          tasksRemoved: number;
           connectionRemoved: boolean;
         }>(`/tools/platforms/claude/routines/${encodeURIComponent(routineId)}`);
-        const stranded = result.orphanedTasks
-          ? ` ${result.orphanedTasks} tracked task(s) now point at a routine Cronsole cannot fire.`
+        const stranded = result.tasksRemoved
+          ? ` ${result.tasksRemoved} tracked task(s) were removed from the dashboard with it.`
           : '';
         const conn = result.connectionRemoved
           ? ' That was the last routine, so the Claude connection was removed too.'

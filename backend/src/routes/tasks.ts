@@ -80,15 +80,45 @@ router.get('/', async (req: Request, res: Response) => {
   })));
 });
 
-const patchTaskSchema = z.object({
-  category: z.string().trim().min(1).max(100).optional()
-});
+const patchTaskSchema = z
+  .object({
+    category: z.string().trim().min(1).max(100).optional(),
+    name: z.string().trim().min(1).max(200).optional()
+  })
+  .refine(v => v.category !== undefined || v.name !== undefined, {
+    message: 'Provide a category, a name, or both'
+  });
 
-// Update a task (e.g., category)
+/**
+ * Edit a task's Cronsole-side labels — its category and its name.
+ *
+ * **Both are Cronsole labels; neither is the machine.** That is already the rule
+ * for category (a Windows task's folder is the machine, and relabelling it here
+ * detaches the two on purpose, counted out loud by the bulk route). `name` joins
+ * it, and the reason it can is worth writing down, because the obvious objection
+ * is "won't the next sync overwrite it?":
+ *
+ * **No platform can supply a new name for an existing row.** A Windows task's
+ * name is the last segment of its path, and its path is `externalId` — the
+ * identity this row is keyed on. So renaming a task in Task Scheduler is not an
+ * update, it is a *different task*: the old path goes MISSING and the new one
+ * imports fresh. Measured on a real machine before this shipped: 354 Windows
+ * tasks, **zero** whose stored name differed from their path leaf. Claude's name
+ * comes from the registry the user declared, and a native task's row *is* the
+ * task. `upsertTasks` therefore no longer writes `name` on update — it was
+ * structurally a no-op that only ever had the power to undo a rename.
+ *
+ * Two consequences to keep honest. This is **DB-only**: nothing is renamed on
+ * the machine, so a renamed Windows task still answers to its old path in Task
+ * Scheduler — which is why the UI shows the real `externalId` beside a name that
+ * no longer matches it. And a rename **cannot collide**: the Windows duplicate
+ * guard exists because a created task's name becomes its path, and this one
+ * never touches the path.
+ */
 router.patch('/:id', validateBody(patchTaskSchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const userId = (req as AuthRequest).user!.id;
-  const { category } = req.body;
+  const { category, name } = req.body as { category?: string; name?: string };
 
   // Scope by userId so one user can't mutate another's task (IDOR).
   const owned = await prisma.task.findFirst({ where: { id, userId } });
@@ -97,7 +127,10 @@ router.patch('/:id', validateBody(patchTaskSchema), async (req: Request, res: Re
   }
   const task = await prisma.task.update({
     where: { id },
-    data: { category }
+    data: {
+      ...(category !== undefined ? { category } : {}),
+      ...(name !== undefined ? { name } : {})
+    }
   });
   notifyTasksChanged(userId);
   res.json(task);
@@ -997,6 +1030,33 @@ router.post('/:id/untrack', async (req: Request, res: Response) => {
       400,
       'Cronsole-native tasks exist only inside Cronsole, so there is nothing to keep. ' +
       'Use Delete to remove it, or disable it to stop it running.'
+    );
+  }
+
+  // Claude is the same refusal one platform over, and it is worth spelling out
+  // because the mechanism looks like Windows and is not.
+  //
+  // `ClaudeConnector.syncTasks` returns the routines the user **declared** — the
+  // registry inside `PlatformConnection.config` IS the platform here. So the
+  // exclusion this route would write is a fence against the user's own config
+  // rather than against a machine, and the declaration it is fencing off stays
+  // put: the routine keeps its slot in the Platforms panel, keeps its token, and
+  // comes straight back the moment anything clears the fence (importing the
+  // Claude category does exactly that, by design). That is not a hypothetical —
+  // it is the loop this refusal was added to end (troubleshooting #47).
+  //
+  // Refused rather than quietly widened to "remove the routine too", because
+  // this control's label says nothing about credentials and the stored token
+  // cannot be recovered — claude.ai shows it once. A task-level button must not
+  // spend something that costs a regeneration at Anthropic to replace. The
+  // routine control says so in its own confirmation; this one points at it.
+  if (task.platform === PlatformType.CLAUDE_CODE) {
+    throw new HttpError(
+      400,
+      'A Claude routine is tracked because you declared it, so this row is not the thing to remove — ' +
+      'the routine would still be in the Claude connection and the next sync would bring it back. ' +
+      'Remove the routine itself under Platforms → Claude, which also forgets its API token. ' +
+      'The routine keeps running at claude.ai either way.'
     );
   }
 

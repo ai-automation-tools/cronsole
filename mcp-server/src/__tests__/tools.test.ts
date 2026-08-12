@@ -139,6 +139,7 @@ describe('the tool surface', () => {
       'list_run_history',
       'list_tasks',
       'list_templates',
+      'rename_task',
       'run_task',
       'set_task_status',
       'sync_tasks',
@@ -1556,6 +1557,7 @@ describe('error handling across the surface', () => {
       'POST /tasks/x/untrack': boom,
       'POST /tasks/preview': boom,
       'POST /templates/t/apply': boom,
+      'PATCH /tasks/x': boom,
       'PATCH /tasks/x/status': boom,
       'PATCH /tasks/x/schedule': boom,
       'PATCH /tasks/x/actions': boom,
@@ -1594,7 +1596,8 @@ describe('error handling across the surface', () => {
       ['edit_claude_routine', { routineId: 'x', newId: 'trig_2' }],
       ['sync_tasks', {}],
       ['get_task_health', {}],
-      ['list_run_history', {}]
+      ['list_run_history', {}],
+      ['rename_task', { taskId: 'x', name: 'New name' }]
     ];
     // Every registered tool must appear above — a new tool that skips this guard
     // would be free to throw a stack trace at the model.
@@ -1800,18 +1803,31 @@ describe('Claude routines', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('reports what disconnecting stranded, and that the routine survives', async () => {
+  it('reports the tasks it removed, and that the routine itself survives', async () => {
+    // Both halves matter and they point opposite ways: the tracked rows GO
+    // (a Claude task is tracked because the routine is declared, so this is the
+    // only thing that removes one), and the routine at claude.ai STAYS.
     const { client } = stubClient({
       'DELETE /tools/platforms/claude/routines/trig_1': {
         removed: 'trig_1',
-        orphanedTasks: 3,
+        tasksRemoved: 3,
         connectionRemoved: true
       }
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'disconnect_claude_routine', { routineId: 'trig_1' });
     expect(text(r)).toMatch(/still runs at claude\.ai/);
-    expect(text(r)).toMatch(/3 tracked task\(s\)/);
+    expect(text(r)).toMatch(/3 tracked task\(s\) were removed/);
+  });
+
+  it('tells an agent that untrack is not the way to remove a Claude task', async () => {
+    // The refusal lives in the backend, so the only thing this surface can do
+    // is route around it — and it can only do that if the description says so.
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const untrack = (await mcp.listTools()).tools.find(t => t.name === 'untrack_task');
+    expect(untrack!.description).toMatch(/CLAUDE_CODE/);
+    expect(untrack!.description).toMatch(/disconnect_claude_routine/);
   });
 
   it('explains an empty list rather than returning a bare zero', async () => {

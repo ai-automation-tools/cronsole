@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 47 | A Claude routine's task keeps coming back after **Remove from Cronsole** — and `TaskExclusion` is empty, as if untrack never ran | Untrack ran; its exclusion was then legitimately cleared. `ClaudeConnector.syncTasks` returns the routines the user **declared** in `PlatformConnection.config`, so the exclusion fences the user's own config while the declaration stays — and importing the Claude category clears exclusions by design. **A Claude task is its declaration**: untrack now 400s for `CLAUDE_CODE`, and disconnecting the routine removes its tasks | [→](#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole) |
 | 46 | Every local suite passes, CI is red six pushes running — on an eslint rule and one integration assertion | `npm test` is **not** the CI gate. Two steps have no equivalent it runs: `npm run lint` (frontend only; `@typescript-eslint/no-explicit-any` is an **error**) and `npm run test:integration` (separate vitest config + real Postgres). A status-code change is invisible to unit tests and loud in integration tests | [→](#46-every-local-suite-passes-and-ci-is-red--npm-test-is-not-the-ci-gate) |
 | 45 | Cronsole can't list, pause, or create Claude Code routines — and a routine you *can* fire returns `400 Bad Request` for no visible reason | Not a bug: Anthropic exposes **one** routines endpoint (`/fire`), whose token has **no read access**. Sync is your own declaration, `create`/`setStatus` are `unsupported`, and a **400 is usually a paused routine** — the only signal Cronsole ever gets about a routine's enabled state. Manage routines at claude.ai/code/routines | [→](#45-cronsole-cant-list-pause-or-create-claude-code-routines) |
 | 44 | An MCP tool 400s on every call (`Unsupported jobType: undefined`) while `npm test` passes 142/142 — including a test named after the very agreement it is not checking | The tool never sent a required discriminator, and had **never worked since it shipped**. The MCP suite **stubs the HTTP client**, so every assertion is about what the wrapper *sends* and none about whether the API *accepts* it — the test did not miss the bug, it **pinned** it. Drive a wrapped route by hand after touching it; one `curl` with the tool's exact payload catches it | [→](#44-an-mcp-tool-400s-on-every-call-and-the-whole-suite-is-green) |
@@ -2953,6 +2954,62 @@ in exactly the direction that lets six commits ship broken. It is the record-kee
 of §11a pointed at CI: nothing fails loudly at the moment the mistake is made.
 
 *First hit: 2026-08-12, during the Claude routines work.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 47. A Claude task keeps coming back after "Remove from Cronsole"
+
+**Symptom.** You click **Remove from Cronsole** on a Claude routine's task. The toast says it
+worked, the row disappears — and minutes later it is back on the dashboard, same name, new
+`createdAt`. Doing it again changes nothing. `TaskExclusion` is **empty**, which makes it look
+like untrack never ran at all.
+
+**Cause.** Untrack ran, and its exclusion was then legitimately deleted. Two mechanisms describe
+one fact and point opposite ways.
+
+Untrack is built for Windows, where the shape is: *the task exists on the machine, sync
+enumerates the machine, so Cronsole needs a memory of "don't re-import this"* — a
+`TaskExclusion` keyed on `(platform, externalId)`.
+
+Claude is not that shape. Anthropic exposes no API to list routines, so
+`ClaudeConnector.syncTasks` returns **the routines the user declared**, read back out of
+`PlatformConnection.config`. The registry *is* the platform. So untracking writes an exclusion
+against the user's own configuration, and the declaration it is hiding stays exactly where it
+was — still listed under Platforms → Claude, still holding its token, still returned by every
+sync. The fence then comes down on its own: importing a category clears the exclusions inside
+it (`clearExclusionsForCategories`), which is correct and documented — it is the way back for a
+Windows task removed by mistake — and here it un-hides a routine that was never gone.
+
+That is why the exclusion table reads empty. It is not evidence untrack failed; it is the
+wreckage of it having worked and then been undone.
+
+The mirror-image half was just as broken: removing the routine under **Platforms → Claude**
+left the task row behind (the route counted them as `orphanedTasks` and moved on), so the task
+sat on the dashboard un-runnable and flipped to `MISSING` on the next sync.
+
+**Fix.** One fact, one mechanism — **a Claude task is its declaration**:
+
+- `POST /api/tasks/:id/untrack` now **400s** for `CLAUDE_CODE`, the same refusal
+  `TASKHUB_NATIVE` already got, and names the control that works. Bulk untrack refuses it as one
+  `refused` item without halting the batch.
+- `DELETE /api/tools/platforms/claude/routines/:id` removes the tracked tasks and their run
+  history with the declaration, and reports `tasksRemoved`.
+- The task modal shows **Disconnect routine** instead of *Remove from Cronsole* for a Claude
+  task, and its confirmation names the one irreversible part: claude.ai shows a token once, so
+  reconnecting means generating a new one.
+
+So: **to remove a Claude task, disconnect its routine.**
+
+**Why it is worth an entry.** The refusal is the interesting half, because the tempting fix is
+to make untrack *also* drop the routine — one button, does what the user meant. That button
+would silently spend an API token that cannot be recovered, under a label that says nothing
+about credentials. The general rule: **a control may not spend something its label does not
+mention.** The narrower one: when a platform's "state" is the user's own declaration, a fence
+against it is not a fence, it is two copies of one fact waiting to disagree.
+
+*First hit: 2026-08-12, reported as "I keep deleting it but it keeps coming back".*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

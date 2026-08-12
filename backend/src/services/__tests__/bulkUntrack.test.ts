@@ -46,6 +46,25 @@ describe('planBulkUntrack', () => {
     expect(report.items[0].message).toContain('exist only inside Cronsole');
   });
 
+  it('refuses a Claude routine, because an exclusion would fence its own config', () => {
+    // Same rule as native, one platform over and easier to get wrong because the
+    // mechanism *looks* like Windows. `ClaudeConnector.syncTasks` returns the
+    // routines the user declared in PlatformConnection.config — so untracking
+    // writes an exclusion against the user's own declaration, which stays put
+    // and brings the task straight back (troubleshooting #47).
+    const { report, plan } = planBulkUntrack([
+      task({ platform: PlatformType.CLAUDE_CODE, externalId: 'trig_01A' })
+    ]);
+
+    expect(report.refused).toBe(1);
+    expect(report.updated).toBe(0);
+    // No exclusion planned — an exclusion here is the bug, not the fix.
+    expect(plan).toEqual([]);
+    // The refusal must name the control that actually works, or it is just a
+    // dead end with a reason attached.
+    expect(report.items[0].message).toContain('Platforms → Claude');
+  });
+
   it('does not let one refusal halt the rest of the batch', () => {
     // A per-task refusal says nothing about the next task — the same
     // discrimination bulkStatus makes for an ACL denial. Getting this wrong in

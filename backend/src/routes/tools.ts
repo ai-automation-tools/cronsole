@@ -855,14 +855,44 @@ router.delete('/platforms/claude/routines/:id', async (req: Request, res: Respon
     await saveClaudeRoutines(userId, connection?.id, remaining);
   }
 
-  // Counted out loud. These task rows survive and stay visible; their Run button
-  // now fails with "not in this connection's config" until the routine is
-  // re-added. Reported so the caller can say what it just broke.
-  const orphanedTasks = await prisma.task.count({
-    where: { userId, platform: PlatformType.CLAUDE_CODE, externalId: id }
+  // The tracked rows go with the declaration, in the same request.
+  //
+  // This route used to *count* them and leave them (`orphanedTasks`), which was
+  // honest about the mess and still left it: a row whose routine is no longer
+  // declared cannot be run (the config has no token for it) and cannot be
+  // untracked (that route refuses for Claude, and rightly), so it stayed on the
+  // dashboard forever, flipping to MISSING on the next sync. Absence of a task
+  // row is what "removed" means here, so removing has to produce it.
+  //
+  // Safe to delete rather than mark MISSING — the usual reason for MISSING is
+  // that absence isn't proof, but here the user just declared the absence
+  // themselves. `TaskExclusion` is deliberately NOT written: the declaration is
+  // the only thing that puts a Claude task in the list, so with it gone there is
+  // nothing left to fence against, and a stale exclusion would silently swallow
+  // the routine if it were ever re-added.
+  const doomed = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.CLAUDE_CODE, externalId: id },
+    select: { id: true }
   });
+  const doomedIds = doomed.map(t => t.id);
+  if (doomedIds.length) {
+    await prisma.$transaction([
+      // ExecutionLog has no cascade on its Task relation, so it must go first
+      // or the delete violates the FK. TaskFavorite does cascade.
+      prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
+      prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
+    ]);
+    notifyTasksChanged(userId);
+  }
 
-  res.json({ removed: id, orphanedTasks, connectionRemoved: remaining.length === 0 });
+  res.json({
+    removed: id,
+    // Named `tasksRemoved`, not `orphanedTasks`: the number means the opposite
+    // thing now, and reusing the key would have let a caller keep rendering
+    // "3 tasks stranded" over 3 tasks that are gone.
+    tasksRemoved: doomedIds.length,
+    connectionRemoved: remaining.length === 0
+  });
 });
 
 /**

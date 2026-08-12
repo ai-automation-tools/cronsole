@@ -111,6 +111,39 @@ describe('POST /tasks/:id/untrack', () => {
     expect(await prisma.task.findUnique({ where: { id: native.id } })).not.toBeNull();
   });
 
+  it('refuses a Claude routine, and records no exclusion to fence its own config with', async () => {
+    // The live bug this closes: a Claude task kept coming back after every
+    // "Remove from Cronsole". It had to — the platform Cronsole syncs from here
+    // is the routine registry inside PlatformConnection.config, i.e. the user's
+    // own declaration. Deleting the row left the declaration, and the next sync
+    // read it back. See troubleshooting #47.
+    //
+    // The exclusion assertion is the load-bearing half. Refusing while still
+    // writing one would leave a fence that silently swallows the routine if it
+    // is ever re-added — a slower version of the same bug.
+    const routine = await prisma.task.create({
+      data: {
+        userId: owner.user.id,
+        platform: PlatformType.CLAUDE_CODE,
+        externalId: 'trig_01ABCDEF',
+        name: 'Weekly planner',
+        category: 'Claude',
+        schedule: '0 9 * * 1',
+        status: TaskStatus.ACTIVE,
+        metadata: {}
+      }
+    });
+
+    const res = await request(app)
+      .post(`/api/tasks/${routine.id}/untrack`)
+      .set('Authorization', owner.auth)
+      .expect(400);
+
+    expect(res.body.error).toMatch(/Platforms → Claude/);
+    expect(await prisma.task.findUnique({ where: { id: routine.id } })).not.toBeNull();
+    expect(await prisma.taskExclusion.count()).toBe(0);
+  });
+
   it("cannot untrack another user's task", async () => {
     const other = await createUser('other-untrack@example.com');
     const theirs = await createWindowsTask(other.user.id, 'NotYours');

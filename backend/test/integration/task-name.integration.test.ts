@@ -4,6 +4,7 @@ import { PlatformType, TaskStatus } from '@prisma/client';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/db.js';
 import { createUser } from './helpers.js';
+import { TaskService } from '../../src/services/TaskService.js';
 
 // Windows task-name guard (Apply-modal upgrades, ROADMAP P2): create paths
 // reject invalid names (400) and names colliding with a tracked \Cronsole\ task
@@ -315,5 +316,132 @@ describe('Windows task-name guard', () => {
       });
 
     expect(res.status).toBe(200);
+  });
+});
+
+/**
+ * Renaming — a Cronsole label, and the sync that used to undo it.
+ *
+ * The guard above exists because a *created* Windows task's name becomes part of
+ * its path. A rename never touches the path, so none of that applies to it — but
+ * the reverse question does, and it is the one that kept renaming off the
+ * product: does the next sync put the old name back?
+ */
+describe('renaming a task', () => {
+  let owner: Awaited<ReturnType<typeof createUser>>;
+
+  beforeEach(async () => {
+    owner = await createUser('rename@example.com');
+  });
+
+  async function windowsTask(name: string, folder = 'Edge-Radar') {
+    return prisma.task.create({
+      data: {
+        userId: owner.user.id,
+        platform: PlatformType.WINDOWS_TASK_SCHEDULER,
+        externalId: `\\${folder}\\${name}`,
+        name,
+        category: folder,
+        schedule: '0 3 * * *',
+        status: TaskStatus.ACTIVE,
+        metadata: { command: 'echo hi' }
+      }
+    });
+  }
+
+  it('renames the Cronsole row and leaves externalId — the machine — untouched', async () => {
+    const task = await windowsTask('Nightly Backup');
+
+    const res = await request(app)
+      .patch(`/api/tasks/${task.id}`)
+      .set('Authorization', owner.auth)
+      .send({ name: '  Backup (2am)  ' })
+      .expect(200);
+
+    expect(res.body.name).toBe('Backup (2am)');
+    // The path is the identity AND the way to find it in Task Scheduler. If a
+    // rename ever moved it, every signed agent command for this task would
+    // address a task that does not exist.
+    expect(res.body.externalId).toBe('\\Edge-Radar\\Nightly Backup');
+  });
+
+  it('survives a sync that reports the platform name', async () => {
+    // The whole reason this feature was blocked. `upsertTasks` wrote `name` on
+    // update, so a rename reverted on the next pass — invisibly, minutes later,
+    // with nothing in the UI to explain it.
+    const task = await windowsTask('Nightly Backup');
+    await request(app)
+      .patch(`/api/tasks/${task.id}`)
+      .set('Authorization', owner.auth)
+      .send({ name: 'Backup (2am)' })
+      .expect(200);
+
+    // Exactly what a sync does with the machine's answer for this same task.
+    await TaskService.upsertTasks(owner.user.id, PlatformType.WINDOWS_TASK_SCHEDULER, [
+      { externalId: '\\Edge-Radar\\Nightly Backup', name: 'Nightly Backup', status: 'ACTIVE' }
+    ]);
+
+    const after = await prisma.task.findUnique({ where: { id: task.id } });
+    expect(after!.name).toBe('Backup (2am)');
+    // Platform facts still refresh — this is "labels are ours", not "stop syncing".
+    expect(after!.status).toBe(TaskStatus.ACTIVE);
+  });
+
+  it('accepts name and category together, and rejects an empty body', async () => {
+    const task = await windowsTask('Both At Once');
+
+    const res = await request(app)
+      .patch(`/api/tasks/${task.id}`)
+      .set('Authorization', owner.auth)
+      .send({ name: 'Renamed', category: 'Reports' })
+      .expect(200);
+    expect(res.body.name).toBe('Renamed');
+    expect(res.body.category).toBe('Reports');
+
+    // An empty PATCH is a caller mistake, not a no-op success — silently
+    // returning 200 would let a broken rename look like it worked.
+    await request(app)
+      .patch(`/api/tasks/${task.id}`)
+      .set('Authorization', owner.auth)
+      .send({})
+      .expect(400);
+  });
+
+  it('rejects a blank or whitespace-only name', async () => {
+    const task = await windowsTask('Keep My Name');
+
+    await request(app)
+      .patch(`/api/tasks/${task.id}`)
+      .set('Authorization', owner.auth)
+      .send({ name: '   ' })
+      .expect(400);
+
+    const after = await prisma.task.findUnique({ where: { id: task.id } });
+    expect(after!.name).toBe('Keep My Name');
+  });
+
+  it("cannot rename another user's task", async () => {
+    const other = await createUser('other-rename@example.com');
+    const theirs = await prisma.task.create({
+      data: {
+        userId: other.user.id,
+        platform: PlatformType.WINDOWS_TASK_SCHEDULER,
+        externalId: '\\Theirs\\Private',
+        name: 'Private',
+        category: 'Theirs',
+        schedule: '0 3 * * *',
+        status: TaskStatus.ACTIVE,
+        metadata: {}
+      }
+    });
+
+    await request(app)
+      .patch(`/api/tasks/${theirs.id}`)
+      .set('Authorization', owner.auth)
+      .send({ name: 'Pwned' })
+      .expect(404);
+
+    const after = await prisma.task.findUnique({ where: { id: theirs.id } });
+    expect(after!.name).toBe('Private');
   });
 });

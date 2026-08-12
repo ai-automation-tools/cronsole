@@ -11,6 +11,7 @@ import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron, taskCron } from '../utils/schedule';
 import { hhmmInZone, resolveZone, zoneAbbrev, zoneLabel } from '../utils/timezone';
 import { isRunnable, runButtonTitle } from '../utils/taskActions';
+import { useRemoveClaudeRoutine } from '../hooks/useClaudeRoutines';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
 import { EditScheduleModal } from './EditScheduleModal';
 import { EditActionModal } from './EditActionModal';
@@ -316,6 +317,39 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
     }
   });
 
+  /*
+   * Rename — a Cronsole label, never the machine.
+   *
+   * `PATCH /api/tasks/:id` writes the DB row and nothing else, so a renamed
+   * Windows task still answers to its old path in Task Scheduler. That is not
+   * hidden: the real `externalId` sits under the title, and once the two diverge
+   * the header says so in words. Same doctrine as category — a Cronsole label
+   * may differ from the machine, but it may never *pretend* not to.
+   *
+   * Safe from the sync that used to make this impossible: `upsertTasks` no
+   * longer writes `name` on update, because no platform can supply a new name
+   * for an existing row (a Windows rename changes the path, which is the id).
+   */
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState('');
+
+  const renameMutation = useMutation({
+    mutationFn: async (name: string) => api.patch(`/tasks/${task!.id}`, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      setRenaming(false);
+      toast('Renamed in Cronsole.', 'success');
+    },
+    onError: (error: unknown) => {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      toast(`Rename failed: ${err.response?.data?.error || err.message}`, 'error');
+    }
+  });
+
+  // Disconnect a Claude routine — this platform's stand-in for untrack, and the
+  // only thing that actually removes a Claude task (see the footer button).
+  const disconnectRoutineMutation = useRemoveClaudeRoutine();
+
   // Save this task as a reusable catalog template. Invalidates ['templates'] so
   // the new template shows up on the Templates tab immediately.
   const saveTemplateMutation = useMutation({
@@ -379,6 +413,16 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
 
   if (!task) return null;
 
+  // What the machine calls this task, when the machine has an opinion.
+  //
+  // Only Windows does: its `externalId` is the Task Scheduler path, and the name
+  // is the last segment — which is exactly why a rename there is a *new task*
+  // rather than a new name, and why a Cronsole rename can safely survive sync.
+  // Claude's id is an opaque `trig_…` and a native task's row is the task, so
+  // neither has a second name to disagree with.
+  const platformName =
+    task.platform === 'WINDOWS_TASK_SCHEDULER' ? task.externalId.split('\\').pop() ?? '' : '';
+
   const meta = (task.metadata ?? {}) as Meta;
   const sched = scheduleInfo(task, prefs.timezone);
   const actions = actionInfo(task);
@@ -402,12 +446,70 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
               <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/20 text-foreground border border-primary/30">
                 {task.platform}
               </span>
-              <h2 id="task-modal-title" className="text-2xl font-bold">{task.name}</h2>
-              {onToggleFavorite && (
-                <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={20} />
+              {renaming ? (
+                <form
+                  className="flex items-center gap-2"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    const next = draftName.trim();
+                    if (!next || next === task.name) { setRenaming(false); return; }
+                    renameMutation.mutate(next);
+                  }}
+                >
+                  <label htmlFor="task-rename" className="sr-only">Task name</label>
+                  <input
+                    id="task-rename"
+                    autoFocus
+                    value={draftName}
+                    onChange={e => setDraftName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setRenaming(false); } }}
+                    maxLength={200}
+                    className="text-2xl font-bold bg-background border border-border rounded-lg px-2 py-1 min-w-0 w-full max-w-sm"
+                  />
+                  <button
+                    type="submit"
+                    disabled={renameMutation.isPending}
+                    className="text-xs font-bold px-3 py-2 rounded-lg bg-primary/20 border border-primary/30 hover:bg-primary/30 disabled:opacity-50"
+                  >
+                    {renameMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRenaming(false)}
+                    className="text-xs font-bold px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <h2 id="task-modal-title" className="text-2xl font-bold">{task.name}</h2>
+                  <button
+                    onClick={() => { setDraftName(task.name); setRenaming(true); }}
+                    aria-label={`Rename ${task.name}`}
+                    title="Rename in Cronsole (the scheduled task itself is not renamed)"
+                    className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  {onToggleFavorite && (
+                    <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={20} />
+                  )}
+                </>
               )}
             </div>
             <code className="text-xs text-subtle-foreground bg-background px-2 py-1 rounded">{task.externalId}</code>
+            {/*
+              Say it when the label and the machine have parted company. A rename
+              is DB-only, so a Windows task keeps answering to its old path — and
+              someone searching Task Scheduler for the new name would find
+              nothing and reasonably conclude Cronsole had lost the task.
+            */}
+            {platformName && platformName !== task.name && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Renamed in Cronsole — Task Scheduler still calls it <span className="font-mono">{platformName}</span>.
+              </p>
+            )}
           </div>
           <button onClick={onClose} aria-label="Close task details" title="Close" className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
             <XCircle size={24} />
@@ -634,7 +736,56 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
             SURVIVES rather than what goes. A single "Delete" with a checkbox is
             the version of this that eventually erases someone's backup job.
           */}
-          {task.platform !== 'TASKHUB_NATIVE' && (
+          {/*
+            Claude gets a third verb, because neither of the two above is true
+            for it. A Claude task is tracked because the routine is **declared**
+            in the connection config — that registry is the platform — so
+            "Remove from Cronsole" would delete the row and leave the
+            declaration, and the next sync would bring it straight back (the
+            server refuses it for exactly that reason). There is no
+            "Delete from the platform" either: Cronsole cannot delete a routine
+            at claude.ai and never will.
+
+            So the honest control is *disconnect the routine*, and its
+            confirmation has to name the one thing that is actually spent — the
+            API token, which claude.ai shows once and cannot re-display.
+          */}
+          {task.platform === 'CLAUDE_CODE' && (
+            <button
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Disconnect this routine?',
+                  message:
+                    `"${task.name}" will disappear from this dashboard along with its Cronsole run history, ` +
+                    'and Cronsole will forget the routine id and its API token.\n\n' +
+                    'The routine itself keeps running at claude.ai on its own schedule — Cronsole has no way ' +
+                    'to pause or delete it there.\n\n' +
+                    'Reconnecting later needs the token again, and claude.ai only shows it once, so you would ' +
+                    'have to generate a new one.',
+                  confirmText: 'Disconnect routine',
+                  tone: 'default'
+                });
+                if (ok) {
+                  disconnectRoutineMutation.mutate(task.externalId, {
+                    onSuccess: () => {
+                      toast(`"${task.name}" disconnected. The routine still runs at claude.ai.`, 'success');
+                      onClose();
+                    },
+                    onError: (error: unknown) => {
+                      const err = error as Error & { response?: { data?: { error?: string } } };
+                      toast(`Disconnect failed: ${err.response?.data?.error || err.message}`, 'error');
+                    }
+                  });
+                }
+              }}
+              disabled={disconnectRoutineMutation.isPending}
+              className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
+              title="Forget this routine's id and token. The routine keeps running at claude.ai."
+            >
+              {disconnectRoutineMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <EyeOff size={16} />} Disconnect routine
+            </button>
+          )}
+          {task.platform !== 'TASKHUB_NATIVE' && task.platform !== 'CLAUDE_CODE' && (
             <button
               onClick={async () => {
                 const ok = await confirm({

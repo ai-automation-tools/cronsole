@@ -6,6 +6,7 @@ import {
   effectiveFilters,
   filtersEqual,
   matchesDue,
+  matchesFavorites,
   matchesOutcome,
   matchesStatus,
   matchesSystem,
@@ -64,6 +65,22 @@ describe('matchesSystem', () => {
     const legacy = task('a', { isSystem: undefined });
     expect(matchesSystem(legacy, 'personal')).toBe(true);
     expect(matchesSystem(legacy, 'only')).toBe(false);
+  });
+});
+
+describe('matchesFavorites', () => {
+  it('only narrows when asked', () => {
+    const starred = task('a', { isFavorite: true });
+    const plain = task('b');
+    expect([matchesFavorites(starred, 'any'), matchesFavorites(plain, 'any')]).toEqual([true, true]);
+    expect([matchesFavorites(starred, 'only'), matchesFavorites(plain, 'only')]).toEqual([true, false]);
+  });
+
+  it('reads a missing isFavorite as "not favorited", never as unknown', () => {
+    // Optional on the wire like isSystem. An older backend sends nothing, which
+    // must degrade to "you have no favorites" — the normal dashboard — rather
+    // than to a Favorites view holding everything.
+    expect(matchesFavorites(task('a', { isFavorite: undefined }), 'only')).toBe(false);
   });
 });
 
@@ -237,6 +254,24 @@ describe('applyTaskFilters', () => {
     expect(out.map(t => t.id)).toEqual(['mine-active']);
   });
 
+  it('shows a starred task the other lenses would have hidden', () => {
+    // This is the Favorites view's exact filter set. A star is an explicit
+    // choice, so the disabled task and the OS-owned one both belong here — if
+    // the default lenses could overrule it, the star would mean "shown,
+    // conditions apply".
+    const starred = [
+      task('mine-off', { status: 'DISABLED', isFavorite: true }),
+      task('os', { isSystem: true, category: 'Microsoft', isFavorite: true }),
+      task('plain')
+    ];
+    const out = applyTaskFilters(
+      starred,
+      { ...DEFAULT_FILTERS, status: 'any', system: 'include', favorites: 'only' },
+      opts
+    );
+    expect(out.map(t => t.id)).toEqual(['mine-off', 'os']);
+  });
+
   it('searches within the already-narrowed set', () => {
     const out = applyTaskFilters(tasks, { ...DEFAULT_FILTERS, search: 'native' }, opts);
     expect(out.map(t => t.id)).toEqual(['native']);
@@ -253,7 +288,7 @@ describe('filtersEqual', () => {
     // light up the wrong chip over the wrong list.
     const variants: Partial<typeof DEFAULT_FILTERS>[] = [
       { status: 'any' }, { system: 'only' }, { outcome: 'failing' },
-      { due: 'today' }, { platform: 'WINDOWS_TASK_SCHEDULER' },
+      { due: 'today' }, { favorites: 'only' }, { platform: 'WINDOWS_TASK_SCHEDULER' },
       { category: 'Backup' }, { search: 'x' }
     ];
     for (const v of variants) {

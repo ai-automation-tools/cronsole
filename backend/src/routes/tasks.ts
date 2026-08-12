@@ -40,22 +40,29 @@ import { previewSchedule } from '../services/schedulePreview.js';
 // List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
-  const tasks = await prisma.task.findMany({
-    where: { userId },
-    orderBy: { updatedAt: 'desc' },
-    include: {
-      executions: {
-        orderBy: { triggeredAt: 'desc' },
-        take: 1,
-        select: { status: true, triggeredAt: true, durationMs: true }
+  const [tasks, favorites] = await Promise.all([
+    prisma.task.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        executions: {
+          orderBy: { triggeredAt: 'desc' },
+          take: 1,
+          select: { status: true, triggeredAt: true, durationMs: true }
+        }
       }
-    }
-  });
+    }),
+    prisma.taskFavorite.findMany({ where: { userId }, select: { taskId: true } })
+  ]);
+  const favoriteIds = new Set(favorites.map(f => f.taskId));
   res.json(tasks.map(({ executions, ...task }) => ({
     ...task,
     lastRunStatus: executions[0]?.status ?? null,
     lastRunAt: executions[0]?.triggeredAt ?? null,
     lastRunDurationMs: executions[0]?.durationMs ?? null,
+    // Per-viewer, from the TaskFavorite join — never a column on Task, which in a
+    // multi-tenant DB would make one user's star everyone's.
+    isFavorite: favoriteIds.has(task.id),
     // Server-owned verdict, not a rule the browser re-derives. "Is this the OS's
     // task or mine?" already has exactly one definition here (the same one
     // summarizeUntracked uses), and a second copy in the frontend is the shape
@@ -86,6 +93,44 @@ router.patch('/:id', validateBody(patchTaskSchema), async (req: Request, res: Re
   });
   notifyTasksChanged(userId);
   res.json(task);
+});
+
+// Star a task for the current user (idempotent — favoriting an already-favorited
+// task is a no-op success). Owner-scoped: unlike a template, a task belongs to
+// somebody, so favoriting one you don't own must 404 rather than write a row
+// pointing at another tenant's task (IDOR).
+//
+// A favorite changes nothing on the platform — it is a Cronsole-side preference —
+// so this never contacts the agent and works fine while it's offline.
+router.post('/:id/favorite', async (req: Request, res: Response) => {
+  const taskId = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const owned = await prisma.task.findFirst({ where: { id: taskId, userId }, select: { id: true } });
+  if (!owned) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  await prisma.taskFavorite.upsert({
+    where: { userId_taskId: { userId, taskId } },
+    update: {},
+    create: { userId, taskId }
+  });
+  res.json({ id: taskId, isFavorite: true });
+});
+
+// Un-star a task (idempotent — removing a non-favorite is a success; the desired
+// end state already holds).
+//
+// Deliberately NOT owner-checked first: `deleteMany` is already scoped by userId,
+// so it can only ever remove the caller's own row. Adding a 404 for a task you
+// don't own would make this route a probe for which task ids exist.
+router.delete('/:id/favorite', async (req: Request, res: Response) => {
+  const taskId = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  await prisma.taskFavorite.deleteMany({ where: { userId, taskId } });
+  res.json({ id: taskId, isFavorite: false });
 });
 
 const patchTaskStatusSchema = z.object({

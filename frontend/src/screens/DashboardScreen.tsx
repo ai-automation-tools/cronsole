@@ -5,8 +5,8 @@ import {
   RefreshCw,
   Loader2,
   Info,
-  Clock,
   Folder,
+  Star,
   Tag,
   Eye,
   EyeOff,
@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
+import { TaskSchedule } from '../components/TaskSchedule';
+import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskSelectCheckbox } from '../components/TaskSelectCheckbox';
 import { BulkActionBar } from '../components/BulkActionBar';
@@ -48,6 +50,7 @@ import {
   filtersToParams,
   matchView,
   newViewId,
+  openingFilters,
   type SavedView
 } from '../utils/savedViews';
 import {
@@ -79,6 +82,7 @@ export const DashboardScreen = ({
   onCategoryUpdate,
   onClone,
   onToggleStatus,
+  onToggleFavorite,
   statusTogglingId,
   onShowHelp,
   onNewTask,
@@ -101,6 +105,7 @@ export const DashboardScreen = ({
   onCategoryUpdate: (taskId: string, category: string) => void;
   onClone: (task: Task) => void;
   onToggleStatus: (task: Task) => void;
+  onToggleFavorite: (task: Task) => void;
   statusTogglingId: string | null;
   onShowHelp: () => void;
   onNewTask: () => void;
@@ -162,14 +167,43 @@ export const DashboardScreen = ({
     ]
   );
 
+  // How many starred tasks? Counted from the UNLENSED list on purpose: a star
+  // you happened to place on a system task still counts, and counting the
+  // filtered list would make the answer depend on the filters it is about to
+  // decide.
+  const favoriteCount = useMemo(
+    () => (allTasks ?? []).filter(t => t.isFavorite).length,
+    [allTasks]
+  );
+  const hasFavorites = favoriteCount > 0;
+
   const hasFilterParams = FILTER_PARAM_KEYS.some(k => searchParams.has(k));
   const filters = useMemo(
     () =>
       hasFilterParams
         ? filtersFromParams(searchParams, settings.savedViews)
-        : settingsFilters,
-    [hasFilterParams, searchParams, settings.savedViews, settingsFilters]
+        // The dashboard opens on your favorites once you have any, and on your
+        // saved defaults when you don't — exactly the same rule, expressed where
+        // a bare URL is already interpreted rather than as an effect that
+        // rewrites the URL afterwards. Two consequences worth keeping:
+        //
+        // - It is *derived*, so it can never fight you. The moment you touch any
+        //   filter the URL stops being bare (even the default state writes
+        //   `?view=my-jobs`), and this branch is not consulted again.
+        // - It resolves to a **built-in view**, so the view bar lights
+        //   "Favorites" and prints its blurb. A filtered list that did not say
+        //   which filter was in force would be `Active Only · 110 hidden` all
+        //   over again — and defaulting to a filtered list is exactly the case
+        //   where the user did not choose it and so cannot be assumed to know.
+        : openingFilters(hasFavorites, settingsFilters),
+    [hasFilterParams, searchParams, settings.savedViews, settingsFilters, hasFavorites]
   );
+
+  // True only while the Favorites view is in force *because it was the default*
+  // — a bare URL plus at least one star. Clicking the same view yourself writes
+  // `?view=favorites`, which is not this: you already know what you asked for,
+  // and the banner would be telling you something you just did.
+  const defaultedToFavorites = !hasFilterParams && hasFavorites;
 
   const setFilters = (next: TaskFilters) => {
     setSearchParams(filtersToParams(next, settings.savedViews), { replace: true });
@@ -838,6 +872,33 @@ export const DashboardScreen = ({
                 isPending={isBulkPending}
               />
             )}
+          {/*
+            The dashboard filtered itself, so it says so — in the page, not in a
+            tooltip.
+
+            A lit "Favorites" chip is enough for a view you *clicked*: you know
+            what you asked for. This one you did not ask for, and 1 of 269 tasks
+            with no visible reason is `Active Only · 110 hidden` all over again —
+            worse, because the constraint arrived on its own. So it names the
+            filter, names the number it is holding back, and puts the way out one
+            click away instead of leaving you to discover the view bar.
+          */}
+          {defaultedToFavorites && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs bg-amber-500/10 border border-amber-500/30 text-amber-200/90 rounded-xl px-4 py-2.5">
+              <Star size={13} className="text-amber-400 fill-current shrink-0" />
+              <span>
+                Showing your {favoriteCount} starred {favoriteCount === 1 ? 'task' : 'tasks'} — Cronsole opens
+                on your favorites. {allTasks ? allTasks.length - favoriteCount : 0} other{' '}
+                {allTasks && allTasks.length - favoriteCount === 1 ? 'task is' : 'tasks are'} hidden.
+              </span>
+              <button
+                onClick={() => setFilters(settingsFilters)}
+                className="font-bold underline underline-offset-4 hover:text-amber-100 transition-colors"
+              >
+                Show the full dashboard
+              </button>
+            </div>
+          )}
           </div>
 
           {/* Grid View */}
@@ -885,6 +946,7 @@ export const DashboardScreen = ({
                     onCategoryUpdate={onCategoryUpdate}
                     onClone={onClone}
                     onToggleStatus={onToggleStatus}
+                    onToggleFavorite={onToggleFavorite}
                     isTogglingStatus={statusTogglingId === task.id}
                     selected={selectedIds.has(task.id)}
                     onToggleSelect={toggleSelect}
@@ -932,9 +994,12 @@ export const DashboardScreen = ({
                             />
                           </td>
                           <td className="py-4 px-4 font-bold text-foreground group-hover:text-foreground transition-colors">
-                            <div>
+                            <div className="flex items-start gap-2">
+                              <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} className="mt-0.5" />
+                              <div>
                               <span className="block truncate max-w-[240px]">{task.name}</span>
                               <span className="block text-[10px] text-subtle-foreground font-mono font-normal truncate max-w-[240px] mt-0.5">{task.externalId}</span>
+                              </div>
                             </div>
                           </td>
                           <td className="py-4 px-4">
@@ -1019,11 +1084,15 @@ export const DashboardScreen = ({
                               {platformLabel(task.platform)}
                             </span>
                           </span>
-                          <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
-                            <Folder size={10} /> {task.category || 'Uncategorized'}
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
+                              <Folder size={10} /> {task.category || 'Uncategorized'}
+                            </span>
+                            <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={12} />
                           </span>
                         </div>
                         <h4 className="font-bold text-foreground text-sm truncate">{task.name}</h4>
+                        <TaskSchedule task={task} size="xs" />
                         <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
                           <span className="text-[9px] text-subtle-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
@@ -1077,11 +1146,15 @@ export const DashboardScreen = ({
                               {platformLabel(task.platform)}
                             </span>
                           </span>
-                          <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
-                            <Folder size={10} /> {task.category || 'Uncategorized'}
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-bold text-subtle-foreground flex items-center gap-1">
+                              <Folder size={10} /> {task.category || 'Uncategorized'}
+                            </span>
+                            <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={12} />
                           </span>
                         </div>
                         <h4 className="font-bold text-muted-foreground text-sm truncate">{task.name}</h4>
+                        <TaskSchedule task={task} size="xs" />
                         <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
                           <span className="text-[9px] text-subtle-foreground font-mono">
                             {formatTime(task.updatedAt, settings.timezone)}
@@ -1117,7 +1190,6 @@ export const DashboardScreen = ({
                 ) : (
                   scheduledTasks.map(task => {
                     const nextRun = (task.metadata as TaskMeta)?.nextRunTime || (task.metadata as TaskMeta)?.nextRun || null;
-                    const scheduleStr = task.schedule || (task.metadata as TaskMeta)?.schedule || 'No direct schedule';
                     return (
                       <div key={task.id} className="relative group">
                         {/* Timeline node */}
@@ -1135,6 +1207,7 @@ export const DashboardScreen = ({
                                   checked={selectedIds.has(task.id)}
                                   onToggle={toggleSelect}
                                 />
+                                <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} />
                                 <h4 className="font-bold text-foreground text-base">{task.name}</h4>
                                 <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                                   {platformLabel(task.platform)}
@@ -1142,7 +1215,7 @@ export const DashboardScreen = ({
                               </div>
                               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-subtle-foreground">
                                 <span className="flex items-center gap-1"><Folder size={12} /> {task.category || 'Uncategorized'}</span>
-                                <span className="flex items-center gap-1 font-mono text-foreground/80"><Clock size={12} /> {scheduleStr}</span>
+                                <TaskSchedule task={task} />
                               </div>
                             </div>
                             

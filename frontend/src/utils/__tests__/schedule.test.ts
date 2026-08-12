@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { describeCron } from '../schedule';
+import { describeCron, taskCron, taskSchedulePreview } from '../schedule';
 
 // The frontend has no @types/node; declare the sliver of `process` the TZ-pinned
 // tests need so the app build (tsc -b, which includes test files) stays clean.
@@ -87,6 +87,42 @@ describe('describeCron — named zone conversion', () => {
   it('still labels UTC mode with UTC', () => {
     expect(describeCron('0 3 * * *', 'utc', JAN)).toBe('Daily at 3:00 AM UTC');
     expect(describeCron('0 3 * * *', undefined, JAN)).toBe('Daily at 3:00 AM UTC');
+  });
+});
+
+describe('taskCron — where the schedule lives', () => {
+  it('prefers the column, then the two metadata spellings', () => {
+    expect(taskCron({ schedule: '0 15 * * *' })).toBe('0 15 * * *');
+    expect(taskCron({ metadata: { schedule: '0 9 * * 1' } })).toBe('0 9 * * 1');
+    expect(taskCron({ metadata: { cron: '*/5 * * * *' } })).toBe('*/5 * * * *');
+    expect(taskCron({ schedule: '0 1 * * *', metadata: { cron: '0 2 * * *' } })).toBe('0 1 * * *');
+  });
+
+  it('treats blank and non-string values as absent', () => {
+    expect(taskCron({})).toBeNull();
+    expect(taskCron({ schedule: '   ' })).toBeNull();
+    expect(taskCron({ metadata: { schedule: 42 } })).toBeNull();
+  });
+});
+
+describe('taskSchedulePreview — the card line', () => {
+  const PACIFIC = 'America/Los_Angeles';
+
+  it('describes a recognizable cron in the reader’s zone', () => {
+    const p = taskSchedulePreview({ schedule: '0 15 * * *' }, PACIFIC, JUL);
+    expect(p).toEqual({ kind: 'human', text: 'Daily at 8:00 AM PDT', cron: '0 15 * * *' });
+  });
+
+  it('falls back to the raw expression rather than guessing at an odd shape', () => {
+    // Day-of-month schedules are the shape describeCron refuses.
+    const p = taskSchedulePreview({ schedule: '0 4 1 * *' }, PACIFIC, JUL);
+    expect(p).toEqual({ kind: 'cron', text: '0 4 1 * *', cron: '0 4 1 * *' });
+  });
+
+  it('says so when there is no cron at all, instead of rendering blank', () => {
+    // A boot/logon/event-triggered Windows task: the agent reports no cron.
+    const p = taskSchedulePreview({ metadata: { trigger: null } }, PACIFIC, JUL);
+    expect(p).toEqual({ kind: 'none', text: 'No cron schedule', cron: null });
   });
 });
 

@@ -128,6 +128,38 @@ const Dashboard = () => {
     }
   });
 
+  // Star / un-star a task. Wired here for the same reason as the status toggle:
+  // every view shows the star, and one mutation means one cache update.
+  //
+  // Optimistic — the star flips in the ['tasks'] cache on click rather than after
+  // the round trip. A star is a pure preference with no platform round trip, so
+  // waiting would put a visible delay on the cheapest thing the dashboard does.
+  // On failure the cache is rolled back to exactly what it was, because a star
+  // that stays lit after the write failed is a lie the next reload silently
+  // corrects — the kind of drift nobody connects to the click that caused it.
+  const favoriteMutation = useMutation({
+    mutationFn: async (task: Task) => {
+      const next = !task.isFavorite;
+      next ? await api.post(`/tasks/${task.id}/favorite`) : await api.delete(`/tasks/${task.id}/favorite`);
+      return { task, next };
+    },
+    onMutate: async (task: Task) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previous = queryClient.getQueryData<Task[]>(['tasks']);
+      queryClient.setQueryData<Task[]>(['tasks'], old =>
+        (old ?? []).map(t => (t.id === task.id ? { ...t, isFavorite: !task.isFavorite } : t))
+      );
+      return { previous };
+    },
+    onError: (_error, task, context) => {
+      if (context?.previous) queryClient.setQueryData(['tasks'], context.previous);
+      if (settings.toastOnFailure) toast(`Couldn't update the star on "${task.name}".`, 'error');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    }
+  });
+
   // Clear every task the last sync found absent from its platform. Bulk because
   // the mess arrives in bulk — deleting a Task Scheduler folder flags all of its
   // tasks MISSING at once, and clearing them one modal at a time doesn't scale.
@@ -544,6 +576,7 @@ const Dashboard = () => {
             onCategoryUpdate={handleCategoryUpdate}
             onClone={setCloningTask}
             onToggleStatus={statusMutation.mutate}
+            onToggleFavorite={favoriteMutation.mutate}
             statusTogglingId={statusMutation.isPending ? statusMutation.variables?.id ?? null : null}
             onShowHelp={() => setShowHelp(true)}
             onNewTask={() => setShowCreateNative(true)}
@@ -570,6 +603,7 @@ const Dashboard = () => {
         onClose={() => navigate('/')}
         onRun={runMutation.mutate}
         onCategoryUpdate={handleCategoryUpdate}
+        onToggleFavorite={favoriteMutation.mutate}
       />
       {cloningTask && (
         <CloneTaskModal 

@@ -53,7 +53,14 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   folder "must already exist", after `createFolder` shipped 2026-08-04. A pack
 //   in someone's hand cannot be corrected later, so stamping a new version over
 //   a known-false invariant is the one thing this version number must not do.
-export const CONNECT_PACK_VERSION = '1.5';
+// 1.6 (2026-08-11): favorites — `POST` / `DELETE /api/tasks/:id/favorite`, with
+//   `isFavorite` on `GET /api/tasks`. Listed as REST-only *with the reason*: a
+//   star is a per-user display preference, and `list_tasks` cannot see one
+//   because the MCP layer does not forward the field. Without the row, a caller
+//   asked to "star my nightly jobs" reads the tool surface, finds nothing, and
+//   concludes Cronsole has no such thing — the pack's tables are read as
+//   complete, so an omission from them is a claim, not a gap.
+export const CONNECT_PACK_VERSION = '1.6';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

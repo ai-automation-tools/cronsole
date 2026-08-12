@@ -81,3 +81,60 @@ export function describeCron(
 
   return null;
 }
+
+/** The minimum a caller needs for us to find its schedule. */
+interface SchedulableTask {
+  schedule?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * The stored UTC cron for a task, wherever the sync payload left it.
+ *
+ * A synced Windows task carries its schedule on the column; imported and
+ * older-agent rows put it in `metadata.schedule` / `metadata.cron`. One
+ * definition of "where the cron is" so the card preview and the detail modal
+ * can never disagree about whether a task has one.
+ */
+export function taskCron(task: SchedulableTask): string | null {
+  const pick = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const meta = (task.metadata ?? {}) as Record<string, unknown>;
+  return pick(task.schedule) ?? pick(meta.schedule) ?? pick(meta.cron);
+}
+
+export interface SchedulePreview {
+  /**
+   * `human` — described in the reader's zone; `cron` — a real schedule whose
+   * shape `describeCron` won't guess at, shown raw; `none` — no cron at all
+   * (boot / logon / event / on-demand), which is a fact, not a gap.
+   */
+  kind: 'human' | 'cron' | 'none';
+  /** What to render. */
+  text: string;
+  /** The stored UTC cron, when there is one. */
+  cron: string | null;
+}
+
+/**
+ * One-line schedule for a task, for the card previews.
+ *
+ * The three outcomes are deliberately distinct: a preview that printed nothing
+ * for the last two would make "this runs at 8 AM" and "Cronsole has no idea
+ * when this runs" look identical on the wall of cards, which is the failure the
+ * card is being added to fix.
+ *
+ * The shifted reading does **not** print the stored UTC cron beside it here —
+ * unlike the schedule *fields*, which must (CLAUDE.md §9). A card is a preview,
+ * not an input: the UTC form rides in the tooltip and is printed in full by the
+ * detail modal one click away.
+ */
+export function taskSchedulePreview(
+  task: SchedulableTask,
+  tz: TimezoneMode = 'utc',
+  now: Date = new Date()
+): SchedulePreview {
+  const cron = taskCron(task);
+  if (!cron) return { kind: 'none', text: 'No cron schedule', cron: null };
+  const human = describeCron(cron, tz, now);
+  return human ? { kind: 'human', text: human, cron } : { kind: 'cron', text: cron, cron };
+}

@@ -41,6 +41,45 @@ describe('TaskCard Component', () => {
     expect(screen.getByText('ACTIVE')).toBeInTheDocument();
   });
 
+  // --- schedule preview (added 2026-08-11) ---
+  //
+  // The card is the surface most people read; it has to answer "when does this
+  // run?" without a click. Settings default to Pacific, so a UTC cron is shown
+  // shifted — the same reading the detail modal gives.
+
+  it('shows the schedule in words on the card', () => {
+    renderCard({ ...mockTask, schedule: '0 15 * * *' });
+    expect(screen.getByText(/^Daily at 8:00 AM P[DS]T$/)).toBeInTheDocument();
+  });
+
+  it('shows the raw cron when the shape is one describeCron will not guess at', () => {
+    renderCard({ ...mockTask, schedule: '0 4 1 * *' });
+    expect(screen.getByText('0 4 1 * *')).toBeInTheDocument();
+  });
+
+  it('says there is no cron schedule rather than rendering nothing', () => {
+    renderCard();
+    expect(screen.getByText('No cron schedule')).toBeInTheDocument();
+  });
+
+  // --- favorites (added 2026-08-11) ---
+
+  it('stars a task without also opening it', () => {
+    // Every card surface opens the detail modal on click, so a star that did not
+    // stop propagation would toggle the favorite AND open the task.
+    const onToggleFavorite = vi.fn();
+    const { onSelect } = renderCard(mockTask, { onToggleFavorite });
+    fireEvent.click(screen.getByTitle('Add to favorites'));
+    expect(onToggleFavorite).toHaveBeenCalledWith(mockTask);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('shows an already-starred task as starred', () => {
+    renderCard({ ...mockTask, isFavorite: true }, { onToggleFavorite: vi.fn() });
+    const star = screen.getByTitle('Remove from favorites');
+    expect(star).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('shows a red indicator when the last run failed', () => {
     renderCard({ ...mockTask, lastRunStatus: 'FAILURE', lastRunAt: '2026-07-07T16:00:00Z' });
     expect(screen.getByText('Run failed')).toBeInTheDocument();

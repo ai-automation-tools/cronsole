@@ -1,43 +1,76 @@
 // ============================================================================
-// GET /tasks — unified task list
+// GET /api/tasks — unified task list
 // ============================================================================
+// Response 200 — a BARE ARRAY, not an envelope. (This file claimed
+// `{ "tasks": [...], "total": 25 }` until 2026-08-11; no such envelope has
+// ever existed. Corrected against backend/src/routes/tasks.ts.)
+//
+// Three of these fields are server-owned VERDICTS the browser renders rather
+// than re-derives: `isSystem` (is this the OS's task or mine?), `isFavorite`
+// (has *this viewer* starred it?), and the flattened `lastRun*` summary.
+[
+  {
+    "id": "task_1",
+    "userId": "user_1",
+    "name": "Daily Backup",
+    "platform": "WINDOWS_TASK_SCHEDULER",
+    "externalId": "\\MyTasks\\Daily Backup",
+    "category": "MyTasks",
+    "schedule": "0 3 * * *",
+    "nextRunTime": "2026-04-16T03:00:00Z",
+    "status": "ACTIVE",
+    "quickLink": "taskschd.msc /s /query?task=Daily%20Backup",
+    "metadata": { "taskPath": "\\MyTasks\\Daily Backup" },
+    "createdAt": "2026-04-01T10:00:00Z",
+    "updatedAt": "2026-04-15T14:22:00Z",
+
+    // Last run Cronsole PERFORMED — not the last time the task ran. A Windows
+    // task firing on its own schedule writes no ExecutionLog row, and a manual
+    // run's SUCCESS means "the agent accepted the start". See CLAUDE.md §9.
+    "lastRunStatus": "SUCCESS",
+    "lastRunAt": "2026-04-15T14:22:00Z",
+    "lastRunDurationMs": 412,
+
+    "isSystem": false,
+    "isFavorite": true
+  }
+]
+
+
+// ============================================================================
+// POST /api/tasks/{taskId}/favorite — star a task for the current user
+// DELETE /api/tasks/{taskId}/favorite — un-star it
+// ============================================================================
+// Both idempotent. 404 if the task isn't yours (owner-scoped, unlike template
+// favorites, which sit on a shared catalog).
 // Response 200
-{
-  "tasks": [
-    {
-      "id": "task_1",
-      "name": "Daily Backup",
-      "platform": "WINDOWS_TASK_SCHEDULER",
-      "schedule": "0 3 * * *",
-      "nextRunTime": "2025-04-16T03:00:00Z",
-      "status": "ACTIVE",
-      "quickLink": "taskschd.msc /s /query?task=Daily%20Backup",
-      "metadata": { "taskPath": "\\MyTasks\\Daily Backup" }
-    }
-  ],
-  "total": 25
-}
+{ "id": "task_1", "isFavorite": true }
 
 
 // ============================================================================
-// POST /tasks/{taskId}/run — manually trigger
+// POST /api/tasks/{taskId}/run — manually trigger
 // ============================================================================
-// Response 202
-{ "executionId": "exec_123", "status": "PENDING" }
+// Response 200 on success (not 202); 500 with `{ "error": … }` if the platform
+// refused. For a Windows task this is fire-and-forget: it reports that the
+// agent accepted the start, not that the job succeeded.
+{ "message": "Task run command sent", "success": true, "platformRunId": "win_run_456" }
 
 
 // ============================================================================
-// GET /tasks/{taskId}/logs — execution history
+// GET /api/tasks/{taskId}/executions — run history (most recent 20)
 // ============================================================================
-// Response 200
-{
-  "logs": [
-    {
-      "id": "exec_123",
-      "triggeredAt": "2025-04-15T14:22:00Z",
-      "status": "SUCCESS",
-      "log": "Backup completed, 2.3 GB copied.",
-      "platformRunId": "win_run_456"
-    }
-  ]
-}
+// Response 200 — a bare array of raw ExecutionLog rows. (This file called the
+// route `/logs` and wrapped the rows in `{ "logs": … }`; neither is real.)
+// Note there is no `runKind` here — that is derived at read time and exists
+// only on the cross-task surface, GET /api/tools/history.
+[
+  {
+    "id": "exec_123",
+    "taskId": "task_1",
+    "triggeredAt": "2026-04-15T14:22:00Z",
+    "status": "SUCCESS",
+    "log": "Backup completed, 2.3 GB copied.",
+    "durationMs": 412,
+    "platformRunId": "win_run_456"
+  }
+]

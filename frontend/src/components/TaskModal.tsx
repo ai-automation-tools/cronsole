@@ -8,9 +8,10 @@ import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { Modal } from './ui/Modal';
 import { useSettings, type TimezoneMode } from '../hooks/useSettings';
-import { describeCron } from '../utils/schedule';
+import { describeCron, taskCron } from '../utils/schedule';
 import { hhmmInZone, resolveZone, zoneAbbrev, zoneLabel } from '../utils/timezone';
 import { isRunnable, runButtonTitle } from '../utils/taskActions';
+import { TaskFavoriteStar } from './TaskFavoriteStar';
 import { EditScheduleModal } from './EditScheduleModal';
 import { EditActionModal } from './EditActionModal';
 
@@ -19,6 +20,8 @@ interface TaskModalProps {
   onClose: () => void;
   onRun: (task: Task) => void;
   onCategoryUpdate: (taskId: string, category: string) => void;
+  /** Optional so the modal stays renderable without the dashboard's mutations. */
+  onToggleFavorite?: (task: Task) => void;
 }
 
 const statusStyle = (status: string) =>
@@ -75,7 +78,9 @@ const humanizeIso = (iso: string): string => {
 
 function scheduleInfo(task: Task, tz: TimezoneMode): { cron: string | null; human: string | null; rows: DetailRow[] } {
   const meta = (task.metadata ?? {}) as Meta;
-  const cron = asText(task.schedule) ?? asText(meta.schedule) ?? asText(meta.cron) ?? null;
+  // Same lookup the card previews use, so the two can't disagree about whether
+  // this task has a schedule at all.
+  const cron = taskCron(task);
   const human = describeCron(cron, tz);
   const rows: DetailRow[] = [];
   const trig = meta.trigger as Meta | undefined;
@@ -239,7 +244,7 @@ const RowList = ({ rows }: { rows: DetailRow[] }) => (
   </div>
 );
 
-export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalProps) => {
+export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavorite }: TaskModalProps) => {
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview');
@@ -398,6 +403,9 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate }: TaskModalP
                 {task.platform}
               </span>
               <h2 id="task-modal-title" className="text-2xl font-bold">{task.name}</h2>
+              {onToggleFavorite && (
+                <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={20} />
+              )}
             </div>
             <code className="text-xs text-subtle-foreground bg-background px-2 py-1 rounded">{task.externalId}</code>
           </div>

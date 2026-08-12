@@ -2,6 +2,7 @@ import {
   DEFAULT_FILTERS,
   filtersEqual,
   type DueFilter,
+  type FavoritesFilter,
   type OutcomeFilter,
   type StatusFilter,
   type SystemFilter,
@@ -43,10 +44,35 @@ const view = (
 ): SavedView => ({ id, name, filters: { ...DEFAULT_FILTERS, ...filters }, blurb });
 
 /**
- * The five views the roadmap named. Four of them needed filter dimensions that
- * did not exist — only "My jobs" was expressible by the old toggles.
+ * Starred tasks, and nothing else deciding what you see.
+ *
+ * `status: 'any'` and `system: 'include'` are the whole point: a star is an
+ * explicit, per-task choice this user made, so no *default* lens may overrule
+ * it. Starring a task, parking it, and then finding it missing from the view
+ * named after your stars would make the star mean "shown, conditions apply".
+ * The one task you starred out of `\Microsoft\` is shown for the same reason.
+ *
+ * Exported by name because the dashboard opens on it (see `DashboardScreen`),
+ * and looking a default up by string id is how a rename becomes a blank screen.
+ */
+export const FAVORITES_VIEW: SavedView = {
+  id: 'favorites',
+  name: 'Favorites',
+  filters: { ...DEFAULT_FILTERS, status: 'any', system: 'include', favorites: 'only' },
+  blurb:
+    'Only the tasks you have starred — including disabled, missing, and system ones, because you starred them on purpose.'
+};
+
+/**
+ * The five views the roadmap named, plus Favorites. Four of the five needed
+ * filter dimensions that did not exist — only "My jobs" was expressible by the
+ * old toggles.
+ *
+ * Favorites leads because it is the view the dashboard opens on once you have
+ * any; the bar should not make you hunt for the list you are already looking at.
  */
 export const BUILTIN_VIEWS: SavedView[] = [
+  FAVORITES_VIEW,
   view('my-jobs', 'My jobs', { status: 'active', system: 'personal' },
     'Your active tasks. Hides Windows’ own tasks and anything disabled or missing.'),
   view('failures', 'Failures', { status: 'any', system: 'personal', outcome: 'failing' },
@@ -61,6 +87,20 @@ export const BUILTIN_VIEWS: SavedView[] = [
 
 export const isBuiltinView = (id: string): boolean =>
   BUILTIN_VIEWS.some(v => v.id === id);
+
+/**
+ * What a **bare** dashboard URL resolves to: your favorites if you have any,
+ * otherwise your saved defaults.
+ *
+ * A function rather than a branch inside the screen so the rule can be pinned
+ * without rendering a dashboard — and so it stays one rule with one answer.
+ *
+ * `hasFavorites` must be computed from the **unlensed** task list. Asking the
+ * filtered list would make the answer depend on the filters this is choosing.
+ */
+export function openingFilters(hasFavorites: boolean, defaults: TaskFilters): TaskFilters {
+  return hasFavorites ? { ...FAVORITES_VIEW.filters } : defaults;
+}
 
 /** Built-ins first, then the user's own, for the view bar. */
 export function allViews(saved: SavedView[]): SavedView[] {
@@ -96,6 +136,7 @@ export function newViewId(existing: SavedView[]): string {
 /** One sentence naming what a user-saved view constrains. */
 export function describeFilters(filters: TaskFilters): string {
   const parts: string[] = [];
+  if (filters.favorites === 'only') parts.push('favorites only');
   if (filters.status === 'active') parts.push('active only');
   if (filters.status === 'disabled') parts.push('disabled only');
   if (filters.status === 'missing') parts.push('missing only');
@@ -124,6 +165,7 @@ const STATUS: StatusFilter[] = ['any', 'active', 'disabled', 'missing'];
 const SYSTEM: SystemFilter[] = ['personal', 'include', 'only'];
 const OUTCOME: OutcomeFilter[] = ['any', 'failing', 'healthy', 'unknown'];
 const DUE: DueFilter[] = ['any', 'today', 'week', 'overdue', 'never'];
+const FAVORITES: FavoritesFilter[] = ['any', 'only'];
 
 /**
  * Read a value that must be one of a fixed set.
@@ -138,7 +180,7 @@ function oneOf<T extends string>(raw: string | null, allowed: T[], fallback: T):
 
 /** Every param this module writes — the caller uses it to spot a bare URL. */
 export const FILTER_PARAM_KEYS = [
-  'view', 'status', 'system', 'outcome', 'due', 'platform', 'category', 'q'
+  'view', 'status', 'system', 'outcome', 'due', 'fav', 'platform', 'category', 'q'
 ] as const;
 
 /**
@@ -171,6 +213,7 @@ export function filtersToParams(
   if (filters.system !== DEFAULT_FILTERS.system) params.set('system', filters.system);
   if (filters.outcome !== DEFAULT_FILTERS.outcome) params.set('outcome', filters.outcome);
   if (filters.due !== DEFAULT_FILTERS.due) params.set('due', filters.due);
+  if (filters.favorites !== DEFAULT_FILTERS.favorites) params.set('fav', filters.favorites);
   if (filters.platform !== DEFAULT_FILTERS.platform) params.set('platform', filters.platform);
   if (filters.category !== DEFAULT_FILTERS.category) params.set('category', filters.category);
   if (filters.search.trim()) params.set('q', filters.search.trim());
@@ -200,6 +243,7 @@ export function filtersFromParams(
     system: oneOf(params.get('system'), SYSTEM, DEFAULT_FILTERS.system),
     outcome: oneOf(params.get('outcome'), OUTCOME, DEFAULT_FILTERS.outcome),
     due: oneOf(params.get('due'), DUE, DEFAULT_FILTERS.due),
+    favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites),
     platform: params.get('platform') || DEFAULT_FILTERS.platform,
     category: params.get('category') || DEFAULT_FILTERS.category,
     search: params.get('q') || ''

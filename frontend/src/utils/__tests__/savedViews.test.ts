@@ -9,6 +9,7 @@ import {
   isBuiltinView,
   matchView,
   newViewId,
+  openingFilters,
   type SavedView
 } from '../savedViews';
 
@@ -20,10 +21,26 @@ const mine: SavedView = {
   filters: filters({ category: 'Backup', due: 'today' })
 };
 
+/** By id, never by index — the order changed once (Favorites was added to the
+ *  front) and index-based assertions failed for a reason unrelated to what they
+ *  were pinning. */
+const builtin = (id: string) => BUILTIN_VIEWS.find(v => v.id === id)!;
+
 describe('BUILTIN_VIEWS', () => {
-  it('ships the five views the roadmap named', () => {
+  it('ships Favorites plus the five views the roadmap named, in bar order', () => {
     expect(BUILTIN_VIEWS.map(v => v.id))
-      .toEqual(['my-jobs', 'failures', 'due-today', 'disabled', 'system']);
+      .toEqual(['favorites', 'my-jobs', 'failures', 'due-today', 'disabled', 'system']);
+  });
+
+  it('makes Favorites ignore every other lens', () => {
+    // A star is an explicit per-task choice, so no *default* may overrule it —
+    // otherwise starring a task and then parking it makes it vanish from the
+    // view named after your stars, and the star quietly means "shown,
+    // conditions apply".
+    const fav = builtin('favorites').filters;
+    expect(fav.favorites).toBe('only');
+    expect(fav.status).toBe('any');
+    expect(fav.system).toBe('include');
   });
 
   it('gives every built-in a blurb naming what it leaves out', () => {
@@ -47,7 +64,29 @@ describe('BUILTIN_VIEWS', () => {
   });
 
   it('makes "My jobs" exactly the default dashboard', () => {
-    expect(BUILTIN_VIEWS[0].filters).toEqual(DEFAULT_FILTERS);
+    expect(builtin('my-jobs').filters).toEqual(DEFAULT_FILTERS);
+  });
+});
+
+describe('openingFilters — what a bare dashboard URL means', () => {
+  // The user's ask, as a rule: favorites by default, the normal dashboard when
+  // there are none.
+  const myDefaults = filters({ platform: 'WINDOWS_TASK_SCHEDULER' });
+
+  it('opens on Favorites once you have any', () => {
+    expect(openingFilters(true, myDefaults)).toEqual(builtin('favorites').filters);
+  });
+
+  it('falls back to the user’s own defaults when nothing is starred', () => {
+    // Not DEFAULT_FILTERS — this user set a default platform, and un-starring
+    // your last task must return you to *your* dashboard, not to a generic one.
+    expect(openingFilters(false, myDefaults)).toEqual(myDefaults);
+  });
+
+  it('resolves to a view the bar can name, so the filter announces itself', () => {
+    // A dashboard that opens filtered and does not say so is `Active Only · 110
+    // hidden` again — and worse here, because the user did not choose it.
+    expect(matchView(openingFilters(true, myDefaults), [])?.name).toBe('Favorites');
   });
 });
 
@@ -64,7 +103,7 @@ describe('matchView', () => {
   it('returns null once any dimension is tweaked', () => {
     // The chip must go dark: leaving "Failures" lit over a list narrowed to one
     // category makes the label a lie about its own contents.
-    const tweaked = filters({ ...BUILTIN_VIEWS[1].filters, category: 'Backup' });
+    const tweaked = filters({ ...builtin('failures').filters, category: 'Backup' });
     expect(matchView(tweaked, [])).toBeNull();
   });
 });
@@ -84,7 +123,7 @@ describe('allViews / isBuiltinView', () => {
 
 describe('URL codec', () => {
   it('writes a matched view as just its id', () => {
-    expect(filtersToParams(BUILTIN_VIEWS[1].filters, []).toString()).toBe('view=failures');
+    expect(filtersToParams(builtin('failures').filters, []).toString()).toBe('view=failures');
     expect(filtersToParams(mine.filters, [mine]).toString()).toBe('view=v-mine');
   });
 
@@ -107,9 +146,18 @@ describe('URL codec', () => {
   it('round-trips every dimension', () => {
     const rich = filters({
       status: 'missing', system: 'include', outcome: 'unknown', due: 'week',
-      platform: 'TASKHUB_NATIVE', category: 'Reports', search: 'db dump'
+      favorites: 'only', platform: 'TASKHUB_NATIVE', category: 'Reports', search: 'db dump'
     });
     expect(filtersFromParams(filtersToParams(rich, []), [])).toEqual(rich);
+  });
+
+  it('carries the starred lens in the URL, so a Favorites link survives a paste', () => {
+    expect(filtersToParams(builtin('favorites').filters, []).toString()).toBe('view=favorites');
+    // And ad-hoc (favorites plus something else), where there is no view id to
+    // lean on and the dimension has to be written out by name.
+    const adhoc = filters({ favorites: 'only', category: 'Backup' });
+    expect(filtersToParams(adhoc, []).get('fav')).toBe('only');
+    expect(filtersFromParams(filtersToParams(adhoc, []), [])).toEqual(adhoc);
   });
 
   it('round-trips a saved view through its id', () => {
@@ -153,6 +201,10 @@ describe('describeFilters', () => {
     expect(text).toContain('failing health');
     expect(text).toContain('due today');
     expect(text).toContain('Backup');
+  });
+
+  it('names the starred lens, so an empty Favorites list explains itself', () => {
+    expect(describeFilters(filters({ favorites: 'only' }))).toContain('favorites only');
   });
 
   it('says so plainly when nothing is constrained', () => {

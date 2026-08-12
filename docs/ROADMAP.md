@@ -119,6 +119,12 @@ belongs in the CHANGELOG.
 - [x] System/personal split — server-owned `isSystem` + persisted Personal toggle *(2026-07-28)*
 - [x] Import defaults — None/Non-system/All presets, remembered selection, count before the click *(2026-07-31)*
 - [x] Saved views — five built-ins + user-named views, URL-backed *(2026-07-31)*
+- [x] Task schedule on every card — "Daily at 8:00 AM PDT", read in the Settings zone; raw cron
+      for shapes it won't guess at, "No cron schedule" for triggers cron can't express *(2026-08-11)*
+- [x] Favorites — star any task (`TaskFavorite`, per-user, cascades with the row); the dashboard
+      opens on your stars and falls back to your saved defaults when there are none. A sixth
+      built-in view that ignores every other lens, plus a banner naming what a self-applied
+      filter is hiding *(2026-08-11)*
 - [x] Bulk enable/disable across all four views *(2026-07-31)*
 - [x] Bulk task actions complete — recategorize, untrack, export-selected; the five-outcome
       convention extracted to one shared definition; verified live in the browser *(2026-08-04)*

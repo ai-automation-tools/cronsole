@@ -24,8 +24,54 @@ model User {
   favorites      TemplateFavorite[]
   taskFavorites  TaskFavorite[]
   exclusions     TaskExclusion[]
+  capabilities   PlatformCapability[]
 
   @@index([email])
+}
+
+/// First-hand evidence that a platform verb actually worked on this machine.
+///
+/// The Platforms tab reports what Cronsole can do with each platform. Deriving
+/// that from the connector object alone would produce a **spec table** — a claim
+/// about the code rather than about this install — and the whole point of the
+/// screen is to answer "what will actually happen if I click this", which a spec
+/// table cannot. It is the same rule `getHealth` learned the hard way
+/// (troubleshooting #40): a verdict derived from something that cannot change
+/// when the subject fails is not evidence.
+///
+/// So a verb the connector implements but has never been observed to succeed
+/// reads **declared**, not **yes**, and only a row here promotes it to
+/// **verified**. Absence of a row is absence of evidence, never a negative
+/// verdict — exactly the rule the health scorer uses for a missing agent field.
+///
+/// Failure is recorded alongside success rather than replacing it: a verb that
+/// worked in March and failed this morning is a different fact from one that has
+/// never worked, and collapsing them loses the half the user needs.
+///
+/// Per-user, because the platform is reachable only through *this* user's
+/// connection — one tenant's working agent is no evidence for another's.
+model PlatformCapability {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id])
+  platform          PlatformType
+
+  /// One of CAPABILITY_VERBS (services/platformCapabilities.ts). A string and
+  /// not an enum on purpose: adding a verb must not need a migration, and an
+  /// unrecognized value is simply ignored on read rather than breaking the page.
+  verb              String
+
+  lastSuccessAt     DateTime?
+  lastFailureAt     DateTime?
+  /// Why the last failure failed, as the platform said it. Cleared on success —
+  /// a stale reason filed under a working verb is the mistake `healthReason`
+  /// already made once.
+  lastFailureReason String?
+
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([userId, platform, verb])
+  @@index([userId, platform])
 }
 
 model PlatformConnection {

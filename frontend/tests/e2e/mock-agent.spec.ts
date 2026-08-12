@@ -26,14 +26,19 @@ test.describe.serial('mock Windows agent flows', () => {
     await expect(statusPanel.getByText('Windows')).toBeVisible();
     await expect(statusPanel.getByText('Online').first()).toBeVisible();
 
-    await page.getByRole('button', { name: /^Import$/ }).click();
+    await page.getByRole('button', { name: 'Import tasks' }).click();
     await expect(page.getByRole('heading', { name: 'Import & Sync' })).toBeVisible();
     const importModal = page.locator('.fixed.inset-0').filter({ hasText: 'Import & Sync' });
     await expect(importModal.getByText('E2E', { exact: true })).toBeVisible();
 
     await apiPost('/tasks/sync', { categories: ['E2E'] });
     await page.getByRole('button', { name: 'Discard' }).click();
-    await page.reload();
+    // An explicit view, not a bare reload. A bare URL means "the user's opening
+    // dashboard", which resolves to Favorites as soon as they have starred
+    // anything — so on a machine with favorites this reload showed two starred
+    // tasks and none of them was the one just imported. The test needs a view
+    // that is about the task, not about the tester's stars.
+    await page.goto('/?view=my-jobs');
     await expect(page.getByText('E2E Mock Nightly Backup')).toBeVisible();
 
     await page.getByPlaceholder(/Search tasks/).fill('E2E Mock Nightly Backup');
@@ -168,6 +173,6 @@ test.describe.serial('mock Windows agent flows', () => {
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: 'Unified Task Dashboard' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Import$/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Import tasks' })).toBeVisible();
   });
 });

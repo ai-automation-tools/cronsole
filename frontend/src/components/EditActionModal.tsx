@@ -86,7 +86,7 @@ export const EditActionModal = ({ task, initial, onClose }: EditActionModalProps
               Changes what <span className="font-semibold text-foreground">{task.name}</span> runs — its schedule and run-as identity are preserved. Requires the Windows agent to be online.
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
+          <button onClick={onClose} aria-label="Close edit action" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
             <XCircle size={20} />
           </button>
         </header>

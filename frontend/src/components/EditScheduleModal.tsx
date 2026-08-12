@@ -98,7 +98,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
                 : <>Changes when <span className="font-semibold text-foreground">{task.name}</span> runs in the Cronsole backend scheduler.</>}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
+          <button onClick={onClose} aria-label="Close edit schedule" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
             <XCircle size={20} />
           </button>
         </header>

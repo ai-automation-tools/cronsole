@@ -137,7 +137,7 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
             <h2 id="import-modal-title" className="text-xl font-bold">Import & Sync</h2>
             <p className="text-[10px] text-subtle-foreground uppercase font-bold tracking-wider">Select categories to pull into dashboard</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors"><XCircle size={20} /></button>
+          <button onClick={onClose} aria-label="Close import" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors"><XCircle size={20} /></button>
         </header>
         <div className="p-6 space-y-4">
           {allCategories.length > 0 && (
@@ -185,7 +185,10 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
                 discovered", so the modal denied and promised a list at once. A
                 section header is a claim that there is a section. */}
             {discovery?.filter(p => p.categories.length > 0).map(platform => (
-               <div key={platform.platform} className="space-y-2 mb-6 last:mb-0">
+               // These are the machine's real folders, so they differ per
+               // install — the visual-regression suite masks them and pins the
+               // modal's chrome instead.
+               <div key={platform.platform} data-testid="discovered-categories" className="space-y-2 mb-6 last:mb-0">
                   {/* platformLabel, not the raw enum: `TASKHUB_NATIVE`.replace(/_/g,' ')
                       rendered "TASKHUB NATIVE" here long after the product became Cronsole,
                       and "WINDOWS TASK SCHEDULER" where every other surface says "Windows". */}

@@ -93,5 +93,18 @@ export interface ConnectionHealth {
   platform: string;
   state: HealthState;
   reason?: string | null;
+  /**
+   * When the task list was last pulled from this platform. Written only by
+   * `POST /api/tasks/sync`, so it is always a sync that really happened.
+   */
   lastSync?: string | null;
+  /**
+   * When the platform last said anything — liveness, not freshness.
+   *
+   * Two fields and not one, because they answer different questions and were
+   * briefly the same value: the Windows connector reported its last inbound
+   * event *as* `lastSync`, so "Synced 7m ago" appeared over a task list from the
+   * previous day (troubleshooting #41). Never render this as "synced".
+   */
+  lastContactAt?: string | null;
 }

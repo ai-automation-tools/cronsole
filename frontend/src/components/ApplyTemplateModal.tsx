@@ -177,7 +177,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
             <h2 id="apply-template-title" className="text-xl font-bold">{template.name}</h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">{template.description}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
+          <button onClick={onClose} aria-label="Close apply template" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
             <XCircle size={20} />
           </button>
         </header>

@@ -53,6 +53,12 @@ Using the Cronsole REST API, GET /api/tasks/folders and list only the folders I
 can create a task in.
 ```
 
+```text
+Using the Cronsole REST API, GET /api/tools/platforms and tell me which
+capabilities are verified on this machine versus only declared. Treat
+"declared" as untested, not as supported.
+```
+
 ## ➕ Create & apply
 
 ```text

@@ -21,6 +21,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 42 | The header reads *"Synced 7m ago"* over tasks that plainly are not — every card says `Last updated` yesterday. `/api/tools/platforms` and `/api/tasks/health` return **different** `lastSync` values for the same platform | `getHealth` returned the agent's **last inbound event of any kind** (`lastResponseAt`, hooked via `socket.onAny`) under the name `lastSync` — the 7-minute stamp was a *folder listing*. This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one level down and it **survived #40's fix**: a real timestamp of the wrong event passes every honesty check an invented one fails. Fixed by deleting `ConnectorHealth.lastSync` entirely — the connector reports `lastContactAt`, and `lastSync` has exactly one writer | [→](#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday) |
+| 43 | A Playwright screenshot baseline fails on **1 pixel** with nothing changed — or the whole page shifted ~22px between two identical runs | Three things, none of them flake: `maxDiffPixels` defaults to **0** and GPU antialiasing is not deterministic; **masking hides colour, not geometry**, so a masked live-data element still rewraps the row beside it; and a `flex-wrap` status line changes its own **height** when a segment appears — which is a real layout shift on a poll, not a test problem | [→](#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself) |
 | 40 | The sidebar says Windows is **Online** and *"synced just now"*, while `/api/tasks/folders` 502s, `/discover` omits the Windows platform entirely, and the backend log reads `Agent sync timeout` | The agent is **wedged**: connected but not answering. `getHealth` asserted `HEALTHY` from a socket object existing (Socket.IO's heartbeat is answered by the transport, not by the agent's command loop) and stamped `lastSync: new Date()` — a timestamp created by the act of asking, so it could never be stale and never be true. Fixed to report from real evidence; recover a wedged agent with `pwsh scripts/cronsole.ps1 restart`, then confirm `/api/tasks/health`. The **inverse** lie is [#5](#5-windows-offline-after-running-a-transient-test-agent)/[#37](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) | [→](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) |
 | 41 | A browser verification hangs 45s with `Runtime.evaluate timed out` / `Script injection timed out`, but the page is alive afterwards and the action completed | The tab is **hidden**: `requestAnimationFrame` fires **0 times**, so any probe awaiting a frame waits forever, and timers are throttled (`setTimeout(50)` → 620ms; intensive throttling clamps to ~1/min). Not an app problem. Tell: `setTimeout` fires while `rAF` never does. Measure synchronously (`performance.now()` + forced reflow) or with a `MutationObserver` | [→](#41-a-browser-verification-freezes-for-45s--the-tab-is-hidden-and-requestanimationframe-never-fires) |
 | 36 | **Every** Playwright E2E spec fails on a dashboard heading that plainly exists, against a stack that is healthy — `4 failed, 5 did not run` | `VITE_DEV_TOKEN` in `frontend/.env.local` is **empty**, signed with a rotated `JWT_SECRET`, or names a `User.id` that doesn't exist — so the browser sits on the login screen. The suite has no login step by design. **The tell is the page snapshot in `test-results/*/error-context.md` showing a Sign in form.** E2E is the one suite not in CI, so this disables the whole full-stack gate while everything else stays green | [→](#36-every-playwright-e2e-test-fails-on-a-heading-that-exists--the-browser-is-sitting-on-the-login-screen) |
@@ -2667,6 +2669,108 @@ teaches about status: **when your instrument shares a failure mode with the thin
 measuring, it cannot be your witness.**
 
 *First hit: 2026-08-12, verifying the dashboard filter work in the browser.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 42. The dashboard says "Synced 7m ago" over a task list from yesterday
+
+**Symptom.** The header chip reads *"Synced 7m ago"*. The tasks under it are stale — every card
+says `Last updated: 3:31:23 PM` and it is now 11:02 the next morning. Nothing looks broken, which
+is the problem: there is no error, no warning, and the one number that would tell you the list is
+19 hours old is telling you it is 7 minutes old.
+
+The two routes disagree if you ask them directly:
+
+```
+GET /api/tools/platforms  → "lastSync":"2026-08-11T22:31:23.695Z"   # 19h ago — the truth
+GET /api/tasks/health     → "lastSync":"2026-08-12T17:53:53.228Z"   # 7m ago  — what the UI showed
+```
+
+**Cause.** `WindowsAgentConnector.getHealth` returned the agent's **last inbound event of any
+kind** under the name `lastSync`:
+
+```ts
+// before
+const liveness = agentManager.getLiveness(userId);
+const lastSync = liveness?.lastResponseAt;   // ← any inbound event: a folder listing, a run ack
+...
+return { state: HealthState.HEALTHY, lastSync };
+```
+
+`lastResponseAt` is hooked via `socket.onAny`, so *anything* the agent says refreshes it. The
+7-minute timestamp was a **folder listing** — `GET /api/tasks/folders`, which pulls the Task
+Scheduler folder tree and touches no task. `GET /api/tasks/health` then preferred it over the
+stored column with `health.lastSync ?? conn.lastSync`, and the UI renders `lastSync` as
+*"Synced N ago"*.
+
+**This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+one level down, and it survived the fix for #40.** That fix stopped `getHealth` inventing a
+timestamp with `new Date()`. What replaced it was a **real timestamp of the wrong event** — which
+is strictly harder to spot, because every honesty check the fix installed passes: the value is
+first-hand, it is absent when there is no evidence, and it goes stale when the agent goes quiet.
+It is simply not a sync. The comment three lines above the bug already said **"Connected is not
+synced."**
+
+**Fix.** Delete the field a mistake is the only way to fill. `ConnectorHealth.lastSync` is gone;
+what the connector reports is `lastContactAt`, named for what it holds. `lastSync` now comes from
+exactly one place — the `PlatformConnection.lastSync` column that `POST /api/tasks/sync` writes —
+and no connector can override it, because there is no longer a field to override it with. Both
+values are surfaced, separately: the dashboard's health strip reads
+*"Synced 19h ago · agent replied 2m ago"*, which is the fact that was hidden while one was
+reported as the other.
+
+**The tell, for next time.** A status field whose value is *plausible* is not the same as one
+that is *earned*. Ask what event writes it, and whether that event is the one the label names —
+"the agent said something" and "we pulled the task list" are different facts, and only one of them
+is what a reader does anything with.
+
+*First hit: 2026-08-12, while building the dashboard health strip — the strip put `lastSync` and
+the last command outcome side by side, and the two disagreed on screen.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 43. A visual-regression baseline fails on one pixel, or on a layout that moved by itself
+
+**Symptom.** A newly written Playwright screenshot test passes when it writes its baseline and
+fails on the very next run, with nothing changed:
+
+```
+1 pixels (ratio 0.01 of all image pixels) are different.
+```
+
+Or, worse, the whole page has shifted down ~22px and the diff is a wall of red — again with no
+code change between runs.
+
+**Cause.** Three separate things, all of which look like flakiness and none of which is:
+
+1. **`maxDiffPixels` defaults to 0.** GPU text antialiasing is not deterministic, so a single
+   pixel differs run to run. Any tolerance at all fixes it — but pick one that cannot hide a real
+   regression. The smallest regression this suite exists to catch is a one-pixel spacing change,
+   which shifts a whole row of glyphs and differs in the *hundreds* of pixels. 40 sits far above
+   the noise and far below a single character.
+2. **Masking hides colour, not geometry.** `toHaveScreenshot({ mask })` paints over a region
+   *after* layout. An element whose text length varies still changes its own width, and a
+   `justify-between` row will rewrap around it — so the masked element is stable and everything
+   beside it is not. Masking a live-data region does not make the page around it deterministic.
+3. **A wrapping status line changes its own height.** The health strip was `flex-wrap`, so when a
+   segment appeared (*"agent replied 2m ago"*) it went from one row to two and pushed the entire
+   dashboard down. That is a **real defect, not a test problem**: it is a layout shift on a
+   45-second poll, under the reader's cursor, with no interaction to explain it.
+
+**Fix.** Set a small `maxDiffPixels` in `playwright.config.ts` and justify the number. Give any
+live-data element a geometry that its content cannot change — the strip is now one line that
+scrolls rather than wraps. And **do not pixel-baseline a surface that is mostly live evidence**:
+the Platforms matrix and the Import modal are asserted structurally instead, because masking them
+would leave a baseline of an empty frame that still breaks whenever a row's height moves.
+
+**The rule.** Screenshot the chrome, assert the content. If deciding what to mask is getting hard,
+that is the surface telling you it wants a structural test.
+
+*First hit: 2026-08-12, adding screenshot regression coverage for the dense surfaces.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

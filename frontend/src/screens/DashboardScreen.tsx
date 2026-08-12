@@ -24,6 +24,7 @@ import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
+import { HealthStrip } from '../components/HealthStrip';
 import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
@@ -48,10 +49,9 @@ import {
   type SavedView
 } from '../utils/savedViews';
 import { useSettings, type Settings } from '../hooks/useSettings';
-import { useConnections } from '../hooks/useConnections';
 import { useTaskHealthTiers } from '../hooks/useTaskHealthTiers';
 import { useMinuteClock } from '../hooks/useMinuteClock';
-import { formatDateTime, formatTime, timeAgo } from '../utils/datetime';
+import { formatDateTime, formatTime } from '../utils/datetime';
 import { useSearchParams } from 'react-router';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
@@ -94,15 +94,10 @@ export const DashboardScreen = ({
   onNewTask: () => void;
   settings: Settings;
 }) => {
-  const { data: connections } = useConnections();
-  // "Last synced" = the most recent per-connection sync timestamp.
-  const lastSync = useMemo(() => {
-    const stamps = (connections ?? [])
-      .map(c => c.lastSync)
-      .filter((s): s is string => !!s)
-      .sort();
-    return stamps.length ? stamps[stamps.length - 1] : null;
-  }, [connections]);
+  // Connection health and the "synced N ago" reading both live in HealthStrip
+  // now — the strip is the one surface that reports them, so this screen no
+  // longer derives a second copy of the timestamp.
+  //
   // The system/personal split is a persisted preference rather than local state:
   // it is a standing answer to "whose machine is this dashboard about", not a
   // per-visit choice, and re-hiding 257 rows on every page load is the thing this
@@ -408,23 +403,26 @@ export const DashboardScreen = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold mb-1">Unified Task Dashboard</h2>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground" data-testid="task-count-line">
             Manage {tasks?.length || 0} tasks across your ecosystem.
-            {lastSync && (
-              <span className="ml-2 inline-flex items-center gap-1 text-xs text-subtle-foreground">
-                <RefreshCw size={11} /> synced {timeAgo(lastSync)}
-              </span>
-            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
+          {/*
+            Label drops below `sm`. Five labelled buttons wrapped to three rows at
+            375px, pushing the first task below the fold — the exact cost this
+            pass is spending. The name survives as `aria-label`/`title`, so the
+            control is still named to a screen reader and on hover.
+          */}
           <button
             onClick={onShowHelp}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-surface border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all flex items-center gap-2 active:scale-95 shadow-md font-bold"
+            aria-label="Help Center"
+            title="Help Center"
+            className="px-3 sm:px-4 py-2 rounded-lg text-sm bg-surface border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all flex items-center gap-2 active:scale-95 shadow-md font-bold"
           >
-            <HelpCircle size={16} /> Help Center
+            <HelpCircle size={16} /> <span className="hidden sm:inline">Help Center</span>
           </button>
 
           {/*
@@ -456,9 +454,11 @@ export const DashboardScreen = ({
             </button>
           )}
 
+          {/* Below `sm` this is the floating action button at the end of the
+              screen instead — see the FAB near the bottom of this component. */}
           <button
             onClick={onNewTask}
-            className="bg-native hover:bg-native/85 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-native/20 active:scale-95"
+            className="hidden sm:flex bg-native hover:bg-native/85 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all items-center gap-2 shadow-lg shadow-native/20 active:scale-95"
             title="Create a task that runs on Cronsole itself — no Windows entry"
           >
             <Zap size={16} /> New Task
@@ -466,10 +466,11 @@ export const DashboardScreen = ({
 
           <button
             onClick={onImport}
-            className="px-4 py-2 rounded-lg text-sm font-bold bg-surface border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all flex items-center gap-2 active:scale-95 shadow-md"
+            aria-label="Import tasks"
+            className="px-3 sm:px-4 py-2 rounded-lg text-sm font-bold bg-surface border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all flex items-center gap-2 active:scale-95 shadow-md"
             title="Discover and import tasks from your connected platforms"
           >
-            <Download size={16} /> Import
+            <Download size={16} /> <span className="hidden sm:inline">Import</span>
           </button>
 
           <button
@@ -482,6 +483,23 @@ export const DashboardScreen = ({
           </button>
         </div>
       </div>
+
+      {/*
+        Its own full-width row, not tucked under the title.
+
+        The "synced N ago" chip used to sit in the subtitle line; it moved here
+        rather than being duplicated, because two places printing the same
+        timestamp is two places that can disagree — and this one also says
+        whether the platform is reachable, which is the half that made the old
+        chip misleading alone.
+
+        The full-width row is not cosmetic. Inside the header's left column its
+        width grew and shrank with its own text ("agent replied 2m ago" →
+        "14m ago"), and a `justify-between` row turned that into the action
+        buttons rewrapping from one line to two. A status readout must not be
+        able to move the primary actions.
+      */}
+      <HealthStrip />
 
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
@@ -531,8 +549,25 @@ export const DashboardScreen = ({
               specific consequence here was that the controls and the results
               they describe ran together — a border alone was doing all the work
               of separating a *zone* from a *list*. */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-raised border border-border rounded-2xl px-3 py-2.5">
-            <div className="flex flex-wrap items-center gap-2">
+          {/*
+            Sticky below `sm`, static above it. On a phone the filter zone is the
+            only way back out of a filtered list, and scrolling 269 cards put it
+            off-screen within one flick — so the control that got you here has to
+            stay reachable. `-mx-4 px-4` bleeds it to the screen edge so nothing
+            slides through the gap `main`'s padding leaves at the sides, and the
+            rounded panel comes back at `sm` where it is not pinned to anything.
+          */}
+          {/*
+            One horizontally-scrolling row below `sm`, two aligned groups above.
+
+            Stacking search+filters over the view-mode toggle made this ~90px
+            tall — 11% of a 812px phone screen, held permanently by the sticky
+            positioning. One scrolling row is the same idiom the saved-views bar
+            uses at this width, and it keeps all four view modes rather than
+            dropping the ones that are awkward to reach.
+          */}
+          <div className="sticky sm:static top-0 z-20 -mx-4 sm:mx-0 px-4 sm:px-3 py-2.5 bg-raised/95 sm:bg-raised backdrop-blur sm:backdrop-blur-none border-b sm:border border-border sm:rounded-2xl flex items-center justify-between gap-3 sm:gap-4 overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-2 shrink-0 sm:flex-wrap">
               <div className="relative">
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground pointer-events-none" />
                 <input
@@ -578,7 +613,7 @@ export const DashboardScreen = ({
               />
             </div>
             
-            <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
 
             {/* View Mode Toggle */}
             <div className="flex bg-surface border border-border p-1 rounded-xl items-center shadow-md shrink-0">
@@ -634,7 +669,7 @@ export const DashboardScreen = ({
             click away instead of leaving you to discover the view bar.
           */}
           {defaultedToFavorites && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs bg-warning/10 border border-warning/30 text-warning-text/90 rounded-xl px-4 py-2.5">
+            <div data-testid="default-view-banner" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs bg-warning/10 border border-warning/30 text-warning-text/90 rounded-xl px-4 py-2.5">
               <Star size={13} className="text-warning-text fill-current shrink-0" />
               <span>
                 Showing your {favoriteCount} starred {favoriteCount === 1 ? 'task' : 'tasks'} — Cronsole opens
@@ -970,6 +1005,24 @@ export const DashboardScreen = ({
           )}
         </>
       )}
+
+      {/*
+        New Task as a floating action button below `sm`.
+
+        It is the one creative action on this screen, and in the header it was a
+        ~120px button competing for a 375px row with four others. As a FAB it
+        costs no header width and lands under the thumb — but it is the SAME
+        control, not a second one: the header button is simply hidden at this
+        width, so there is still exactly one way to create a task.
+      */}
+      <button
+        onClick={onNewTask}
+        aria-label="New task"
+        title="Create a task that runs on Cronsole itself — no Windows entry"
+        className="sm:hidden fixed bottom-5 right-5 z-30 h-14 w-14 rounded-full bg-native text-white shadow-2xl shadow-native/40 flex items-center justify-center active:scale-95 transition-transform"
+      >
+        <Zap size={22} />
+      </button>
     </div>
   );
 };

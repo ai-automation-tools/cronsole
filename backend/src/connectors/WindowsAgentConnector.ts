@@ -380,10 +380,17 @@ export class WindowsAgentConnector implements PlatformConnector {
    *  - otherwise                    → HEALTHY, justified by the authenticated
    *    handshake or a real response.
    *
-   * `lastSync` is only ever a real inbound-event time. When the agent has
-   * connected but not yet answered anything it is **absent**, not now — the
-   * dashboard then shows no "synced" chip rather than a fabricated one.
-   * Connected is not synced.
+   * What it reports is `lastContactAt` — the real time of the agent's last
+   * inbound event, absent when it has connected but answered nothing.
+   *
+   * It is deliberately **not** `lastSync`, which is what this returned until
+   * 2026-08-12. Both are real timestamps, which is what made the second bug
+   * survive the fix for the first: `lastResponseAt` is any inbound event at all,
+   * and the dashboard renders `lastSync` as "Synced N ago". A folder listing
+   * therefore reported a task list as seven minutes old when the last real sync
+   * was nineteen hours earlier (troubleshooting #41). **Connected is not
+   * synced** — the sentence was already written here, three lines above the code
+   * that broke it.
    */
   async getHealth(config: any): Promise<ConnectorHealth> {
     const userId = config.userId;
@@ -394,18 +401,18 @@ export class WindowsAgentConnector implements PlatformConnector {
     }
 
     const liveness = agentManager.getLiveness(userId);
-    const lastSync = liveness?.lastResponseAt;
+    const lastContactAt = liveness?.lastResponseAt;
     const failedAt = liveness?.lastFailureAt;
 
-    if (failedAt && (!lastSync || failedAt > lastSync)) {
+    if (failedAt && (!lastContactAt || failedAt > lastContactAt)) {
       return {
         state: HealthState.DEGRADED,
         reason: `Agent connected but not responding (${liveness?.lastFailureVerb ?? 'last request'} timed out)`,
-        lastSync
+        lastContactAt
       };
     }
 
-    return { state: HealthState.HEALTHY, lastSync };
+    return { state: HealthState.HEALTHY, lastContactAt };
   }
 
   async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated: string[] }> {

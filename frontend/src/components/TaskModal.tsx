@@ -409,7 +409,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
             </div>
             <code className="text-xs text-subtle-foreground bg-background px-2 py-1 rounded">{task.externalId}</code>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
+          <button onClick={onClose} aria-label="Close task details" title="Close" className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
             <XCircle size={24} />
           </button>
         </header>

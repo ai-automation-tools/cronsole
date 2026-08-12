@@ -70,6 +70,7 @@ import {
   type BulkCategoryTask
 } from '../services/bulkCategory.js';
 import { planBulkUntrack, summarizeBulkUntrack } from '../services/bulkUntrack.js';
+import { buildPlatformMatrix, recordCapability } from '../services/platformCapabilities.js';
 import { TaskService } from '../services/TaskService.js';
 import {
   buildDownload,
@@ -445,10 +446,22 @@ router.post('/restore/tasks', validateBody(restoreTasksSchema), async (req: Requ
       }, config)
   );
 
+  const counts = summarizeRestore(results);
+  // Evidence only from a restore that actually registered something. A run whose
+  // every file came back `exists` or `refused` proves the *plan* works, not the
+  // write — counting it would let the matrix say "verified" about a verb never
+  // exercised. And no failure is recorded from here: `refused` folds a platform
+  // error together with Cronsole declining on policy (an existing task without
+  // `overwrite`), and the second is the feature working. A verb that cannot tell
+  // its own failure from its own correctness must not report either.
+  if (counts.created + counts.replaced > 0) {
+    await recordCapability(userId, platform, 'restore', true);
+  }
+
   res.json({
     dryRun: false,
     plan: { counts: plan.counts, foldersToCreate: plan.foldersToCreate },
-    counts: summarizeRestore(results),
+    counts,
     results
   });
 });
@@ -499,6 +512,26 @@ const historyQuerySchema = z.object({
   taskId: z.string().optional(),
   limit: z.coerce.number().int().positive().max(MAX_HISTORY_ROWS).optional(),
   format: z.enum(['json', 'csv']).default('json')
+});
+
+/**
+ * The platform capability matrix — what Cronsole can actually do with each
+ * connected platform, and how it knows.
+ *
+ * Read-only and asks no platform anything: opening the Platforms tab must not be
+ * able to change what the tab reports. That also means the row's `lastSync` is
+ * whatever really happened (or absent), never a timestamp this handler invented
+ * — the mistake `getHealth` made (troubleshooting #40).
+ *
+ * Every cell carries its own evidence, so the UI never has to render a bare
+ * claim: `verified` comes with the timestamp that earned it, `declared` says the
+ * verb is reachable but unproven here, `unsupported` means the route would
+ * refuse. See `services/platformCapabilities.ts` for why this cannot be derived
+ * from the connector object alone.
+ */
+router.get('/platforms', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  res.json({ platforms: await buildPlatformMatrix(userId) });
 });
 
 /**

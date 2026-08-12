@@ -1457,6 +1457,62 @@ Next run: ${task.nextRunTime}` : '')
   );
 
   server.registerTool(
+    'edit_claude_routine',
+    {
+      title: 'Correct a connected routine\'s id or name, keeping its token',
+      description:
+        'Fix a mistyped routine id, or rename one, WITHOUT re-entering the token. ' +
+        'Use this instead of disconnect-then-connect: disconnecting discards the stored token, and claude.ai ' +
+        'shows a token once — so recovering means generating a new one there, which also revokes the old one ' +
+        'anywhere else it is used. A typo should not cost a credential. ' +
+        'The tracked task follows the id, so its run history, star and category survive; without that the old ' +
+        'row would go MISSING at the next sync and a fresh one would appear in its place. ' +
+        'To rotate a token (rather than fix an id), use connect_claude_routine with the same id — re-connecting ' +
+        'replaces the stored token.',
+      inputSchema: {
+        routineId: z.string().min(1).describe('The routine as currently stored (from list_claude_routines).'),
+        newId: z
+          .string()
+          .optional()
+          .describe('Corrected trig_… id, or the whole fire URL (the id is extracted). Omit to only rename.'),
+        name: z.string().optional().describe('New display name. Omit to only change the id.')
+      }
+    },
+    async ({ routineId, newId, name }) => {
+      try {
+        if (newId === undefined && name === undefined) {
+          return toolError(
+            new Error('Nothing to change — pass newId, name, or both.')
+          );
+        }
+        const result = await client.patch<{
+          routine: ClaudeRoutineRow;
+          idChanged: boolean;
+          previousId: string;
+          tasksRepointed: number;
+          warnings?: string[];
+        }>(`/tools/platforms/claude/routines/${encodeURIComponent(routineId)}`, {
+          ...(newId !== undefined ? { id: newId } : {}),
+          ...(name !== undefined ? { name } : {})
+        });
+
+        const moved = result.idChanged
+          ? ` Id changed from ${result.previousId}; ${result.tasksRepointed} task(s) moved with it.`
+          : '';
+        const warnings = result.warnings ?? [];
+        const warnText = warnings.length ? `\nWARNING: ${warnings.join(' ')}` : '';
+        return ok(
+          `Updated routine "${result.routine.name || result.routine.id}" (${result.routine.id}). ` +
+            `The stored token was kept.${moved}${warnText}`,
+          result
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  server.registerTool(
     'disconnect_claude_routine',
     {
       title: 'Forget a Claude routine (it keeps running at claude.ai)',

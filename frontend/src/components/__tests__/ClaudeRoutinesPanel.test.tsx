@@ -3,11 +3,13 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 const addMutate = vi.fn();
 const removeMutate = vi.fn();
+const editMutate = vi.fn();
 let routines: any[] = [];
 
 vi.mock('../../hooks/useClaudeRoutines', () => ({
   useClaudeRoutines: () => ({ data: routines, isLoading: false }),
   useAddClaudeRoutine: () => ({ mutateAsync: addMutate, isPending: false }),
+  useEditClaudeRoutine: () => ({ mutateAsync: editMutate, isPending: false }),
   useRemoveClaudeRoutine: () => ({ mutateAsync: removeMutate, isPending: false })
 }));
 
@@ -23,6 +25,65 @@ beforeEach(() => {
   routines = [];
   addMutate.mockReset().mockResolvedValue({ routine: { id: 'trig_1', hasToken: true, taskCount: 0 }, replaced: false, warnings: [] });
   removeMutate.mockReset().mockResolvedValue({ removed: 'trig_1', orphanedTasks: 0 });
+  editMutate.mockReset().mockResolvedValue({
+    routine: { id: 'trig_1', hasToken: true, taskCount: 0 },
+    idChanged: true, previousId: 'old', tasksRepointed: 1, warnings: []
+  });
+});
+
+describe('correcting a routine costs no token', () => {
+  // The real case: a routine connected with its NAME pasted into the id field.
+  const bad = [{ id: 'Refresh sidebar links', name: 'Refresh sidebar links', hasToken: true, taskCount: 1 }];
+
+  it('offers an edit next to remove', () => {
+    routines = bad;
+    render(<ClaudeRoutinesPanel />);
+    expect(screen.getByRole('button', { name: /Edit Refresh sidebar links/i })).toBeInTheDocument();
+  });
+
+  it('never asks for the token again', () => {
+    // The absence IS the feature: disconnect-and-reconnect discards the stored
+    // credential, and claude.ai shows a token once — so fixing a typo the cheap
+    // way would force the expensive recovery.
+    routines = bad;
+    render(<ClaudeRoutinesPanel />);
+    fireEvent.click(screen.getByRole('button', { name: /Edit Refresh sidebar links/i }));
+
+    expect(screen.getByText(/The stored token is kept/i)).toBeInTheDocument();
+    // The add form's token field must not be on screen while editing.
+    expect(screen.queryByLabelText('API token')).not.toBeInTheDocument();
+  });
+
+  it('sends only what changed, and says the task moves with the id', async () => {
+    routines = bad;
+    render(<ClaudeRoutinesPanel />);
+    fireEvent.click(screen.getByRole('button', { name: /Edit Refresh sidebar links/i }));
+
+    expect(screen.getByText(/1 tracked task will move with the id/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Routine id or fire URL'), {
+      target: { value: 'trig_01PDsoqCPPUpFUzJryoeTY6J' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+    await waitFor(() =>
+      expect(editMutate).toHaveBeenCalledWith({
+        routineId: 'Refresh sidebar links',
+        id: 'trig_01PDsoqCPPUpFUzJryoeTY6J'
+      })
+    );
+    // The name was untouched, so it must not be sent as a change.
+    expect(editMutate.mock.calls[0][0]).not.toHaveProperty('name');
+  });
+
+  it('does not call the API when nothing was changed', async () => {
+    routines = bad;
+    render(<ClaudeRoutinesPanel />);
+    fireEvent.click(screen.getByRole('button', { name: /Edit Refresh sidebar links/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+    await waitFor(() => expect(screen.queryByText(/The stored token is kept/i)).not.toBeInTheDocument());
+    expect(editMutate).not.toHaveBeenCalled();
+  });
 });
 
 afterEach(() => vi.restoreAllMocks());

@@ -24,7 +24,8 @@ import {
   normalizeRoutineId,
   looksLikeRoutineId,
   looksLikeRoutineToken,
-  routineInputSchema
+  routineInputSchema,
+  routineEditSchema
 } from '../services/claudeRoutines.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
@@ -733,6 +734,102 @@ router.post(
  * had would be the invisible-fence lie in reverse — a user believing they had
  * turned something off while it kept firing nightly.
  */
+/**
+ * Correct a connected routine's id or name, **keeping the stored token**.
+ *
+ * Without this, fixing a mistyped id costs a token: disconnect discards it, and
+ * claude.ai shows a token once, so the only way back is to generate a new one —
+ * which also revokes the old one anywhere else it is used. That is a real
+ * penalty for a typo, and it is exactly the mistake the connect route already
+ * expects (it warns when an id does not look like a `trig_…` value and saves it
+ * anyway, because the format is not promised).
+ *
+ * **The tracked task moves with the id.** A Claude task's `externalId` *is* the
+ * routine id, so re-pointing the config alone would strand the row: the old task
+ * would go MISSING at the next sync and a fresh one would appear, losing its run
+ * history, its star, and its category. Renaming the row in the same transaction
+ * keeps the identity the user already has.
+ */
+router.patch(
+  '/platforms/claude/routines/:id',
+  validateBody(routineEditSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const currentId = String(req.params.id);
+    const { id: rawNewId, name } = req.body as { id?: string; name?: string };
+
+    const { connection, routines } = await loadClaudeRoutines(userId);
+    const existing = routines.find(r => r.id === currentId);
+    if (!existing) {
+      throw new HttpError(404, `No routine ${currentId} is configured.`);
+    }
+
+    let nextId = currentId;
+    if (rawNewId !== undefined) {
+      const normalized = normalizeRoutineId(rawNewId);
+      if (!normalized) {
+        throw new HttpError(
+          400,
+          'Could not read a routine id from that. Paste either the trig_… id or the whole fire URL ' +
+            'shown in the routine\'s API trigger dialog.'
+        );
+      }
+      if (normalized !== currentId && routines.some(r => r.id === normalized)) {
+        throw new HttpError(409, `A different routine is already connected as ${normalized}.`);
+      }
+      nextId = normalized;
+    }
+
+    const updated = {
+      ...existing,
+      id: nextId,
+      ...(name !== undefined ? { name } : {})
+    };
+    const nextRoutines = routines.map(r => (r.id === currentId ? updated : r));
+
+    // The task follows the id, in the same transaction as the config write would
+    // ideally be — the config lives in an encrypted column on another row, so
+    // they cannot share one, but the task move is atomic and idempotent.
+    let taskMoved = 0;
+    if (nextId !== currentId) {
+      // A row may already exist under the new id (e.g. a previous partial fix).
+      // Re-pointing onto it would violate the (platform, externalId) unique
+      // constraint, so leave the stale row to the normal MISSING path instead of
+      // failing the whole correction.
+      const collision = await prisma.task.findFirst({
+        where: { userId, platform: PlatformType.CLAUDE_CODE, externalId: nextId }
+      });
+      if (!collision) {
+        const moved = await prisma.task.updateMany({
+          where: { userId, platform: PlatformType.CLAUDE_CODE, externalId: currentId },
+          data: { externalId: nextId, ...(name !== undefined ? { name } : {}) }
+        });
+        taskMoved = moved.count;
+      }
+    } else if (name !== undefined) {
+      const renamed = await prisma.task.updateMany({
+        where: { userId, platform: PlatformType.CLAUDE_CODE, externalId: currentId },
+        data: { name }
+      });
+      taskMoved = renamed.count;
+    }
+
+    await saveClaudeRoutines(userId, connection?.id, nextRoutines);
+
+    return res.json({
+      routine: { id: updated.id, ...(updated.name ? { name: updated.name } : {}), hasToken: true },
+      idChanged: nextId !== currentId,
+      previousId: currentId,
+      tasksRepointed: taskMoved,
+      // Advisory, same rule as connect: the API is experimental, so shape is a
+      // hint and never a refusal.
+      warnings: looksLikeRoutineId(nextId)
+        ? []
+        : [`"${nextId}" does not look like a routine id — claude.ai issues trig_… values.`]
+    });
+  }
+);
+
 router.delete('/platforms/claude/routines/:id', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
   const id = String(req.params.id);

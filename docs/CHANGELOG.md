@@ -13,6 +13,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Fix a connected Claude routine's id or name without re-entering its token** (2026-08-12): a pencil on the Platforms routines panel, `PATCH /api/tools/platforms/claude/routines/:id`, and the `edit_claude_routine` MCP tool.
+
+  Pasting a routine's **name** into the id field is the easy mistake — the connect form warns about it and saves anyway, because the id format is experimental and not promised. Until now the only fix was disconnect-and-reconnect, which **discards the stored token**; claude.ai shows a token once, so a typo cost a regeneration at Anthropic — which also revokes that token anywhere else it was used. A typo should not cost a credential.
+
+  **The tracked task moves with the id.** A Claude task's `externalId` *is* the routine id, so re-pointing the config alone would strand the row: the old task would go MISSING at the next sync and a fresh one appear, losing its run history, star and category. The edit renames the row in the same operation and reports how many moved.
+
+  There is deliberately **no token field on the edit form** — its absence is the feature. To rotate a token, add the routine again with the same id; re-connecting replaces it.
+
 - **The MCP server grew from 16 tools to 22, and finally reaches `/api/tools`** (2026-08-12): every tool it had wrapped `/api/tasks` or `/api/templates`, so the entire cross-task surface — where most recent work landed — was invisible to an agent. Added:
 
   | Tool | What it answers |
@@ -125,6 +133,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - **The Claude platform reported itself Online without ever having contacted Anthropic** (2026-08-12): `getHealth` returned `HEALTHY` whenever the config held a routine — a verdict derived from a **precondition**, which is troubleshooting [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)'s exact shape, one connector over. Health now comes from whether a run actually succeeded, read back from the evidence the run route already records.
 
   **It deliberately does not probe**, and that is the interesting part: the only endpoint Claude exposes has a side effect, so *"check whether this works"* and *"run the user's routine"* are the same HTTP request. A probing health check would have fired someone's nightly job on every poll and burned their daily run cap. Where there is no read-only probe, the honest health signal is the record of real runs — there is nothing else it can be. See [troubleshooting #45](troubleshooting/README.md#45-cronsole-cant-list-pause-or-create-claude-code-routines).
+
+- **A failed run reported HTTP 500, blaming Cronsole for the platform's answer** (2026-08-12): `POST /api/tasks/:id/run` returned `500` for every failure, so a paused Claude routine, an offline agent and an ACL denial all read as *"the server broke"* — sending you to debug the wrong side. Now `502`, matching what the enable/disable route already returned for a platform refusal. A live paused routine now answers `502 — Refused (400): Routine is paused.`
 
 - **A failed Claude run buried Anthropic's actual reason under a guess** (2026-08-12): the 400 handler always appended *"Most often the routine is paused"*, so a live run reported `Refused (400): invalid routine ID: Refresh sidebar links. Most often the routine is paused — resume it at claude.ai/code/routines.` The API had named the exact cause and the hint talked over it, sending you to unpause a routine that was fine. The hint now appears **only when Anthropic gave no reason** — it is for filling a silence, not for talking over one.
 

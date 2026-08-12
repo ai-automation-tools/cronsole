@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { AlertTriangle, ExternalLink, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Check, ExternalLink, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   useAddClaudeRoutine,
   useClaudeRoutines,
+  useEditClaudeRoutine,
   useRemoveClaudeRoutine,
   type ClaudeRoutine
 } from '../hooks/useClaudeRoutines';
@@ -34,6 +35,7 @@ import {
 export const ClaudeRoutinesPanel = () => {
   const { data: routines = [], isLoading } = useClaudeRoutines();
   const add = useAddClaudeRoutine();
+  const edit = useEditClaudeRoutine();
   const remove = useRemoveClaudeRoutine();
 
   const [open, setOpen] = useState(false);
@@ -42,6 +44,43 @@ export const ClaudeRoutinesPanel = () => {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  // The routine currently being corrected, or null. Separate from the add form:
+  // editing never asks for a token, which is the whole point of it existing.
+  const [editing, setEditing] = useState<ClaudeRoutine | null>(null);
+  const [editId, setEditId] = useState('');
+  const [editName, setEditName] = useState('');
+
+  const startEdit = (routine: ClaudeRoutine) => {
+    setEditing(routine);
+    setEditId(routine.id);
+    setEditName(routine.name ?? '');
+    setError(null);
+    setWarnings([]);
+    setOpen(false);
+  };
+
+  const submitEdit = async () => {
+    if (!editing) return;
+    setError(null);
+    setWarnings([]);
+    const nextId = editId.trim();
+    const nextName = editName.trim();
+    const changed = {
+      ...(nextId && nextId !== editing.id ? { id: nextId } : {}),
+      ...(nextName !== (editing.name ?? '') ? { name: nextName } : {})
+    };
+    if (!Object.keys(changed).length) {
+      setEditing(null);
+      return;
+    }
+    try {
+      const result = await edit.mutateAsync({ routineId: editing.id, ...changed });
+      setWarnings(result.warnings ?? []);
+      setEditing(null);
+    } catch (e: any) {
+      setError(e?.response?.data?.error ?? 'Could not update that routine.');
+    }
+  };
 
   const reset = () => {
     setId(''); setToken(''); setName(''); setError(null); setOpen(false);
@@ -134,6 +173,20 @@ export const ClaudeRoutinesPanel = () => {
                     {routine.taskCount} task{routine.taskCount === 1 ? '' : 's'}
                   </span>
                 )}
+                {/*
+                  Edit exists so a mistyped id does not cost a token. Removing
+                  and re-adding discards the stored credential, and claude.ai
+                  shows a token once — so the cheap fix would force the
+                  expensive recovery.
+                */}
+                <button
+                  onClick={() => startEdit(routine)}
+                  title={`Fix the id or rename ${routine.name || routine.id} (keeps the stored token)`}
+                  aria-label={`Edit ${routine.name || routine.id}`}
+                  className="p-1 rounded-lg text-subtle-foreground hover:text-foreground transition-colors"
+                >
+                  <Pencil size={13} />
+                </button>
                 <button
                   onClick={() => onRemove(routine)}
                   disabled={remove.isPending}
@@ -147,6 +200,59 @@ export const ClaudeRoutinesPanel = () => {
             </li>
           ))}
         </ul>
+      )}
+
+      {editing && (
+        <div className="bg-background border border-claude/40 rounded-xl p-3 space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-widest text-claude-text">
+            Fix “{editing.name || editing.id}”
+          </p>
+          <Field
+            label="Routine id or fire URL"
+            hint="The trig_… value. Pasting the routine's name here is the usual mistake — that is what this fixes."
+            value={editId}
+            onChange={setEditId}
+            placeholder="trig_01…"
+          />
+          <Field
+            label="Name"
+            hint="What it is called on the dashboard."
+            value={editName}
+            onChange={setEditName}
+            placeholder={editing.id}
+          />
+          {/*
+            No token field, and its absence is the feature: the stored token is
+            kept, so correcting a typo costs nothing. Rotating a token is the
+            Add form's job — re-adding the same id replaces it.
+          */}
+          <p className="text-[10px] text-subtle-foreground">
+            The stored token is kept.{' '}
+            {editing.taskCount > 0 && (
+              <>
+                {editing.taskCount} tracked task{editing.taskCount === 1 ? '' : 's'} will move with the id,
+                keeping run history and stars.{' '}
+              </>
+            )}
+            To replace the token instead, add the routine again with the same id.
+          </p>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              onClick={() => setEditing(null)}
+              className="px-3 py-1.5 text-[11px] font-bold text-muted-foreground hover:text-foreground"
+            >
+              <X size={12} className="inline mr-1" />Cancel
+            </button>
+            <button
+              onClick={submitEdit}
+              disabled={!editId.trim() || edit.isPending}
+              className="flex items-center gap-1.5 bg-claude hover:bg-claude/85 disabled:opacity-40 px-4 py-1.5 rounded-xl text-[11px] font-bold text-white transition-all active:scale-95"
+            >
+              {edit.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              Save
+            </button>
+          </div>
+        </div>
       )}
 
       {warnings.length > 0 && (

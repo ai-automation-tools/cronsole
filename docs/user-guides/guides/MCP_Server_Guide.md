@@ -53,6 +53,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`list_platforms`** | "What can Cronsole actually do with Windows?" — per platform, which actions work here, which are untested, and which are impossible | `GET /api/tools/platforms` |
 | **`list_claude_routines`** | "Which Claude routines can you run?" — only the ones connected to Cronsole; Claude Code has no list API | `GET /api/tools/platforms/claude/routines` |
 | **`connect_claude_routine`** | "Add my nightly PR review routine" — stores its id and token so you can trigger it. **Cannot create a routine** — make it at claude.ai first | `POST /api/tools/platforms/claude/routines` |
+| **`edit_claude_routine`** | "I pasted the wrong routine id" — fixes it **without asking for the token again** | `PATCH /api/tools/platforms/claude/routines/:id` |
 | **`disconnect_claude_routine`** | "Forget that routine" — removes it from Cronsole; **it keeps running at claude.ai** | `DELETE /api/tools/platforms/claude/routines/:id` |
 | **`sync_tasks`** | "Import my Backups folder", "refresh everything" — importing needs the category named; a bare refresh adds nothing new | `POST /api/tasks/sync` |
 | **`get_task_health`** | "What's broken?" — every task scored and ranked worst-first, with the evidence for each verdict | `GET /api/tools/task-health` |

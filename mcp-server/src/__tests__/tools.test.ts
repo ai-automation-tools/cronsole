@@ -129,6 +129,7 @@ describe('the tool surface', () => {
       'create_task',
       'create_task_from_template',
       'disconnect_claude_routine',
+      'edit_claude_routine',
       'export_task',
       'get_task_health',
       'get_task_history',
@@ -1563,6 +1564,7 @@ describe('error handling across the surface', () => {
       'GET /tools/platforms/claude/routines': boom,
       'POST /tools/platforms/claude/routines': boom,
       'DELETE /tools/platforms/claude/routines/x': boom,
+      'PATCH /tools/platforms/claude/routines/x': boom,
       'POST /tasks/sync': boom,
       'GET /tools/task-health': boom,
       'GET /tools/history': boom
@@ -1589,6 +1591,7 @@ describe('error handling across the surface', () => {
       ['list_claude_routines', {}],
       ['connect_claude_routine', { routineId: 'x', token: 't' }],
       ['disconnect_claude_routine', { routineId: 'x' }],
+      ['edit_claude_routine', { routineId: 'x', newId: 'trig_2' }],
       ['sync_tasks', {}],
       ['get_task_health', {}],
       ['list_run_history', {}]
@@ -1757,6 +1760,44 @@ describe('Claude routines', () => {
     });
     expect(text(r)).not.toMatch(/SECRET/);
     expect(JSON.stringify(r.structuredContent ?? {})).not.toMatch(/SECRET/);
+  });
+
+  it('fixes an id without asking for the token again', async () => {
+    // The point of the edit route: disconnect-then-connect discards the stored
+    // token, and claude.ai shows one once — so a typo would cost a credential.
+    // The stub key is percent-encoded because the id being corrected is very
+    // often a bad paste — the real case was the routine's NAME, spaces and all.
+    // An unencoded path would break on exactly the ids this route exists to fix.
+    const { client, calls } = stubClient({
+      'PATCH /tools/platforms/claude/routines/Refresh%20sidebar%20links': {
+        routine: { id: 'trig_01PD', name: 'Refresh sidebar links', hasToken: true },
+        idChanged: true,
+        previousId: 'Refresh sidebar links',
+        tasksRepointed: 1,
+        warnings: []
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'edit_claude_routine', {
+      routineId: 'Refresh sidebar links',
+      newId: 'trig_01PD'
+    });
+    expect(r.isError).toBeFalsy();
+    expect(calls[0].path).toBe('/tools/platforms/claude/routines/Refresh%20sidebar%20links');
+    // No token in the request — that is the invariant, not an omission.
+    expect(calls[0].body).toEqual({ id: 'trig_01PD' });
+    expect(text(r)).toMatch(/stored token was kept/);
+    expect(text(r)).toMatch(/1 task\(s\) moved with it/);
+  });
+
+  it('refuses an edit that changes nothing, rather than reporting success', async () => {
+    // A no-op PATCH is nearly always a caller bug (usually a field-name typo),
+    // and a 200 hides it until someone wonders why nothing happened.
+    const { client, calls } = stubClient({});
+    const mcp = await connect(client);
+    const r = await call(mcp, 'edit_claude_routine', { routineId: 'trig_1' });
+    expect(r.isError).toBe(true);
+    expect(calls).toHaveLength(0);
   });
 
   it('reports what disconnecting stranded, and that the routine survives', async () => {

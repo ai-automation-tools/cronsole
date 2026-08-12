@@ -141,6 +141,33 @@ Everything below the sources track, unchanged in priority relative to each other
       only because a declared routine gets a dashboard row, a working Run button and real run
       history, which is strictly more than the bookmark the quick-links-only platforms get.
 
+- [ ] **Most task attributes still cannot be edited** *(reported 2026-08-12)*: editing exists but is
+      patchy — **category** (inline), **schedule** (Windows + native) and **action/command**
+      (**Windows only**) are editable; **name**, the **native job spec** (URL/method/body, script,
+      working directory) and a task's **externalId** are not editable anywhere.
+
+      **Renaming is a design fork, not a missing form.** `TaskService.upsertTasks` does
+      `update: { name: t.name }` on every sync while deliberately *not* updating `category` — so a
+      Cronsole-side rename would silently revert on the next sync. Three options, and they are
+      genuinely different products: (a) stop overwriting `name`, making it a Cronsole label like
+      category — but then a real rename on the machine never propagates; (b) rename on the platform
+      too, which for Windows means a real agent-side move; (c) a separate `displayName` override
+      that survives sync, leaving `name` as the platform's truth. **(c) matches the existing
+      category doctrine** — *a category is a Cronsole label; the Task Scheduler folder is the
+      machine* — and is the recommended default, but it is the user's call.
+
+      **Editing the native job spec has no such fork** and is the clearest immediate win: the DB row
+      *is* the task, so there is nothing to diverge from. Today a native HTTP task's URL cannot be
+      changed at all.
+
+- [ ] **`NativeTaskExecutor` has one intermittently failing test** *(logged 2026-08-12)*:
+      `reports a non-zero exit as failure, and keeps stderr` failed roughly 1 run in 3 under full-suite
+      load and passes in isolation and across 6 consecutive clean runs. **Not the obvious cause** —
+      `executeJob` resolves on `'close'`, not `'exit'`, so stderr is flushed before it settles; the
+      code is right and this is a test-level timing issue, not truncated logs. Logged rather than
+      chased: a flaky test quietly erodes trust in the suite, so it should be pinned down, but it is
+      not evidence of a product defect.
+
 - [ ] **`HealthState` has no `UNKNOWN`, so "never checked" has to borrow a verdict**
       *(logged 2026-08-12, found while doing the above)*: the enum is `HEALTHY | DEGRADED |
       OFFLINE`. A configured-but-never-exercised platform is none of those, so the Claude connector

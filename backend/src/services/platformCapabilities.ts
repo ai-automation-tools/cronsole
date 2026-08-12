@@ -2,6 +2,7 @@ import { PlatformType } from '@prisma/client';
 import { prisma } from '../db.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import type { PlatformConnector } from '../connectors/platform.interface.js';
+import { executionHost, type ExecutionHost } from './runtimeContext.js';
 
 /**
  * What Cronsole can actually do with each platform, and how we know.
@@ -40,17 +41,11 @@ import type { PlatformConnector } from '../connectors/platform.interface.js';
  * `declared`, never `yes`.
  */
 
-export type CapabilityVerb =
-  | 'sync'
-  | 'run'
-  | 'create'
-  | 'setStatus'
-  | 'updateSchedule'
-  | 'updateAction'
-  | 'export'
-  | 'restore'
-  | 'delete'
-  | 'listFolders';
+// Defined alongside the connector interface so a connector can name the verbs it
+// cannot do without a service↔connector import cycle. Re-exported here because
+// this module is where the rest of the app reads capability types from.
+export type { CapabilityVerb } from '../connectors/platform.interface.js';
+import type { CapabilityVerb } from '../connectors/platform.interface.js';
 
 export type CapabilitySupport = 'verified' | 'declared' | 'unsupported';
 
@@ -115,7 +110,15 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
   [PlatformType.CLAUDE_CODE]: {
     platform: PlatformType.CLAUDE_CODE,
     label: 'Claude Code Routines',
-    summary: 'Connector scaffold. Not production-ready.',
+    // Run-only, and that is the platform's shape rather than ours: Anthropic
+    // exposes exactly one routines endpoint (`/fire`), whose token the reference
+    // describes as having "no read access". So routines are listed from what you
+    // declare here, not read from claude.ai — and the remaining verbs are
+    // `unsupported` rather than unfinished.
+    summary: 'Fire a routine from Cronsole. Routines are created and paused in claude.ai — it exposes no API for either.',
+    // Still experimental, but no longer because *our* connector is a scaffold:
+    // Anthropic ships /fire as a research preview behind a dated beta header and
+    // says request and response shapes may change.
     maturity: 'experimental'
   }
 };
@@ -141,6 +144,11 @@ const NATIVE_ROUTE_HANDLED: readonly CapabilityVerb[] = ['updateSchedule', 'expo
 export function verbReachability(platform: PlatformType, verb: CapabilityVerb): boolean {
   const connector = connectorRegistry.getConnector(platform);
   if (!connector) return false;
+
+  // A verb the platform structurally cannot do outranks every rule below,
+  // including the "required by the interface, therefore present" one — which is
+  // exactly the case it exists to correct. See `unsupportedVerbs`.
+  if (connector.unsupportedVerbs?.includes(verb)) return false;
 
   // Cronsole-native's route-level carve-outs. Checked before the connector
   // lookup below, which would otherwise report false for all three.
@@ -179,6 +187,24 @@ export function verbReachability(platform: PlatformType, verb: CapabilityVerb): 
 /** Exposed for the test that pins the table against the connector objects. */
 export function connectorFor(platform: PlatformType): PlatformConnector | undefined {
   return connectorRegistry.getConnector(platform);
+}
+
+/**
+ * Did the connector declare this verb structurally impossible?
+ *
+ * Used by the routes to pick the **status code**, not the message: a verb the
+ * platform cannot do is a `400` (the convention every optional verb already
+ * follows — "others get an honest 400 from the route"), where a verb that was
+ * attempted and refused is a `5xx`. Both used to be `5xx` for the four
+ * interface-mandated verbs, so asking to pause a Claude routine — which has no
+ * API and never will — returned *"502 Bad Gateway"*, i.e. **retry, the platform
+ * is having a moment**. It is not having a moment.
+ *
+ * The *reason* still comes from the connector, so there is one place that says
+ * why and one place that says how loudly.
+ */
+export function verbDeclaredUnsupported(platform: PlatformType, verb: CapabilityVerb): boolean {
+  return connectorRegistry.getConnector(platform)?.unsupportedVerbs?.includes(verb) ?? false;
 }
 
 /**
@@ -258,6 +284,20 @@ export interface PlatformMatrixRow {
   capabilities: CapabilityCell[];
   /** Newest `lastSuccessAt` across the row's verbs — "last verified". */
   lastVerifiedAt: Date | null;
+  /**
+   * **Where this platform's tasks actually execute** — Cronsole-native only.
+   *
+   * Native jobs run wherever this backend runs, which is the user's machine on a
+   * host-run stack and a container's filesystem in the Dockerized one. Same task,
+   * same UI, two different meanings, and the `EXEC` job type makes the difference
+   * matter: a path that exists in Explorer is simply absent inside a container.
+   * Reported here because the matrix is already the surface that answers "what
+   * does this source actually do on *this* install".
+   *
+   * Absent for every other platform: a Windows task runs on the machine its agent
+   * is on, which is not a fact about this process.
+   */
+  executionHost: ExecutionHost | null;
 }
 
 /**
@@ -312,7 +352,8 @@ export async function buildPlatformMatrix(userId: string): Promise<PlatformMatri
       lastSync: conn?.lastSync ?? null,
       taskCount: countByPlatform.get(platform) ?? 0,
       capabilities,
-      lastVerifiedAt
+      lastVerifiedAt,
+      executionHost: platform === PlatformType.TASKHUB_NATIVE ? executionHost : null
     };
   });
 }

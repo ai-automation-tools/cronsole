@@ -64,7 +64,7 @@ export const FAVORITES_VIEW: SavedView = {
 };
 
 /**
- * The five views the roadmap named, plus Favorites. Four of the five needed
+ * The five views the roadmap named, plus Favorites and All. Four of the five needed
  * filter dimensions that did not exist — only "My jobs" was expressible by the
  * old toggles.
  *
@@ -72,6 +72,22 @@ export const FAVORITES_VIEW: SavedView = {
  * any; the bar should not make you hunt for the list you are already looking at.
  */
 export const BUILTIN_VIEWS: SavedView[] = [
+  /**
+   * Everything, with no lens at all — including the ~257 tasks Windows owns.
+   *
+   * It exists because every other view *withholds* something, and until now
+   * there was no single click that meant "stop withholding". Reaching the full
+   * list took opening the Filters drawer and changing two separate lenses, which
+   * made the honest question ("what is actually on this machine?") the hardest
+   * one to ask.
+   *
+   * It leads the bar as the widest lens, not as a default: what a bare URL opens
+   * on is decided by `openingFilters`, never by position here. And its count is
+   * the reason it is safe to offer — the chip says 357 before you click it, so
+   * the scale of what it un-hides is stated rather than discovered.
+   */
+  view('all', 'All', { status: 'any', system: 'include' },
+    'Every task, including the ones Windows owns and anything disabled or missing. No lens at all.'),
   FAVORITES_VIEW,
   view('my-jobs', 'My jobs', { status: 'active', system: 'personal' },
     'Your active tasks. Hides Windows’ own tasks and anything disabled or missing.'),
@@ -89,17 +105,39 @@ export const isBuiltinView = (id: string): boolean =>
   BUILTIN_VIEWS.some(v => v.id === id);
 
 /**
- * What a **bare** dashboard URL resolves to: your favorites if you have any,
- * otherwise your saved defaults.
+ * What a **bare** dashboard URL resolves to: **everything**.
+ *
+ * It opened on Favorites from 2026-08-11 until 2026-08-12. That was defensible —
+ * a starred task is an explicit choice — but it made the first screen a *subset*
+ * chosen by a gesture the user may have made once, weeks ago, and the machinery
+ * needed to keep it honest (a banner naming the filter, counting what it held
+ * back, and offering the way out) is itself the evidence that opening filtered
+ * wants apologising for. Opening on **All** needs no apology: nothing is
+ * withheld, so there is nothing to disclose.
+ *
+ * **Two of the user's saved defaults survive and two are superseded**, and the
+ * split is not arbitrary — `status` and `system` are precisely the lenses "All"
+ * is *about*, so honouring them would make the opening view not-All. `category`
+ * and `source` narrow along axes All says nothing about, so they still apply.
+ * (If that leaves *Show disabled tasks* looking vestigial, it is — see the note
+ * in ROADMAP › Open.)
  *
  * A function rather than a branch inside the screen so the rule can be pinned
- * without rendering a dashboard — and so it stays one rule with one answer.
- *
- * `hasFavorites` must be computed from the **unlensed** task list. Asking the
- * filtered list would make the answer depend on the filters this is choosing.
+ * without rendering a dashboard, and so it stays one rule with one answer.
  */
-export function openingFilters(hasFavorites: boolean, defaults: TaskFilters): TaskFilters {
-  return hasFavorites ? { ...FAVORITES_VIEW.filters } : defaults;
+export function openingFilters(defaults: TaskFilters): TaskFilters {
+  return { ...defaults, status: 'any', system: 'include' };
+}
+
+/**
+ * The filters a saved view should actually store.
+ *
+ * Source is stripped, because a view does not own one: it is the outer lens,
+ * `filtersEqual` ignores it, and a view carrying `source: WINDOWS` would be a
+ * value nothing reads — dead state that reads as meaningful to the next person.
+ */
+export function viewFiltersFrom(filters: TaskFilters): TaskFilters {
+  return { ...filters, source: DEFAULT_FILTERS.source };
 }
 
 /** Built-ins first, then the user's own, for the view bar. */
@@ -149,7 +187,7 @@ export function describeFilters(filters: TaskFilters): string {
   if (filters.due === 'week') parts.push('due within 7 days');
   if (filters.due === 'overdue') parts.push('overdue');
   if (filters.due === 'never') parts.push('no scheduled run');
-  if (filters.platform !== 'All') parts.push(filters.platform);
+  if (filters.source !== 'All') parts.push(filters.source);
   if (filters.category !== 'All') parts.push(filters.category);
   if (filters.search.trim()) parts.push(`matching “${filters.search.trim()}”`);
   return parts.length ? parts.join(' · ') : 'no filters — every task';
@@ -180,8 +218,21 @@ function oneOf<T extends string>(raw: string | null, allowed: T[], fallback: T):
 
 /** Every param this module writes — the caller uses it to spot a bare URL. */
 export const FILTER_PARAM_KEYS = [
-  'view', 'status', 'system', 'outcome', 'due', 'fav', 'platform', 'category', 'q'
+  'view', 'status', 'system', 'outcome', 'due', 'fav', 'source', 'platform', 'category', 'q'
 ] as const;
+
+/**
+ * Read the source, accepting the old `platform` param.
+ *
+ * The dimension was called `platform` for exactly one day (2026-08-12) before
+ * Cronsole-native split into HTTP and script sources and the name stopped being
+ * true. Reading both costs three lines and means a link copied in that window
+ * still resolves — and a bare platform key is a valid source key anyway, since
+ * `matchesSource` matches subtypes by prefix.
+ */
+function readSource(params: URLSearchParams): string {
+  return params.get('source') || params.get('platform') || DEFAULT_FILTERS.source;
+}
 
 /**
  * Serialize to search params.
@@ -207,6 +258,12 @@ export function filtersToParams(
   const match = matchView(filters, saved);
   if (match) {
     params.set('view', match.id);
+    // Source rides *alongside* the view id rather than being folded into it.
+    // It is the outer lens (see `filtersEqual`), so a view no longer carries a
+    // platform — and if this were dropped here, selecting a source would vanish
+    // from the URL the moment the rest of the filters happened to match a view,
+    // and reload as "All sources". A bookmark has to reproduce what you see.
+    if (filters.source !== DEFAULT_FILTERS.source) params.set('source', filters.source);
     return params;
   }
   if (filters.status !== DEFAULT_FILTERS.status) params.set('status', filters.status);
@@ -214,7 +271,7 @@ export function filtersToParams(
   if (filters.outcome !== DEFAULT_FILTERS.outcome) params.set('outcome', filters.outcome);
   if (filters.due !== DEFAULT_FILTERS.due) params.set('due', filters.due);
   if (filters.favorites !== DEFAULT_FILTERS.favorites) params.set('fav', filters.favorites);
-  if (filters.platform !== DEFAULT_FILTERS.platform) params.set('platform', filters.platform);
+  if (filters.source !== DEFAULT_FILTERS.source) params.set('source', filters.source);
   if (filters.category !== DEFAULT_FILTERS.category) params.set('category', filters.category);
   if (filters.search.trim()) params.set('q', filters.search.trim());
   return params;
@@ -236,7 +293,14 @@ export function filtersFromParams(
   const id = params.get('view');
   if (id) {
     const found = allViews(saved).find(v => v.id === id);
-    if (found) return { ...found.filters };
+    // The view supplies every dimension except source, which is read from its
+    // own param — the mirror of how `filtersToParams` writes it.
+    if (found) {
+      return {
+        ...found.filters,
+        source: readSource(params)
+      };
+    }
   }
   return {
     status: oneOf(params.get('status'), STATUS, DEFAULT_FILTERS.status),
@@ -244,7 +308,7 @@ export function filtersFromParams(
     outcome: oneOf(params.get('outcome'), OUTCOME, DEFAULT_FILTERS.outcome),
     due: oneOf(params.get('due'), DUE, DEFAULT_FILTERS.due),
     favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites),
-    platform: params.get('platform') || DEFAULT_FILTERS.platform,
+    source: readSource(params),
     category: params.get('category') || DEFAULT_FILTERS.category,
     search: params.get('q') || ''
   };

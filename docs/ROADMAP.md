@@ -23,18 +23,186 @@ belongs in the CHANGELOG.
 
 ## ▶ Next up
 
-1. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
+**[Sources](#-sources--where-a-task-comes-from) is the top priority** *(scoped 2026-08-12)* — the
+dashboard's first-level axis is now where a task comes from, and the plan is to fill it in. In order:
+
+1. ~~**Native job types — scripts**~~ — **shipped 2026-08-12.**
+2. ~~**API / Web Services source**~~ — **resolved and shipped 2026-08-12** as a subtype split of
+   Cronsole-native (HTTP / Scripts), not a new platform.
+3. **POSIX agent** — launchd · cron · systemd timers in one build. The one that actually broadens
+   the product.
+4. ~~**Claude Code routines**~~ — **shipped 2026-08-12**, and smaller than scoped: Anthropic exposes
+   one write-only endpoint, so `run` is real and sync / create / enable-disable are boundaries
+   rather than gaps.
+5. **GitHub Actions** — read-only observer, ~a day. Note it is the **mirror image of Claude**:
+   reads everything, changes nothing. Between them they bracket the observer pattern.
+
+Everything below the sources track, unchanged in priority relative to each other:
+
+6. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
    deliberately-skipped `version` fields in the package manifests.
-2. **Restore's plan doesn't check that a task's action points at anything that exists** — the
+7. **Restore's plan doesn't check that a task's action points at anything that exists** — the
    advisory resolvability column, logged 2026-07-31 (see P2 Open).
-3. **Task-detail trust indicators** — say how old the truth is, per task (see P2 Open). The
+8. **Task-detail trust indicators** — say how old the truth is, per task (see P2 Open). The
    dashboard health strip now answers this at the *platform* level; the per-task half is open.
-4. **Bulk export's directory-picker branch is still undriven** — the one part of the Tools tab no
+9. **Bulk export's directory-picker branch is still undriven** — the one part of the Tools tab no
    click-through has reached, because it opens a native dialog. Low priority; noted so its absence
    stays visible rather than being mistaken for coverage.
 
 > **The UX & UI refinement pass is complete** *(2026-08-12)* — all six items, plus two defects it
 > uncovered. Details in [`CHANGELOG.md`](CHANGELOG.md) and P2 below.
+
+---
+
+## 🔷 Sources — where a task comes from
+
+> **The current top priority** *(scoped 2026-08-12)*. The dashboard's first-level axis is now the
+> **source** a task comes from, and Cronsole ships with two: Windows Task Scheduler and
+> Cronsole-native. This section is the plan for the rest.
+>
+> **Read the guardrail change first** ([Strategy guardrails](#strategy-guardrails)): the capability
+> matrix makes a **read-only observer** an honest, complete product state, so a source no longer has
+> to be fully controllable to be worth shipping. Controllers stay gated on reliability; observers
+> do not. That is what makes this list affordable rather than a return to breadth-over-depth.
+>
+> **Ordering principle: prefer the build that unlocks several sources over the one that unlocks
+> one.** A POSIX agent covers launchd, cron *and* systemd timers with one protocol and no new auth
+> story. Each cloud scheduler costs its own OAuth surface, rate limit and mental model, and unlocks
+> exactly one.
+
+- [x] **Native job types — scripts** *(shipped 2026-08-12)*: Cronsole-native runs
+      HTTP and nothing else, so the source you already own cannot run a script. Add an `EXEC` job
+      type reusing **`StructuredAction {executable, args[]}`** — the tested no-shell primitive that
+      already backs Windows task creation, so this is the existing P0 injection guarantee applied to
+      a second executor, not a new attack surface.
+      **The honesty problem that must be solved with it:** a native job runs *where the backend
+      runs*. On a host-run backend that is your machine; in the Dockerized backend the same task
+      silently runs **inside the container**, against a filesystem that is not yours — one task, one
+      UI, two meanings. So containerization is **detected at boot** (`/.dockerenv` / cgroup) and the
+      New Task modal states which one it is. A task that cannot say where it executes is the same
+      class of lie as a timestamp that cannot say what it measured.
+      Real `ExecutionLog` rows (exit code, duration, output snippet) — native's genuine advantage
+      over Windows, where `SUCCESS` only means the agent accepted a start.
+
+- [x] **API / Web Services source — resolved as a subtype split** *(decided and shipped
+      2026-08-12)*: Cronsole-native divides in the source bar into **Cronsole (HTTP)** and
+      **Cronsole (Scripts)** rather than becoming a new platform. A source key is `PLATFORM` or
+      `PLATFORM:SUBTYPE`, derived server-side in `services/taskSource.ts`.
+      **Platform and source are deliberately different things:** the Platforms tab does not split,
+      because native HTTP and native scripts are the same connector with identical capabilities.
+      Matching is prefix-aware, which is what let this ship without emptying every stored
+      `defaultPlatform`; and the selected source stays listed even when no task derives it, or a
+      pre-split link filters the list with the whole bar unlit.
+      **The umbrella-grouping reading (c) is still open** for when three hosted observers exist to
+      group — it is a presentation question about the bar, not a data-model one, so it no longer
+      blocks anything.
+
+- [ ] **POSIX agent — launchd · cron · systemd timers** *(the big one, and the one that actually
+      broadens the product)*: all three are **local OS schedulers**, structurally identical to
+      Windows Task Scheduler — read the machine, run a thing, enable/disable. One build reuses the
+      whole existing protocol: outbound WebSocket, HMAC-signed commands, the sync model, folder/path
+      handling, the capability matrix. **Three of the most universal developer schedulers, one
+      auth story, zero new server surface.** Absorbs the former standalone *macOS agent (launchd)*
+      P3 item and the 7 catalog templates waiting on it.
+      Open sub-questions: whether the agent is a .NET port (the `ITaskScheduler` abstraction ports
+      cleanly) or a separate binary; per-user vs system crontab; and how a systemd timer's
+      `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
+      honest-warning treatment the Windows trigger conversion already has.
+
+- [x] **Claude Code routines — promoted as far as the platform allows** *(requested and shipped
+      2026-08-12)*: the connector is production-ready for the one verb that has an API behind it,
+      and everything else is now declared impossible rather than left looking unfinished.
+
+      **The API check the item asked for changed the item.** Anthropic exposes exactly one routines
+      endpoint — `POST /v1/claude_code/routines/{trig_id}/fire` — and the reference states its
+      token's scope as *"One routine only; **no read access**."* There is no list, get, create,
+      enable/disable, or token-management endpoint. So of the four things this item asked for, three
+      are **not gaps but boundaries**: real sync and enable/disable cannot be built at all.
+      Shipped instead:
+      - **`run` — real.** Correct beta header, and the documented statuses mapped to causes a user
+        can act on. Two matter: a **400 is usually a paused routine** (the *only* signal Cronsole
+        ever gets about a routine's enabled state), and a 429 is a quota boundary, not a bad config.
+      - **Health from evidence** — read back from the `PlatformCapability` rows the run route
+        already writes. It previously returned `HEALTHY` whenever config was non-empty: a verdict
+        from a precondition, troubleshooting #40's exact shape. **It cannot probe**: the only
+        endpoint has a side effect, so "check this works" and "run the user's routine" are the same
+        request — a probing health check would fire someone's nightly job on every poll.
+      - **`create` and `setStatus` are `unsupported`, not `declared`** — a new `unsupportedVerbs`
+        declaration on `PlatformConnector`, because both methods are interface-mandated refusals
+        that no evidence can ever promote. `declared` reads as *"reachable, just unproven"* and
+        invites waiting for something that cannot arrive.
+      - **Two fixes worth naming**: the fire body no longer carries filler text (it arrived as the
+        routine's `<routine-fire-payload>`, so for a routine whose prompt reads that block it
+        *displaced* the real context), and the token is destructured out of task metadata rather
+        than set to `undefined`, which left the key present and relied on `JSON.stringify` dropping it.
+
+      Left as-is deliberately: `syncTasks` returns the routines the user **declares** in the
+      connection config. That is not a sync and is documented as not being one — it earns its place
+      only because a declared routine gets a dashboard row, a working Run button and real run
+      history, which is strictly more than the bookmark the quick-links-only platforms get.
+
+- [ ] **`HealthState` has no `UNKNOWN`, so "never checked" has to borrow a verdict**
+      *(logged 2026-08-12, found while doing the above)*: the enum is `HEALTHY | DEGRADED |
+      OFFLINE`. A configured-but-never-exercised platform is none of those, so the Claude connector
+      reports `DEGRADED` with a reason naming why — pessimistic-with-an-explanation, chosen because
+      the failure it prevents is trusting a config nothing has checked.
+
+      **Three instances of the same shape, none of them Claude-specific:**
+      1. `getHealth` deriving a verdict from a precondition — **fixed** in `ClaudeConnector`.
+      2. `POST /api/tasks/health` auto-creating the Windows connection with a hardcoded
+         `healthState: 'HEALTHY'` before the agent has ever said anything.
+      3. **The schema itself**: `PlatformConnection.healthState` is `@default(HEALTHY)`, so *every*
+         connection is born Online. Found when the new routines route created one and the Platforms
+         card immediately read *Online* having contacted Anthropic never. Worked around there by
+         recomputing health on write (`refreshClaudeHealth`) — safe only because Claude's
+         `getHealth` does not probe, and **not** a pattern to copy to a platform whose health check
+         talks to the platform.
+
+      Fixing it properly is one enum value plus its consumers (`types.ts`, `HEALTH_STYLE`,
+      `useConnections`, `HealthStrip`) and a default change, and the UI already has the right idiom:
+      the Failures chip renders `–` rather than `0` until the scan lands.
+
+- [x] **Claude connection config — the panel that makes the connector reachable**
+      *(shipped 2026-08-12)*: the connector above was correct and **unreachable** — the only
+      `platformConnection.create` in the codebase was the Windows auto-init, so nothing could write
+      a routine id or token. Now `GET`/`POST`/`DELETE /api/tools/platforms/claude/routines` plus a
+      **Routines** panel on the Claude card in the Platforms tab.
+
+      Claude-specific rather than a generic `PUT /platforms/:platform/connection` on purpose: a
+      generic route would imply the other platforms are configurable this way (they are not) and
+      would have to accept an arbitrary JSON blob into a field every connector trusts. Each
+      platform gets its own validated shape when it needs one.
+
+      Decisions worth keeping: **the token is write-only** across all three routes (`hasToken`, never
+      the value; no reveal endpoint, because claude.ai cannot re-display it either and a second copy
+      would be a secret with a longer life than it needs); **re-adding an id rotates rather than
+      409s**, since generating a token at Anthropic revokes its predecessor, so the stored one is
+      already dead by the time the user gets here; **a pasted fire URL is normalized to its `trig_`
+      id**, because the modal shows the URL beside the token and storing it would 404 much later
+      with nothing pointing back at the paste; **shape mismatches warn rather than refuse**, since
+      `/fire` is experimental behind a dated beta header; and **removing the last routine removes
+      the connection**, so the card reads "Not connected" instead of sitting at amber
+      *"No routines configured"* forever for someone who never finished setup.
+
+- [ ] **GitHub Actions — read-only observer** *(~a day)*: near-universal for developers, and
+      scheduled workflows are invisible until they break. `on: schedule` cron is **already UTC**, so
+      it matches the storage contract exactly — no conversion layer and none of the DST asymmetry
+      Windows carries. The API gives **real run outcomes**, which would make the health scoring
+      genuinely good here rather than the "agent accepted a start" approximation Windows forces.
+      Ships as an observer: sync + health verified, every mutating verb `unsupported`.
+
+- [ ] **Vercel Cron · Supabase `pg_cron` — read-only observers**: increasingly the default for web
+      and indie developers, and both have trivial APIs. Same observer shape as GitHub Actions.
+
+- [ ] **Deferred — Kubernetes CronJobs · AWS EventBridge Scheduler · Azure Functions · Google Cloud
+      Scheduler**: common in *teams*, rare for a solo developer, and each is its own auth surface,
+      rate limit and mental model for exactly one source. Revisit only after the observer pattern
+      has proven itself on the two above. Kept here rather than dropped so the omission stays a
+      decision rather than an oversight.
+
+- [ ] **Staying quick-links-only — ChatGPT · Gemini · Jules**: no public scheduled-task API exists.
+      A connector would render a row of `unsupported` that says strictly less than the link already
+      does. Revisit if an API appears.
 
 ---
 
@@ -184,6 +352,20 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Open
 
+- [x] **Source-first dashboard** *(requested and shipped 2026-08-12)*: a source bar above the
+      saved views — *All sources* / *Windows Task Scheduler* / *Cronsole (Native)* / … — as the
+      first-level axis, ahead of views and categories. Platform left the Filters popover in the
+      same change (two controls for one dimension). **Source is an outer lens**: it survives
+      clicking a view (`filtersEqual` ignores it, so both chips stay lit), rides alongside the view
+      id in the URL, is stripped from saved views by `viewFiltersFrom`, is not counted by the
+      Filters badge, and **scopes every view count** — `My jobs 88` above a list of one is the same
+      broken promise as `Showing All 269` above two rows.
+      **The bug worth remembering:** the button list was first derived from the *faceted*
+      population, so on a view whose matches were all one source the bar vanished — taking the only
+      control that could switch away. Existence now comes from the whole task list; only the counts
+      stay faceted, which is why a source may legitimately read `0`.
+      Groundwork for adding AI systems and other operating systems as further sources.
+
 - [x] **Mass Actions console on the Tools tab — now the only bulk surface**
       *(requested and shipped 2026-08-12)*. **Action-first**: a vertical list of verbs, each opening
       its own scope step (category — the default — / all / platform / status / health tier). Plan
@@ -203,6 +385,15 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       **Deferred:** running a real agent-backed enable/disable end to end (it mutates real
       scheduled tasks), and the mid-flight progress indicator, which a DB-only run completes too
       fast to observe.
+
+- [ ] **Two Settings toggles are now vestigial** *(logged 2026-08-12, created by the same change)*:
+      the dashboard opens on **All**, which hard-sets `status: any` and `system: include` — exactly
+      what *Show disabled tasks* and the persisted system lens control. So neither affects the
+      opening view any more. `defaultCategory` and `defaultPlatform` still do.
+      **Not silently removed**, because the system lens is still written when you change it from the
+      dashboard and both may want to become "what the All view means for you" instead. Decide
+      between making them apply again, repurposing them, or deleting them — but do not leave two
+      settings that look like they do something and don't.
 
 - [ ] **Restore's plan doesn't check that a task's action points at anything that exists**
       *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
@@ -327,7 +518,9 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Open
 
-- [ ] **macOS agent (launchd)** — 7 catalog templates already wait on it; the `ITaskScheduler`
+- [ ] **macOS agent (launchd)** — *folded into the **POSIX agent** item under
+      [Sources](#-sources--where-a-task-comes-from) (2026-08-12), because launchd, cron and systemd
+      timers are one build, not three.* 7 catalog templates still wait on it; the `ITaskScheduler`
       abstraction ports cleanly.
 - [ ] **Installer packages (agent only)** — signed WiX MSI replacing the PowerShell setup script;
       macOS `.pkg`/Homebrew once the launchd agent exists.
@@ -346,7 +539,9 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
       vs. template vs. diagnostic tools. The UX pass above lands squarely in `DashboardScreen.tsx`,
       so that is the one to split *while you are there*, not afterwards.
-- [ ] **Claude Code connector** — promote from experimental scaffold to production-ready.
+- [ ] **Claude Code connector** — *promoted to top priority under
+      [Sources](#-sources--where-a-task-comes-from) (2026-08-12).* Promote from experimental
+      scaffold to production-ready.
 - [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
 - [~] **Template gallery site** — parts 1, 2, 4, 5 shipped; **part 3, the one-click "Add to my
       Cronsole" deep-link/protocol handoff, remains**. Download + Copy JSON use the shipped Import
@@ -458,6 +653,24 @@ items cover the repo and product going public, not standing up a multi-tenant cl
       but needs **no schema or test changes**; SQLite gives a single-file install but
       `Template.tags String[]` is Postgres-only, forcing a migration and forking the integration
       suite. **Lean: bundle Postgres for v1.**
+- [x] **What shape is the "API / Web Services" source?** *(opened and resolved 2026-08-12)* —
+      **resolved (b): a subtype split inside Cronsole-native**, surfaced in the source bar as
+      *Cronsole (HTTP)* and *Cronsole (Scripts)*. Reading (a) was rejected for the reason predicted
+      below; (c) remains open as a presentation question once there are three hosted observers to
+      group, and blocks nothing. The original framing follows. Three readings,
+      producing three different data models, and they are not refinements of one another:
+      **(a) a new `PlatformType`** for schedules that live in an external service Cronsole observes
+      rather than executes — coherent, but it must be distinguishable from Cronsole-native, which
+      already *is* "call an HTTP endpoint on a schedule";
+      **(b) a job-type split inside Cronsole-native** — once native gains `EXEC`, one source
+      contains two very different kinds of thing, and the dashboard arguably should say which. But
+      that is a *kind*, not a source, so it belongs on the card and in filters, not in the source
+      bar;
+      **(c) an umbrella grouping** over the hosted schedulers (GitHub Actions, Vercel Cron,
+      Supabase) — which makes the source bar two-level and is the largest change of the three.
+      **Lean: (b) for the near term, (c) once there are three hosted observers to group.** (a) risks
+      a source that is indistinguishable from native at the point of creation, which is the
+      duplication the source bar exists to prevent.
 - [ ] **Agent transport** — WebSocket only, or hybrid with long-polling for restricted networks?
 - [ ] **Template registry — static vs. dynamic at launch** — static JSON registry is leading; earn
       a DB-backed API + admin/submission UI later. *(Format is already decided: target-agnostic
@@ -481,7 +694,19 @@ items cover the repo and product going public, not standing up a multi-tenant cl
 ## Strategy guardrails
 
 - **Reliability control plane, not universal scheduler** — two excellent connectors beat six half
-  connectors; new connectors unlock only when sync reliability >95% and crash rate <2% hold.
+  connectors. **Sharpened 2026-08-12, because the capability matrix changed what "half" means.**
+  A partial connector used to *lie*: the UI implied verbs it could not perform, so shipping one was
+  a promise you had not kept. Every verb now reads **verified / declared / unsupported** against
+  this machine, which makes a **read-only observer** a complete and honest product state rather
+  than an unfinished controller. So the gate splits by what a connector can *do*, not by how much
+  of the interface it fills:
+  - **Controllers** (read *and* write — sync, run, enable/disable, create) still unlock only when
+    sync reliability >95% and crash rate <2% hold. These can break someone's machine.
+  - **Observers** (read-only; every mutating verb `unsupported`) are **not** gated. They cannot
+    damage anything and cannot overclaim, and refusing to show a scheduled job because Cronsole
+    cannot yet *control* it is the invisible-fence failure at product scale.
+  The guardrail's real content was never "few connectors" — it was "never imply a capability you
+  do not have." That is now enforced by the matrix instead of by scarcity.
 - **No fake data in the UI** — an automation tool earns trust by telling the truth.
 - **Dogfood** — migrate real Task Scheduler jobs onto Cronsole-created tasks; every friction point
   is roadmap input.

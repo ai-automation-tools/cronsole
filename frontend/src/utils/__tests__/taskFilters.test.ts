@@ -10,6 +10,7 @@ import {
   matchesDue,
   matchesFavorites,
   matchesOutcome,
+  matchesSource,
   matchesStatus,
   matchesSystem,
   needsHealthData,
@@ -218,7 +219,7 @@ describe('applyTaskFilters', () => {
     task('mine-active', { metadata: { nextRunTime: '2026-07-31T20:00:00Z' } }),
     task('mine-off', { status: 'DISABLED' }),
     task('os', { isSystem: true, category: 'Microsoft' }),
-    task('native', { platform: 'TASKHUB_NATIVE', category: 'Reports' })
+    task('native', { source: 'TASKHUB_NATIVE', category: 'Reports' })
   ];
 
   it('defaults to active personal tasks', () => {
@@ -229,7 +230,7 @@ describe('applyTaskFilters', () => {
   it('composes every dimension', () => {
     const out = applyTaskFilters(
       tasks,
-      { ...DEFAULT_FILTERS, status: 'any', platform: 'TASKHUB_NATIVE', category: 'Reports' },
+      { ...DEFAULT_FILTERS, status: 'any', source: 'TASKHUB_NATIVE', category: 'Reports' },
       opts
     );
     expect(out.map(t => t.id)).toEqual(['native']);
@@ -378,6 +379,19 @@ describe('activeFilterCount', () => {
     ).toBe(3);
   });
 
+  it('measures against a supplied baseline, so the All view reads 0', () => {
+    // The badge counts what you added *on top of the view you are on*. Compared
+    // to DEFAULT_FILTERS the All view — the widest possible state, withholding
+    // nothing — lit the badge with 2 while the withheld chips beside it
+    // correctly showed nothing hidden. A badge that fires when nothing is
+    // constrained is one people learn to ignore, which costs the case it exists
+    // for.
+    const allView = { ...DEFAULT_FILTERS, status: 'any' as const, system: 'include' as const };
+    expect(activeFilterCount(allView)).toBe(2);            // vs the dashboard default
+    expect(activeFilterCount(allView, allView)).toBe(0);   // vs the view you are on
+    expect(activeFilterCount({ ...allView, category: 'Backups' }, allView)).toBe(1);
+  });
+
   it('ignores whitespace-only search, like filtersEqual does', () => {
     expect(activeFilterCount({ ...DEFAULT_FILTERS, search: '   ' })).toBe(0);
     expect(activeFilterCount({ ...DEFAULT_FILTERS, search: 'nightly' })).toBe(1);
@@ -418,21 +432,61 @@ describe('withheldBy', () => {
   });
 });
 
+describe('matchesSource — the outer lens', () => {
+  it('matches everything under All', () => {
+    expect(matchesSource(task('a', { source: 'TASKHUB_NATIVE:EXEC' }), 'All')).toBe(true);
+  });
+
+  it('matches subtypes under their bare platform', () => {
+    // What makes splitting Cronsole-native safe: a persisted `defaultPlatform`
+    // or a saved link naming the platform keeps working now that sources are
+    // finer than platforms. Without the prefix rule it would silently match
+    // nothing, and every stored preference pointing at native would empty.
+    expect(matchesSource(task('a', { source: 'TASKHUB_NATIVE:HTTP' }), 'TASKHUB_NATIVE')).toBe(true);
+    expect(matchesSource(task('b', { source: 'TASKHUB_NATIVE:EXEC' }), 'TASKHUB_NATIVE')).toBe(true);
+  });
+
+  it('separates the two native sources from each other', () => {
+    expect(matchesSource(task('a', { source: 'TASKHUB_NATIVE:EXEC' }), 'TASKHUB_NATIVE:HTTP')).toBe(false);
+  });
+
+  it('falls back to platform when the server sent no source', () => {
+    // An older backend degrades to platform-level sources rather than to nothing
+    // matching, which would render an empty dashboard for every user mid-deploy.
+    expect(matchesSource(task('a', { platform: 'WINDOWS_TASK_SCHEDULER' }), 'WINDOWS_TASK_SCHEDULER')).toBe(true);
+  });
+
+  it('is a prefix rule, not a substring rule', () => {
+    expect(matchesSource(task('a', { source: 'TASKHUB_NATIVE_V2' }), 'TASKHUB_NATIVE')).toBe(false);
+  });
+});
+
 describe('filtersEqual', () => {
   it('ignores surrounding whitespace in the search term', () => {
     expect(filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, search: '   ' })).toBe(true);
   });
 
-  it('separates every dimension', () => {
+  it('separates every dimension the view bar owns', () => {
     // A view is named by an exact filter match, so a dimension this misses would
     // light up the wrong chip over the wrong list.
     const variants: Partial<typeof DEFAULT_FILTERS>[] = [
       { status: 'any' }, { system: 'only' }, { outcome: 'failing' },
-      { due: 'today' }, { favorites: 'only' }, { platform: 'WINDOWS_TASK_SCHEDULER' },
+      { due: 'today' }, { favorites: 'only' },
       { category: 'Backup' }, { search: 'x' }
     ];
     for (const v of variants) {
       expect(filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, ...v })).toBe(false);
     }
+  });
+
+  it('does NOT separate source — it is the outer lens', () => {
+    // Deliberate, and the one exception. Source has its own always-visible bar
+    // above the view bar, so "Failures" and "Failures, Windows only" are the
+    // same question asked of different sources and the view chip stays lit for
+    // both. The rule this bends is about *hidden* constraints; a selected
+    // button one line above the chip is not hidden.
+    expect(
+      filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' })
+    ).toBe(true);
   });
 });

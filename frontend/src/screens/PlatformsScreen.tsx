@@ -10,6 +10,7 @@ import {
   type PlatformMatrixRow
 } from '../hooks/usePlatformMatrix';
 import { timeAgo } from '../utils/datetime';
+import { ClaudeRoutinesPanel } from '../components/ClaudeRoutinesPanel';
 import type { PlatformLink } from '../types';
 
 /**
@@ -292,6 +293,15 @@ const PlatformMatrixCard = ({ row }: { row: PlatformMatrixRow }) => {
           </p>
         )}
       </div>
+
+      {/*
+        Claude is the only platform whose connection a user composes by hand:
+        Anthropic issues a bearer token per routine and exposes no API to list
+        them, so nothing can be discovered and the registry has to be typed in.
+        The panel lives inside the platform's own card because that is where
+        someone goes when the row says "Not connected".
+      */}
+      {row.platform === 'CLAUDE_CODE' && <ClaudeRoutinesPanel />}
 
       <button
         onClick={() => setExpanded(!expanded)}

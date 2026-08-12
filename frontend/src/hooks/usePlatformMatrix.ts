@@ -37,6 +37,24 @@ export interface PlatformMatrixRow {
   taskCount: number;
   capabilities: CapabilityCell[];
   lastVerifiedAt: string | null;
+  /**
+   * Where this source's tasks execute — Cronsole-native only, `null` elsewhere.
+   *
+   * Native jobs run wherever the backend runs: the user's machine on a host-run
+   * stack, a container's filesystem in the Dockerized one. The `EXEC` job type
+   * makes that difference load-bearing — a path visible in Explorer simply is not
+   * there inside a container — so the New Task modal states which it is.
+   */
+  executionHost: ExecutionHost | null;
+}
+
+export interface ExecutionHost {
+  kind: 'host' | 'container';
+  /** Which signal decided it. A verdict never travels without its evidence. */
+  evidence: string;
+  summary: string;
+  os: string;
+  hostname: string;
 }
 
 export function usePlatformMatrix() {

@@ -49,8 +49,16 @@ export interface TaskFilters {
    * view bar can't match, and the counts beside the list don't know about.
    */
   favorites: FavoritesFilter;
-  /** `'All'` or an exact platform. */
-  platform: string;
+  /**
+   * `'All'`, a platform (`WINDOWS_TASK_SCHEDULER`), or a platform **and
+   * subtype** (`TASKHUB_NATIVE:EXEC`) — see `matchesSource`.
+   *
+   * Named `source` rather than `platform` because it stopped being one: a
+   * Cronsole-native HTTP job and a Cronsole-native script are the same platform
+   * and different sources, and calling the field `platform` while it holds
+   * `TASKHUB_NATIVE:EXEC` would be a name that lies about its own contents.
+   */
+  source: string;
   /** `'All'` or an exact category (`'Uncategorized'` for tasks with none). */
   category: string;
   /** Free text, matched by `matchesTaskSearch`. */
@@ -77,7 +85,7 @@ export const DEFAULT_FILTERS: TaskFilters = {
   outcome: 'any',
   due: 'any',
   favorites: 'any',
-  platform: 'All',
+  source: 'All',
   category: 'All',
   search: ''
 };
@@ -125,6 +133,31 @@ export function matchesSystem(task: Task, filter: SystemFilter): boolean {
  */
 export function matchesFavorites(task: Task, filter: FavoritesFilter): boolean {
   return filter === 'any' || task.isFavorite === true;
+}
+
+/** Separator between a platform and its subtype in a source key. */
+export const SOURCE_SEP = ':';
+
+/**
+ * The source lens — the dashboard's first-level axis.
+ *
+ * `task.source` is the **server's** key (`WINDOWS_TASK_SCHEDULER`,
+ * `TASKHUB_NATIVE:EXEC`, …), because deciding it means reading the native job
+ * spec and a browser-side copy of that would be a second definition of the same
+ * judgement. It falls back to `task.platform`, which is exactly what a source key
+ * is when nothing subdivides — so an older backend degrades to platform-level
+ * sources rather than to nothing matching.
+ *
+ * **Matching is prefix-aware**, and that is what makes the split safe to add:
+ * selecting the bare `TASKHUB_NATIVE` still matches both its subtypes, so a saved
+ * view or a persisted `defaultPlatform` naming a *platform* keeps working
+ * unchanged now that sources are finer than platforms. Without it, splitting
+ * native would have silently emptied every stored preference pointing at it.
+ */
+export function matchesSource(task: Task, filter: string): boolean {
+  if (filter === 'All') return true;
+  const key = task.source ?? task.platform;
+  return key === filter || key.startsWith(`${filter}${SOURCE_SEP}`);
 }
 
 /**
@@ -250,7 +283,7 @@ export type FilterDimension =
   | 'status'
   | 'system'
   | 'favorites'
-  | 'platform'
+  | 'source'
   | 'category'
   | 'due'
   | 'outcome'
@@ -313,9 +346,7 @@ export function applyTaskFiltersExcept(
       (skip('system') || matchesSystem(task, filters.system)) &&
       (skip('status') || matchesStatus(task, filters.status)) &&
       (skip('favorites') || matchesFavorites(task, filters.favorites)) &&
-      (skip('platform') ||
-        filters.platform === 'All' ||
-        task.platform === filters.platform) &&
+      (skip('source') || matchesSource(task, filters.source)) &&
       (skip('category') ||
         filters.category === 'All' ||
         (task.category || 'Uncategorized') === filters.category) &&
@@ -352,6 +383,12 @@ export function effectiveFilters(filters: TaskFilters, viewMode: string): TaskFi
  * The number on the Filters trigger. It exists so collapsing the controls into
  * a popover cannot hide *that* they are set — a closed drawer over a filtered
  * list is the invisible fence again, just with a nicer lid.
+ *
+ * **`platform` is not counted, because the popover no longer holds it.** Source
+ * is the bar above the view bar, always visible and always showing its own
+ * selection, so counting it here would attribute a constraint to a control that
+ * cannot clear it — a badge saying "1 filter" over a drawer with nothing set.
+ * The count must only ever describe what is behind *this* trigger.
  */
 export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFAULT_FILTERS): number {
   let n = 0;
@@ -360,7 +397,6 @@ export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFA
   if (filters.outcome !== base.outcome) n++;
   if (filters.due !== base.due) n++;
   if (filters.favorites !== base.favorites) n++;
-  if (filters.platform !== base.platform) n++;
   if (filters.category !== base.category) n++;
   if (filters.search.trim() !== base.search.trim()) n++;
   return n;
@@ -403,7 +439,19 @@ export function withheldBy(
   return out;
 }
 
-/** Are two filter sets the same question? Used to name the active view. */
+/**
+ * Are two filter sets the same question? Used to name the active view.
+ *
+ * **`platform` is deliberately excluded.** Source is the dashboard's outer lens
+ * — its own control above the view bar — so "Failures" and "Failures, Windows
+ * only" are the same *question* asked of different sources, and the view chip
+ * stays lit for both. That is not the lit-chip-over-a-list-it-no-longer-
+ * describes problem this comparison exists to prevent: the source is on screen,
+ * selected, one line above. A constraint the reader can see is not a hidden one.
+ *
+ * Every other dimension still counts, so narrowing a category or flipping the
+ * status lens drops you to "Custom" exactly as before.
+ */
 export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
   return (
     a.status === b.status &&
@@ -411,7 +459,6 @@ export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
     a.outcome === b.outcome &&
     a.due === b.due &&
     a.favorites === b.favorites &&
-    a.platform === b.platform &&
     a.category === b.category &&
     a.search.trim() === b.search.trim()
   );

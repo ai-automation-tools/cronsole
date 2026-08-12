@@ -43,6 +43,51 @@ Each task is represented by a card showing:
 - **Clone (Copy Icon):** Duplicates a task as a starting point for a new one.
 - **View Details:** Clicking anywhere on the card (except the action icons) opens the **Task Details** modal (see §2) — hovering the card names this in its footer. By keyboard, Tab to the task's **title** and press Enter; the title is the card's real control, so the dashboard's main action is not mouse-only.
 
+### Creating a Cronsole-native task
+
+**New Task › Cronsole** creates a task that lives only inside Cronsole — nothing appears in Windows
+Task Scheduler, and it runs whether or not the agent is connected. Two kinds:
+
+- **HTTP request** — call a URL on a schedule. Webhooks, health checks, poking a deploy hook.
+- **Run a program** — a script or executable, with its exit code, duration and output recorded in
+  the run history. This is a **real** result, unlike a Windows task where a success only means the
+  agent accepted the start.
+
+Three things worth knowing about *Run a program*:
+
+- **There is no shell.** The command is split into a program and its arguments, so `&&`, `|` and
+  `>` are ordinary characters rather than operators. If you genuinely need them, name the shell
+  yourself — `cmd.exe /c "…"` or `/bin/sh -c "…"`.
+- **It says where it will run, before you click.** A native task runs wherever the Cronsole
+  *backend* runs. Normally that is your machine — but if you run the backend in Docker, the task
+  runs **inside the container**, where your paths and tools do not exist. The modal states which,
+  so a task never fails as "executable not found" for a file you can see in Explorer.
+- **Your Cronsole secrets are not passed to it.** The program gets a minimal environment plus
+  anything you set explicitly — not Cronsole's own, which holds the key that encrypts your stored
+  platform credentials.
+
+**Use a Windows task instead** for anything that must run as your logged-in user, or keep running
+when Cronsole is down.
+
+### Source — where a task comes from
+
+The row above the saved views is the dashboard's **first level of organisation**: one button per
+system your tasks come from — *All sources*, *Windows Task Scheduler*, *Cronsole (HTTP)*,
+*Cronsole (Scripts)*, and whatever you connect next. It appears once you have tasks from more than
+one source.
+
+**Cronsole-native splits by what the task does**, because "call a URL every 15 minutes" and "run
+this script nightly" are different enough to want separating. They are still the same platform on
+the **Platforms** tab — same connector, same capabilities — so only this bar divides them.
+
+- **It composes with views instead of replacing them.** Picking a source does *not* reset the view
+  bar. Select *Windows Task Scheduler* and click *Failures* and both stay lit — you are looking at
+  failing Windows tasks, and the two chips say so together.
+- **The counts are scoped to what you would actually see.** With a source selected, every view
+  count is taken *inside* it — so `My jobs 1` means one, not "88 across everything".
+- **A source can read `0`, and that is deliberate.** It means you have tasks from that source but
+  none survive your current view. The button stays, so you can always click back out.
+
 ### Saved views
 Across the top of the dashboard is a row of **views** — named filter combinations, so the question
 you actually ask ("what's failing?", "what runs today?") is one click instead of four filters
@@ -50,7 +95,8 @@ rebuilt from scratch on every visit. Six ship built in:
 
 | View | Shows |
 |---|---|
-| **Favorites** | Only the tasks you've starred (see *Favorites* below). Deliberately ignores every other lens — a starred task shows even if it's disabled, missing, or one of Windows' own. |
+| **All** | Every task, with no lens at all — including the ones Windows owns and anything disabled or missing. The one click that means "stop hiding things". |
+| ⭐ **Favorites** | Only the tasks you've starred (see *Favorites* below). Deliberately ignores every other lens — a starred task shows even if it's disabled, missing, or one of Windows' own. |
 | **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. The default *until you star something*. |
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |
 | **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
@@ -60,20 +106,17 @@ rebuilt from scratch on every visit. Six ship built in:
 - **Saving your own:** change any filters and the row shows a **Custom** chip plus **Save view**. Name it and it becomes a chip of its own, with a count, kept between visits. Delete one with the `×` on its chip — that only removes the name; the tasks and the filters you're currently looking at are untouched.
 - **Every view is a link.** The URL carries the view (`?view=failures`) or the individual filters, so you can bookmark one or paste it to another machine. A link to a saved view *someone else* made falls back to the normal dashboard rather than showing you nothing.
 - **The counts are honest about what they don't know.** *Failures* is answered by the health check (the same one on the Tools tab), which has to read every task first. Until it finishes, the chip shows **`–`, not `0`** — because `0` would claim nothing is failing, and the app hasn't looked yet. A banner above the list says the same thing while it loads. A task with no run evidence at all counts as *unmeasured*, not as passing.
-- **Changing a filter drops you to Custom.** The chip goes dark on purpose: once you narrow "Failures" to one category, the list is no longer what that label says it is.
+- **Changing a filter drops you to Custom — except the source.** The chip goes dark on purpose: once you narrow "Failures" to one category, the list is no longer what that label says it is. **Source is the exception**, because it has its own always-visible bar: with *Windows Task Scheduler* selected and *Failures* lit, both constraints are on screen, so neither chip is lying.
 
 ### Favorites
 Click the **star** on any task — on a card, a list row, a kanban card, the Schedule timeline, or in
 the task's own detail modal — to mark it a favorite. Stars are yours alone and change nothing on the
 platform, so starring works fine with the agent offline.
 
-- **The dashboard opens on your favorites** once you have at least one. With none, it opens on your
-  normal defaults, exactly as before — so this stays invisible until you use it.
-- **It says so when it does.** Opening filtered is something you didn't ask for, so a banner names
-  the filter, says how many tasks it's holding back, and offers **Show the full dashboard**. You
-  won't see that banner when you pick *Favorites* from the view bar yourself — there, you know.
-- **It can't trap you.** Click any other view, chip or filter and the dashboard stays where you put
-  it; the favorites default only applies to a "clean" visit with no filters in the URL.
+- **The dashboard opens on *All*, not on your favorites.** Click the **Favorites** chip — the one
+  with the star — whenever you want just the starred ones. It briefly opened on Favorites; showing
+  you a subset you picked weeks ago, and then having to explain itself, turned out to be worse than
+  simply showing everything.
 - **A star outranks every other filter.** *Favorites* shows a starred task even when it's disabled,
   missing, or one of Windows' own — you starred it deliberately, so nothing hides it by default.
 - **Un-tracking or deleting a task takes its star with it.** Starring is a preference about a task
@@ -83,7 +126,7 @@ platform, so starring works fine with the agent offline.
 ### Views, Search & Filters
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
-- **The Filters button** holds status, ownership, platform and category. The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
+- **The Filters button** holds status, ownership and category. *(Platform is not in here — it graduated to the **Source** bar above the views.)* The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
   - **Status** — *Active only* (the default), *All statuses*, or **isolate** just the *Disabled* or just the *Missing* ones. Isolating is not the same as including: it shows you **less**, and an isolated state appears as its own pill outside the menu so it can't be mistaken for normal.
   - **Ownership** — Windows keeps hundreds of its own scheduled tasks under `\Microsoft\`; on a typical machine they outnumber yours roughly 3:1, so Cronsole hides them by default. This is **independent of Status**, so the normal view is *yours **and** active* — either can be opened up without touching the other. The choice is remembered between visits, and the section only appears if you've actually imported some.
   - **Platform** and **Category** — both **faceted**: each option shows a live count *under the filters already applied*, and options with nothing under them drop out rather than showing zero-count noise.

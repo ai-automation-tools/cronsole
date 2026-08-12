@@ -5,7 +5,6 @@ import {
   Loader2,
   Info,
   Folder,
-  Star,
   Tag,
   Grid,
   List,
@@ -25,6 +24,7 @@ import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
+import { SourceBar } from '../components/SourceBar';
 import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
@@ -40,6 +40,7 @@ import {
 import {
   allViews,
   describeFilters,
+  viewFiltersFrom,
   FILTER_PARAM_KEYS,
   filtersFromParams,
   filtersToParams,
@@ -124,7 +125,7 @@ export const DashboardScreen = ({
       ...DEFAULT_FILTERS,
       status: settings.defaultShowDisabled ? 'any' : 'active',
       system: settings.showSystemTasks ? 'include' : 'personal',
-      platform: settings.defaultPlatform,
+      source: settings.defaultPlatform,
       category: settings.defaultCategory
     }),
     [
@@ -135,43 +136,24 @@ export const DashboardScreen = ({
     ]
   );
 
-  // How many starred tasks? Counted from the UNLENSED list on purpose: a star
-  // you happened to place on a system task still counts, and counting the
-  // filtered list would make the answer depend on the filters it is about to
-  // decide.
-  const favoriteCount = useMemo(
-    () => (allTasks ?? []).filter(t => t.isFavorite).length,
-    [allTasks]
-  );
-  const hasFavorites = favoriteCount > 0;
-
   const hasFilterParams = FILTER_PARAM_KEYS.some(k => searchParams.has(k));
   const filters = useMemo(
     () =>
       hasFilterParams
         ? filtersFromParams(searchParams, settings.savedViews)
-        // The dashboard opens on your favorites once you have any, and on your
-        // saved defaults when you don't — exactly the same rule, expressed where
-        // a bare URL is already interpreted rather than as an effect that
-        // rewrites the URL afterwards. Two consequences worth keeping:
+        // A bare URL opens on **All** — everything, no lens. It is *derived*
+        // rather than written, so it can never fight you: touching any filter
+        // makes the URL non-bare and this branch is not consulted again. And it
+        // resolves to a built-in view, so the bar lights "All" rather than
+        // leaving the state nameless.
         //
-        // - It is *derived*, so it can never fight you. The moment you touch any
-        //   filter the URL stops being bare (even the default state writes
-        //   `?view=my-jobs`), and this branch is not consulted again.
-        // - It resolves to a **built-in view**, so the view bar lights
-        //   "Favorites" and prints its blurb. A filtered list that did not say
-        //   which filter was in force would be `Active Only · 110 hidden` all
-        //   over again — and defaulting to a filtered list is exactly the case
-        //   where the user did not choose it and so cannot be assumed to know.
-        : openingFilters(hasFavorites, settingsFilters),
-    [hasFilterParams, searchParams, settings.savedViews, settingsFilters, hasFavorites]
+        // It used to open on Favorites. The banner that had to accompany that —
+        // naming the filter, counting what it withheld, offering the way out —
+        // is gone with it, because opening on everything withholds nothing and
+        // so has nothing to disclose.
+        : openingFilters(settingsFilters),
+    [hasFilterParams, searchParams, settings.savedViews, settingsFilters]
   );
-
-  // True only while the Favorites view is in force *because it was the default*
-  // — a bare URL plus at least one star. Clicking the same view yourself writes
-  // `?view=favorites`, which is not this: you already know what you asked for,
-  // and the banner would be telling you something you just did.
-  const defaultedToFavorites = !hasFilterParams && hasFavorites;
 
   const setFilters = (next: TaskFilters) => {
     setSearchParams(filtersToParams(next, settings.savedViews), { replace: true });
@@ -297,15 +279,57 @@ export const DashboardScreen = ({
     [categoryCounts]
   );
 
-  // Platform chips are faceted the same way, but never by the platform
-  // selection itself — you must still be able to switch platforms.
-  const { platforms, platformCounts } = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const t of facetBase('platform')) counts.set(t.platform, (counts.get(t.platform) ?? 0) + 1);
-    if (filters.platform !== 'All' && !counts.has(filters.platform)) counts.set(filters.platform, 0);
-    return { platforms: Array.from(counts.keys()).sort(), platformCounts: counts };
+  // The population the source bar governs: every task passing every OTHER lens.
+  // Faceted the same way the category chips are, and never by the source
+  // selection itself — you must still be able to switch sources.
+  //
+  // Kept as an array, not just its counts, because the bar's "All sources"
+  // number is this length. Deriving it from the same pass that produces the
+  // per-source counts is what stops the two disagreeing: `All` is exactly the
+  // sum of the parts because it *is* the thing the parts partition.
+  const sourceGoverned = useMemo(
+    () => facetBase('source'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, viewFilters, now, settings.timezone, tiers]);
+    [tasks, viewFilters, now, settings.timezone, tiers]
+  );
+
+  const platformCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of sourceGoverned) {
+      const key = t.source ?? t.platform;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [sourceGoverned]);
+
+  /**
+   * Which source buttons exist — taken from **every** task the user has, not
+   * from the faceted population the counts come from.
+   *
+   * These are two different questions and conflating them broke the axis. Built
+   * from the facet, the bar vanished on the Favorites view: both starred tasks
+   * were Windows, so it saw one source, decided there was nothing to choose
+   * between, and removed the only control that could have switched away. An
+   * outer lens may not disappear because an inner filter narrowed the list.
+   *
+   * So: **existence** answers "do you have this source at all" and comes from
+   * the whole list; the **count** answers "what will I see if I click" and stays
+   * faceted, which is why a source can legitimately read `0` here. That zero is
+   * the honest version — it predicts the empty list instead of hiding the way to
+   * it, and it is the same promise every other count on this screen makes.
+   */
+  const sourceOptions = useMemo(() => {
+    const keys = new Set((allTasks ?? []).map(t => t.source ?? t.platform));
+    // Keep the *selected* source listed even when nothing derives it. A link
+    // written before Cronsole-native split — `?platform=TASKHUB_NATIVE` — still
+    // filters correctly by prefix, but no button equals it, so the bar would sit
+    // entirely unlit above a filtered list. That is the inverse of the lit-chip
+    // problem and just as dishonest: the constraint is real and nothing on
+    // screen names it. Same rule the category facet already follows for a
+    // selection that empties.
+    if (filters.source !== 'All') keys.add(filters.source);
+    return Array.from(keys).sort();
+  }, [allTasks, filters.source]);
 
   // One pipeline, in one place. This used to be four hand-rolled `.filter()`
   // passes inline, which is fine at four and is exactly how the fifth ends up
@@ -331,9 +355,15 @@ export const DashboardScreen = ({
   const views = useMemo(() => allViews(settings.savedViews), [settings.savedViews]);
   const activeView = useMemo(() => matchView(filters, settings.savedViews), [filters, settings.savedViews]);
 
-  // Per-view counts, computed against the FULL task list rather than the
+  // Per-view counts, computed against the full task list rather than the
   // filtered one — a view chip has to say how many tasks it would show, not how
   // many survive the filters you are currently looking through.
+  //
+  // **Except the source**, which is applied. It is the outer lens: clicking a
+  // view keeps your source, so the count has to be taken inside it or the chip
+  // over-promises. Selecting Cronsole-native and reading `My jobs 88` above a
+  // list of one is the same broken promise as `Showing All 269` above two rows;
+  // a count predicts the click, and here the click lands inside the source.
   //
   // A view whose answer depends on the health scan reports `null` until that
   // arrives, and the bar renders `–`. Printing 0 would assert "nothing is
@@ -342,11 +372,12 @@ export const DashboardScreen = ({
   const viewCounts = useMemo(() => {
     const counts = new Map<string, number | null>();
     for (const v of views) {
+      const scoped = { ...v.filters, source: filters.source };
       counts.set(
         v.id,
         needsHealthData(v.filters) && !tiers
           ? null
-          : applyTaskFilters(allTasks ?? [], effectiveFilters(v.filters, viewMode), {
+          : applyTaskFilters(allTasks ?? [], effectiveFilters(scoped, viewMode), {
               now,
               timezone: settings.timezone,
               tiers
@@ -354,14 +385,20 @@ export const DashboardScreen = ({
       );
     }
     return counts;
-  }, [views, allTasks, viewMode, now, settings.timezone, tiers]);
+  }, [views, allTasks, viewMode, now, settings.timezone, tiers, filters.source]);
 
   const saveCurrentView = (name: string) => {
+    // Source is stripped before storing. A view is a question asked *of* a
+    // source, not a question about one — `filtersEqual` ignores platform, so a
+    // stored one would be state nothing reads while looking meaningful. The
+    // blurb is generated from the stripped set for the same reason: it must
+    // describe what the view actually reapplies.
+    const viewFilters = viewFiltersFrom(filters);
     const view: SavedView = {
       id: newViewId(settings.savedViews),
       name,
-      filters,
-      blurb: describeFilters(filters)
+      filters: viewFilters,
+      blurb: describeFilters(viewFilters)
     };
     const next = [...settings.savedViews, view];
     update('savedViews', next);
@@ -517,6 +554,17 @@ export const DashboardScreen = ({
         </div>
       ) : (
         <>
+          {/* The first-level axis: where a task comes from. Above the view
+              bar because it is the outer lens — see SourceBar for why picking
+              a source does not drop the view bar to "Custom". */}
+          <SourceBar
+            sources={sourceOptions}
+            counts={platformCounts}
+            totalCount={sourceGoverned.length}
+            selected={filters.source}
+            onSelect={next => setFilter('source', next)}
+          />
+
           <ViewBar
             views={views}
             activeViewId={activeView?.id ?? null}
@@ -606,8 +654,7 @@ export const DashboardScreen = ({
                 categories={categories}
                 categoryCounts={categoryCounts}
                 totalVisibleCount={totalVisibleCount}
-                platforms={platforms}
-                platformCounts={platformCounts}
+                baseFilters={activeView?.filters}
                 hiddenBySystemFilter={hiddenBySystemFilter}
                 hiddenByActiveFilter={hiddenByActiveFilter}
               />
@@ -656,39 +703,9 @@ export const DashboardScreen = ({
               The safe-path concern this raised does not apply: "Remove from
               Cronsole" sits beside "Delete from Windows" in the **task modal**,
               per task, which is where that pairing always actually lived. */}
-          <div className="flex flex-col gap-3">
-          {/*
-            The dashboard filtered itself, so it says so — in the page, not in a
-            tooltip.
-
-            A lit "Favorites" chip is enough for a view you *clicked*: you know
-            what you asked for. This one you did not ask for, and 1 of 269 tasks
-            with no visible reason is `Active Only · 110 hidden` all over again —
-            worse, because the constraint arrived on its own. So it names the
-            filter, names the number it is holding back, and puts the way out one
-            click away instead of leaving you to discover the view bar.
-          */}
-          {defaultedToFavorites && (
-            <div data-testid="default-view-banner" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs bg-warning/10 border border-warning/30 text-warning-text/90 rounded-xl px-4 py-2.5">
-              <Star size={13} className="text-warning-text fill-current shrink-0" />
-              <span>
-                Showing your {favoriteCount} starred {favoriteCount === 1 ? 'task' : 'tasks'} — Cronsole opens
-                on your favorites. {allTasks ? allTasks.length - favoriteCount : 0} other{' '}
-                {allTasks && allTasks.length - favoriteCount === 1 ? 'task is' : 'tasks are'} hidden.
-              </span>
-              <button
-                onClick={() => setFilters(settingsFilters)}
-                className="font-bold underline underline-offset-4 hover:text-warning-text transition-colors"
-              >
-                Show the full dashboard
-              </button>
-            </div>
-          )}
-          </div>
-
           {/* Grid View */}
           {viewMode === 'grid' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
+            <div data-testid="task-list" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
               {filteredTasks.length === 0 ? (
                 <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-3xl text-subtle-foreground">
                    <Tag size={48} className="mb-4 opacity-20" />

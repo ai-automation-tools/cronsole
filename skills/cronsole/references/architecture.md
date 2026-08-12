@@ -135,6 +135,49 @@ A connector that can't delete **doesn't implement `deleteTask`** — so the rout
 user honestly instead of pretending. Don't add a stub that returns `{ success: true }`; that
 converts a missing capability into a lie. Leaving it undefined *is* the design.
 
+### `unsupportedVerbs` — for the four the type system can't help with
+
+Absence encodes incapability for the optional methods above. The **required** four (`syncTasks`,
+`runTask`, `createTask`, `setTaskStatus`) get no such signal: the interface demands them, so
+`verbReachability` read their presence as proof the route would accept them. That is right for a
+method that reaches a platform and wrong for one that is a hardcoded `{ success: false }` because
+no such API exists — the Platforms matrix rendered Claude's `create` and `setStatus` as
+**`declared`**, which reads *"reachable, just unproven"*.
+
+```ts
+readonly unsupportedVerbs?: readonly CapabilityVerb[];   // structurally impossible, not "not yet"
+```
+
+Declared on the connector, checked **first** in `verbReachability` — ahead of both the
+mandatory-verb branch and the Cronsole-native route carve-outs, since either would otherwise
+return `true` and restore the exact cells this removes. `CapabilityVerb` lives in
+`platform.interface.ts` (not the service) so the connectors can name verbs without an import
+cycle; the service re-exports it.
+
+**Only for the impossible.** A verb that fails today because the agent is offline is still
+reachable — that is what health is for. `declared` is a promise, `unsupported` is a boundary.
+
+### Connectors are not all Windows-shaped
+
+`WindowsAgentConnector` reads *and* writes, and it quietly sets the expectation for the others.
+Two other shapes are legitimate, and each has to say which it is:
+
+| Shape | Example | What it means |
+|:---|:---|:---|
+| **Write-only** | `ClaudeConnector` | Claude Code exposes **one** routines endpoint — `POST /v1/claude_code/routines/{trig_id}/fire` — with a per-routine token the docs scope as *"One routine only; no read access."* `run` is real; `create`/`setStatus` are `unsupportedVerbs`; `syncTasks` returns **the routines the user declared in config**, which is not a sync and is documented as not being one. |
+| **Read-only (observer)** | planned: GitHub Actions, Vercel Cron | Reads everything, mutates nothing. The mirror image; between them they bracket the pattern. |
+
+Both earn a connector over a plain quick link by one test — **does it do something a bookmark
+cannot?** Firing a routine does; that is why Claude keeps a connector while ChatGPT and Jules
+stay links.
+
+Write-only has one consequence that generalizes: **a health check may not have a side effect.**
+Claude's only endpoint *fires the routine*, so "check whether this works" and "run the user's
+nightly job" are the same request — a probing `getHealth` would burn their daily run cap on every
+poll. It therefore reads back the `PlatformCapability` evidence the run route already writes.
+Where no read-only probe exists, the record of real runs is the only honest health signal there
+is. See [troubleshooting #45](../../../docs/troubleshooting/README.md#45-cronsole-cant-list-pause-or-create-claude-code-routines).
+
 ## Agent ↔ Server protocol
 
 - **The agent always initiates.** Outbound from the user's machine. The server never connects

@@ -329,6 +329,17 @@ export class TaskService {
         return parts[0];
       }
     }
+
+    // A Claude routine id (`trig_…`) has no path to derive a folder from, but
+    // "Uncategorized" is actively unhelpful here: Import is the screen where a
+    // user picks which categories to track, and a routine they just typed into
+    // the Platforms tab by hand should be findable under a name that means
+    // something. Windows keeps its folder-derived category; this is a constant
+    // because Claude has no hierarchy to reflect.
+    if (platform === PlatformType.CLAUDE_CODE) {
+      return 'Claude';
+    }
+
     return 'Uncategorized';
   }
 }

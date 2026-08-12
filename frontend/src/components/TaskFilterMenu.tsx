@@ -9,10 +9,8 @@ import {
   Folder,
   LayoutDashboard,
   User,
-  X,
-  Zap
+  X
 } from 'lucide-react';
-import { platformLabel } from '../platform';
 import {
   activeFilterCount,
   withheldBy,
@@ -35,8 +33,12 @@ import {
  * while claiming to show all 269). So the split is by *whether a lens speaks
  * for itself*:
  *
- *  - **Category and platform** become **pills**, outside the drawer. You can
- *    read "Backups" and know the rest is elsewhere; a count would add nothing.
+ *  - **Category** becomes a **pill**, outside the drawer. You can read
+ *    "Backups" and know the rest is elsewhere; a count would add nothing.
+ *  - **Platform is not here at all.** It graduated to the *source bar* above
+ *    the view bar — the dashboard's first-level axis — and leaving a copy here
+ *    would be two controls for one dimension, which is the "two ways to say
+ *    these tasks" duplication that cost the dashboard its row selection.
  *  - **System and status** print what they are holding back, outside the
  *    drawer, always. They are *defaults* — nobody chose them today — and on a
  *    real machine they withhold 189 and 10 rows while looking like a neutral
@@ -56,8 +58,20 @@ interface Props {
   categories: string[];
   categoryCounts: Map<string, number>;
   totalVisibleCount: number;
-  platforms: string[];
-  platformCounts: Map<string, number>;
+  /**
+   * What the count on the trigger is measured *against*.
+   *
+   * The filters of the view you are on, or the dashboard default when the
+   * combination is ad-hoc. Not always `DEFAULT_FILTERS`: on the **All** view —
+   * the widest possible state, withholding nothing — comparing to the default
+   * lit the badge with `2` while the withheld chips beside it correctly showed
+   * nothing hidden. A badge that fires when nothing is constrained is one people
+   * learn to ignore, which costs exactly the case it exists for.
+   *
+   * Measured this way the number means "filters you have added on top of this
+   * view", which is the only thing the drawer can clear.
+   */
+  baseFilters?: TaskFilters;
   /** Tasks Windows itself owns, counted over everything the other lenses allow. */
   hiddenBySystemFilter: number;
   /** Tasks the status lens is holding back, in this view. */
@@ -84,8 +98,7 @@ export const TaskFilterMenu = ({
   categories,
   categoryCounts,
   totalVisibleCount,
-  platforms,
-  platformCounts,
+  baseFilters,
   hiddenBySystemFilter,
   hiddenByActiveFilter
 }: Props) => {
@@ -110,7 +123,7 @@ export const TaskFilterMenu = ({
     };
   }, [open]);
 
-  const active = activeFilterCount(filters);
+  const active = activeFilterCount(filters, baseFilters);
   const withheld = withheldBy(filters, {
     system: hiddenBySystemFilter,
     status: hiddenByActiveFilter
@@ -128,7 +141,7 @@ export const TaskFilterMenu = ({
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
           aria-haspopup="true"
-          title="Status, system, platform and category filters"
+          title="Status, ownership and category filters"
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
             active > 0
               ? 'bg-primary/10 border-primary/40 text-foreground'
@@ -189,24 +202,6 @@ export const TaskFilterMenu = ({
               </Section>
             )}
 
-            {platforms.length > 1 && (
-              <Section title="Platform">
-                <button onClick={() => setFilter('platform', 'All')} className={`${row} ${filters.platform === 'All' ? rowOn : rowOff}`}>
-                  <span>All platforms</span>
-                  {filters.platform === 'All' && <Check size={12} className="text-primary" />}
-                </button>
-                {platforms.map(p => (
-                  <button key={p} onClick={() => setFilter('platform', p)} className={`${row} ${filters.platform === p ? rowOn : rowOff}`}>
-                    <span className="flex items-center gap-2 truncate">
-                      {p === 'TASKHUB_NATIVE' && <Zap size={11} className="text-native-text" />}
-                      {platformLabel(p)}
-                    </span>
-                    <span className="text-[10px] tabular-nums text-subtle-foreground">{platformCounts.get(p) ?? 0}</span>
-                  </button>
-                ))}
-              </Section>
-            )}
-
             <Section title="Category">
               <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
                 {categories.map(cat => (
@@ -231,9 +226,6 @@ export const TaskFilterMenu = ({
           tells you what you are looking at, and a count would add nothing. */}
       {filters.category !== 'All' && (
         <Pill icon={<Folder size={11} />} label={filters.category} onClear={() => setFilter('category', 'All')} />
-      )}
-      {filters.platform !== 'All' && (
-        <Pill icon={<Zap size={11} />} label={platformLabel(filters.platform)} onClear={() => setFilter('platform', 'All')} />
       )}
       {(filters.status === 'disabled' || filters.status === 'missing') && (
         <Pill

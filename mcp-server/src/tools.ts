@@ -7,7 +7,8 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *
  *   read      list_tasks · list_templates · list_folders · get_task_history ·
  *             export_task · convert_schedule
- *   create    create_task · create_native_task · create_task_from_template
+ *   create    create_task · create_native_task · create_native_script_task ·
+ *             create_task_from_template
  *   act       run_task
  *   modify    set_task_status · update_task_schedule · update_task_action ·
  *             untrack_task
@@ -756,7 +757,14 @@ export function registerTools(
       try {
         // The route takes the job as a nested spec and validates it with the same
         // validateJob the executor uses — so the shape is the backend's, not ours.
-        const job: Record<string, unknown> = { url, method };
+        //
+        // `jobType` is REQUIRED and was missing here from the day this tool
+        // shipped, so every call 400'd with "Unsupported jobType: undefined".
+        // Nothing caught it: the suite stubs the HTTP client, which pins what
+        // this wrapper *sends* and can never prove the API *accepts* it. That is
+        // the gap docs/testing/README.md already names — drive a wrapped route by
+        // hand after touching it (troubleshooting #44).
+        const job: Record<string, unknown> = { jobType: 'HTTP', url, method };
         if (headers) job.headers = headers;
         if (body) job.body = body;
 
@@ -768,6 +776,78 @@ export function registerTools(
         const created = task
           ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
             (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
+          : '';
+        const msg = typeof result.message === 'string' ? result.message : 'Native task created';
+        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // create_native_script_task
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'create_native_script_task',
+    {
+      title: 'Create a Cronsole-native task that runs a program',
+      description:
+        'Create a Cronsole-native task that RUNS A PROGRAM on a schedule, executed by the Cronsole backend ' +
+        'itself rather than by an OS scheduler. Use this when the job is a script or executable and you want ' +
+        'real run results — exit code, duration and captured output land in the task history, unlike a Windows ' +
+        'task where a SUCCESS only means the agent accepted the start. ' +
+        'IMPORTANT: this runs wherever the Cronsole BACKEND runs, which is the user\'s machine for a normal ' +
+        'local install but is INSIDE THE CONTAINER if the backend is Dockerized — where their paths and tools ' +
+        'do not exist. Check the executionHost on the Cronsole-native row of GET /api/tools/platforms if the ' +
+        'user\'s environment is unknown, and prefer create_task with platform=WINDOWS_TASK_SCHEDULER for a job ' +
+        'that must run as the user on their desktop or survive Cronsole being down. ' +
+        'The command is tokenized server-side and run with NO SHELL, so pipes, redirection and && are ordinary ' +
+        'characters — name cmd.exe /c or /bin/sh -c explicitly if the job genuinely needs them.',
+      inputSchema: {
+        name: z.string().describe('Task name.'),
+        command: z
+          .string()
+          .describe(
+            'The command line to run, e.g. powershell -NoProfile -File "D:\scripts\backup.ps1". ' +
+            'Quote any argument containing spaces; it is split into an executable plus discrete arguments ' +
+            'server-side, never passed to a shell.'
+          ),
+        schedule: z
+          .string()
+          .describe(
+            '5-field cron in UTC: "min hour dom month dow". Used AS GIVEN by the backend scheduler — no ' +
+            'Windows trigger conversion and none of its lossiness.'
+          ),
+        workingDirectory: z
+          .string()
+          .optional()
+          .describe('Directory to run in. Must exist on the machine the backend runs on.'),
+        timeoutMs: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Kill the job after this long. Defaults to 5 minutes; 60 minutes is the maximum.'),
+        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
+      }
+    },
+    async ({ name, command, schedule, workingDirectory, timeoutMs, category }) => {
+      try {
+        const job: Record<string, unknown> = { jobType: 'EXEC', command };
+        if (workingDirectory) job.workingDirectory = workingDirectory;
+        if (timeoutMs !== undefined) job.timeoutMs = timeoutMs;
+
+        const payload: Record<string, unknown> = { name, schedule, job };
+        if (category) payload.category = category;
+
+        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/native', payload);
+        const task = result.task;
+        const created = task
+          ? `
+${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
+            (task.nextRunTime ? `
+Next run: ${task.nextRunTime}` : '')
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Native task created';
         return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });

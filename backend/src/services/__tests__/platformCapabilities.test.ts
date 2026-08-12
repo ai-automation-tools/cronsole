@@ -8,6 +8,7 @@ import {
   capabilitySupport,
   connectorFor,
   verbReachability,
+  verbDeclaredUnsupported,
   type CapabilityVerb
 } from '../platformCapabilities.js';
 
@@ -37,7 +38,13 @@ const CONNECTOR_DERIVED: Array<{ verb: CapabilityVerb; method: string }> = [
   { verb: 'listFolders', method: 'listFolders' }
 ];
 
-/** The verbs `PlatformConnector` makes mandatory, so every connector has them. */
+/**
+ * The verbs `PlatformConnector` makes mandatory, so every connector has them.
+ *
+ * Having the *method* is not the same as the platform having the *capability* —
+ * a connector may declare one impossible via `unsupportedVerbs`, which is why
+ * the assertion below compares against that list rather than to `true`.
+ */
 const ALWAYS_PRESENT: CapabilityVerb[] = ['sync', 'run', 'create', 'setStatus'];
 
 describe('capability verb table', () => {
@@ -63,12 +70,42 @@ describe('capability verb table', () => {
 
 describe('verbReachability agrees with the connectors', () => {
   for (const platform of MATRIX_PLATFORMS) {
-    it(`${platform}: mandatory verbs are reachable`, () => {
+    it(`${platform}: mandatory verbs are reachable unless declared impossible`, () => {
+      const declaredImpossible = connectorFor(platform)?.unsupportedVerbs ?? [];
       for (const verb of ALWAYS_PRESENT) {
-        expect(verbReachability(platform, verb)).toBe(true);
+        expect(verbReachability(platform, verb)).toBe(!declaredImpossible.includes(verb));
       }
     });
   }
+
+  it('a declared-impossible verb is unsupported, not merely unproven', () => {
+    // The distinction this mechanism exists for. `create` on Claude has a method
+    // (the interface demands one) that can only ever return `{ success: false }`,
+    // because Anthropic exposes no create endpoint. Reported as `declared` it
+    // reads "reachable, just unproven" and invites the user to wait for evidence
+    // that cannot arrive.
+    const claude = connectorFor(PlatformType.CLAUDE_CODE)!;
+    expect(typeof claude.createTask).toBe('function');
+    expect(claude.unsupportedVerbs).toContain('create');
+    expect(verbReachability(PlatformType.CLAUDE_CODE, 'create')).toBe(false);
+    expect(capabilitySupport(false, null)).toBe('unsupported');
+
+    // And `run` — the one verb Claude really has — stays reachable, so the
+    // declaration cannot be read as "this connector does nothing".
+    expect(verbReachability(PlatformType.CLAUDE_CODE, 'run')).toBe(true);
+  });
+
+  it('declared-impossible verbs outrank every other reachability rule', () => {
+    // Ordering guard. `unsupportedVerbs` is checked before the mandatory-verb
+    // branch that would otherwise return true, and before the Cronsole-native
+    // carve-outs. Moving the check below either one would silently restore the
+    // exact `declared` cells this exists to remove.
+    for (const platform of MATRIX_PLATFORMS) {
+      for (const verb of connectorFor(platform)?.unsupportedVerbs ?? []) {
+        expect(verbReachability(platform, verb)).toBe(false);
+      }
+    }
+  });
 
   // Windows and Claude have no route-level carve-outs, so for them the
   // connector object IS the authority and any disagreement is drift.
@@ -80,6 +117,19 @@ describe('verbReachability agrees with the connectors', () => {
       });
     }
   }
+
+  it('tells the routes which refusals are boundaries, so they can pick 400 over 5xx', () => {
+    // A verb with no API is not a gateway having a moment. Pinned because the
+    // only visible difference is a status code, and a 502 tells the caller to
+    // retry something that can never work.
+    expect(verbDeclaredUnsupported(PlatformType.CLAUDE_CODE, 'setStatus')).toBe(true);
+    expect(verbDeclaredUnsupported(PlatformType.CLAUDE_CODE, 'create')).toBe(true);
+    // A verb that merely failed today stays a 5xx — the agent being offline is
+    // exactly the retryable case 502 is for.
+    expect(verbDeclaredUnsupported(PlatformType.WINDOWS_TASK_SCHEDULER, 'setStatus')).toBe(false);
+    expect(verbDeclaredUnsupported(PlatformType.CLAUDE_CODE, 'run')).toBe(false);
+    expect(verbDeclaredUnsupported(PlatformType.JULES, 'create')).toBe(false);
+  });
 
   it('a platform with no connector is unsupported across the board', () => {
     for (const { verb } of CAPABILITY_VERBS) {

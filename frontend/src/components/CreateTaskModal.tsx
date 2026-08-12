@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal } from 'lucide-react';
+import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Globe } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useScheduleZone } from '../hooks/useScheduleZone';
 import { CRON_PRESETS, presetLabel } from '../utils/cronPresets';
 import { Modal } from './ui/Modal';
 import { ScheduleZoneHint } from './ScheduleZoneHint';
+import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
 type CreatePlatform = 'TASKHUB_NATIVE' | 'WINDOWS_TASK_SCHEDULER';
+
+/** What a Cronsole-native task does. Windows tasks are always a command. */
+type NativeJobType = 'HTTP' | 'EXEC';
 
 interface CreateTaskModalProps {
   onClose: () => void;
@@ -34,15 +38,28 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   // 8am where you are rather than 8am UTC.
   const [schedule, setSchedule] = useState('0 8 * * *');
   const storedSchedule = zone.toUtc(schedule);
-  // Native (HTTP job) fields
+  // Native job fields
+  const [jobType, setJobType] = useState<NativeJobType>('HTTP');
   const [url, setUrl] = useState('');
   const [method, setMethod] = useState('GET');
   const [body, setBody] = useState('');
+  // Native EXEC fields. `script` is a whole command line for the user's
+  // convenience; it is tokenized into {executable, args[]} on submit, never
+  // handed to a shell.
+  const [script, setScript] = useState('');
+  const [workingDirectory, setWorkingDirectory] = useState('');
+
+  // Where a native task will actually run. Read from the platform matrix rather
+  // than assumed: the same spec means "your machine" on a host-run backend and
+  // "inside the container" on the Dockerized one, and only the server knows which.
+  const { data: matrix } = usePlatformMatrix();
+  const executionHost = matrix?.platforms.find(p => p.platform === 'TASKHUB_NATIVE')?.executionHost ?? null;
   // Windows fields
   const [command, setCommand] = useState('');
   const [preview, setPreview] = useState<{ score: number; warnings: string[] } | null>(null);
 
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
+  const isExec = !isWindows && jobType === 'EXEC';
   // Full class names so Tailwind's compiler sees them (no template interpolation).
   const focusAccent = isWindows ? 'focus:border-primary' : 'focus:border-native';
 
@@ -83,7 +100,16 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
         name,
         category,
         schedule: storedSchedule.cron,
-        job: { jobType: 'HTTP', url, method, body: body || undefined }
+        job: isExec
+          // `command` as typed — the server tokenizes it into {executable,
+          // args[]} with the same parser the Windows path uses. Splitting it
+          // here would be a second definition of a security-relevant parse.
+          ? {
+              jobType: 'EXEC',
+              command: script,
+              workingDirectory: workingDirectory.trim() || undefined
+            }
+          : { jobType: 'HTTP', url, method, body: body || undefined }
       });
     },
     onSuccess: () => {
@@ -109,7 +135,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   });
 
   const validUrl = /^https?:\/\//i.test(url.trim());
-  const targetValid = isWindows ? !!command.trim() : validUrl;
+  const targetValid = isWindows ? !!command.trim() : isExec ? !!script.trim() : validUrl;
   const canCreate =
     !!name.trim() && !!schedule.trim() && targetValid && !createMutation.isPending;
 
@@ -226,6 +252,33 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             )}
           </div>
 
+          {/* What a native task does. Windows tasks are always a command, so this
+              only appears for Cronsole-native — where the choice is real. */}
+          {!isWindows && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Job type</label>
+              <div className="flex gap-2">
+                {([
+                  ['HTTP', 'HTTP request', Globe] as const,
+                  ['EXEC', 'Run a program', Terminal] as const
+                ]).map(([value, label, Icon]) => (
+                  <button
+                    key={value}
+                    onClick={() => setJobType(value)}
+                    aria-pressed={jobType === value}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                      jobType === value
+                        ? 'bg-native/10 border-native/40 text-native-text'
+                        : 'bg-background border-border text-subtle-foreground hover:border-foreground/30'
+                    }`}
+                  >
+                    <Icon size={13} /> {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {isWindows ? (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -240,6 +293,63 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               />
               <p className="text-[10px] text-subtle-foreground italic">Runs the program directly as your user — no hidden shell wrapper. Name <span className="font-mono">cmd.exe /c</span> explicitly if you need shell features like redirection.</p>
             </div>
+          ) : isExec ? (
+            <>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Terminal size={11} /> Program <span className="text-danger-text">*</span>
+                </label>
+                <textarea
+                  value={script}
+                  onChange={e => setScript(e.target.value)}
+                  rows={2}
+                  placeholder={executionHost?.os === 'win32'
+                    ? 'powershell -File "D:\\scripts\\report.ps1"'
+                    : '/usr/bin/python3 /opt/scripts/report.py'}
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-native transition-colors resize-y"
+                />
+                <p className="text-[10px] text-subtle-foreground italic">
+                  Runs the program directly — <span className="font-semibold">no shell</span>, so
+                  <span className="font-mono"> &amp;&amp; </span> and <span className="font-mono">|</span> are
+                  ordinary characters rather than operators. Name <span className="font-mono">cmd.exe /c</span> or
+                  <span className="font-mono"> /bin/sh -c</span> explicitly if you need them.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Working directory (optional)</label>
+                <input
+                  value={workingDirectory}
+                  onChange={e => setWorkingDirectory(e.target.value)}
+                  placeholder={executionHost?.os === 'win32' ? 'D:\\scripts' : '/opt/scripts'}
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-native transition-colors"
+                />
+              </div>
+
+              {/*
+                Where this will actually run — the one thing that makes an EXEC
+                job ambiguous. On a host-run backend the path means what the user
+                thinks; inside a container the identical task runs against a
+                filesystem that is not theirs and fails as "executable not found"
+                for a file they can see in Explorer. The server decides which,
+                and it is stated before the click rather than discovered after.
+              */}
+              {executionHost && (
+                <div className={`text-[11px] rounded-xl px-3 py-2 flex items-start gap-2 border ${
+                  executionHost.kind === 'container'
+                    ? 'text-warning-text bg-warning/10 border-warning/30'
+                    : 'text-subtle-foreground bg-background border-border'
+                }`}>
+                  {executionHost.kind === 'container'
+                    ? <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                    : <Info size={13} className="shrink-0 mt-0.5 text-native-text" />}
+                  <span>
+                    {executionHost.summary}
+                    <span className="opacity-70"> ({executionHost.evidence})</span>
+                  </span>
+                </div>
+              )}
+            </>
           ) : (
             <>
               <div className="space-y-2">

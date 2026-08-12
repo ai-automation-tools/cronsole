@@ -146,12 +146,43 @@ Everything below the sources track, unchanged in priority relative to each other
       OFFLINE`. A configured-but-never-exercised platform is none of those, so the Claude connector
       reports `DEGRADED` with a reason naming why — pessimistic-with-an-explanation, chosen because
       the failure it prevents is trusting a config nothing has checked.
-      **This is not Claude-specific and the other half is a live defect:** `POST /api/tasks/health`
-      auto-creates the Windows connection with a hardcoded `healthState: 'HEALTHY'` before the agent
-      has ever said anything — the same precondition-verdict #40 exists to stop. Fixing it properly
-      is one enum value plus its consumers (`types.ts`, `HEALTH_STYLE`, `useConnections`,
-      `HealthStrip`), and the UI already has the right idiom for it: the Failures chip renders `–`
-      rather than `0` until the scan lands.
+
+      **Three instances of the same shape, none of them Claude-specific:**
+      1. `getHealth` deriving a verdict from a precondition — **fixed** in `ClaudeConnector`.
+      2. `POST /api/tasks/health` auto-creating the Windows connection with a hardcoded
+         `healthState: 'HEALTHY'` before the agent has ever said anything.
+      3. **The schema itself**: `PlatformConnection.healthState` is `@default(HEALTHY)`, so *every*
+         connection is born Online. Found when the new routines route created one and the Platforms
+         card immediately read *Online* having contacted Anthropic never. Worked around there by
+         recomputing health on write (`refreshClaudeHealth`) — safe only because Claude's
+         `getHealth` does not probe, and **not** a pattern to copy to a platform whose health check
+         talks to the platform.
+
+      Fixing it properly is one enum value plus its consumers (`types.ts`, `HEALTH_STYLE`,
+      `useConnections`, `HealthStrip`) and a default change, and the UI already has the right idiom:
+      the Failures chip renders `–` rather than `0` until the scan lands.
+
+- [x] **Claude connection config — the panel that makes the connector reachable**
+      *(shipped 2026-08-12)*: the connector above was correct and **unreachable** — the only
+      `platformConnection.create` in the codebase was the Windows auto-init, so nothing could write
+      a routine id or token. Now `GET`/`POST`/`DELETE /api/tools/platforms/claude/routines` plus a
+      **Routines** panel on the Claude card in the Platforms tab.
+
+      Claude-specific rather than a generic `PUT /platforms/:platform/connection` on purpose: a
+      generic route would imply the other platforms are configurable this way (they are not) and
+      would have to accept an arbitrary JSON blob into a field every connector trusts. Each
+      platform gets its own validated shape when it needs one.
+
+      Decisions worth keeping: **the token is write-only** across all three routes (`hasToken`, never
+      the value; no reveal endpoint, because claude.ai cannot re-display it either and a second copy
+      would be a secret with a longer life than it needs); **re-adding an id rotates rather than
+      409s**, since generating a token at Anthropic revokes its predecessor, so the stored one is
+      already dead by the time the user gets here; **a pasted fire URL is normalized to its `trig_`
+      id**, because the modal shows the URL beside the token and storing it would 404 much later
+      with nothing pointing back at the paste; **shape mismatches warn rather than refuse**, since
+      `/fire` is experimental behind a dated beta header; and **removing the last routine removes
+      the connection**, so the card reads "Not connected" instead of sitting at amber
+      *"No routines configured"* forever for someone who never finished setup.
 
 - [ ] **GitHub Actions — read-only observer** *(~a day)*: near-universal for developers, and
       scheduled workflows are invisible until they break. `on: schedule` cron is **already UTC**, so

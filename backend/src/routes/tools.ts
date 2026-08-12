@@ -16,7 +16,16 @@ import { ExecutionStatus, PlatformType, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
-import { deserializeConfig } from '../auth/connectionConfig.js';
+import { deserializeConfig, serializeConfig } from '../auth/connectionConfig.js';
+import {
+  readRoutines,
+  redactRoutines,
+  upsertRoutine,
+  normalizeRoutineId,
+  looksLikeRoutineId,
+  looksLikeRoutineToken,
+  routineInputSchema
+} from '../services/claudeRoutines.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
@@ -532,6 +541,225 @@ const historyQuerySchema = z.object({
 router.get('/platforms', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
   res.json({ platforms: await buildPlatformMatrix(userId) });
+});
+
+/* -------------------------------------------------------------------------- *
+ * Claude routines — the connection config a user actually composes.
+ *
+ * Every other platform gets its credentials another way: the Windows agent
+ * pairs, Cronsole-native needs none. Claude is the first where the user types a
+ * secret in, because Anthropic mints a **bearer token per routine** in the web
+ * UI and offers no API to list or manage them — so the routine list is a
+ * registry the user maintains and Cronsole stores encrypted.
+ *
+ * These are Claude-specific rather than a generic
+ * `PUT /platforms/:platform/connection`, deliberately. A generic route would
+ * imply the other platforms are configurable this way (they are not) and would
+ * have to accept an arbitrary JSON blob into a field every connector trusts.
+ * Each platform's config gets its own validated shape when it needs one.
+ *
+ * **The token is write-only across all three routes.** It goes in and never
+ * comes back — `GET` reports `hasToken`, never the value. There is no reveal
+ * endpoint and there should not be: claude.ai shows the token once and cannot
+ * re-display it either, so regenerating is the only real recovery, and a
+ * "reveal" here would be a second copy of a secret whose whole life is one hop.
+ * -------------------------------------------------------------------------- */
+
+/** Load the Claude connection and its routines, or a well-formed empty state. */
+async function loadClaudeRoutines(userId: string) {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.CLAUDE_CODE }
+  });
+  return {
+    connection,
+    routines: connection ? readRoutines(deserializeConfig(connection.config)) : []
+  };
+}
+
+/**
+ * Write the routine list back, creating the connection on first use.
+ *
+ * `serializeConfig` is not optional here: `PlatformConnection.config` is
+ * encrypted at rest (AES-256-GCM) and this is the one route that puts a live
+ * third-party credential into it.
+ */
+async function saveClaudeRoutines(
+  userId: string,
+  connectionId: string | undefined,
+  routines: ReturnType<typeof readRoutines>
+) {
+  const config = serializeConfig({ routines });
+  if (connectionId) {
+    await prisma.platformConnection.update({ where: { id: connectionId }, data: { config } });
+  } else {
+    await prisma.platformConnection.create({
+      data: { userId, platform: PlatformType.CLAUDE_CODE, isActive: true, config }
+    });
+  }
+  await refreshClaudeHealth(userId);
+}
+
+/**
+ * Recompute and store this connection's health right after writing it.
+ *
+ * Without this a connection is born **`HEALTHY`** — `PlatformConnection.healthState`
+ * is `@default(HEALTHY)` in the schema — so the Platforms card would say *Online*
+ * from the instant a routine is added until the next `/api/tasks/health` poll
+ * corrects it, having contacted Anthropic exactly never. That is the same
+ * precondition-verdict as troubleshooting #40, one layer further down: the lie is
+ * in the column default rather than in a connector.
+ *
+ * Safe to call here precisely because **Claude's `getHealth` does not probe** —
+ * it reads the stored run evidence, so refreshing costs a DB read and cannot
+ * fire anyone's routine. Do not copy this into a write path for a platform whose
+ * health check talks to the platform.
+ *
+ * The real fix is a `HealthState.UNKNOWN` so "configured, never exercised" stops
+ * borrowing a verdict; it is logged in ROADMAP.md, and the schema default is the
+ * third instance of the shape.
+ */
+async function refreshClaudeHealth(userId: string): Promise<void> {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.CLAUDE_CODE }
+  });
+  if (!connection) return;
+
+  const connector = connectorRegistry.getConnector(PlatformType.CLAUDE_CODE);
+  if (!connector) return;
+
+  try {
+    const health = await connector.getHealth({ ...deserializeConfig(connection.config), userId });
+    await prisma.platformConnection.update({
+      where: { id: connection.id },
+      // `?? null` and not a bare value: Prisma reads `undefined` as "leave the
+      // column alone", which would keep a stale reason under a fresh state.
+      data: { healthState: health.state, healthReason: health.reason ?? null }
+    });
+  } catch {
+    // Health is a readout, not the operation. Failing to refresh it must not
+    // fail the routine the user just saved — the next poll will correct it.
+  }
+}
+
+/**
+ * The routines this connection knows about — **without their tokens**.
+ *
+ * `taskCount` per routine is here because removing a routine breaks any tracked
+ * task pointing at it, and the UI must be able to say so *before* the click
+ * rather than after (the same reason bulk recategorize states `detachedFromFolder`
+ * up front).
+ */
+router.get('/platforms/claude/routines', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { routines } = await loadClaudeRoutines(userId);
+
+  const counts = await prisma.task.groupBy({
+    by: ['externalId'],
+    where: { userId, platform: PlatformType.CLAUDE_CODE },
+    _count: { _all: true }
+  });
+  const byExternalId = new Map(counts.map(c => [c.externalId, c._count._all]));
+
+  res.json({
+    routines: redactRoutines(routines).map(r => ({ ...r, taskCount: byExternalId.get(r.id) ?? 0 }))
+  });
+});
+
+/**
+ * Add a routine, or rotate the token on one already stored.
+ *
+ * Re-adding an existing id **replaces** it rather than 409-ing, because that is
+ * the rotation path: generating a token at claude.ai revokes its predecessor, so
+ * the stored one is already dead by the time the user gets here. Making them
+ * delete first would add a step to the only recovery there is.
+ */
+router.post(
+  '/platforms/claude/routines',
+  validateBody(routineInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const { id: rawId, token, name } = req.body as { id: string; token: string; name?: string };
+
+    const id = normalizeRoutineId(rawId);
+    if (!id) {
+      throw new HttpError(
+        400,
+        'Could not read a routine id from that. Paste either the trig_… id or the whole fire URL ' +
+          'shown in the routine\'s API trigger dialog.'
+      );
+    }
+
+    const { connection, routines } = await loadClaudeRoutines(userId);
+    const replaced = routines.some(r => r.id === id);
+    await saveClaudeRoutines(
+      userId,
+      connection?.id,
+      upsertRoutine(routines, { id, token, ...(name ? { name } : {}) })
+    );
+
+    // Advisory, never enforced: /fire is experimental behind a dated beta header
+    // and neither format is promised to hold. Refusing an id Anthropic later
+    // changes would be worse than a 404 that explains itself — but a silent
+    // accept of an obviously wrong paste costs a confusing failure at first run.
+    const warnings = [
+      looksLikeRoutineId(id)
+        ? null
+        : `"${id}" does not look like a routine id — claude.ai issues trig_… values, and the id on the routine's page URL is a different one.`,
+      looksLikeRoutineToken(token)
+        ? null
+        : 'That token does not start with sk-ant-oat01-, which is the form claude.ai issues for a routine API trigger.'
+    ].filter((w): w is string => w !== null);
+
+    res.status(replaced ? 200 : 201).json({
+      routine: { id, ...(name ? { name } : {}), hasToken: true, taskCount: 0 },
+      replaced,
+      warnings
+    });
+  }
+);
+
+/**
+ * Forget a routine. Cronsole-side only — the routine keeps running at Anthropic,
+ * on its own schedule, exactly as before.
+ *
+ * That distinction is the whole reason this is not called "delete": Cronsole
+ * cannot delete a Claude routine and never will (no API), so a label implying it
+ * had would be the invisible-fence lie in reverse — a user believing they had
+ * turned something off while it kept firing nightly.
+ */
+router.delete('/platforms/claude/routines/:id', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const id = String(req.params.id);
+
+  const { connection, routines } = await loadClaudeRoutines(userId);
+  if (!routines.some(r => r.id === id)) {
+    throw new HttpError(404, `No routine ${id} is configured.`);
+  }
+
+  const remaining = routines.filter(r => r.id !== id);
+
+  // Removing the last routine removes the connection, rather than leaving an
+  // empty one behind. An empty connection is `configured: true` with nothing in
+  // it, which health correctly calls DEGRADED — so the card would sit at amber
+  // "No routines configured" indefinitely for someone who simply has not
+  // finished setup, and amber is supposed to mean *go look at this*. With no
+  // connection the card reads "Not connected", which is the true statement.
+  // Capability evidence is keyed separately and survives, so verbs already
+  // verified here stay verified.
+  if (remaining.length === 0 && connection) {
+    await prisma.platformConnection.delete({ where: { id: connection.id } });
+  } else {
+    await saveClaudeRoutines(userId, connection?.id, remaining);
+  }
+
+  // Counted out loud. These task rows survive and stay visible; their Run button
+  // now fails with "not in this connection's config" until the routine is
+  // re-added. Reported so the caller can say what it just broke.
+  const orphanedTasks = await prisma.task.count({
+    where: { userId, platform: PlatformType.CLAUDE_CODE, externalId: id }
+  });
+
+  res.json({ removed: id, orphanedTasks, connectionRemoved: remaining.length === 0 });
 });
 
 /**

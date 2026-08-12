@@ -702,9 +702,15 @@ router.post(
     // changes would be worse than a 404 that explains itself — but a silent
     // accept of an obviously wrong paste costs a confusing failure at first run.
     const warnings = [
+      // Verified against the live UI on 2026-08-12: the routine's page URL
+      // (/code/routines/trig_…) and the API trigger's Fire URL carry the SAME
+      // trig_ id, so either is a valid place to copy it from. An earlier draft
+      // of this warning claimed the page URL held a different id — it does not,
+      // and saying so would have sent people back to a dialog they had already
+      // read the right value from.
       looksLikeRoutineId(id)
         ? null
-        : `"${id}" does not look like a routine id — claude.ai issues trig_… values, and the id on the routine's page URL is a different one.`,
+        : `"${id}" does not look like a routine id — claude.ai issues trig_… values, which you can copy from the routine's own page URL or from its API trigger dialog.`,
       looksLikeRoutineToken(token)
         ? null
         : 'That token does not start with sk-ant-oat01-, which is the form claude.ai issues for a routine API trigger.'

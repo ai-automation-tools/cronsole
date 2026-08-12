@@ -106,7 +106,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
         <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-red-400">*</span>
+              <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-danger-text">*</span>
             </label>
             <input
               value={schedule}
@@ -137,13 +137,13 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
             />
             {preview && (
               preview.warnings.length > 0 ? (
-                <div className="text-[11px] text-amber-500 bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2 space-y-1">
+                <div className="text-[11px] text-warning-text bg-warning/5 border border-warning/20 rounded-xl px-3 py-2 space-y-1">
                   {preview.warnings.map((w, i) => (
                     <p key={i} className="flex items-start gap-1.5"><AlertTriangle size={12} className="shrink-0 mt-0.5" /> {w}</p>
                   ))}
                 </div>
               ) : (
-                <p className="text-[11px] text-emerald-500 flex items-center gap-1.5">
+                <p className="text-[11px] text-success-text flex items-center gap-1.5">
                   <CheckCircle2 size={12} /> {isWindows ? 'Converts cleanly to a Windows trigger.' : 'Valid Cronsole-native cron schedule.'}
                 </p>
               )

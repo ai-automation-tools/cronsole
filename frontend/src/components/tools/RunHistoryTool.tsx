@@ -140,7 +140,7 @@ export const RunHistoryTool = () => {
           {isFetching && !matched ? 'Counting…' : matched ? (
             <>
               <span className="font-bold text-foreground">{matched.runs}</span> run{matched.runs === 1 ? '' : 's'}
-              {matched.failed > 0 && <> · <span className="font-bold text-red-500">{matched.failed}</span> failed</>}
+              {matched.failed > 0 && <> · <span className="font-bold text-danger-text">{matched.failed}</span> failed</>}
             </>
           ) : '—'}
         </div>

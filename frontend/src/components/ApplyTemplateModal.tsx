@@ -208,7 +208,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
               })}
             </div>
             {creatableTargets.length === 0 && (
-              <p className="text-[11px] text-amber-400 bg-amber-500/5 border border-amber-500/30 rounded-xl px-3 py-2 flex items-start gap-1.5">
+              <p className="text-[11px] text-warning-text bg-warning/5 border border-warning/30 rounded-xl px-3 py-2 flex items-start gap-1.5">
                 <AlertTriangle size={11} className="shrink-0 mt-0.5" />
                 This is a compatible pattern — Cronsole can’t create tasks on its target platform(s) yet (no agent or API). Copy the command below to set it up manually.
               </p>
@@ -217,7 +217,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
-              Task name <span className="text-red-400">*</span>
+              Task name <span className="text-danger-text">*</span>
             </label>
             <input
               value={name}
@@ -259,7 +259,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
               )}
 
               {foldersError ? (
-                <p className="text-[10px] text-amber-400 flex items-start gap-1.5">
+                <p className="text-[10px] text-warning-text flex items-start gap-1.5">
                   <AlertTriangle size={11} className="shrink-0 mt-0.5" />
                   Couldn’t read your folders (the agent may be offline). You can still create the task in {DEFAULT_FOLDER}.
                 </p>
@@ -309,12 +309,12 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
               driftsWithDst={!isWindows}
             />
             {preview && preview.score >= 1 && (
-              <p className="text-[10px] text-green-500 flex items-center gap-1.5">
+              <p className="text-[10px] text-success-text flex items-center gap-1.5">
                 <CheckCircle2 size={11} className="shrink-0" /> Schedule converts cleanly to a native trigger.
               </p>
             )}
             {preview && preview.score < 1 && (
-              <div className="text-[11px] text-amber-400 bg-amber-500/5 border border-amber-500/30 rounded-xl px-3 py-2 space-y-1">
+              <div className="text-[11px] text-warning-text bg-warning/5 border border-warning/30 rounded-xl px-3 py-2 space-y-1">
                 {preview.warnings.map((w, i) => (
                   <p key={i} className="flex items-start gap-1.5">
                     <AlertTriangle size={11} className="shrink-0 mt-0.5" /> {w}
@@ -327,7 +327,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
           {params.map(p => (
             <div key={p.key} className="space-y-2">
               <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
-                {p.label}{p.required && <span className="text-red-400 ml-1">*</span>}
+                {p.label}{p.required && <span className="text-danger-text ml-1">*</span>}
               </label>
               {p.type === 'select' ? (
                 <select 
@@ -351,10 +351,10 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Resolved command</label>
-            <pre className={`bg-background border rounded-xl px-3 py-2.5 text-xs font-mono whitespace-pre-wrap break-all ${incomplete ? 'border-amber-500/40 text-amber-300' : 'border-border text-green-300'}`}>
+            <pre className={`bg-background border rounded-xl px-3 py-2.5 text-xs font-mono whitespace-pre-wrap break-all ${incomplete ? 'border-warning/40 text-warning-text' : 'border-border text-success-text'}`}>
               {resolved || '—'}
             </pre>
-            {incomplete && <p className="text-[10px] text-amber-500 italic">Fill the required fields above before applying.</p>}
+            {incomplete && <p className="text-[10px] text-warning-text italic">Fill the required fields above before applying.</p>}
           </div>
         </div>
 

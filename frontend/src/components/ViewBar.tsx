@@ -101,7 +101,7 @@ export const ViewBar = ({
             {!isBuiltinView(view.id) && (
               <button
                 onClick={() => onDelete(view)}
-                className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md opacity-0 group-hover/view:opacity-100 focus:opacity-100 text-subtle-foreground hover:text-red-400 transition-opacity"
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md opacity-0 group-hover/view:opacity-100 focus:opacity-100 text-subtle-foreground hover:text-danger-text transition-opacity"
                 title={`Delete the "${view.name}" view`}
                 aria-label={`Delete the "${view.name}" view`}
               >
@@ -120,13 +120,13 @@ export const ViewBar = ({
       */}
       {activeViewId === null && (
         <span
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/40"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-warning/15 text-warning-text border border-warning/40"
           title={`Custom filters — ${currentDescription}. Not one of your saved views.`}
         >
           Custom
           <button
             onClick={onReset}
-            className="hover:text-amber-200 transition-colors"
+            className="hover:text-warning-text transition-colors"
             title="Reset to the default dashboard"
             aria-label="Reset filters to the default dashboard"
           >

@@ -148,7 +148,7 @@ export const MassActionConfirm = ({
             {/* Named before the click, because a warning that arrives with the
                 result arrives too late to change the decision it was about. */}
             {detached > 0 && (
-              <p className="text-xs text-amber-400">
+              <p className="text-xs text-warning-text">
                 {detached} Windows task{detached === 1 ? '' : 's'} will have a category that no longer
                 matches its Task Scheduler folder. That is allowed and nothing moves on your machine —
                 but the two will disagree from now on.
@@ -158,8 +158,8 @@ export const MassActionConfirm = ({
         )}
 
         {mustType && (
-          <div className="space-y-2 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
-            <p className="flex items-start gap-2 text-xs text-amber-400 font-bold">
+          <div className="space-y-2 bg-warning/10 border border-warning/30 rounded-xl p-4">
+            <p className="flex items-start gap-2 text-xs text-warning-text font-bold">
               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
               <span>
                 This is {count} tasks — at or above the {TYPE_TO_CONFIRM_THRESHOLD}-task line where a

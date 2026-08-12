@@ -44,7 +44,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   // Full class names so Tailwind's compiler sees them (no template interpolation).
-  const focusAccent = isWindows ? 'focus:border-primary' : 'focus:border-violet-500';
+  const focusAccent = isWindows ? 'focus:border-primary' : 'focus:border-native';
 
   const selectPlatform = (p: CreatePlatform) => {
     setPlatform(p);
@@ -134,7 +134,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
     >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
-            <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : 'text-violet-400'}`}>
+            <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : 'text-native-text'}`}>
               {isWindows ? <Monitor size={11} /> : <Zap size={11} />}
               {isWindows ? 'Windows Task Scheduler' : 'Cronsole-native task'}
             </p>
@@ -154,14 +154,14 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Platform</label>
             <div className="flex gap-2">
-              {platformButton('TASKHUB_NATIVE', 'Cronsole', Zap, 'bg-violet-600/10 border-violet-500/40 text-violet-300')}
+              {platformButton('TASKHUB_NATIVE', 'Cronsole', Zap, 'bg-native/10 border-native/40 text-native-text')}
               {platformButton('WINDOWS_TASK_SCHEDULER', 'Windows', Monitor, 'bg-primary/10 border-primary/40 text-foreground')}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Name <span className="text-red-400">*</span></label>
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Name <span className="text-danger-text">*</span></label>
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -181,12 +181,12 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-red-400">*</span>
+              <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-danger-text">*</span>
             </label>
             <input
               value={schedule}
               onChange={e => setSchedule(e.target.value)}
-              className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono outline-none transition-colors ${isWindows ? 'text-foreground focus:border-primary' : 'text-violet-300 focus:border-violet-500'}`}
+              className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono outline-none transition-colors ${isWindows ? 'text-foreground focus:border-primary' : 'text-native-text focus:border-native'}`}
             />
             <div className="flex flex-wrap gap-1.5">
               {CRON_PRESETS.map(p => (
@@ -197,7 +197,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                     schedule === p.cron
                       ? isWindows
                         ? 'bg-primary border-primary text-primary-foreground'
-                        : 'bg-violet-600 border-violet-500 text-white'
+                        : 'bg-native border-native text-white'
                       : 'bg-background border-border text-muted-foreground hover:border-foreground/30'
                   }`}
                 >
@@ -213,13 +213,13 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             />
             {isWindows && preview && (
               preview.warnings.length > 0 ? (
-                <div className="text-[11px] text-amber-500 bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2 space-y-1">
+                <div className="text-[11px] text-warning-text bg-warning/5 border border-warning/20 rounded-xl px-3 py-2 space-y-1">
                   {preview.warnings.map((w, i) => (
                     <p key={i} className="flex items-start gap-1.5"><AlertTriangle size={12} className="shrink-0 mt-0.5" /> {w}</p>
                   ))}
                 </div>
               ) : (
-                <p className="text-[11px] text-emerald-500 flex items-center gap-1.5">
+                <p className="text-[11px] text-success-text flex items-center gap-1.5">
                   <CheckCircle2 size={12} /> Converts cleanly to a Windows trigger.
                 </p>
               )
@@ -229,7 +229,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           {isWindows ? (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <Terminal size={11} /> Command <span className="text-red-400">*</span>
+                <Terminal size={11} /> Command <span className="text-danger-text">*</span>
               </label>
               <textarea
                 value={command}
@@ -243,12 +243,12 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           ) : (
             <>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">HTTP request <span className="text-red-400">*</span></label>
+                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">HTTP request <span className="text-danger-text">*</span></label>
                 <div className="flex gap-2">
                   <select
                     value={method}
                     onChange={e => setMethod(e.target.value)}
-                    className="bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-violet-500 transition-colors"
+                    className="bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-native transition-colors"
                   >
                     {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
@@ -256,11 +256,11 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                     value={url}
                     onChange={e => setUrl(e.target.value)}
                     placeholder="https://…"
-                    className="flex-1 bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-violet-500 transition-colors"
+                    className="flex-1 bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-native transition-colors"
                   />
                 </div>
                 {url.trim() && !validUrl && (
-                  <p className="text-[10px] text-amber-500 italic">URL must start with http:// or https://</p>
+                  <p className="text-[10px] text-warning-text italic">URL must start with http:// or https://</p>
                 )}
               </div>
 
@@ -272,7 +272,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                     onChange={e => setBody(e.target.value)}
                     rows={3}
                     placeholder='{"message": "hello"}'
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-violet-500 transition-colors resize-y"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-native transition-colors resize-y"
                   />
                 </div>
               )}
@@ -280,7 +280,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           )}
 
           <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-start gap-2">
-            <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : 'text-violet-400'}`} />
+            <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : 'text-native-text'}`} />
             <span>
               {isWindows
                 ? 'Created under the \\Cronsole\\ folder in Task Scheduler, so Cronsole-made tasks stay identifiable. Requires the Windows agent to be online.'
@@ -298,7 +298,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             className={`flex-[2] py-3 rounded-2xl font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
               isWindows
                 ? 'bg-primary hover:bg-primary-hover shadow-primary/20'
-                : 'bg-violet-600 hover:bg-violet-500 shadow-violet-600/20'
+                : 'bg-native hover:bg-native/85 shadow-native/20'
             }`}
           >
             {createMutation.isPending

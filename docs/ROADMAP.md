@@ -93,16 +93,22 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 > does, not as the review phrased it. **Ordered.** The counts bug the same review found is P1
 > above and should ship first — it is the one that makes the dashboard say something untrue.
 
-- [ ] **Status colour isn't themeable — it's 263 hard-coded Tailwind utilities across 8 hues.**
-      The tokens in `index.css` cover neutrals + `primary` + `success`; every warning, failure,
-      system and isolation colour is written raw at the call site (`amber-500`, `rose-500`,
-      `sky-500`, `violet-500`, …). Three pairs are **synonyms carrying the same meaning in
-      different files** — red/rose (77 uses), green/emerald (32), violet/purple (32) — so the same
-      state is two colours depending on which component you're looking at. Fix the cause before the
-      symptom: promote the status roles to tokens (`--warning`, `--danger`, `--info`, `--system`),
-      collapse each synonym pair, then the "restrained theme pass" is one file instead of a
-      263-site sweep. Also add the missing neutral step — `background` 4% → `surface` 7% → `muted`
-      14% gives no *raised* or *active* panel level, which is why controls all read at one weight.
+- [x] **Status colour isn't themeable — 263 hard-coded Tailwind utilities across 8 hues**
+      *(shipped 2026-08-12)*. Roles now live in `index.css` as `--x` / `--x-text` pairs
+      (`success` · `warning` · `danger` · `isolate` · `info` · `system` · `neutral-text`, plus
+      `native` / `claude` / `chatgpt` identity and a `danger-surface` alarm pair). Zero raw palette
+      utilities remain. **The real defect was worse than untidiness: all five status roles failed
+      WCAG AA in the light theme** (1.67–2.77 against white, AA is 4.5) and *could not be fixed
+      where they were written*, since one literal cannot serve both themes — now 5.05–8.65, with
+      dark unchanged at 7.15–11.70. Also caught: `bg-violet-600` and `bg-primary` are the same
+      colour, so the native-vs-Windows chip drew no distinction.
+      **Correction to this item as originally written:** it claimed three synonym pairs from a
+      hue-frequency count. Checked before merging, only **green/emerald** was real — and even that
+      excludes `platform.ts`, where emerald is ChatGPT's brand, so a blind merge would have
+      recoloured a live badge. violet/purple (system lens vs Claude identity) and red/rose
+      (failure vs isolating lens) are distinct roles that happen to share a hue.
+      `--raised` is added and applied to one panel; **spending it across the app to build real
+      hierarchy is the *thin the first viewport* item below**, not done here.
 - [ ] **Thin the first viewport.** Desktop stacks onboarding banner · title+sync · Help Center ·
       status chip · system chip · New Task · Import · Sync Now · saved views · search · category
       chips · view switcher · select-all · favorites banner before any task. Several are

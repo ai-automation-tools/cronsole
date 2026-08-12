@@ -571,20 +571,20 @@ export const DashboardScreen = ({
               }
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
                 isolatedStatus
-                  ? 'bg-rose-500/10 border-rose-500/40 text-foreground hover:border-rose-500/70'
+                  ? 'bg-isolate/10 border-isolate/40 text-foreground hover:border-isolate/70'
                   : filters.status === 'any'
-                    ? 'bg-amber-500/10 border-amber-500/40 text-foreground hover:border-amber-500/70'
-                    : 'bg-green-500/10 border-green-500/40 text-foreground hover:border-green-500/70'
+                    ? 'bg-warning/10 border-warning/40 text-foreground hover:border-warning/70'
+                    : 'bg-success/10 border-success/40 text-foreground hover:border-success/70'
               }`}
             >
               {/* A third state needs a third treatment. Reusing "All statuses"
                   amber for an isolation would say the opposite of what the list
                   is doing — it is showing *less*, not more. */}
               {isolatedStatus
-                ? <Filter size={16} className="text-rose-400" />
+                ? <Filter size={16} className="text-isolate-text" />
                 : filters.status === 'any'
-                  ? <Eye size={16} className="text-amber-400" />
-                  : <EyeOff size={16} className="text-green-400" />}
+                  ? <Eye size={16} className="text-warning-text" />
+                  : <EyeOff size={16} className="text-success-text" />}
               {/* Names the dimension it owns. "Showing All" described the whole
                   list, which is a claim this control is not entitled to make —
                   it governs status, and every other lens is still in force
@@ -594,11 +594,11 @@ export const DashboardScreen = ({
               {/* The count is the part that actually removes the ambiguity: the
                   label alone reads as either a state or an action. */}
               {isolatedStatus ? (
-                <span className="text-[10px] font-bold text-rose-400/90 tabular-nums">{filteredTasks.length}</span>
+                <span className="text-[10px] font-bold text-isolate-text/90 tabular-nums">{filteredTasks.length}</span>
               ) : filters.status === 'any' ? (
-                <span className="text-[10px] font-bold text-amber-400/90 tabular-nums">{filteredTasks.length}</span>
+                <span className="text-[10px] font-bold text-warning-text/90 tabular-nums">{filteredTasks.length}</span>
               ) : hiddenByActiveFilter > 0 && (
-                <span className="text-[10px] font-bold text-green-400/90 tabular-nums whitespace-nowrap">
+                <span className="text-[10px] font-bold text-success-text/90 tabular-nums whitespace-nowrap">
                   {hiddenByActiveFilter} hidden
                 </span>
               )}
@@ -639,18 +639,18 @@ export const DashboardScreen = ({
               }
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border active:scale-95 ${
                 filters.system === 'only'
-                  ? 'bg-rose-500/10 border-rose-500/40 text-foreground hover:border-rose-500/70'
+                  ? 'bg-isolate/10 border-isolate/40 text-foreground hover:border-isolate/70'
                   : filters.system === 'include'
-                    ? 'bg-sky-500/10 border-sky-500/40 text-foreground hover:border-sky-500/70'
-                    : 'bg-violet-500/10 border-violet-500/40 text-foreground hover:border-violet-500/70'
+                    ? 'bg-info/10 border-info/40 text-foreground hover:border-info/70'
+                    : 'bg-system/10 border-system/40 text-foreground hover:border-system/70'
               }`}
             >
               {filters.system === 'personal'
-                ? <User size={16} className="text-violet-400" />
-                : <Cpu size={16} className={filters.system === 'only' ? 'text-rose-400' : 'text-sky-400'} />}
+                ? <User size={16} className="text-system-text" />
+                : <Cpu size={16} className={filters.system === 'only' ? 'text-isolate-text' : 'text-info-text'} />}
               {filters.system === 'only' ? 'System only' : filters.system === 'include' ? 'Incl. System' : 'Personal'}
               <span className={`text-[10px] font-bold tabular-nums whitespace-nowrap ${
-                filters.system === 'only' ? 'text-rose-400/90' : filters.system === 'include' ? 'text-sky-400/90' : 'text-violet-400/90'
+                filters.system === 'only' ? 'text-isolate-text/90' : filters.system === 'include' ? 'text-info-text/90' : 'text-system-text/90'
               }`}>
                 {filters.system === 'only'
                   ? `yours hidden`
@@ -672,17 +672,17 @@ export const DashboardScreen = ({
             <button
               onClick={() => onClearMissing(missingCount)}
               disabled={isClearingMissing}
-              className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-500/10 border border-amber-500/40 text-foreground hover:border-amber-500/70 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-warning/10 border border-warning/40 text-foreground hover:border-warning/70 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
               title={`${missingCount} tracked task${missingCount === 1 ? ' was' : 's were'} not found on their platform at the last sync. Remove Cronsole's records for them — nothing on your machine is touched.`}
             >
-              <Trash2 size={16} className="text-amber-400" />
+              <Trash2 size={16} className="text-warning-text" />
               {isClearingMissing ? 'Clearing…' : `Clear ${missingCount} Missing`}
             </button>
           )}
 
           <button
             onClick={onNewTask}
-            className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-violet-600/20 active:scale-95"
+            className="bg-native hover:bg-native/85 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-native/20 active:scale-95"
             title="Create a task that runs on Cronsole itself — no Windows entry"
           >
             <Zap size={16} /> New Task
@@ -742,7 +742,7 @@ export const DashboardScreen = ({
             earned the right to make.
           */}
           {healthPending && (
-            <div className="flex items-center gap-2 text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-warning-text bg-warning/10 border border-warning/30 rounded-xl px-3 py-2">
               <Loader2 size={13} className="animate-spin" />
               Checking task health — this view is filtered by run outcome, so the list below is incomplete until it finishes.
             </div>
@@ -810,7 +810,7 @@ export const DashboardScreen = ({
                     onClick={() => setFilter('platform', p)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                       filters.platform === p
-                        ? p === 'TASKHUB_NATIVE' ? 'bg-violet-600 text-white' : 'bg-primary text-primary-foreground'
+                        ? p === 'TASKHUB_NATIVE' ? 'bg-native text-white' : 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -949,8 +949,8 @@ export const DashboardScreen = ({
             click away instead of leaving you to discover the view bar.
           */}
           {defaultedToFavorites && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs bg-amber-500/10 border border-amber-500/30 text-amber-200/90 rounded-xl px-4 py-2.5">
-              <Star size={13} className="text-amber-400 fill-current shrink-0" />
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs bg-warning/10 border border-warning/30 text-warning-text/90 rounded-xl px-4 py-2.5">
+              <Star size={13} className="text-warning-text fill-current shrink-0" />
               <span>
                 Showing your {favoriteCount} starred {favoriteCount === 1 ? 'task' : 'tasks'} — Cronsole opens
                 on your favorites. {allTasks ? allTasks.length - favoriteCount : 0} other{' '}
@@ -958,7 +958,7 @@ export const DashboardScreen = ({
               </span>
               <button
                 onClick={() => setFilters(settingsFilters)}
-                className="font-bold underline underline-offset-4 hover:text-amber-100 transition-colors"
+                className="font-bold underline underline-offset-4 hover:text-warning-text transition-colors"
               >
                 Show the full dashboard
               </button>
@@ -1080,11 +1080,11 @@ export const DashboardScreen = ({
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-1.5">
                               <span className="inline-flex items-center gap-1.5 bg-background px-2 py-1 rounded-lg border border-border text-[10px] font-bold text-muted-foreground">
-                                <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : task.status === 'MISSING' ? 'bg-amber-500' : 'bg-muted'}`}></span>
+                                <span className={`h-1.5 w-1.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-success' : task.status === 'MISSING' ? 'bg-warning' : 'bg-muted'}`}></span>
                                 {task.status}
                               </span>
                               {task.lastRunStatus === 'FAILURE' && (
-                                <span className="inline-flex items-center bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/30 text-[9px] font-black text-red-400 uppercase" title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}>
+                                <span className="inline-flex items-center bg-danger/10 px-2 py-1 rounded-lg border border-danger/30 text-[9px] font-black text-danger-text uppercase" title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}>
                                   Run failed
                                 </span>
                               )}
@@ -1119,7 +1119,7 @@ export const DashboardScreen = ({
               <div className="bg-surface/40 border border-border/80 rounded-3xl p-5 flex flex-col space-y-4">
                 <div className="flex items-center justify-between border-b border-border pb-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
                     <h3 className="font-bold text-sm tracking-wide text-foreground uppercase">Active Tasks</h3>
                   </div>
                   <span className="bg-background px-2 py-0.5 rounded-md border border-border text-xs font-bold text-muted-foreground">

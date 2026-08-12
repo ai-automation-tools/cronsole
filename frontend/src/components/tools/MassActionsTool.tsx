@@ -108,11 +108,11 @@ function mergeReports(a: BulkReport, b: BulkReport): BulkReport {
 }
 
 const OUTCOME_STYLE: Record<BulkItem['outcome'], { label: string; className: string }> = {
-  updated: { label: 'Done', className: 'text-emerald-400' },
+  updated: { label: 'Done', className: 'text-success-text' },
   unchanged: { label: 'No change', className: 'text-subtle-foreground' },
-  refused: { label: 'Refused', className: 'text-amber-400' },
-  failed: { label: 'Failed', className: 'text-red-400' },
-  skipped: { label: 'Not attempted', className: 'text-slate-400' }
+  refused: { label: 'Refused', className: 'text-warning-text' },
+  failed: { label: 'Failed', className: 'text-danger-text' },
+  skipped: { label: 'Not attempted', className: 'text-neutral-text' }
 };
 
 /**
@@ -373,14 +373,19 @@ export const MassActionsTool = () => {
             />
             Include Windows' own tasks
             {!scope.includeSystem && systemExcluded > 0 && (
-              <span className="text-amber-400 font-bold tabular-nums">({systemExcluded} excluded)</span>
+              <span className="text-warning-text font-bold tabular-nums">({systemExcluded} excluded)</span>
             )}
           </label>
         </div>
       </div>
 
-      {/* ---- The plan ---------------------------------------------------- */}
-      <div className="bg-background border border-border rounded-xl p-4 space-y-3">
+      {/* ---- The plan ----------------------------------------------------
+          `bg-raised`, not `bg-background`: this panel sits *inside* a
+          `bg-surface` card, and painting it with the page colour made the inner
+          panel darker than its parent — a recessed well, which is the language
+          of an input, not of the thing the card is about. The raised step is
+          what the ramp was missing. */}
+      <div className="bg-raised border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <span className="text-sm font-bold">
             {inScope.length} task{inScope.length === 1 ? '' : 's'} in scope
@@ -477,17 +482,17 @@ export const MassActionsTool = () => {
       {report && phase === 'done' && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold">
-            <span className="flex items-center gap-1.5 text-emerald-400">
+            <span className="flex items-center gap-1.5 text-success-text">
               <CheckCircle2 size={13} /> {report.updated} done
             </span>
             {report.unchanged > 0 && <span className="text-subtle-foreground">{report.unchanged} already so</span>}
-            {report.refused > 0 && <span className="text-amber-400">{report.refused} refused</span>}
-            {report.failed > 0 && <span className="text-red-400">{report.failed} failed</span>}
-            {report.skipped > 0 && <span className="text-slate-400">{report.skipped} not attempted</span>}
+            {report.refused > 0 && <span className="text-warning-text">{report.refused} refused</span>}
+            {report.failed > 0 && <span className="text-danger-text">{report.failed} failed</span>}
+            {report.skipped > 0 && <span className="text-neutral-text">{report.skipped} not attempted</span>}
           </div>
 
           {report.haltedReason && (
-            <p className="flex items-start gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+            <p className="flex items-start gap-2 text-xs text-warning-text bg-warning/10 border border-warning/30 rounded-xl p-3">
               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
               <span>
                 Stopped early: {report.haltedReason} Everything after that point is listed as not

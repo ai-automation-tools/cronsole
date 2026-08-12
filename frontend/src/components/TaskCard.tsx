@@ -86,14 +86,14 @@ export const TaskCard = ({
               <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={16} />
             )}
             <div className="flex items-center gap-1.5 bg-background px-2 py-1 rounded-lg border border-border">
-              <div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-muted'}`}></div>
+              <div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-success' : 'bg-muted'}`}></div>
               <span className="text-[10px] font-bold text-muted-foreground">{task.status}</span>
             </div>
           </div>
           {task.lastRunStatus === 'FAILURE' && (
-            <div className="flex items-center gap-1 bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/30" title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}>
-              <XOctagon size={10} className="text-red-400" />
-              <span className="text-[9px] font-black text-red-400 uppercase">Run failed</span>
+            <div className="flex items-center gap-1 bg-danger/10 px-2 py-1 rounded-lg border border-danger/30" title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}>
+              <XOctagon size={10} className="text-danger-text" />
+              <span className="text-[9px] font-black text-danger-text uppercase">Run failed</span>
             </div>
           )}
         </div>

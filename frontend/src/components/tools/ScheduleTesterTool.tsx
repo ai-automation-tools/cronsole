@@ -107,7 +107,7 @@ export const ScheduleTesterTool = () => {
             className="mt-1.5 w-full bg-background border border-border rounded-xl px-4 py-2 text-sm font-mono outline-none focus:border-primary"
           />
           {stored.reason ? (
-            <span className="mt-1 block text-[10px] text-amber-500">{stored.reason}</span>
+            <span className="mt-1 block text-[10px] text-warning-text">{stored.reason}</span>
           ) : stored.shifted ? (
             <span className="mt-1 block text-[10px] text-subtle-foreground">
               Stored and tested as <span className="font-mono text-foreground">{stored.cron}</span> UTC.
@@ -129,7 +129,7 @@ export const ScheduleTesterTool = () => {
               you the failure it exists for is a worse demo than no demo. */}
           <button
             onClick={() => setCron('0 4 1 1 *')}
-            className="text-[11px] px-2 py-1 rounded-lg border border-amber-500/40 text-amber-500 hover:bg-amber-500/10 transition-colors"
+            className="text-[11px] px-2 py-1 rounded-lg border border-warning/40 text-warning-text hover:bg-warning/10 transition-colors"
           >
             Once a year (try it)
           </button>
@@ -152,7 +152,7 @@ export const ScheduleTesterTool = () => {
         {isFetching && !data && <p className="text-xs text-muted-foreground">Checking…</p>}
 
         {invalid && (
-          <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-xs text-red-500 flex items-start gap-2">
+          <div className="rounded-xl bg-danger/10 border border-danger/30 px-4 py-3 text-xs text-danger-text flex items-start gap-2">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>{data!.warnings[0]}</span>
           </div>
@@ -161,7 +161,7 @@ export const ScheduleTesterTool = () => {
         {data && !invalid && (
           <>
             {data.diverges ? (
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/40 px-4 py-3 text-xs text-amber-500 flex items-start gap-2">
+              <div className="rounded-xl bg-warning/10 border border-warning/40 px-4 py-3 text-xs text-warning-text flex items-start gap-2">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                 <span>
                   <strong>This is not the schedule you typed.</strong>{' '}
@@ -189,7 +189,7 @@ export const ScheduleTesterTool = () => {
             )}
 
             {data.warnings.length > 0 && (
-              <ul className="text-xs text-amber-500 space-y-1">
+              <ul className="text-xs text-warning-text space-y-1">
                 {data.warnings.map((w, i) => <li key={i}>• {w}</li>)}
               </ul>
             )}
@@ -247,7 +247,7 @@ const RunList = ({
         Never — this expression has no upcoming occurrences.
       </p>
     ) : (
-      <ul className={`mt-1 space-y-0.5 text-xs font-mono ${emphasize ? 'text-amber-500' : muted ? 'text-muted-foreground' : 'text-foreground'}`}>
+      <ul className={`mt-1 space-y-0.5 text-xs font-mono ${emphasize ? 'text-warning-text' : muted ? 'text-muted-foreground' : 'text-foreground'}`}>
         {runs.map(iso => {
           const { primary, utc } = bothZones(iso, zone);
           return (

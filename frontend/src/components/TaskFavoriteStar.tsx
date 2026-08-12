@@ -24,7 +24,7 @@ export const TaskFavoriteStar = ({ task, onToggle, size = 16, className = '' }: 
     aria-label={task.isFavorite ? `Remove ${task.name} from favorites` : `Add ${task.name} to favorites`}
     title={task.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
     className={`shrink-0 transition-colors ${
-      task.isFavorite ? 'text-amber-400 hover:text-amber-500' : 'text-subtle-foreground hover:text-amber-400'
+      task.isFavorite ? 'text-warning-text hover:text-warning-text' : 'text-subtle-foreground hover:text-warning-text'
     } ${className}`}
   >
     <Star size={size} className={task.isFavorite ? 'fill-current' : ''} />

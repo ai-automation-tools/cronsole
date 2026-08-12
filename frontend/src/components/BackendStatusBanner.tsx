@@ -35,23 +35,28 @@ export default function BackendStatusBanner() {
   };
 
   return (
+    // Uses the `danger-surface` pair rather than the `danger` role. That pair is
+    // deliberately the SAME in both themes: this is an alarm, and an alarm that
+    // politely turns into a pale pink strip on a white page has stopped doing its
+    // job. Everything else in the token set inverts; this is the exception, and
+    // it is one on purpose.
     <div
       role="alert"
       className="fixed top-0 inset-x-0 z-[100] flex items-center justify-center gap-3
-                 bg-red-950/95 border-b border-red-500/40 text-red-100
+                 bg-danger-surface/95 border-b border-danger/40 text-danger-surface-text
                  px-4 py-2.5 text-sm backdrop-blur-sm shadow-lg"
     >
-      <AlertTriangle size={18} className="shrink-0 text-red-400" />
+      <AlertTriangle size={18} className="shrink-0 text-danger-text" />
       <span className="text-center">
         Can&apos;t reach the Cronsole backend at{' '}
-        <code className="font-mono text-red-200">{apiOrigin}</code>. Is the server running?
+        <code className="font-mono text-danger-surface-text/80">{apiOrigin}</code>. Is the server running?
       </span>
       <button
         onClick={handleRetry}
         disabled={retrying}
         className="shrink-0 inline-flex items-center gap-1.5 rounded-md
-                   border border-red-400/50 bg-red-500/20 hover:bg-red-500/30
-                   px-2.5 py-1 font-medium text-red-100 transition
+                   border border-danger/50 bg-danger/20 hover:bg-danger/30
+                   px-2.5 py-1 font-medium text-danger-surface-text transition
                    disabled:opacity-60"
       >
         <RefreshCw size={14} className={retrying ? 'animate-spin' : ''} />

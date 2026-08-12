@@ -26,9 +26,9 @@ interface TaskModalProps {
 
 const statusStyle = (status: string) =>
   ({
-    SUCCESS: 'bg-green-500/10 text-green-400 border-green-500/30',
-    FAILURE: 'bg-red-500/10 text-red-400 border-red-500/30',
-    TIMEOUT: 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+    SUCCESS: 'bg-success/10 text-success-text border-success/30',
+    FAILURE: 'bg-danger/10 text-danger-text border-danger/30',
+    TIMEOUT: 'bg-warning/10 text-warning-text border-warning/30'
   }[status] ?? 'bg-muted/10 text-muted-foreground border-border/30');
 
 const StatusIcon = ({ status }: { status: string }) => {
@@ -435,7 +435,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
                 <Loader2 size={18} className="animate-spin" /> Loading run history…
               </div>
             ) : executionsError ? (
-              <div className="text-xs text-red-400 bg-red-500/5 border border-red-500/30 rounded-xl px-4 py-3">
+              <div className="text-xs text-danger-text bg-danger/5 border border-danger/30 rounded-xl px-4 py-3">
                 Failed to load run history.
               </div>
             ) : !executions || executions.length === 0 ? (
@@ -476,7 +476,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
               <div>
                 <span className="text-xs text-subtle-foreground block mb-1">Status</span>
                 <span className="font-semibold text-foreground uppercase tracking-tighter text-sm flex items-center gap-2">
-                  <div className={`h-2.5 w-2.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : task.status === 'MISSING' ? 'bg-amber-500' : 'bg-muted-foreground'}`}></div>
+                  <div className={`h-2.5 w-2.5 rounded-full ${task.status === 'ACTIVE' ? 'bg-success' : task.status === 'MISSING' ? 'bg-warning' : 'bg-muted-foreground'}`}></div>
                   {task.status}
                 </span>
               </div>
@@ -677,7 +677,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
                   }
                 }}
                 disabled={deleteMutation.isPending}
-                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-3 rounded-xl font-bold transition-all border border-red-500/30 active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
+                className="bg-danger/10 hover:bg-danger/20 text-danger-text px-4 py-3 rounded-xl font-bold transition-all border border-danger/30 active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
                 title={isWindowsTask
                   ? 'Permanently delete this task from Windows Task Scheduler (via the agent)'
                   : 'Delete this Cronsole-native task'}

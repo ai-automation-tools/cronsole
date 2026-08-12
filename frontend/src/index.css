@@ -7,12 +7,57 @@
  * Neutral, brand-neutral theme tokens (no blue tint). The palette is monochrome:
  * `primary` is near-white in dark / near-black in light, so filled accents invert
  * cleanly between themes. Values are `H S% L%` triplets consumed via hsl().
+ *
+ * ---------------------------------------------------------------------------
+ * STATUS ROLES  (added 2026-08-12)
+ * ---------------------------------------------------------------------------
+ * Status colour used to be written raw at every call site — 263 Tailwind
+ * palette utilities across 8 hues. Two consequences, and the second is the one
+ * that mattered:
+ *
+ *  1. A theme pass was a 263-site sweep rather than an edit here.
+ *  2. **The light theme was broken and could not be fixed.** `text-amber-400`
+ *     is one value; it is legible on a 4%-black page and washed out on a white
+ *     one. A raw utility cannot know which theme it is in, so light mode was
+ *     wearing dark mode's status colours. Tokenising is what makes the two
+ *     independently correct — that is the real win here, not tidiness.
+ *
+ * **Each role carries two values, because they do different jobs:**
+ *   `--x`        the accent, for fills and borders (used at low opacity —
+ *                `bg-warning/10`, `border-warning/40`) and for solid chips.
+ *   `--x-text`   the same role rendered as text or an icon on the page
+ *                background. It has to be lighter than the accent in dark and
+ *                *darker* in light, which is exactly the flip a raw utility
+ *                cannot express.
+ *
+ * Not to be confused with `--x-foreground`, which is the existing convention
+ * for text placed ON a solid fill of that role (white on the green button).
+ *
+ * **Roles are semantic, and two hues that look alike are not automatically one
+ * role.** Checked before merging, and only one of the three "duplicate" pairs
+ * survived contact:
+ *   - green + emerald → both meant *good*. Genuinely one role. Merged into
+ *     `success` — **except in `platform.ts`, where emerald is ChatGPT's brand
+ *     colour**, not a verdict. Merging that would have recoloured a badge.
+ *   - violet vs purple → NOT duplicates. Violet is the system/personal lens
+ *     (`--system`); purple is Claude's identity. Different questions.
+ *   - red vs rose → NOT duplicates either. Red is failure and destruction;
+ *     rose marks a lens that is *isolating* — showing you less than normal —
+ *     which is why it must also stay distinct from `--warning`, the lens that
+ *     shows you more. Kept as `--isolate`.
+ *
+ * **Platform identity is deliberately not here.** It already has one home,
+ * `platform.ts`, which is what tokenising is for.
  */
 
 /* Default = dark, so the first paint before hydration matches Cronsole's default. */
 :root {
   --background: 0 0% 4%;
   --surface: 0 0% 7%;
+  /* The step that was missing: a panel that sits *above* surface. Without it,
+     background → surface → muted gave no "raised" level, which is the
+     mechanical reason every control read at one weight. */
+  --raised: 0 0% 11%;
   --muted: 0 0% 14%;
   --border: 0 0% 17%;
   --foreground: 0 0% 96%;
@@ -24,6 +69,35 @@
   --success: 160 84% 39%;
   --success-foreground: 0 0% 100%;
   --success-hover: 158 74% 45%;
+  --success-text: 158 64% 52%;
+  --warning: 38 92% 50%;
+  --warning-text: 43 96% 56%;
+  --danger: 0 84% 60%;
+  --danger-foreground: 0 0% 100%;
+  --danger-text: 0 91% 71%;
+  --danger-surface: 0 75% 12%;
+  --danger-surface-text: 0 86% 92%;
+  --isolate: 350 89% 60%;
+  --isolate-text: 351 95% 71%;
+  --info: 199 89% 48%;
+  --info-text: 198 93% 60%;
+  --system: 258 90% 66%;
+  --system-text: 255 92% 76%;
+  /* "No evidence" / "not attempted" — unmeasured, which is neither good nor bad. */
+  --neutral-text: 215 20% 65%;
+  /* Platform identity, not status. Kept apart from `--system` (which is the
+     personal/system *lens*) even though both are violet today: they answer
+     different questions, and a shared hue is not a shared meaning. `--native`
+     is also deliberately not `--primary`, which it used to collide with exactly
+     — `bg-violet-600` and `bg-primary` are the same colour, so the chip that
+     distinguished a Cronsole-native task from a Windows one drew no
+     distinction at all. */
+  --native: 258 90% 66%;
+  --native-text: 255 92% 76%;
+  --claude: 270 91% 65%;
+  --claude-text: 270 95% 75%;
+  --chatgpt: 160 84% 39%;
+  --chatgpt-text: 158 64% 52%;
   --ring: 262 83% 62%;
   --radius: 0.5rem;
 }
@@ -31,6 +105,7 @@
 .dark {
   --background: 0 0% 4%;
   --surface: 0 0% 7%;
+  --raised: 0 0% 11%;
   --muted: 0 0% 14%;
   --border: 0 0% 17%;
   --foreground: 0 0% 96%;
@@ -42,12 +117,36 @@
   --success: 160 84% 39%;
   --success-foreground: 0 0% 100%;
   --success-hover: 158 74% 45%;
+  --success-text: 158 64% 52%;
+  --warning: 38 92% 50%;
+  --warning-text: 43 96% 56%;
+  --danger: 0 84% 60%;
+  --danger-foreground: 0 0% 100%;
+  --danger-text: 0 91% 71%;
+  --danger-surface: 0 75% 12%;
+  --danger-surface-text: 0 86% 92%;
+  --isolate: 350 89% 60%;
+  --isolate-text: 351 95% 71%;
+  --info: 199 89% 48%;
+  --info-text: 198 93% 60%;
+  --system: 258 90% 66%;
+  --system-text: 255 92% 76%;
+  --neutral-text: 215 20% 65%;
+  --native: 258 90% 66%;
+  --native-text: 255 92% 76%;
+  --claude: 270 91% 65%;
+  --claude-text: 270 95% 75%;
+  --chatgpt: 160 84% 39%;
+  --chatgpt-text: 158 64% 52%;
   --ring: 262 83% 62%;
 }
 
 .light {
   --background: 0 0% 100%;
   --surface: 0 0% 95%;
+  /* In light the ramp runs the other way: raised sits *between* white and
+     surface, so a lifted panel still reads as lifted rather than sunken. */
+  --raised: 0 0% 98%;
   --muted: 0 0% 89%;
   --border: 0 0% 85%;
   --foreground: 0 0% 9%;
@@ -59,6 +158,30 @@
   --success: 160 84% 34%;
   --success-foreground: 0 0% 100%;
   --success-hover: 161 84% 28%;
+  /* Every `-text` below is markedly darker than its dark-theme twin. That flip
+     is the whole point: these were previously one raw value serving both
+     themes, so light mode rendered dark mode's colours on white. */
+  --success-text: 158 64% 28%;
+  --warning: 38 92% 50%;
+  --warning-text: 26 90% 37%;
+  --danger: 0 84% 60%;
+  --danger-foreground: 0 0% 100%;
+  --danger-text: 0 74% 42%;
+  --danger-surface: 0 75% 12%;
+  --danger-surface-text: 0 86% 92%;
+  --isolate: 350 89% 60%;
+  --isolate-text: 345 83% 41%;
+  --info: 199 89% 48%;
+  --info-text: 201 90% 33%;
+  --system: 258 90% 66%;
+  --system-text: 259 69% 45%;
+  --neutral-text: 215 19% 35%;
+  --native: 258 90% 60%;
+  --native-text: 259 69% 45%;
+  --claude: 270 91% 58%;
+  --claude-text: 272 72% 42%;
+  --chatgpt: 160 84% 34%;
+  --chatgpt-text: 158 64% 28%;
   --ring: 262 83% 58%;
 }
 
@@ -70,6 +193,7 @@
 @theme inline {
   --color-background: hsl(var(--background));
   --color-surface: hsl(var(--surface));
+  --color-raised: hsl(var(--raised));
   --color-muted: hsl(var(--muted));
   --color-border: hsl(var(--border));
   --color-foreground: hsl(var(--foreground));
@@ -81,6 +205,27 @@
   --color-success: hsl(var(--success));
   --color-success-foreground: hsl(var(--success-foreground));
   --color-success-hover: hsl(var(--success-hover));
+  --color-success-text: hsl(var(--success-text));
+  --color-warning: hsl(var(--warning));
+  --color-warning-text: hsl(var(--warning-text));
+  --color-danger: hsl(var(--danger));
+  --color-danger-foreground: hsl(var(--danger-foreground));
+  --color-danger-text: hsl(var(--danger-text));
+  --color-danger-surface: hsl(var(--danger-surface));
+  --color-danger-surface-text: hsl(var(--danger-surface-text));
+  --color-isolate: hsl(var(--isolate));
+  --color-isolate-text: hsl(var(--isolate-text));
+  --color-info: hsl(var(--info));
+  --color-info-text: hsl(var(--info-text));
+  --color-system: hsl(var(--system));
+  --color-system-text: hsl(var(--system-text));
+  --color-neutral-text: hsl(var(--neutral-text));
+  --color-native: hsl(var(--native));
+  --color-native-text: hsl(var(--native-text));
+  --color-claude: hsl(var(--claude));
+  --color-claude-text: hsl(var(--claude-text));
+  --color-chatgpt: hsl(var(--chatgpt));
+  --color-chatgpt-text: hsl(var(--chatgpt-text));
   --color-ring: hsl(var(--ring));
 }
 

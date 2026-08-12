@@ -49,17 +49,17 @@ interface Selection {
 }
 
 const ACTION_STYLES: Record<RestoreAction, { label: string; className: string }> = {
-  create: { label: 'restore', className: 'text-emerald-500' },
-  overwrite: { label: 'replace', className: 'text-amber-500' },
+  create: { label: 'restore', className: 'text-success-text' },
+  overwrite: { label: 'replace', className: 'text-warning-text' },
   skip: { label: 'skip', className: 'text-muted-foreground' },
-  refuse: { label: 'refuse', className: 'text-red-500' }
+  refuse: { label: 'refuse', className: 'text-danger-text' }
 };
 
 const OUTCOME_STYLES: Record<RestoreOutcome, { label: string; className: string }> = {
-  created: { label: 'restored', className: 'text-emerald-500' },
-  replaced: { label: 'replaced', className: 'text-amber-500' },
+  created: { label: 'restored', className: 'text-success-text' },
+  replaced: { label: 'replaced', className: 'text-warning-text' },
   exists: { label: 'left alone', className: 'text-muted-foreground' },
-  refused: { label: 'refused', className: 'text-red-500' }
+  refused: { label: 'refused', className: 'text-danger-text' }
 };
 
 const errorMessage = (err: unknown): string => {
@@ -279,7 +279,7 @@ export const RestoreTool = () => {
       </fieldset>
 
       {error && (
-        <div className="text-sm rounded-xl border border-red-500/40 bg-red-500/10 text-red-500 px-4 py-3">
+        <div className="text-sm rounded-xl border border-danger/40 bg-danger/10 text-danger-text px-4 py-3">
           {error}
         </div>
       )}
@@ -299,10 +299,10 @@ export const RestoreTool = () => {
           </div>
 
           <ul className="text-xs text-muted-foreground space-y-1">
-            {plan.counts.create > 0 && <li><span className="text-emerald-500 font-bold">{plan.counts.create}</span> restored as new tasks</li>}
-            {plan.counts.overwrite > 0 && <li><span className="text-amber-500 font-bold">{plan.counts.overwrite}</span> would replace an existing task</li>}
+            {plan.counts.create > 0 && <li><span className="text-success-text font-bold">{plan.counts.create}</span> restored as new tasks</li>}
+            {plan.counts.overwrite > 0 && <li><span className="text-warning-text font-bold">{plan.counts.overwrite}</span> would replace an existing task</li>}
             {plan.counts.skip > 0 && <li><span className="font-bold">{plan.counts.skip}</span> already exist and would be left alone</li>}
-            {plan.counts.refuse > 0 && <li><span className="text-red-500 font-bold">{plan.counts.refuse}</span> refused — see below</li>}
+            {plan.counts.refuse > 0 && <li><span className="text-danger-text font-bold">{plan.counts.refuse}</span> refused — see below</li>}
           </ul>
 
           {plan.foldersToCreate.length > 0 && (
@@ -318,7 +318,7 @@ export const RestoreTool = () => {
           )}
 
           {guessedPaths > 0 && (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500 flex items-start gap-2">
+            <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-text flex items-start gap-2">
               <FileWarning size={12} className="mt-0.5 shrink-0" />
               <span>
                 {guessedPaths} task path{guessedPaths === 1 ? ' was' : 's were'} worked out from the filename — these files
@@ -352,7 +352,7 @@ export const RestoreTool = () => {
             {results.counts.replaced > 0 && <li>{results.counts.replaced} replaced</li>}
             {results.counts.skipped > 0 && <li>{results.counts.skipped} already existed and were left alone</li>}
             {results.counts.refused > 0 && (
-              <li className="text-red-500 flex items-center gap-1.5">
+              <li className="text-danger-text flex items-center gap-1.5">
                 <AlertTriangle size={12} /> {results.counts.refused} refused
               </li>
             )}

@@ -3,7 +3,6 @@ import { Folder, Plus, XOctagon } from 'lucide-react';
 import type { Task } from '../types';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { TaskRowActions } from './TaskRowActions';
-import { TaskSelectCheckbox } from './TaskSelectCheckbox';
 import { TaskSchedule } from './TaskSchedule';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
 
@@ -17,9 +16,6 @@ interface TaskCardProps {
   /** Optional so the card stays renderable outside the dashboard's mutations. */
   onToggleFavorite?: (task: Task) => void;
   isTogglingStatus?: boolean;
-  /** Selection is optional so the card stays usable outside the dashboard. */
-  selected?: boolean;
-  onToggleSelect?: (task: Task, event: React.MouseEvent) => void;
 }
 
 /**
@@ -41,8 +37,6 @@ export const TaskCard = memo(({
   onToggleStatus,
   onToggleFavorite,
   isTogglingStatus,
-  selected,
-  onToggleSelect
 }: TaskCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempCat, setTempCat] = useState(task.category || 'Uncategorized');
@@ -55,9 +49,6 @@ export const TaskCard = memo(({
       <div className="flex justify-between items-start mb-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            {onToggleSelect && (
-              <TaskSelectCheckbox task={task} checked={!!selected} onToggle={onToggleSelect} />
-            )}
             <span className={`text-[10px] w-fit uppercase font-black px-2.5 py-1 rounded-lg border ${platformBadgeClass(task.platform)}`}>
               {platformLabel(task.platform)}
             </span>

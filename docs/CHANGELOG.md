@@ -12,7 +12,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Removed
+- **Row selection is gone from the dashboard** (2026-08-12): the per-row checkboxes, the select-all, the bulk action bar and the bulk-category modal are all removed, along with `utils/taskSelection.ts` and the dashboard's four bulk mutations. **Bulk work is now only the Mass Actions console on the Tools tab.**
+
+  Two ways to say "these tasks" was one too many, and selection was the weaker one: `254 selected` cannot survive into a confirmation as anything a person can check, and it capped out at what a single request would accept — on a real machine `Select all 269` built a batch every button then 400'd on. A scope survives (*"Disable 47 tasks in Backups"*) and it batches.
+
+  **The objection raised against this turned out not to apply.** Keeping selection had been argued for on §9's rule that a gate making the safe path harder than the unsafe one is worse than no gate — the concern being that "Remove from Cronsole" would end up further from the Delete it exists as the alternative to. Checked before removing: **that pairing lives in the task modal, per task** (`TaskModal.tsx`, the two buttons adjacent), which is where it always actually was. The bulk bar was never what kept them together. Nothing about the dashboard's four bulk mutations was a second capability either — they called the same `/api/tools/tasks/*` routes the console calls, so this removed a second caller, not a feature.
+
 ### Changed
+- **The Mass Actions console is action-first** (2026-08-12): it now opens as a vertical list of what you can do — *Enable tasks*, *Disable tasks*, *Move to a category*, *Remove from Cronsole* — each with a one-line description of what it does and does not touch. Picking one opens its own scope step (all / by category / by platform / by status / by health), the plan, and the run button; **All actions** goes back.
+
+  The order was inverted deliberately. A list of verbs answers *"what can this do?"* on sight, where a scope picker with four buttons under it answers that only after a choice you had no basis for making. It also lets each action ask for only what it needs — Categorize wants a target category, the others don't — so the confirmation is the last thing you meet rather than where you discover a required field. Scope belongs to the chosen action rather than the card, so backing out cannot leave a half-built scope aimed at whatever you open next.
+
+  One value, `willChange`, feeds the plan list, the button count and the confirmation, so those three cannot drift apart. It is the eligible set and never the scope size: 80 tasks in scope of which 70 run is a 10-task Enable.
+
 - **The dashboard's first viewport is thinner, and the filters live behind one control** (2026-08-12): status, ownership, platform and category moved into a **Filters** popover (`TaskFilterMenu`) with an active-filter count on the trigger. Two full rows of category chips and the platform toggle are gone from the top level; on a real 269-task machine the first task now sits roughly a row-and-a-half higher.
 
   **The rule that shaped it: collapsing the controls must not collapse what they are withholding.** A closed drawer over a filtered list is the invisible fence with a nicer lid, which this project has paid for twice. So the split is by whether a lens speaks for itself. **Category and platform** became dismissible pills — you can read "Backups" and know the rest is elsewhere, and a count would add nothing. **System and status** print what they hold back *outside* the drawer, always (`189 system hidden`, `10 inactive hidden`), because they are **defaults nobody chose today** that withhold rows while looking like a neutral starting state — the one case where the user cannot be assumed to know. Each of those chips is also the control that undoes it. Verified live: opening the status lens made `10 inactive hidden` disappear while `189 system hidden` correctly stayed.

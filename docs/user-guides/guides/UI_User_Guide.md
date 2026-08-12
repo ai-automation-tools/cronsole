@@ -39,7 +39,7 @@ rebuilt from scratch on every visit. Six ship built in:
 | **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. The default *until you star something*. |
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |
 | **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
-| **Disabled** | Only the tasks you've parked. Note this **isolates** them — it is not the same as the *Showing All* toggle, which merely stops hiding them. |
+| **Disabled** | Only the tasks you've parked. Note this **isolates** them — it is not the same as *Filters › Status › All statuses*, which merely stops hiding them. |
 | **System** | Only the tasks Windows itself owns under `\Microsoft\`, which the dashboard hides by default. |
 
 - **Saving your own:** change any filters and the row shows a **Custom** chip plus **Save view**. Name it and it becomes a chip of its own, with a count, kept between visits. Delete one with the `×` on its chip — that only removes the name; the tasks and the filters you're currently looking at are untouched.
@@ -94,34 +94,13 @@ The second tab lists recorded runs with their status, timestamp, duration, and a
 
 ## Changing many tasks at once
 
-Every task row in every view carries a checkbox, and the toolbar has **Select all N shown**.
-Shift-click extends a range from the last row you clicked, in the order you are looking at
-them. Once anything is selected, a bar appears with **Enable** and **Disable**.
+Bulk changes live in one place: **Mass actions**, on the [Tools tab](#mass-actions). There are no
+checkboxes on the dashboard — a selection can't be checked once it's more than a handful of rows
+(*"254 selected"* tells you nothing you can verify), and it couldn't act on more than 100 tasks
+anyway. Mass actions works the other way round: you say *what* you want to change, then *which*
+tasks, and you see exactly which ones before anything happens.
 
-Three things the bar tells you on purpose:
-
-- **Each button names what it will actually change**, not how many you selected. Select twelve
-  tasks of which nine are already enabled and the button reads *Enable 3*.
-- **It says when part of your selection is off screen.** The Kanban view shows disabled tasks
-  the other three views hide, so switching views can leave selected tasks invisible. They stay
-  selected and are still acted on — the bar says `12 selected · 3 not visible here` rather than
-  quietly dropping them.
-- **The result is reported per task.** Windows applies each change through the local agent, and
-  some tasks refuse: one registered by an administrator needs elevation, one that has gone
-  missing since the last sync has nothing to toggle, and one already in the state you asked for
-  was simply left alone. The toast names every outcome — *"9 disabled · 2 already disabled · 1
-  failed"* — instead of a single number that would hide the difference. **Anything that failed
-  stays selected**, so you can retry without hunting for it again.
-
-If the agent goes offline partway through, the run stops rather than working through the rest
-one timeout at a time, and the remaining tasks are reported as not attempted.
-
-**Select all has a ceiling.** One bulk change tops out at 100 tasks, so when more than that are
-shown the toolbar says so and points you at **Mass actions** on the Tools tab instead of offering
-a Select all that every button would then refuse. You can still tick individual rows at any size —
-the limit is on selecting everything in one click, not on working with a handful of tasks.
-
-For anything bigger, see [Mass actions](#mass-actions) below.
+To change a single task, open it and use the buttons in the task modal.
 
 ### Editing a schedule
 The modal footer shows **Edit Schedule** for Cronsole-native tasks and Windows tasks whose trigger can be represented as a cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits require the local agent because Cronsole changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe editor for those trigger types.
@@ -225,15 +204,22 @@ The **Tools** tab holds the things that act across *all* your tasks rather than 
 
 ### Mass actions
 
-Changes many tasks at once by choosing **what** rather than ticking each row. Pick a scope — all
-tasks, a category, a platform, a status, or a health tier — and the card shows exactly which tasks
-it resolved to before anything happens. Then **Enable**, **Disable**, **Categorize**, or **Remove
-from Cronsole**.
+The one place Cronsole changes many tasks at once. It works in two steps, in that order:
+
+1. **What do you want to do?** A list of four actions, each saying what it does and what it leaves
+   alone:
+   - **Enable tasks** — turn them back on so they run on their schedules again.
+   - **Disable tasks** — stop them running, without deleting anything. Reversible.
+   - **Move to a category** — relabel them in Cronsole. Nothing moves on your machine.
+   - **Remove from Cronsole** — stop tracking them here; they keep running on their platform.
+2. **Which tasks?** Pick **all tasks**, or narrow by **category**, **platform**, **status** or
+   **health**. The card then lists exactly which tasks would change, before anything happens.
+   **All actions** takes you back.
 
 - **Windows' own tasks are excluded unless you ask for them**, and the number kept out is printed
   next to the checkbox. On a typical machine that is most of them.
-- **Every button counts what it would actually change.** A scope of 80 tasks where 70 are already
-  running gives you *Enable 10*.
+- **The count is what would actually change**, never the scope size. A scope of 80 tasks where 70
+  are already running gives you *Enable 10*, and says so: *"80 in scope, 70 need no change"*.
 - **Big changes must be typed, not clicked.** At 25 tasks or more the confirmation asks you to type
   the number. This is the point of the whole surface: a dialog you can dismiss with the same click
   in the same place stops being a decision once you have seen it a few times.

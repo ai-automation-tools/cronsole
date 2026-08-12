@@ -26,8 +26,7 @@ belongs in the CHANGELOG.
 **[Sources](#-sources--where-a-task-comes-from) is the top priority** *(scoped 2026-08-12)* — the
 dashboard's first-level axis is now where a task comes from, and the plan is to fill it in. In order:
 
-1. **Native job types — scripts.** Smallest, and it makes the source you already own genuinely
-   useful instead of HTTP-only.
+1. ~~**Native job types — scripts**~~ — **shipped 2026-08-12.**
 2. **API / Web Services source** — *blocked on an open decision about its shape.*
 3. **POSIX agent** — launchd · cron · systemd timers in one build. The one that actually broadens
    the product.
@@ -67,7 +66,7 @@ Everything below the sources track, unchanged in priority relative to each other
 > story. Each cloud scheduler costs its own OAuth surface, rate limit and mental model, and unlocks
 > exactly one.
 
-- [ ] **Native job types — scripts** *(smallest, highest immediate value)*: Cronsole-native runs
+- [x] **Native job types — scripts** *(shipped 2026-08-12)*: Cronsole-native runs
       HTTP and nothing else, so the source you already own cannot run a script. Add an `EXEC` job
       type reusing **`StructuredAction {executable, args[]}`** — the tested no-shell primitive that
       already backs Windows task creation, so this is the existing P0 injection guarantee applied to

@@ -111,6 +111,7 @@ describe('the tool surface', () => {
     const names = (await mcp.listTools()).tools.map(t => t.name).sort();
     expect(names).toEqual([
       'convert_schedule',
+      'create_native_script_task',
       'create_native_task',
       'create_task',
       'create_task_from_template',
@@ -1292,7 +1293,13 @@ describe('export_task', () => {
 describe('create_native_task', () => {
   const created = { message: 'Native task created', task: task({ id: 'n1', platform: 'TASKHUB_NATIVE' }) };
 
-  it('nests the HTTP job the way the route expects', async () => {
+  it('sends the jobType discriminator the route requires', async () => {
+    // This test previously asserted a payload with NO `jobType` and was named
+    // "nests the HTTP job the way the route expects" — a claim it could not
+    // check, because the client is stubbed. The route rejected that shape with
+    // "Unsupported jobType: undefined" from the day the tool shipped, and the
+    // suite stayed green throughout (troubleshooting #44). The discriminator is
+    // asserted first here so the next person sees it is load-bearing.
     const { client, calls } = stubClient({ 'POST /tasks/native': created });
     const mcp = await connect(client);
     await call(mcp, 'create_native_task', {
@@ -1304,7 +1311,7 @@ describe('create_native_task', () => {
     expect(calls[0].body).toEqual({
       name: 'Health ping',
       schedule: '*/15 * * * *',
-      job: { url: 'https://example.com/health', method: 'GET' }
+      job: { jobType: 'HTTP', url: 'https://example.com/health', method: 'GET' }
     });
   });
 
@@ -1322,6 +1329,7 @@ describe('create_native_task', () => {
       body: '{"ok":true}'
     });
     expect((calls[0].body as any).job).toEqual({
+      jobType: 'HTTP',
       url: 'https://example.com/hook',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1333,7 +1341,7 @@ describe('create_native_task', () => {
     const { client, calls } = stubClient({ 'POST /tasks/native': created });
     const mcp = await connect(client);
     await call(mcp, 'create_native_task', { name: 'n', url: 'https://x', schedule: '0 9 * * *' });
-    expect(Object.keys((calls[0].body as any).job).sort()).toEqual(['method', 'url']);
+    expect(Object.keys((calls[0].body as any).job).sort()).toEqual(['jobType', 'method', 'url']);
   });
 
   it('rejects a method the executor does not support', async () => {
@@ -1529,6 +1537,7 @@ describe('error handling across the surface', () => {
       ['list_folders', {}],
       ['create_task', { name: 'n', command: 'c', schedule: '0 9 * * *' }],
       ['create_native_task', { name: 'n', url: 'https://x', schedule: '0 9 * * *' }],
+      ['create_native_script_task', { name: 'n', command: 'node -v', schedule: '0 9 * * *' }],
       ['run_task', { taskId: 'x' }],
       ['convert_schedule', { schedule: '0 9 * * *' }],
       ['create_task_from_template', { templateId: 't' }],

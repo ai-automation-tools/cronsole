@@ -8,14 +8,14 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/surface-MCP_server-8B5CF6?style=for-the-badge" alt="MCP server">
-  <img src="https://img.shields.io/badge/tools-15-2ea44f?style=for-the-badge" alt="15 tools">
+  <img src="https://img.shields.io/badge/tools-16-2ea44f?style=for-the-badge" alt="16 tools">
 </p>
 
 ---
 
 These prompts are for an assistant (Claude Code, Cursor, Codex, Claude Desktop, …) that has the
 **Cronsole MCP server** connected. The server is a thin wrapper over the REST API exposing
-**15 tools** — so the assistant can operate your real Windows Task Scheduler and Cronsole-native
+**16 tools** — so the assistant can operate your real Windows Task Scheduler and Cronsole-native
 tasks by calling them for you.
 
 > [!IMPORTANT]

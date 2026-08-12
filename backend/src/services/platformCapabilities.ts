@@ -2,6 +2,7 @@ import { PlatformType } from '@prisma/client';
 import { prisma } from '../db.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import type { PlatformConnector } from '../connectors/platform.interface.js';
+import { executionHost, type ExecutionHost } from './runtimeContext.js';
 
 /**
  * What Cronsole can actually do with each platform, and how we know.
@@ -258,6 +259,20 @@ export interface PlatformMatrixRow {
   capabilities: CapabilityCell[];
   /** Newest `lastSuccessAt` across the row's verbs — "last verified". */
   lastVerifiedAt: Date | null;
+  /**
+   * **Where this platform's tasks actually execute** — Cronsole-native only.
+   *
+   * Native jobs run wherever this backend runs, which is the user's machine on a
+   * host-run stack and a container's filesystem in the Dockerized one. Same task,
+   * same UI, two different meanings, and the `EXEC` job type makes the difference
+   * matter: a path that exists in Explorer is simply absent inside a container.
+   * Reported here because the matrix is already the surface that answers "what
+   * does this source actually do on *this* install".
+   *
+   * Absent for every other platform: a Windows task runs on the machine its agent
+   * is on, which is not a fact about this process.
+   */
+  executionHost: ExecutionHost | null;
 }
 
 /**
@@ -312,7 +327,8 @@ export async function buildPlatformMatrix(userId: string): Promise<PlatformMatri
       lastSync: conn?.lastSync ?? null,
       taskCount: countByPlatform.get(platform) ?? 0,
       capabilities,
-      lastVerifiedAt
+      lastVerifiedAt,
+      executionHost: platform === PlatformType.TASKHUB_NATIVE ? executionHost : null
     };
   });
 }

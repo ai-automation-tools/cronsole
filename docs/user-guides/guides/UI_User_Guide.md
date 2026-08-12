@@ -43,6 +43,32 @@ Each task is represented by a card showing:
 - **Clone (Copy Icon):** Duplicates a task as a starting point for a new one.
 - **View Details:** Clicking anywhere on the card (except the action icons) opens the **Task Details** modal (see §2) — hovering the card names this in its footer. By keyboard, Tab to the task's **title** and press Enter; the title is the card's real control, so the dashboard's main action is not mouse-only.
 
+### Creating a Cronsole-native task
+
+**New Task › Cronsole** creates a task that lives only inside Cronsole — nothing appears in Windows
+Task Scheduler, and it runs whether or not the agent is connected. Two kinds:
+
+- **HTTP request** — call a URL on a schedule. Webhooks, health checks, poking a deploy hook.
+- **Run a program** — a script or executable, with its exit code, duration and output recorded in
+  the run history. This is a **real** result, unlike a Windows task where a success only means the
+  agent accepted the start.
+
+Three things worth knowing about *Run a program*:
+
+- **There is no shell.** The command is split into a program and its arguments, so `&&`, `|` and
+  `>` are ordinary characters rather than operators. If you genuinely need them, name the shell
+  yourself — `cmd.exe /c "…"` or `/bin/sh -c "…"`.
+- **It says where it will run, before you click.** A native task runs wherever the Cronsole
+  *backend* runs. Normally that is your machine — but if you run the backend in Docker, the task
+  runs **inside the container**, where your paths and tools do not exist. The modal states which,
+  so a task never fails as "executable not found" for a file you can see in Explorer.
+- **Your Cronsole secrets are not passed to it.** The program gets a minimal environment plus
+  anything you set explicitly — not Cronsole's own, which holds the key that encrypts your stored
+  platform credentials.
+
+**Use a Windows task instead** for anything that must run as your logged-in user, or keep running
+when Cronsole is down.
+
 ### Source — where a task comes from
 
 The row above the saved views is the dashboard's **first level of organisation**: one button per

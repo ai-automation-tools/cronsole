@@ -519,6 +519,53 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
   });
 });
 
+/**
+ * Build the stored job from validated input.
+ *
+ * Normalizing here rather than storing the request body means a field the client
+ * invented never reaches `metadata.job`, and the executor only ever reads shapes
+ * this function can produce.
+ */
+function buildNativeJob(job: Record<string, unknown>): NativeJob {
+  if (job.jobType === 'EXEC') {
+    const env = job.env as Record<string, string> | undefined;
+    // A caller may send either a structured {executable, args[]} — what MCP and
+    // the API use — or a `command` line, which is what a human types. The line is
+    // tokenized **here**, by the same `toStructuredAction` the Windows create
+    // path uses, so there is exactly one definition of "how a command line
+    // becomes argv" and the browser never needs a copy of it. Whichever arrives,
+    // what gets stored is always the structured form the executor reads.
+    const structured = typeof job.command === 'string' && job.command.trim()
+      ? toStructuredAction(job.command)
+      : null;
+    return {
+      jobType: 'EXEC',
+      executable: structured ? structured.executable : String(job.executable ?? '').trim(),
+      args: structured
+        ? structured.args
+        : Array.isArray(job.args) ? (job.args as string[]) : undefined,
+      workingDirectory: job.workingDirectory ? String(job.workingDirectory).trim() : undefined,
+      env: env && Object.keys(env).length ? env : undefined,
+      timeoutMs: job.timeoutMs !== undefined ? Number(job.timeoutMs) : undefined
+    };
+  }
+  if (job.jobType !== 'HTTP') {
+    // Hand an unrecognized — or missing — discriminator straight through, so
+    // `validateJob` rejects it **by name** rather than this function silently
+    // coercing it into an HTTP job. A typo'd `jobType` that quietly becomes a
+    // working HTTP task is worse than a 400: the caller gets a task that is not
+    // the one they described.
+    return job as unknown as NativeJob;
+  }
+  return {
+    jobType: 'HTTP',
+    url: String(job.url).trim(),
+    method: String(job.method || 'GET').toUpperCase(),
+    headers: (job.headers as Record<string, string>) || undefined,
+    body: job.body ? String(job.body) : undefined
+  };
+}
+
 const createNativeSchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
   category: z.string().trim().min(1).optional(),
@@ -537,19 +584,14 @@ router.post('/native', validateBody(createNativeSchema), async (req: Request, re
   if (!nextRunTime) {
     throw new HttpError(400, 'Schedule must be a valid 5-field cron expression (UTC).');
   }
-  const jobError = validateJob(job);
+  // Normalize first, then validate **what will actually be stored** rather than
+  // what arrived. The two differ for an EXEC job sent as a `command` line, and
+  // validating the input would check a shape the executor never sees.
+  const nativeJob: NativeJob = buildNativeJob(job as Record<string, unknown>);
+  const jobError = validateJob(nativeJob);
   if (jobError) {
     throw new HttpError(400, jobError);
   }
-
-  const validated = job as { url: string; method?: string; headers?: Record<string, string>; body?: string };
-  const nativeJob: NativeJob = {
-    jobType: 'HTTP',
-    url: validated.url.trim(),
-    method: (validated.method || 'GET').toUpperCase(),
-    headers: validated.headers || undefined,
-    body: validated.body || undefined
-  };
 
   const task = await prisma.task.create({
     data: {

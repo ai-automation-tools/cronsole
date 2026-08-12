@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 44 | An MCP tool 400s on every call (`Unsupported jobType: undefined`) while `npm test` passes 142/142 — including a test named after the very agreement it is not checking | The tool never sent a required discriminator, and had **never worked since it shipped**. The MCP suite **stubs the HTTP client**, so every assertion is about what the wrapper *sends* and none about whether the API *accepts* it — the test did not miss the bug, it **pinned** it. Drive a wrapped route by hand after touching it; one `curl` with the tool's exact payload catches it | [→](#44-an-mcp-tool-400s-on-every-call-and-the-whole-suite-is-green) |
 | 42 | The header reads *"Synced 7m ago"* over tasks that plainly are not — every card says `Last updated` yesterday. `/api/tools/platforms` and `/api/tasks/health` return **different** `lastSync` values for the same platform | `getHealth` returned the agent's **last inbound event of any kind** (`lastResponseAt`, hooked via `socket.onAny`) under the name `lastSync` — the 7-minute stamp was a *folder listing*. This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one level down and it **survived #40's fix**: a real timestamp of the wrong event passes every honesty check an invented one fails. Fixed by deleting `ConnectorHealth.lastSync` entirely — the connector reports `lastContactAt`, and `lastSync` has exactly one writer | [→](#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday) |
 | 43 | A Playwright screenshot baseline fails on **1 pixel** with nothing changed — or the whole page shifted ~22px between two identical runs | Three things, none of them flake: `maxDiffPixels` defaults to **0** and GPU antialiasing is not deterministic; **masking hides colour, not geometry**, so a masked live-data element still rewraps the row beside it; and a `flex-wrap` status line changes its own **height** when a segment appears — which is a real layout shift on a poll, not a test problem | [→](#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself) |
 | 40 | The sidebar says Windows is **Online** and *"synced just now"*, while `/api/tasks/folders` 502s, `/discover` omits the Windows platform entirely, and the backend log reads `Agent sync timeout` | The agent is **wedged**: connected but not answering. `getHealth` asserted `HEALTHY` from a socket object existing (Socket.IO's heartbeat is answered by the transport, not by the agent's command loop) and stamped `lastSync: new Date()` — a timestamp created by the act of asking, so it could never be stale and never be true. Fixed to report from real evidence; recover a wedged agent with `pwsh scripts/cronsole.ps1 restart`, then confirm `/api/tasks/health`. The **inverse** lie is [#5](#5-windows-offline-after-running-a-transient-test-agent)/[#37](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) | [→](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) |
@@ -2771,6 +2772,59 @@ would leave a baseline of an empty frame that still breaks whenever a row's heig
 that is the surface telling you it wants a structural test.
 
 *First hit: 2026-08-12, adding screenshot regression coverage for the dense surfaces.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 44. An MCP tool 400s on every call, and the whole suite is green
+
+**Symptom.** `create_native_task` fails for every input:
+
+```
+Unsupported jobType: undefined
+```
+
+`cd mcp-server && npm test` passes 142/142. One of those tests is literally named
+*"nests the HTTP job the way the route expects"*.
+
+**Cause.** The tool built its payload as `{ url, method }` and never sent the `jobType`
+discriminator the route requires. It had been that way **since the tool shipped**, so
+`create_native_task` had never once worked.
+
+Nothing caught it, and nothing could have:
+
+```ts
+// mcp-server — what the tool sent
+const job: Record<string, unknown> = { url, method };
+// backend — what the route required
+if (j.jobType !== 'HTTP') return `Unsupported jobType: ${j.jobType}`;
+```
+
+The MCP suite **stubs the HTTP client**. That is a deliberate, correct choice — it makes the tests
+fast and hermetic — but it means every assertion is about *what the wrapper sends*, and none is
+about *whether the API accepts it*. A test can therefore assert the exact bytes of a payload the
+server rejects, name itself after the agreement it is not checking, and pass forever. The test did
+not merely miss the bug; **it pinned it**.
+
+**Fix.** Send the discriminator, and correct the tests that had frozen the broken shape. But the
+durable fix is the habit already written in [`docs/testing/README.md`](../testing/README.md) under
+*Known coverage gaps*: **after changing a route an MCP tool wraps, drive the tool against a real
+backend once.** One `curl` with the tool's exact payload would have caught this on day one:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}
+' -X POST   -H "Authorization: Bearer $CRONSOLE_TOKEN" -H 'Content-Type: application/json'   -d '{"name":"probe","schedule":"0 4 * * *","job":{"jobType":"HTTP","url":"http://localhost:3000/api/health"}}'   http://localhost:3000/api/tasks/native
+```
+
+**Why it is worth an entry.** This is the failure mode the docs *predicted by name* —
+"the suite stubs the client, so it pins what the wrapper does, not that the wrapper and the API
+agree" — sitting undetected in the surface it was written about. Knowing a gap exists is not the
+same as covering it, and a green suite over a stub is the most comfortable possible way to not
+notice. It is [#9](#9-agent-payload-arrives-with-every-field-empty) one layer up: **both sides
+green while disagreeing about the wire.**
+
+*First hit: 2026-08-12, while adding the `EXEC` job type to Cronsole-native.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

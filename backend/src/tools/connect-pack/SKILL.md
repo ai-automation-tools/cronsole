@@ -47,6 +47,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Run now | `run_task` | `POST /api/tasks/:id/run` |
 | Create from a command | `create_task` | `POST /api/tasks` |
 | Create an HTTP job | `create_native_task` | `POST /api/tasks/native` |
+| Schedule a **script / program** | `create_native_script_task` | `POST /api/tasks/native` with `job.jobType: 'EXEC'`. Runs on the machine the **Cronsole backend** is on — not necessarily the user's desktop. Prefer a Windows task for anything that must run as the user or survive Cronsole being down |
 | Create from a template | `create_task_from_template` | `POST /api/templates/:id/apply` |
 | Browse templates | `list_templates` | `GET /api/templates` |
 | Validate a schedule | `convert_schedule` | `POST /api/tasks/preview` |

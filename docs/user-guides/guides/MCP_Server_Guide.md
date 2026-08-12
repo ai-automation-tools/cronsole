@@ -42,6 +42,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`create_task`** | "Run `C:\jobs\nightly.ps1` every weekday at 6am" — any command you already know | `POST /api/tasks` |
 | **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
 | **`create_native_task`** | "Ping my health endpoint every 15 minutes and POST this JSON to the webhook" | `POST /api/tasks/native` |
+| **`create_native_script_task`** | "Run my cleanup script every night at 2am and tell me if it fails" | `POST /api/tasks/native` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |
 | **`get_task_history`** | "Did last night's backup work?", "why did the report task fail?" | `GET /api/tasks/:id/executions` |
 | **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" | `GET /api/tasks/:id/export` |
@@ -104,7 +105,7 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 > [!IMPORTANT]
 > **What's safe, what's real, and what's off by default.**
 > - **Read-only, call freely:** `list_*`, `get_task_history`, `export_task`, `convert_schedule`.
-> - **Real effects on your machine:** `run_task`, `create_task`, `create_native_task`,
+> - **Real effects on your machine:** `run_task`, `create_task`, `create_native_task`, `create_native_script_task`,
 >   `create_task_from_template` (running / registering tasks) and `set_task_status`,
 >   `update_task_schedule`, `update_task_action` (changing them). Same guardrails as clicking
 >   **Run Now**, **Apply**, or **Edit** in the dashboard — and all of them are reversible.

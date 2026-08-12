@@ -29,7 +29,8 @@ const row = (label: string, capabilities: CapabilityCell[]): PlatformMatrixRow =
   lastSync: null,
   taskCount: 0,
   capabilities,
-  lastVerifiedAt: null
+  lastVerifiedAt: null,
+  executionHost: null
 });
 
 describe('newestOutcome', () => {

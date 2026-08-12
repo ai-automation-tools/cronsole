@@ -13,6 +13,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Connect a Claude routine straight from the Dashboard** (2026-08-12): **New Task → Claude** now takes a routine id and token, so you no longer have to go to Platforms and then Import. The routine appears on the dashboard in one step.
+
+  **The modal renames itself for this option, and that is the point.** Cronsole *creates* a Cronsole-native or Windows task; it can only *connect* a Claude routine, because Anthropic exposes no create endpoint. So picking Claude changes the title to **"Connect a routine"**, the button to **"Connect Routine"**, and says outright that Cronsole cannot create, schedule or pause one. A "New Task" flow that quietly meant something else for one option is how someone ends up believing Cronsole made a routine it cannot make.
+
+  The schedule field is **replaced by a sentence** rather than left in place: a routine's cadence lives at claude.ai and is unreadable through the single endpoint Anthropic exposes, so a cron box could only ever set a value Cronsole has nowhere to send — and the card would then advertise a schedule the routine does not follow. Category is gone too (routines file under `Claude` server-side), as are Job type and Command.
+
 - **A Claude routine files under "Claude", not "Uncategorized"** (2026-08-12): Import is where you pick which categories to track, and a routine you typed into the Platforms tab by hand needs to be findable — `Uncategorized` also mixed it in with unrelated tasks. Windows keeps its folder-derived category; Claude has no hierarchy to reflect, so it is a constant.
 
 - **You can actually add a Claude routine now** (2026-08-12): the Platforms tab gained a **Routines** panel on the Claude card — paste a routine's id (or its whole fire URL) and API token, name it, and it appears on the dashboard with a working Run button. Backed by `GET`/`POST`/`DELETE /api/tools/platforms/claude/routines`.

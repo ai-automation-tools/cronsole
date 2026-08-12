@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Globe } from 'lucide-react';
+import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Globe, Bot } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useScheduleZone } from '../hooks/useScheduleZone';
@@ -11,7 +11,19 @@ import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
-type CreatePlatform = 'TASKHUB_NATIVE' | 'WINDOWS_TASK_SCHEDULER';
+/**
+ * The three things this modal can put on your dashboard — and one of them is
+ * not like the others.
+ *
+ * Cronsole-native and Windows are **created**: Cronsole writes a task that did
+ * not exist before. `CLAUDE_CODE` is **connected**: Anthropic exposes no create
+ * endpoint, so the routine already exists at claude.ai and all Cronsole can do
+ * is learn its id and token. The modal says so throughout — different title,
+ * different verb on the button, no schedule field — because a "New Task" flow
+ * that quietly means something else for one option is how a user ends up
+ * believing Cronsole made a routine that it did not.
+ */
+type CreatePlatform = 'TASKHUB_NATIVE' | 'WINDOWS_TASK_SCHEDULER' | 'CLAUDE_CODE';
 
 /** What a Cronsole-native task does. Windows tasks are always a command. */
 type NativeJobType = 'HTTP' | 'EXEC';
@@ -57,11 +69,22 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   // Windows fields
   const [command, setCommand] = useState('');
   const [preview, setPreview] = useState<{ score: number; warnings: string[] } | null>(null);
+  // Claude fields. There is no schedule here on purpose — a routine's cadence
+  // lives at claude.ai and is not readable through the one endpoint Anthropic
+  // exposes, so offering a cron box would invite the user to set something
+  // Cronsole cannot send anywhere.
+  const [routineId, setRoutineId] = useState('');
+  const [routineToken, setRoutineToken] = useState('');
 
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
-  const isExec = !isWindows && jobType === 'EXEC';
+  const isClaude = platform === 'CLAUDE_CODE';
+  const isExec = !isWindows && !isClaude && jobType === 'EXEC';
   // Full class names so Tailwind's compiler sees them (no template interpolation).
-  const focusAccent = isWindows ? 'focus:border-primary' : 'focus:border-native';
+  const focusAccent = isWindows
+    ? 'focus:border-primary'
+    : isClaude
+      ? 'focus:border-claude'
+      : 'focus:border-native';
 
   const selectPlatform = (p: CreatePlatform) => {
     setPlatform(p);
@@ -87,6 +110,23 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (isClaude) {
+        // Two calls, because connecting is genuinely two things: store the
+        // credential, then let the normal import path turn the declared routine
+        // into a task row. The alternative — having the routines endpoint write
+        // a Task itself — would give Claude a second, private way to create
+        // tasks that no other platform uses.
+        const res = await api.post('/tools/platforms/claude/routines', {
+          id: routineId.trim(),
+          token: routineToken.trim(),
+          ...(name.trim() ? { name: name.trim() } : {})
+        });
+        // Scoped to the Claude category, so this cannot pull in Windows folders
+        // the user never asked for. The config holds only routines they declared,
+        // so "import Claude" imports exactly their own list.
+        await api.post('/tasks/sync', { categories: ['Claude'] });
+        return res;
+      }
       if (isWindows) {
         return api.post('/tasks', {
           name,
@@ -112,8 +152,30 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           : { jobType: 'HTTP', url, method, body: body || undefined }
       });
     },
-    onSuccess: () => {
+    onSuccess: (res: unknown) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      if (isClaude) {
+        // The matrix changes shape once a connection exists, and the routines
+        // list backs the Platforms panel — both would otherwise still show the
+        // pre-connect state.
+        queryClient.invalidateQueries({ queryKey: ['platform-matrix'] });
+        queryClient.invalidateQueries({ queryKey: ['claude-routines'] });
+
+        // Shape advice from the server (an id or token that doesn't match what
+        // claude.ai issues). Surfaced rather than swallowed: it saved anyway, so
+        // silence would leave a likely-wrong paste to fail at the first run.
+        const warnings = (res as { data?: { warnings?: string[] } })?.data?.warnings ?? [];
+        if (warnings.length) {
+          toast(`Routine connected, but: ${warnings.join(' ')}`, 'error');
+        } else {
+          toast(
+            `Routine "${name.trim() || routineId.trim()}" connected. It still runs on its own schedule at claude.ai — Cronsole can trigger it.`,
+            'success'
+          );
+        }
+        onClose();
+        return;
+      }
       toast(
         isWindows
           ? `Windows task "${name}" created under the \\Cronsole\\ scheduler folder.`
@@ -136,8 +198,12 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
   const validUrl = /^https?:\/\//i.test(url.trim());
   const targetValid = isWindows ? !!command.trim() : isExec ? !!script.trim() : validUrl;
-  const canCreate =
-    !!name.trim() && !!schedule.trim() && targetValid && !createMutation.isPending;
+  // Claude asks for different things and fewer of them: the id and token are
+  // required, the name is optional (it falls back to the id), and there is no
+  // schedule to require because Cronsole does not set one.
+  const canCreate = isClaude
+    ? !!routineId.trim() && !!routineToken.trim() && !createMutation.isPending
+    : !!name.trim() && !!schedule.trim() && targetValid && !createMutation.isPending;
 
   const platformButton = (p: CreatePlatform, label: string, Icon: typeof Zap, active: string) => (
     <button
@@ -160,15 +226,25 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
     >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
-            <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : 'text-native-text'}`}>
-              {isWindows ? <Monitor size={11} /> : <Zap size={11} />}
-              {isWindows ? 'Windows Task Scheduler' : 'Cronsole-native task'}
+            <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : isClaude ? 'text-claude-text' : 'text-native-text'}`}>
+              {isWindows ? <Monitor size={11} /> : isClaude ? <Bot size={11} /> : <Zap size={11} />}
+              {isWindows ? 'Windows Task Scheduler' : isClaude ? 'Claude Code routine' : 'Cronsole-native task'}
             </p>
-            <h2 id="create-task-title" className="text-xl font-bold">New Task</h2>
+            {/*
+              The title changes for Claude because the action does. Cronsole
+              cannot create a routine — there is no endpoint — so calling this
+              "New Task" for that option would be the one thing this whole
+              connector is built to avoid saying.
+            */}
+            <h2 id="create-task-title" className="text-xl font-bold">
+              {isClaude ? 'Connect a routine' : 'New Task'}
+            </h2>
             <p className="text-xs text-subtle-foreground mt-1 leading-relaxed">
               {isWindows
                 ? 'Registered as a real Windows scheduled task via the local agent — survives reboots, runs even when Cronsole is down.'
-                : 'Scheduled and executed by Cronsole itself — nothing is created in Windows Task Scheduler.'}
+                : isClaude
+                  ? 'Adds a routine that already exists at claude.ai so you can trigger it from here. Cronsole cannot create, schedule or pause a routine — Anthropic exposes no API for any of those.'
+                  : 'Scheduled and executed by Cronsole itself — nothing is created in Windows Task Scheduler.'}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close new task" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
@@ -182,29 +258,102 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             <div className="flex gap-2">
               {platformButton('TASKHUB_NATIVE', 'Cronsole', Zap, 'bg-native/10 border-native/40 text-native-text')}
               {platformButton('WINDOWS_TASK_SCHEDULER', 'Windows', Monitor, 'bg-primary/10 border-primary/40 text-foreground')}
+              {platformButton('CLAUDE_CODE', 'Claude', Bot, 'bg-claude/10 border-claude/40 text-claude-text')}
             </div>
           </div>
+
+          {isClaude && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+                  Routine id or fire URL <span className="text-danger-text">*</span>
+                </label>
+                <input
+                  value={routineId}
+                  onChange={e => setRoutineId(e.target.value)}
+                  aria-label="Routine id or fire URL"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="trig_01…"
+                  className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none transition-colors ${focusAccent}`}
+                />
+                <p className="text-[10px] text-subtle-foreground">
+                  From the routine's page URL, or the whole Fire URL in its API trigger dialog — both carry the same id.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+                  API token <span className="text-danger-text">*</span>
+                </label>
+                {/*
+                  Masked: the one field in Cronsole holding a live third-party
+                  credential, typed on a tab someone may be screen-sharing.
+                */}
+                <input
+                  type="password"
+                  value={routineToken}
+                  onChange={e => setRoutineToken(e.target.value)}
+                  aria-label="API token"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="sk-ant-oat01-…"
+                  className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none transition-colors ${focusAccent}`}
+                />
+                <p className="text-[10px] text-subtle-foreground">
+                  claude.ai → routine → Edit → Add another trigger → API → Generate token. Shown once, and generating a new one revokes the previous.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Name <span className="text-danger-text">*</span></label>
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+                Name {isClaude ? <span className="text-subtle-foreground normal-case font-bold">(optional)</span> : <span className="text-danger-text">*</span>}
+              </label>
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder={isWindows ? 'Nightly repo backup' : 'Ping n8n webhook'}
+                aria-label="Name"
+                placeholder={isWindows ? 'Nightly repo backup' : isClaude ? 'Defaults to the routine id' : 'Ping n8n webhook'}
                 className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors ${focusAccent}`}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Category</label>
-              <input
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors ${focusAccent}`}
-              />
-            </div>
+            {/*
+              No category picker for Claude: routines are filed under "Claude"
+              server-side (TaskService.extractCategory) so Import can offer them
+              as a group. Letting it be typed here would make the field a lie the
+              next sync corrects.
+            */}
+            {!isClaude && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Category</label>
+                <input
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  className={`w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none transition-colors ${focusAccent}`}
+                />
+              </div>
+            )}
           </div>
 
+          {/*
+            Claude gets a statement instead of a cron box. The routine's cadence
+            lives at claude.ai and is not readable through the single endpoint
+            Anthropic exposes, so an editable field here could only ever set a
+            value Cronsole has nowhere to send — and the card would then show a
+            schedule the routine does not actually follow.
+          */}
+          {isClaude ? (
+            <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-start gap-2">
+              <Clock size={13} className="shrink-0 mt-0.5 text-claude-text" />
+              <span>
+                <span className="font-bold text-foreground">The schedule stays at claude.ai.</span> Cronsole can't read or
+                change it, so the card will show no cron — it shows what Cronsole knows, not a guess. Run now works either way.
+              </span>
+            </div>
+          ) : (
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-danger-text">*</span>
@@ -251,10 +400,11 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               )
             )}
           </div>
+          )}
 
           {/* What a native task does. Windows tasks are always a command, so this
               only appears for Cronsole-native — where the choice is real. */}
-          {!isWindows && (
+          {!isWindows && !isClaude && (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Job type</label>
               <div className="flex gap-2">
@@ -279,7 +429,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             </div>
           )}
 
-          {isWindows ? (
+          {/* Claude has no target field: the routine's prompt, repos and
+              connectors are all defined at claude.ai and unreadable from here. */}
+          {isClaude ? null : isWindows ? (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Terminal size={11} /> Command <span className="text-danger-text">*</span>
@@ -390,11 +542,13 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           )}
 
           <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-start gap-2">
-            <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : 'text-native-text'}`} />
+            <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : isClaude ? 'text-claude-text' : 'text-native-text'}`} />
             <span>
               {isWindows
                 ? 'Created under the \\Cronsole\\ folder in Task Scheduler, so Cronsole-made tasks stay identifiable. Requires the Windows agent to be online.'
-                : 'Runs only while the Cronsole backend is up. Use a Windows task instead for jobs that must survive Cronsole being offline.'}
+                : isClaude
+                  ? 'The token is stored encrypted and never shown again. Running a routine from here starts a real Claude Code session that can use its repos and connectors — exactly as if it had fired on schedule.'
+                  : 'Runs only while the Cronsole backend is up. Use a Windows task instead for jobs that must survive Cronsole being offline.'}
             </span>
           </div>
 
@@ -408,14 +562,20 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             className={`flex-[2] py-3 rounded-2xl font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 text-sm flex items-center justify-center gap-2 ${
               isWindows
                 ? 'bg-primary hover:bg-primary-hover shadow-primary/20'
-                : 'bg-native hover:bg-native/85 shadow-native/20'
+                : isClaude
+                  ? 'bg-claude hover:bg-claude/85 shadow-claude/20 text-white'
+                  : 'bg-native hover:bg-native/85 shadow-native/20'
             }`}
           >
+            {/* "Connect", never "Create" — Cronsole did not make this routine
+                and cannot. The verb is the honest part of the button. */}
             {createMutation.isPending
-              ? <><Loader2 size={16} className="animate-spin" /> Creating…</>
+              ? <><Loader2 size={16} className="animate-spin" /> {isClaude ? 'Connecting…' : 'Creating…'}</>
               : isWindows
                 ? <><Monitor size={16} /> Create Windows Task</>
-                : <><Zap size={16} /> Create Cronsole Task</>}
+                : isClaude
+                  ? <><Bot size={16} /> Connect Routine</>
+                  : <><Zap size={16} /> Create Cronsole Task</>}
           </button>
         </footer>
     </Modal>

@@ -31,9 +31,14 @@ const TOKEN_PREFIX = 'sk-ant-oat01-';
 
 /**
  * The routine id is `trig_`-prefixed even though the API path calls it
- * `routine_id` — the docs flag their own mismatch. Worth knowing because the
- * routine's *page* URL exposes a different id, so "the id from claude.ai" is
- * ambiguous and only one of the two works.
+ * `routine_id` — the docs flag their own mismatch.
+ *
+ * Checked against the live UI (2026-08-12): the routine's **page** URL
+ * (`claude.ai/code/routines/trig_…`) and the API trigger's **Fire URL** carry
+ * the same id, so both are valid places to copy it from. Worth stating because
+ * the obvious assumption — that a product with two id-shaped URLs has two
+ * different ids — is wrong here, and an earlier version of the warning text
+ * asserted it.
  */
 const ID_PREFIX = 'trig_';
 

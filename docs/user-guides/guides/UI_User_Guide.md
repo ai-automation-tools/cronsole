@@ -11,6 +11,7 @@ The Dashboard is your "one pane of glass" for monitoring every scheduled task in
 ### Task Cards
 Each task is represented by a card showing:
 - **Platform Badge:** Identifies where the task lives (e.g., Windows, Claude, or Cronsole-native).
+*   **Favorite star:** Star a task to pin it to the dashboard's opening view — see *Favorites* below.
 *   **Status Indicator:** A green dot for `ACTIVE` tasks and a gray dot for `DISABLED` tasks.
 *   **Local Category:** A folder icon showing the Cronsole-specific category.
 *   **External ID:** The native path or ID used by the source platform.
@@ -30,11 +31,12 @@ Each task is represented by a card showing:
 ### Saved views
 Across the top of the dashboard is a row of **views** — named filter combinations, so the question
 you actually ask ("what's failing?", "what runs today?") is one click instead of four filters
-rebuilt from scratch on every visit. Five ship built in:
+rebuilt from scratch on every visit. Six ship built in:
 
 | View | Shows |
 |---|---|
-| **My jobs** | Your active tasks — the default. Hides Windows' own tasks and anything disabled or missing. |
+| **Favorites** | Only the tasks you've starred (see *Favorites* below). Deliberately ignores every other lens — a starred task shows even if it's disabled, missing, or one of Windows' own. |
+| **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. The default *until you star something*. |
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |
 | **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
 | **Disabled** | Only the tasks you've parked. Note this **isolates** them — it is not the same as the *Showing All* toggle, which merely stops hiding them. |
@@ -44,6 +46,24 @@ rebuilt from scratch on every visit. Five ship built in:
 - **Every view is a link.** The URL carries the view (`?view=failures`) or the individual filters, so you can bookmark one or paste it to another machine. A link to a saved view *someone else* made falls back to the normal dashboard rather than showing you nothing.
 - **The counts are honest about what they don't know.** *Failures* is answered by the health check (the same one on the Tools tab), which has to read every task first. Until it finishes, the chip shows **`–`, not `0`** — because `0` would claim nothing is failing, and the app hasn't looked yet. A banner above the list says the same thing while it loads. A task with no run evidence at all counts as *unmeasured*, not as passing.
 - **Changing a filter drops you to Custom.** The chip goes dark on purpose: once you narrow "Failures" to one category, the list is no longer what that label says it is.
+
+### Favorites
+Click the **star** on any task — on a card, a list row, a kanban card, the Schedule timeline, or in
+the task's own detail modal — to mark it a favorite. Stars are yours alone and change nothing on the
+platform, so starring works fine with the agent offline.
+
+- **The dashboard opens on your favorites** once you have at least one. With none, it opens on your
+  normal defaults, exactly as before — so this stays invisible until you use it.
+- **It says so when it does.** Opening filtered is something you didn't ask for, so a banner names
+  the filter, says how many tasks it's holding back, and offers **Show the full dashboard**. You
+  won't see that banner when you pick *Favorites* from the view bar yourself — there, you know.
+- **It can't trap you.** Click any other view, chip or filter and the dashboard stays where you put
+  it; the favorites default only applies to a "clean" visit with no filters in the URL.
+- **A star outranks every other filter.** *Favorites* shows a starred task even when it's disabled,
+  missing, or one of Windows' own — you starred it deliberately, so nothing hides it by default.
+- **Un-tracking or deleting a task takes its star with it.** Starring is a preference about a task
+  Cronsole tracks, not a record that outlives it (unlike a **removed** task, which Cronsole
+  remembers so sync doesn't re-import it).
 
 ### Views, Search & Filters
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.

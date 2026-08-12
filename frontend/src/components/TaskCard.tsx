@@ -5,6 +5,7 @@ import { platformLabel, platformBadgeClass } from '../platform';
 import { TaskRowActions } from './TaskRowActions';
 import { TaskSelectCheckbox } from './TaskSelectCheckbox';
 import { TaskSchedule } from './TaskSchedule';
+import { TaskFavoriteStar } from './TaskFavoriteStar';
 
 interface TaskCardProps {
   task: Task;
@@ -13,6 +14,8 @@ interface TaskCardProps {
   onCategoryUpdate: (taskId: string, category: string) => void;
   onClone: (task: Task) => void;
   onToggleStatus: (task: Task) => void;
+  /** Optional so the card stays renderable outside the dashboard's mutations. */
+  onToggleFavorite?: (task: Task) => void;
   isTogglingStatus?: boolean;
   /** Selection is optional so the card stays usable outside the dashboard. */
   selected?: boolean;
@@ -26,6 +29,7 @@ export const TaskCard = ({
   onCategoryUpdate,
   onClone,
   onToggleStatus,
+  onToggleFavorite,
   isTogglingStatus,
   selected,
   onToggleSelect
@@ -77,9 +81,14 @@ export const TaskCard = ({
           )}
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <div className="flex items-center gap-1.5 bg-background px-2 py-1 rounded-lg border border-border">
-            <div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-muted'}`}></div>
-            <span className="text-[10px] font-bold text-muted-foreground">{task.status}</span>
+          <div className="flex items-center gap-2">
+            {onToggleFavorite && (
+              <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={16} />
+            )}
+            <div className="flex items-center gap-1.5 bg-background px-2 py-1 rounded-lg border border-border">
+              <div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-green-500' : 'bg-muted'}`}></div>
+              <span className="text-[10px] font-bold text-muted-foreground">{task.status}</span>
+            </div>
           </div>
           {task.lastRunStatus === 'FAILURE' && (
             <div className="flex items-center gap-1 bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/30" title={task.lastRunAt ? `Failed ${new Date(task.lastRunAt).toLocaleString()}` : 'Last run failed'}>

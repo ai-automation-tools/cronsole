@@ -62,6 +62,24 @@ describe('TaskCard Component', () => {
     expect(screen.getByText('No cron schedule')).toBeInTheDocument();
   });
 
+  // --- favorites (added 2026-08-11) ---
+
+  it('stars a task without also opening it', () => {
+    // Every card surface opens the detail modal on click, so a star that did not
+    // stop propagation would toggle the favorite AND open the task.
+    const onToggleFavorite = vi.fn();
+    const { onSelect } = renderCard(mockTask, { onToggleFavorite });
+    fireEvent.click(screen.getByTitle('Add to favorites'));
+    expect(onToggleFavorite).toHaveBeenCalledWith(mockTask);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('shows an already-starred task as starred', () => {
+    renderCard({ ...mockTask, isFavorite: true }, { onToggleFavorite: vi.fn() });
+    const star = screen.getByTitle('Remove from favorites');
+    expect(star).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('shows a red indicator when the last run failed', () => {
     renderCard({ ...mockTask, lastRunStatus: 'FAILURE', lastRunAt: '2026-07-07T16:00:00Z' });
     expect(screen.getByText('Run failed')).toBeInTheDocument();

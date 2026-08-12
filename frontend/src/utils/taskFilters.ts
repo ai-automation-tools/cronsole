@@ -39,6 +39,16 @@ export interface TaskFilters {
   outcome: OutcomeFilter;
   /** Next scheduled run, relative to now in the user's schedule timezone. */
   due: DueFilter;
+  /**
+   * The starred lens. `'only'` is what the Favorites view asks for; `'any'`
+   * means the star plays no part in what is shown.
+   *
+   * A field on this object rather than a seventh piece of component state, for
+   * the reason the whole object exists: a view is a combination that can be
+   * *named*, and a dimension living outside it is one the URL can't carry, the
+   * view bar can't match, and the counts beside the list don't know about.
+   */
+  favorites: FavoritesFilter;
   /** `'All'` or an exact platform. */
   platform: string;
   /** `'All'` or an exact category (`'Uncategorized'` for tasks with none). */
@@ -49,6 +59,7 @@ export interface TaskFilters {
 
 export type StatusFilter = 'any' | 'active' | 'disabled' | 'missing';
 export type SystemFilter = 'personal' | 'include' | 'only';
+export type FavoritesFilter = 'any' | 'only';
 export type OutcomeFilter = 'any' | 'failing' | 'healthy' | 'unknown';
 export type DueFilter = 'any' | 'today' | 'week' | 'overdue' | 'never';
 
@@ -65,6 +76,7 @@ export const DEFAULT_FILTERS: TaskFilters = {
   system: 'personal',
   outcome: 'any',
   due: 'any',
+  favorites: 'any',
   platform: 'All',
   category: 'All',
   search: ''
@@ -101,6 +113,18 @@ export function matchesSystem(task: Task, filter: SystemFilter): boolean {
     case 'only':
       return task.isSystem === true;
   }
+}
+
+/**
+ * The starred lens.
+ *
+ * `isFavorite` is the server's per-viewer answer (the `TaskFavorite` join), and
+ * like `isSystem` it is optional on the wire — so `=== true` rather than a
+ * truthiness check, and an older backend that sends nothing reads as "not
+ * favorited" instead of as meaningful.
+ */
+export function matchesFavorites(task: Task, filter: FavoritesFilter): boolean {
+  return filter === 'any' || task.isFavorite === true;
 }
 
 /**
@@ -243,6 +267,7 @@ export function applyTaskFilters(
     task =>
       matchesSystem(task, filters.system) &&
       matchesStatus(task, filters.status) &&
+      matchesFavorites(task, filters.favorites) &&
       (filters.platform === 'All' || task.platform === filters.platform) &&
       (filters.category === 'All' ||
         (task.category || 'Uncategorized') === filters.category) &&
@@ -278,6 +303,7 @@ export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
     a.system === b.system &&
     a.outcome === b.outcome &&
     a.due === b.due &&
+    a.favorites === b.favorites &&
     a.platform === b.platform &&
     a.category === b.category &&
     a.search.trim() === b.search.trim()

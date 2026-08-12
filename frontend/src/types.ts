@@ -17,6 +17,13 @@ export interface Task {
    * rather than hiding everything.
    */
   isSystem?: boolean;
+  /**
+   * Has *this viewer* starred the task? From the `TaskFavorite` join, per user —
+   * never a column on Task. Optional on the wire so an older backend degrades to
+   * "nothing is favorited" (which shows the normal dashboard) rather than to an
+   * empty Favorites view.
+   */
+  isFavorite?: boolean;
   // Flattened last-execution summary from GET /api/tasks
   lastRunStatus?: string | null;
   lastRunAt?: string | null;

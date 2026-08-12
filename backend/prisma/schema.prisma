@@ -18,11 +18,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  platforms  PlatformConnection[]
-  tasks      Task[]
-  templates  Template[]
-  favorites  TemplateFavorite[]
-  exclusions TaskExclusion[]
+  platforms      PlatformConnection[]
+  tasks          Task[]
+  templates      Template[]
+  favorites      TemplateFavorite[]
+  taskFavorites  TaskFavorite[]
+  exclusions     TaskExclusion[]
 
   @@index([email])
 }
@@ -76,11 +77,37 @@ model Task {
   updatedAt   DateTime     @updatedAt
 
   executions  ExecutionLog[]
+  favorites   TaskFavorite[]
 
   @@unique([platform, externalId])
   @@index([userId, platform])
   @@index([nextRunTime])
   @@index([category])
+}
+
+/// Per-user "starred" flag for a tracked task. A join model rather than a column
+/// for the same reason TemplateFavorite is one: the flag belongs to a viewer,
+/// not to the task, and multi-tenancy would otherwise make one user's star
+/// another user's.
+///
+/// Deliberately keyed on the **Task row** (cascade), unlike TaskExclusion, which
+/// is keyed on `(platform, externalId)` precisely *because* it must outlive the
+/// row it describes. The two are opposites on purpose: an exclusion is a memory
+/// of a task you removed, so it has to survive the removal or the next sync
+/// undoes your work; a favorite is a preference about a task Cronsole is
+/// tracking, so when you untrack or delete it the star going with it is the
+/// honest outcome. Sync `upsert`s on `(platform, externalId)`, so ids are stable
+/// across syncs and a MISSING task keeps both its row and its star.
+model TaskFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, taskId])
+  @@index([userId])
 }
 
 /// A task the user removed from Cronsole while it still exists on the platform.

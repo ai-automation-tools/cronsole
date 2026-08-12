@@ -13,6 +13,28 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Fix a connected Claude routine's id or name without re-entering its token** (2026-08-12): a pencil on the Platforms routines panel, `PATCH /api/tools/platforms/claude/routines/:id`, and the `edit_claude_routine` MCP tool.
+
+  Pasting a routine's **name** into the id field is the easy mistake — the connect form warns about it and saves anyway, because the id format is experimental and not promised. Until now the only fix was disconnect-and-reconnect, which **discards the stored token**; claude.ai shows a token once, so a typo cost a regeneration at Anthropic — which also revokes that token anywhere else it was used. A typo should not cost a credential.
+
+  **The tracked task moves with the id.** A Claude task's `externalId` *is* the routine id, so re-pointing the config alone would strand the row: the old task would go MISSING at the next sync and a fresh one appear, losing its run history, star and category. The edit renames the row in the same operation and reports how many moved.
+
+  There is deliberately **no token field on the edit form** — its absence is the feature. To rotate a token, add the routine again with the same id; re-connecting replaces it.
+
+- **The MCP server grew from 16 tools to 22, and finally reaches `/api/tools`** (2026-08-12): every tool it had wrapped `/api/tasks` or `/api/templates`, so the entire cross-task surface — where most recent work landed — was invisible to an agent. Added:
+
+  | Tool | What it answers |
+  |---|---|
+  | `list_platforms` | "What can Cronsole actually do with Windows?" — the capability matrix, with `verified` / `declared` / `unsupported` and the evidence behind each |
+  | `get_task_health` | "What's broken?" — every task scored worst-first, each signal naming the field it came from |
+  | `list_run_history` | "What failed this month?" — across tasks, unlike the per-task history |
+  | `sync_tasks` | Import a category, or refresh what you already track |
+  | `list_claude_routines` · `connect_claude_routine` · `disconnect_claude_routine` | Manage the Claude routines Cronsole can fire |
+
+  **There is deliberately no `create_claude_routine`.** Anthropic exposes one routines endpoint (`fire`) and no create, so a tool by that name could only ever fail — and an agent reading `tools/list` would plan around a capability that does not exist. The tool is named `connect_claude_routine` for the verb it performs, and a test pins the absence of the other name.
+
+  Two omissions that are decisions, not gaps. **The three bulk verbs stay REST-only**: friction has to scale with blast radius, and the UI earns that with a typed confirmation past 25 tasks — an MCP tool has no equivalent gesture, so a bulk untrack of 254 tasks would arrive with *less* deliberation than the single-task path. And `connect_claude_routine` takes a live credential as a parameter, so it lands in the host's transcript; the tool description says so and points at the UI when a human is present.
+
 - **Connect a Claude routine straight from the Dashboard** (2026-08-12): **New Task → Claude** now takes a routine id and token, so you no longer have to go to Platforms and then Import. The routine appears on the dashboard in one step.
 
   **The modal renames itself for this option, and that is the point.** Cronsole *creates* a Cronsole-native or Windows task; it can only *connect* a Claude routine, because Anthropic exposes no create endpoint. So picking Claude changes the title to **"Connect a routine"**, the button to **"Connect Routine"**, and says outright that Cronsole cannot create, schedule or pause one. A "New Task" flow that quietly meant something else for one option is how someone ends up believing Cronsole made a routine it cannot make.
@@ -111,6 +133,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - **The Claude platform reported itself Online without ever having contacted Anthropic** (2026-08-12): `getHealth` returned `HEALTHY` whenever the config held a routine — a verdict derived from a **precondition**, which is troubleshooting [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)'s exact shape, one connector over. Health now comes from whether a run actually succeeded, read back from the evidence the run route already records.
 
   **It deliberately does not probe**, and that is the interesting part: the only endpoint Claude exposes has a side effect, so *"check whether this works"* and *"run the user's routine"* are the same HTTP request. A probing health check would have fired someone's nightly job on every poll and burned their daily run cap. Where there is no read-only probe, the honest health signal is the record of real runs — there is nothing else it can be. See [troubleshooting #45](troubleshooting/README.md#45-cronsole-cant-list-pause-or-create-claude-code-routines).
+
+- **A failed run reported HTTP 500, blaming Cronsole for the platform's answer** (2026-08-12): `POST /api/tasks/:id/run` returned `500` for every failure, so a paused Claude routine, an offline agent and an ACL denial all read as *"the server broke"* — sending you to debug the wrong side. Now `502`, matching what the enable/disable route already returned for a platform refusal. A live paused routine now answers `502 — Refused (400): Routine is paused.`
+
+- **A failed Claude run buried Anthropic's actual reason under a guess** (2026-08-12): the 400 handler always appended *"Most often the routine is paused"*, so a live run reported `Refused (400): invalid routine ID: Refresh sidebar links. Most often the routine is paused — resume it at claude.ai/code/routines.` The API had named the exact cause and the hint talked over it, sending you to unpause a routine that was fine. The hint now appears **only when Anthropic gave no reason** — it is for filling a silence, not for talking over one.
 
 - **Asking a platform to do something it has no API for returned "502 Bad Gateway"** (2026-08-12): disabling a Claude routine, or creating one, failed with a status that means *the gateway had a problem — retry*. It will never work, however many times you click. Both now return **400** with the reason, matching the convention every optional connector verb already followed ("an honest 400 from the route"). A verb that failed because the agent is offline still returns 5xx — that is the genuinely retryable case, and keeping the two apart is the point.
 

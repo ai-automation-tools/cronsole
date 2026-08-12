@@ -1268,7 +1268,13 @@ router.post('/:id/run', async (req: Request, res: Response) => {
   if (result.success) {
     res.json({ message: 'Task run command sent', ...result });
   } else {
-    res.status(500).json({ error: result.message || 'Failed to trigger task' });
+    // 502, not 500: the run failed *upstream*, and 500 claims Cronsole broke.
+    // Almost every real cause here is the platform answering — a paused Claude
+    // routine ("Refused (400): Routine is paused."), an offline agent, an ACL
+    // denial — none of which is a server fault, and all of which a 500 sends
+    // someone to debug in the wrong place. Matches the code the setStatus route
+    // already returns for a platform refusal.
+    res.status(502).json({ error: result.message || 'Failed to trigger task' });
   }
 });
 

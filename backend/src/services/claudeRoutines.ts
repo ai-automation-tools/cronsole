@@ -103,6 +103,23 @@ export const routineInputSchema = z.object({
 export type RoutineInput = z.infer<typeof routineInputSchema>;
 
 /**
+ * Correcting a connected routine. Both fields optional — but at least one must
+ * be present, or the request is a no-op the caller probably did not intend.
+ *
+ * There is **no `token` here on purpose**: keeping the stored token is the whole
+ * reason this exists (a mistyped id should not cost a credential). Rotating a
+ * token is the connect route's job, where re-adding an id replaces it.
+ */
+export const routineEditSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    name: z.string().trim().min(1).max(120).optional()
+  })
+  .refine(v => v.id !== undefined || v.name !== undefined, {
+    message: 'Provide a new id, a new name, or both'
+  });
+
+/**
  * Read the routines out of a decrypted connection config.
  *
  * Tolerant on purpose: this config is hand-maintained, and one malformed entry

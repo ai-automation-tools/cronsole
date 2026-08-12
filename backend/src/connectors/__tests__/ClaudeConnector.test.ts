@@ -106,6 +106,35 @@ describe('runTask — the one verb with a platform behind it', () => {
   // Each status means something different to the user, and two of them are not
   // really errors: a paused routine is the ONLY signal Cronsole ever gets about
   // a routine's enabled state, and 429 is a quota boundary, not a broken config.
+  it('does not talk over a specific 400 from Anthropic', async () => {
+    // Found on a live run: the API answered "invalid routine ID: Refresh
+    // sidebar links" (someone had pasted the routine's NAME as its id) and the
+    // handler appended "most often the routine is paused", which buries the
+    // real cause and sends the user to unpause a routine that is fine.
+    // A specific answer from the platform outranks our heuristic.
+    (axios.post as any).mockRejectedValue({
+      response: {
+        status: 400,
+        headers: {},
+        data: { error: { message: 'invalid routine ID: Refresh sidebar links' } }
+      }
+    });
+    const result = await connector.runTask('trig_1', CONFIG);
+    expect(result.message).toContain('invalid routine ID: Refresh sidebar links');
+    expect(result.message).not.toMatch(/paused/i);
+  });
+
+  it('still offers the paused hint when the 400 says nothing useful', async () => {
+    // The heuristic is for filling a silence, not for talking over one.
+    (axios.post as any).mockRejectedValue({
+      response: { status: 400, headers: {}, data: { error: { message: 'invalid request' } } }
+    });
+    expect((await connector.runTask('trig_1', CONFIG)).message).toMatch(/paused/i);
+
+    (axios.post as any).mockRejectedValue({ response: { status: 400, headers: {}, data: {} } });
+    expect((await connector.runTask('trig_1', CONFIG)).message).toMatch(/paused/i);
+  });
+
   const CASES: Array<[number, RegExp, Record<string, string>?]> = [
     [400, /paused/i],
     [401, /token/i],

@@ -110,6 +110,89 @@ interface FolderRow {
 
 // GET /api/tasks/:id/executions — mirrors Prisma's ExecutionLog. The route
 // returns the 20 most recent, newest first; that cap is the API's, not ours.
+/** One cell of the capability matrix — a claim about *this install*, with its evidence. */
+interface CapabilityCell {
+  verb: string;
+  label: string;
+  description: string;
+  support: 'verified' | 'declared' | 'unsupported';
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastFailureReason: string | null;
+}
+
+interface PlatformMatrixRow {
+  platform: string;
+  label: string;
+  summary: string;
+  maturity: 'functional' | 'experimental';
+  configured: boolean;
+  isActive: boolean;
+  healthState: string | null;
+  healthReason: string | null;
+  lastSync: string | null;
+  taskCount: number;
+  capabilities: CapabilityCell[];
+  lastVerifiedAt: string | null;
+}
+
+/** A declared Claude routine. Never carries the token — the API does not return it. */
+interface ClaudeRoutineRow {
+  id: string;
+  name?: string;
+  hasToken: boolean;
+  taskCount: number;
+}
+
+interface SyncResultRow {
+  platform: string;
+  count: number;
+  missing: number;
+  untracked?: { count: number; folders: string[]; systemCount: number; excludedCount: number };
+  exclusionsCleared?: number;
+}
+
+interface HealthSignal {
+  code: string;
+  severity: string;
+  summary: string;
+  /** Always names the field it came from — a claim never travels without its source. */
+  evidence: string;
+  weight: number;
+}
+
+interface TaskHealthResponse {
+  evaluatedAt: string;
+  counts: { tasks: number; critical: number; attention: number; unknown: number; ok: number };
+  tasks: Array<{
+    taskId: string;
+    name: string;
+    platform: string;
+    category: string;
+    isSystem: boolean;
+    tier: string;
+    score: number;
+    signals: HealthSignal[];
+  }>;
+}
+
+interface RunHistoryResponse {
+  range: { from: string; to: string };
+  matched: { runs: number; succeeded: number; failed: number; pending: number };
+  truncated: boolean;
+  rows: Array<{
+    triggeredAt: string;
+    taskId: string;
+    taskName: string;
+    platform: string;
+    category: string;
+    status: string;
+    /** Derived at read time — what `status` actually means for this platform. */
+    runKind: string;
+    durationMs: number | null;
+  }>;
+}
+
 interface ExecutionRow {
   id: string;
   status: string;
@@ -1170,6 +1253,484 @@ Next run: ${task.nextRunTime}` : '')
           // Named explicitly so a caller reading only the structured payload
           // cannot mistake this for a delete.
           platformEntryKept: true
+        });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // list_platforms — what Cronsole can actually do here, and how it knows
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'list_platforms',
+    {
+      title: 'List platforms and what Cronsole can do with each',
+      description:
+        'The capability matrix: for every connected platform, which verbs Cronsole can perform and the evidence ' +
+        'behind each claim. Call this BEFORE planning work you are not sure is possible — it is the difference ' +
+        'between a tool that will refuse and one that has simply never been used here. ' +
+        'Each capability is one of three states, and the middle one carries the meaning: ' +
+        '`verified` = it has actually succeeded on this install, with the timestamp that earned it; ' +
+        '`declared` = the route would accept it, but nothing has been observed to work yet; ' +
+        '`unsupported` = the route would refuse, because the platform has no such API. ' +
+        '`unsupported` is a boundary, not a to-do: no amount of retrying turns it into `verified`. ' +
+        'Example: Claude Code reports `create` and `setStatus` as unsupported, because Anthropic exposes exactly ' +
+        'one routines endpoint (fire) and no way to create or pause one.',
+      inputSchema: {
+        platform: z
+          .enum(ALL_PLATFORMS)
+          .optional()
+          .describe('Only this platform. Omit for every platform that has a connector.')
+      }
+    },
+    async ({ platform }) => {
+      try {
+        const result = await client.get<{ platforms: PlatformMatrixRow[] }>('/tools/platforms');
+        let rows = result.platforms ?? [];
+        if (platform) rows = rows.filter(p => p.platform === platform);
+        if (!rows.length) {
+          return ok(
+            platform
+              ? `No capability row for ${platform}. Only platforms with a connector appear here; link-only platforms do not.`
+              : 'No platforms reported.',
+            { platforms: [] }
+          );
+        }
+
+        const summary = rows
+          .map(p => {
+            const verified = p.capabilities.filter(c => c.support === 'verified').map(c => c.verb);
+            const declared = p.capabilities.filter(c => c.support === 'declared').map(c => c.verb);
+            const unsupported = p.capabilities.filter(c => c.support === 'unsupported').map(c => c.verb);
+            const health = p.configured
+              ? `${p.healthState ?? 'unknown'}${p.healthReason ? ` — ${p.healthReason}` : ''}`
+              : 'not connected';
+            return [
+              `• ${p.label} (${p.platform}) — ${p.maturity}, ${p.taskCount} task(s), health: ${health}`,
+              `    verified:    ${verified.join(', ') || '—'}`,
+              `    declared:    ${declared.join(', ') || '—'}`,
+              `    unsupported: ${unsupported.join(', ') || '—'}`
+            ].join('\n');
+          })
+          .join('\n');
+
+        return ok(`${rows.length} platform(s).\n${summary}`, { platforms: rows });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // Claude Code routines
+  // -------------------------------------------------------------------------
+  //
+  // There is no `create_claude_routine`, and there cannot be. Anthropic exposes
+  // exactly one routines endpoint — POST /v1/claude_code/routines/{id}/fire —
+  // whose token the reference scopes as "One routine only; no read access".
+  // Routines are created at claude.ai or with /schedule in the Claude Code CLI.
+  // What Cronsole can do is learn a routine's id and token so it can fire it,
+  // which is `connect`, not `create`. Naming the tool for the verb it actually
+  // performs is the same rule the Platforms matrix follows one layer down.
+  server.registerTool(
+    'list_claude_routines',
+    {
+      title: 'List the Claude Code routines Cronsole can fire',
+      description:
+        'The routines declared in the Claude connection, WITHOUT their tokens. Note this is not a read of your ' +
+        'claude.ai account: Claude Code has no list API, so this returns what has been connected to Cronsole and ' +
+        'nothing else. A routine you created at claude.ai will not appear until it is connected here, and one ' +
+        'deleted there will still appear until its next run returns 404. ' +
+        '`taskCount` is how many tracked Cronsole tasks point at each routine — what disconnecting would strand.',
+      inputSchema: {}
+    },
+    async () => {
+      try {
+        const result = await client.get<{ routines: ClaudeRoutineRow[] }>(
+          '/tools/platforms/claude/routines'
+        );
+        const routines = result.routines ?? [];
+        if (!routines.length) {
+          return ok(
+            'No Claude routines are connected. Create one at claude.ai/code/routines (or with /schedule in the ' +
+              'Claude Code CLI), then connect it with connect_claude_routine.',
+            { routines: [] }
+          );
+        }
+        const summary = routines
+          .map(r => `• ${r.name || r.id} (${r.id}) — ${r.taskCount} tracked task(s)`)
+          .join('\n');
+        return ok(`${routines.length} connected routine(s).\n${summary}`, { routines });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'connect_claude_routine',
+    {
+      title: 'Connect an existing Claude Code routine so Cronsole can fire it',
+      description:
+        'Store a routine\'s id and API token so it appears on the dashboard with a working Run. ' +
+        'This does NOT create a routine — Anthropic exposes no create endpoint. The routine must already exist ' +
+        'at claude.ai/code/routines (or be made with /schedule in the Claude Code CLI), and must have an API ' +
+        'trigger: open the routine, Edit, Add another trigger, API, then Generate token. ' +
+        'SECURITY: the token is a live credential and is passed here as a plain parameter, so it will appear in ' +
+        'this conversation and in the MCP host\'s logs. If a human is available, prefer the Cronsole UI ' +
+        '(Dashboard, New Task, Claude — or the Platforms tab), where the token goes straight into encrypted ' +
+        'storage without passing through a model context. Ask before requesting a token from a user. ' +
+        'Generating a token at claude.ai revokes the previous one for that routine, so re-connecting an id ' +
+        'here replaces the stored token rather than erroring — that is the rotation path. ' +
+        'Cronsole cannot read or set a routine\'s schedule; the cadence stays at claude.ai and the task will ' +
+        'show no cron.',
+      inputSchema: {
+        routineId: z
+          .string()
+          .min(1)
+          .describe(
+            'The trig_… routine id, or the whole fire URL from the API trigger dialog (the id is extracted). ' +
+            'The routine\'s own page URL carries the same id.'
+          ),
+        token: z
+          .string()
+          .min(1)
+          .describe(
+            'The per-routine bearer token (sk-ant-oat01-…). Shown once by claude.ai and not retrievable later.'
+          ),
+        name: z
+          .string()
+          .optional()
+          .describe('Display name on the dashboard. Defaults to the routine id, which is unreadable but never wrong.'),
+        importNow: z
+          .boolean()
+          .default(true)
+          .describe(
+            'Also run the import so the routine becomes a task immediately (what the UI does). Set false to ' +
+            'store the credential only — it will not appear on the dashboard until sync_tasks runs.'
+          )
+      }
+    },
+    async ({ routineId, token, name, importNow }) => {
+      try {
+        const result = await client.post<{
+          routine: ClaudeRoutineRow;
+          replaced: boolean;
+          warnings?: string[];
+        }>('/tools/platforms/claude/routines', {
+          id: routineId,
+          token,
+          ...(name ? { name } : {})
+        });
+
+        let imported = false;
+        if (importNow) {
+          await client.post('/tasks/sync', { categories: ['Claude'] });
+          imported = true;
+        }
+
+        const verb = result.replaced ? 'Re-connected (token replaced)' : 'Connected';
+        const warnings = result.warnings ?? [];
+        // Surfaced, not swallowed: it saved anyway, so silence would leave a
+        // likely-wrong value to fail at the first run instead of here.
+        const warnText = warnings.length ? `\nWARNING: ${warnings.join(' ')}` : '';
+        const importText = imported
+          ? '\nImported — it is on the dashboard now.'
+          : '\nNot imported. Call sync_tasks with category "Claude" to make it appear.';
+        return ok(
+          `${verb} routine "${result.routine.name || result.routine.id}" (${result.routine.id}).` +
+            `${importText}${warnText}\n` +
+            'The routine still runs on its own schedule at claude.ai — Cronsole can trigger it, not reschedule it.',
+          {
+            routine: result.routine,
+            replaced: result.replaced,
+            imported,
+            warnings
+          }
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'edit_claude_routine',
+    {
+      title: 'Correct a connected routine\'s id or name, keeping its token',
+      description:
+        'Fix a mistyped routine id, or rename one, WITHOUT re-entering the token. ' +
+        'Use this instead of disconnect-then-connect: disconnecting discards the stored token, and claude.ai ' +
+        'shows a token once — so recovering means generating a new one there, which also revokes the old one ' +
+        'anywhere else it is used. A typo should not cost a credential. ' +
+        'The tracked task follows the id, so its run history, star and category survive; without that the old ' +
+        'row would go MISSING at the next sync and a fresh one would appear in its place. ' +
+        'To rotate a token (rather than fix an id), use connect_claude_routine with the same id — re-connecting ' +
+        'replaces the stored token.',
+      inputSchema: {
+        routineId: z.string().min(1).describe('The routine as currently stored (from list_claude_routines).'),
+        newId: z
+          .string()
+          .optional()
+          .describe('Corrected trig_… id, or the whole fire URL (the id is extracted). Omit to only rename.'),
+        name: z.string().optional().describe('New display name. Omit to only change the id.')
+      }
+    },
+    async ({ routineId, newId, name }) => {
+      try {
+        if (newId === undefined && name === undefined) {
+          return toolError(
+            new Error('Nothing to change — pass newId, name, or both.')
+          );
+        }
+        const result = await client.patch<{
+          routine: ClaudeRoutineRow;
+          idChanged: boolean;
+          previousId: string;
+          tasksRepointed: number;
+          warnings?: string[];
+        }>(`/tools/platforms/claude/routines/${encodeURIComponent(routineId)}`, {
+          ...(newId !== undefined ? { id: newId } : {}),
+          ...(name !== undefined ? { name } : {})
+        });
+
+        const moved = result.idChanged
+          ? ` Id changed from ${result.previousId}; ${result.tasksRepointed} task(s) moved with it.`
+          : '';
+        const warnings = result.warnings ?? [];
+        const warnText = warnings.length ? `\nWARNING: ${warnings.join(' ')}` : '';
+        return ok(
+          `Updated routine "${result.routine.name || result.routine.id}" (${result.routine.id}). ` +
+            `The stored token was kept.${moved}${warnText}`,
+          result
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'disconnect_claude_routine',
+    {
+      title: 'Forget a Claude routine (it keeps running at claude.ai)',
+      description:
+        'Remove a routine\'s stored id and token from Cronsole. This is NOT a delete: the routine keeps running ' +
+        'at claude.ai on its own schedule, and Cronsole has no API to stop or delete it — use claude.ai for that. ' +
+        'One cost worth stating before you call it: the stored token is discarded and cannot be recovered, ' +
+        'because claude.ai shows a token once. Re-connecting later means generating a new token there (which ' +
+        'also revokes any other copy of the old one). ' +
+        'Tracked tasks pointing at the routine survive and stay on the dashboard, but their Run will fail until ' +
+        'it is re-connected; the count is reported back so you can say what was stranded.',
+      inputSchema: {
+        routineId: z.string().min(1).describe('The trig_… id (from list_claude_routines).')
+      }
+    },
+    async ({ routineId }) => {
+      try {
+        const result = await client.delete<{
+          removed: string;
+          orphanedTasks: number;
+          connectionRemoved: boolean;
+        }>(`/tools/platforms/claude/routines/${encodeURIComponent(routineId)}`);
+        const stranded = result.orphanedTasks
+          ? ` ${result.orphanedTasks} tracked task(s) now point at a routine Cronsole cannot fire.`
+          : '';
+        const conn = result.connectionRemoved
+          ? ' That was the last routine, so the Claude connection was removed too.'
+          : '';
+        return ok(
+          `Disconnected ${result.removed}. The routine itself is untouched and still runs at claude.ai.${stranded}${conn}`,
+          result
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // sync_tasks — the import path
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'sync_tasks',
+    {
+      title: 'Import or refresh tasks from their platforms',
+      description:
+        'Pull tasks from every connected platform into Cronsole. Two distinct modes, and picking the wrong one ' +
+        'is the usual mistake: ' +
+        'omit `categories` for a REFRESH of what you already track (statuses, schedules, last-run info) — this ' +
+        'adds nothing new; ' +
+        'pass `categories` to IMPORT those categories, which is how untracked tasks first appear. ' +
+        'Call list_untracked_categories… (or the Import screen) to see what is available — on a real machine ' +
+        'there can be hundreds of Windows folders, most of them Windows\' own. ' +
+        'An explicit `categories` import also forgets any prior untracks inside those categories, because naming ' +
+        'a category is the same gesture that started tracking it; a plain refresh deliberately does not, so a ' +
+        'routine refresh can never undo a deliberate removal.',
+      inputSchema: {
+        categories: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'Categories to import (e.g. ["Claude"]). Omit to refresh only what is already tracked. ' +
+            'For Windows these are the root scheduler folder names; Claude routines all file under "Claude".'
+          )
+      }
+    },
+    async ({ categories }) => {
+      try {
+        const body = categories?.length ? { categories } : { scope: 'tracked' as const };
+        const result = await client.post<{ message?: string; results?: SyncResultRow[] }>(
+          '/tasks/sync',
+          body
+        );
+        const rows = result.results ?? [];
+        const summary = rows.length
+          ? rows
+              .map(r => {
+                const untracked = r.untracked?.count
+                  ? ` — ${r.untracked.count} still untracked`
+                  : '';
+                const missing = r.missing ? `, ${r.missing} missing` : '';
+                return `• ${r.platform}: ${r.count} tracked${missing}${untracked}`;
+              })
+              .join('\n')
+          : 'No platforms reported.';
+        const mode = categories?.length
+          ? `Imported categories: ${categories.join(', ')}.`
+          : 'Refreshed the tasks already tracked (nothing new imported).';
+        return ok(`${mode}\n${summary}`, { mode: categories?.length ? 'import' : 'refresh', results: rows });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // get_task_health
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'get_task_health',
+    {
+      title: 'Score every task and rank the worst first',
+      description:
+        'The health scan: a tier and a score per task, with signals that each name the field they came from. ' +
+        'Use it to answer "what is broken?" across the whole dashboard rather than task by task. ' +
+        'Two readings matter. `unknown` is NOT `ok` — it means no evidence has been reported (an agent that has ' +
+        'never re-published omits lastTaskResult entirely), so treat it as "not checked", never as healthy. ' +
+        'And `disabled` is not unhealthy: parking a task is the recommended safe action, so it is not flagged. ' +
+        'Windows tasks are judged on Windows\' own lastTaskResult, not on Cronsole\'s run log — a Cronsole ' +
+        'SUCCESS for a Windows task only means the agent accepted the start.',
+      inputSchema: {
+        tier: z
+          .enum(['critical', 'attention', 'unknown', 'ok'])
+          .optional()
+          .describe('Only tasks in this tier. Omit for all, worst first.'),
+        includeSystem: z
+          .boolean()
+          .default(false)
+          .describe(
+            'Include the tasks Windows itself owns (\\Microsoft\\…). Default false — on a real machine they ' +
+            'dominate the worst-scoring list and bury your own tasks.'
+          ),
+        limit: z.number().int().min(1).max(200).default(20).describe('Max tasks to return (default 20).')
+      }
+    },
+    async ({ tier, includeSystem, limit }) => {
+      try {
+        const result = await client.get<TaskHealthResponse>('/tools/task-health');
+        let tasks = result.tasks ?? [];
+        if (!includeSystem) tasks = tasks.filter(t => !t.isSystem);
+        if (tier) tasks = tasks.filter(t => t.tier === tier);
+        const matched = tasks.length;
+        const rows = tasks.slice(0, limit);
+        const c = result.counts;
+        const header =
+          `Scanned at ${result.evaluatedAt}. Across ${c.tasks} task(s): ` +
+          `${c.critical} critical, ${c.attention} need attention, ${c.unknown} unknown (no evidence), ${c.ok} ok.`;
+        const body = rows.length
+          ? rows
+              .map(t => {
+                const why = (t.signals ?? [])
+                  .map(s => `      - [${s.severity}] ${s.summary} (${s.evidence})`)
+                  .join('\n');
+                return `• ${t.name} — ${t.tier} (score ${t.score}) [${t.platform}] id=${t.taskId}\n${why}`;
+              })
+              .join('\n')
+          : 'No tasks match.';
+        const note = matched > rows.length ? `\nShowing ${rows.length} of ${matched} matching.` : '';
+        return ok(`${header}\n${body}${note}`, {
+          evaluatedAt: result.evaluatedAt,
+          counts: c,
+          matched,
+          returned: rows.length,
+          tasks: rows
+        });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // list_run_history — across tasks, unlike get_task_history
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'list_run_history',
+    {
+      title: 'Run history across every task',
+      description:
+        'Cross-task run history — "what failed this month?", which get_task_history cannot answer because it ' +
+        'takes one task id. ' +
+        'CRITICAL caveat: these are runs CRONSOLE PERFORMED, not every run that happened. A Windows task firing ' +
+        'on its own schedule writes nothing here, so an empty result does NOT mean nothing ran. Every row carries ' +
+        'a `runKind` so status is readable: `native-execution` is a real outcome (exit code, duration), while ' +
+        '`manual-trigger` on a Windows task means only that the agent accepted the start. ' +
+        'For "is this task actually healthy?", prefer get_task_health, which reads the platform\'s own verdict.',
+      inputSchema: {
+        status: z
+          .array(z.enum(['SUCCESS', 'FAILURE', 'RUNNING', 'TIMEOUT']))
+          .optional()
+          .describe('Only these outcomes, e.g. ["FAILURE"].'),
+        platform: z.enum(ALL_PLATFORMS).optional().describe('Only runs of tasks on this platform.'),
+        taskId: z.string().optional().describe('Only runs of this task (same as get_task_history, with the cross-task shape).'),
+        from: z.string().optional().describe('ISO date/time lower bound. Defaults to 30 days ago.'),
+        to: z.string().optional().describe('ISO date/time upper bound. Defaults to now.'),
+        limit: z.number().int().min(1).max(500).default(50).describe('Max rows (default 50).')
+      }
+    },
+    async ({ status, platform, taskId, from, to, limit }) => {
+      try {
+        const params: Record<string, unknown> = { limit };
+        if (status?.length) params.status = status.join(',');
+        if (platform) params.platform = platform;
+        if (taskId) params.taskId = taskId;
+        if (from) params.from = from;
+        if (to) params.to = to;
+
+        const result = await client.get<RunHistoryResponse>('/tools/history', params);
+        const m = result.matched;
+        const rows = result.rows ?? [];
+        const header =
+          `${m.runs} run(s) between ${result.range.from} and ${result.range.to} — ` +
+          `${m.succeeded} succeeded, ${m.failed} failed, ${m.pending} pending.` +
+          (result.truncated ? ` Showing the first ${rows.length}.` : '');
+        const body = rows.length
+          ? rows
+              .map(r => {
+                const dur = r.durationMs != null ? ` ${r.durationMs}ms` : '';
+                return `• ${r.triggeredAt} ${r.status}${dur} — ${r.taskName} [${r.platform}] (${r.runKind})`;
+              })
+              .join('\n')
+          : 'No runs match. Remember a Windows task running on schedule records nothing here.';
+        return ok(`${header}\n${body}`, {
+          range: result.range,
+          matched: m,
+          returned: rows.length,
+          truncated: result.truncated,
+          rows
         });
       } catch (err) {
         return toolError(err);

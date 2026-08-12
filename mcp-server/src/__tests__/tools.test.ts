@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -26,6 +27,12 @@ interface Call {
   method: Method;
   path: string;
   body?: unknown;
+  /**
+   * Query params on a GET. Recorded because several tools express their whole
+   * filter surface here — dropping them would leave `list_run_history`'s
+   * status/platform/date filters asserted by nothing.
+   */
+  params?: Record<string, unknown>;
 }
 
 function stubClient(routes: Record<string, unknown | (() => unknown)>) {
@@ -41,13 +48,18 @@ function stubClient(routes: Record<string, unknown | (() => unknown)>) {
     if (out instanceof Error) throw out;
     return out;
   };
-  const record = (method: Method, path: string, body?: unknown) => {
-    calls.push({ method, path, body });
+  const record = (
+    method: Method,
+    path: string,
+    body?: unknown,
+    params?: Record<string, unknown>
+  ) => {
+    calls.push({ method, path, body, params });
     return resolve(method, path);
   };
   const client = {
-    async get(path: string) {
-      return record('get', path);
+    async get(path: string, params?: Record<string, unknown>) {
+      return record('get', path, undefined, params);
     },
     async post(path: string, body?: unknown) {
       return record('post', path, body);
@@ -110,22 +122,41 @@ describe('the tool surface', () => {
     const mcp = await connect(client);
     const names = (await mcp.listTools()).tools.map(t => t.name).sort();
     expect(names).toEqual([
+      'connect_claude_routine',
       'convert_schedule',
       'create_native_script_task',
       'create_native_task',
       'create_task',
       'create_task_from_template',
+      'disconnect_claude_routine',
+      'edit_claude_routine',
       'export_task',
+      'get_task_health',
       'get_task_history',
+      'list_claude_routines',
       'list_folders',
+      'list_platforms',
+      'list_run_history',
       'list_tasks',
       'list_templates',
       'run_task',
       'set_task_status',
+      'sync_tasks',
       'untrack_task',
       'update_task_action',
       'update_task_schedule'
     ]);
+  });
+
+  it('offers no way to CREATE a Claude routine, because none exists', () => {
+    // The naming is the invariant, not a preference. Anthropic exposes exactly
+    // one routines endpoint (fire) and no create, so a `create_claude_routine`
+    // tool could only ever fail — and an agent reading tools/list would plan
+    // around a capability that does not exist. `connect` is the verb that is
+    // actually performed.
+    const source = readFileSync(new URL('../tools.ts', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/'create_claude_routine'/);
+    expect(source).toMatch(/'connect_claude_routine'/);
   });
 
   it('offers the reversible removal without the gate', async () => {
@@ -1528,7 +1559,15 @@ describe('error handling across the surface', () => {
       'PATCH /tasks/x/status': boom,
       'PATCH /tasks/x/schedule': boom,
       'PATCH /tasks/x/actions': boom,
-      'DELETE /tasks/x': boom
+      'DELETE /tasks/x': boom,
+      'GET /tools/platforms': boom,
+      'GET /tools/platforms/claude/routines': boom,
+      'POST /tools/platforms/claude/routines': boom,
+      'DELETE /tools/platforms/claude/routines/x': boom,
+      'PATCH /tools/platforms/claude/routines/x': boom,
+      'POST /tasks/sync': boom,
+      'GET /tools/task-health': boom,
+      'GET /tools/history': boom
     });
     const mcp = await connect(client, true);
     const cases: [string, Record<string, unknown>][] = [
@@ -1547,7 +1586,15 @@ describe('error handling across the surface', () => {
       ['update_task_schedule', { taskId: 'x', schedule: '0 9 * * *' }],
       ['update_task_action', { taskId: 'x', command: 'c', runLevel: 'least' }],
       ['untrack_task', { taskId: 'x' }],
-      ['delete_task', { taskId: 'x' }]
+      ['delete_task', { taskId: 'x' }],
+      ['list_platforms', {}],
+      ['list_claude_routines', {}],
+      ['connect_claude_routine', { routineId: 'x', token: 't' }],
+      ['disconnect_claude_routine', { routineId: 'x' }],
+      ['edit_claude_routine', { routineId: 'x', newId: 'trig_2' }],
+      ['sync_tasks', {}],
+      ['get_task_health', {}],
+      ['list_run_history', {}]
     ];
     // Every registered tool must appear above — a new tool that skips this guard
     // would be free to throw a stack trace at the model.
@@ -1571,5 +1618,321 @@ describe('error handling across the surface', () => {
     expect(r.isError).toBe(true);
     expect(text(r)).toBe('Could not reach the Cronsole backend at http://x (ECONNREFUSED)');
     expect(text(r)).not.toMatch(/undefined/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The /api/tools surface — added 2026-08-12
+// ---------------------------------------------------------------------------
+
+describe('list_platforms', () => {
+  const matrix = {
+    platforms: [
+      {
+        platform: 'CLAUDE_CODE',
+        label: 'Claude Code Routines',
+        summary: 'Fire a routine from Cronsole.',
+        maturity: 'experimental',
+        configured: true,
+        isActive: true,
+        healthState: 'DEGRADED',
+        healthReason: '1 routine configured, none fired yet.',
+        lastSync: null,
+        taskCount: 1,
+        lastVerifiedAt: null,
+        capabilities: [
+          { verb: 'sync', label: 'Sync', description: '', support: 'verified', lastSuccessAt: '2026-08-12T00:00:00Z', lastFailureAt: null, lastFailureReason: null },
+          { verb: 'run', label: 'Run now', description: '', support: 'declared', lastSuccessAt: null, lastFailureAt: null, lastFailureReason: null },
+          { verb: 'create', label: 'Create', description: '', support: 'unsupported', lastSuccessAt: null, lastFailureAt: null, lastFailureReason: null }
+        ]
+      }
+    ]
+  };
+
+  it('separates verified from declared from unsupported', async () => {
+    // The middle state is the whole design: "reachable but never observed" is
+    // not the same claim as "it works here", and collapsing them is the
+    // spec-table lie the matrix exists to prevent.
+    const { client } = stubClient({ 'GET /tools/platforms': matrix });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_platforms', {});
+    expect(text(r)).toMatch(/verified:\s+sync/);
+    expect(text(r)).toMatch(/declared:\s+run/);
+    expect(text(r)).toMatch(/unsupported:\s+create/);
+  });
+
+  it('filters to one platform', async () => {
+    const { client } = stubClient({ 'GET /tools/platforms': matrix });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_platforms', { platform: 'WINDOWS_TASK_SCHEDULER' });
+    expect(text(r)).toMatch(/No capability row for WINDOWS_TASK_SCHEDULER/);
+  });
+});
+
+describe('Claude routines', () => {
+  it('connects a routine and imports it in one call', async () => {
+    const { client, calls } = stubClient({
+      'POST /tools/platforms/claude/routines': {
+        routine: { id: 'trig_1', name: 'Nightly', hasToken: true, taskCount: 0 },
+        replaced: false,
+        warnings: []
+      },
+      'POST /tasks/sync': { message: 'Sync complete', results: [] }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'connect_claude_routine', {
+      routineId: 'trig_1',
+      token: 'sk-ant-oat01-x',
+      name: 'Nightly'
+    });
+
+    expect(r.isError).toBeFalsy();
+    expect(calls[0].body).toEqual({ id: 'trig_1', token: 'sk-ant-oat01-x', name: 'Nightly' });
+    // Scoped to Claude — a bare sync would pull in Windows folders nobody asked for.
+    expect(calls[1]).toMatchObject({ path: '/tasks/sync', body: { categories: ['Claude'] } });
+    expect(text(r)).toMatch(/still runs on its own schedule at claude\.ai/);
+  });
+
+  it('can store the credential without importing', async () => {
+    const { client, calls } = stubClient({
+      'POST /tools/platforms/claude/routines': {
+        routine: { id: 'trig_1', hasToken: true, taskCount: 0 },
+        replaced: false,
+        warnings: []
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'connect_claude_routine', {
+      routineId: 'trig_1',
+      token: 't',
+      importNow: false
+    });
+    expect(calls.some(c => c.path === '/tasks/sync')).toBe(false);
+    expect(text(r)).toMatch(/Not imported/);
+  });
+
+  it('says a re-connect replaced the token rather than reporting a fresh add', async () => {
+    // Re-adding IS the rotation path — generating a token at claude.ai revokes
+    // its predecessor — so the distinction matters to the caller.
+    const { client } = stubClient({
+      'POST /tools/platforms/claude/routines': {
+        routine: { id: 'trig_1', hasToken: true, taskCount: 2 },
+        replaced: true,
+        warnings: []
+      },
+      'POST /tasks/sync': { results: [] }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'connect_claude_routine', { routineId: 'trig_1', token: 't' });
+    expect(text(r)).toMatch(/Re-connected \(token replaced\)/);
+  });
+
+  it('surfaces a shape warning instead of a clean success', async () => {
+    const { client } = stubClient({
+      'POST /tools/platforms/claude/routines': {
+        routine: { id: 'weird', hasToken: true, taskCount: 0 },
+        replaced: false,
+        warnings: ['"weird" does not look like a routine id']
+      },
+      'POST /tasks/sync': { results: [] }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'connect_claude_routine', { routineId: 'weird', token: 't' });
+    expect(text(r)).toMatch(/WARNING: "weird" does not look like a routine id/);
+  });
+
+  it('never echoes the token back', async () => {
+    // The token is write-only everywhere else in the product, and a tool result
+    // is a transcript entry — echoing it here would undo that in the one place
+    // it is most durably recorded.
+    const { client } = stubClient({
+      'POST /tools/platforms/claude/routines': {
+        routine: { id: 'trig_1', hasToken: true, taskCount: 0 },
+        replaced: false,
+        warnings: []
+      },
+      'POST /tasks/sync': { results: [] }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'connect_claude_routine', {
+      routineId: 'trig_1',
+      token: 'sk-ant-oat01-SECRET'
+    });
+    expect(text(r)).not.toMatch(/SECRET/);
+    expect(JSON.stringify(r.structuredContent ?? {})).not.toMatch(/SECRET/);
+  });
+
+  it('fixes an id without asking for the token again', async () => {
+    // The point of the edit route: disconnect-then-connect discards the stored
+    // token, and claude.ai shows one once — so a typo would cost a credential.
+    // The stub key is percent-encoded because the id being corrected is very
+    // often a bad paste — the real case was the routine's NAME, spaces and all.
+    // An unencoded path would break on exactly the ids this route exists to fix.
+    const { client, calls } = stubClient({
+      'PATCH /tools/platforms/claude/routines/Refresh%20sidebar%20links': {
+        routine: { id: 'trig_01PD', name: 'Refresh sidebar links', hasToken: true },
+        idChanged: true,
+        previousId: 'Refresh sidebar links',
+        tasksRepointed: 1,
+        warnings: []
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'edit_claude_routine', {
+      routineId: 'Refresh sidebar links',
+      newId: 'trig_01PD'
+    });
+    expect(r.isError).toBeFalsy();
+    expect(calls[0].path).toBe('/tools/platforms/claude/routines/Refresh%20sidebar%20links');
+    // No token in the request — that is the invariant, not an omission.
+    expect(calls[0].body).toEqual({ id: 'trig_01PD' });
+    expect(text(r)).toMatch(/stored token was kept/);
+    expect(text(r)).toMatch(/1 task\(s\) moved with it/);
+  });
+
+  it('refuses an edit that changes nothing, rather than reporting success', async () => {
+    // A no-op PATCH is nearly always a caller bug (usually a field-name typo),
+    // and a 200 hides it until someone wonders why nothing happened.
+    const { client, calls } = stubClient({});
+    const mcp = await connect(client);
+    const r = await call(mcp, 'edit_claude_routine', { routineId: 'trig_1' });
+    expect(r.isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('reports what disconnecting stranded, and that the routine survives', async () => {
+    const { client } = stubClient({
+      'DELETE /tools/platforms/claude/routines/trig_1': {
+        removed: 'trig_1',
+        orphanedTasks: 3,
+        connectionRemoved: true
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'disconnect_claude_routine', { routineId: 'trig_1' });
+    expect(text(r)).toMatch(/still runs at claude\.ai/);
+    expect(text(r)).toMatch(/3 tracked task\(s\)/);
+  });
+
+  it('explains an empty list rather than returning a bare zero', async () => {
+    const { client } = stubClient({ 'GET /tools/platforms/claude/routines': { routines: [] } });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_claude_routines', {});
+    expect(text(r)).toMatch(/claude\.ai\/code\/routines/);
+  });
+});
+
+describe('sync_tasks', () => {
+  it('refreshes when no categories are given', async () => {
+    // The two modes are genuinely different and easy to confuse: a refresh adds
+    // nothing new, while sending `categories` also forgets prior untracks.
+    const { client, calls } = stubClient({ 'POST /tasks/sync': { results: [] } });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'sync_tasks', {});
+    expect(calls[0].body).toEqual({ scope: 'tracked' });
+    expect(text(r)).toMatch(/nothing new imported/);
+  });
+
+  it('imports when categories are given', async () => {
+    const { client, calls } = stubClient({
+      'POST /tasks/sync': {
+        results: [
+          { platform: 'CLAUDE_CODE', count: 1, missing: 0, untracked: { count: 0, folders: [], systemCount: 0, excludedCount: 0 } }
+        ]
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'sync_tasks', { categories: ['Claude'] });
+    expect(calls[0].body).toEqual({ categories: ['Claude'] });
+    expect(text(r)).toMatch(/Imported categories: Claude/);
+  });
+});
+
+describe('get_task_health', () => {
+  const scan = {
+    evaluatedAt: '2026-08-12T22:00:00Z',
+    counts: { tasks: 3, critical: 1, attention: 0, unknown: 1, ok: 1 },
+    tasks: [
+      {
+        taskId: 'a', name: 'Mine', platform: 'WINDOWS_TASK_SCHEDULER', category: 'X',
+        isSystem: false, tier: 'critical', score: 35,
+        signals: [{ code: 'last-run-failed', severity: 'critical', summary: 'The last run failed.', evidence: 'Windows recorded exit code 1', weight: 50 }]
+      },
+      {
+        taskId: 'b', name: 'Windows own', platform: 'WINDOWS_TASK_SCHEDULER', category: 'Microsoft',
+        isSystem: true, tier: 'critical', score: 30, signals: []
+      }
+    ]
+  };
+
+  it('hides system tasks by default, because they bury your own', async () => {
+    const { client } = stubClient({ 'GET /tools/task-health': scan });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_task_health', {});
+    expect(text(r)).toMatch(/Mine/);
+    expect(text(r)).not.toMatch(/Windows own/);
+  });
+
+  it('carries each signal with the evidence behind it', async () => {
+    // A claim never travels without its source — the reason the scorer returns
+    // signals rather than a bare number.
+    const { client } = stubClient({ 'GET /tools/task-health': scan });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_task_health', {});
+    expect(text(r)).toMatch(/The last run failed\./);
+    expect(text(r)).toMatch(/Windows recorded exit code 1/);
+  });
+
+  it('reports the unknown tier so it is not read as ok', async () => {
+    const { client } = stubClient({ 'GET /tools/task-health': scan });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_task_health', {});
+    expect(text(r)).toMatch(/1 unknown \(no evidence\)/);
+  });
+});
+
+describe('list_run_history', () => {
+  const history = {
+    range: { from: '2026-07-13T00:00:00Z', to: '2026-08-12T00:00:00Z' },
+    matched: { runs: 2, succeeded: 1, failed: 1, pending: 0 },
+    truncated: false,
+    rows: [
+      { triggeredAt: '2026-08-12T22:00:00Z', taskId: 't1', taskName: 'Native job', platform: 'TASKHUB_NATIVE', category: 'C', status: 'SUCCESS', runKind: 'native-execution', durationMs: 120 },
+      { triggeredAt: '2026-08-11T22:00:00Z', taskId: 't2', taskName: 'Win job', platform: 'WINDOWS_TASK_SCHEDULER', category: 'C', status: 'SUCCESS', runKind: 'manual-trigger', durationMs: 15 }
+    ]
+  };
+
+  it('passes its filters through as query params', async () => {
+    const { client, calls } = stubClient({ 'GET /tools/history': history });
+    const mcp = await connect(client);
+    await call(mcp, 'list_run_history', {
+      status: ['FAILURE'],
+      platform: 'WINDOWS_TASK_SCHEDULER',
+      limit: 10
+    });
+    expect(calls[0].params).toMatchObject({
+      status: 'FAILURE',
+      platform: 'WINDOWS_TASK_SCHEDULER',
+      limit: 10
+    });
+  });
+
+  it('shows runKind, so a Windows SUCCESS is not read as a real outcome', async () => {
+    // manual-trigger means "the agent accepted the start", not that the task
+    // succeeded. Without runKind these two rows look identical.
+    const { client } = stubClient({ 'GET /tools/history': history });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_run_history', {});
+    expect(text(r)).toMatch(/native-execution/);
+    expect(text(r)).toMatch(/manual-trigger/);
+  });
+
+  it('warns that an empty result does not mean nothing ran', async () => {
+    const { client } = stubClient({
+      'GET /tools/history': { ...history, matched: { runs: 0, succeeded: 0, failed: 0, pending: 0 }, rows: [] }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_run_history', {});
+    expect(text(r)).toMatch(/Windows task running on schedule records nothing here/);
   });
 });

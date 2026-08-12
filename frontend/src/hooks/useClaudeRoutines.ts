@@ -58,6 +58,41 @@ export const useAddClaudeRoutine = () => {
   });
 };
 
+/**
+ * Correct a routine's id or name **without re-entering the token**.
+ *
+ * Deliberately separate from the add mutation, and deliberately without a token
+ * field: disconnect-then-reconnect would discard the stored credential, and
+ * claude.ai shows a token once — so a typo would cost a regeneration (which also
+ * revokes the old token wherever else it is used). To *rotate* a token, re-add
+ * the same id through `useAddClaudeRoutine`, which replaces it.
+ */
+export const useEditClaudeRoutine = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { routineId: string; id?: string; name?: string }) => {
+      const { routineId, ...body } = input;
+      const { data } = await api.patch(
+        `/tools/platforms/claude/routines/${encodeURIComponent(routineId)}`,
+        body
+      );
+      return data as {
+        routine: ClaudeRoutine;
+        idChanged: boolean;
+        previousId: string;
+        tasksRepointed: number;
+        warnings: string[];
+      };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ROUTINES_KEY });
+      // The task row moves with the id, so the dashboard is stale too.
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['platform-matrix'] });
+    }
+  });
+};
+
 export const useRemoveClaudeRoutine = () => {
   const qc = useQueryClient();
   return useMutation({

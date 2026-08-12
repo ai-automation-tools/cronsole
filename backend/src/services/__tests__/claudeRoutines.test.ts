@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  routineEditSchema,
   normalizeRoutineId,
   looksLikeRoutineId,
   looksLikeRoutineToken,
@@ -138,5 +139,29 @@ describe('routineInputSchema', () => {
   it('treats the name as optional', () => {
     const parsed = routineInputSchema.parse({ id: 'trig_1', token: 'sk' });
     expect(parsed.name).toBeUndefined();
+  });
+});
+
+describe('routineEditSchema — correcting a mistake must not cost a token', () => {
+  it('carries no token field at all', () => {
+    // Keeping the stored token is the entire reason this route exists. A
+    // mistyped id should not force a regeneration at claude.ai — which shows a
+    // token once and revokes the previous one when you generate a new one.
+    // Rotation belongs to the connect route, where re-adding an id replaces it.
+    const parsed = routineEditSchema.parse({ id: 'trig_1', token: 'sneaky' } as never);
+    expect(parsed).not.toHaveProperty('token');
+  });
+
+  it('accepts an id, a name, or both', () => {
+    expect(routineEditSchema.safeParse({ id: 'trig_1' }).success).toBe(true);
+    expect(routineEditSchema.safeParse({ name: 'Nicer name' }).success).toBe(true);
+    expect(routineEditSchema.safeParse({ id: 'trig_1', name: 'Both' }).success).toBe(true);
+  });
+
+  it('rejects an empty edit rather than silently doing nothing', () => {
+    // A no-op PATCH is almost always a caller bug — usually a field name typo —
+    // and returning 200 for it hides that until someone wonders why nothing
+    // changed.
+    expect(routineEditSchema.safeParse({}).success).toBe(false);
   });
 });

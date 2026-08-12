@@ -23,20 +23,26 @@ const { mockPrisma } = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('@prisma/client', () => {
+/**
+ * Stub the client, keep the **real** enums.
+ *
+ * These used to be hand-written partial copies — `PlatformType` listed only
+ * `WINDOWS_TASK_SCHEDULER`. A partial enum does not fail loudly: any code
+ * branching on a platform the copy omits compares against `undefined`, silently
+ * takes the else-branch, and the test asserts the wrong answer confidently while
+ * production does the right thing. That is exactly how `extractCategory`'s
+ * Claude branch read as broken here while returning `Claude` against the live
+ * server. `importActual` keeps the generated enums in sync by construction —
+ * they are plain string constants and need no database.
+ */
+vi.mock('@prisma/client', async importActual => {
+  const actual = await importActual<typeof import('@prisma/client')>();
   return {
+    ...actual,
     PrismaClient: class {
       constructor() {
         return mockPrisma;
       }
-    },
-    PlatformType: {
-      WINDOWS_TASK_SCHEDULER: 'WINDOWS_TASK_SCHEDULER'
-    },
-    TaskStatus: {
-      ACTIVE: 'ACTIVE',
-      DISABLED: 'DISABLED',
-      MISSING: 'MISSING'
     }
   };
 });
@@ -59,6 +65,14 @@ describe('TaskService', () => {
     const externalId = '\\MyTask';
     const category = (TaskService as any).extractCategory(externalId, 'WINDOWS_TASK_SCHEDULER');
     expect(category).toBe('Uncategorized');
+  });
+
+  it('files a Claude routine under Claude, not Uncategorized', () => {
+    // A trig_ id has no path to derive a folder from, but Import is where the
+    // user picks which categories to track — and a routine they typed into the
+    // Platforms tab by hand has to be findable under a name that means
+    // something. Uncategorized would also mix it in with unrelated tasks.
+    expect((TaskService as any).extractCategory('trig_01ABC', 'CLAUDE_CODE')).toBe('Claude');
   });
 
   it('should upsert tasks with initial category', async () => {

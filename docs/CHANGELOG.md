@@ -13,6 +13,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **A Claude routine files under "Claude", not "Uncategorized"** (2026-08-12): Import is where you pick which categories to track, and a routine you typed into the Platforms tab by hand needs to be findable — `Uncategorized` also mixed it in with unrelated tasks. Windows keeps its folder-derived category; Claude has no hierarchy to reflect, so it is a constant.
+
 - **You can actually add a Claude routine now** (2026-08-12): the Platforms tab gained a **Routines** panel on the Claude card — paste a routine's id (or its whole fire URL) and API token, name it, and it appears on the dashboard with a working Run button. Backed by `GET`/`POST`/`DELETE /api/tools/platforms/claude/routines`.
 
   This is the first connection config a user *composes* — every other platform gets credentials another way (the Windows agent pairs, Cronsole-native needs none), because Anthropic mints a **bearer token per routine** and exposes no API to list or manage them. Three things follow from that and are visible on screen: **the panel says Cronsole can't discover your routines**, since the absence of a Sync button isn't self-explanatory on a tab where everything else has one; **the token is write-only** — stored encrypted, never sent back, shown as *Token stored* rather than a row of dots, because dots imply something to reveal and claude.ai can't re-display it either; and the button says **Remove, not Delete**, because Cronsole cannot stop a Claude routine and a "Delete" label would let you believe a nightly job had been turned off while it kept firing. Removing states where the routine keeps running and counts the tasks it strands *before* the click.

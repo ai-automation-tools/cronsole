@@ -26,7 +26,7 @@ import { validateBody } from '../middleware/validate.js';
 import { importTemplates } from '../catalog/importCatalog.js';
 import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateFromTask.js';
 import { toTaskXmlBuffer } from '../services/bulkExport.js';
-import { recordCapability } from '../services/platformCapabilities.js';
+import { recordCapability, verbDeclaredUnsupported } from '../services/platformCapabilities.js';
 import { taskSourceKey } from '../services/taskSource.js';
 
 const router = Router();
@@ -179,7 +179,12 @@ router.patch('/:id/status', validateBody(patchTaskStatusSchema), async (req: Req
   // either verified or untried.
   await recordCapability(userId, task.platform, 'setStatus', result.success, result.message);
   if (!result.success) {
-    throw new HttpError(502, result.message || 'The platform failed to update the task status');
+    // 400, not 502, when the platform has no such API at all — 502 means "the
+    // gateway had a problem", i.e. retry, and a Claude routine will never gain
+    // a pause endpoint no matter how many times you click. The connector still
+    // supplies the reason; this only decides how loudly to say it.
+    const status = verbDeclaredUnsupported(task.platform, 'setStatus') ? 400 : 502;
+    throw new HttpError(status, result.message || 'The platform failed to update the task status');
   }
 
   // Update DB status. For TASKHUB_NATIVE it is already updated by the connector,
@@ -480,7 +485,9 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     // and then fail to register into it, and Cronsole does not delete folders —
     // so the folder is real, needs an admin to remove, and the one response the
     // caller will ever see must say so rather than reporting a clean failure.
-    return res.status(500).json({
+    // Same split as setStatus: a platform with no create API at all is a 400,
+    // not a 500. Claude routines are made at claude.ai and nowhere else.
+    return res.status(verbDeclaredUnsupported(platform, 'create') ? 400 : 500).json({
       error: result.message || 'Failed to create task',
       ...(result.foldersCreated?.length ? { foldersCreated: result.foldersCreated } : {})
     });

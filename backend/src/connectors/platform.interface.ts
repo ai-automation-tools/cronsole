@@ -101,8 +101,49 @@ export interface TaskInfo {
   metadata?: any;
 }
 
+/**
+ * The verbs the capability matrix reports on.
+ *
+ * Declared here rather than in `services/platformCapabilities.ts` so a connector
+ * can name the verbs its platform cannot do (`unsupportedVerbs`) without the
+ * service importing the connectors and the connectors importing the service.
+ * The labels and descriptions stay in the service — those are presentation.
+ */
+export type CapabilityVerb =
+  | 'sync'
+  | 'run'
+  | 'create'
+  | 'setStatus'
+  | 'updateSchedule'
+  | 'updateAction'
+  | 'export'
+  | 'restore'
+  | 'delete'
+  | 'listFolders';
+
 export interface PlatformConnector {
   platform: PlatformType;
+
+  /**
+   * Verbs this platform **cannot** perform — not "has not yet", but *cannot*.
+   *
+   * `sync`, `run`, `create` and `setStatus` are required by this interface, so
+   * `verbReachability` treated their presence as proof the route would accept
+   * them. That holds for a connector whose method reaches a platform. It is
+   * false for one whose method is a hardcoded `{ success: false }` because the
+   * platform exposes no such API — Claude Code routines have exactly one HTTP
+   * endpoint (`/fire`), so `createTask` and `setTaskStatus` there can never do
+   * anything.
+   *
+   * Without this the matrix rendered those cells `declared`, which reads as
+   * *"reachable, just unproven"* and invites the user to wait for evidence that
+   * cannot arrive. `unsupported` is the truth, and the distinction is the whole
+   * point of the matrix: `declared` is a promise, `unsupported` is a boundary.
+   *
+   * Only for verbs that are structurally impossible. A verb that fails today
+   * because the agent is offline is still reachable — that is what health is for.
+   */
+  readonly unsupportedVerbs?: readonly CapabilityVerb[];
 
   /**
    * Sync tasks from the platform.

@@ -31,8 +31,11 @@ dashboard's first-level axis is now where a task comes from, and the plan is to 
    Cronsole-native (HTTP / Scripts), not a new platform.
 3. **POSIX agent** — launchd · cron · systemd timers in one build. The one that actually broadens
    the product.
-4. **Claude Code routines** — promote the connector out of scaffold.
-5. **GitHub Actions** — read-only observer, ~a day.
+4. ~~**Claude Code routines**~~ — **shipped 2026-08-12**, and smaller than scoped: Anthropic exposes
+   one write-only endpoint, so `run` is real and sync / create / enable-disable are boundaries
+   rather than gaps.
+5. **GitHub Actions** — read-only observer, ~a day. Note it is the **mirror image of Claude**:
+   reads everything, changes nothing. Between them they bracket the observer pattern.
 
 Everything below the sources track, unchanged in priority relative to each other:
 
@@ -106,12 +109,49 @@ Everything below the sources track, unchanged in priority relative to each other
       `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
       honest-warning treatment the Windows trigger conversion already has.
 
-- [ ] **Claude Code routines — promote the connector** *(requested 2026-08-12)*: `CLAUDE_CODE` has
-      been an experimental scaffold since the MVP. Promote to production-ready: real sync, run,
-      enable/disable and health from evidence. Increasingly common among developers already using
-      Claude Code, and the one source on this list Cronsole can dogfood immediately.
-      **Verify the API surface before scoping** — the scaffold predates the current routines
-      feature, so what it assumes may no longer be what exists.
+- [x] **Claude Code routines — promoted as far as the platform allows** *(requested and shipped
+      2026-08-12)*: the connector is production-ready for the one verb that has an API behind it,
+      and everything else is now declared impossible rather than left looking unfinished.
+
+      **The API check the item asked for changed the item.** Anthropic exposes exactly one routines
+      endpoint — `POST /v1/claude_code/routines/{trig_id}/fire` — and the reference states its
+      token's scope as *"One routine only; **no read access**."* There is no list, get, create,
+      enable/disable, or token-management endpoint. So of the four things this item asked for, three
+      are **not gaps but boundaries**: real sync and enable/disable cannot be built at all.
+      Shipped instead:
+      - **`run` — real.** Correct beta header, and the documented statuses mapped to causes a user
+        can act on. Two matter: a **400 is usually a paused routine** (the *only* signal Cronsole
+        ever gets about a routine's enabled state), and a 429 is a quota boundary, not a bad config.
+      - **Health from evidence** — read back from the `PlatformCapability` rows the run route
+        already writes. It previously returned `HEALTHY` whenever config was non-empty: a verdict
+        from a precondition, troubleshooting #40's exact shape. **It cannot probe**: the only
+        endpoint has a side effect, so "check this works" and "run the user's routine" are the same
+        request — a probing health check would fire someone's nightly job on every poll.
+      - **`create` and `setStatus` are `unsupported`, not `declared`** — a new `unsupportedVerbs`
+        declaration on `PlatformConnector`, because both methods are interface-mandated refusals
+        that no evidence can ever promote. `declared` reads as *"reachable, just unproven"* and
+        invites waiting for something that cannot arrive.
+      - **Two fixes worth naming**: the fire body no longer carries filler text (it arrived as the
+        routine's `<routine-fire-payload>`, so for a routine whose prompt reads that block it
+        *displaced* the real context), and the token is destructured out of task metadata rather
+        than set to `undefined`, which left the key present and relied on `JSON.stringify` dropping it.
+
+      Left as-is deliberately: `syncTasks` returns the routines the user **declares** in the
+      connection config. That is not a sync and is documented as not being one — it earns its place
+      only because a declared routine gets a dashboard row, a working Run button and real run
+      history, which is strictly more than the bookmark the quick-links-only platforms get.
+
+- [ ] **`HealthState` has no `UNKNOWN`, so "never checked" has to borrow a verdict**
+      *(logged 2026-08-12, found while doing the above)*: the enum is `HEALTHY | DEGRADED |
+      OFFLINE`. A configured-but-never-exercised platform is none of those, so the Claude connector
+      reports `DEGRADED` with a reason naming why — pessimistic-with-an-explanation, chosen because
+      the failure it prevents is trusting a config nothing has checked.
+      **This is not Claude-specific and the other half is a live defect:** `POST /api/tasks/health`
+      auto-creates the Windows connection with a hardcoded `healthState: 'HEALTHY'` before the agent
+      has ever said anything — the same precondition-verdict #40 exists to stop. Fixing it properly
+      is one enum value plus its consumers (`types.ts`, `HEALTH_STYLE`, `useConnections`,
+      `HealthStrip`), and the UI already has the right idiom for it: the Failures chip renders `–`
+      rather than `0` until the scan lands.
 
 - [ ] **GitHub Actions — read-only observer** *(~a day)*: near-universal for developers, and
       scheduled workflows are invisible until they break. `on: schedule` cron is **already UTC**, so

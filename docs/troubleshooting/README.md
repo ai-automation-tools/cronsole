@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 45 | Cronsole can't list, pause, or create Claude Code routines — and a routine you *can* fire returns `400 Bad Request` for no visible reason | Not a bug: Anthropic exposes **one** routines endpoint (`/fire`), whose token has **no read access**. Sync is your own declaration, `create`/`setStatus` are `unsupported`, and a **400 is usually a paused routine** — the only signal Cronsole ever gets about a routine's enabled state. Manage routines at claude.ai/code/routines | [→](#45-cronsole-cant-list-pause-or-create-claude-code-routines) |
 | 44 | An MCP tool 400s on every call (`Unsupported jobType: undefined`) while `npm test` passes 142/142 — including a test named after the very agreement it is not checking | The tool never sent a required discriminator, and had **never worked since it shipped**. The MCP suite **stubs the HTTP client**, so every assertion is about what the wrapper *sends* and none about whether the API *accepts* it — the test did not miss the bug, it **pinned** it. Drive a wrapped route by hand after touching it; one `curl` with the tool's exact payload catches it | [→](#44-an-mcp-tool-400s-on-every-call-and-the-whole-suite-is-green) |
 | 42 | The header reads *"Synced 7m ago"* over tasks that plainly are not — every card says `Last updated` yesterday. `/api/tools/platforms` and `/api/tasks/health` return **different** `lastSync` values for the same platform | `getHealth` returned the agent's **last inbound event of any kind** (`lastResponseAt`, hooked via `socket.onAny`) under the name `lastSync` — the 7-minute stamp was a *folder listing*. This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one level down and it **survived #40's fix**: a real timestamp of the wrong event passes every honesty check an invented one fails. Fixed by deleting `ConnectorHealth.lastSync` entirely — the connector reports `lastContactAt`, and `lastSync` has exactly one writer | [→](#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday) |
 | 43 | A Playwright screenshot baseline fails on **1 pixel** with nothing changed — or the whole page shifted ~22px between two identical runs | Three things, none of them flake: `maxDiffPixels` defaults to **0** and GPU antialiasing is not deterministic; **masking hides colour, not geometry**, so a masked live-data element still rewraps the row beside it; and a `flex-wrap` status line changes its own **height** when a segment appears — which is a real layout shift on a poll, not a test problem | [→](#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself) |
@@ -2825,6 +2826,71 @@ notice. It is [#9](#9-agent-payload-arrives-with-every-field-empty) one layer up
 green while disagreeing about the wire.**
 
 *First hit: 2026-08-12, while adding the `EXEC` job type to Cronsole-native.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 45. Cronsole can't list, pause, or create Claude Code routines
+
+**Symptom.** Several complaints that look like separate bugs and are all the same fact:
+
+- The Claude source lists only the routines you typed into the connection config — a routine you
+  created at claude.ai never appears, and one you deleted there never goes away.
+- **Enable / disable** and **Create** are greyed out on the Platforms matrix for Claude.
+- A routine that worked yesterday returns `400` today, with no other change:
+
+```
+Refused (400): invalid request. Most often the routine is paused — resume it at claude.ai/code/routines.
+```
+
+**Cause.** None of these is a Cronsole limitation to be lifted later. Claude Code exposes
+**exactly one routines endpoint**:
+
+```
+POST https://api.anthropic.com/v1/claude_code/routines/{trig_id}/fire
+```
+
+and the API reference states its token's scope outright: *"One routine only; **no read access**."*
+There is no list, no get, no create, no enable/disable, and no token management — routines are
+owned by claude.ai and reachable from outside through a single doorbell each.
+
+So the connector writes and cannot read, which is the mirror image of every other platform here:
+
+| | What it means |
+|---|---|
+| `sync` | Returns the routines **you declared** in the connection config. Nothing is fetched. |
+| `run` | Real. The only verb with a platform behind it. |
+| `create`, `setStatus` | `unsupported` in the matrix — not "unproven". No endpoint exists. |
+| health | From whether a run actually succeeded. **Never a probe** — see below. |
+
+**The tell for the 400.** Routines can be paused in the claude.ai UI, and a paused routine's `/fire`
+returns `400`. Since Cronsole cannot *read* the paused state, that 400 is the **only** signal it ever
+gets that a routine is disabled — which is why the message names it rather than saying "Bad Request"
+and sending you to check the token. The other 400 causes are a missing `anthropic-beta` header
+(a Cronsole bug, not yours) and `text` over 65,536 characters (Cronsole sends no body at all).
+
+**Fix.** Nothing to fix in Cronsole. Do the thing the message points at:
+
+- **Paused?** Resume it at [claude.ai/code/routines](https://claude.ai/code/routines).
+- **`401`** — each token is scoped to one routine and **regenerating revokes the previous one**.
+  Re-copy it from *Edit routine → Add another trigger → API*; it is shown once.
+- **`404`** — the routine was deleted, or the id is not the `trig_`-prefixed value. The path
+  parameter is called `routine_id` but the value is `trig_…`; the docs flag their own mismatch.
+- **New routine?** Create it at claude.ai (or `/schedule` in the Claude Code CLI), then paste its
+  id and API token into the Claude connection.
+
+**Why it is worth an entry.** Because every one of these reads like an unfinished feature, and
+someone will go looking for the setting. Writing the boundary down is what stops it being
+rediscovered. It also carries one design consequence worth keeping: **the connector must not
+health-check by probing.** The only endpoint has a side effect, so *"check whether this works"* and
+*"run the user's routine"* are the same request — a probing health check would fire someone's
+nightly job on every poll and burn their daily run cap. Where no read-only probe exists, the record
+of real runs is the only honest health signal there is. Returning `HEALTHY` because config was
+non-empty, which is what this connector did before, is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+one connector over: a verdict derived from something that cannot change when the platform fails.
+
+*First hit: 2026-08-12, verifying the routines API before promoting the connector.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

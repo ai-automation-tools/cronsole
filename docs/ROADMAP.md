@@ -353,15 +353,20 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       where it read `25`, and the bare call is unchanged at 358/358. Five integration tests, the
       #49 one mutation-tested by reinstating `summarizeHealth(results)`.
 
-- [ ] **`missed-runs` is charged against disabled tasks** *(logged 2026-08-13, same exercise —
-      smaller, and a judgement call rather than a defect)*: the worst-ranked task on a real machine
-      was `DISABLED`, scoring 35 on `last-run-failed` (50) **plus `missed-runs` (15)**. The
-      `disabled` signal itself is correctly `weight: 0`, but charging a parked task for starts it
-      was parked to miss penalizes the action §9 calls the recommended safe one — and the same
-      reasoning that ships `set_task_status` ungated argues the safe path should not cost score.
-      Decide whether `missed-runs` is suppressed when status is `DISABLED`. Cosmetic alongside it:
-      the evidence string reads *"Windows reported 1 missed runs"* while its summary correctly says
-      *"1 scheduled start"*.
+- [x] **`missed-runs` was charged against disabled tasks** *(logged and fixed 2026-08-13, same
+      exercise)*: the worst-ranked task on a real machine was `DISABLED`, scoring 35 on
+      `last-run-failed` (50) **plus `missed-runs` (15)** — so a parked task led the worst-first
+      list, above every task still running and failing. The `disabled` signal itself was correctly
+      `weight: 0`; the fault was scoring a task for doing exactly what disabling it means.
+      **Decided: do not track missed runs for a disabled task.** Windows keeps incrementing
+      `numberOfMissedRuns` while a task is parked, and parking is the action §9 calls the
+      recommended safe one — the same reasoning that ships `set_task_status` ungated. **A health
+      model that penalizes the safe fix pushes people toward the unsafe ones.**
+      Notably this was an *inconsistency*, not a new rule: `overdue` and `never-run` already
+      skipped disabled tasks, and `missed-runs` sat in the same function without the guard. The
+      count is suppressed, not forgotten — re-enable the task and the signal returns.
+      Fixed alongside: the evidence read *"reported 1 missed runs"* under a summary that correctly
+      said *"1 scheduled start"*, and the evidence line is the half meant to be quotable.
 
 - [x] **The filter chips counted every task, while the list showed the filtered ones**
       *(logged and fixed 2026-08-12, from the UX review)*: `Showing All 269` above two rows on the

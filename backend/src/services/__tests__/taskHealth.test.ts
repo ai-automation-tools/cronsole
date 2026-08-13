@@ -159,6 +159,16 @@ describe('scoreTask — Windows', () => {
     expect(health.signals.find(s => s.code === 'missed-runs')!.summary).toContain('3');
   });
 
+  it('agrees with itself about plurals in the summary and the evidence', () => {
+    // The evidence read "reported 1 missed runs" under a summary that correctly
+    // said "1 scheduled start" — small, but the evidence line is the half that
+    // is meant to be quotable.
+    const one = scoreTask(windowsTask({ numberOfMissedRuns: 1 }), NOW);
+    const signal = one.signals.find(s => s.code === 'missed-runs')!;
+    expect(signal.summary).toContain('1 scheduled start.');
+    expect(signal.evidence).toContain('1 missed run ');
+  });
+
   it('flags a task whose own next-run time is long past with no later run', () => {
     const health = scoreTask(
       windowsTask({ lastRunTime: daysAgo(9).toISOString() }, { nextRunTime: daysAgo(8) }),
@@ -269,6 +279,24 @@ describe('scoreTask — states that are not failures', () => {
       NOW
     );
     expect(codes(health)).not.toContain('overdue');
+  });
+
+  it('does not charge a disabled task for the starts it was parked to miss', () => {
+    // Windows keeps incrementing numberOfMissedRuns while a task is disabled,
+    // so this signal scored a task for doing exactly what disabling it means —
+    // and put a parked task at the top of a real machine's worst-first list,
+    // above every task that was actually still running and failing.
+    const health = scoreTask(
+      windowsTask({ numberOfMissedRuns: 4 }, { status: TaskStatus.DISABLED }),
+      NOW
+    );
+    expect(codes(health)).not.toContain('missed-runs');
+  });
+
+  it('still counts missed starts once the task is enabled again', () => {
+    // The suppression is about the parked state, not about forgetting the fact.
+    const health = scoreTask(windowsTask({ numberOfMissedRuns: 4 }), NOW);
+    expect(codes(health)).toContain('missed-runs');
   });
 
   it('explains an on-demand task instead of flagging it', () => {

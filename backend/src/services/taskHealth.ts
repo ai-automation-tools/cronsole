@@ -370,12 +370,20 @@ function scoreWindowsSnapshot(
     }
   }
 
-  if (snapshot.numberOfMissedRuns && snapshot.numberOfMissedRuns > 0) {
+  // Never for a disabled task. Windows keeps counting missed starts while a
+  // task is parked, so charging them here scores a task for doing exactly what
+  // disabling it means — and **disabling is the recommended safe action**, the
+  // same reason `set_task_status` ships ungated over MCP. A health model that
+  // penalizes the safe fix pushes people toward the unsafe ones. `overdue`
+  // below already skipped disabled tasks for this reason; this signal was the
+  // inconsistency, and it put a parked task at the top of the worst-first list.
+  if (!disabled && snapshot.numberOfMissedRuns && snapshot.numberOfMissedRuns > 0) {
+    const plural = snapshot.numberOfMissedRuns === 1 ? '' : 's';
     add(
       'missed-runs',
       'warn',
-      `Windows missed ${snapshot.numberOfMissedRuns} scheduled start${snapshot.numberOfMissedRuns === 1 ? '' : 's'}.`,
-      `Windows reported ${snapshot.numberOfMissedRuns} missed runs ${asOf}`,
+      `Windows missed ${snapshot.numberOfMissedRuns} scheduled start${plural}.`,
+      `Windows reported ${snapshot.numberOfMissedRuns} missed run${plural} ${asOf}`,
       WEIGHTS.missedRuns
     );
   }

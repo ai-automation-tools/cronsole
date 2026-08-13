@@ -23,6 +23,58 @@ belongs in the CHANGELOG.
 
 ## ▶ Next up
 
+### 🔴 Start here next session — 2026-08-13 follow-ups
+
+Left open at the end of the 2026-08-13 MCP/Claude test pass and the cron-parsing sweep that came
+out of it. Ordered worst-first. Items 1–2 are the **unfixed remainder of the defect class** fixed in
+[troubleshooting #51/#51a](troubleshooting/README.md#51a-the-same-bug-in-the-step-branch--and-this-one-never-errors-at-all) —
+they are the same `parseInt`-on-a-multi-value-field shape on surfaces outside that commit's blast
+radius, and they are listed here rather than left in the completed item so they cannot read as done.
+
+1. **`shiftCron` stores a zoned cron 7–8 hours off, silently** — `frontend/src/utils/timezone.ts`.
+   The `isNum` guard correctly *refuses* to shift a multi-value hour, then returns `shifted: false`
+   with **no `reason`**, so a Pacific user typing `0 9-17 * * 1-5` has it stored verbatim as UTC with
+   nothing on screen. `reason` exists for exactly this case ("has a clock time we would have moved
+   but could not"); the two paths that set it only cover midnight-crossing. **The most user-facing
+   item on this list** — it is wrong output, not a confusing message.
+2. **The gallery's `describeCron` drops day-of-month values** — `registry-site/index.html` renders
+   `0 9 1,15 3 *` as *"March 1st"* (`parseInt('1,15')`). Cosmetic, but it is the public catalog page,
+   and fixing it means a `publish-registry.ps1` + `publish-frontdoor.ps1` run.
+3. **A `MISSING` Claude row cannot be removed by anything** — delete a routine at claude.ai and its
+   Cronsole row is correctly detected as `MISSING`, but `untrack_task` 400s for `CLAUDE_CODE` and
+   `disconnect_claude_routine` only reaches *declared* routines. OAuth mode can now produce tracked
+   Claude rows that nothing in `PlatformConnection.config` declares, so the documented escape hatch
+   does not cover them. Two such rows are stranded on the dev machine today.
+4. **Two refusal messages point at each other** — `delete_task` on a Claude task says *"untrack it
+   instead"*, and `untrack_task` 400s for `CLAUDE_CODE`; neither names `disconnect_claude_routine`.
+   The delete copy predates Claude being added to untrack's refusal list. Same pass: untrack's
+   message promises removing the routine *"also forgets its API token"*, which an OAuth-created
+   routine never had.
+5. **`list_platforms`' MCP tool description is stale** — it still teaches that *"Claude Code reports
+   `create` and `setStatus` as unsupported, because Anthropic exposes exactly one routines
+   endpoint"*. The matrix itself now correctly reports both as `verified`. A §11a mirror surface, and
+   the description is what an agent reads *before* deciding what is possible.
+6. **`update_task_schedule` echoes a next-run time it computed** — the immediate response carries
+   `computeNextRun(cron)` while the platform's real value (Anthropic's jitter; Windows' trigger)
+   only lands on the next sync. Storage converges, so this is the response shape only — but it is
+   the [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)
+   shape: a timestamp whose label does not name the event that produced it.
+7. **The sync response's `missing` is a delta, not a state** — it counts rows *newly* marked
+   `MISSING` by that pass, so it reads `0` beside `count: 5` while two rows sit `MISSING`. Defensible,
+   but it is presented next to a state field and invites the wrong reading.
+8. **`NativeTaskExecutor.test.ts` is flaky under parallel load** — one test timed out at 7s in a full
+   run and passed in isolation and on re-run. It spawns real processes. Not investigated.
+
+**Chores, not roadmap items** (dev machine, 2026-08-13): the MCP host needs a restart to load the
+rebuilt `mcp-server/dist/`, and the Windows task `Cronsole conversion-response probe (safe to
+delete)` in `\Cronsole` is left disabled and wants deleting.
+
+> The [API-token P0](#-p0--security-hardening--reopened-2026-08-13) below is unchanged and is still
+> the largest open item — nothing here demotes it. These sit first because they are small, known,
+> and were found by hand rather than reported.
+
+---
+
 **🔴 [API tokens are the top priority](#-p0--security-hardening--reopened-2026-08-13)** *(2026-08-13)* —
 the only way to get a token for the MCP server is to run `jsonwebtoken.sign` by hand with the
 backend's `JWT_SECRET`. That is not a workaround someone invented; it is
@@ -146,10 +198,9 @@ Everything below the sources track, unchanged in priority relative to each other
       hardened for the same reason: it read `"9-17:00"` as `0 9 * * *` at confidence 1.0.
 
       **Still open, found by the same sweep and deliberately not bundled here** — two other surfaces
-      carry this defect class: `frontend/src/utils/timezone.ts` `shiftCron` correctly refuses to shift
-      a multi-value hour but returns no `reason`, so a Pacific user typing `0 9-17 * * 1-5` has it
-      stored verbatim as UTC — 7–8 hours off, silently; and `registry-site/index.html`'s standalone
-      `describeCron` renders `0 9 1,15 3 *` as "March 1st", dropping the 15th.
+      carry this defect class (`timezone.ts` `shiftCron`, `registry-site` `describeCron`). Both are
+      items 1–2 of [Start here next session](#-start-here-next-session--2026-08-13-follow-ups); that
+      block is the live list, so do not track them from here.
 
 - [x] **Claude Code routines — full read/write connector** *(2026-08-13)*. Cronsole lists the real
       routines on the account (name, 5-field UTC cron, enabled state, next run), **creates** them,

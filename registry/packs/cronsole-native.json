@@ -1,0 +1,239 @@
+{
+  "cronsoleCatalogVersion": "1.0",
+  "pack": {
+    "id": "cronsole-native",
+    "name": "Cronsole Native",
+    "description": "Jobs Cronsole schedules and runs itself — no agent, no Task Scheduler entry. Programs and scripts on the Cronsole host, plus HTTP uptime checks and heartbeats."
+  },
+  "templates": [
+    {
+      "schemaVersion": "1.0",
+      "id": "native-run-program",
+      "name": "Run a Program (Cronsole)",
+      "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "executable"
+      ],
+      "icon": "PlayCircle",
+      "isStarter": true,
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "commandTemplate": "\"{{exePath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "exePath",
+          "label": "Executable path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the program, as seen by the machine running the Cronsole backend. On a Dockerized stack that is the container, not your desktop."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-node-script",
+      "name": "Node Script (Cronsole)",
+      "description": "Run a Node.js script on the Cronsole host on a schedule.",
+      "runtime": "node",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "node"
+      ],
+      "icon": "FileCode",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 6 * * *"
+      },
+      "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the .js/.mjs file on the machine running the Cronsole backend."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-python-script",
+      "name": "Python Script (Cronsole)",
+      "description": "Run a Python script on the Cronsole host on a schedule.",
+      "runtime": "python",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "python"
+      ],
+      "icon": "FileTerminal",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 6 * * *"
+      },
+      "commandTemplate": "python \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the .py file on the machine running the Cronsole backend. `python` must be on that machine’s PATH."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-git-pull",
+      "name": "Keep a Repo Fresh (Cronsole)",
+      "description": "Pull the latest commits into a local repository on the Cronsole host — the agent-free version of Git Sync.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "cronsole-native",
+        "git",
+        "sync"
+      ],
+      "icon": "GitBranch",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 */6 * * *"
+      },
+      "commandTemplate": "git -C \"{{repoPath}}\" pull --ff-only",
+      "parameters": [
+        {
+          "key": "repoPath",
+          "label": "Repository path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the repository on the machine running the Cronsole backend. `--ff-only` refuses rather than creating a merge nobody reviewed."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-http-uptime-check",
+      "name": "Uptime Check (Cronsole)",
+      "description": "Call a URL every few minutes and record whether it answered. Runs in Cronsole itself — no agent, and it works on a machine with no Task Scheduler.",
+      "runtime": "http",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "http",
+        "monitoring",
+        "uptime"
+      ],
+      "icon": "Activity",
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/5 * * * *"
+      },
+      "commandTemplate": "{{url}}",
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The endpoint to GET. A non-2xx response is recorded as a failed run, which is what makes this a check rather than a ping."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-http-heartbeat",
+      "name": "Monitor Heartbeat (Cronsole)",
+      "description": "Ping a dead-man’s-switch URL (Healthchecks.io, Better Stack, Cronitor) on a schedule so an outside monitor notices when Cronsole itself stops.",
+      "runtime": "http",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "http",
+        "monitoring",
+        "heartbeat"
+      ],
+      "icon": "HeartPulse",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 * * * *"
+      },
+      "commandTemplate": "{{url}}",
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The heartbeat URL your monitor gave you. It alerts when the ping stops — which is the one failure a scheduler cannot report about itself."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    }
+  ]
+}

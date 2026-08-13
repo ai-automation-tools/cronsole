@@ -48,9 +48,23 @@ export interface ToolOptions {
   allowDestructive: boolean;
 }
 
-// The platforms Cronsole can actually create on today (the honesty pass gated the
-// UI to these too). Others are catalog-only until their agent/connector exists.
+// The platforms a bare command can be scheduled on. Claude is deliberately NOT
+// here: a routine's "command" is a natural-language prompt with repositories and
+// a tool allowlist, which is `create_claude_routine`, not a command line.
 const CREATABLE_PLATFORMS = ['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'] as const;
+
+// Where a *template* can be applied. Claude joined on 2026-08-13 with the Claude
+// Routines pack — an `ai-prompt` template IS a routine prompt, so the catalog can
+// target it directly.
+//
+// Whether it works is a property of the install, not of this list: creating a
+// routine needs a readable Claude Code session on the backend's machine, and
+// without one the route answers 400 saying what to do about it. That refusal is
+// the honest place for the check — a hardcoded exclusion here would hide the
+// capability from every install that HAS the session, which is the same mistake
+// the frontend's `CREATABLE_PLATFORMS` constant made until it was deleted. Call
+// `list_platforms` (or `list_claude_routines` → `session.mode`) to know first.
+const TEMPLATE_TARGET_PLATFORMS = [...CREATABLE_PLATFORMS, 'CLAUDE_CODE'] as const;
 
 const ALL_PLATFORMS = [
   'WINDOWS_TASK_SCHEDULER',
@@ -597,7 +611,9 @@ export function registerTools(
             'or `C:\\\\Tools\\\\backup.exe --full`. For Windows this is tokenized into a structured no-shell ' +
             '{executable, args[]} action, so a shell is NOT implied: to use shell features (pipes, redirection, ' +
             '`&&`) you must opt in explicitly by invoking one, e.g. `cmd.exe /c "..."`. ' +
-            'For TASKHUB_NATIVE the command must be a URL (it becomes an HTTP GET job).'
+            'For TASKHUB_NATIVE the command decides the job type: a URL becomes an HTTP GET job, and ' +
+            'anything else becomes a no-shell EXEC job that runs ON THE BACKEND HOST — which on a ' +
+            'Dockerized stack is the container, a different filesystem from the user\'s desktop.'
           ),
         schedule: z
           .string()
@@ -708,13 +724,19 @@ export function registerTools(
         'Create a real scheduled task from a catalog template (get the template id and its parameters from list_templates). ' +
         'The server fills the template\'s {{placeholders}} from `parameters`, converts the cron schedule to the platform\'s ' +
         'native trigger, and registers the task (a Windows task is created via the signed local agent). ' +
-        `Only ${CREATABLE_PLATFORMS.join(' and ')} can actually be created today.`,
+        'A CLAUDE_CODE template is different in kind: its command is a PROMPT, and applying it creates a real ' +
+        'Claude Code routine that Anthropic runs in the cloud. That needs a Claude Code session on the machine ' +
+        'running the backend — check list_claude_routines → session.mode first; without one the call returns 400 ' +
+        'with what to do about it.',
       inputSchema: {
         templateId: z.string().describe('The template id (from list_templates).'),
         platform: z
-          .enum(CREATABLE_PLATFORMS)
+          .enum(TEMPLATE_TARGET_PLATFORMS)
           .default('WINDOWS_TASK_SCHEDULER')
-          .describe('Where to create the task. Only Windows and Cronsole-native are creatable today.'),
+          .describe(
+            'Where to create the task. Use one of the template\'s own compatibleTargets — applying a Windows ' +
+            'template to CLAUDE_CODE would hand its command line to a model as a prompt.'
+          ),
         name: z
           .string()
           .optional()
@@ -737,16 +759,26 @@ export function registerTools(
         parameters: z
           .record(z.string(), z.string())
           .optional()
-          .describe('Values for the template\'s {{placeholders}}, keyed by parameter name. Required params must be provided.')
+          .describe('Values for the template\'s {{placeholders}}, keyed by parameter name. Required params must be provided.'),
+        repositoryUrls: z
+          .array(z.string())
+          .max(10)
+          .optional()
+          .describe(
+            'CLAUDE_CODE only: git repositories the created routine may check out and work in. Never guessed — ' +
+            'a routine with no sources still runs, it just has no checkout, while attaching the WRONG repository ' +
+            'to an agent that can commit is not a mistake the user can see before it happens. Ask before setting it.'
+          )
       }
     },
-    async ({ templateId, platform, name, schedule, folder, parameters }) => {
+    async ({ templateId, platform, name, schedule, folder, parameters, repositoryUrls }) => {
       try {
         const body: Record<string, unknown> = { platform };
         if (name) body.name = name;
         if (schedule) body.schedule = schedule;
         if (folder) body.folder = folder;
         if (parameters) body.parameters = parameters;
+        if (repositoryUrls?.length) body.repositoryUrls = repositoryUrls;
 
         const result = await client.post<Record<string, unknown>>(
           `/templates/${encodeURIComponent(templateId)}/apply`,

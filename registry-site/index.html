@@ -43,6 +43,10 @@
       --violet-soft: rgba(139, 92, 246, .16);
       --cyan-soft: rgba(56, 189, 248, .14);
       --phosphor-soft: rgba(126, 231, 135, .13);
+      /* "creatable, with a condition" — its own token rather than a raw
+         `--violet-hi`, because a signal colour has to invert between themes
+         while the brand accent must not. #a78bfa on white is unreadable. */
+      --cond: #a78bfa;
       --glow-1: rgba(139, 92, 246, .22);
       --glow-2: rgba(56, 189, 248, .12);
       --grain-op: .035;
@@ -64,6 +68,7 @@
       --cyan-soft: rgba(56, 189, 248, .13);
       --phosphor-soft: rgba(34, 160, 74, .12);
       --phosphor: #16a34a;
+      --cond: #6d28d9;
       --glow-1: rgba(139, 92, 246, .16);
       --glow-2: rgba(56, 189, 248, .10);
       --grain-op: .02;
@@ -207,6 +212,10 @@
     .run-flag { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
     .run-flag .dot { width: 7px; height: 7px; border-radius: 50%; }
     .run-flag.real { color: var(--phosphor); } .run-flag.real .dot { background: var(--phosphor); box-shadow: 0 0 8px var(--phosphor); }
+    /* "Cronsole creates this, if your install can reach the platform" — a real
+       capability with a condition, so it reads as capable (lit, coloured) but
+       distinct from the unconditional green. */
+    .run-flag.cond { color: var(--cond); } .run-flag.cond .dot { background: var(--cond); box-shadow: 0 0 8px var(--cond); }
     .run-flag.manual { color: var(--ink-3); } .run-flag.manual .dot { background: var(--ink-3); }
     .card-cta { font-size: 12.5px; font-weight: 650; color: var(--violet-hi); display: inline-flex; align-items: center; gap: 4px; }
     .card-cta svg { width: 14px; height: 14px; transition: transform .15s; }
@@ -391,6 +400,7 @@
     .tg { font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; }
     .tg .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     .tg.real { background: var(--phosphor-soft); color: var(--phosphor); }
+    .tg.cond { background: var(--violet-soft); color: var(--cond); }
     .tg.manual { background: var(--panel-2); color: var(--ink-3); border: 1px solid var(--line); }
     .note { font-size: 12.5px; color: var(--ink-3); margin: 10px 0 0; line-height: 1.5; }
 
@@ -537,7 +547,29 @@
     var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };
     var OS = { windows: "Windows", macos: "macOS", linux: "Linux", "cross-platform": "Cross-platform" };
     var RT = { powershell: "PowerShell", batch: "Batch", bash: "Bash", zsh: "Zsh", python: "Python", node: "Node.js", executable: "Executable", http: "HTTP", "ai-prompt": "AI Prompt", applescript: "AppleScript", vbscript: "VBScript" };
-    var CREATABLE = { windows: 1, "cronsole-native": 1 };
+    // What Cronsole can do with each target — **three answers, not two.**
+    //
+    //   direct  — Cronsole creates the task outright.
+    //   session — it creates it, but only where the install can reach the
+    //             platform: a Claude routine needs a Claude Code session on the
+    //             machine running the backend.
+    //   manual  — no connector; the honest "copy this and set it up yourself".
+    //
+    // The middle state exists because **this page cannot know the visitor's
+    // install.** The app itself asks its own server (`GET /api/tools/platforms`,
+    // per user, with the evidence attached); a static page has no such fact, so
+    // it states the condition instead of guessing an answer. Promoting `session`
+    // to `direct` here would promise a one-click apply that fails for anyone not
+    // signed in, and demoting it to `manual` would hide a capability that works.
+    var TARGET_MODE = {
+      windows: "direct",
+      "cronsole-native": "direct",
+      "claude-code": "session",
+      macos: "manual",
+      linux: "manual",
+      chatgpt: "manual"
+    };
+    function targetMode(t) { return TARGET_MODE[t] || "manual"; }
     // Distribution tier: core templates ship built into Cronsole (auto-synced by
     // default); everything else is extended — browse here and import on demand.
     function availOf(t) { return t.core ? "core" : "extended"; }
@@ -598,7 +630,12 @@
       "ai-agents":        { icon: I.bot,    glow: "var(--phosphor-soft)",   iconBg: "var(--phosphor-soft)",   iconFg: "var(--phosphor)" },
       "backup-cleanup":   { icon: I.shield, glow: "rgba(251,191,36,.14)",   iconBg: "rgba(251,191,36,.14)",   iconFg: "var(--amber)" },
       "monitoring":       { icon: I.pulse,  glow: "rgba(251,113,133,.14)",  iconBg: "rgba(251,113,133,.14)",  iconFg: "var(--rose)" },
-      "system-utilities": { icon: I.gear,   glow: "rgba(148,163,184,.16)",  iconBg: "rgba(148,163,184,.16)",  iconFg: "var(--ink-2)" }
+      "system-utilities": { icon: I.gear,   glow: "rgba(148,163,184,.16)",  iconBg: "rgba(148,163,184,.16)",  iconFg: "var(--ink-2)" },
+      // 2026-08-13. Cronsole-native takes the "runnable" green because it is the
+      // one pack that needs nothing installed; Claude routines take violet, the
+      // same colour the conditional target flag uses, so the two agree on screen.
+      "cronsole-native":  { icon: I.grid,   glow: "var(--phosphor-soft)",   iconBg: "var(--phosphor-soft)",   iconFg: "var(--phosphor)" },
+      "claude-routines":  { icon: I.bot,    glow: "var(--violet-soft)",     iconBg: "var(--violet-soft)",     iconFg: "var(--cond)" }
     };
     var DEFAULT_PACK_STYLE = { icon: I.spark, glow: "var(--violet-soft)", iconBg: "var(--violet-soft)", iconFg: "var(--violet-hi)" };
 
@@ -660,7 +697,7 @@
     // `search` narrows TEMPLATES (driven by the header box, global to every view).
     // `optionSearch` narrows the FILTER OPTIONS in the rail — a different job,
     // deliberately a different field, so neither silently resets the other.
-    var browseState = { search: "", optionSearch: "", availability: [], pack: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
+    var browseState = { search: "", optionSearch: "", availability: [], pack: [], target: [], category: [], os: [], runtime: [], tags: [], sort: "featured", showAllTags: false, railOpen: false };
 
     // ---------- helpers ----------
     function $(id) { return document.getElementById(id); }
@@ -697,7 +734,16 @@
       if (ev(mon) && ev(dom) && /^\d+$/.test(dow)) return "Weekly on " + DOW[parseInt(dow, 10) % 7] + (clock ? " at " + clock : "");
       if (ev(mon) && ev(dow) && /^\d+$/.test(dom)) return "Monthly on the " + ord(parseInt(dom, 10)) + (clock ? " at " + clock : "");
       if (ev(dom) && ev(mon) && ev(dow)) return clock ? "Daily at " + clock : "Daily";
-      if (/^\d+$/.test(mon)) return MON[parseInt(mon, 10)] + (dom !== "*" ? " " + ord(parseInt(dom, 10)) : "") + (clock ? " at " + clock : "");
+      if (/^\d+$/.test(mon)) {
+        // `0 9 1,15 3 *` used to read "March 1st", because parseInt("1,15") is 1.
+        // Same defect class as the schedule converter's #51/#51a — a multi-value
+        // field silently read as its first value — and cosmetic only in the
+        // sense that nothing crashes: the page confidently states a date the
+        // template does not run on. A reading we cannot express is **no reading**;
+        // the raw cron is printed beside this and stays true.
+        if (dom !== "*" && !/^\d+$/.test(dom)) return null;
+        return MON[parseInt(mon, 10)] + (dom !== "*" ? " " + ord(parseInt(dom, 10)) : "") + (clock ? " at " + clock : "");
+      }
       return null;
     }
 
@@ -727,8 +773,14 @@
 
     // ---------- card ----------
     function targetInfo(t) {
-      var real = (t.compatibleTargets || []).filter(function (x) { return CREATABLE[x]; });
-      return real.length ? { cls: "real", txt: real.map(function (x) { return lab(TGT, x); }).join(" · ") } : { cls: "manual", txt: "Manual setup" };
+      var targets = t.compatibleTargets || [];
+      var direct = targets.filter(function (x) { return targetMode(x) === "direct"; });
+      if (direct.length) return { cls: "real", txt: direct.map(function (x) { return lab(TGT, x); }).join(" · ") };
+      var session = targets.filter(function (x) { return targetMode(x) === "session"; });
+      // The condition is in the flag itself, not a tooltip: this is the line
+      // someone reads while deciding whether the template is usable for them.
+      if (session.length) return { cls: "cond", txt: session.map(function (x) { return lab(TGT, x); }).join(" · ") + " · needs sign-in" };
+      return { cls: "manual", txt: "Manual setup" };
     }
     function card(t, idx) {
       var ti = targetInfo(t);
@@ -785,7 +837,7 @@
         '<section class="hero">' +
           '<span class="hero-kicker kicker"><span class="pulse"></span>Local-first · open source</span>' +
           '<h1>Your automations,<br><span class="gr">finally in one place.</span></h1>' +
-          '<p class="lede">Cronsole is a local-first control plane for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code and Codex routines, AI-agent jobs — in one dark, fast dashboard. View, trigger, edit and schedule them from a single place, and grow your catalog from the open template registry below.</p>' +
+          '<p class="lede">Cronsole is a local-first control plane for the scheduled work scattered across your machine — Windows Task Scheduler, Claude&nbsp;Code routines, and jobs Cronsole runs itself with no agent at all — in one dark, fast dashboard. View, trigger, edit and schedule them from a single place, and grow your catalog from the open template registry below.</p>' +
           '<div class="hero-cta"><button class="btn btn-primary" data-nav="#/browse">Browse ' + TEMPLATES.length + ' templates' + I.arrow + '</button>' +
           '<a class="btn btn-ghost" href="' + LINKS.appRepo + '" target="_blank" rel="noopener">' + I.code + ' Get Cronsole</a>' +
           '<button class="btn btn-ghost" id="hero-import">' + I.info + ' How import works</button></div>' +
@@ -800,7 +852,7 @@
           '<h2 style="margin-top:8px">One dashboard for work that never talks to itself</h2>' +
           '<p>Scheduled work sprawls across tools that don\'t know about each other.</p></div></div>' +
           '<div class="how-grid">' +
-            valueCard("One dashboard", "Windows Task Scheduler, Claude Code routines, and AI-agent jobs side by side — search, filter, and run any of them in seconds.") +
+            valueCard("One dashboard", "Windows Task Scheduler, Claude Code routines, and Cronsole&#39;s own scheduler side by side — search, filter, and run any of them in seconds.") +
             valueCard("Local-first &amp; safe", "The whole stack runs on your machine. Commands execute no-shell and signed — a template parameter can never inject a second command.") +
             valueCard("Grow from templates", "An open, versioned registry of ready-to-run automations. Filter the gallery, import what you want, fill in the blanks, and schedule it.") +
           '</div></section>' +
@@ -818,7 +870,7 @@
             howStep("Pick a template", "Download or copy any template here. You get one Registry v1 JSON file — fully inspectable.") +
             howStep("Open Cronsole → Import", "In your local Cronsole, go to the Templates tab and click Import.") +
             howStep("Validate & add", "Cronsole checks it against the same schema and {{placeholder}} rules as every built-in template.") +
-            howStep("Apply & schedule", "Fill in the parameters, and it becomes a real scheduled task on your machine.") +
+            howStep("Apply & schedule", "Fill in the parameters and pick a target — a Windows task, a job Cronsole runs itself, or a Claude Code routine.") +
           '</div></div></section>' +
 
         // Run it locally — the quick start the standalone landing page carried.
@@ -913,6 +965,15 @@
           });
           if (!inAny) return false;
         }
+        // Target is OR within the dimension, like pack: picking Windows and
+        // Cronsole means "either", and a template that declares both counts once.
+        // It is a separate dimension from `os` and not a refinement of it — three
+        // of the four target families are `cross-platform`, so the OS facet
+        // cannot answer "what can I actually create this on".
+        if (except !== "target" && browseState.target.length) {
+          var tgts = t.compatibleTargets || [];
+          if (!browseState.target.some(function (v) { return tgts.indexOf(v) !== -1; })) return false;
+        }
         if (except !== "category" && browseState.category.length && browseState.category.indexOf(t.category) === -1) return false;
         if (except !== "os" && browseState.os.length && browseState.os.indexOf(t.os) === -1) return false;
         if (except !== "runtime" && browseState.runtime.length && browseState.runtime.indexOf(t.runtime) === -1) return false;
@@ -944,6 +1005,9 @@
       var pc = counts(browseFiltered("pack"), function (t) {
         return COLLECTIONS.filter(function (c) { return c.templateIds.indexOf(t.id) !== -1; }).map(function (c) { return c.key; });
       });
+      var gc = counts(browseFiltered("target"), function (t) { return t.compatibleTargets || []; });
+      var allTargets = uniq(TEMPLATES.reduce(function (acc, t) { return acc.concat(t.compatibleTargets || []); }, []))
+        .sort(function (a, b) { return lab(TGT, a).localeCompare(lab(TGT, b)); });
       var cats = uniq(TEMPLATES.map(function (t) { return t.category; })).sort();
       var oses = uniq(TEMPLATES.map(function (t) { return t.os; })).sort();
       var rts = uniq(TEMPLATES.map(function (t) { return t.runtime; })).sort();
@@ -989,6 +1053,10 @@
       html += facet("Pack", COLLECTIONS.filter(function (c) { return hit(c.title, c.key); })
         .map(function (c) { return opt("pack", c.key, c.title, pc[c.key] || 0); }).join(""));
 
+      // Above Category because it is the first question a visitor has now that
+      // the catalog spans Windows tasks, Cronsole-native jobs and Claude
+      // routines: not "what kind of job is this" but "can I run it at all".
+      html += facet("Target", optsFor("target", allTargets, TGT, gc));
       html += facet("Category", optsFor("category", cats, CAT, cc));
       html += facet("Platform", optsFor("os", oses, OS, oc));
       html += facet("Runtime", optsFor("runtime", rts, RT, rc));
@@ -1000,11 +1068,11 @@
       if (!fq && allTags.length > 14) tagHtml += '<button class="tag-more" id="tagmore">' + (browseState.showAllTags ? "− less" : "+" + (allTags.length - shown.length) + " more") + '</button>';
       if (tagHtml) html += '<div class="facet"><div class="facet-title">Tags</div><div class="tag-cloud">' + tagHtml + '</div></div>';
 
-      if (fq && !availOpts && !tagPool.length && !optsFor("category", cats, CAT, cc) && !optsFor("os", oses, OS, oc) && !optsFor("runtime", rts, RT, rc)) {
+      if (fq && !availOpts && !tagPool.length && !optsFor("target", allTargets, TGT, gc) && !optsFor("category", cats, CAT, cc) && !optsFor("os", oses, OS, oc) && !optsFor("runtime", rts, RT, rc)) {
         html += '<div class="facet"><div class="facet-title" style="color:var(--ink-3);font-weight:400">No filter matches “' + esc(fq) + '”.</div></div>';
       }
 
-      var anyActive = browseState.availability.length || browseState.pack.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
+      var anyActive = browseState.availability.length || browseState.pack.length || browseState.target.length || browseState.category.length || browseState.os.length || browseState.runtime.length || browseState.tags.length || browseState.search;
       if (anyActive) html += '<button class="clear-all" id="clearall">' + I.x + ' Clear all filters</button>';
       rail.innerHTML = html;
     }
@@ -1013,6 +1081,7 @@
       var out = [];
       browseState.availability.forEach(function (v) { out.push(pill("availability", v, lab(AVAIL, v))); });
       browseState.pack.forEach(function (v) { var c = collByKey(v); out.push(pill("pack", v, c ? c.title : v)); });
+      browseState.target.forEach(function (v) { out.push(pill("target", v, lab(TGT, v))); });
       browseState.category.forEach(function (v) { out.push(pill("category", v, lab(CAT, v))); });
       browseState.os.forEach(function (v) { out.push(pill("os", v, lab(OS, v))); });
       browseState.runtime.forEach(function (v) { out.push(pill("runtime", v, lab(RT, v))); });
@@ -1058,10 +1127,20 @@
         }).join("");
         paramsHtml = '<div class="sec"><p class="sec-label">Parameters</p><table class="params"><thead><tr><th>Placeholder</th><th>Description</th><th>Type</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
       }
-      var targets = (tpl.compatibleTargets || []).map(function (x) { var r = CREATABLE[x]; return '<span class="tg ' + (r ? "real" : "manual") + '"><span class="dot"></span>' + esc(lab(TGT, x)) + '</span>'; }).join("");
-      var anyManual = (tpl.compatibleTargets || []).some(function (x) { return !CREATABLE[x]; });
+      var tgtList = tpl.compatibleTargets || [];
+      var targets = tgtList.map(function (x) {
+        var mode = targetMode(x);
+        return '<span class="tg ' + (mode === "direct" ? "real" : mode === "session" ? "cond" : "manual") + '"><span class="dot"></span>' + esc(lab(TGT, x)) + '</span>';
+      }).join("");
+      var notes = [];
+      if (tgtList.some(function (x) { return targetMode(x) === "session"; })) {
+        notes.push('Claude Code routines are created by Cronsole where it can reach them — that needs a Claude Code session on the machine running the backend (sign in with the CLI, <code>/login</code>). Without one, Cronsole can still fire a routine you connected by token, and the Apply screen says so rather than failing at the click.');
+      }
+      if (tgtList.some(function (x) { return targetMode(x) === "manual"; })) {
+        notes.push('Dimmed targets have no connector yet — an honest "copy to set up manually" path, never a silent failure.');
+      }
       var targetsHtml = '<div class="sec"><p class="sec-label">Compatible targets</p><div class="targets">' + targets + '</div>' +
-        (anyManual ? '<p class="note">Highlighted targets are created directly by Cronsole today. Others are an honest "copy to set up manually" path — no silent failure.</p>' : "") + '</div>';
+        notes.map(function (n) { return '<p class="note">' + n + '</p>'; }).join("") + '</div>';
 
       // related
       var related = TEMPLATES.filter(function (t) { return t.id !== entry.id && t.category === entry.category; });
@@ -1224,7 +1303,7 @@
       if (ftag) { toggleArr(browseState.tags, ftag.getAttribute("data-ftag")); refreshBrowse(); return; }
       if (e.target.closest("#tagmore")) { browseState.showAllTags = !browseState.showAllTags; renderRail(); return; }
       if (e.target.closest("#clearall")) {
-        browseState.availability = []; browseState.pack = []; browseState.category = [];
+        browseState.availability = []; browseState.pack = []; browseState.target = []; browseState.category = [];
         browseState.os = []; browseState.runtime = []; browseState.tags = [];
         browseState.search = "";
         // Clear the header box too — it is the live source of `search`, so

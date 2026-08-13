@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "claude-routine-dependency-review",
+  "name": "Routine: Dependency Review",
+  "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "ai",
+    "claude-code",
+    "routine",
+    "dependencies",
+    "security"
+  ],
+  "icon": "ShieldCheck",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 15 * * 1"
+  },
+  "commandTemplate": "Check the dependencies of {{repo}} for outdated and vulnerable packages. Group them into safe patch upgrades, minor upgrades worth taking, and major upgrades with breaking changes. For each group say what would have to be tested. Report only — do not modify the lockfile.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The repository to review. Attach it to the routine so the checkout is available."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

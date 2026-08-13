@@ -46,6 +46,16 @@ export interface CreateTaskOptions {
    */
   repositoryUrls?: string[];
   /**
+   * Cronsole label to file the created task under — **Cronsole-native only**.
+   *
+   * Every other platform derives its category from the platform itself (a
+   * Windows task's category is the root segment of its folder) and the caller
+   * applies the label after the row exists. Native has nothing to derive it
+   * from and writes its own row, so the label has to travel with the create or
+   * it cannot be set at all without a second write.
+   */
+  category?: string;
+  /**
    * Tool allowlist for a Claude Code routine (`["Bash","Read",…]`). Absent means
    * the platform's own default for the environment — Cronsole does not narrow it
    * silently, because a routine that cannot do its job fails at 3am rather than

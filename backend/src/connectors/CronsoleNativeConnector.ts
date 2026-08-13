@@ -2,7 +2,8 @@ import { randomBytes } from 'crypto';
 import { Prisma, PlatformType, HealthState, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
-import { executeJob, NativeJob } from '../services/NativeTaskExecutor.js';
+import { executeJob, validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
+import { buildNativeJob, nativeJobFromCommand, isUrlCommand } from '../services/nativeJob.js';
 import { computeNextRun } from '../utils/cron-next.js';
 
 /**
@@ -69,17 +70,50 @@ export class CronsoleNativeConnector implements PlatformConnector {
     return { state: HealthState.HEALTHY };
   }
 
-  async createTask(name: string, schedule: string, command: string, config: any, _options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }> {
-    // Template/clone flows hand us a command string; for native tasks a URL
-    // command becomes an HTTP GET job. Richer specs go through POST /api/tasks/native.
-    if (!/^https?:\/\//i.test(command.trim())) {
-      return {
-        success: false,
-        message: 'Native tasks currently support HTTP jobs only — the command must be a URL (or use POST /api/tasks/native).'
-      };
+  /**
+   * Create a native task from a command string (template apply, clone).
+   *
+   * The connector interface hands every platform one `command`, so the job type
+   * is derived from it — a URL is an HTTP job, anything else is a program —
+   * through the same `buildNativeJob` + `validateJob` pair `POST /api/tasks/native`
+   * and `PATCH /api/tasks/:id/job` use. **One definition, or a template applies
+   * cleanly and stores a spec creation would have refused.**
+   *
+   * Until 2026-08-13 this refused every non-URL command outright ("native tasks
+   * support HTTP jobs only"), which was true when native could only ping a URL
+   * and false from the day it gained `EXEC` (2026-08-12). The visible cost was
+   * that **Cronsole-native could not be a template target at all** — the one
+   * source Cronsole fully owns had nothing in the library.
+   *
+   * The row is written here rather than by the caller because for this platform
+   * the row *is* the task: `metadata.job` is the job, and an upsert that
+   * replaced it with the `{schedule, command}` shape other platforms carry would
+   * leave a task the executor cannot run.
+   */
+  async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string }> {
+    // Prefer the structured action the route resolved from raw template
+    // parameters over re-tokenizing the display string. They usually agree, and
+    // where they do not is exactly the case that matters: a parameter value
+    // containing a space is **one argument** in the structured form and two
+    // after a round trip through the command line. Same reason the Windows
+    // connector takes `options.action`.
+    const job: NativeJob = options?.action && !isUrlCommand(command)
+      ? buildNativeJob({
+          jobType: 'EXEC',
+          executable: options.action.executable,
+          args: options.action.args
+        })
+      : nativeJobFromCommand(command);
+    const invalid = validateJob(job);
+    if (invalid) {
+      return { success: false, message: invalid };
     }
 
-    const job: NativeJob = { jobType: 'HTTP', url: command.trim(), method: 'GET' };
+    const nextRunTime = computeNextRun(schedule);
+    if (!nextRunTime) {
+      return { success: false, message: 'Schedule must be a valid 5-field cron expression (UTC).' };
+    }
+
     const externalId = `native_${randomBytes(8).toString('hex')}`;
 
     await prisma.task.create({
@@ -88,8 +122,13 @@ export class CronsoleNativeConnector implements PlatformConnector {
         platform: this.platform,
         externalId,
         name,
+        // Native has no folder to derive a category from, so it takes the
+        // caller's label and otherwise files under Cronsole — the same default
+        // `POST /api/tasks/native` uses, because two create paths landing tasks
+        // in two different categories is a difference the user has to explain.
+        category: options?.category ?? 'Cronsole',
         schedule,
-        nextRunTime: computeNextRun(schedule),
+        nextRunTime,
         status: TaskStatus.ACTIVE,
         metadata: { job } as unknown as Prisma.InputJsonValue
       }

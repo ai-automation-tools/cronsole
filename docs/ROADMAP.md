@@ -37,9 +37,11 @@ radius, and they are listed here rather than left in the completed item so they 
    nothing on screen. `reason` exists for exactly this case ("has a clock time we would have moved
    but could not"); the two paths that set it only cover midnight-crossing. **The most user-facing
    item on this list** — it is wrong output, not a confusing message.
-2. **The gallery's `describeCron` drops day-of-month values** — `registry-site/index.html` renders
-   `0 9 1,15 3 *` as *"March 1st"* (`parseInt('1,15')`). Cosmetic, but it is the public catalog page,
-   and fixing it means a `publish-registry.ps1` + `publish-frontdoor.ps1` run.
+2. ~~**The gallery's `describeCron` drops day-of-month values**~~ — **fixed 2026-08-13.**
+   `registry-site/index.html` rendered `0 9 1,15 3 *` as *"March 1st"* (`parseInt('1,15')`). The
+   month branch now returns **no reading at all** for a multi-value day rather than a confident
+   wrong date; the raw cron is printed beside it and stays true. Ships with the template-catalog
+   publish (`publish-registry.ps1` + `publish-frontdoor.ps1`), which is what it was waiting on.
 3. **A `MISSING` Claude row cannot be removed by anything** — delete a routine at claude.ai and its
    Cronsole row is correctly detected as `MISSING`, but `untrack_task` 400s for `CLAUDE_CODE` and
    `disconnect_claude_routine` only reaches *declared* routines. OAuth mode can now produce tracked
@@ -197,10 +199,11 @@ Everything below the sources track, unchanged in priority relative to each other
       The reverse direction (`convertWindowsTriggerToCron`, which reads triggers off real machines) was
       hardened for the same reason: it read `"9-17:00"` as `0 9 * * *` at confidence 1.0.
 
-      **Still open, found by the same sweep and deliberately not bundled here** — two other surfaces
-      carry this defect class (`timezone.ts` `shiftCron`, `registry-site` `describeCron`). Both are
-      items 1–2 of [Start here next session](#-start-here-next-session--2026-08-13-follow-ups); that
-      block is the live list, so do not track them from here.
+      **Found by the same sweep and deliberately not bundled here** — two other surfaces carried this
+      defect class. `registry-site` `describeCron` was fixed 2026-08-13 with the catalog publish;
+      `timezone.ts` `shiftCron` is still open. Both are items 1–2 of
+      [Start here next session](#-start-here-next-session--2026-08-13-follow-ups); that block is the
+      live list, so do not track them from here.
 
 - [x] **Claude Code routines — full read/write connector** *(2026-08-13)*. Cronsole lists the real
       routines on the account (name, 5-field UTC cron, enabled state, next run), **creates** them,
@@ -821,6 +824,16 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 - [x] Developer Pack — 9 templates *(2026-07-13)*
 - [x] AI Pack — Claude Code (4) + Codex (3) *(2026-07-13)*
 - [x] Export existing tasks — Windows → XML (UTF-16 LE + BOM), native → JSON *(2026-07-13)*
+- [x] **Cronsole Native pack (6) + Claude Routines pack (5)** — 55 → **66 templates, 7 core, 8 packs**
+      *(2026-08-13)*. Closes the gap where Cronsole-native was a source everywhere **except** the
+      catalog. Shipped with the connector fix that makes them applicable (`buildNativeJob` shared
+      by the create route, the edit route and the connector) — a template family without its
+      apply path is a promise the button breaks.
+- [x] **Templates tab reads creatability from the capability matrix** *(2026-08-13)* — the
+      hardcoded `CREATABLE_PLATFORMS` set is gone; badges, the Apply platform buttons and the new
+      **Target** facet all take the server's per-install verdict, with `unknown` asserting nothing
+      while it loads. Same change in the public gallery, where a static page states the *condition*
+      ("needs sign-in") because it cannot know the visitor's install.
 - [~] Template registry — decouple the catalog from the repo: schema + ADR, catalog behind an
       interface, static registry + remote source, hosted, runtime refresh, prune-on-sync — all
       shipped *(2026-07-13 → 2026-07-14)*. Only **index signing** remains, and it is optional.

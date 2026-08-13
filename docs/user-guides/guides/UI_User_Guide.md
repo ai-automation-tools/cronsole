@@ -320,6 +320,7 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 ### Finding a template
 - **Search:** Free-text search across name, description, command, category, and script type.
 - **Type toggle:** Show **All**, only **Starters**, or only **Patterns**.
+- **Target filter:** which system a template creates a task on — Windows, Cronsole, Claude Code, macOS. This is the first thing to filter by, and it is not the same as the OS row: a Cronsole-native job, a Claude routine and a git command are all *cross-platform*, and only the target says which of them you can actually create. A target Cronsole can't create on here is marked `*`.
 - **OS & Tags filters:** Faceted chips (with counts) narrow by operating system and category tag. Like the Dashboard chips, they only show combinations that actually have templates, and collapse when a single choice remains. Use **Clear** to reset everything.
 
 ### Applying a template
@@ -331,6 +332,9 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
   - `\Microsoft\` isn't offered. Windows keeps its own scheduled tasks there, and creating one with a matching name would **silently overwrite** a real system task — no error, no warning. Cronsole refuses it rather than hand you that footgun.
   - If the agent is offline the list can't be read; you can still create in `\Cronsole`.
 - **Other platforms** keep Cronsole's own categories — only Windows has a real folder hierarchy to point at.
+- **Cronsole-native templates** (*Run a Program*, *Node Script*, *Uptime Check*, …) need no agent at all: Cronsole schedules and runs them itself. The trade-off is **where** they run — on the machine running the Cronsole backend, which on a Dockerized stack is *inside the container*, against a filesystem that is not your desktop. If a script must run as you, or keep running when Cronsole is stopped, use a Windows template instead.
+- **Claude Code templates** are prompts, not commands. Applying one creates a real **routine** that Anthropic runs in the cloud on your schedule — so the Apply screen shows *Resolved prompt* rather than *Resolved command*, and offers a **Repositories** box for the repos the routine may check out (one URL per line; a routine with no repository still runs, it just has no checkout). This needs you to be signed in to the Claude Code CLI on the machine running Cronsole; if you aren't, the platform button is greyed out and the modal says what to do instead of failing when you click Create.
+- **What's greyed out is about *your* install, not about the template.** The platform buttons and the "Compatible with" badges come from the same capability check the [Platforms tab](#6-platforms--what-cronsole-can-actually-do) shows, so a target that works here is offered here. While that check is still loading nothing is marked either way — Cronsole would rather say nothing for a moment than tell you a platform is unavailable and be wrong.
 - **Schedule:** the field is labelled with the zone it reads in (`Schedule (cron · PDT)`), quick preset chips fill common crons in that same zone, and a plain-language preview under the field ("Runs daily at 8:00 AM PDT") confirms what the cron means before you create anything. The stored UTC expression is printed underneath. Conversion warnings appear when a cron can't map cleanly onto a native Windows trigger.
 - The created task appears on the Dashboard immediately — no need to wait for a sync.
 

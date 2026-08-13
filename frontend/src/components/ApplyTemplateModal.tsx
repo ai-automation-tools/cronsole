@@ -3,7 +3,8 @@ import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2, FolderTree } from 'lucide-react';
 import type { Template } from '../types';
 import { api } from '../api';
-import { platformLabel, isCreatablePlatform } from '../platform';
+import { platformLabel } from '../platform';
+import { usePlatformCreatability } from '../hooks/usePlatformMatrix';
 import { useToast } from '../hooks/useToast';
 import { useSettings } from '../hooks/useSettings';
 import { useScheduleZone } from '../hooks/useScheduleZone';
@@ -39,11 +40,26 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(params.map(p => [p.key, p.default ?? '']))
   );
-  // Only platforms Cronsole can actually create a task on are selectable; the
-  // rest are compatibility labels (no agent/API yet). Default to the first
-  // creatable target so Apply doesn't silently fail on an uncreatable platform.
-  const creatableTargets = template.targetPlatforms.filter(isCreatablePlatform);
-  const [platform, setPlatform] = useState(creatableTargets[0] ?? '');
+  // Only platforms Cronsole can actually create a task on **here** are
+  // selectable; the rest are compatibility labels. The verdict comes from the
+  // server's capability matrix, not from a set compiled into this bundle — for
+  // Claude it depends on whether a Claude Code session is readable on the
+  // machine running the backend, which no literal can know.
+  const { creatability, isLoading: creatabilityLoading } = usePlatformCreatability();
+  const creatableTargets = template.targetPlatforms.filter(p => creatability(p) === 'yes');
+  // The selection is **derived** until the user makes one, rather than seeded by
+  // an effect: the default depends on an answer that arrives after first render,
+  // and syncing that into state is how a modal ends up preselecting a platform
+  // it is about to disable. `chosen` is empty until a click; `platform` is what
+  // the rest of the modal reads.
+  const [chosen, setPlatform] = useState('');
+  // While the matrix is in flight, fall back to the template's first declared
+  // target so the form is usable immediately. It can only ever be *corrected*
+  // downward — Apply itself requires a `yes`, so an optimistic selection never
+  // turns into a request the platform would refuse.
+  const platform = chosen
+    || creatableTargets[0]
+    || (creatabilityLoading ? template.targetPlatforms[0] ?? '' : '');
   const [name, setName] = useState(template.name);
   const zone = useScheduleZone();
   // The template's `scheduleExpression` is UTC (registry schedules always are),
@@ -61,6 +77,12 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   // and anything else it created would be litter only the user could clear.
   const [folder, setFolder] = useState(DEFAULT_FOLDER);
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
+  const isClaude = platform === 'CLAUDE_CODE';
+  // Claude only: the repositories the routine may check out and work in. Never
+  // defaulted and never guessed — a routine with no sources still runs, it
+  // simply has no checkout, whereas attaching the wrong repository to an agent
+  // that can commit is not a mistake the user can see before it happens.
+  const [repositories, setRepositories] = useState('');
   const { settings: prefs } = useSettings();
 
   // Honest human reading of the cron (null when we can't describe it), rendered
@@ -133,6 +155,10 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
 
   const folderReady = !isWindows || !!folder;
 
+  // One repository per line; blank lines dropped so a trailing newline is not a
+  // repository the routine is told to check out.
+  const repoList = repositories.split('\n').map(r => r.trim()).filter(Boolean);
+
   const applyMutation = useMutation({
     mutationFn: async () => {
       return api.post(`/templates/${template.id}/apply`, {
@@ -143,7 +169,9 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
         parameters: values,
         // Windows only — other platforms have no native folder hierarchy and
         // the backend rejects the field for them.
-        ...(isWindows ? { folder } : {})
+        ...(isWindows ? { folder } : {}),
+        // Claude only, and omitted entirely when blank rather than sent as [].
+        ...(isClaude && repoList.length ? { repositoryUrls: repoList } : {})
       });
     },
     onSuccess: () => {
@@ -161,7 +189,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   });
 
   const canApply =
-    !!platform && isCreatablePlatform(platform) && !!name.trim() && !!schedule.trim() && !incomplete && folderReady && !applyMutation.isPending;
+    !!platform && creatability(platform) === 'yes' && !!name.trim() && !!schedule.trim() && !incomplete && folderReady && !applyMutation.isPending;
 
   return (
     <Modal
@@ -187,30 +215,49 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Target platform</label>
             <div className="flex flex-wrap gap-2">
               {template.targetPlatforms.map(p => {
-                const creatable = isCreatablePlatform(p);
+                const can = creatability(p);
                 return (
                   <button
                     key={p}
-                    onClick={() => creatable && setPlatform(p)}
-                    disabled={!creatable}
-                    title={creatable ? undefined : 'Cronsole can’t create tasks on this platform yet — no agent or API.'}
+                    // `unknown` stays clickable: the matrix has not answered
+                    // yet, and greying a control out is an assertion. Apply is
+                    // still gated on a `yes`, so nothing can be submitted
+                    // against a platform that turns out to refuse it.
+                    onClick={() => can !== 'no' && setPlatform(p)}
+                    disabled={can === 'no'}
+                    title={
+                      can === 'yes' ? undefined
+                        : can === 'unknown' ? 'Checking what Cronsole can do on this platform…'
+                          : 'Cronsole can’t create tasks on this platform on this install — see the Platforms tab for why.'
+                    }
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                       platform === p
                         ? 'bg-primary border-primary text-primary-foreground'
-                        : creatable
+                        : can !== 'no'
                           ? 'bg-background border-border text-muted-foreground hover:border-foreground/30'
                           : 'bg-background border-border/50 text-subtle-foreground/60 opacity-60 cursor-not-allowed'
                     }`}
                   >
-                    {platformLabel(p)}{!creatable && ' *'}
+                    {platformLabel(p)}{can === 'no' && ' *'}
                   </button>
                 );
               })}
             </div>
-            {creatableTargets.length === 0 && (
+            {/* Absence of an answer is not a refusal: while the matrix is in
+                flight the modal says it is checking, rather than telling the
+                user their platform is unsupported and being wrong a moment later. */}
+            {creatabilityLoading && creatableTargets.length === 0 && (
+              <p className="text-[11px] text-subtle-foreground flex items-center gap-1.5">
+                <Loader2 size={11} className="animate-spin shrink-0" />
+                Checking what Cronsole can create on this template’s platforms…
+              </p>
+            )}
+            {!creatabilityLoading && creatableTargets.length === 0 && (
               <p className="text-[11px] text-warning-text bg-warning/5 border border-warning/30 rounded-xl px-3 py-2 flex items-start gap-1.5">
                 <AlertTriangle size={11} className="shrink-0 mt-0.5" />
-                This is a compatible pattern — Cronsole can’t create tasks on its target platform(s) yet (no agent or API). Copy the command below to set it up manually.
+                {template.targetPlatforms.includes('CLAUDE_CODE')
+                  ? 'Creating a Claude routine needs a Claude Code session on the machine running Cronsole — sign in with the Claude Code CLI (/login), or create the routine at claude.ai and connect it. Copy the prompt below to set it up manually.'
+                  : 'This is a compatible pattern — Cronsole can’t create tasks on its target platform(s) here (no agent or API). Copy the command below to set it up manually.'}
               </p>
             )}
           </div>
@@ -224,9 +271,15 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
               onChange={e => setName(e.target.value)}
               className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
             />
-            <p className="text-[10px] text-subtle-foreground italic">
-              Reusing a template? Give each task its own name — a duplicate name is rejected instead of overwriting the existing task{isWindows ? ' in the same folder' : ''}.
-            </p>
+            {isWindows && (
+              // Windows only, because the guard is Windows only: a created
+              // task's name becomes its path, and RegisterTaskDefinition
+              // silently overwrites a same-named task in the same folder.
+              // Native and Claude ids are minted, so two tasks may share a name.
+              <p className="text-[10px] text-subtle-foreground italic">
+                Reusing a template? Give each task its own name — a duplicate name is rejected instead of overwriting the existing task in the same folder.
+              </p>
+            )}
           </div>
 
           {isWindows && (
@@ -270,6 +323,28 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
                   {' '}<span className="not-italic">\Microsoft\ isn’t offered: Windows keeps its own tasks there, and a name collision would silently overwrite one.</span>
                 </p>
               )}
+            </div>
+          )}
+
+          {isClaude && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <FolderTree size={11} /> Repositories <span className="normal-case tracking-normal font-semibold text-subtle-foreground">(optional)</span>
+              </label>
+              <textarea
+                aria-label="Repositories"
+                value={repositories}
+                onChange={e => setRepositories(e.target.value)}
+                rows={2}
+                placeholder="https://github.com/owner/repo"
+                className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-primary transition-colors"
+              />
+              <p className="text-[10px] text-subtle-foreground italic">
+                One repository URL per line. The routine runs in a cloud environment Anthropic owns —
+                <span className="not-italic"> a routine with no repository still runs, it just has no checkout</span>, so a
+                prompt that reads or edits code needs the repository attached here. Cronsole never guesses one:
+                the routine can commit, and attaching the wrong repo is not a mistake you can see before it happens.
+              </p>
             </div>
           )}
 
@@ -350,7 +425,12 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
           ))}
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Resolved command</label>
+            {/* A Claude routine's "command" is its prompt — natural language,
+                not argv — so calling it a command in that mode reads as though
+                something will be executed on the user's machine. */}
+            <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
+              {isClaude ? 'Resolved prompt' : 'Resolved command'}
+            </label>
             <pre className={`bg-background border rounded-xl px-3 py-2.5 text-xs font-mono whitespace-pre-wrap break-all ${incomplete ? 'border-warning/40 text-warning-text' : 'border-border text-success-text'}`}>
               {resolved || '—'}
             </pre>

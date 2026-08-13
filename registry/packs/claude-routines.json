@@ -1,0 +1,225 @@
+{
+  "cronsoleCatalogVersion": "1.0",
+  "pack": {
+    "id": "claude-routines",
+    "name": "Claude Routines",
+    "description": "Scheduled Claude Code routines — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups."
+  },
+  "templates": [
+    {
+      "schemaVersion": "1.0",
+      "id": "claude-routine-issue-triage",
+      "name": "Routine: Issue Triage",
+      "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "github",
+        "triage"
+      ],
+      "icon": "ListChecks",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 14 * * 1-5"
+      },
+      "commandTemplate": "Review issues opened in {{repo}} since your last run. For each one: summarize it in a sentence, label it by area and severity, and say whether it looks like a regression of recent work. Post the triage as a comment on each issue. Do not change code.",
+      "parameters": [
+        {
+          "key": "repo",
+          "label": "Repository",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The owner/name of the repo to triage. Attach the same repository to the routine so it has a checkout."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "claude-routine-dependency-review",
+      "name": "Routine: Dependency Review",
+      "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "dependencies",
+        "security"
+      ],
+      "icon": "ShieldCheck",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 15 * * 1"
+      },
+      "commandTemplate": "Check the dependencies of {{repo}} for outdated and vulnerable packages. Group them into safe patch upgrades, minor upgrades worth taking, and major upgrades with breaking changes. For each group say what would have to be tested. Report only — do not modify the lockfile.",
+      "parameters": [
+        {
+          "key": "repo",
+          "label": "Repository",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The repository to review. Attach it to the routine so the checkout is available."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "claude-routine-ci-failure-digest",
+      "name": "Routine: CI Failure Digest",
+      "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "ci",
+        "tests"
+      ],
+      "icon": "Siren",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 13 * * 1-5"
+      },
+      "commandTemplate": "Look at the CI runs for {{repo}} over the last 24 hours. Group the failures by likely root cause, separate genuine breakage from flaky tests, and name the commit each one most likely came from. Keep it to the shortest summary that is still actionable.",
+      "parameters": [
+        {
+          "key": "repo",
+          "label": "Repository",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The repository whose CI runs to read."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "claude-routine-docs-drift",
+      "name": "Routine: Docs Drift Check",
+      "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "docs"
+      ],
+      "icon": "BookOpenCheck",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 16 * * 5"
+      },
+      "commandTemplate": "Compare the documentation under {{docsPath}} in {{repo}} against the code it describes. List every claim that is no longer true, with the file and line that contradicts it, worst first. Ignore wording and style — only report statements a reader would act on and be wrong.",
+      "parameters": [
+        {
+          "key": "repo",
+          "label": "Repository",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The repository to check."
+        },
+        {
+          "key": "docsPath",
+          "label": "Docs path",
+          "type": "text",
+          "default": "docs/",
+          "required": true,
+          "help": "Repo-relative folder holding the documentation."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "claude-routine-standup-digest",
+      "name": "Routine: Standup Digest",
+      "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "digest",
+        "report"
+      ],
+      "icon": "Newspaper",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 15 * * 1-5"
+      },
+      "commandTemplate": "Summarize activity in {{repo}} since yesterday morning: what merged, what is waiting on review, and what has been open long enough to be stuck. Write it as a short standup update in plain sentences, no bullet lists longer than five items.",
+      "parameters": [
+        {
+          "key": "repo",
+          "label": "Repository",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The repository to summarize."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_claude_routine",
+      "name": "Claude Code Routine",
+      "description": "Run a natural-language Claude Code routine on a schedule.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "claude-code"
+      ],
+      "icon": "Sparkles",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "commandTemplate": "{{prompt}}",
+      "parameters": [
+        {
+          "key": "prompt",
+          "label": "Prompt",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The natural-language instruction for the agent."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    }
+  ]
+}

@@ -1130,11 +1130,301 @@ const extendedPack: RegistryTemplate[] = [
   }
 ];
 
+// =====================================================================
+// Cronsole-native Pack — the backend is the scheduler (2026-08-13)
+//
+// The catalog had **no** `cronsole-native` template until this pack, which made
+// the one source Cronsole fully owns the only one with nothing in the library.
+// Two job types, and the distinction is visible in the command:
+//
+//   • a command that IS a url  → an HTTP job (GET)
+//   • anything else            → an EXEC job, no shell, `{executable, args[]}`
+//
+// (`services/nativeJob.ts` owns that rule; the connector refused every non-URL
+// command until the same date, which is the other half of why this pack could
+// not exist.)
+//
+// **Where these run is the thing to get right.** A native task runs wherever the
+// *backend* runs — the user's machine on a host-run stack, and inside the
+// container on a Dockerized one, against a filesystem that is not theirs. So the
+// EXEC entries name that in their help text rather than leaving someone to
+// discover it as "executable not found" for a file they can see in Explorer. A
+// script that must run **as the user**, or survive Cronsole being down, belongs
+// on the Windows agent instead — which is what every other pack here targets.
+//
+// None are OS-specific: `cross-platform` is the honest answer when the executing
+// host is Cronsole's own backend rather than a machine the template picked.
+// =====================================================================
+const nativePack: RegistryTemplate[] = [
+  {
+    schemaVersion: '1.0',
+    id: 'native-run-program',
+    core: true,
+    name: 'Run a Program (Cronsole)',
+    description:
+      'Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'other',
+    tags: ['cronsole-native', 'script', 'executable'],
+    icon: 'PlayCircle',
+    isStarter: true,
+    trigger: sched('0 7 * * *'),
+    // `{{args}}` is deliberately bare — the author's multi-argument slot, which
+    // tokenizes in place. `{{exePath}}` is quoted, so a path with spaces stays
+    // exactly one argument. There is no shell: nothing here is interpreted.
+    commandTemplate: '"{{exePath}}" {{args}}',
+    parameters: [
+      {
+        ...P.exePath,
+        help: 'Absolute path to the program, as seen by the machine running the Cronsole backend. On a Dockerized stack that is the container, not your desktop.'
+      },
+      P.args
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-node-script',
+    name: 'Node Script (Cronsole)',
+    description: 'Run a Node.js script on the Cronsole host on a schedule.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'other',
+    tags: ['cronsole-native', 'script', 'node'],
+    icon: 'FileCode',
+    isStarter: true,
+    trigger: sched('0 6 * * *'),
+    commandTemplate: 'node "{{scriptPath}}" {{args}}',
+    parameters: [
+      {
+        ...P.scriptPath,
+        help: 'Absolute path to the .js/.mjs file on the machine running the Cronsole backend.'
+      },
+      P.args
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-python-script',
+    name: 'Python Script (Cronsole)',
+    description: 'Run a Python script on the Cronsole host on a schedule.',
+    runtime: 'python',
+    os: 'cross-platform',
+    category: 'other',
+    tags: ['cronsole-native', 'script', 'python'],
+    icon: 'FileTerminal',
+    isStarter: true,
+    trigger: sched('0 6 * * *'),
+    commandTemplate: 'python "{{scriptPath}}" {{args}}',
+    parameters: [
+      {
+        ...P.scriptPath,
+        help: 'Absolute path to the .py file on the machine running the Cronsole backend. `python` must be on that machine’s PATH.'
+      },
+      P.args
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-git-pull',
+    name: 'Keep a Repo Fresh (Cronsole)',
+    description:
+      'Pull the latest commits into a local repository on the Cronsole host — the agent-free version of Git Sync.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['cronsole-native', 'git', 'sync'],
+    icon: 'GitBranch',
+    trigger: sched('0 */6 * * *'),
+    commandTemplate: 'git -C "{{repoPath}}" pull --ff-only',
+    parameters: [
+      {
+        ...P.repoPath,
+        help: 'Absolute path to the repository on the machine running the Cronsole backend. `--ff-only` refuses rather than creating a merge nobody reviewed.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-http-uptime-check',
+    core: true,
+    name: 'Uptime Check (Cronsole)',
+    description:
+      'Call a URL every few minutes and record whether it answered. Runs in Cronsole itself — no agent, and it works on a machine with no Task Scheduler.',
+    runtime: 'http',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['cronsole-native', 'http', 'monitoring', 'uptime'],
+    icon: 'Activity',
+    trigger: sched('*/5 * * * *'),
+    // A native HTTP job created from a template is a **GET**: the connector
+    // receives one command string and a URL is all it can carry. A job that
+    // needs a method, headers or a body is a full spec — the New Task modal, or
+    // POST /api/tasks/native.
+    commandTemplate: '{{url}}',
+    parameters: [
+      {
+        ...P.url,
+        help: 'The endpoint to GET. A non-2xx response is recorded as a failed run, which is what makes this a check rather than a ping.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-http-heartbeat',
+    name: 'Monitor Heartbeat (Cronsole)',
+    description:
+      'Ping a dead-man’s-switch URL (Healthchecks.io, Better Stack, Cronitor) on a schedule so an outside monitor notices when Cronsole itself stops.',
+    runtime: 'http',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['cronsole-native', 'http', 'monitoring', 'heartbeat'],
+    icon: 'HeartPulse',
+    trigger: sched('0 * * * *'),
+    commandTemplate: '{{url}}',
+    parameters: [
+      {
+        ...P.url,
+        help: 'The heartbeat URL your monitor gave you. It alerts when the ping stops — which is the one failure a scheduler cannot report about itself.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  }
+];
+
+// =====================================================================
+// Claude Routines Pack — real Claude Code routines (2026-08-13)
+//
+// **Not the same thing as the `ai-claude-*` templates above.** Those register a
+// *Windows task* that shells out to the Claude Code CLI on your machine; these
+// create a **routine**, which Anthropic runs in a cloud environment against the
+// repositories you attach. The practical differences: a routine needs no local
+// machine to be awake, costs Claude Code subscription usage rather than local
+// CPU, and its "command" is a **prompt** — natural language, not argv, so none
+// of the no-shell quoting machinery applies or is needed.
+//
+// **Applying one needs a readable Claude Code session on the machine running the
+// backend** (the OAuth door — `services/claudeOAuth.ts`). Without it the Claude
+// connector falls back to declared mode, where `create` is a boundary, and the
+// Apply modal says so instead of failing at the click. That is why none of these
+// is `core`: a template auto-synced into every install should be applicable by
+// every install, and this family is applicable only where that session exists.
+//
+// Prompts avoid quote characters on purpose — the whole-catalog resolvability
+// sweep runs every `commandTemplate` through the structured tokenizer, and an
+// unbalanced quote is the one thing that trips it.
+// =====================================================================
+const claudeRoutinesPack: RegistryTemplate[] = [
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-issue-triage',
+    name: 'Routine: Issue Triage',
+    description:
+      'A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'claude-code', 'routine', 'github', 'triage'],
+    icon: 'ListChecks',
+    trigger: sched('0 14 * * 1-5'),
+    commandTemplate:
+      'Review issues opened in {{repo}} since your last run. For each one: summarize it in a sentence, label it by area and severity, and say whether it looks like a regression of recent work. Post the triage as a comment on each issue. Do not change code.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repo to triage. Attach the same repository to the routine so it has a checkout.' }
+    ],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-dependency-review',
+    name: 'Routine: Dependency Review',
+    description:
+      'A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'claude-code', 'routine', 'dependencies', 'security'],
+    icon: 'ShieldCheck',
+    trigger: sched('0 15 * * 1'),
+    commandTemplate:
+      'Check the dependencies of {{repo}} for outdated and vulnerable packages. Group them into safe patch upgrades, minor upgrades worth taking, and major upgrades with breaking changes. For each group say what would have to be tested. Report only — do not modify the lockfile.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The repository to review. Attach it to the routine so the checkout is available.' }
+    ],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-ci-failure-digest',
+    name: 'Routine: CI Failure Digest',
+    description:
+      'A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['ai', 'claude-code', 'routine', 'ci', 'tests'],
+    icon: 'Siren',
+    trigger: sched('0 13 * * 1-5'),
+    commandTemplate:
+      'Look at the CI runs for {{repo}} over the last 24 hours. Group the failures by likely root cause, separate genuine breakage from flaky tests, and name the commit each one most likely came from. Keep it to the shortest summary that is still actionable.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The repository whose CI runs to read.' }
+    ],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-docs-drift',
+    name: 'Routine: Docs Drift Check',
+    description:
+      'A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'claude-code', 'routine', 'docs'],
+    icon: 'BookOpenCheck',
+    trigger: sched('0 16 * * 5'),
+    commandTemplate:
+      'Compare the documentation under {{docsPath}} in {{repo}} against the code it describes. List every claim that is no longer true, with the file and line that contradicts it, worst first. Ignore wording and style — only report statements a reader would act on and be wrong.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The repository to check.' },
+      { key: 'docsPath', label: 'Docs path', type: 'text', default: 'docs/', required: true, help: 'Repo-relative folder holding the documentation.' }
+    ],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-standup-digest',
+    name: 'Routine: Standup Digest',
+    description:
+      'A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'ai-agent',
+    tags: ['ai', 'claude-code', 'routine', 'digest', 'report'],
+    icon: 'Newspaper',
+    trigger: sched('0 15 * * 1-5'),
+    commandTemplate:
+      'Summarize activity in {{repo}} since yesterday morning: what merged, what is waiting on review, and what has been open long enough to be stuck. Write it as a short standup update in plain sentences, no bullet lists longer than five items.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The repository to summarize.' }
+    ],
+    compatibleTargets: ['claude-code']
+  }
+];
+
 /** The full bundled catalog: core (auto-synced) + extended (gallery/import-only), Registry v1 shape. */
 export const bundledCatalog: RegistryTemplate[] = [
   ...patterns,
   ...devPack,
   ...aiPack,
   ...starters,
-  ...extendedPack
+  ...extendedPack,
+  ...nativePack,
+  ...claudeRoutinesPack
 ];

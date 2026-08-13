@@ -30,11 +30,40 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 55 templates (4 patterns + 9 dev + 7 ai + 20 starters + 15 extended)', () => {
-    expect(bundledCatalog).toHaveLength(55);
-    expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(20);
+  it('has the expected shape: 66 templates (4 patterns + 9 dev + 7 ai + 20 starters + 15 extended + 6 native + 5 claude routines)', () => {
+    expect(bundledCatalog).toHaveLength(66);
+    expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(23);
     expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(9);
     expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(6);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'))).toHaveLength(5);
+  });
+
+  it('Cronsole-native is a real target — the pack that was missing until 2026-08-13', () => {
+    // The catalog shipped 55 templates and not one of them targeted the source
+    // Cronsole fully owns, so the Templates tab had nothing to offer a user with
+    // no agent installed. Pinned as a count, not a boolean: the failure this
+    // guards against is the family quietly emptying again.
+    const native = bundledCatalog.filter((t) => t.compatibleTargets.includes('cronsole-native'));
+    expect(native.length).toBeGreaterThanOrEqual(6);
+    for (const t of native) {
+      // A native task runs wherever the backend runs, on any OS — claiming one
+      // platform would be a guess about someone else's install.
+      expect(t.os, `${t.id} should be cross-platform`).toBe('cross-platform');
+      expect(t.tags, `${t.id} missing 'cronsole-native' tag`).toContain('cronsole-native');
+    }
+  });
+
+  it('every Claude-routine template is a prompt, and none of them is core', () => {
+    const routines = bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'));
+    for (const t of routines) {
+      expect(t.runtime, `${t.id} must be an ai-prompt`).toBe('ai-prompt');
+      expect(t.compatibleTargets).toEqual(['claude-code']);
+      // Creating a routine needs a readable Claude Code session on the backend's
+      // machine. A `core` template is auto-synced into *every* install, so this
+      // family staying extended is what keeps "built-in" meaning "applicable".
+      expect(t.core, `${t.id} must not be core`).not.toBe(true);
+    }
   });
 
   it('splits into a curated core (auto-synced) and an extended gallery-only set', () => {
@@ -44,8 +73,11 @@ describe('bundled catalog snapshot', () => {
     const extended = bundledCatalog.filter((t) => !t.core);
     // Core is a deliberately small sampler (one example across a few common use
     // cases); the rest is browse-and-import from the gallery.
-    expect(core).toHaveLength(5);
-    expect(extended).toHaveLength(50);
+    // 7 since 2026-08-13: the two Cronsole-native entries joined, because native
+    // is the only source that works on a fresh install with no agent and no
+    // credential — so it is the one family a default catalog can promise.
+    expect(core).toHaveLength(7);
+    expect(extended).toHaveLength(59);
     expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
     // Extended Pack templates use the ext-namespace prefixes and are never core.
     for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {
@@ -172,10 +204,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 55 normalized templates', async () => {
+  it('lists all 66 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(55);
+    expect(list).toHaveLength(66);
     expect(src.name).toBe('bundled');
   });
 });

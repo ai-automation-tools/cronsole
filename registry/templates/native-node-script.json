@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-node-script",
+  "name": "Node Script (Cronsole)",
+  "description": "Run a Node.js script on the Cronsole host on a schedule.",
+  "runtime": "node",
+  "os": "cross-platform",
+  "category": "other",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "node"
+  ],
+  "icon": "FileCode",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 6 * * *"
+  },
+  "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+  "parameters": [
+    {
+      "key": "scriptPath",
+      "label": "Script file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the .js/.mjs file on the machine running the Cronsole backend."
+    },
+    {
+      "key": "args",
+      "label": "Arguments",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional command-line arguments."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

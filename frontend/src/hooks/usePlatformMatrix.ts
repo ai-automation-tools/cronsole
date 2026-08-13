@@ -68,6 +68,55 @@ export function usePlatformMatrix() {
   });
 }
 
+/**
+ * Whether Cronsole can create a task on a platform — three answers, not two.
+ *
+ * `yes` covers **verified and declared alike**: declared means the route would
+ * accept a create and nothing has been observed to work yet, and refusing it
+ * would be waiting for evidence that only applying a template can produce.
+ * `unknown` is the honest render while the matrix is in flight — absence of an
+ * answer is not a "no", and a badge that says "Cronsole can't create here"
+ * because a request has not landed yet is the confident lie in miniature.
+ */
+export type Creatability = 'yes' | 'no' | 'unknown';
+
+/**
+ * Read creatability from the **server's** capability matrix.
+ *
+ * The Templates tab kept its own hardcoded set (`CREATABLE_PLATFORMS =
+ * {WINDOWS_TASK_SCHEDULER, TASKHUB_NATIVE}`) until 2026-08-13 — a browser-side
+ * copy of a judgement the server already owns, which is the drift shape that
+ * silently took a folder out of every sync (troubleshooting #20a). It was wrong
+ * in **both** directions within two days: Claude was listed as uncreatable while
+ * `create_claude_routine` shipped, and Cronsole-native was listed as creatable
+ * while its connector refused every command that was not a URL.
+ *
+ * The deeper reason it cannot be a constant: for Claude the answer is a property
+ * of *this install*, not of the code. With a readable Claude Code session the
+ * connector creates routines; without one `create` is a boundary. No literal in
+ * this bundle can be right in both worlds.
+ */
+export function usePlatformCreatability(): {
+  creatability: (platform: string) => Creatability;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = usePlatformMatrix();
+
+  const creatability = (platform: string): Creatability => {
+    if (!data) return 'unknown';
+    const row = data.platforms.find(r => r.platform === platform);
+    // Absent from the matrix is a real verdict, not a gap: the matrix covers
+    // every platform with a connector, so anything missing (ChatGPT, Jules, and
+    // for now macOS) is link-only and has nothing that could create a task.
+    if (!row) return 'no';
+    const cell = row.capabilities.find(c => c.verb === 'create');
+    if (!cell) return 'no';
+    return cell.support === 'unsupported' ? 'no' : 'yes';
+  };
+
+  return { creatability, isLoading };
+}
+
 /** One thing Cronsole asked a platform to do, and how it went. */
 export interface CommandOutcome {
   platformLabel: string;

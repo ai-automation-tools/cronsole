@@ -69,24 +69,51 @@ describe('ApplyTemplateModal Component', () => {
     });
     vi.clearAllMocks();
     zone.mode = 'utc';
-    // The Windows folder selector reads the machine's real Task Scheduler
-    // folders. \Microsoft\Windows comes back writable: false — the backend
-    // reports unwritable folders honestly rather than hiding them, and the
-    // modal is what filters them out of the picker.
-    vi.mocked(api.get).mockResolvedValue({
-      data: {
-        defaultFolder: '\\Cronsole',
-        folders: [
-          { path: '\\', taskCount: 3, writable: true },
-          { path: '\\Cronsole', taskCount: 1, writable: true },
-          { path: '\\Work', taskCount: 2, writable: true },
-          { path: '\\Microsoft\\Windows', taskCount: 214, writable: false }
-        ]
-      }
-    });
+    claudeCreate = 'unsupported';
+    // Two different GETs reach this modal, so the mock has to route by URL — a
+    // single mockResolvedValue hands the folder payload to the capability
+    // matrix, which then reads `platforms` off an object that has none.
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      Promise.resolve(url === '/tools/platforms' ? { data: matrix() } : { data: folders() })
+    );
   });
 
-  it('renders template information, input fields, and pre-populates defaults', () => {
+  // The Windows folder selector reads the machine's real Task Scheduler
+  // folders. \Microsoft\Windows comes back writable: false — the backend
+  // reports unwritable folders honestly rather than hiding them, and the
+  // modal is what filters them out of the picker.
+  const folders = () => ({
+    defaultFolder: '\\Cronsole',
+    folders: [
+      { path: '\\', taskCount: 3, writable: true },
+      { path: '\\Cronsole', taskCount: 1, writable: true },
+      { path: '\\Work', taskCount: 2, writable: true },
+      { path: '\\Microsoft\\Windows', taskCount: 214, writable: false }
+    ]
+  });
+
+  /**
+   * The server's capability matrix, which is where "can Cronsole create here?"
+   * now comes from — the modal holds no list of creatable platforms.
+   *
+   * Claude's `create` is a **per-install** answer (`unsupported` without a
+   * readable Claude Code session, reachable with one), so it is a variable here
+   * rather than a fixture constant: a test that hardcoded either value would be
+   * asserting one of the two worlds and calling it the behaviour.
+   */
+  let claudeCreate: 'verified' | 'declared' | 'unsupported' = 'unsupported';
+  const cell = (verb: string, support: string) => ({
+    verb, label: verb, description: '', support,
+    lastSuccessAt: null, lastFailureAt: null, lastFailureReason: null
+  });
+  const matrix = () => ({
+    platforms: [
+      { platform: 'WINDOWS_TASK_SCHEDULER', label: 'Windows', capabilities: [cell('create', 'verified')] },
+      { platform: 'CLAUDE_CODE', label: 'Claude', capabilities: [cell('create', claudeCreate)] }
+    ]
+  });
+
+  it('renders template information, input fields, and pre-populates defaults', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
@@ -96,10 +123,13 @@ describe('ApplyTemplateModal Component', () => {
     expect(screen.getByText('Daily Cron Backup')).toBeInTheDocument();
     expect(screen.getByText('Creates a daily backup of a target directory.')).toBeInTheDocument();
 
-    // Both targets show, but only the creatable one (Windows) is selectable;
-    // Claude is a compatibility label and its button is disabled.
+    // Both targets show; once the capability matrix lands, only the creatable
+    // one (Windows) is selectable and Claude is a compatibility label.
+    // The assertion **waits**, because the answer comes from the server rather
+    // than from a constant in the bundle — and before it arrives the modal
+    // deliberately asserts nothing, leaving both clickable.
     expect(screen.getByRole('button', { name: /Windows/ })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /Claude/ })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Claude/ })).toBeDisabled());
 
     const srcInput = screen.getByDisplayValue('C:\\data');
     expect(srcInput).toBeInTheDocument();
@@ -129,8 +159,11 @@ describe('ApplyTemplateModal Component', () => {
 
     // Windows (the creatable target) is selected by default; Claude is disabled,
     // so apply goes to Windows — never the uncreatable platform.
+    // Create stays disabled until the capability matrix has actually answered:
+    // an optimistic *selection* is fine, an optimistic *submit* is a request the
+    // platform may refuse.
     const createBtn = screen.getByRole('button', { name: /Create Task/ });
-    expect(createBtn).not.toBeDisabled();
+    await waitFor(() => expect(createBtn).not.toBeDisabled());
     fireEvent.click(createBtn);
 
     await waitFor(() => {
@@ -209,8 +242,12 @@ describe('ApplyTemplateModal Component', () => {
     fireEvent.change(nameInput, { target: { value: '   ' } });
     expect(screen.getByRole('button', { name: /Create Task/ })).toBeDisabled();
 
-    // A custom name is what gets sent.
+    // A custom name is what gets sent — once the capability matrix has landed,
+    // which is the other thing Create waits on.
     fireEvent.change(nameInput, { target: { value: 'My Backup Copy 2' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Create Task/ })).not.toBeDisabled()
+    );
     fireEvent.click(screen.getByRole('button', { name: /Create Task/ }));
 
     await waitFor(() => {
@@ -218,6 +255,81 @@ describe('ApplyTemplateModal Component', () => {
         '/templates/template-cron-backup/apply',
         expect.objectContaining({ name: 'My Backup Copy 2' })
       );
+    });
+  });
+
+  /**
+   * **Creatability is a property of the install, not of the build.**
+   *
+   * The modal held a hardcoded `CREATABLE_PLATFORMS` set until 2026-08-13, which
+   * could not be right in both of Claude's worlds at once: with a readable
+   * Claude Code session on the backend's machine the connector creates routines,
+   * without one `create` is a boundary. Same component, same template, opposite
+   * answers — driven only by what the server reports.
+   */
+  describe('Claude, whose create verb depends on the install', () => {
+    it('offers a Claude routine when the matrix says create is reachable', async () => {
+      claudeCreate = 'declared';
+      vi.mocked(api.post).mockResolvedValue({ data: { success: true } });
+
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+        </QueryClientProvider>
+      );
+
+      const claudeBtn = await screen.findByRole('button', { name: /Claude/ });
+      await waitFor(() => expect(claudeBtn).toBeEnabled());
+      fireEvent.click(claudeBtn);
+
+      // A routine's "command" is a prompt, and the repositories field appears
+      // only here — a Windows task has no checkout to attach.
+      expect(screen.getByText('Resolved prompt')).toBeInTheDocument();
+      fireEvent.change(screen.getAllByPlaceholderText('C:\\path\\to\\file')[1], {
+        target: { value: 'D:\\backup' }
+      });
+      fireEvent.change(screen.getByLabelText('Repositories'), {
+        target: { value: ' https://github.com/owner/repo \n\n' }
+      });
+
+      const createBtn = screen.getByRole('button', { name: /Create Task/ });
+      await waitFor(() => expect(createBtn).not.toBeDisabled());
+      fireEvent.click(createBtn);
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith('/templates/template-cron-backup/apply',
+          expect.objectContaining({
+            platform: 'CLAUDE_CODE',
+            // Trimmed, blank lines dropped — a trailing newline is not a repo
+            // the routine gets told to check out.
+            repositoryUrls: ['https://github.com/owner/repo']
+          }));
+      });
+      // No `folder`: that is a Windows concept, and the backend rejects it here.
+      expect(vi.mocked(api.post).mock.calls.at(-1)![1]).not.toHaveProperty('folder');
+    });
+
+    it('says what is missing when no target can be created here', async () => {
+      // Windows unreachable too — the whole template becomes copy-to-set-up.
+      vi.mocked(api.get).mockImplementation((url: string) =>
+        Promise.resolve(url === '/tools/platforms'
+          ? { data: { platforms: [
+              { platform: 'WINDOWS_TASK_SCHEDULER', label: 'Windows', capabilities: [cell('create', 'unsupported')] },
+              { platform: 'CLAUDE_CODE', label: 'Claude', capabilities: [cell('create', 'unsupported')] }
+            ] } }
+          : { data: folders() })
+      );
+
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ApplyTemplateModal template={mockTemplate} onClose={vi.fn()} />
+        </QueryClientProvider>
+      );
+
+      // Names the actual fix (sign in / create at claude.ai), not a generic
+      // "not supported" — the platform is capable, this install is not set up.
+      expect(await screen.findByText(/needs a Claude Code session/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Create Task/ })).toBeDisabled();
     });
   });
 
@@ -282,6 +394,9 @@ describe('ApplyTemplateModal Component', () => {
       fireEvent.change(screen.getAllByPlaceholderText('C:\\path\\to\\file')[1], {
         target: { value: 'C:\\dest' }
       });
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /Create Task/i })).not.toBeDisabled()
+      );
       fireEvent.click(screen.getByRole('button', { name: /Create Task/i }));
 
       await waitFor(() => {

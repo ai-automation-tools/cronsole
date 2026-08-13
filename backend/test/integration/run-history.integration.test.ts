@@ -241,4 +241,97 @@ describe('task health', () => {
     const res = await request(app).get('/api/tools/task-health').set('Authorization', owner.auth);
     expect(res.body.tasks[0].name).toBe('Broken');
   });
+
+  /**
+   * Troubleshooting #49. These filters live on the route rather than in a caller
+   * precisely because the route also computes `counts` — so the invariant under
+   * test is not "the filter works" but **"the summary and the list describe the
+   * same population"**.
+   */
+  describe('filters (and the counts that must agree with them)', () => {
+    const systemTask = (userId: string, name: string) =>
+      prisma.task.create({
+        data: {
+          userId,
+          platform: PlatformType.WINDOWS_TASK_SCHEDULER,
+          externalId: `\\Microsoft\\Windows\\${name}`,
+          name,
+          category: 'Microsoft',
+          schedule: '0 9 * * *',
+          status: TaskStatus.ACTIVE,
+          metadata: {}
+        }
+      });
+
+    it('defaults to every task, because the dashboard tier map passes no params', async () => {
+      await createTask(owner.user.id, 'Mine');
+      await systemTask(owner.user.id, 'TheirsSystem');
+
+      const res = await request(app).get('/api/tools/task-health').set('Authorization', owner.auth);
+
+      expect(res.body.counts.tasks).toBe(2);
+      expect(res.body.tasks).toHaveLength(2);
+      expect(res.body.scope).toMatchObject({ includeSystem: true, systemExcluded: 0 });
+    });
+
+    // The regression test for #49 itself.
+    it('counts the same population it lists when the system lens is applied', async () => {
+      await createTask(owner.user.id, 'Mine');
+      await systemTask(owner.user.id, 'TheirsSystem');
+
+      const res = await request(app)
+        .get('/api/tools/task-health?includeSystem=false')
+        .set('Authorization', owner.auth);
+
+      expect(res.body.counts.tasks).toBe(1);
+      expect(res.body.matched).toBe(1);
+      expect(res.body.tasks).toHaveLength(1);
+      expect(res.body.tasks[0].name).toBe('Mine');
+      // Hidden, but never silently: 257 of these on a real machine.
+      expect(res.body.scope).toMatchObject({ includeSystem: false, systemExcluded: 1 });
+    });
+
+    it('counts tiers BEFORE the tier filter, or the breakdown says nothing', async () => {
+      // Counted after `tier`, this would report `critical: 1` and zeros for
+      // everything else — a breakdown that only ever describes what you asked
+      // for is not a breakdown.
+      const broken = await createTask(owner.user.id, 'Broken', PlatformType.TASKHUB_NATIVE);
+      await log(broken.id, ExecutionStatus.FAILURE, daysAgo(1));
+      await createTask(owner.user.id, 'Unmeasured');
+
+      const res = await request(app)
+        .get('/api/tools/task-health?tier=critical')
+        .set('Authorization', owner.auth);
+
+      expect(res.body.matched).toBe(1);
+      expect(res.body.tasks[0].name).toBe('Broken');
+      expect(res.body.counts).toMatchObject({ tasks: 2, critical: 1, unknown: 1 });
+      expect(res.body.scope.tier).toBe('critical');
+    });
+
+    it('limit caps the rows returned without rewriting what matched', async () => {
+      const a = await createTask(owner.user.id, 'BrokenA', PlatformType.TASKHUB_NATIVE);
+      const b = await createTask(owner.user.id, 'BrokenB', PlatformType.TASKHUB_NATIVE);
+      await log(a.id, ExecutionStatus.FAILURE, daysAgo(1));
+      await log(b.id, ExecutionStatus.FAILURE, daysAgo(1));
+
+      const res = await request(app)
+        .get('/api/tools/task-health?limit=1')
+        .set('Authorization', owner.auth);
+
+      expect(res.body.returned).toBe(1);
+      expect(res.body.tasks).toHaveLength(1);
+      expect(res.body.matched).toBe(2);
+      expect(res.body.counts.tasks).toBe(2);
+    });
+
+    // A typo'd lens must not silently widen the population.
+    it('400s on a malformed includeSystem rather than guessing', async () => {
+      const res = await request(app)
+        .get('/api/tools/task-health?includeSystem=fasle')
+        .set('Authorization', owner.auth);
+
+      expect(res.status).toBe(400);
+    });
+  });
 });

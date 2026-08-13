@@ -524,6 +524,41 @@ const historyQuerySchema = z.object({
   format: z.enum(['json', 'csv']).default('json')
 });
 
+/** Ceiling on `GET /task-health?limit=`. A guard, not a page size. */
+const MAX_HEALTH_ROWS = 500;
+
+/**
+ * `GET /task-health` filters.
+ *
+ * **These belong to the route because the route also summarizes.** `counts` and
+ * the returned list have to describe the same population or the response
+ * contradicts itself — and it did: the MCP wrapper filtered client-side and
+ * forwarded the server's unfiltered `counts`, printing *"Across 358 task(s): 25
+ * critical"* directly above thirteen rows
+ * ([#49](../../../docs/troubleshooting/README.md)). A filter applied anywhere
+ * other than where the counting happens cannot be reconciled afterwards,
+ * because neither side knows what the other did.
+ *
+ * **Every default is "everything", deliberately.** The dashboard's tier map
+ * (`useTaskHealthTiers`) needs a verdict for *every* task and passes no
+ * parameters, so an unparameterized request must behave exactly as it did
+ * before these filters existed. `includeSystem` therefore defaults to `true`
+ * here while the MCP tool defaults it to `false` — the same flag, different
+ * audiences, and the caller states its own default rather than inheriting one.
+ */
+const taskHealthQuerySchema = z.object({
+  tier: z.enum(['critical', 'attention', 'unknown', 'ok']).optional(),
+  /**
+   * Strict `'true' | 'false'`, so a typo is a 400 rather than a silent `true`.
+   * A misread lens quietly changes which tasks the answer is about.
+   */
+  includeSystem: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform(v => v !== 'false'),
+  limit: z.coerce.number().int().positive().max(MAX_HEALTH_ROWS).optional()
+});
+
 /**
  * The platform capability matrix — what Cronsole can actually do with each
  * connected platform, and how it knows.
@@ -1068,9 +1103,19 @@ router.get('/task-archives/:id', async (req: Request, res: Response) => {
  * The response always carries each task's signals. A caller that renders only
  * the number is rendering a claim without its evidence, which is exactly the
  * failure this feature was warned about.
+ *
+ * **Filtering happens here, next to the counting** (`taskHealthQuerySchema`).
+ * `tier`, `includeSystem` and `limit` used to live in the MCP wrapper, which
+ * meant the summary described one population and the list another (#49).
  */
 router.get('/task-health', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
+
+  const parsed = taskHealthQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new HttpError(400, parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
+  }
+  const { tier, includeSystem, limit } = parsed.data;
 
   const tasks = await prisma.task.findMany({
     where: { userId, status: { not: TaskStatus.DELETED } },
@@ -1102,10 +1147,33 @@ router.get('/task-health', async (req: Request, res: Response) => {
   // result is a promise the query cannot keep.
   const results = rankByHealth(tasks.map(task => scoreTask(task, now)));
 
+  // The population the caller asked about. `counts` is taken **here** — after
+  // the system lens, before the tier filter — for the same reason
+  // `applyTaskFiltersExcept` exists on the dashboard: a count beside a control
+  // describes the population that control governs. Counted after `tier` it
+  // would report that tier and four zeros, which answers nothing; counted
+  // before `includeSystem` it describes tasks the caller excluded, which is #49.
+  const governed = includeSystem ? results : results.filter(r => !r.isSystem);
+  const matchedList = tier ? governed.filter(r => r.tier === tier) : governed;
+  const rows = limit ? matchedList.slice(0, limit) : matchedList;
+
   res.json({
     evaluatedAt: now,
-    counts: summarizeHealth(results),
-    tasks: results
+    /**
+     * What the numbers below are *about*. Without this a caller cannot tell
+     * "25 across everything" from "13 among yours" — and `systemExcluded` is
+     * named out loud because a lens that hides 257 tasks silently is the
+     * invisible fence this project keeps refusing to build.
+     */
+    scope: {
+      includeSystem,
+      tier: tier ?? null,
+      systemExcluded: results.length - governed.length
+    },
+    counts: summarizeHealth(governed),
+    matched: matchedList.length,
+    returned: rows.length,
+    tasks: rows
   });
 });
 

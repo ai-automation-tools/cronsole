@@ -67,7 +67,9 @@ machine? I want one that already exists, not a new one.
 ## 🛠️ Convert & preview a schedule
 
 Always worth doing *before* a create — a schedule the converter can't express natively gets
-**replaced** with an hourly trigger, and it says so only in a mild warning.
+**replaced** with an hourly trigger: roughly 8,760 runs a year where you asked for one. The
+response says so plainly and carries `lossy: 'replaced'` alongside the upcoming run dates, but
+only if you look *before* creating the task.
 
 ```text
 Using Cronsole, convert the cron "0 9 * * 1-5" to a Windows trigger and tell me

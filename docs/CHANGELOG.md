@@ -13,6 +13,22 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Edit what a Cronsole-native task runs** (2026-08-12): an Edit pencil on the task modal's Action section, `PATCH /api/tasks/:id/job`, and an `update_native_job` MCP tool (25 tools). Change an HTTP job's URL, method, headers or body; change a script job's command or working directory; or convert between the two. **A native HTTP task's URL previously could not be changed at all** — the only route to a different URL was delete and recreate, losing the run history.
+
+  **Deliberately a separate route from `PATCH /:id/actions`**, which is the Windows path, because the two are different operations rather than different shapes. Editing a Windows action asks the elevated agent to rewrite a task on the machine, can be refused by the platform, and needs the agent online. Here the DB row *is* the task: the write is the change, nothing can refuse it, and it works with the agent offline.
+
+  **It replaces the job rather than patching it.** The two job types share no fields, so a merge would leave a stored `url` sitting inside an EXEC job — something the executor never reads and a reader cannot explain. Switching type is allowed and never accidental: the form names what will be discarded *before* the click, and the task keeps its name, schedule, category and history either way.
+
+  Normalization and validation are the **same two functions the create route uses**, so an edit cannot produce a spec that creation would have refused — the kind of thing that is accepted at edit time and fails at 3am. Commands are tokenized server-side into `{executable, args[]}` with **no shell**, and the editor states which host a script actually runs on, since a native job executes wherever the backend does.
+
+- **Rename any task** (2026-08-12): a pencil beside the title in the task modal, `name` accepted by `PATCH /api/tasks/:id`, and a `rename_task` MCP tool (24 tools). Works on every platform.
+
+  **A name is a Cronsole label, exactly like a category — not the machine.** Nothing is renamed on the platform: a Windows task keeps its Task Scheduler path, so the modal keeps showing the real `externalId` and, once the two diverge, says *"Renamed in Cronsole — Task Scheduler still calls it X"*. Silence there would send someone searching Task Scheduler for a name that was never in it.
+
+  **Why this was blocked, and why the fix costs nothing.** `TaskService.upsertTasks` wrote `name` back from the platform on every sync, so a rename would have silently reverted minutes later. That line turns out to be structurally a no-op: **no platform can supply a new name for an existing row.** A Windows task's name is the last segment of its path, and the path *is* `externalId` — the key the row is matched on — so renaming a task in Task Scheduler produces a *different* task (old path MISSING, new path imported), never a new name on this one. Measured on a real machine before shipping: 354 Windows tasks, **zero** whose stored name differed from their path leaf. Claude's name comes from the registry the user declared; a native row *is* the task. So the line could only ever fire to undo a rename, and removing it puts `name` under the same protection `category` has always had.
+
+  A rename **cannot collide**: the Windows duplicate-name guard exists because a *created* task's name becomes part of its path, and a rename never touches the path.
+
 - **Fix a connected Claude routine's id or name without re-entering its token** (2026-08-12): a pencil on the Platforms routines panel, `PATCH /api/tools/platforms/claude/routines/:id`, and the `edit_claude_routine` MCP tool.
 
   Pasting a routine's **name** into the id field is the easy mistake — the connect form warns about it and saves anyway, because the id format is experimental and not promised. Until now the only fix was disconnect-and-reconnect, which **discards the stored token**; claude.ai shows a token once, so a typo cost a regeneration at Anthropic — which also revokes that token anywhere else it was used. A typo should not cost a credential.
@@ -130,6 +146,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   *Context worth recording: this was investigated because a browser pass appeared to show the dashboard freezing for 45s at 269 tasks. **It did not.** The tab was hidden, so `requestAnimationFrame` never fired and my probe awaited a frame that could not come; Chrome's intensive throttling of long-hidden tabs explains the rest. Measured properly, a theme toggle is 0.8ms at 13,228 DOM nodes. **No virtualization was added, because none is warranted** — the fix that isn't needed is worth naming as loudly as the one that is.*
 
 ### Fixed
+- **A Claude routine's task kept coming back after "Remove from Cronsole"** (2026-08-12): reported as *"I keep deleting it but it keeps coming back"* — and `TaskExclusion` was empty, which made it look like untrack had never run at all.
+
+  It had run. **Untrack is built for the Windows shape** — the task lives on the machine, sync enumerates the machine, so Cronsole records an exclusion meaning *"don't re-import this"*. Claude inverts that: Anthropic exposes no list API, so `syncTasks` returns **the routines the user declared**, read back out of the connection config. **The registry is the platform.** The exclusion therefore fenced the user's own configuration off from itself, while the declaration sat untouched — and importing the Claude category clears exclusions inside it *by design* (it is the documented way back for a Windows task removed by mistake), which un-hid a routine that was never gone.
+
+  The mirror half was just as broken: removing the routine under **Platforms → Claude** left the task row behind, un-runnable, flipping to MISSING on the next sync.
+
+  Now one fact has one mechanism — **a Claude task is its declaration**. `POST /api/tasks/:id/untrack` 400s for `CLAUDE_CODE` (the refusal `TASKHUB_NATIVE` already had) and names the control that works; bulk untrack refuses it per item without halting the batch; `DELETE /api/tools/platforms/claude/routines/:id` removes the tracked tasks and their history with the declaration and reports `tasksRemoved`; and the task modal shows **Disconnect routine** instead of *Remove from Cronsole*.
+
+  **Why refuse rather than make untrack remove the routine too** — the one-button version everyone wants: it would silently discard the stored API token, which claude.ai shows once, under a label that says nothing about credentials. **A control may not spend something its label does not mention.** See [troubleshooting #47](troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole).
+
 - **The Claude platform reported itself Online without ever having contacted Anthropic** (2026-08-12): `getHealth` returned `HEALTHY` whenever the config held a routine — a verdict derived from a **precondition**, which is troubleshooting [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)'s exact shape, one connector over. Health now comes from whether a run actually succeeded, read back from the evidence the run route already records.
 
   **It deliberately does not probe**, and that is the interesting part: the only endpoint Claude exposes has a side effect, so *"check whether this works"* and *"run the user's routine"* are the same HTTP request. A probing health check would have fired someone's nightly job on every poll and burned their daily run cap. Where there is no read-only probe, the honest health signal is the record of real runs — there is nothing else it can be. See [troubleshooting #45](troubleshooting/README.md#45-cronsole-cant-list-pause-or-create-claude-code-routines).

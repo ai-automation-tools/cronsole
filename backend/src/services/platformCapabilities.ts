@@ -132,7 +132,16 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
  * `restore` is deliberately absent: there is no native file format to restore
  * *from*, and export produces a JSON bundle no import route accepts yet.
  */
-const NATIVE_ROUTE_HANDLED: readonly CapabilityVerb[] = ['updateSchedule', 'export', 'delete'] as const;
+const NATIVE_ROUTE_HANDLED: readonly CapabilityVerb[] = [
+  'updateSchedule',
+  'export',
+  'delete',
+  // `PATCH /api/tasks/:id/job` rewrites the stored job spec directly. Native has
+  // no `updateActions` connector method and never will — the DB row is the task
+  // — so without this line the matrix reports the platform as unable to change
+  // what it runs, which it does without an agent and while one is offline.
+  'updateAction'
+] as const;
 
 /**
  * Would the route accept this verb for this platform?

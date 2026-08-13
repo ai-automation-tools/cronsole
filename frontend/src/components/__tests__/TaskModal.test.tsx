@@ -104,12 +104,10 @@ describe('TaskModal Component', () => {
     const onClose = vi.fn();
     renderModal({ onClose });
 
-    // The modal renders through a portal to document.body, so query from there.
-    const closeBtn = document.querySelector('header button');
-    expect(closeBtn).toBeInTheDocument();
-    if (closeBtn) {
-      fireEvent.click(closeBtn);
-    }
+    // By accessible name, not `header button` — that positional selector broke
+    // the moment a rename pencil was added ahead of Close in the same header,
+    // and silently pointed the assertion at a different control.
+    fireEvent.click(screen.getByRole('button', { name: 'Close task details' }));
     expect(onClose).toHaveBeenCalled();
   });
 

@@ -46,7 +46,6 @@ export class TaskService {
           }
         },
         update: {
-          name: t.name,
           status: t.status === 'ACTIVE' ? TaskStatus.ACTIVE : TaskStatus.DISABLED,
           metadata: t.metadata,
           // Refresh the platform-derived schedule only when we have a good cron —
@@ -55,7 +54,20 @@ export class TaskService {
           // nextRunTime is a live value; update it whenever the caller supplied
           // one (including an explicit null), but don't clobber it when omitted.
           ...(t.nextRunTime !== undefined ? { nextRunTime: t.nextRunTime } : {})
-          // Note: We DO NOT update category here to preserve user overrides
+          // Note: We DO NOT update `category` or `name` here — both are Cronsole
+          // labels the user may have overridden, and a sync must not undo that.
+          //
+          // `name` was updated here until 2026-08-12, which made a rename revert
+          // on the next sync and was the whole reason renaming was not offered.
+          // Removing it costs nothing, because **no platform can supply a new
+          // name for an existing row**: a Windows task's name is the last
+          // segment of its path and the path is `externalId`, so a rename on the
+          // machine produces a *different* task (old path MISSING, new path
+          // imported) rather than a new name on this one. Verified on a real
+          // machine — 354 Windows tasks, zero whose name differed from their
+          // path leaf. Claude's name comes from the user's own declaration, and
+          // a native task's row is the task. So this line could only ever fire
+          // to undo a rename.
         },
         create: {
           userId,

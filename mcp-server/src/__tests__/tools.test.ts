@@ -139,10 +139,12 @@ describe('the tool surface', () => {
       'list_run_history',
       'list_tasks',
       'list_templates',
+      'rename_task',
       'run_task',
       'set_task_status',
       'sync_tasks',
       'untrack_task',
+      'update_native_job',
       'update_task_action',
       'update_task_schedule'
     ]);
@@ -1416,6 +1418,78 @@ describe('create_native_task', () => {
   });
 });
 
+describe('update_native_job', () => {
+  const task = {
+    id: 'n1', name: 'Ping', platform: 'TASKHUB_NATIVE',
+    externalId: 'native_abc', status: 'ACTIVE', schedule: '0 3 * * *'
+  };
+
+  it('sends a complete HTTP job, and never a field from the other type', async () => {
+    // The whole risk of a replace-not-patch verb reached through a flat tool
+    // signature: `command` and `url` are both optional parameters, so a caller
+    // can pass both. Only the fields belonging to the chosen jobType may be
+    // stored — a stray `command` on an HTTP job is a field the executor never
+    // reads and a reader cannot explain.
+    const { client, calls } = stubClient({ 'PATCH /tasks/n1/job': task });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', {
+      taskId: 'n1', jobType: 'HTTP', url: 'https://e.com/ping', method: 'POST',
+      headers: { 'X-Key': 'v' }, body: '{}', command: 'node x.js', workingDirectory: '/tmp'
+    });
+
+    expect(calls[0]).toMatchObject({ method: 'patch', path: '/tasks/n1/job' });
+    expect(calls[0].body).toEqual({
+      job: { jobType: 'HTTP', url: 'https://e.com/ping', method: 'POST', headers: { 'X-Key': 'v' }, body: '{}' }
+    });
+  });
+
+  it('sends a complete EXEC job, and never a field from the other type', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/n1/job': { ...task, name: 'Digest' } });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', {
+      taskId: 'n1', jobType: 'EXEC', command: 'node digest.js', workingDirectory: 'D:\jobs',
+      url: 'https://e.com', headers: { 'X-Key': 'v' }
+    });
+
+    expect(calls[0].body).toEqual({
+      job: { jobType: 'EXEC', command: 'node digest.js', workingDirectory: 'D:\jobs' }
+    });
+  });
+
+  it('defaults the method rather than omitting it, so the stored job is complete', async () => {
+    // Omitting `method` must not mean "keep the old one" — this replaces the
+    // job, and a spec that silently inherits half of its predecessor is exactly
+    // the merge this route refuses to do.
+    const { client, calls } = stubClient({ 'PATCH /tasks/n1/job': task });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', { taskId: 'n1', jobType: 'HTTP', url: 'https://e.com' });
+
+    expect((calls[0].body as { job: Record<string, unknown> }).job).toEqual({
+      jobType: 'HTTP', url: 'https://e.com', method: 'GET'
+    });
+  });
+
+  it('url-encodes the task id', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/a%2Fb/job': task });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', { taskId: 'a/b', jobType: 'HTTP', url: 'https://e.com' });
+    expect(calls[0].path).toBe('/tasks/a%2Fb/job');
+  });
+
+  it('says the schedule and history survived, and points Windows elsewhere', async () => {
+    const { client } = stubClient({ 'PATCH /tasks/n1/job': task });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'update_native_job', { taskId: 'n1', jobType: 'HTTP', url: 'https://e.com' });
+    expect(text(r)).toMatch(/schedule, name and run history were preserved/i);
+
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'update_native_job');
+    // Replace-not-patch and the Windows alternative both have to be in the
+    // description — they are the two ways a caller gets this wrong.
+    expect(tool!.description).toMatch(/REPLACES/);
+    expect(tool!.description).toMatch(/update_task_action/);
+  });
+});
+
 describe('untrack_task', () => {
   it('POSTs to the untrack route', async () => {
     const { client, calls } = stubClient({
@@ -1556,6 +1630,8 @@ describe('error handling across the surface', () => {
       'POST /tasks/x/untrack': boom,
       'POST /tasks/preview': boom,
       'POST /templates/t/apply': boom,
+      'PATCH /tasks/x': boom,
+      'PATCH /tasks/x/job': boom,
       'PATCH /tasks/x/status': boom,
       'PATCH /tasks/x/schedule': boom,
       'PATCH /tasks/x/actions': boom,
@@ -1594,7 +1670,9 @@ describe('error handling across the surface', () => {
       ['edit_claude_routine', { routineId: 'x', newId: 'trig_2' }],
       ['sync_tasks', {}],
       ['get_task_health', {}],
-      ['list_run_history', {}]
+      ['list_run_history', {}],
+      ['rename_task', { taskId: 'x', name: 'New name' }],
+      ['update_native_job', { taskId: 'x', jobType: 'HTTP', url: 'https://e.com' }]
     ];
     // Every registered tool must appear above — a new tool that skips this guard
     // would be free to throw a stack trace at the model.
@@ -1800,18 +1878,31 @@ describe('Claude routines', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('reports what disconnecting stranded, and that the routine survives', async () => {
+  it('reports the tasks it removed, and that the routine itself survives', async () => {
+    // Both halves matter and they point opposite ways: the tracked rows GO
+    // (a Claude task is tracked because the routine is declared, so this is the
+    // only thing that removes one), and the routine at claude.ai STAYS.
     const { client } = stubClient({
       'DELETE /tools/platforms/claude/routines/trig_1': {
         removed: 'trig_1',
-        orphanedTasks: 3,
+        tasksRemoved: 3,
         connectionRemoved: true
       }
     });
     const mcp = await connect(client);
     const r = await call(mcp, 'disconnect_claude_routine', { routineId: 'trig_1' });
     expect(text(r)).toMatch(/still runs at claude\.ai/);
-    expect(text(r)).toMatch(/3 tracked task\(s\)/);
+    expect(text(r)).toMatch(/3 tracked task\(s\) were removed/);
+  });
+
+  it('tells an agent that untrack is not the way to remove a Claude task', async () => {
+    // The refusal lives in the backend, so the only thing this surface can do
+    // is route around it — and it can only do that if the description says so.
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const untrack = (await mcp.listTools()).tools.find(t => t.name === 'untrack_task');
+    expect(untrack!.description).toMatch(/CLAUDE_CODE/);
+    expect(untrack!.description).toMatch(/disconnect_claude_routine/);
   });
 
   it('explains an empty list rather than returning a bare zero', async () => {

@@ -141,24 +141,62 @@ Everything below the sources track, unchanged in priority relative to each other
       only because a declared routine gets a dashboard row, a working Run button and real run
       history, which is strictly more than the bookmark the quick-links-only platforms get.
 
-- [ ] **Most task attributes still cannot be edited** *(reported 2026-08-12)*: editing exists but is
-      patchy — **category** (inline), **schedule** (Windows + native) and **action/command**
-      (**Windows only**) are editable; **name**, the **native job spec** (URL/method/body, script,
-      working directory) and a task's **externalId** are not editable anywhere.
+- [x] **A Claude task is its declaration** *(2026-08-12)* — closes the reported loop where a routine's
+      task came back after every *"Remove from Cronsole"*, with `TaskExclusion` empty as if untrack
+      had never run.
 
-      **Renaming is a design fork, not a missing form.** `TaskService.upsertTasks` does
-      `update: { name: t.name }` on every sync while deliberately *not* updating `category` — so a
-      Cronsole-side rename would silently revert on the next sync. Three options, and they are
-      genuinely different products: (a) stop overwriting `name`, making it a Cronsole label like
-      category — but then a real rename on the machine never propagates; (b) rename on the platform
-      too, which for Windows means a real agent-side move; (c) a separate `displayName` override
-      that survives sync, leaving `name` as the platform's truth. **(c) matches the existing
-      category doctrine** — *a category is a Cronsole label; the Task Scheduler folder is the
-      machine* — and is the recommended default, but it is the user's call.
+      Untrack ran; its exclusion was then legitimately cleared. `TaskExclusion` assumes the Windows
+      shape — the task is on the machine, sync enumerates the machine, Cronsole remembers *"don't
+      re-import this"*. Claude inverts it: with no list API, `syncTasks` returns the routines declared
+      in `PlatformConnection.config`, so **the registry is the platform** and the exclusion fenced the
+      user's own config off from itself while the declaration stayed. Importing the Claude category
+      clears exclusions *by design*, which un-hid a routine that was never gone. The mirror half:
+      removing the routine left its task row behind as an un-runnable orphan.
 
-      **Editing the native job spec has no such fork** and is the clearest immediate win: the DB row
-      *is* the task, so there is nothing to diverge from. Today a native HTTP task's URL cannot be
-      changed at all.
+      Fixed as one mechanism — untrack **400s** for `CLAUDE_CODE` (bulk refuses per item without
+      halting), disconnecting the routine **removes its tasks and history** and writes **no**
+      exclusion, and the modal offers *Disconnect routine*. **Refused rather than widened**: making
+      untrack drop the routine too would silently spend a token claude.ai shows once, under a label
+      that mentions no credential. Pinned by an integration suite that reproduces the loop against
+      real Postgres. See [troubleshooting #47](troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole).
+
+- [x] **Renaming a task** *(2026-08-12)* — pencil in the task modal, `name` on `PATCH /api/tasks/:id`,
+      `rename_task` over MCP. Works on every platform; a rename is a **Cronsole label**, DB-only, and
+      the modal keeps the real `externalId` on screen and says so once the two diverge.
+
+      **This was logged as a three-way design fork and turned out not to be one**, which is worth
+      keeping as a record of how the wrong recommendation got made. The fork was read off the code —
+      `upsertTasks` does `update: { name: t.name }`, therefore a rename reverts, therefore you need
+      either a `displayName` column (recommended at the time) or an agent-side rename. Nobody had
+      asked whether that line *can fire*. It cannot: a Windows task's name is the last segment of its
+      path and the path **is** `externalId`, the key the row is matched on — so renaming on the
+      machine yields a **different task** (old path MISSING, new path imported), never a new name on
+      this one. Checked against the live DB: **354 Windows tasks, zero** whose stored name differed
+      from their path leaf. Claude's name is the user's own declaration; a native row *is* the task.
+
+      So option (a) — stop overwriting `name` — costs nothing, needs no migration, and `displayName`
+      would have been a second column maintained against an event that cannot happen. **Lesson: a
+      line of code is evidence that something was intended, not that it is reachable.**
+
+- [x] **Editing a Cronsole-native job spec** *(2026-08-12)* — `PATCH /api/tasks/:id/job`, an Edit
+      pencil on the task modal's Action section, and an `update_native_job` MCP tool. A native HTTP
+      task's URL previously could not be changed at all; the only route to a different URL was delete
+      and recreate, losing the run history.
+
+      Kept as its own route rather than folded into `/actions`: that one asks the elevated agent to
+      rewrite a task on the machine and records nothing until the platform confirms, while this one
+      rewrites a row the backend owns — the write *is* the change, and it works with the agent
+      offline. It **replaces** the job (the two job types share no fields, so a merge strands one
+      type's fields inside the other) and reuses the create route's `buildNativeJob` + `validateJob`,
+      so an edit can never produce a spec creation would have refused.
+
+- [ ] **The last unedited attribute** *(reported 2026-08-12)*: **category** (inline), **schedule**
+      (Windows + native), **action/command** (Windows), **job spec** (native) and **name** (all
+      platforms) are now editable. A task's **`externalId`** is not, and probably should not be —
+      it is the identity the row is keyed on and the address every signed agent command uses. For
+      Windows it is the Task Scheduler path, so "editing" it means moving the task on the machine;
+      for Claude it is the routine id, which `edit_claude_routine` already re-points properly. Left
+      open as a question rather than a task: is there a case for it that is not one of those two?
 
 - [ ] **`NativeTaskExecutor` has one intermittently failing test** *(logged 2026-08-12)*:
       `reports a non-zero exit as failure, and keeps stderr` failed roughly 1 run in 3 under full-suite

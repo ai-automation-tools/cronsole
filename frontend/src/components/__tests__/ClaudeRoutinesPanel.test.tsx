@@ -1,10 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { ClaudeRoutine } from '../../hooks/useClaudeRoutines';
 
 const addMutate = vi.fn();
 const removeMutate = vi.fn();
 const editMutate = vi.fn();
-let routines: any[] = [];
+let routines: ClaudeRoutine[] = [];
 
 vi.mock('../../hooks/useClaudeRoutines', () => ({
   useClaudeRoutines: () => ({ data: routines, isLoading: false }),

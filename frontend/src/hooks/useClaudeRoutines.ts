@@ -93,15 +93,27 @@ export const useEditClaudeRoutine = () => {
   });
 };
 
+/**
+ * Remove a routine — **the only way to stop tracking a Claude task.**
+ *
+ * A Claude task exists because the routine is declared here, so the declaration
+ * is the thing to remove: `POST /tasks/:id/untrack` refuses for this platform
+ * precisely because deleting the row alone leaves the routine in the config and
+ * the next sync brings it back. The server therefore deletes the tracked rows in
+ * the same request and reports `tasksRemoved`.
+ */
 export const useRemoveClaudeRoutine = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string): Promise<{ removed: string; orphanedTasks: number }> => {
+    mutationFn: async (id: string): Promise<{ removed: string; tasksRemoved: number; connectionRemoved: boolean }> => {
       const { data } = await api.delete(`/tools/platforms/claude/routines/${encodeURIComponent(id)}`);
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ROUTINES_KEY });
+      // The task rows went with it, so the dashboard is stale — this was the
+      // half that made a removed routine linger on screen as a MISSING task.
+      qc.invalidateQueries({ queryKey: ['tasks'] });
       qc.invalidateQueries({ queryKey: ['platform-matrix'] });
     }
   });

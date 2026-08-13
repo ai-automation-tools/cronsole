@@ -1,14 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { errorMessage } from '../utils/errorMessage';
 
 type Mode = 'login' | 'setup';
-
-/** Pull the backend's error message out of an axios error, with a sane fallback. */
-function errorMessage(err: unknown, fallback: string): string {
-  const anyErr = err as { response?: { data?: { error?: string } }; message?: string };
-  return anyErr?.response?.data?.error || anyErr?.message || fallback;
-}
 
 /**
  * The full-page login / first-run setup screen. Rendered by AuthGate when there

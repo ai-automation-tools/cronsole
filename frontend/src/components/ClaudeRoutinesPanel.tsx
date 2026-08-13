@@ -7,6 +7,7 @@ import {
   useRemoveClaudeRoutine,
   type ClaudeRoutine
 } from '../hooks/useClaudeRoutines';
+import { errorMessage } from '../utils/errorMessage';
 
 /**
  * **Declare a Claude routine so Cronsole can fire it.**
@@ -77,8 +78,8 @@ export const ClaudeRoutinesPanel = () => {
       const result = await edit.mutateAsync({ routineId: editing.id, ...changed });
       setWarnings(result.warnings ?? []);
       setEditing(null);
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? 'Could not update that routine.');
+    } catch (e) {
+      setError(errorMessage(e, 'Could not update that routine.'));
     }
   };
 
@@ -97,8 +98,8 @@ export const ClaudeRoutinesPanel = () => {
       });
       setWarnings(result.warnings);
       reset();
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? 'Could not save that routine.');
+    } catch (e) {
+      setError(errorMessage(e, 'Could not save that routine.'));
     }
   };
 
@@ -119,8 +120,8 @@ export const ClaudeRoutinesPanel = () => {
     if (!ok) return;
     try {
       await remove.mutateAsync(routine.id);
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? 'Could not remove that routine.');
+    } catch (e) {
+      setError(errorMessage(e, 'Could not remove that routine.'));
     }
   };
 

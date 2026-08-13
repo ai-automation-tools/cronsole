@@ -46,7 +46,7 @@ const selectClaude = () => fireEvent.click(screen.getByRole('button', { name: /^
 
 beforeEach(() => {
   vi.clearAllMocks();
-  (api.post as any).mockResolvedValue({ data: { warnings: [] } });
+  vi.mocked(api.post).mockResolvedValue({ data: { warnings: [] } });
 });
 
 describe('platform choice', () => {
@@ -157,7 +157,7 @@ describe('submitting a Claude routine', () => {
   it('surfaces a server shape warning instead of reporting a clean success', async () => {
     // It saved anyway, so silence would leave a likely-wrong paste to fail at
     // the first run with nothing pointing back here.
-    (api.post as any).mockResolvedValueOnce({ data: { warnings: ['"weird" does not look like a routine id'] } });
+    vi.mocked(api.post).mockResolvedValueOnce({ data: { warnings: ['"weird" does not look like a routine id'] } });
     renderModal();
     selectClaude();
     fireEvent.change(screen.getByLabelText('Routine id or fire URL'), { target: { value: 'weird' } });

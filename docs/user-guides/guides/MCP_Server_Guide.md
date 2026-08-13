@@ -314,6 +314,7 @@ For the package internals (source layout, design notes, `npm run inspect`), see 
 
 | Resource | Why you'd go there |
 |:---|:---|
+| [**💬 MCP prompt library**](../../prompts/mcp-server/README.md) | What to actually say once it's connected — grouped by what you're trying to do. |
 | [**🧩 mcp-server README**](../../../mcp-server/README.md) | Package internals, tool source, and the MCP Inspector. |
 | [**🖥️ UI User Guide**](UI_User_Guide.md) | The same actions in the dashboard. |
 | [**📄 Templates**](../../reports/templates/README.md) | The catalog `create_task_from_template` draws on. |

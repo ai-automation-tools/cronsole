@@ -28,6 +28,7 @@ Windows agent. If you haven't set Cronsole up yet, start with
 
 | Resource | Why you'd go there |
 |:---|:---|
+| [**💬 Prompt Library**](../prompts/README.md) | What to say once you're driving Cronsole from an assistant — scheduled scripts, headless agent runs, HTTP jobs, audits. |
 | [**📄 Templates**](../reports/templates/README.md) | The catalog of ready-to-apply task templates. |
 | [**🔧 Auto-start launcher**](../../scripts/startup-task/README.md) | Have the whole stack come up automatically at logon. |
 | [**🗺️ Roadmap**](../ROADMAP.md) | What's shipped and what's coming next. |

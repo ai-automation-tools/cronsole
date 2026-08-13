@@ -40,6 +40,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
   The MCP section is now a folder of eight task-shaped sets rather than one list: [**Windows tasks**](prompts/mcp-server/windows-tasks.md), [**AI agent jobs**](prompts/mcp-server/ai-agent-jobs.md) (headless Claude Code / Codex against a local repo, with the four fences that make an unattended coding agent safe to schedule), [**Cronsole-native**](prompts/mcp-server/native-tasks.md) (HTTP and script jobs, and the execution-host question that decides whether a path even exists), [**Claude routines**](prompts/mcp-server/claude-routines.md), [**templates**](prompts/mcp-server/templates.md), [**inspect & audit**](prompts/mcp-server/inspect-and-audit.md), [**manage**](prompts/mcp-server/manage-tasks.md), and [**cleanup & removal**](prompts/mcp-server/cleanup-and-removal.md). The hub gains an "I want to…" table so the entry point is the goal rather than the surface.
 
+  **One prompt per CLI, and an honest line between verified and not.** The AI-agent set covers
+  Claude Code, Codex, Gemini CLI, opencode, Cursor, Antigravity and Aider — with a table of where
+  each one's fence actually sits, because they differ: Claude Code fences per tool, Codex by
+  sandbox, and three of them have no allowlist at all, so their only headless mode is blanket
+  auto-approve and the fence has to move to the checkout. Only the Claude Code and Codex
+  invocations are template-backed and verified; **every other prompt instructs the assistant to
+  read `--help` before writing the command line** rather than reprinting flags this repo hasn't
+  checked. Antigravity gets the sharper warning it needs: a GUI-first tool scheduled with no
+  desktop session hangs silently, so "does it even have a headless mode" is the first question,
+  not the command line.
+
   **The prompts carry the refusals, not just the happy path.** Each set states what Cronsole will decline and why — folder-must-exist, `\Microsoft\` denied, untrack refused on native and Claude, delete native-only and archived first — because a prompt library that only shows the successes teaches an assistant to route around them.
 
   The REST set picks up the surfaces that landed since it was written (bulk verbs, analytics, CSV history, deleted-task archives, bulk export/restore, Claude routine declarations), and the skill set gains connector and capability-matrix prompts. Linked from the root README, the docs hub, the User Guides index, the MCP Server Guide, the `mcp-server` package README, `skills/README.md`, the templates catalog, and the Sources Guide. **Adding or removing an MCP tool now obligates this folder** — recorded in the mirror-surface tables in `CLAUDE.md` §11a and `SKILL.md`.

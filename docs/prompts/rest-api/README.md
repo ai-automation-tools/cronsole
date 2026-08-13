@@ -20,9 +20,10 @@ Cronsole's **REST API** directly with `curl` (or any HTTP client).
 Two reasons to reach for this surface:
 
 1. **No MCP host handy** — you just want the assistant to hit the API from a shell.
-2. **A REST-only operation** — template **import/export**, **save-a-task-as-a-template**,
-   registry **sync**, and agent **pairing** are *not* exposed over MCP by design. REST is the
-   supported path.
+2. **A REST-only operation.** Several things are deliberately not on the MCP surface: template
+   **import/export**, **save-a-task-as-a-template**, **bulk** status / recategorize / untrack,
+   **analytics** and CSV export, **deleted-task archives**, bulk **export & restore**,
+   **favorites**, and agent **pairing**. REST is the supported path for all of them.
 
 > [!IMPORTANT]
 > **Prerequisites:** the backend running (default `http://localhost:3000`) and a **JWT** for
@@ -74,6 +75,12 @@ https://example.com/health and a 10-minute schedule.
 ```
 
 ```text
+Using the Cronsole REST API, POST to /api/tasks/native to create a job that GETs
+https://my-service.example.com/health every five minutes. Show me the nested job
+spec — jobType, url, method — before you send it.
+```
+
+```text
 Using the Cronsole REST API, preview how the cron "0 */4 * * *" converts before I
 commit to it (POST /api/tasks/preview), and read back the resulting trigger.
 ```
@@ -101,6 +108,74 @@ Using the Cronsole REST API, import the template JSON in ./my-template.json
 ```text
 Using the Cronsole REST API, turn my existing task <task-id> into a reusable
 template (POST /api/tasks/:id/save-as-template) named "Nightly Repo Sync".
+```
+
+## 📊 Analytics, history & archives
+
+```text
+Using the Cronsole REST API, GET /api/tools/analytics and summarize the failure
+trend and the idle report. Tell me what the duration trend excludes and why —
+I don't want Windows handshakes ranked against real job durations.
+```
+
+```text
+Using the Cronsole REST API, pull the cross-task run history
+(GET /api/tools/history) for the last 30 days as CSV and save it. Note that each
+row carries a runKind so I can tell what the status actually measured.
+```
+
+```text
+Using the Cronsole REST API, GET /api/tools/task-health and show me the ten
+worst-scoring tasks with the signals behind each score. Treat "unknown" as
+missing evidence, not as a pass.
+```
+
+```text
+Using the Cronsole REST API, list my deleted-task archives
+(GET /api/tools/task-archives) and show me the full definition of the one I
+removed this morning.
+```
+
+## 🧯 Bulk operations & backup
+
+These have no MCP tool at all — friction is meant to scale with blast radius, and the dashboard's
+Mass Actions console asks you to type the count past 25 tasks.
+
+```text
+Using the Cronsole REST API, POST /api/tools/tasks/status to disable these task
+ids. Show me the per-item outcomes — updated, unchanged, refused, failed, skipped
+— rather than a single success flag.
+```
+
+```text
+Using the Cronsole REST API, untrack these task ids
+(POST /api/tools/tasks/untrack). Confirm first that untrack refuses native and
+Claude tasks per item without halting the batch.
+```
+
+```text
+Using the Cronsole REST API, export every Windows task on this machine
+(POST /api/tools/export/tasks). Tell me how many \Microsoft\ tasks were excluded
+by default, and name anything I selected that the machine didn't report.
+```
+
+```text
+Using the Cronsole REST API, plan a restore from my archive
+(POST /api/tools/restore/tasks with dryRun true). Show me the create / overwrite
+/ skip / refuse decision for every file before anything is written.
+```
+
+## 🧠 Claude routines
+
+```text
+Using the Cronsole REST API, GET /api/tools/platforms/claude/routines and tell me
+which API mode this install has. If it's "declared", explain what that limits.
+```
+
+```text
+Using the Cronsole REST API, remove the Claude routine declaration <routine-id>
+(DELETE /api/tools/platforms/claude/routines/:id). Tell me how many tracked tasks
+that removes before you send it.
 ```
 
 ## ⚙️ Manage
@@ -132,6 +207,7 @@ report the result.
 | [**🧪 API examples**](../../reports/examples/README.md) | Real request/response JSON to hand the assistant. |
 | [**🧩 MCP Server Guide**](../../user-guides/guides/MCP_Server_Guide.md) | How the JWT these prompts need is minted. |
 | [**🧩 MCP prompts**](../mcp-server/README.md) | The same operations in natural language, when you have an MCP host. |
+| [**🧹 Cleanup & removal**](../mcp-server/cleanup-and-removal.md) | Which removal verb you actually want, before you POST one in bulk. |
 | [**✍️ Task authoring & management**](../../../skills/cronsole/references/task-authoring.md) | The rules the API enforces — UTC cron, no-shell, folder refusals. |
 
 ---

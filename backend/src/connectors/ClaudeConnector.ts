@@ -6,55 +6,65 @@ import {
   TaskInfo,
   ConnectorHealth,
   CreateTaskOptions,
+  UpdateScheduleOptions,
   CapabilityVerb
 } from './platform.interface.js';
+import { getClaudeCredential } from '../services/claudeOAuth.js';
+import {
+  listTriggers,
+  createTrigger,
+  updateTrigger,
+  runTrigger,
+  environmentIdFrom,
+  promptOf,
+  repositoriesOf,
+  parseTimestamp,
+  type ClaudeTrigger
+} from '../services/claudeTriggers.js';
 
 /**
  * **Claude Code Routines** — a routine is a saved prompt + repos + connectors that
  * Anthropic runs on a schedule, on a GitHub event, or when something POSTs to it.
  *
- * The scaffold that stood here since the MVP guessed at an API. Checked against
- * the live docs (2026-08-12) the guess was right about the one endpoint that
- * exists and wrong about everything it implied would follow:
+ * ## This connector has two modes, because the platform has two APIs
  *
- * > **`POST /v1/claude_code/routines/{trig_id}/fire` is the entire API surface.**
- * > Auth is a per-routine bearer token generated in the claude.ai UI, and the
- * > reference states it plainly: *"One routine only; **no read access**."*
+ * From the MVP until 2026-08-13 this file asserted, in its own header, that
+ * `POST /v1/claude_code/routines/{id}/fire` was *"the entire API surface"* — no
+ * list, no create, no enable/disable — and built the whole connector around that:
+ * `syncTasks` handed back the user's own typed registry, `create` and `setStatus`
+ * were declared structurally impossible, and health could only be inferred from
+ * whether a fire had worked.
  *
- * There is no list endpoint, no get, no enable/disable, no create, and no token
- * management — the docs say so in as many words. That is not a gap waiting on a
- * beta flag, it is the shape of the product: routines are owned by claude.ai and
- * exposed to the outside world through a single doorbell per routine.
+ * That was true of the **documented** API and false of the product. Claude Code
+ * itself creates, lists, reschedules and fires routines every time someone runs
+ * `/schedule`, through `/v1/code/triggers` — undocumented, beta-gated, and
+ * authenticated with the account's own OAuth token rather than a per-routine one.
  *
- * Three consequences run through everything below, and each one inverts a habit
- * the other connectors taught:
+ * | | **OAuth mode** (door 2) | **Declared mode** (door 1) |
+ * |---|---|---|
+ * | Credential | the Claude Code account token | a `sk-ant-oat01-…` token per routine |
+ * | Available when | a host-run backend can read the CLI's credentials | always |
+ * | `syncTasks` | a real read: names, cron, enabled, next run | the user's typed registry |
+ * | `create` / `setStatus` / `updateSchedule` | yes | **unsupported** |
+ * | `run` | no per-routine token needed | needs the routine's token |
  *
- * **1. This connector writes but cannot read.** It is the mirror image of the
- * observer shape (GitHub Actions, Vercel Cron) the roadmap plans for everything
- * else — those can read everything and change nothing. `run` is the only verb
- * with a platform behind it; `create` and `setStatus` are declared
- * {@link unsupportedVerbs}, because a cell saying *"declared"* would promise
- * evidence that can never arrive.
+ * **Declared mode is kept, not deprecated.** Door 2 is undocumented and can be
+ * withdrawn without notice; a connector that migrated onto it and deleted the
+ * fallback would take every user's Claude routines down with it on the day the
+ * beta header stops being accepted. Door 1 is slower and narrower and it is
+ * *promised*. So the fallback is load-bearing, and
+ * {@link ClaudeConnector.mode} is re-read per call rather than fixed at boot —
+ * a credential expiring mid-session degrades the connector instead of breaking it.
  *
- * **2. `syncTasks` is a declared registry, not a sync.** Nothing is fetched. The
- * user pastes each routine's id and token into the connection config, and that
- * list *is* the answer — see {@link syncTasks} for why it is still worth having.
+ * ## What is still impossible, in both modes
  *
- * **3. Health can only come from firing.** There is no probe: the sole endpoint
- * has a side effect, so "check if this works" and "run the user's routine" are
- * the same request. Health is therefore read back from the evidence the run
- * route already records, never invented — see {@link getHealth}.
- *
- * Expected config (per routine, from the routine's **API trigger** modal):
- * ```
- * { routines: [ { id: 'trig_xxx', token: 'sk-ant-oat01-xxx', name: 'Nightly PR review' } ] }
- * ```
- * `id` is `trig_`-prefixed despite the path calling it `routine_id` — the docs
- * flag that mismatch themselves, and a `routine_`-shaped value is a sign the
- * user copied the wrong identifier.
+ * **Delete.** There is no DELETE endpoint on either door — verified by
+ * enumerating the surface, not assumed. A routine can be disabled and forgotten;
+ * removing it happens at claude.ai. `deleteTask` is therefore not implemented,
+ * and the route refuses rather than leaving an orphaned routine behind.
  */
 
-/** The beta gate the endpoint ships behind. Absent → 400, not 404. */
+/** The beta gate on the documented per-routine fire endpoint (door 1). */
 const ROUTINE_BETA = 'experimental-cc-routine-2026-04-01';
 
 const FIRE_ENDPOINT = (routineId: string) =>
@@ -72,8 +82,7 @@ interface DeclaredRoutine {
  * Not `{ ...r, token: undefined }`, which is what this used to be: that leaves a
  * `token` key present with an undefined value, and it only stayed out of the DB
  * because `JSON.stringify` happens to drop undefined. A secret surviving in the
- * object graph on a serializer's incidental behaviour is not a decision, and the
- * next thing to touch this metadata may not serialize it the same way.
+ * object graph on a serializer's incidental behaviour is not a decision.
  */
 const withoutToken = (routine: DeclaredRoutine): Record<string, unknown> => {
   const { token: _token, ...rest } = routine;
@@ -83,49 +92,70 @@ const withoutToken = (routine: DeclaredRoutine): Record<string, unknown> => {
 const declaredRoutines = (config: any): DeclaredRoutine[] =>
   Array.isArray(config?.routines) ? config.routines : [];
 
+/** Verbs door 1 structurally cannot perform. Door 2 can do all of them. */
+const DECLARED_MODE_UNSUPPORTED: readonly CapabilityVerb[] = ['create', 'setStatus', 'updateSchedule'];
+
+export type ClaudeConnectorMode = 'oauth' | 'declared';
+
 export class ClaudeConnector implements PlatformConnector {
   platform = PlatformType.CLAUDE_CODE;
 
-  /**
-   * Both are hardcoded refusals below, because Anthropic exposes no endpoint for
-   * either. Naming them here is what makes the Platforms matrix say `unsupported`
-   * rather than `declared` — see `unsupportedVerbs` on the interface.
-   *
-   * `setStatus` is the one that stings: routines really can be paused, and a
-   * paused routine is precisely what makes `/fire` return 400. So Cronsole can
-   * *observe* the disabled state (as a run failure) while being unable to read or
-   * set it. Pausing stays in the claude.ai UI.
-   */
-  readonly unsupportedVerbs: readonly CapabilityVerb[] = ['create', 'setStatus'];
+  /** Which door is open right now. Re-read per call — see the header. */
+  get mode(): ClaudeConnectorMode {
+    return getClaudeCredential().credential ? 'oauth' : 'declared';
+  }
 
   /**
-   * The routines the user declared, normalized into tasks.
+   * **A getter, because the answer is a property of this install.**
    *
-   * Nothing is fetched — there is no endpoint to fetch from. Calling that a
-   * "sync" is generous, and the honest question is whether it should exist at
-   * all rather than leaving Claude a quick link like ChatGPT and Jules.
+   * The capability matrix asks "what can Cronsole do with this platform *here*",
+   * and the honest answer changes with the credential: without one, `create` is
+   * a boundary; with one, it is a verb that works. A fixed array could only ever
+   * be right in one of those worlds, and being wrong in the permissive direction
+   * is the spec-table lie the matrix exists to prevent.
    *
-   * It should, for one reason: **a link cannot run anything.** A declared routine
-   * gets a real row on the dashboard next to the Windows tasks, a Run button that
-   * genuinely fires it, and run history in `ExecutionLog`. That is strictly more
-   * than a bookmark, which is the bar the roadmap sets for keeping a connector.
+   * Cheap to call despite the file read behind it — `getClaudeCredential` is
+   * memoized, which is the reason that cache exists.
+   */
+  get unsupportedVerbs(): readonly CapabilityVerb[] {
+    return this.mode === 'oauth' ? [] : DECLARED_MODE_UNSUPPORTED;
+  }
+
+  /**
+   * The routines on the account (OAuth), or the ones the user declared.
    *
-   * What it must not do is imply freshness. Every row is `ACTIVE` because the
-   * config says the routine exists, not because the platform confirmed it — a
-   * routine deleted in claude.ai still lists here and only reveals itself on the
-   * 404 from its next run.
+   * In **OAuth mode this is a real sync** and everything on the row is the
+   * platform's own answer: the routine's name, its cron, whether it is enabled,
+   * and when it next runs. Two details are deliberate. `cron_expression` is
+   * already 5-field UTC, which is Cronsole's storage contract, so **nothing is
+   * converted** anywhere in this path. And `next_run_at` is taken from the API
+   * rather than recomputed from the cron, because Anthropic applies up to ~3
+   * minutes of scheduling jitter — a locally derived time would disagree with
+   * claude.ai forever, with nothing on screen to say which was right.
+   *
+   * In **declared mode** nothing is fetched, because there is nothing to fetch
+   * from: every row is `ACTIVE` because the config says the routine exists, not
+   * because the platform confirmed it, and a routine deleted at claude.ai still
+   * lists until its next run 404s.
    */
   async syncTasks(config: any): Promise<TaskInfo[]> {
+    const { credential } = getClaudeCredential();
+    if (credential) {
+      const result = await listTriggers(credential.token);
+      if (result.ok) return result.data.map(toTaskInfo);
+      // Door 2 failed. Fall through to the declaration rather than returning an
+      // empty list: an empty sync would untrack every Claude task the user has
+      // (or, with exclusions, look like they all vanished) over what may be a
+      // transient 500. Absence of an answer is not an answer.
+    }
     return declaredRoutines(config)
       .filter(r => typeof r.id === 'string' && r.id.length > 0)
       .map(r => ({
         externalId: r.id as string,
         name: (typeof r.name === 'string' && r.name) || (r.id as string),
-        // Declared, not observed. Claude exposes no read API, so this is the
-        // user's assertion that the routine exists — never the platform's.
         status: 'ACTIVE' as const,
-        // Deliberately absent rather than guessed. A routine's schedule lives in
-        // claude.ai and is not readable here; inventing a cron would put a
+        // Deliberately absent rather than guessed. Without a read API a routine's
+        // schedule is not knowable here, and inventing a cron would put a
         // confident next-run time under a task Cronsole does not schedule.
         schedule: null,
         nextRunTime: null,
@@ -134,18 +164,48 @@ export class ClaudeConnector implements PlatformConnector {
   }
 
   /**
-   * Fire the routine. The one verb with a platform behind it.
+   * Fire the routine now.
    *
-   * **No request body.** The endpoint's optional `text` field is delivered to the
-   * routine wrapped in a `<routine-fire-payload>` block labelled untrusted, and a
-   * routine only acts on it if its saved prompt explicitly says to. This used to
-   * send `text: 'Triggered from Cronsole'`, which is inert for most routines and
+   * OAuth mode needs **no per-routine token** — that is the practical payoff of
+   * door 2, and the reason the paste-a-token-per-routine registry stops being
+   * the price of admission.
+   *
+   * Neither path sends a body. The fire endpoints accept an optional `text`
+   * delivered to the routine inside a block labelled untrusted, and a routine
+   * only acts on it if its saved prompt says to. This used to send
+   * `text: 'Triggered from Cronsole'`, which is inert for most routines and
    * actively harmful for the ones that opt in — an alert-triage routine told to
-   * "investigate the alert in the fire payload" would have found our filler
-   * string where the alert should be. The body is optional; sending none is both
-   * correct and the only thing that cannot displace real context.
+   * "investigate the alert in the fire payload" would find our filler string
+   * where the alert should be.
    */
   async runTask(
+    externalId: string,
+    config: any
+  ): Promise<{ success: boolean; platformRunId?: string; message?: string }> {
+    const { credential } = getClaudeCredential();
+    if (credential) {
+      const result = await runTrigger(credential.token, externalId);
+      if (result.ok) {
+        // Fire-and-forget by design: the endpoint returns as soon as the session
+        // is created and never waits for it. SUCCESS means "Anthropic accepted
+        // the start" — the same caveat Windows carries.
+        return {
+          success: true,
+          platformRunId: result.data.sessionId,
+          message: result.data.sessionId
+            ? `Session started: https://claude.ai/code/sessions/${result.data.sessionId}`
+            : 'Session started'
+        };
+      }
+      // A routine-specific failure (404, 429, paused) is the platform's answer
+      // and stands. Only a surface change falls back to the declared token.
+      if (!result.surfaceMoved) return { success: false, message: result.message };
+    }
+    return this.fireWithRoutineToken(externalId, config);
+  }
+
+  /** Door 1: the documented per-routine fire endpoint. */
+  private async fireWithRoutineToken(
     externalId: string,
     config: any
   ): Promise<{ success: boolean; platformRunId?: string; message?: string }> {
@@ -157,8 +217,9 @@ export class ClaudeConnector implements PlatformConnector {
       return {
         success: false,
         message:
-          'No API token for this routine. Tokens are generated per routine in the claude.ai UI ' +
-          '(Edit routine → Add another trigger → API → Generate token) and shown once.'
+          'No API token for this routine, and no Claude Code session to fall back on. ' +
+          'Either sign in with the Claude Code CLI (`/login`) on the machine running Cronsole, ' +
+          'or generate a per-routine token at claude.ai (Edit routine → Add another trigger → API).'
       };
     }
 
@@ -170,11 +231,6 @@ export class ClaudeConnector implements PlatformConnector {
           'anthropic-beta': ROUTINE_BETA
         }
       });
-
-      // Fire-and-forget by design: the endpoint returns as soon as the session is
-      // created and never waits for it. So this SUCCESS means "Anthropic accepted
-      // the start" — the same caveat Windows carries, and the session URL is the
-      // only place the real outcome can be read.
       return {
         success: true,
         platformRunId: response.data?.claude_code_session_id,
@@ -188,60 +244,165 @@ export class ClaudeConnector implements PlatformConnector {
   }
 
   /**
-   * Not supported, and not pending. Pausing and resuming a routine happens in the
-   * claude.ai UI; no endpoint exists. Declared in `unsupportedVerbs` so the
-   * matrix says so rather than showing an unproven cell.
+   * Pause or resume a routine.
+   *
+   * Impossible through door 1, and the old comment here called it the refusal
+   * that stings: routines really can be paused, and a paused routine is exactly
+   * what makes `/fire` return 400 — so Cronsole could *observe* the state while
+   * being unable to read or set it. Door 2 sets it directly.
+   *
+   * The update is **partial**, verified against the live API: sending `{enabled}`
+   * alone leaves `job_config` and `cron_expression` untouched. That is the fact
+   * this method rests on — a replace-semantics endpoint would erase the routine's
+   * prompt every time someone clicked Disable.
    */
   async setTaskStatus(
-    _externalId: string,
-    _enabled: boolean,
+    externalId: string,
+    enabled: boolean,
     _config: any
   ): Promise<{ success: boolean; message?: string }> {
-    return {
-      success: false,
-      message:
-        'Claude Code exposes no API for pausing a routine — the fire endpoint is the whole surface. ' +
-        'Pause or resume it at claude.ai/code/routines.'
-    };
+    const { credential, reason } = getClaudeCredential();
+    if (!credential) {
+      return {
+        success: false,
+        message:
+          'Pausing a routine needs a Claude Code session on the machine running Cronsole. ' +
+          (reason ?? 'Sign in with the Claude Code CLI (`/login`).') +
+          ' Until then, pause it at claude.ai/code/routines.'
+      };
+    }
+    const result = await updateTrigger(credential.token, externalId, { enabled });
+    return result.ok ? { success: true } : { success: false, message: result.message };
   }
 
   /**
-   * Health from evidence, or no claim at all.
+   * Change when a routine runs.
    *
-   * This used to return HEALTHY whenever the config held a routine — a verdict
-   * derived from a *precondition*, which cannot change when the platform fails.
-   * That is troubleshooting #40 exactly, and the old comment here admitted it.
+   * Takes the **cron** rather than a native trigger: Claude's `cron_expression`
+   * is 5-field UTC, the same form Cronsole stores, so this is the one platform
+   * where a reschedule is a straight pass-through. `options.trigger` is the
+   * Windows-shaped conversion the route also computes; it is deliberately
+   * ignored here, since converting to a Windows trigger and back could only lose
+   * information a cron already expresses exactly.
+   */
+  async updateSchedule(
+    externalId: string,
+    cron: string,
+    _config: any,
+    _options?: UpdateScheduleOptions
+  ): Promise<{ success: boolean; message?: string; clientError?: boolean }> {
+    const { credential, reason } = getClaudeCredential();
+    if (!credential) {
+      return {
+        success: false,
+        clientError: true,
+        message:
+          'Editing a routine\'s schedule needs a Claude Code session on the machine running Cronsole. ' +
+          (reason ?? 'Sign in with the Claude Code CLI (`/login`).') +
+          ' Until then, edit it at claude.ai/code/routines.'
+      };
+    }
+    const result = await updateTrigger(credential.token, externalId, { cronExpression: cron });
+    return result.ok ? { success: true } : { success: false, message: result.message };
+  }
+
+  /**
+   * Create a routine.
    *
-   * The fix cannot be "probe it", because **the only endpoint has a side effect**:
-   * checking whether a routine works and running the user's routine are the same
-   * HTTP request. A connector that probed on every health poll would fire the
-   * user's nightly PR review every thirty seconds and burn their daily run cap.
+   * `command` is the routine's **prompt** — the whole of what it will do. That
+   * is the one place this connector's shape diverges sharply from the others: a
+   * Windows task's command is an executable and arguments, and a routine's is
+   * natural language, so none of the no-shell `StructuredAction` machinery
+   * applies or is needed (there is no shell here to inject into; the prompt is
+   * data delivered to a model in a sandbox Anthropic owns).
    *
-   * So health is read back from the evidence the run route already records in
-   * `PlatformCapability` — the same rows the Platforms matrix reads. Nothing new
-   * is stored and nothing is stamped by the observer: a fire either happened or
-   * it didn't.
+   * Two boundaries are honest refusals rather than guesses:
    *
-   * Before the first run there is genuinely nothing to report, and as of
-   * 2026-08-13 that has its own state: **UNKNOWN**. This used to return DEGRADED
-   * with a reason naming why — pessimistic-with-an-explanation, chosen because
-   * the three-value enum had no way to say *no verdict* and trusting an
-   * unchecked config was the worse failure.
+   * **The environment.** A routine runs in a cloud environment, and the id is
+   * read back from the account's existing routines rather than looked up through
+   * a second authenticated endpoint. An account with no routines has nothing to
+   * copy, and Cronsole says so instead of inventing an id that would fail at the
+   * first run.
    *
-   * It was still the wrong shape, for a reason the Windows connector then made
-   * concrete: a warning nobody can act on is indistinguishable from one they
-   * should, so the two get read at the same weight and then both get ignored.
-   * "Never fired" is not a degradation — nothing has gone wrong, and the user's
-   * next run may well succeed.
+   * **Repositories.** A routine with no `sources` still runs; it simply has no
+   * checkout. Cronsole does not guess one, because attaching the wrong
+   * repository to an agent with write access is not a mistake a user can see
+   * before it happens.
+   */
+  async createTask(
+    name: string,
+    schedule: string,
+    command: string,
+    _config: any,
+    options?: CreateTaskOptions
+  ): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated?: string[] }> {
+    const { credential, reason } = getClaudeCredential();
+    if (!credential) {
+      return {
+        success: false,
+        foldersCreated: [],
+        message:
+          'Creating a routine needs a Claude Code session on the machine running Cronsole. ' +
+          (reason ?? 'Sign in with the Claude Code CLI (`/login`).') +
+          ' Alternatively create it at claude.ai/code/routines or with `/schedule` in the CLI, then sync.'
+      };
+    }
+
+    const existing = await listTriggers(credential.token);
+    if (!existing.ok) {
+      return { success: false, foldersCreated: [], message: existing.message };
+    }
+    const environmentId = environmentIdFrom(existing.data);
+    if (!environmentId) {
+      return {
+        success: false,
+        foldersCreated: [],
+        message:
+          'No Claude Code cloud environment found on this account. Create your first routine at ' +
+          'claude.ai/code/routines (or with `/schedule`), which sets one up — Cronsole can create the rest.'
+      };
+    }
+
+    const result = await createTrigger(credential.token, {
+      name,
+      cronExpression: schedule,
+      prompt: command,
+      environmentId,
+      repositoryUrls: options?.repositoryUrls,
+      allowedTools: options?.allowedTools
+    });
+    if (!result.ok) return { success: false, foldersCreated: [], message: result.message };
+
+    return { success: true, externalId: result.data.id, foldersCreated: [] };
+  }
+
+  /**
+   * Health from evidence, never from a precondition — and never from a probe.
    *
-   * So every branch below that reports *an absence of evidence* — no routines,
-   * no user scope, an unreadable capability table, no run yet — returns UNKNOWN.
-   * DEGRADED is kept for the one branch that has evidence: a run that failed.
+   * The probe question is settled differently in each mode, for the same reason.
+   * Through door 1 the only endpoint **fires the routine**, so "check whether
+   * this works" and "run the user's nightly job" are the same HTTP request, and
+   * a health poll would burn their daily run cap. Door 2's `listTriggers` is a
+   * clean read and *could* be probed — but `getHealth` runs on a 45-second poll
+   * per open tab, so probing would put a steady stream of requests on Anthropic's
+   * API for a question the user answers themselves whenever they sync. Same
+   * conclusion the Windows connector reached: **sync is the user's probe.**
+   *
+   * So this reads back the `PlatformCapability` evidence the routes already
+   * write. Every branch reporting an *absence* of evidence returns UNKNOWN
+   * ("Not checked") rather than DEGRADED: never having run is not a degradation,
+   * and a warning nobody can act on gets read at the same weight as one they
+   * should — after which both get ignored.
    */
   async getHealth(config: any): Promise<ConnectorHealth> {
+    const { credential, reason } = getClaudeCredential();
     const routines = declaredRoutines(config);
-    if (routines.length === 0) {
-      return { state: HealthState.UNKNOWN, reason: 'No routines configured' };
+
+    if (!credential && routines.length === 0) {
+      return {
+        state: HealthState.UNKNOWN,
+        reason: reason ?? 'No routines configured, and no Claude Code session to read them from'
+      };
     }
 
     const userId = config?.userId;
@@ -249,14 +410,14 @@ export class ClaudeConnector implements PlatformConnector {
       return { state: HealthState.UNKNOWN, reason: 'No evidence: connection is not scoped to a user' };
     }
 
-    // `run` is the only verb that reaches the platform, so it is the only verb
-    // whose evidence says anything about whether this connection works.
-    let evidence: { lastSuccessAt: Date | null; lastFailureAt: Date | null; lastFailureReason: string | null } | null =
-      null;
+    // In OAuth mode `sync` reaches the platform too, so it is evidence; in
+    // declared mode it never leaves the process and says nothing about Anthropic.
+    const verbs = credential ? ['sync', 'run'] : ['run'];
+    let rows: Array<{ verb: string; lastSuccessAt: Date | null; lastFailureAt: Date | null; lastFailureReason: string | null }>;
     try {
-      evidence = await prisma.platformCapability.findUnique({
-        where: { userId_platform_verb: { userId, platform: PlatformType.CLAUDE_CODE, verb: 'run' } },
-        select: { lastSuccessAt: true, lastFailureAt: true, lastFailureReason: true }
+      rows = await prisma.platformCapability.findMany({
+        where: { userId, platform: PlatformType.CLAUDE_CODE, verb: { in: verbs } },
+        select: { verb: true, lastSuccessAt: true, lastFailureAt: true, lastFailureReason: true }
       });
     } catch {
       // Reading the evidence is not the subject of the check. A DB hiccup here
@@ -264,61 +425,79 @@ export class ClaudeConnector implements PlatformConnector {
       return { state: HealthState.UNKNOWN, reason: 'Could not read run history for this platform' };
     }
 
-    const succeeded = evidence?.lastSuccessAt ?? null;
-    const failed = evidence?.lastFailureAt ?? null;
+    const newest = (pick: (r: (typeof rows)[number]) => Date | null): { at: Date; row: (typeof rows)[number] } | null =>
+      rows.reduce<{ at: Date; row: (typeof rows)[number] } | null>((best, row) => {
+        const at = pick(row);
+        if (!at) return best;
+        return !best || at > best.at ? { at, row } : best;
+      }, null);
+
+    const succeeded = newest(r => r.lastSuccessAt);
+    const failed = newest(r => r.lastFailureAt);
 
     if (!succeeded && !failed) {
       return {
         state: HealthState.UNKNOWN,
-        reason:
-          `${routines.length} routine${routines.length === 1 ? '' : 's'} configured, none fired yet. ` +
-          'Claude Code exposes no read API, so a routine can only be verified by running it.'
+        reason: credential
+          ? 'Connected with your Claude Code session; nothing exercised yet. Sync to check.'
+          : `${routines.length} routine${routines.length === 1 ? '' : 's'} configured, none fired yet. ` +
+            'Without a Claude Code session a routine can only be verified by running it.'
       };
     }
 
-    if (failed && (!succeeded || failed > succeeded)) {
+    if (failed && (!succeeded || failed.at > succeeded.at)) {
       return {
         state: HealthState.DEGRADED,
-        reason: evidence?.lastFailureReason
-          ? `Last run failed: ${evidence.lastFailureReason}`
-          : 'Last run failed',
+        reason: failed.row.lastFailureReason
+          ? `Last ${failed.row.verb} failed: ${failed.row.lastFailureReason}`
+          : `Last ${failed.row.verb} failed`,
         // The last time Anthropic answered us at all — a rejection is contact.
-        lastContactAt: failed
+        lastContactAt: failed.at
       };
     }
 
-    return { state: HealthState.HEALTHY, lastContactAt: succeeded ?? undefined };
+    return { state: HealthState.HEALTHY, lastContactAt: succeeded?.at };
   }
 
-  /**
-   * Not supported, and not pending. Routines are created at claude.ai/code/routines
-   * or with `/schedule` in the Claude Code CLI; there is no create endpoint.
-   */
-  async createTask(
-    _name: string,
-    _schedule: string,
-    _command: string,
-    _config: any,
-    _options?: CreateTaskOptions
-  ): Promise<{ success: boolean; message?: string }> {
-    return {
-      success: false,
-      message:
-        'Claude Code exposes no API for creating a routine. Create it at claude.ai/code/routines ' +
-        '(or with /schedule in the Claude Code CLI), then add its id and API token here.'
-    };
-  }
+  // deleteTask is deliberately absent. Neither door exposes a DELETE — verified
+  // by enumerating the surface, not assumed — so the route refuses rather than
+  // reporting a success that leaves the routine running at claude.ai.
+}
+
+/** One routine, as Cronsole's task shape. */
+function toTaskInfo(trigger: ClaudeTrigger): TaskInfo {
+  const repositories = repositoriesOf(trigger);
+  const prompt = promptOf(trigger);
+  return {
+    externalId: trigger.id,
+    name: trigger.name || trigger.id,
+    status: trigger.enabled ? 'ACTIVE' : 'DISABLED',
+    // Already 5-field UTC — Cronsole's storage contract. An empty string means
+    // the routine has no schedule (it fires on an event or an API call), which
+    // is null here rather than a cron nobody can read.
+    schedule: trigger.cron_expression || null,
+    // The platform's own answer, jitter included. Never recomputed locally.
+    nextRunTime: parseTimestamp(trigger.next_run_at),
+    metadata: {
+      declared: false,
+      ...(prompt ? { prompt } : {}),
+      ...(repositories.length ? { repositories } : {}),
+      ...(trigger.last_fired_at ? { lastFiredAt: trigger.last_fired_at } : {}),
+      // A routine that also has an API trigger — useful to know, and the hint is
+      // already redacted by the API (`sk-ant-oat01-Sc4…CQAA`).
+      ...(trigger.api_token_hint ? { apiTokenHint: trigger.api_token_hint } : {}),
+      url: `https://claude.ai/code/routines/${trigger.id}`
+    }
+  };
 }
 
 /**
- * Turn a fire failure into something that names the actual cause.
+ * Turn a door-1 fire failure into something that names the actual cause.
  *
  * Every one of these arrived as an opaque `error.message` before, which mattered
  * most for the two that are not really errors at all: a **paused routine** is a
- * 400 and is the *only* signal Cronsole ever gets about a routine's enabled
- * state, and a **429** is a quota boundary rather than a broken config. Telling
- * a user "Bad Request" when their routine is simply paused sends them to debug
- * the token.
+ * 400 and is the *only* signal door 1 ever gets about a routine's enabled state,
+ * and a **429** is a quota boundary rather than a broken config.
  */
 function describeFireError(error: any): string {
   const status: number | undefined = error?.response?.status;
@@ -328,17 +507,14 @@ function describeFireError(error: any): string {
   switch (status) {
     case 400: {
       // The docs give this status three causes — paused routine, missing beta
-      // header, oversized `text` — and a paused routine is both the likeliest
-      // to reach a user and the least self-explanatory. So the hint is worth
-      // having, but ONLY when Anthropic did not already say what was wrong.
-      //
-      // It used to be appended unconditionally, which produced this on a live
-      // run: "Refused (400): invalid routine ID: Refresh sidebar links. Most
-      // often the routine is paused — resume it at claude.ai/code/routines."
-      // The API had named the exact cause and the guess buried it, sending the
-      // user to unpause a routine that was fine. **A specific answer from the
-      // platform outranks our most-likely-cause heuristic**; the heuristic is
-      // for filling a silence, not for talking over one.
+      // header, oversized `text` — and a paused routine is both the likeliest to
+      // reach a user and the least self-explanatory. So the hint is worth having,
+      // but ONLY when Anthropic did not already say what was wrong. It used to be
+      // appended unconditionally, which produced "invalid routine ID: Refresh
+      // sidebar links. Most often the routine is paused…" and sent the user to
+      // unpause a routine that was fine. **A specific answer from the platform
+      // outranks our most-likely-cause heuristic**; the heuristic fills a
+      // silence, it does not talk over one.
       const generic = !apiMessage || /^(invalid request|bad request)\.?$/i.test(apiMessage.trim());
       if (!generic) return `Refused (400): ${apiMessage}`;
       return (

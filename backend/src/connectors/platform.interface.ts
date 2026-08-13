@@ -36,6 +36,36 @@ export interface CreateTaskOptions {
    * the agent, with or without this flag.
    */
   createFolder?: boolean;
+  /**
+   * Git repositories a Claude Code routine may check out and work in.
+   *
+   * Meaningless on Windows, where a task's "action" is an executable. Never
+   * defaulted or guessed: a routine with no sources still runs, it simply has no
+   * checkout, whereas attaching the *wrong* repository to an agent with write
+   * access is not a mistake the user can see before it happens.
+   */
+  repositoryUrls?: string[];
+  /**
+   * Tool allowlist for a Claude Code routine (`["Bash","Read",…]`). Absent means
+   * the platform's own default for the environment — Cronsole does not narrow it
+   * silently, because a routine that cannot do its job fails at 3am rather than
+   * at the click that created it.
+   */
+  allowedTools?: string[];
+}
+
+/**
+ * Extra context for a reschedule. Carries the native trigger for platforms that
+ * register one; platforms whose schedule *is* a cron ignore it.
+ */
+export interface UpdateScheduleOptions {
+  /**
+   * The cron converted to a Windows trigger, or null when it is not expressible
+   * as one. Windows Task Scheduler needs this; Claude Code does not, and a
+   * connector that stores cron directly must not be blocked by a conversion it
+   * never uses.
+   */
+  trigger?: import('../utils/scheduler-conversion.js').WindowsTrigger | null;
 }
 
 /**
@@ -196,7 +226,27 @@ export interface PlatformConnector {
    */
   listFolders?(config: any): Promise<{ success: boolean; folders: PlatformFolder[]; message?: string }>;
 
-  updateSchedule?(externalId: string, trigger: WindowsTrigger, config: any): Promise<{ success: boolean; message?: string }>;
+  /**
+   * Change when an existing task runs, leaving its action and settings intact.
+   *
+   * **Takes the cron, not the trigger.** It used to take a `WindowsTrigger`, and
+   * the route refused any cron that could not be converted into one — correct for
+   * Windows and wrong for every platform that stores a cron natively. Claude Code
+   * routines take 5-field UTC cron directly, so converting to a Windows trigger
+   * and back could only lose what the cron already said exactly, and the
+   * conversion failing would have blocked a reschedule the platform would have
+   * accepted. Connectors that register native triggers read `options.trigger`.
+   *
+   * `clientError` marks a refusal caused by the *request* rather than by the
+   * platform, so the route can answer 400 instead of 502 — the difference between
+   * "fix your input" and "retry, the platform is having a moment".
+   */
+  updateSchedule?(
+    externalId: string,
+    cron: string,
+    config: any,
+    options?: UpdateScheduleOptions
+  ): Promise<{ success: boolean; message?: string; clientError?: boolean }>;
 
   /**
    * Change the action (executable + args + working dir) and selected settings

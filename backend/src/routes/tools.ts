@@ -27,6 +27,7 @@ import {
   routineInputSchema,
   routineEditSchema
 } from '../services/claudeRoutines.js';
+import { getClaudeCredential } from '../services/claudeOAuth.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
@@ -696,8 +697,24 @@ router.get('/platforms/claude/routines', async (req: Request, res: Response) => 
   });
   const byExternalId = new Map(counts.map(c => [c.externalId, c._count._all]));
 
+  // Which door is open decides what this panel should even ask the user for.
+  // With a Claude Code session readable, pasting a per-routine token buys
+  // nothing they do not already have — and a UI that keeps asking for a
+  // credential claude.ai issues **once** is asking them to spend something for
+  // no gain. The registry stays visible and editable, because it is the
+  // fallback if this undocumented API is withdrawn.
+  const { credential, reason, problem } = getClaudeCredential();
+
   res.json({
-    routines: redactRoutines(routines).map(r => ({ ...r, taskCount: byExternalId.get(r.id) ?? 0 }))
+    routines: redactRoutines(routines).map(r => ({ ...r, taskCount: byExternalId.get(r.id) ?? 0 })),
+    session: {
+      mode: credential ? 'oauth' : 'declared',
+      active: credential !== null,
+      source: credential?.source ?? null,
+      ...(credential?.expiresAt ? { expiresAt: credential.expiresAt.toISOString() } : {}),
+      ...(problem ? { problem } : {}),
+      ...(reason ? { reason } : {})
+    }
   });
 });
 

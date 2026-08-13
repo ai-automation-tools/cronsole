@@ -28,6 +28,7 @@ import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateF
 import { toTaskXmlBuffer } from '../services/bulkExport.js';
 import { recordCapability, verbDeclaredUnsupported } from '../services/platformCapabilities.js';
 import { taskSourceKey } from '../services/taskSource.js';
+import { ensureClaudeConnection } from '../services/claudeConnection.js';
 import {
   archiveTaskBeforeDelete,
   buildNativeTaskBundle,
@@ -293,25 +294,35 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
     throw new HttpError(400, `Editing schedules is not supported for ${task.platform} yet.`);
   }
 
+  // Converted for the platforms that register a native trigger, and passed as an
+  // option rather than as *the* schedule. This used to throw 400 whenever the
+  // conversion failed — which is right for Windows and wrong for any platform
+  // whose schedule already *is* a cron: a Claude routine takes 5-field UTC cron
+  // directly, so a reschedule Anthropic would have accepted was being refused
+  // here over a Windows trigger nobody in that path was going to use.
   const conversion = convertCronToWindowsTrigger(schedule);
-  if (!conversion.trigger) {
-    throw new HttpError(400, 'Schedule cannot be converted to a Windows trigger.', {
-      warnings: conversion.warnings
-    });
-  }
 
   const connection = await prisma.platformConnection.findUnique({
     where: { userId_platform: { userId, platform: task.platform } }
   });
 
   // Config is encrypted at rest (AES-256-GCM); decrypt before use.
-  const result = await connector.updateSchedule(task.externalId, conversion.trigger, {
-    ...deserializeConfig(connection?.config),
-    userId
-  });
+  const result = await connector.updateSchedule(
+    task.externalId,
+    schedule,
+    { ...deserializeConfig(connection?.config), userId },
+    { trigger: conversion.trigger }
+  );
   await recordCapability(userId, task.platform, 'updateSchedule', result.success, result.message);
   if (!result.success) {
-    throw new HttpError(502, result.message || 'The platform failed to update the schedule');
+    // `clientError` distinguishes "this request can never work" from "the
+    // platform failed" — a 502 tells the user to retry something that will
+    // refuse identically every time.
+    throw result.clientError
+      ? new HttpError(400, result.message || 'The schedule cannot be used on this platform', {
+          warnings: conversion.warnings
+        })
+      : new HttpError(502, result.message || 'The platform failed to update the schedule');
   }
 
   // Only after platform confirmation: store the new schedule + trigger, leaving
@@ -453,12 +464,26 @@ const createTaskSchema = z.object({
    */
   createFolder: z.boolean().optional().default(false),
   schedule: z.string().trim().min(1, 'schedule is required'),
-  command: z.string().trim().min(1, 'command is required')
+  command: z.string().trim().min(1, 'command is required'),
+  /**
+   * Claude Code only: the git repositories the routine may check out and work
+   * in. Never defaulted — a routine with no sources still runs, it simply has
+   * no checkout, whereas attaching the wrong repository to an agent that can
+   * commit is not a mistake the user can see before it happens.
+   */
+  repositoryUrls: z.array(z.string().trim().url()).max(10).optional(),
+  /**
+   * Claude Code only: the routine's tool allowlist (`["Bash","Read",…]`).
+   * Absent means the platform's own default — Cronsole does not narrow it
+   * silently, because a routine that cannot do its job fails at 3am rather
+   * than at the click that created it.
+   */
+  allowedTools: z.array(z.string().trim().min(1)).max(50).optional()
 });
 
 // Create a new task (New Task modal Windows path, cloning, custom creation)
 router.post('/', validateBody(createTaskSchema), async (req: Request, res: Response) => {
-  const { name, platform, category, schedule, command, folder, createFolder } = req.body;
+  const { name, platform, category, schedule, command, folder, createFolder, repositoryUrls, allowedTools } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   if (!isValidCron(schedule)) {
@@ -496,6 +521,13 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     conversionLossy = conversion.lossy;
   }
 
+  // Same reason as sync: with a readable Claude Code session the platform is
+  // reachable before any connection row exists, and refusing the create over a
+  // missing row would be Cronsole declining to do something it can do.
+  if (platform === PlatformType.CLAUDE_CODE) {
+    await ensureClaudeConnection(userId);
+  }
+
   const connection = await prisma.platformConnection.findUnique({
     where: { userId_platform: { userId, platform } }
   });
@@ -513,7 +545,16 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     schedule,
     command,
     { ...deserializeConfig(connection.config), userId },
-    { trigger, folder: finalFolder, createFolder: createFolder === true }
+    {
+      trigger,
+      folder: finalFolder,
+      createFolder: createFolder === true,
+      // Claude-only, and never defaulted. A routine with no repositories still
+      // runs; attaching the wrong one to an agent with write access is the
+      // mistake a user cannot see before it happens.
+      ...(repositoryUrls ? { repositoryUrls } : {}),
+      ...(allowedTools ? { allowedTools } : {})
+    }
   );
 
   await recordCapability(userId, platform, 'create', result.success, result.message);
@@ -878,6 +919,12 @@ const syncSchema = z
 router.post('/sync', validateBody(syncSchema), async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
   const { categories, scope } = req.body;
+
+  // A Claude Code session on this machine makes the platform reachable with no
+  // setup step, but sync only ever looks at connection rows — so without this a
+  // user with routines Cronsole can already read would sync and see nothing,
+  // with the Platforms tab still inviting them to paste per-routine tokens.
+  await ensureClaudeConnection(userId);
 
   const connections = await prisma.platformConnection.findMany({
     where: { userId, isActive: true }

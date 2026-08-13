@@ -110,15 +110,23 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
   [PlatformType.CLAUDE_CODE]: {
     platform: PlatformType.CLAUDE_CODE,
     label: 'Claude Code Routines',
-    // Run-only, and that is the platform's shape rather than ours: Anthropic
-    // exposes exactly one routines endpoint (`/fire`), whose token the reference
-    // describes as having "no read access". So routines are listed from what you
-    // declare here, not read from claude.ai — and the remaining verbs are
-    // `unsupported` rather than unfinished.
-    summary: 'Fire a routine from Cronsole. Routines are created and paused in claude.ai — it exposes no API for either.',
-    // Still experimental, but no longer because *our* connector is a scaffold:
-    // Anthropic ships /fire as a research preview behind a dated beta header and
-    // says request and response shapes may change.
+    // **What this platform can do depends on the install**, which is why the
+    // summary hedges where the verb cells do not. With a readable Claude Code
+    // session Cronsole lists, creates, reschedules, pauses and fires routines;
+    // without one it can only fire the ones you declared here with their own
+    // token. `unsupportedVerbs` is a getter for exactly this reason, so the
+    // per-verb cells are precise even though one sentence cannot be.
+    //
+    // This comment used to state, as the platform's shape, that Anthropic
+    // "exposes exactly one routines endpoint (`/fire`)". That was true of the
+    // documented API and false of the product — see troubleshooting #50.
+    summary:
+      'Fire, and — when Cronsole can read your Claude Code session — list, create, reschedule and pause ' +
+      'routines. Deleting one always happens in claude.ai: no API exposes it.',
+    // Experimental for a reason that got stronger, not weaker: the documented
+    // /fire endpoint is a research preview behind a dated beta header, and the
+    // fuller triggers API is undocumented and gated behind another. Both may
+    // change shape without notice.
     maturity: 'experimental'
   }
 };

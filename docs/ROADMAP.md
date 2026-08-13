@@ -109,8 +109,47 @@ Everything below the sources track, unchanged in priority relative to each other
       `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
       honest-warning treatment the Windows trigger conversion already has.
 
+- [x] **Claude Code routines — full read/write connector** *(2026-08-13)*. Cronsole lists the real
+      routines on the account (name, 5-field UTC cron, enabled state, next run), **creates** them,
+      reschedules them, pauses and resumes them, and fires them **without a per-routine token**.
+
+      **This item existed because the 2026-08-12 entry below was wrong, and the way it was wrong is
+      the reusable part.** That entry recorded, as a finding, that Anthropic exposes exactly one
+      routines endpoint and that sync / create / enable-disable were therefore *boundaries, not
+      gaps*. The finding was sound about the **documented** API and false about the product: Claude
+      Code has always created and listed routines through `/v1/code/triggers`, authenticated with
+      the account's OAuth session rather than a per-routine token — the API `/schedule` uses. The
+      previous check asked *"what does the vendor document?"* and recorded the answer as *"what can
+      the platform do?"*. **A capability claim needs evidence about the platform**; a doc search is
+      evidence about the docs. Verified this time by driving every verb against the live API
+      (create, partial update, reschedule, pause) before any of it was built on.
+
+      - **Two modes, both kept.** `services/claudeOAuth.ts` decides per call. With a readable
+        Claude Code session: real sync, create, setStatus, updateSchedule, token-free run. Without
+        one: the previous declared-registry + fire-token behaviour, unchanged. **The fallback is
+        load-bearing** — door 2 is undocumented and beta-gated, and a connector that deleted the
+        documented path would take every user's routines down the day the beta header expires.
+      - **`unsupportedVerbs` became a getter**, because the matrix's claim is about *this install*.
+        Corollary that bit during the work: any test asserting Claude's capabilities must mock the
+        credential, or it passes or fails according to whether the developer is signed in.
+      - **The credential is read, never stored, never refreshed.** Refreshing would rotate the CLI's
+        own token and could sign the user out of Claude Code from a background poll. Expiry is
+        reported (`/login`), never repaired.
+      - **Delete is still impossible — and this time verified**, by enumerating the surface rather
+        than reading docs. Neither API family has a DELETE. Cronsole disables; claude.ai removes.
+      - **MCP**: `create_claude_routine` added (26 tools); `list_claude_routines` reports
+        `session.mode`. Routines are created with **no MCP connectors attached** — the server would
+        otherwise attach every connector on the account.
+      - **Also fixed on the way:** `updateSchedule` took a `WindowsTrigger` and the route rejected
+        any cron it could not convert — so a reschedule Anthropic would have accepted was refused
+        over a Windows trigger nothing in that path would use. It now takes the cron, with the
+        native trigger as an option, and connectors flag `clientError` so a bad request answers
+        400 rather than a retry-implying 502.
+
 - [x] **Claude Code routines — promoted as far as the platform allows** *(requested and shipped
-      2026-08-12)*: the connector is production-ready for the one verb that has an API behind it,
+      2026-08-12; **its central finding was superseded 2026-08-13**, see above — kept as written
+      because the reasoning is the record of how a documentation search got mistaken for an API
+      audit)*: the connector is production-ready for the one verb that has an API behind it,
       and everything else is now declared impossible rather than left looking unfinished.
 
       **The API check the item asked for changed the item.** Anthropic exposes exactly one routines

@@ -1,6 +1,29 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { PlatformType } from '@prisma/client';
+
+/**
+ * **Pinned to declared mode, and it must be.**
+ *
+ * Since 2026-08-13 `ClaudeConnector` reads the *real* routines off the account
+ * whenever the backend can see a Claude Code session — which means, unmocked,
+ * this suite would sync whatever routines the person running it happens to own,
+ * hit the network, and assert against someone's actual claude.ai account. It
+ * failed exactly that way when the mode landed: `expected 6 to be 1`.
+ *
+ * Declared mode is the right world for these cases anyway. Everything below is
+ * about the closed loop *config → sync → task row*, which only exists on that
+ * path — and it is the path that must keep working when the undocumented
+ * triggers API changes.
+ */
+vi.mock('../../src/services/claudeOAuth.js', () => ({
+  getClaudeCredential: () => ({ credential: null, problem: 'no-file' }),
+  hasClaudeCredential: () => false,
+  resetClaudeCredentialCache: () => {},
+  credentialsPath: () => '/nonexistent/.credentials.json',
+  looksLikeAccountToken: (t: string) => t.startsWith('sk-ant-oat01-')
+}));
+
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/db.js';
 import { createUser } from './helpers.js';
@@ -11,12 +34,12 @@ const app = createApp();
  * **A Claude routine's declaration IS its task, and this suite exists because
  * treating those as two things produced a task that could not be removed.**
  *
- * Claude Code exposes no API to list routines, so `ClaudeConnector.syncTasks`
- * reads back the registry the user declared in `PlatformConnection.config`. That
- * makes the round trip *config → sync → task row* a closed loop with no network
- * in it — which is exactly why it belongs here rather than in a mocked unit
- * test: the bug was never in one function, it was in two correct-looking
- * mechanisms disagreeing across a sync.
+ * With no readable Claude Code session, `ClaudeConnector.syncTasks` reads back
+ * the registry the user declared in `PlatformConnection.config`. That makes the
+ * round trip *config → sync → task row* a closed loop with no network in it —
+ * which is exactly why it belongs here rather than in a mocked unit test: the
+ * bug was never in one function, it was in two correct-looking mechanisms
+ * disagreeing across a sync.
  *
  * The symptom, in the user's words: *"I keep deleting it by clicking Remove from
  * Cronsole but it keeps coming back."* Untrack wrote a `TaskExclusion` against

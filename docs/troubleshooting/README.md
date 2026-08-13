@@ -25,7 +25,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 48 | Windows sits at **Degraded** for hours — *"connected but not responding"* — while the agent is running fine and answers the moment you press Sync | The verdict was real and had **expired**. A request timeout is one observation at one instant and is never renewed, so with nothing asking the agent anything afterwards, "not responding" kept being asserted from a single failure hours earlier. Health now ages that evidence out to **UNKNOWN** ("Not checked") past 15 minutes. **The tell: every capability row shows recent successes and zero failures, and the newest timestamp anywhere on the platform is hours old** | [→](#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy) |
 | 47 | A Claude routine's task keeps coming back after **Remove from Cronsole** — and `TaskExclusion` is empty, as if untrack never ran | Untrack ran; its exclusion was then legitimately cleared. `ClaudeConnector.syncTasks` returns the routines the user **declared** in `PlatformConnection.config`, so the exclusion fences the user's own config while the declaration stays — and importing the Claude category clears exclusions by design. **A Claude task is its declaration**: untrack now 400s for `CLAUDE_CODE`, and disconnecting the routine removes its tasks | [→](#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole) |
 | 46 | Every local suite passes, CI is red six pushes running — on an eslint rule and one integration assertion | `npm test` is **not** the CI gate. Two steps have no equivalent it runs: `npm run lint` (frontend only; `@typescript-eslint/no-explicit-any` is an **error**) and `npm run test:integration` (separate vitest config + real Postgres). A status-code change is invisible to unit tests and loud in integration tests | [→](#46-every-local-suite-passes-and-ci-is-red--npm-test-is-not-the-ci-gate) |
-| 45 | Cronsole can't list, pause, or create Claude Code routines — and a routine you *can* fire returns `400 Bad Request` for no visible reason | Not a bug: Anthropic exposes **one** routines endpoint (`/fire`), whose token has **no read access**. Sync is your own declaration, `create`/`setStatus` are `unsupported`, and a **400 is usually a paused routine** — the only signal Cronsole ever gets about a routine's enabled state. Manage routines at claude.ai/code/routines | [→](#45-cronsole-cant-list-pause-or-create-claude-code-routines) |
+| 50 | Cronsole says it can't create a Claude routine, but Claude Code creates them for you — and Claude tasks sync with no schedule while claude.ai clearly shows one | There are **two** routines APIs. The documented one (`/fire`, per-routine token) really is fire-only; the one Claude Code itself uses (`/v1/code/triggers`, account session) lists, creates, reschedules and pauses. Sign into the Claude Code CLI on the backend's machine and sync — no config. **The reasoning error: a documentation search recorded as a fact about the platform.** Still no delete (verified) | [→](#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one) |
+| 45 | Cronsole can't list, pause, or create Claude Code routines — and a routine you *can* fire returns `400 Bad Request` for no visible reason | **Largely superseded by #50 (2026-08-13)** — the create/list/pause half was wrong about the platform. The `400` half stands: a **400 is usually a paused routine**, the only signal the documented endpoint ever gives about a routine's enabled state | [→](#45-cronsole-cant-list-pause-or-create-claude-code-routines) |
 | 44 | An MCP tool 400s on every call (`Unsupported jobType: undefined`) while `npm test` passes 142/142 — including a test named after the very agreement it is not checking | The tool never sent a required discriminator, and had **never worked since it shipped**. The MCP suite **stubs the HTTP client**, so every assertion is about what the wrapper *sends* and none about whether the API *accepts* it — the test did not miss the bug, it **pinned** it. Drive a wrapped route by hand after touching it; one `curl` with the tool's exact payload catches it | [→](#44-an-mcp-tool-400s-on-every-call-and-the-whole-suite-is-green) |
 | 42 | The header reads *"Synced 7m ago"* over tasks that plainly are not — every card says `Last updated` yesterday. `/api/tools/platforms` and `/api/tasks/health` return **different** `lastSync` values for the same platform | `getHealth` returned the agent's **last inbound event of any kind** (`lastResponseAt`, hooked via `socket.onAny`) under the name `lastSync` — the 7-minute stamp was a *folder listing*. This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one level down and it **survived #40's fix**: a real timestamp of the wrong event passes every honesty check an invented one fails. Fixed by deleting `ConnectorHealth.lastSync` entirely — the connector reports `lastContactAt`, and `lastSync` has exactly one writer | [→](#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday) |
 | 43 | A Playwright screenshot baseline fails on **1 pixel** with nothing changed — or the whole page shifted ~22px between two identical runs | Three things, none of them flake: `maxDiffPixels` defaults to **0** and GPU antialiasing is not deterministic; **masking hides colour, not geometry**, so a masked live-data element still rewraps the row beside it; and a `flex-wrap` status line changes its own **height** when a segment appears — which is a real layout shift on a poll, not a test problem | [→](#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself) |
@@ -2885,6 +2886,14 @@ green while disagreeing about the wire.**
 
 ## 45. Cronsole can't list, pause, or create Claude Code routines
 
+> [!IMPORTANT]
+> **Largely superseded on 2026-08-13 — see [#50](#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one).**
+> The cause below is correct about Anthropic's **documented** API and wrong about the platform.
+> Cronsole can now list, create, reschedule and pause routines whenever the backend can read your
+> Claude Code session. **The `400` half of this entry is still exactly right** — a paused routine is
+> still the likeliest cause when firing through the documented endpoint. The rest is kept because
+> the reasoning error is worth being able to find again.
+
 **Symptom.** Several complaints that look like separate bugs and are all the same fact:
 
 - The Claude source lists only the routines you typed into the connection config — a routine you
@@ -3228,6 +3237,80 @@ by five integration tests; the one pinning this defect was mutation-tested by pu
 *First hit: 2026-08-13, during a live MCP exercise of `get_task_health` on a 358-task machine —
 found by noticing `counts.critical: 25` above a 13-row list, and confirmed by flipping
 `includeSystem` and watching `counts` stay put.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 50. Two Claude routines APIs, and the documented one is the smaller one
+
+**Symptom.** Any of these, and they look unrelated:
+
+- Cronsole says it cannot create a Claude routine — but you have watched Claude Code create one for
+  you with `/schedule`, and `claude.ai/code/routines` lists routines whose `created_via` is
+  `http_api`.
+- Claude tasks sync with **no schedule at all**, while claude.ai clearly shows a cron for each.
+- The Platforms matrix reports **Create** and **Enable / disable** as `unsupported` for Claude,
+  which reads as permanent.
+- You are asked to paste a per-routine API token — a value claude.ai shows **exactly once** — to do
+  something Cronsole could already have done.
+
+**Cause.** There are **two** Claude Code routine APIs, and Cronsole was built against the smaller one.
+
+| | **Documented** | **What Claude Code itself uses** |
+|---|---|---|
+| Endpoint | `POST /v1/claude_code/routines/{trig_id}/fire` | `/v1/code/triggers`, `/v1/code/sessions` |
+| Verbs | fire, and nothing else | list · get · **create** · update · run · run history |
+| Credential | `sk-ant-oat01-…` minted per routine in the web UI | the account session Claude Code logged in with |
+| Documented | yes — *"one routine only; no read access"* | **no**, and beta-gated (`anthropic-beta: ccr-triggers-2026-01-30`) |
+
+The documented scope note is accurate, and it describes **that token**, not the platform. `/schedule`
+and `/code-review --post` have always created routines through the second family.
+
+**The reasoning error worth naming.** [#45](#45-cronsole-cant-list-pause-or-create-claude-code-routines)
+recorded, in good faith, *"Anthropic exposes exactly one routines endpoint"* — the result of a
+thorough documentation search, written down as a fact about the platform. **A doc search is evidence
+about documentation.** It became an architectural boundary (`unsupportedVerbs`, "write-only
+connector", "syncTasks is not a sync") and stayed one for a day, while the product shipped the
+capability the whole time. This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+one level out: a verdict derived from a precondition rather than from what happened.
+
+**Fix.** Nothing to configure on a host-run stack — sign into the Claude Code CLI (`claude`, then
+`/login`) on the machine running the backend and sync. Cronsole reads the session from
+`~/.claude/.credentials.json` at request time.
+
+Check which mode you are in:
+
+```bash
+curl -s -H "Authorization: Bearer $CRONSOLE_TOKEN" \
+  http://localhost:3000/api/tools/platforms/claude/routines | jq .session
+# { "mode": "oauth", "active": true, "source": "file", "expiresAt": "..." }
+```
+
+`mode: "declared"` means no readable session; the `reason` field says which of the four causes it is
+(container · no file · token absent · expired).
+
+**Gotchas, each of which cost time:**
+
+- **Docker.** The credentials file is on your machine, not in the container. Cronsole refuses by
+  name rather than reporting a path inside the container that you would go looking for in Explorer.
+  Set `CLAUDE_OAUTH_TOKEN` if you want the mode there.
+- **Cronsole never refreshes the credential**, though the refresh token is in the same file. A
+  refresh rotates the pair, and the loser of that race holds a revoked token — Cronsole would sign
+  you out of the Claude Code CLI from a background poll, with the symptom appearing hours later
+  somewhere else. Expiry is reported, never repaired.
+- **There is still no delete.** Verified by enumerating the surface, not by reading docs: neither
+  family exposes a `DELETE`. Cronsole can disable a routine; removing it happens at claude.ai. A
+  routine created by mistake has to be cleaned up by hand.
+- **Tests that assert Claude's capabilities must mock the credential.** `unsupportedVerbs` is a
+  getter now, so an unmocked suite passes or fails depending on whether whoever ran it was signed
+  into Claude Code.
+- **`next_run_at` is the platform's, not ours.** Anthropic applies a few minutes of scheduling
+  jitter (`30 4 * * 1` → `04:32Z`). Recomputing it locally would disagree with claude.ai forever
+  with nothing on screen to say which was right — the [#42](#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday) shape.
+
+*First hit: 2026-08-13. Found by being asked "Claude Code has created routines for me before — why
+can't Cronsole?", which is a better API audit than the one that produced #45.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -1,6 +1,27 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PlatformType } from '@prisma/client';
+
+/**
+ * **The Claude connector's boundaries depend on the machine, so they are pinned
+ * to a stated one.**
+ *
+ * Since 2026-08-13 `ClaudeConnector.unsupportedVerbs` is a getter: with a Claude
+ * Code session readable on this host, `create` / `setStatus` / `updateSchedule`
+ * work; without one they are boundaries. That is the matrix behaving exactly as
+ * designed — a cell is *"a claim about this install"* — but it means an
+ * unmocked suite would report different capabilities on a developer's laptop
+ * than in CI. Every case below therefore states which world it is in.
+ */
+vi.mock('../claudeOAuth.js', () => ({ getClaudeCredential: vi.fn() }));
+import { getClaudeCredential } from '../claudeOAuth.js';
+
+const credential = getClaudeCredential as unknown as ReturnType<typeof vi.fn>;
+const noClaudeSession = () => credential.mockReturnValue({ credential: null, problem: 'no-file' });
+const withClaudeSession = () =>
+  credential.mockReturnValue({ credential: { token: 'sk-ant-oat01-account', source: 'file' } });
+
+beforeEach(noClaudeSession);
 import {
   CAPABILITY_VERBS,
   MATRIX_PLATFORMS,
@@ -79,20 +100,40 @@ describe('verbReachability agrees with the connectors', () => {
   }
 
   it('a declared-impossible verb is unsupported, not merely unproven', () => {
-    // The distinction this mechanism exists for. `create` on Claude has a method
-    // (the interface demands one) that can only ever return `{ success: false }`,
-    // because Anthropic exposes no create endpoint. Reported as `declared` it
-    // reads "reachable, just unproven" and invites the user to wait for evidence
-    // that cannot arrive.
+    // The distinction this mechanism exists for. With no Claude Code session on
+    // the machine, `create` has a method (the interface demands one) that can
+    // only ever return `{ success: false }`, because the documented API exposes
+    // no create endpoint. Reported as `declared` it reads "reachable, just
+    // unproven" and invites the user to wait for evidence that cannot arrive.
     const claude = connectorFor(PlatformType.CLAUDE_CODE)!;
     expect(typeof claude.createTask).toBe('function');
     expect(claude.unsupportedVerbs).toContain('create');
     expect(verbReachability(PlatformType.CLAUDE_CODE, 'create')).toBe(false);
     expect(capabilitySupport(false, null)).toBe('unsupported');
 
-    // And `run` — the one verb Claude really has — stays reachable, so the
-    // declaration cannot be read as "this connector does nothing".
+    // And `run` — the verb Claude has through either API — stays reachable, so
+    // the declaration cannot be read as "this connector does nothing".
     expect(verbReachability(PlatformType.CLAUDE_CODE, 'run')).toBe(true);
+  });
+
+  it('re-reads the boundary per install, because that is what the cell claims', () => {
+    // The same connector, the same code, a different machine. A fixed array
+    // could only be right in one of these two worlds, and being wrong in the
+    // permissive direction is the spec-table lie the matrix exists to prevent.
+    const claude = connectorFor(PlatformType.CLAUDE_CODE)!;
+    expect([...claude.unsupportedVerbs!]).toEqual(['create', 'setStatus', 'updateSchedule']);
+
+    withClaudeSession();
+    expect([...claude.unsupportedVerbs!]).toEqual([]);
+    for (const verb of ['create', 'setStatus', 'updateSchedule'] as CapabilityVerb[]) {
+      expect(verbReachability(PlatformType.CLAUDE_CODE, verb)).toBe(true);
+      // No longer a boundary, so no longer a 400 — a failure here is now a real
+      // platform failure and must be reported as one.
+      expect(verbDeclaredUnsupported(PlatformType.CLAUDE_CODE, verb)).toBe(false);
+    }
+
+    // Delete stays unsupported in BOTH worlds: neither API exposes one.
+    expect(verbReachability(PlatformType.CLAUDE_CODE, 'delete')).toBe(false);
   });
 
   it('declared-impossible verbs outrank every other reachability rule', () => {
@@ -107,13 +148,23 @@ describe('verbReachability agrees with the connectors', () => {
     }
   });
 
-  // Windows and Claude have no route-level carve-outs, so for them the
-  // connector object IS the authority and any disagreement is drift.
+  // Windows and Claude have no route-level carve-outs, so for them the connector
+  // object IS the authority and any disagreement is drift.
+  //
+  // "The connector object" means the method *and* its declared boundaries, not
+  // the method alone. Claude's `updateSchedule` is now always present and is a
+  // boundary only when no Claude Code session is readable — so a check that read
+  // `typeof connector.updateSchedule` by itself would demand the matrix report a
+  // verb as reachable while the connector was declaring it impossible. That is
+  // the ordering `unsupportedVerbs` exists to impose, tested one layer down.
   for (const platform of [PlatformType.WINDOWS_TASK_SCHEDULER, PlatformType.CLAUDE_CODE]) {
     for (const { verb, method } of CONNECTOR_DERIVED) {
       it(`${platform}: ${verb} matches connector.${method}`, () => {
         const connector = connectorFor(platform) as unknown as Record<string, unknown>;
-        expect(verbReachability(platform, verb)).toBe(typeof connector[method] === 'function');
+        const declaredImpossible = (connectorFor(platform)?.unsupportedVerbs ?? []).includes(verb);
+        expect(verbReachability(platform, verb)).toBe(
+          typeof connector[method] === 'function' && !declaredImpossible
+        );
       });
     }
   }

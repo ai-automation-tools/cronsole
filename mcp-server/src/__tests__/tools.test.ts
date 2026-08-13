@@ -124,6 +124,7 @@ describe('the tool surface', () => {
     expect(names).toEqual([
       'connect_claude_routine',
       'convert_schedule',
+      'create_claude_routine',
       'create_native_script_task',
       'create_native_task',
       'create_task',
@@ -150,15 +151,38 @@ describe('the tool surface', () => {
     ]);
   });
 
-  it('offers no way to CREATE a Claude routine, because none exists', () => {
-    // The naming is the invariant, not a preference. Anthropic exposes exactly
-    // one routines endpoint (fire) and no create, so a `create_claude_routine`
-    // tool could only ever fail — and an agent reading tools/list would plan
-    // around a capability that does not exist. `connect` is the verb that is
-    // actually performed.
+  it('offers BOTH create and connect for Claude routines, because both verbs are real', () => {
+    // This test used to assert the opposite, and its reasoning was the mistake
+    // rather than the code: "Anthropic exposes exactly one routines endpoint
+    // (fire) and no create". True of the **documented** API, false of the
+    // product — Claude Code itself creates routines through /v1/code/triggers
+    // with the account session. The rule the old test was reaching for still
+    // holds and is checked below: name a tool for the verb it performs.
+    //
+    // The two are genuinely different verbs and both are needed. `create` makes
+    // a routine that did not exist; `connect` teaches Cronsole about one that
+    // does, and remains the only path when the backend cannot read a Claude
+    // Code session (a Dockerized stack, or nobody signed in).
     const source = readFileSync(new URL('../tools.ts', import.meta.url), 'utf8');
-    expect(source).not.toMatch(/'create_claude_routine'/);
+    expect(source).toMatch(/'create_claude_routine'/);
     expect(source).toMatch(/'connect_claude_routine'/);
+  });
+
+  it('offers no way to DELETE a Claude routine, because none exists', () => {
+    // The invariant that survived, and this one is verified against the API
+    // rather than inferred from documentation: **neither** Claude endpoint
+    // family exposes a DELETE. A routine can be disabled (set_task_status) and
+    // forgotten (disconnect_claude_routine, untrack), never destroyed.
+    //
+    // So no tool may imply otherwise. An agent asked to "remove that routine"
+    // must land on disable-or-disconnect and tell the user the routine itself
+    // has to go at claude.ai — not silently leave a live routine running while
+    // reporting success.
+    const source = readFileSync(new URL('../tools.ts', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/'delete_claude_routine'/);
+    // And the create tool must say so at the moment it hands one over, since
+    // that is the only point at which the caller can still choose otherwise.
+    expect(source).toMatch(/no delete API|exposes no delete/i);
   });
 
   it('offers the reversible removal without the gate', async () => {
@@ -1701,6 +1725,7 @@ describe('error handling across the surface', () => {
       ['create_native_script_task', { name: 'n', command: 'node -v', schedule: '0 9 * * *' }],
       ['run_task', { taskId: 'x' }],
       ['convert_schedule', { schedule: '0 9 * * *' }],
+      ['create_claude_routine', { name: 'n', prompt: 'p', schedule: '0 9 * * *' }],
       ['create_task_from_template', { templateId: 't' }],
       ['get_task_history', { taskId: 'x' }],
       ['export_task', { taskId: 'x' }],

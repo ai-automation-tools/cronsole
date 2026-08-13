@@ -164,7 +164,7 @@ Two other shapes are legitimate, and each has to say which it is:
 
 | Shape | Example | What it means |
 |:---|:---|:---|
-| **Write-only** | `ClaudeConnector` | Claude Code exposes **one** routines endpoint — `POST /v1/claude_code/routines/{trig_id}/fire` — with a per-routine token the docs scope as *"One routine only; no read access."* `run` is real; `create`/`setStatus` are `unsupportedVerbs`; `syncTasks` returns **the routines the user declared in config**, which is not a sync and is documented as not being one. |
+| **Dual-mode** | `ClaudeConnector` | **Two APIs, chosen per call by `services/claudeOAuth.ts`.** *OAuth mode* (a Claude Code session is readable on the backend's host): `/v1/code/triggers` gives a real `syncTasks` (name, 5-field UTC cron, enabled, platform-supplied `next_run_at`), plus `create`, `setStatus`, `updateSchedule` and token-free `run`. *Declared mode* (no session): the documented `POST /v1/claude_code/routines/{id}/fire` with a per-routine token — `run` only, `syncTasks` returns **the routines the user declared in config**, which is not a sync and is documented as not being one, and `create`/`setStatus`/`updateSchedule` are `unsupportedVerbs`. **`unsupportedVerbs` is a getter**, because the answer is a property of the install. **Neither mode can delete** — no DELETE exists on either family (verified). The declared path is kept as the fallback precisely because door 2 is undocumented and beta-gated. |
 | **Read-only (observer)** | planned: GitHub Actions, Vercel Cron | Reads everything, mutates nothing. The mirror image; between them they bracket the pattern. |
 
 Both earn a connector over a plain quick link by one test — **does it do something a bookmark

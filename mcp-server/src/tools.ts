@@ -157,6 +157,21 @@ interface ClaudeRoutineRow {
   taskCount: number;
 }
 
+/**
+ * Which of Claude Code's two APIs this install can reach. Reported by the
+ * backend, never derived here — the wrapper cannot see the machine the backend
+ * runs on, and a client-side guess about a server-side credential is exactly the
+ * drift this package exists not to have.
+ */
+interface ClaudeSessionInfo {
+  mode: 'oauth' | 'declared';
+  active: boolean;
+  source: 'env' | 'file' | null;
+  expiresAt?: string;
+  problem?: string;
+  reason?: string;
+}
+
 interface SyncResultRow {
   platform: string;
   count: number;
@@ -1495,42 +1510,155 @@ Next run: ${task.nextRunTime}` : '')
   // Claude Code routines
   // -------------------------------------------------------------------------
   //
-  // There is no `create_claude_routine`, and there cannot be. Anthropic exposes
-  // exactly one routines endpoint — POST /v1/claude_code/routines/{id}/fire —
-  // whose token the reference scopes as "One routine only; no read access".
-  // Routines are created at claude.ai or with /schedule in the Claude Code CLI.
-  // What Cronsole can do is learn a routine's id and token so it can fire it,
-  // which is `connect`, not `create`. Naming the tool for the verb it actually
-  // performs is the same rule the Platforms matrix follows one layer down.
+  // `create_claude_routine` exists as of 2026-08-13, and the comment that stood
+  // here said it could not — "Anthropic exposes exactly one routines endpoint".
+  // That was true of the DOCUMENTED API and false of the product: Claude Code
+  // itself creates routines through /v1/code/triggers, authenticated with the
+  // account's own session rather than a per-routine token. The tool works only
+  // when the backend can read that session (a host-run stack where someone has
+  // signed in with the CLI); otherwise the route refuses with 400 and says so.
+  //
+  // It is a separate tool rather than a CLAUDE_CODE option on `create_task`
+  // because almost nothing carries over: a routine's "command" is a natural
+  // language prompt, not an executable to tokenize; `folder`, `createFolder`
+  // and the whole cron→Windows-trigger conversion are meaningless here; and it
+  // takes repositories and a tool allowlist that no other platform has. Same
+  // reason create_native_task and create_native_script_task are separate.
+  server.registerTool(
+    'create_claude_routine',
+    {
+      title: 'Create a Claude Code routine on a schedule',
+      description:
+        'Create a real Claude Code routine — a saved prompt Anthropic runs on a schedule in a cloud sandbox — ' +
+        'and track it in Cronsole. This is NOT create_task: the "prompt" is natural language for an agent, not a ' +
+        'command line, and it runs on Anthropic\'s infrastructure rather than the user\'s machine. ' +
+        'REQUIRES a Claude Code session readable by the backend (the user signed in with the `claude` CLI on the ' +
+        'host running Cronsole). Without one this returns 400 — check list_claude_routines, whose `session.mode` ' +
+        'says which is available; if it is "declared", tell the user to run `/login` in the Claude Code CLI, or ' +
+        'create the routine at claude.ai and connect it with connect_claude_routine instead. ' +
+        'The routine runs with the account\'s Claude Code usage and draws on its daily run cap. ' +
+        'NOTE the routine is created with NO MCP connectors attached, deliberately — the user adds those at ' +
+        'claude.ai per routine, so a routine made from one sentence never silently arrives holding their mailbox.',
+      inputSchema: {
+        name: z.string().min(1).describe('Display name for the routine, e.g. "Nightly dependency audit".'),
+        prompt: z
+          .string()
+          .min(1)
+          .describe(
+            'What the routine should do, as a full instruction to a Claude Code agent — it starts with NO ' +
+            'context beyond this text and the repositories you attach. Be specific about the deliverable and ' +
+            'about what it must not do (a routine that can commit should be told what it may touch). ' +
+            'Say plainly if it should stop and report rather than act.'
+          ),
+        schedule: z
+          .string()
+          .min(1)
+          .describe(
+            '5-field cron in UTC: "min hour dom month dow". Claude stores routine schedules as UTC cron too, ' +
+            'so this is passed through unchanged — no trigger conversion happens and none can be lossy. ' +
+            'Anthropic applies a few minutes of its own jitter to the actual fire time.'
+          ),
+        repositoryUrls: z
+          .array(z.string().url())
+          .max(10)
+          .optional()
+          .describe(
+            'Git repositories the routine may check out, e.g. ["https://github.com/owner/repo"]. ' +
+            'OMIT rather than guess: a routine with none still runs (it just has no checkout), whereas ' +
+            'attaching the wrong repository to an agent that can commit is not a mistake the user sees coming. ' +
+            'Only pass repositories the user actually named.'
+          ),
+        allowedTools: z
+          .array(z.string())
+          .max(50)
+          .optional()
+          .describe(
+            'Tool allowlist for the routine, e.g. ["Bash","Read","Edit","WebSearch"]. Omit for the platform ' +
+            'default. Narrow it only when the user asked to — a routine missing a tool it needs fails at 3am, ' +
+            'not at creation.'
+          ),
+        category: z.string().optional().describe('Cronsole category for grouping on the dashboard.')
+      }
+    },
+    async ({ name, prompt, schedule, repositoryUrls, allowedTools, category }) => {
+      try {
+        const body: Record<string, unknown> = {
+          name,
+          command: prompt,
+          schedule,
+          platform: 'CLAUDE_CODE'
+        };
+        if (category) body.category = category;
+        if (repositoryUrls?.length) body.repositoryUrls = repositoryUrls;
+        if (allowedTools?.length) body.allowedTools = allowedTools;
+
+        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks', body);
+        const task = result.task;
+        const created = task
+          ? `\n${task.name} [CLAUDE_CODE] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
+            (task.externalId ? `\nRoutine: https://claude.ai/code/routines/${task.externalId}` : '')
+          : '';
+        // Stated every time, because it is the one thing that cannot be undone
+        // from here: neither Claude API exposes a delete, so a routine created
+        // by mistake has to be removed by hand at claude.ai.
+        const removal =
+          '\nTo remove this routine you must delete it at claude.ai/code/routines — ' +
+          'Claude Code exposes no delete API, so Cronsole can disable it but never destroy it.';
+        return ok(`${result.message ?? 'Routine created'}${created}${removal}`, {
+          task: task ? compactTask(task) : null
+        });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
   server.registerTool(
     'list_claude_routines',
     {
-      title: 'List the Claude Code routines Cronsole can fire',
+      title: 'Show the Claude connection: which API is available, and what is connected',
       description:
-        'The routines declared in the Claude connection, WITHOUT their tokens. Note this is not a read of your ' +
-        'claude.ai account: Claude Code has no list API, so this returns what has been connected to Cronsole and ' +
-        'nothing else. A routine you created at claude.ai will not appear until it is connected here, and one ' +
-        'deleted there will still appear until its next run returns 404. ' +
+        'Reports `session.mode` — WHICH of the two Claude Code APIs this install can use — plus the routines ' +
+        'declared with per-routine tokens (never the tokens themselves). Check this before create_claude_routine. ' +
+        'mode "oauth": the backend can read the user\'s Claude Code session, so routines can be listed, created, ' +
+        'rescheduled, paused and fired directly — and the declared list below is irrelevant to firing. Use ' +
+        'sync_tasks then list_tasks to see the REAL routines on the account. ' +
+        'mode "declared": no readable session, so this list is all Cronsole knows. Claude\'s documented API has ' +
+        'no list endpoint, so a routine created at claude.ai will not appear until connect_claude_routine adds ' +
+        'it, and one deleted there still appears until its next run 404s. ' +
         '`taskCount` is how many tracked Cronsole tasks point at each routine — what disconnecting would strand.',
       inputSchema: {}
     },
     async () => {
       try {
-        const result = await client.get<{ routines: ClaudeRoutineRow[] }>(
+        const result = await client.get<{ routines: ClaudeRoutineRow[]; session?: ClaudeSessionInfo }>(
           '/tools/platforms/claude/routines'
         );
         const routines = result.routines ?? [];
+        const session = result.session;
+        const oauth = session?.mode === 'oauth';
+        const modeLine = oauth
+          ? 'Claude Code session: ACTIVE — routines can be listed, created, rescheduled, paused and fired directly. ' +
+            'Run sync_tasks to pull the real routines onto the dashboard.'
+          : `Claude Code session: NOT AVAILABLE${session?.reason ? ` — ${session.reason}` : ''} ` +
+            'Only routines connected with a per-routine token can be fired.';
+
         if (!routines.length) {
           return ok(
-            'No Claude routines are connected. Create one at claude.ai/code/routines (or with /schedule in the ' +
-              'Claude Code CLI), then connect it with connect_claude_routine.',
-            { routines: [] }
+            oauth
+              ? `${modeLine}\nNo per-routine tokens are stored, and none are needed in this mode.`
+              : `${modeLine}\nNo Claude routines are connected. Create one at claude.ai/code/routines (or with ` +
+                  '/schedule in the Claude Code CLI), then connect it with connect_claude_routine.',
+            { routines: [], session: session ?? null }
           );
         }
         const summary = routines
           .map(r => `• ${r.name || r.id} (${r.id}) — ${r.taskCount} tracked task(s)`)
           .join('\n');
-        return ok(`${routines.length} connected routine(s).\n${summary}`, { routines });
+        return ok(`${modeLine}\n${routines.length} routine(s) with a stored token.\n${summary}`, {
+          routines,
+          session: session ?? null
+        });
       } catch (err) {
         return toolError(err);
       }

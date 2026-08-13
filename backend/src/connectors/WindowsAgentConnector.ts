@@ -1,5 +1,5 @@
 import { PlatformType, HealthState } from '@prisma/client';
-import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, PlatformFolder, ImportTaskResult } from './platform.interface.js';
+import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, UpdateScheduleOptions, PlatformFolder, ImportTaskResult } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { emitSignedCommand } from '../ws/agentAuth.js';
 import { toStructuredAction } from '../utils/commandParser.js';
@@ -311,7 +311,28 @@ export class WindowsAgentConnector implements PlatformConnector {
     });
   }
 
-  async updateSchedule(externalId: string, trigger: WindowsTrigger, config: any): Promise<{ success: boolean; message?: string }> {
+  /**
+   * Task Scheduler registers a **native trigger**, not a cron, so this is the
+   * connector that needs `options.trigger` and refuses without it. The refusal
+   * is a `clientError`: a cron Cronsole cannot express as a Windows trigger is a
+   * fact about the request, and answering 502 would tell the user to retry
+   * something that will never succeed.
+   */
+  async updateSchedule(
+    externalId: string,
+    _cron: string,
+    config: any,
+    options?: UpdateScheduleOptions
+  ): Promise<{ success: boolean; message?: string; clientError?: boolean }> {
+    const trigger = options?.trigger;
+    if (!trigger) {
+      return {
+        success: false,
+        clientError: true,
+        message: 'Schedule cannot be converted to a Windows trigger.'
+      };
+    }
+
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
 

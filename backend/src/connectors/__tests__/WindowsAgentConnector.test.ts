@@ -377,7 +377,7 @@ describe('WindowsAgentConnector', () => {
     });
 
     const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
-    const result = await connector.updateSchedule('\\Cronsole\\Task1', trigger, { userId: 'test_user' });
+    const result = await connector.updateSchedule('\\Cronsole\\Task1', '0 3 * * *', { userId: 'test_user' }, { trigger });
 
     expectSignedCommand(mockSocket, 'task:update_schedule', {
       event: 'task:update_schedule',
@@ -400,7 +400,7 @@ describe('WindowsAgentConnector', () => {
     });
 
     const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
-    const result = await connector.updateSchedule('\\Task1', trigger, { userId: 'test_user' });
+    const result = await connector.updateSchedule('\\Task1', '0 3 * * *', { userId: 'test_user' }, { trigger });
     expect(result.success).toBe(false);
     expect(result.message).toBe('Task not found');
   });
@@ -408,7 +408,7 @@ describe('WindowsAgentConnector', () => {
   it('should fail to update a schedule if agent offline', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
     const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
-    const result = await connector.updateSchedule('\\Task1', trigger, { userId: 'test_user' });
+    const result = await connector.updateSchedule('\\Task1', '0 3 * * *', { userId: 'test_user' }, { trigger });
     expect(result.success).toBe(false);
     expect(result.message).toBe('Agent offline');
   });
@@ -418,7 +418,7 @@ describe('WindowsAgentConnector', () => {
     vi.useFakeTimers();
 
     const trigger = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
-    const updatePromise = connector.updateSchedule('\\Task1', trigger, { userId: 'test_user' });
+    const updatePromise = connector.updateSchedule('\\Task1', '0 3 * * *', { userId: 'test_user' }, { trigger });
     vi.advanceTimersByTime(15500);
 
     const result = await updatePromise;

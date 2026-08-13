@@ -222,22 +222,31 @@ export class ClaudeConnector implements PlatformConnector {
    * is stored and nothing is stamped by the observer: a fire either happened or
    * it didn't.
    *
-   * Before the first run there is genuinely nothing to report. `DEGRADED` with a
-   * reason naming why is the closest the three-value `HealthState` enum gets to
-   * *unknown*; erring pessimistic-with-an-explanation is the safe direction,
-   * since the failure it prevents is trusting a config that was never checked.
-   * The missing `UNKNOWN` state is logged as its own item — Windows has the same
-   * gap, stamping HEALTHY at auto-init before the agent has ever spoken.
+   * Before the first run there is genuinely nothing to report, and as of
+   * 2026-08-13 that has its own state: **UNKNOWN**. This used to return DEGRADED
+   * with a reason naming why — pessimistic-with-an-explanation, chosen because
+   * the three-value enum had no way to say *no verdict* and trusting an
+   * unchecked config was the worse failure.
+   *
+   * It was still the wrong shape, for a reason the Windows connector then made
+   * concrete: a warning nobody can act on is indistinguishable from one they
+   * should, so the two get read at the same weight and then both get ignored.
+   * "Never fired" is not a degradation — nothing has gone wrong, and the user's
+   * next run may well succeed.
+   *
+   * So every branch below that reports *an absence of evidence* — no routines,
+   * no user scope, an unreadable capability table, no run yet — returns UNKNOWN.
+   * DEGRADED is kept for the one branch that has evidence: a run that failed.
    */
   async getHealth(config: any): Promise<ConnectorHealth> {
     const routines = declaredRoutines(config);
     if (routines.length === 0) {
-      return { state: HealthState.DEGRADED, reason: 'No routines configured' };
+      return { state: HealthState.UNKNOWN, reason: 'No routines configured' };
     }
 
     const userId = config?.userId;
     if (typeof userId !== 'string' || !userId) {
-      return { state: HealthState.DEGRADED, reason: 'No evidence: connection is not scoped to a user' };
+      return { state: HealthState.UNKNOWN, reason: 'No evidence: connection is not scoped to a user' };
     }
 
     // `run` is the only verb that reaches the platform, so it is the only verb
@@ -252,7 +261,7 @@ export class ClaudeConnector implements PlatformConnector {
     } catch {
       // Reading the evidence is not the subject of the check. A DB hiccup here
       // must not be reported as the platform being unhealthy.
-      return { state: HealthState.DEGRADED, reason: 'Could not read run history for this platform' };
+      return { state: HealthState.UNKNOWN, reason: 'Could not read run history for this platform' };
     }
 
     const succeeded = evidence?.lastSuccessAt ?? null;
@@ -260,7 +269,7 @@ export class ClaudeConnector implements PlatformConnector {
 
     if (!succeeded && !failed) {
       return {
-        state: HealthState.DEGRADED,
+        state: HealthState.UNKNOWN,
         reason:
           `${routines.length} routine${routines.length === 1 ? '' : 's'} configured, none fired yet. ` +
           'Claude Code exposes no read API, so a routine can only be verified by running it.'

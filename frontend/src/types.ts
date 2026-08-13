@@ -96,7 +96,13 @@ export interface ImportResult {
   errors: { id?: string; error: string }[];
 }
 
-export type HealthState = 'HEALTHY' | 'DEGRADED' | 'OFFLINE';
+/**
+ * UNKNOWN is the absence of a verdict, not a fourth severity. It means Cronsole
+ * has nothing current to go on — a platform never exercised, or a failure old
+ * enough to be a fact about the past. Renders muted and neutral, because it is
+ * neither a warning to act on nor a green light.
+ */
+export type HealthState = 'HEALTHY' | 'DEGRADED' | 'OFFLINE' | 'UNKNOWN';
 
 /** One row from GET /api/tasks/health — live status of a platform connection. */
 export interface ConnectionHealth {

@@ -73,10 +73,20 @@ const dashboard: HelpTopic = {
       body:
         'Under the title: whether platforms are reachable, when Cronsole last really synced, ' +
         'and the last command it sent. "Connected" and "synced" are different facts.'
+    },
+    {
+      label: '"Not checked" is not a warning',
+      body:
+        'It means there is no current evidence — usually a platform nothing has asked anything ' +
+        'of in a while, since Cronsole does not poll your agent in the background. Press Sync ' +
+        'for a real answer; restarting clears it whether or not anything was wrong.'
     }
   ],
   doc: { label: 'UI User Guide › The Dashboard', url: uiGuide('1-the-dashboard') },
-  more: [{ label: 'Sources Guide', url: sourcesGuide() }]
+  more: [
+    { label: 'Sources Guide', url: sourcesGuide() },
+    { label: 'UI User Guide › System Status & Connections', url: uiGuide('7-system-status--connections') }
+  ]
 };
 
 /* ── Sources ─────────────────────────────────────────────────────────────── */

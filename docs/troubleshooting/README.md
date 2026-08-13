@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 48 | Windows sits at **Degraded** for hours — *"connected but not responding"* — while the agent is running fine and answers the moment you press Sync | The verdict was real and had **expired**. A request timeout is one observation at one instant and is never renewed, so with nothing asking the agent anything afterwards, "not responding" kept being asserted from a single failure hours earlier. Health now ages that evidence out to **UNKNOWN** ("Not checked") past 15 minutes. **The tell: every capability row shows recent successes and zero failures, and the newest timestamp anywhere on the platform is hours old** | [→](#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy) |
 | 47 | A Claude routine's task keeps coming back after **Remove from Cronsole** — and `TaskExclusion` is empty, as if untrack never ran | Untrack ran; its exclusion was then legitimately cleared. `ClaudeConnector.syncTasks` returns the routines the user **declared** in `PlatformConnection.config`, so the exclusion fences the user's own config while the declaration stays — and importing the Claude category clears exclusions by design. **A Claude task is its declaration**: untrack now 400s for `CLAUDE_CODE`, and disconnecting the routine removes its tasks | [→](#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole) |
 | 46 | Every local suite passes, CI is red six pushes running — on an eslint rule and one integration assertion | `npm test` is **not** the CI gate. Two steps have no equivalent it runs: `npm run lint` (frontend only; `@typescript-eslint/no-explicit-any` is an **error**) and `npm run test:integration` (separate vitest config + real Postgres). A status-code change is invisible to unit tests and loud in integration tests | [→](#46-every-local-suite-passes-and-ci-is-red--npm-test-is-not-the-ci-gate) |
 | 45 | Cronsole can't list, pause, or create Claude Code routines — and a routine you *can* fire returns `400 Bad Request` for no visible reason | Not a bug: Anthropic exposes **one** routines endpoint (`/fire`), whose token has **no read access**. Sync is your own declaration, `create`/`setStatus` are `unsupported`, and a **400 is usually a paused routine** — the only signal Cronsole ever gets about a routine's enabled state. Manage routines at claude.ai/code/routines | [→](#45-cronsole-cant-list-pause-or-create-claude-code-routines) |
@@ -2954,6 +2955,76 @@ in exactly the direction that lets six commits ship broken. It is the record-kee
 of §11a pointed at CI: nothing fails loudly at the moment the mistake is made.
 
 *First hit: 2026-08-12, during the Claude routines work.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 48. Windows sits at "Degraded" for hours while the agent is perfectly healthy
+
+**Symptom.** The dashboard's health strip reads **Windows Task Scheduler degraded — Agent
+connected but not responding (task:folders timed out)**. It has said so for hours. The agent
+process is running and has been for a day; nothing has crashed; the task list is intact. Press
+**Sync** and it answers instantly — 354 tasks, 0 missing — and the strip goes green.
+
+**The tell, before you touch anything:** open `GET /api/tools/platforms` (or `list_platforms`)
+and read the timestamps rather than the verdict.
+
+```
+healthState:  "DEGRADED"
+healthReason: "Agent connected but not responding (task:folders timed out)"
+lastSync:     "2026-08-13T04:04:54Z"     ← 10.5 hours ago
+capabilities: sync        verified, lastSuccessAt 04:04:54Z, lastFailureAt null
+              listFolders verified, lastSuccessAt 04:05:28Z, lastFailureAt null
+              ...          every row: recent success, zero failures
+```
+
+Two things do not fit. Every capability row records a **success** and **no failures at all**,
+and the newest timestamp anywhere on the platform is hours old. A platform that is actively
+failing produces fresh failures; this one produced nothing, because nothing asked it anything.
+
+**Cause.** The verdict was true when it was written and had since expired.
+
+Platform health is the newest of `lastResponseAt` (any inbound agent event) against
+`lastFailureAt` (a request timeout) — the fix for [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out),
+where a wedged agent read as healthy because a live socket was mistaken for a working one. That
+rule is right, and it had no notion of an observation getting old. One `task:folders` request
+timed out at 21:05. Nobody used Cronsole overnight. `lastFailureAt` stayed the newest evidence
+until morning, so the strip kept reporting a ten-hour-old failure in the present tense.
+
+**The general shape is worth more than this instance.** #40 was a verdict derived from a
+*precondition* — something that cannot change when the platform fails. This is a verdict derived
+from an *expired observation* — something that was true and stopped being checked. Both pass
+every honesty test the codebase had, because both are first-hand and neither is invented. What
+neither could do is say **how old its evidence was**, and a status field that cannot say that
+will eventually assert the past as the present.
+
+Note the asymmetry that makes the fix coherent: **evidence of a connection renews itself and
+evidence of a failure does not.** The transport heartbeat re-proves every few seconds that the
+agent process is up and reachable, so `OFFLINE` and `HEALTHY` are continuously re-earned. A
+timeout happens once. Nothing after it says the agent is *still* wedged, because nothing after
+it asked.
+
+**Fix.** Already fixed (2026-08-13). `HealthState` gained **`UNKNOWN`**, rendered as **"Not
+checked"**, and `WindowsAgentConnector.getHealth` ages the failure out: inside
+`UNRESPONSIVE_EVIDENCE_TTL_MS` (15 minutes) a timeout still means `DEGRADED`, past it the state
+becomes `UNKNOWN` with the reason *"task:folders timed out, and nothing has been asked of the
+agent since"*. A wedged agent someone is actually trying to use stays `DEGRADED`, because every
+attempt renews the evidence.
+
+**If you are on an older build, or want the answer now:** press **Sync**, or call
+`sync_tasks` / `POST /api/tasks/sync`. It is a read-only round trip and it replaces the stale
+verdict with a current one. That is deliberately a user action rather than an automatic probe —
+`getHealth` runs on a 45-second dashboard poll, and probing there would put a synthetic request
+on the agent for every open browser tab.
+
+**Do not reach for the [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+remedy first.** `cronsole.ps1 restart` will also clear it — `registerAgent` starts a fresh
+liveness record — which makes restarting look like the cure and hides that nothing was wrong.
+Check whether the agent answers *before* restarting it: if Sync returns tasks, the agent was
+never the problem.
+
+*First hit: 2026-08-13.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

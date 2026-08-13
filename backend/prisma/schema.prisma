@@ -88,7 +88,13 @@ model PlatformConnection {
   lastSync  DateTime?
 
   // Health & Diagnostics
-  healthState       HealthState @default(HEALTHY)
+  //
+  // Born UNKNOWN, not HEALTHY. A connection that has just been written has
+  // contacted its platform exactly never, so `@default(HEALTHY)` made every
+  // Platforms card read *Online* from the instant it was created until the next
+  // poll corrected it — a verdict derived from the row existing, which is
+  // troubleshooting #40 one layer down.
+  healthState       HealthState @default(UNKNOWN)
   healthReason      String?
   apiVersion        String?
   fallbackActive    Boolean     @default(false)
@@ -337,10 +343,30 @@ enum ExecutionStatus {
   PENDING
 }
 
+/**
+ * What Cronsole can honestly say about a platform right now.
+ *
+ * UNKNOWN is not a fourth severity between healthy and degraded — it is the
+ * absence of a verdict, and it exists because the other three all assert
+ * something. Two situations produce it, and both used to borrow DEGRADED:
+ *
+ *  - **Never exercised.** A connection that has been configured but never used.
+ *    Claude Code is the standing case: its only endpoint fires the user's
+ *    routine, so there is no probe, and before the first run there is nothing
+ *    to report.
+ *  - **Evidence that has expired.** A request timeout proves the agent was not
+ *    answering at that moment. It is never renewed, so it goes stale — see
+ *    WindowsAgentConnector.getHealth.
+ *
+ * Rendering it as DEGRADED overstates (a warning nobody can act on, which is
+ * how the strip sat amber for ten hours over a healthy agent); rendering it as
+ * HEALTHY understates, and that is the confident lie. Neither is available now.
+ */
 enum HealthState {
   HEALTHY
   DEGRADED
   OFFLINE
+  UNKNOWN
 }
 
 

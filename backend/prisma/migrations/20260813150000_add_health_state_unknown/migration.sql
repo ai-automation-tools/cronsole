@@ -1,0 +1,19 @@
+-- Adds UNKNOWN to HealthState: the absence of a verdict, as opposed to the
+-- three states that each assert something.
+--
+-- Two situations produced it and both used to borrow DEGRADED. A configured
+-- but never-exercised connection (Claude Code has no probe — its only endpoint
+-- fires the user's routine), and a request timeout that has gone stale. The
+-- second is what prompted this: a timeout is evidence about a moment and is
+-- never renewed, so a single failed folder listing at 21:05 left the dashboard
+-- reading "Agent connected but not responding" for the following ten hours,
+-- over an agent that answered immediately when finally asked.
+--
+-- See docs/ROADMAP.md › "HealthState has no UNKNOWN, so 'never checked' has to
+-- borrow a verdict", and docs/troubleshooting/README.md #48.
+--
+-- Split from the default change that follows it on purpose: PostgreSQL allows
+-- ALTER TYPE ... ADD VALUE inside a transaction, but refuses to *use* the new
+-- value in that same transaction ("unsafe use of new value of enum type").
+-- Prisma wraps each migration in one, so the two steps cannot share a file.
+ALTER TYPE "HealthState" ADD VALUE IF NOT EXISTS 'UNKNOWN';

@@ -180,6 +180,10 @@ describe('getHealth — evidence, never a precondition', () => {
     findUnique.mockResolvedValue(null);
     const health = await connector.getHealth(CONFIG);
     expect(health.state).not.toBe(HealthState.HEALTHY);
+    // Specifically UNKNOWN, and not DEGRADED, since 2026-08-13. A routine that
+    // has never fired has not failed — there is simply no evidence either way,
+    // and Claude Code exposes no way to get any without firing it.
+    expect(health.state).toBe(HealthState.UNKNOWN);
     expect(health.reason).toMatch(/none fired yet|no read API/i);
   });
 
@@ -215,16 +219,22 @@ describe('getHealth — evidence, never a precondition', () => {
     expect(degraded.lastContactAt).toEqual(newer);
   });
 
-  it('degrades with no routines configured', async () => {
+  it('reports no verdict, not a bad one, with no routines configured', async () => {
+    // Was DEGRADED until 2026-08-13, for want of a state meaning "nothing to
+    // report". Nothing is wrong with an unconfigured platform, and an amber row
+    // the user cannot act on trains them to ignore the amber rows that matter.
     const health = await connector.getHealth({ userId: 'u1' });
-    expect(health.state).toBe(HealthState.DEGRADED);
+    expect(health.state).toBe(HealthState.UNKNOWN);
     expect(health.reason).toMatch(/no routines/i);
   });
 
   it('does not blame the platform when the evidence store is unreadable', async () => {
+    // This test's NAME was already right and its assertion was not: returning
+    // DEGRADED because our own database hiccuped is precisely blaming the
+    // platform for it. UNKNOWN is what "we could not find out" looks like.
     findUnique.mockRejectedValue(new Error('db down'));
     const health = await connector.getHealth(CONFIG);
-    expect(health.state).toBe(HealthState.DEGRADED);
+    expect(health.state).toBe(HealthState.UNKNOWN);
     expect(health.reason).toMatch(/run history/i);
   });
 });

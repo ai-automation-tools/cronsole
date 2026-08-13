@@ -71,7 +71,11 @@ const SUPPORT_STYLE: Record<CapabilitySupport, {
 const HEALTH_STYLE: Record<string, { label: string; dot: string; text: string }> = {
   HEALTHY: { label: 'Online', dot: 'bg-success', text: 'text-success-text' },
   DEGRADED: { label: 'Degraded', dot: 'bg-warning', text: 'text-warning-text' },
-  OFFLINE: { label: 'Offline', dot: 'bg-danger', text: 'text-danger-text' }
+  OFFLINE: { label: 'Offline', dot: 'bg-danger', text: 'text-danger-text' },
+  // Kept in step with healthMeta() in hooks/useConnections.ts — two tables for
+  // one enum, which is why a state missing from this one renders as no status
+  // dot at all rather than failing.
+  UNKNOWN: { label: 'Not checked', dot: 'bg-muted', text: 'text-muted-foreground' }
 };
 
 export const PlatformsScreen = () => {

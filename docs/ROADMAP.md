@@ -206,26 +206,62 @@ Everything below the sources track, unchanged in priority relative to each other
       chased: a flaky test quietly erodes trust in the suite, so it should be pinned down, but it is
       not evidence of a product defect.
 
-- [ ] **`HealthState` has no `UNKNOWN`, so "never checked" has to borrow a verdict**
-      *(logged 2026-08-12, found while doing the above)*: the enum is `HEALTHY | DEGRADED |
+- [x] **`HealthState` has no `UNKNOWN`, so "never checked" has to borrow a verdict**
+      *(logged 2026-08-12, shipped 2026-08-13)*: the enum was `HEALTHY | DEGRADED |
       OFFLINE`. A configured-but-never-exercised platform is none of those, so the Claude connector
-      reports `DEGRADED` with a reason naming why — pessimistic-with-an-explanation, chosen because
+      reported `DEGRADED` with a reason naming why — pessimistic-with-an-explanation, chosen because
       the failure it prevents is trusting a config nothing has checked.
 
-      **Three instances of the same shape, none of them Claude-specific:**
-      1. `getHealth` deriving a verdict from a precondition — **fixed** in `ClaudeConnector`.
+      **A fourth instance found it in the field, and it is the one that made the item urgent.**
+      Windows sat at *"Agent connected but not responding (task:folders timed out)"* for **ten and
+      a half hours** over an agent that answered a sync immediately when finally asked. Health is
+      the newest of `lastResponseAt` against `lastFailureAt` — correct, and with no notion of an
+      observation getting old. One timeout at 21:05, nobody using Cronsole overnight, and the
+      strip reported it in the present tense until morning ([troubleshooting #48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy)).
+
+      That sharpened what the missing state was actually for. It is not only *"never checked"* —
+      it is **"no current evidence"**, which covers a verdict that has expired as well as one that
+      never existed. And it named the rule the other three instances were groping at:
+      **evidence of a connection renews itself and evidence of a failure does not**, so a socket
+      may stand indefinitely while a timeout must age out. Fifteen minutes
+      (`UNRESPONSIVE_EVIDENCE_TTL_MS`), which is long enough that an agent someone is actually
+      trying to use stays `DEGRADED` — each attempt renews the evidence.
+
+      **Shipped:** `UNKNOWN` on the enum (two migrations — Postgres refuses to *use* a new enum
+      value in the transaction that adds it), rendered as **"Not checked"** in neutral colours in
+      `healthMeta` / `HEALTH_STYLE`; the aging rule in `WindowsAgentConnector.getHealth`; all four
+      no-evidence branches in `ClaudeConnector` moved off `DEGRADED`; the schema default and both
+      hardcoded `healthState: 'HEALTHY'` creates removed, so a connection is no longer born
+      Online. `HealthStrip` ranks `UNKNOWN` below the two observed problems but **above healthy**,
+      or the green *"All 3 platforms online"* would have replaced the amber lie with a worse one.
+      The `list_platforms` MCP description now says `UNKNOWN` means "no current evidence", not a
+      problem to route around.
+
+      **Four instances of the same shape, none of them Claude-specific — all now closed:**
+      1. `getHealth` deriving a verdict from a precondition — fixed in `ClaudeConnector` 2026-08-12;
+         its four no-evidence branches now return `UNKNOWN` rather than borrowing `DEGRADED`.
       2. `POST /api/tasks/health` auto-creating the Windows connection with a hardcoded
-         `healthState: 'HEALTHY'` before the agent has ever said anything.
-      3. **The schema itself**: `PlatformConnection.healthState` is `@default(HEALTHY)`, so *every*
-         connection is born Online. Found when the new routines route created one and the Platforms
+         `healthState: 'HEALTHY'` before the agent had ever said anything — the literal removed, so
+         the row takes the default and the same request derives the real verdict a few lines later.
+      3. **The schema itself**: `PlatformConnection.healthState` was `@default(HEALTHY)`, so *every*
+         connection was born Online. Found when the routines route created one and the Platforms
          card immediately read *Online* having contacted Anthropic never. Worked around there by
          recomputing health on write (`refreshClaudeHealth`) — safe only because Claude's
          `getHealth` does not probe, and **not** a pattern to copy to a platform whose health check
-         talks to the platform.
+         talks to the platform. Now `@default(UNKNOWN)`, which makes the workaround belt-and-braces
+         instead of load-bearing. **No backfill**: every stored value was written by a real poll, so
+         overwriting it would discard a true verdict to make the column uniform.
+      4. **A verdict that expired** — the Windows case above. The one that had to be *observed*,
+         because the other three are visible by reading the code and this one only shows up as a
+         status that is quietly hours out of date.
 
-      Fixing it properly is one enum value plus its consumers (`types.ts`, `HEALTH_STYLE`,
-      `useConnections`, `HealthStrip`) and a default change, and the UI already has the right idiom:
-      the Failures chip renders `–` rather than `0` until the scan lands.
+      **Testing note worth keeping.** The connector's existing DEGRADED test used hardcoded
+      absolute dates, which were fine while the rule was "newest evidence wins" and silently became
+      *two days stale* the moment freshness entered the verdict — it kept passing, for the wrong
+      reason. The cases now fix the clock relative to the failure. And the first mutation used to
+      check them was itself worthless: setting the TTL to `MAX_SAFE_INTEGER` also moved the tests,
+      since they derive their clock from the same constant. Deleting the branch is the mutation that
+      proves anything.
 
 - [x] **Claude connection config — the panel that makes the connector reachable**
       *(shipped 2026-08-12)*: the connector above was correct and **unreachable** — the only

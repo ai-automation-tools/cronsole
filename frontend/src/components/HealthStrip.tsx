@@ -50,13 +50,22 @@ export const HealthStrip = () => {
     .sort()
     .at(-1) ?? null;
 
-  // Name a platform only when something is wrong with it. When everything is
-  // healthy there is no "worst", and picking whichever came back first named
-  // Cronsole-native — a platform that is the server itself and so is online
-  // whenever anything is rendering this at all. A status line that reports the
-  // one component that cannot fail is decoration.
+  // Name a platform only when something is wrong with it — or when we cannot
+  // say that nothing is. When everything is healthy there is no "worst", and
+  // picking whichever came back first named Cronsole-native — a platform that is
+  // the server itself and so is online whenever anything is rendering this at
+  // all. A status line that reports the one component that cannot fail is
+  // decoration.
+  //
+  // UNKNOWN ranks last because the two above it are *observed* problems and it
+  // is an absence of observation — but it must rank at all, or the green branch
+  // below prints "All 3 platforms online" over a platform nothing has heard from
+  // since yesterday. That sentence is the confident lie this strip exists to
+  // avoid, and it is worse than the amber it replaces: amber over-warns, green
+  // tells you to stop looking.
   const ailing = connected.find(c => c.state === 'OFFLINE')
     ?? connected.find(c => c.state === 'DEGRADED')
+    ?? connected.find(c => c.state === 'UNKNOWN')
     ?? null;
 
   // When any platform last said anything. Newest across all of them, matching

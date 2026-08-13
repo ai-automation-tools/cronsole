@@ -25,6 +25,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 48 | Windows sits at **Degraded** for hours — *"connected but not responding"* — while the agent is running fine and answers the moment you press Sync | The verdict was real and had **expired**. A request timeout is one observation at one instant and is never renewed, so with nothing asking the agent anything afterwards, "not responding" kept being asserted from a single failure hours earlier. Health now ages that evidence out to **UNKNOWN** ("Not checked") past 15 minutes. **The tell: every capability row shows recent successes and zero failures, and the newest timestamp anywhere on the platform is hours old** | [→](#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy) |
 | 47 | A Claude routine's task keeps coming back after **Remove from Cronsole** — and `TaskExclusion` is empty, as if untrack never ran | Untrack ran; its exclusion was then legitimately cleared. `ClaudeConnector.syncTasks` returns the routines the user **declared** in `PlatformConnection.config`, so the exclusion fences the user's own config while the declaration stays — and importing the Claude category clears exclusions by design. **A Claude task is its declaration**: untrack now 400s for `CLAUDE_CODE`, and disconnecting the routine removes its tasks | [→](#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole) |
 | 46 | Every local suite passes, CI is red six pushes running — on an eslint rule and one integration assertion | `npm test` is **not** the CI gate. Two steps have no equivalent it runs: `npm run lint` (frontend only; `@typescript-eslint/no-explicit-any` is an **error**) and `npm run test:integration` (separate vitest config + real Postgres). A status-code change is invisible to unit tests and loud in integration tests | [→](#46-every-local-suite-passes-and-ci-is-red--npm-test-is-not-the-ci-gate) |
+| 51 | `update_task_schedule` / `create_task` fail with **`502`/`500 Invalid startBoundary '9-17:00'`** on an ordinary cron like `0 9-17 * * 1-5`, and retrying changes nothing | `parseInt('9-17')` is `9`, so a **list or range in the hour or minute field** passed the "specific time" guard and `padStart` left the raw text in `startBoundary`. **The tell: `convert_schedule` rates it `score: 1` with no warnings while `diverges: true` and `effectiveRuns` show one run a day.** Not an agent fault — the agent is the only layer that rejected it. **Fixed 2026-08-13**: these drop to the honest replaced-with-hourly fallback, and a lossy conversion now rides the schedule-edit **success** too | [→](#51-a-schedule-edit-returns-502-for-a-cron-that-is-simply-not-expressible) |
+| 51a | **No symptom at all** — a step schedule like `*/10,45 * * * *` or `0 */6,13 * * *` quietly runs on half of what you asked, forever | Same `parseInt` defect as #51, in the **step** branch (`'*/10,45'.startsWith('*/')` is true, `parseInt('10,45')` is `10`). **Worse than #51 precisely because it never errors**: a mis-parsed step yields a *well-formed* trigger Windows accepts, where a mis-parsed time yielded one the agent refused. Found by sweeping for the pattern, not by a report. **Fixed 2026-08-13**; two instances of the class remain on other surfaces (`timezone.ts`, `registry-site`) and are listed in the entry | [→](#51a-the-same-bug-in-the-step-branch--and-this-one-never-errors-at-all) |
 | 50 | Cronsole says it can't create a Claude routine, but Claude Code creates them for you — and Claude tasks sync with no schedule while claude.ai clearly shows one | There are **two** routines APIs. The documented one (`/fire`, per-routine token) really is fire-only; the one Claude Code itself uses (`/v1/code/triggers`, account session) lists, creates, reschedules and pauses. Sign into the Claude Code CLI on the backend's machine and sync — no config. **The reasoning error: a documentation search recorded as a fact about the platform.** Still no delete (verified) | [→](#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one) |
 | 45 | Cronsole can't list, pause, or create Claude Code routines — and a routine you *can* fire returns `400 Bad Request` for no visible reason | **Largely superseded by #50 (2026-08-13)** — the create/list/pause half was wrong about the platform. The `400` half stands: a **400 is usually a paused routine**, the only signal the documented endpoint ever gives about a routine's enabled state | [→](#45-cronsole-cant-list-pause-or-create-claude-code-routines) |
 | 44 | An MCP tool 400s on every call (`Unsupported jobType: undefined`) while `npm test` passes 142/142 — including a test named after the very agreement it is not checking | The tool never sent a required discriminator, and had **never worked since it shipped**. The MCP suite **stubs the HTTP client**, so every assertion is about what the wrapper *sends* and none about whether the API *accepts* it — the test did not miss the bug, it **pinned** it. Drive a wrapped route by hand after touching it; one `curl` with the tool's exact payload catches it | [→](#44-an-mcp-tool-400s-on-every-call-and-the-whole-suite-is-green) |
@@ -3311,6 +3313,117 @@ curl -s -H "Authorization: Bearer $CRONSOLE_TOKEN" \
 
 *First hit: 2026-08-13. Found by being asked "Claude Code has created routines for me before — why
 can't Cronsole?", which is a better API audit than the one that produced #45.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 51. A schedule edit returns 502 for a cron that is simply not expressible
+
+**Symptom.** Rescheduling a Windows task to an ordinary business cron fails as a server error,
+and retrying does exactly the same thing:
+
+```text
+update_task_schedule { schedule: "0 9-17 * * 1-5" }
+→ HTTP 502: Invalid startBoundary '9-17:00' (expected HH:mm)
+
+create_task        { schedule: "0 9,17 * * *" }
+→ HTTP 500: Invalid startBoundary '9,17:00' (expected HH:mm)
+```
+
+The **tell**, and it is the alarming part — ask the converter first and it reports the schedule as
+perfect:
+
+```text
+convert_schedule { schedule: "0 9-17 * * 1-5" }
+→ score: 1, warnings: [], lossy: undefined
+→ trigger: { type: 'Weekly', startBoundary: '9-17:00', … }
+→ diverges: true, effectiveRuns: [ 09:00 daily ]     # <- 1 run/day, 9 were asked for
+```
+
+**Cause.** `convertCronToWindowsTrigger` guarded the minute and hour fields with
+`!isNaN(parseInt(field))`. **`parseInt('9-17')` is `9` and `parseInt('9,17')` is `9`** — neither is
+`NaN` — so a list or a range passed as "a specific time", and `hour.padStart(2, '0')` then left the
+raw text alone because it was already ≥ 2 characters. The result was a `startBoundary` that is not
+a time, at **confidence 1.0 with no warnings**.
+
+This is the **Monday-only `1-5` bug** (fixed 2026-07-14, and referenced throughout this file) —
+where `parseInt('1-5')` made "every weekday" mean "Mondays only" — **one field over, and missed
+when that one was fixed.** A Windows trigger starts at exactly one time, so unlike the weekday case
+there is no correct multi-value answer available: several start times means several tasks.
+
+**The wrong turn worth recording:** the `502` invites you to debug the agent. It is not the agent —
+the agent is the only component that behaved correctly, rejecting a malformed start time rather
+than registering something wrong. Nothing bad ever reached Task Scheduler, which is precisely why
+this survived: the failure was loud, late, and pointed at the wrong layer.
+
+**Fix (2026-08-13)** — `parseSingleTimeField()` accepts one in-range numeric value or returns
+`null`, and the boundary is formatted from the *parsed numbers* rather than the raw strings. These
+crons now fall through to the documented replaced-with-hourly fallback (`lossy: 'replaced'`, 0.7),
+plus a specific warning naming the workaround. Out-of-range values (`0 25 * * *`, which built
+`"25:00"` and failed identically) are covered by the same guard.
+
+Two details that are easy to get wrong, both found by testing rather than reasoning:
+
+- **Formatting from the parsed number is not, by itself, the fix — it is a worse bug.** Mutation-
+  testing the guard showed `timeOf(hourNum, minNum)` alone turns `0 9-17 * * 1-5` into a
+  well-formed `"09:00"`: no error at all, and the task silently runs once a day instead of nine
+  times. The `/^\d+$/` rejection is what makes it honest; the formatting only stops the malformed
+  string. **A 502 is better than a silent wrong schedule**, so a "fix" that removed the error
+  without rejecting the input would have made this worse while looking correct.
+- **The success path had to learn to carry warnings.** `PATCH /api/tasks/:id/schedule` returned the
+  bare task on success, so with the converter fixed the same request became a **silent `200`** over
+  a task quietly rescheduled to ~24 runs/day. It now returns the `conversion` block create has
+  always returned, and `update_task_schedule` surfaces it. Refusing with a `400` instead was
+  rejected: `0 4 1 1 *` has always been accepted-and-replaced, and one unexpressible cron may not
+  answer differently from another.
+
+Verified live: `convert_schedule` drops to `0.7` with both warnings, the route returns
+`conversion.lossy: "replaced"` on success, and `Get-ScheduledTask` shows a clean `PT1H` repetition
+on the machine. Pinned by four tests asserting the boundary's **shape** (`/^\d{2}:\d{2}$/`) rather
+than only its confidence — a test that checked confidence alone would have passed on `"9-17:00"`.
+
+### 51a. The same bug in the step branch — and this one never errors at all
+
+**Grep for the pattern, don't fix the one instance** ([#21](#21-templates-never-update-catalog-sync-failed--p2002-on-every-boot)).
+Sweeping the repo for sibling cron parsing found two more live instances **in the same function**:
+
+```text
+*/10,45 * * * *   # every 10 min AND at :45  -> read as a clean PT10M step, ",45" gone
+0 */6,13 * * *    # every 6h AND at 13:00    -> read as PT6H, the 13:00 run gone
+```
+
+`'*/10,45'.startsWith('*/')` is true and `parseInt('10,45')` is `10`, so a step *combined with* a
+list or range was read as a clean step — again at **confidence 1.0 with no warnings**.
+
+**This half is worse, and the reason is worth internalizing.** A multi-value *time* produced a
+malformed `startBoundary` that the agent refused, which is why you get a `502` and go looking. A
+mis-parsed *step* produces a **well-formed** `PT10M` repetition that Windows accepts happily — no
+error, no warning, no symptom. The task just runs on a schedule nobody chose, forever. **The loud
+bug was the one that got found; the silent one had been sitting beside it the whole time.**
+
+Fixed by `parseStepField()`, which matches `^\*\/(\d+)$` and nothing else. Plain steps (`*/15`,
+`0 */4`) are unaffected. The reverse direction was hardened at the same time: `convertWindowsTriggerToCron`
+read a malformed `"9-17:00"` off a real machine as `0 9 * * *` at confidence 1.0 — inventing a
+schedule the task does not have and then displaying it as fact.
+
+**Two known instances of this class remain, on other surfaces** (logged, not fixed here):
+
+- `frontend/src/utils/timezone.ts` — `shiftCron` correctly *refuses* to shift a multi-value hour
+  (its `isNum` guard is right), but returns `shifted: false` with **no `reason`**. So a Pacific user
+  typing `0 9-17 * * 1-5` gets it stored verbatim as UTC — 7–8 hours from what they meant, with
+  nothing on screen. The `reason` field exists precisely for "has a clock time we would have moved
+  but could not".
+- `registry-site/index.html` — the gallery's standalone `describeCron` renders `0 9 1,15 3 *` as
+  *"March 1st"*, dropping the 15th (`parseInt('1,15')`, day-of-month position).
+
+> [!NOTE]
+> The MCP half is invisible until `cd mcp-server && npm run build` **and** an MCP host restart.
+> The backend picks it up on its own if it is running in watch mode.
+
+*First hit: 2026-08-13, during a hand-driven MCP regression pass. Found by probing for a cron that
+would prove a `400`-vs-`502` distinction — `*/7 * * * *` was the expected input and turned out to
+convert fine (`approximated`), so the search widened to multi-value fields and hit this instead.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

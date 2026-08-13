@@ -119,6 +119,38 @@ Everything below the sources track, unchanged in priority relative to each other
       `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
       honest-warning treatment the Windows trigger conversion already has.
 
+- [x] **Cron→trigger conversion: multi-value hour and minute fields** *(2026-08-13)*. `0 9-17 * * 1-5`
+      ("every hour, 9–5, weekdays") converted at **confidence 1.0 with no warnings** into a malformed
+      `startBoundary` of `"9-17:00"`, because `parseInt('9-17')` is `9`. Same defect as the Monday-only
+      `1-5` day-of-week bug fixed 2026-07-14 — **one field over, and missed when that one was fixed**;
+      lists (`9,17`), ranges (`9-17`), minute-side equivalents (`0,30 9 * * *`) and out-of-range values
+      (`0 25 * * *`) were all affected.
+
+      Nothing wrong ever reached Task Scheduler — the agent rejected the malformed boundary — so it
+      surfaced as a `500`/`502` ("the platform failed, retry") for a schedule Cronsole cannot express,
+      and pointed debugging at the one layer that was behaving. These now land on the documented
+      replaced-with-hourly fallback with a warning naming the workaround (several start times means
+      several tasks).
+
+      **Carried a second fix that was previously unreachable:** a lossy conversion now rides the
+      **success** of `PATCH /api/tasks/:id/schedule` (and MCP `update_task_schedule`), not just the
+      refusal — otherwise fixing the converter would have traded a noisy `502` for a silent `200` over
+      a task quietly rescheduled to ~24 runs a day. See [troubleshooting #51](troubleshooting/README.md#51-a-schedule-edit-returns-502-for-a-cron-that-is-simply-not-expressible).
+
+      **Grepping for the pattern instead of fixing the one instance (#21's rule) found two more, and
+      the worse one.** `*/10,45 * * * *` and `0 */6,13 * * *` passed `startsWith('*/')` and were read
+      as clean `PT10M`/`PT6H` steps at confidence 1.0 — and because a mis-parsed *step* yields a
+      **well-formed** trigger, the agent accepted it and the task ran on the wrong schedule
+      indefinitely, with nothing anywhere to notice. The malformed-boundary bug at least failed loudly.
+      The reverse direction (`convertWindowsTriggerToCron`, which reads triggers off real machines) was
+      hardened for the same reason: it read `"9-17:00"` as `0 9 * * *` at confidence 1.0.
+
+      **Still open, found by the same sweep and deliberately not bundled here** — two other surfaces
+      carry this defect class: `frontend/src/utils/timezone.ts` `shiftCron` correctly refuses to shift
+      a multi-value hour but returns no `reason`, so a Pacific user typing `0 9-17 * * 1-5` has it
+      stored verbatim as UTC — 7–8 hours off, silently; and `registry-site/index.html`'s standalone
+      `describeCron` renders `0 9 1,15 3 *` as "March 1st", dropping the 15th.
+
 - [x] **Claude Code routines — full read/write connector** *(2026-08-13)*. Cronsole lists the real
       routines on the account (name, 5-field UTC cron, enabled state, next run), **creates** them,
       reschedules them, pauses and resumes them, and fires them **without a per-routine token**.

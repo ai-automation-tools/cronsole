@@ -340,7 +340,16 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
   });
 
   notifyTasksChanged(userId);
-  res.json(updatedTask);
+  // A lossy conversion has to travel with the SUCCESS too, not only the refusal.
+  // The create route has always returned this; update dropped it, and that gap
+  // only became reachable when the converter stopped mis-reporting a multi-value
+  // hour as an exact match: those used to die at the agent with a 502, so nobody
+  // could receive a silent "200" over a schedule that had been replaced with an
+  // hourly trigger. Refusing instead would be the wrong lever — `0 4 1 1 *` has
+  // always been accepted-and-replaced, and one unexpressible cron may not answer
+  // differently from another. Spread rather than nested, so existing readers of
+  // the task fields are untouched.
+  res.json(conversion.lossy ? { ...updatedTask, conversion } : updatedTask);
 });
 
 const patchTaskActionsSchema = z.object({

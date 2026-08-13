@@ -13,6 +13,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Edit what a Cronsole-native task runs** (2026-08-12): an Edit pencil on the task modal's Action section, `PATCH /api/tasks/:id/job`, and an `update_native_job` MCP tool (25 tools). Change an HTTP job's URL, method, headers or body; change a script job's command or working directory; or convert between the two. **A native HTTP task's URL previously could not be changed at all** — the only route to a different URL was delete and recreate, losing the run history.
+
+  **Deliberately a separate route from `PATCH /:id/actions`**, which is the Windows path, because the two are different operations rather than different shapes. Editing a Windows action asks the elevated agent to rewrite a task on the machine, can be refused by the platform, and needs the agent online. Here the DB row *is* the task: the write is the change, nothing can refuse it, and it works with the agent offline.
+
+  **It replaces the job rather than patching it.** The two job types share no fields, so a merge would leave a stored `url` sitting inside an EXEC job — something the executor never reads and a reader cannot explain. Switching type is allowed and never accidental: the form names what will be discarded *before* the click, and the task keeps its name, schedule, category and history either way.
+
+  Normalization and validation are the **same two functions the create route uses**, so an edit cannot produce a spec that creation would have refused — the kind of thing that is accepted at edit time and fails at 3am. Commands are tokenized server-side into `{executable, args[]}` with **no shell**, and the editor states which host a script actually runs on, since a native job executes wherever the backend does.
+
 - **Rename any task** (2026-08-12): a pencil beside the title in the task modal, `name` accepted by `PATCH /api/tasks/:id`, and a `rename_task` MCP tool (24 tools). Works on every platform.
 
   **A name is a Cronsole label, exactly like a category — not the machine.** Nothing is renamed on the platform: a Windows task keeps its Task Scheduler path, so the modal keeps showing the real `externalId` and, once the two diverge, says *"Renamed in Cronsole — Task Scheduler still calls it X"*. Silence there would send someone searching Task Scheduler for a name that was never in it.

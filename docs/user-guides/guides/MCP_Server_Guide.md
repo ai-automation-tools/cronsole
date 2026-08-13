@@ -49,6 +49,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
 | **`update_task_schedule`** | "Move the digest to 7am on weekdays" | `PATCH /api/tasks/:id/schedule` |
 | **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
+| **`update_native_job`** | "Point that Cronsole-native task at the new URL", "make it run my script instead" — for native tasks; Windows uses `update_task_action` | `PATCH /api/tasks/:id/job` |
 | **`rename_task`** | "Call that one 'Nightly report' instead" — renames it **in Cronsole only**; Task Scheduler still shows the original name | `PATCH /api/tasks/:id` |
 | **`untrack_task`** | "Stop showing all those Microsoft tasks", "I imported that folder by mistake" — removes it from Cronsole, **leaves the scheduled task running**. Not for Claude routines — disconnect those | `POST /api/tasks/:id/untrack` |
 | **`list_platforms`** | "What can Cronsole actually do with Windows?" — per platform, which actions work here, which are untested, and which are impossible | `GET /api/tools/platforms` |

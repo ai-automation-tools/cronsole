@@ -144,6 +144,7 @@ describe('the tool surface', () => {
       'set_task_status',
       'sync_tasks',
       'untrack_task',
+      'update_native_job',
       'update_task_action',
       'update_task_schedule'
     ]);
@@ -1417,6 +1418,78 @@ describe('create_native_task', () => {
   });
 });
 
+describe('update_native_job', () => {
+  const task = {
+    id: 'n1', name: 'Ping', platform: 'TASKHUB_NATIVE',
+    externalId: 'native_abc', status: 'ACTIVE', schedule: '0 3 * * *'
+  };
+
+  it('sends a complete HTTP job, and never a field from the other type', async () => {
+    // The whole risk of a replace-not-patch verb reached through a flat tool
+    // signature: `command` and `url` are both optional parameters, so a caller
+    // can pass both. Only the fields belonging to the chosen jobType may be
+    // stored — a stray `command` on an HTTP job is a field the executor never
+    // reads and a reader cannot explain.
+    const { client, calls } = stubClient({ 'PATCH /tasks/n1/job': task });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', {
+      taskId: 'n1', jobType: 'HTTP', url: 'https://e.com/ping', method: 'POST',
+      headers: { 'X-Key': 'v' }, body: '{}', command: 'node x.js', workingDirectory: '/tmp'
+    });
+
+    expect(calls[0]).toMatchObject({ method: 'patch', path: '/tasks/n1/job' });
+    expect(calls[0].body).toEqual({
+      job: { jobType: 'HTTP', url: 'https://e.com/ping', method: 'POST', headers: { 'X-Key': 'v' }, body: '{}' }
+    });
+  });
+
+  it('sends a complete EXEC job, and never a field from the other type', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/n1/job': { ...task, name: 'Digest' } });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', {
+      taskId: 'n1', jobType: 'EXEC', command: 'node digest.js', workingDirectory: 'D:\jobs',
+      url: 'https://e.com', headers: { 'X-Key': 'v' }
+    });
+
+    expect(calls[0].body).toEqual({
+      job: { jobType: 'EXEC', command: 'node digest.js', workingDirectory: 'D:\jobs' }
+    });
+  });
+
+  it('defaults the method rather than omitting it, so the stored job is complete', async () => {
+    // Omitting `method` must not mean "keep the old one" — this replaces the
+    // job, and a spec that silently inherits half of its predecessor is exactly
+    // the merge this route refuses to do.
+    const { client, calls } = stubClient({ 'PATCH /tasks/n1/job': task });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', { taskId: 'n1', jobType: 'HTTP', url: 'https://e.com' });
+
+    expect((calls[0].body as { job: Record<string, unknown> }).job).toEqual({
+      jobType: 'HTTP', url: 'https://e.com', method: 'GET'
+    });
+  });
+
+  it('url-encodes the task id', async () => {
+    const { client, calls } = stubClient({ 'PATCH /tasks/a%2Fb/job': task });
+    const mcp = await connect(client);
+    await call(mcp, 'update_native_job', { taskId: 'a/b', jobType: 'HTTP', url: 'https://e.com' });
+    expect(calls[0].path).toBe('/tasks/a%2Fb/job');
+  });
+
+  it('says the schedule and history survived, and points Windows elsewhere', async () => {
+    const { client } = stubClient({ 'PATCH /tasks/n1/job': task });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'update_native_job', { taskId: 'n1', jobType: 'HTTP', url: 'https://e.com' });
+    expect(text(r)).toMatch(/schedule, name and run history were preserved/i);
+
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'update_native_job');
+    // Replace-not-patch and the Windows alternative both have to be in the
+    // description — they are the two ways a caller gets this wrong.
+    expect(tool!.description).toMatch(/REPLACES/);
+    expect(tool!.description).toMatch(/update_task_action/);
+  });
+});
+
 describe('untrack_task', () => {
   it('POSTs to the untrack route', async () => {
     const { client, calls } = stubClient({
@@ -1558,6 +1631,7 @@ describe('error handling across the surface', () => {
       'POST /tasks/preview': boom,
       'POST /templates/t/apply': boom,
       'PATCH /tasks/x': boom,
+      'PATCH /tasks/x/job': boom,
       'PATCH /tasks/x/status': boom,
       'PATCH /tasks/x/schedule': boom,
       'PATCH /tasks/x/actions': boom,
@@ -1597,7 +1671,8 @@ describe('error handling across the surface', () => {
       ['sync_tasks', {}],
       ['get_task_health', {}],
       ['list_run_history', {}],
-      ['rename_task', { taskId: 'x', name: 'New name' }]
+      ['rename_task', { taskId: 'x', name: 'New name' }],
+      ['update_native_job', { taskId: 'x', jobType: 'HTTP', url: 'https://e.com' }]
     ];
     // Every registered tool must appear above — a new tool that skips this guard
     // would be free to throw a stack trace at the model.

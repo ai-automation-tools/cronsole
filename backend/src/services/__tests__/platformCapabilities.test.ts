@@ -153,6 +153,11 @@ describe('Cronsole-native route-level carve-outs', () => {
     expect(verbReachability(NATIVE, 'updateSchedule')).toBe(true);
     expect(verbReachability(NATIVE, 'export')).toBe(true);
     expect(verbReachability(NATIVE, 'delete')).toBe(true);
+    // Added 2026-08-12 with PATCH /tasks/:id/job. Native has no `updateActions`
+    // connector method and never will — the row IS the task — so a
+    // connector-derived answer would report the platform as unable to change
+    // what it runs, which it does without an agent and while one is offline.
+    expect(verbReachability(NATIVE, 'updateAction')).toBe(true);
   });
 
   it('the routes really do handle those three natively', () => {
@@ -163,14 +168,20 @@ describe('Cronsole-native route-level carve-outs', () => {
     expect(routesSource).toContain("recordCapability(userId, task.platform, 'updateSchedule', true)");
     expect(routesSource).toContain("recordCapability(userId, task.platform, 'export', true)");
     expect(routesSource).toContain("recordCapability(userId, task.platform, 'delete', true)");
+    // The job route branches on the platform the other way round — it refuses
+    // anything that is NOT native — so it is asserted by its own writer instead.
+    expect(routesSource).toContain(
+      "recordCapability(userId, PlatformType.TASKHUB_NATIVE, 'updateAction', true)"
+    );
   });
 
   it('does not claim the verbs the route has no native branch for', () => {
-    // Restore has no native file format to restore from; there is no folder
-    // hierarchy to list; and the actions route defers wholly to the connector.
+    // Restore has no native file format to restore from, and there is no folder
+    // hierarchy to list. (`updateAction` used to be listed here, because the
+    // /actions route defers wholly to the connector — until /job gave native its
+    // own way to change what a task runs.)
     expect(verbReachability(NATIVE, 'restore')).toBe(false);
     expect(verbReachability(NATIVE, 'listFolders')).toBe(false);
-    expect(verbReachability(NATIVE, 'updateAction')).toBe(false);
   });
 });
 

@@ -659,6 +659,87 @@ router.post('/native', validateBody(createNativeSchema), async (req: Request, re
   res.json({ message: 'Native task created', task });
 });
 
+const patchNativeJobSchema = z.object({
+  job: z.unknown() // semantic validation stays in validateJob (shared with the executor)
+});
+
+/**
+ * Change what a Cronsole-native task **does** — the counterpart to
+ * `PATCH /:id/actions`, which is the Windows path.
+ *
+ * Two routes rather than one because the thing being edited is genuinely
+ * different, not merely differently shaped. `/actions` asks an elevated agent to
+ * rewrite a task on the machine, and only records anything once the platform has
+ * confirmed it. Here the DB row **is** the task: the write is the change, there
+ * is nothing to confirm, and it works with the agent offline. Folding them into
+ * one endpoint would mean one handler where half the paths need a platform round
+ * trip and half are a lie if they wait for one.
+ *
+ * **Replaces the job, does not patch it** — same contract as `/actions`, and for
+ * a sharper reason here: the two job types share no fields, so a merge would let
+ * `{jobType: 'EXEC', executable}` land on top of a stored HTTP job and leave
+ * `url` behind as a field the executor never reads and a reader cannot explain.
+ * Send the whole spec.
+ *
+ * **Switching job type is allowed, and never accidental.** `buildNativeJob`
+ * passes an unrecognized or missing `jobType` straight through so `validateJob`
+ * rejects it *by name*, so a switch requires naming the new type. It moves the
+ * task between Dashboard sources (`TASKHUB_NATIVE` ↔ `TASKHUB_NATIVE:EXEC`),
+ * which is derived server-side per request and follows on its own.
+ *
+ * Normalization and validation are the **same two functions the create route
+ * uses**, which is the only thing that keeps an edited task in the shape the
+ * executor can run. A second definition here is how an edit produces a job that
+ * creation would have refused.
+ */
+router.patch('/:id/job', validateBody(patchNativeJobSchema), async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+  const { job } = req.body;
+
+  // Scope by userId so one user can't edit another's task (IDOR).
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  if (task.platform !== PlatformType.TASKHUB_NATIVE) {
+    throw new HttpError(
+      400,
+      `A job spec belongs to a Cronsole-native task; this one is ${task.platform}. ` +
+      'Use PATCH /api/tasks/:id/actions to change what a Windows task runs.'
+    );
+  }
+
+  // Normalize first, then validate **what will actually be stored** — the two
+  // differ for an EXEC job sent as a `command` line, and validating the input
+  // would check a shape the executor never sees.
+  const nativeJob: NativeJob = buildNativeJob(job as Record<string, unknown>);
+  const jobError = validateJob(nativeJob);
+  if (jobError) {
+    throw new HttpError(400, jobError);
+  }
+
+  // Merge at the metadata level, replace at the job level. Everything else on
+  // `metadata` (a `savedFrom` template id, notes a future feature adds) belongs
+  // to the task rather than to the job, and dropping it would make this route
+  // quietly destructive well outside what its name claims.
+  const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+    ? (task.metadata as Record<string, unknown>)
+    : {};
+
+  const updated = await prisma.task.update({
+    where: { id },
+    data: { metadata: { ...meta, job: nativeJob } as unknown as Prisma.InputJsonValue }
+  });
+
+  // The write IS the change here, so success is known rather than reported —
+  // unlike the Windows path, which records only after the agent confirms.
+  await recordCapability(userId, PlatformType.TASKHUB_NATIVE, 'updateAction', true);
+  notifyTasksChanged(userId);
+  res.json(updated);
+});
+
 // Get health for all connectors
 /**
  * Real native folders a task can be created in, for the Apply/New Task pickers.

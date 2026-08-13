@@ -11,7 +11,7 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *             create_task_from_template
  *   act       run_task
  *   modify    set_task_status · update_task_schedule · update_task_action ·
- *             rename_task            untrack_task
+ *             rename_task            untrack_task           update_native_job
  *   destroy   delete_task            (only when allowDestructive — see below)
  *
  * Each tool is a thin call through CronsoleClient into the REST API. Business
@@ -1205,6 +1205,93 @@ Next run: ${task.nextRunTime}` : '')
   );
 
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // update_native_job — change what a Cronsole-native task does
+  // -------------------------------------------------------------------------
+  //
+  // The native counterpart to `update_task_action`, which is the Windows path.
+  // Kept separate for the same reason the routes are: that one asks an elevated
+  // agent to rewrite a task on a machine and can be refused by the platform;
+  // this one rewrites a row this backend owns, so it cannot fail upstream and
+  // works with the agent offline.
+  //
+  // Ungated: reversible by sending the previous spec back, and it touches
+  // nothing outside Cronsole's own database.
+  server.registerTool(
+    'update_native_job',
+    {
+      title: 'Change what a Cronsole-native task runs',
+      description:
+        'Change the job spec of a Cronsole-**native** task — the URL/method/headers/body of an HTTP job, or the ' +
+        'command and working directory of a script job. Only for TASKHUB_NATIVE tasks; use update_task_action ' +
+        'for Windows. ' +
+        'NOTE: this REPLACES the job rather than patching it. The two job types share no fields, so send the ' +
+        'whole spec — read the current one first (list_tasks / export_task) rather than guessing. Passing a ' +
+        'different `jobType` deliberately converts the task and discards the other type\'s fields; the schedule, ' +
+        'name, category and run history are kept either way. ' +
+        'A script job runs **wherever the backend runs**, which is inside the container on a Dockerized install — ' +
+        'check `executionHost` on the Cronsole-native row of list_platforms before assuming a path resolves. ' +
+        'The command is tokenized server-side and run with **no shell**: for pipes or `&&`, name one explicitly, ' +
+        'e.g. `cmd.exe /c "…"`.',
+      inputSchema: {
+        taskId: z.string().describe('The Cronsole task id (from list_tasks). Must be a TASKHUB_NATIVE task.'),
+        jobType: z
+          .enum(['HTTP', 'EXEC'])
+          .describe(
+            "'HTTP' calls a URL; 'EXEC' runs a program. Required — pass the task's current type unless you " +
+            'intend to convert it.'
+          ),
+        url: z.string().optional().describe('HTTP only, required for it. Absolute, e.g. "https://example.com/health".'),
+        method: z
+          .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'])
+          .optional()
+          .describe('HTTP only. Defaults to GET when omitted — it is not carried over from the stored job.'),
+        headers: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe('HTTP only. Omit to send none — omitting does NOT keep the existing headers.'),
+        body: z.string().optional().describe('HTTP only. Omit to send none.'),
+        command: z
+          .string()
+          .optional()
+          .describe(
+            'EXEC only, required for it. The full command line, e.g. `node "C:\\\\jobs\\\\digest.js"`. Quote ' +
+            'arguments containing spaces; the backend tokenizes it into {executable, args[]} with no shell.'
+          ),
+        workingDirectory: z
+          .string()
+          .optional()
+          .describe('EXEC only. Directory to run in, resolved on the backend host. Omit to clear it.')
+      }
+    },
+    async ({ taskId, jobType, url, method, headers, body, command, workingDirectory }) => {
+      try {
+        // Built here rather than forwarded wholesale so a field belonging to the
+        // other job type cannot ride along into the stored spec.
+        const job: Record<string, unknown> =
+          jobType === 'HTTP'
+            ? { jobType: 'HTTP', url, method: method ?? 'GET' }
+            : { jobType: 'EXEC', command };
+        if (jobType === 'HTTP') {
+          if (headers && Object.keys(headers).length) job.headers = headers;
+          if (body !== undefined) job.body = body;
+        } else if (workingDirectory !== undefined) {
+          job.workingDirectory = workingDirectory;
+        }
+
+        const task = await client.patch<TaskRow>(`/tasks/${encodeURIComponent(taskId)}/job`, { job });
+        const what = jobType === 'HTTP' ? `${method ?? 'GET'} ${url}` : command;
+        return ok(
+          `Job updated: ${task.name} now runs \`${what}\`.` +
+          '\nThe schedule, name and run history were preserved.',
+          { taskId, jobType, task: compactTask(task) }
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
   // -------------------------------------------------------------------------
   // rename_task — a Cronsole label, not the machine
   // -------------------------------------------------------------------------

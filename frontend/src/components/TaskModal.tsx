@@ -15,6 +15,8 @@ import { useRemoveClaudeRoutine } from '../hooks/useClaudeRoutines';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
 import { EditScheduleModal } from './EditScheduleModal';
 import { EditActionModal } from './EditActionModal';
+import { EditNativeJobModal, type NativeJobInitial } from './EditNativeJobModal';
+import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 
 interface TaskModalProps {
   task: Task | null;
@@ -154,6 +156,44 @@ function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
 }
 
 /**
+ * Prefill for the Cronsole-native job editor.
+ *
+ * Always editable, unlike the Windows path — a native task's job spec is a
+ * column in a row this process owns, so there is no agent to be offline, no
+ * multi-action shape to refuse, and nothing that has to have been reported by a
+ * sync first. A task whose stored job is unreadable still opens: the form
+ * defaults to HTTP with empty fields, which is a repair rather than a dead end.
+ */
+function nativeJobEditInfo(task: Task): NativeJobInitial {
+  const meta = (task.metadata ?? {}) as Meta;
+  const job = (meta.job ?? {}) as Meta;
+  const isExec = asText(job.jobType) === 'EXEC';
+
+  // Rebuild the command line from the stored {executable, args[]}, quoting an
+  // executable containing whitespace so it re-tokenizes to the same argv on
+  // save — the same round-trip rule the Windows prefill follows, and for the
+  // same reason (`C:\Program Files\node.exe` would otherwise split in two).
+  const exe = asText(job.executable) ?? '';
+  const exeToken = /\s/.test(exe) ? `"${exe}"` : exe;
+  const args = Array.isArray(job.args) ? (job.args as unknown[]).map(a => String(a)) : [];
+  const argTokens = args.map(a => (/\s/.test(a) ? `"${a}"` : a));
+
+  const headers = job.headers && typeof job.headers === 'object'
+    ? JSON.stringify(job.headers, null, 2)
+    : '';
+
+  return {
+    jobType: isExec ? 'EXEC' : 'HTTP',
+    url: asText(job.url) ?? '',
+    method: (asText(job.method) ?? 'GET').toUpperCase(),
+    headers,
+    body: asText(job.body) ?? '',
+    command: exe ? [exeToken, ...argTokens].join(' ') : '',
+    workingDirectory: asText(job.workingDirectory) ?? ''
+  };
+}
+
+/**
  * Whether the task's action + settings can be edited from Cronsole, plus the
  * prefill for the editor. Gated to Windows tasks with exactly one reported exec
  * action — the agent replaces the single exec action, so multi-action or
@@ -251,6 +291,18 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview');
   const [showScheduleEditor, setShowScheduleEditor] = useState(false);
   const [showActionEditor, setShowActionEditor] = useState(false);
+  const [showJobEditor, setShowJobEditor] = useState(false);
+
+  // A native job runs wherever the BACKEND runs, which on a Dockerized stack is
+  // inside the container — so an EXEC path is resolved against a filesystem that
+  // is not the user's. The server decides which; the editor says so.
+  const { data: platformMatrix } = usePlatformMatrix();
+  // Optional-chained through `platforms` as well as the response: this modal
+  // renders whatever the matrix query happens to hold, including a half-loaded
+  // or shape-surprising payload, and a task's details must not go blank because
+  // an unrelated background query returned something unexpected.
+  const nativeExecutionHost = platformMatrix?.platforms
+    ?.find(p => p.platform === 'TASKHUB_NATIVE')?.executionHost?.summary;
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -428,6 +480,7 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
   const actions = actionInfo(task);
   const settings = settingsRows(task);
   const actionEdit = actionEditInfo(task);
+  const nativeJob = nativeJobEditInfo(task);
   const nextRun = asText(meta.nextRunTime);
   const lastRun = task.lastRunAt ?? asText(meta.lastRunTime) ?? null;
 
@@ -646,7 +699,21 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
           <DetailSection
             icon={Terminal}
             title="Action"
-            action={task.platform === 'WINDOWS_TASK_SCHEDULER' ? (
+            action={task.platform === 'TASKHUB_NATIVE' ? (
+              /*
+                Always enabled, unlike the Windows twin below. A native job spec
+                lives in a row this backend owns, so there is no agent to be
+                offline and no reported-action shape to refuse — gating it on
+                anything would be inventing a precondition it does not have.
+              */
+              <button
+                onClick={() => setShowJobEditor(true)}
+                title="Edit what this Cronsole-native task runs"
+                className="flex items-center gap-1.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors"
+              >
+                <Pencil size={12} /> Edit
+              </button>
+            ) : task.platform === 'WINDOWS_TASK_SCHEDULER' ? (
               <button
                 onClick={() => actionEdit.editable && setShowActionEditor(true)}
                 disabled={!actionEdit.editable}
@@ -902,6 +969,14 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
       )}
       {showActionEditor && (
         <EditActionModal task={task} initial={actionEdit.initial} onClose={() => setShowActionEditor(false)} />
+      )}
+      {showJobEditor && (
+        <EditNativeJobModal
+          task={task}
+          initial={nativeJob}
+          executionHost={nativeExecutionHost}
+          onClose={() => setShowJobEditor(false)}
+        />
       )}
     </>
   );

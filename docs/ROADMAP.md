@@ -178,14 +178,25 @@ Everything below the sources track, unchanged in priority relative to each other
       would have been a second column maintained against an event that cannot happen. **Lesson: a
       line of code is evidence that something was intended, not that it is reachable.**
 
-- [ ] **The rest of the edit surface** *(reported 2026-08-12)*: still patchy. **Category** (inline),
-      **schedule** (Windows + native), **action/command** (**Windows only**) and now **name** (all
-      platforms) are editable; the **native job spec** (URL/method/body, script, working directory)
-      and a task's **externalId** are not.
+- [x] **Editing a Cronsole-native job spec** *(2026-08-12)* — `PATCH /api/tasks/:id/job`, an Edit
+      pencil on the task modal's Action section, and an `update_native_job` MCP tool. A native HTTP
+      task's URL previously could not be changed at all; the only route to a different URL was delete
+      and recreate, losing the run history.
 
-      **Editing the native job spec has no design fork** and is the clearest remaining win: the DB row
-      *is* the task, so there is nothing to diverge from. Today a native HTTP task's URL cannot be
-      changed at all.
+      Kept as its own route rather than folded into `/actions`: that one asks the elevated agent to
+      rewrite a task on the machine and records nothing until the platform confirms, while this one
+      rewrites a row the backend owns — the write *is* the change, and it works with the agent
+      offline. It **replaces** the job (the two job types share no fields, so a merge strands one
+      type's fields inside the other) and reuses the create route's `buildNativeJob` + `validateJob`,
+      so an edit can never produce a spec creation would have refused.
+
+- [ ] **The last unedited attribute** *(reported 2026-08-12)*: **category** (inline), **schedule**
+      (Windows + native), **action/command** (Windows), **job spec** (native) and **name** (all
+      platforms) are now editable. A task's **`externalId`** is not, and probably should not be —
+      it is the identity the row is keyed on and the address every signed agent command uses. For
+      Windows it is the Task Scheduler path, so "editing" it means moving the task on the machine;
+      for Claude it is the routine id, which `edit_claude_routine` already re-points properly. Left
+      open as a question rather than a task: is there a case for it that is not one of those two?
 
 - [ ] **`NativeTaskExecutor` has one intermittently failing test** *(logged 2026-08-12)*:
       `reports a non-zero exit as failure, and keeps stderr` failed roughly 1 run in 3 under full-suite

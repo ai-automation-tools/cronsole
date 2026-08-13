@@ -319,6 +319,50 @@ Everything below the sources track, unchanged in priority relative to each other
 
 New correctness work lands here as it is found. Everything logged before 2026-08-12 is closed.
 
+- [x] **`get_task_health` summarized a different population than it listed** *(logged and fixed
+      2026-08-13, found by hand-driving the tool against 358 real tasks)*: with `includeSystem: false` the
+      response returns `counts.critical: 25` beside `matched: 13`, and the header a model reads
+      aloud says *"Across 358 task(s): 25 critical"* directly above thirteen rows. Flipping
+      `includeSystem` does not move `counts` at all
+      ([#49](troubleshooting/README.md#49-get_task_healths-counts-describe-a-different-population-than-its-list)).
+      **This is the filter-chip defect above, one layer out** — the same mixed-population failure,
+      fixed in the dashboard card on 2026-07-31 and never carried to the API's other consumers,
+      because the card fixed it by counting where it filtered rather than by moving the rule
+      somewhere both could reach.
+      **The cause is `mcp-server/` owning logic.** `GET /api/tools/task-health` accepts no `tier`,
+      no `includeSystem` and no `limit`; it scores every task and summarizes that same array, which
+      is self-consistent and honest. All three parameters are implemented client-side in
+      `mcp-server/src/tools.ts`, which then forwards the server's unfiltered `counts` beside its own
+      filtered `matched`. Per §11a the wrapper owns no logic, and *which tasks the answer is about*
+      is logic — so **the fix is to move `tier` / `includeSystem` / `limit` into the route**, apply
+      them before `summarizeHealth`, and reduce the wrapper to a pass-through; the UI and every
+      future consumer get the corrected summary at once. Recomputing `counts` inside the wrapper is
+      the cheap alternative and leaves the next consumer to rediscover this.
+      **Shipped the route version.** `GET /api/tools/task-health` now takes `tier`, `includeSystem`
+      and `limit` (`taskHealthQuerySchema`) and applies them beside the counting; the wrapper is a
+      pass-through that filters nothing. Three details carry the design. **`counts` is taken after
+      the system lens but before the `tier` filter** — the `applyTaskFiltersExcept` rule one layer
+      out, since a breakdown counted after `tier` reports that tier and four zeros. **Every route
+      default is "everything"** (`includeSystem` defaults `true`, `limit` unbounded) because
+      `useTaskHealthTiers` passes no parameters and needs a verdict for every task, so the
+      unparameterized response is byte-identical to before; the MCP tool keeps its own `false`
+      default and states it explicitly. And the response carries **`scope: {includeSystem, tier,
+      systemExcluded}`**, so the summary names its population and the 257 hidden tasks are counted
+      out loud rather than silently fenced off. A malformed lens is a `400`, not a guess.
+      Verified live: `?includeSystem=false` now returns `counts.critical: 13` beside `matched: 13`
+      where it read `25`, and the bare call is unchanged at 358/358. Five integration tests, the
+      #49 one mutation-tested by reinstating `summarizeHealth(results)`.
+
+- [ ] **`missed-runs` is charged against disabled tasks** *(logged 2026-08-13, same exercise —
+      smaller, and a judgement call rather than a defect)*: the worst-ranked task on a real machine
+      was `DISABLED`, scoring 35 on `last-run-failed` (50) **plus `missed-runs` (15)**. The
+      `disabled` signal itself is correctly `weight: 0`, but charging a parked task for starts it
+      was parked to miss penalizes the action §9 calls the recommended safe one — and the same
+      reasoning that ships `set_task_status` ungated argues the safe path should not cost score.
+      Decide whether `missed-runs` is suppressed when status is `DISABLED`. Cosmetic alongside it:
+      the evidence string reads *"Windows reported 1 missed runs"* while its summary correctly says
+      *"1 scheduled start"*.
+
 - [x] **The filter chips counted every task, while the list showed the filtered ones**
       *(logged and fixed 2026-08-12, from the UX review)*: `Showing All 269` above two rows on the
       Favorites view — exactly the failure §9 predicts (*"the fifth filter applied to the list but

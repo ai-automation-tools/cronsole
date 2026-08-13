@@ -176,7 +176,16 @@ interface HealthSignal {
 
 interface TaskHealthResponse {
   evaluatedAt: string;
+  /**
+   * What `counts` is about. Optional so an older backend still renders — this
+   * wrapper runs against whatever the user has running, and a missing field
+   * must degrade to the plainer sentence rather than print `undefined`.
+   */
+  scope?: { includeSystem: boolean; tier: string | null; systemExcluded: number };
   counts: { tasks: number; critical: number; attention: number; unknown: number; ok: number };
+  /** Post-filter total; `tasks` is that list capped at `limit`. */
+  matched?: number;
+  returned?: number;
   tasks: Array<{
     taskId: string;
     name: string;
@@ -1801,16 +1810,26 @@ Next run: ${task.nextRunTime}` : '')
     },
     async ({ tier, includeSystem, limit }) => {
       try {
-        const result = await client.get<TaskHealthResponse>('/tools/task-health');
-        let tasks = result.tasks ?? [];
-        if (!includeSystem) tasks = tasks.filter(t => !t.isSystem);
-        if (tier) tasks = tasks.filter(t => t.tier === tier);
-        const matched = tasks.length;
-        const rows = tasks.slice(0, limit);
+        // Pass-through. The filters are the ROUTE's, because the route is what
+        // computes `counts` — filtering here and printing the server's counts
+        // is how this tool came to report "Across 358 task(s): 25 critical"
+        // above thirteen rows (troubleshooting #49). No filtering below.
+        const result = await client.get<TaskHealthResponse>('/tools/task-health', {
+          tier,
+          includeSystem: String(includeSystem),
+          limit
+        });
+        const rows = result.tasks ?? [];
+        const matched = result.matched ?? rows.length;
         const c = result.counts;
+        const lens = result.scope?.includeSystem === false ? 'of your task(s)' : 'task(s)';
+        const excluded = result.scope?.systemExcluded
+          ? ` ${result.scope.systemExcluded} system task(s) excluded.`
+          : '';
         const header =
-          `Scanned at ${result.evaluatedAt}. Across ${c.tasks} task(s): ` +
-          `${c.critical} critical, ${c.attention} need attention, ${c.unknown} unknown (no evidence), ${c.ok} ok.`;
+          `Scanned at ${result.evaluatedAt}. Across ${c.tasks} ${lens}: ` +
+          `${c.critical} critical, ${c.attention} need attention, ${c.unknown} unknown (no evidence), ${c.ok} ok.` +
+          excluded;
         const body = rows.length
           ? rows
               .map(t => {
@@ -1824,6 +1843,7 @@ Next run: ${task.nextRunTime}` : '')
         const note = matched > rows.length ? `\nShowing ${rows.length} of ${matched} matching.` : '';
         return ok(`${header}\n${body}${note}`, {
           evaluatedAt: result.evaluatedAt,
+          scope: result.scope,
           counts: c,
           matched,
           returned: rows.length,

@@ -175,6 +175,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   *Context worth recording: this was investigated because a browser pass appeared to show the dashboard freezing for 45s at 269 tasks. **It did not.** The tab was hidden, so `requestAnimationFrame` never fired and my probe awaited a frame that could not come; Chrome's intensive throttling of long-hidden tabs explains the rest. Measured properly, a theme toggle is 0.8ms at 13,228 DOM nodes. **No virtualization was added, because none is warranted** — the fix that isn't needed is worth naming as loudly as the one that is.*
 
 ### Fixed
+- **The task-health scan no longer summarizes one set of tasks while listing another** (2026-08-13). Asking an assistant "what's failing?" produced *"Across 358 task(s): 25 critical"* directly above a list of **13** — the summary counted every tracked task, including the ~257 Windows owns, while the list showed only yours. Both numbers were true about different populations, and nothing in the response said so.
+
+  **The filters moved onto the route, beside the counting.** `GET /api/tools/task-health` now accepts `tier`, `includeSystem` and `limit`; the MCP server forwards them and filters nothing. Previously it filtered client-side and printed the server's unfiltered counts — and a filter applied anywhere other than where the counting happens cannot be reconciled afterwards, because neither side knows what the other did.
+
+  **`counts` is taken after the system lens but before the tier filter**, which is the rule the dashboard's filter chips already follow: a count beside a control describes the population that control governs. Counted after `tier` it would report the tier you asked for and four zeros.
+
+  **The response now names its own population** — `scope: { includeSystem, tier, systemExcluded }` — so "25 across everything" is distinguishable from "13 among yours", and the hidden system tasks are counted out loud rather than silently dropped. A malformed `?includeSystem=fasle` is a `400` rather than a silent widening.
+
+  Nothing changes for the dashboard: every route default is "everything", so an unparameterized request behaves exactly as before.
+
 - **A platform no longer reports "not responding" from a failure that has long since expired** (2026-08-13): platform health gained a fourth state, **`UNKNOWN`**, shown as **"Not checked"**, and a request timeout now ages out of the verdict after 15 minutes.
 
   Found by looking at a live dashboard: Windows read **Degraded — "Agent connected but not responding (task:folders timed out)"** and had done for **ten and a half hours**, over an agent that was running the whole time and answered a sync immediately when finally asked. The tell was in the API before any debugging: every capability row showed a recent success and **zero** failures, and the newest timestamp anywhere on the platform was hours old. Nothing was failing, because nothing was asking.

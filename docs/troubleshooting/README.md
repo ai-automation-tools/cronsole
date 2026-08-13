@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 49 | `get_task_health` reports *"Across 358 task(s): 25 critical"* directly above a list of **13** — and `counts` disagrees with `matched` in the same response | The **wrapper** filters and the **server** counts. `GET /api/tools/task-health` has no `tier`, `includeSystem` or `limit` at all: it scores every task and summarizes the same set, honestly. `mcp-server` implements all three client-side, then forwards the server's unfiltered `counts` beside a `matched` taken from the filtered set — so one response describes two populations. **Fixed 2026-08-13** — the three filters moved onto the route, beside the counting, and the response now names the population it summarized. **The tell, if it recurs: `counts` does not change when you flip `includeSystem`** | [→](#49-get_task_healths-counts-describe-a-different-population-than-its-list) |
 | 48 | Windows sits at **Degraded** for hours — *"connected but not responding"* — while the agent is running fine and answers the moment you press Sync | The verdict was real and had **expired**. A request timeout is one observation at one instant and is never renewed, so with nothing asking the agent anything afterwards, "not responding" kept being asserted from a single failure hours earlier. Health now ages that evidence out to **UNKNOWN** ("Not checked") past 15 minutes. **The tell: every capability row shows recent successes and zero failures, and the newest timestamp anywhere on the platform is hours old** | [→](#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy) |
 | 47 | A Claude routine's task keeps coming back after **Remove from Cronsole** — and `TaskExclusion` is empty, as if untrack never ran | Untrack ran; its exclusion was then legitimately cleared. `ClaudeConnector.syncTasks` returns the routines the user **declared** in `PlatformConnection.config`, so the exclusion fences the user's own config while the declaration stays — and importing the Claude category clears exclusions by design. **A Claude task is its declaration**: untrack now 400s for `CLAUDE_CODE`, and disconnecting the routine removes its tasks | [→](#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole) |
 | 46 | Every local suite passes, CI is red six pushes running — on an eslint rule and one integration assertion | `npm test` is **not** the CI gate. Two steps have no equivalent it runs: `npm run lint` (frontend only; `@typescript-eslint/no-explicit-any` is an **error**) and `npm run test:integration` (separate vitest config + real Postgres). A status-code change is invisible to unit tests and loud in integration tests | [→](#46-every-local-suite-passes-and-ci-is-red--npm-test-is-not-the-ci-gate) |
@@ -822,9 +823,13 @@ right schedule, slightly off), so you accept it and move on.
 > > replacement only ever runs **MORE** often than you asked."*
 >
 > **The score is still `0.7`, and that remains a trap**: it's the *same* score as a `*/7` step,
-> which really is approximate (its trigger *is* derived from your input). Wording distinguishes
-> them; the number doesn't. So a caller thresholding on `>= 0.7` still accepts a replacement —
-> **read the trigger, not the score.**
+> which really is approximate (its trigger *is* derived from your input). The number cannot
+> separate them and never will — both really are lossy, so one score for two outcomes is the
+> honest reading of a single dimension. **Since 2026-07-16 the response carries a machine-readable
+> `lossy: 'approximated' | 'replaced'`** — branch on that, not on the prose and not on the number.
+> `'replaced'` = your expression was discarded; delete and re-create with a shape the converter
+> recognizes. `'approximated'` = honored, but it drifts. A caller thresholding on `>= 0.7` still
+> accepts a replacement, so **read `lossy` or the trigger, never the score.**
 
 **Cause** — the cron→trigger converter pattern-matches a handful of shapes (daily, weekly,
 monthly, minute step, hour step). Anything else hits a single **hard-coded fallback** in
@@ -1281,11 +1286,17 @@ user-editable label must never be the key you filter or look up by** — the sam
 where a mutable email was the key to an upsert.
 
 > [!WARNING]
-> There is **no "untrack"**. `DELETE /api/tasks/:id` on a Windows task deletes the **real Task
-> Scheduler entry** via a signed `task:delete` — so it is *not* a way to tidy up an over-broad
-> import. Removing rows you shouldn't have imported (e.g. the 257 `Microsoft` ones) means
-> deleting them straight from the DB, which leaves Windows untouched:
-> `docker exec taskhub-db-1 psql -U cronsole -d cronsole -c "DELETE FROM \"Task\" WHERE platform='WINDOWS_TASK_SCHEDULER' AND \"externalId\" LIKE '\\Microsoft\\%';"`
+> `DELETE /api/tasks/:id` on a Windows task deletes the **real Task Scheduler entry** via a
+> signed `task:delete` — so it is *not* a way to tidy up an over-broad import.
+>
+> **Untrack it; do not delete rows by hand** *(corrected 2026-08-13)*. This warning used to say
+> there is no untrack and hand you a raw `DELETE FROM "Task"` against the database. Since
+> 2026-07-28 there is one: `untrack_task` over MCP, `POST /api/tools/tasks/untrack` for a batch,
+> or *Remove from Cronsole* in the task modal — each drops Cronsole's row and records a
+> `TaskExclusion` on `(platform, externalId)`, leaving Windows untouched. **The exclusion is the
+> entire point**: a row deleted without one leaves nothing remembering the decision, so the next
+> sync re-imports all 257 `Microsoft` rows and the cleanup has to be done over. The old SQL did
+> exactly that, and named a pre-rename container (`taskhub-db-1`) besides.
 
 *First hit: 2026-07-25 (new tasks in `\IAM\` and `\Edge-Radar-MikesAILab\` were invisible after
 repeated Sync Now; `/discover` showed the agent had been reporting all of them the whole time).*
@@ -3119,6 +3130,104 @@ mention.** The narrower one: when a platform's "state" is the user's own declara
 against it is not a fence, it is two copies of one fact waiting to disagree.
 
 *First hit: 2026-08-12, reported as "I keep deleting it but it keeps coming back".*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 49. `get_task_health`'s counts describe a different population than its list
+
+**Symptom** — you ask for the failing tasks, exclude the ones Windows owns, and the summary
+line does not match the list underneath it:
+
+```text
+get_task_health { tier: 'critical' }          # includeSystem defaults to false
+→ "Across 358 task(s): 25 critical, 107 need attention, 1 unknown, 225 ok."
+→ counts: { tasks: 358, critical: 25, … }
+→ matched: 13          # <- the list has thirteen rows
+```
+
+The tell is cheap and decisive: **flip `includeSystem` and `counts` does not move.**
+
+```text
+includeSystem: false → counts.critical 25, matched 13
+includeSystem: true  → counts.critical 25, matched 25
+```
+
+**Cause** — the filtering and the counting live in **different processes**. The backend route
+[`GET /api/tools/task-health`](../../backend/src/routes/tools.ts) accepts **no** `tier`, no
+`includeSystem` and no `limit`: it scores every task the user tracks and calls
+`summarizeHealth(results)` over that same array, so the API is entirely self-consistent. All
+three parameters are implemented in the **wrapper**, `mcp-server/src/tools.ts`:
+
+```ts
+let tasks = result.tasks ?? [];
+if (!includeSystem) tasks = tasks.filter(t => !t.isSystem);   // wrapper-side filter
+if (tier) tasks = tasks.filter(t => t.tier === tier);
+const matched = tasks.length;                                  // filtered population
+const c = result.counts;                                       // UNFILTERED population
+const header = `Scanned at … Across ${c.tasks} task(s): ${c.critical} critical, …`;
+```
+
+So `counts` and the header describe all 358 tracked tasks — including the ~257 `\Microsoft\`
+ones the caller explicitly excluded — while `matched` and `tasks` describe the 13 that
+survived the filter. Both numbers are correct about their own population, and the response
+never says which is which.
+
+**Why this one matters more than a wrong number.** The header is the half a model reads and
+repeats, so the failure mode is an agent telling you *"you have 25 critical tasks"* and then
+listing 13, or worse, reporting 25 as your personal total when 12 of them are Windows'. That
+is the mixed-population defect this project already fixed once — the Task health card counted
+three tiers over personal tasks and `Healthy` over all 352, printing a row that summed to 256
+under the label "across 352 tasks" (fixed 2026-07-31). **The card was fixed; the API's callers
+were not**, because the card stopped mixing populations by filtering in the same place it
+counted, and nothing carried that to a second consumer.
+
+**The deeper cause is the wrapper owning logic.** `CLAUDE.md` §11a says `mcp-server/` owns no
+logic, and `tier` / `includeSystem` / `limit` are logic: they decide which tasks the answer is
+about. Once that decision lives in the wrapper and the summary lives on the server, the two
+cannot agree by construction — no amount of care in either file fixes it, because neither
+knows what the other did. This is the same shape as re-deriving `isSystem` in the browser
+([#20a](#20a-and-a-renamed-category-silently-stops-syncing-its-folder)): **a verdict computed
+in two places is a verdict that will eventually disagree with itself.**
+
+**Fix (2026-08-13)** — **the filter moved to the route, next to the counting.**
+`GET /api/tools/task-health` now accepts `tier`, `includeSystem` and `limit`
+(`taskHealthQuerySchema` in `routes/tools.ts`), and `mcp-server` forwards them and filters
+nothing. The rejected alternative — recomputing `counts` inside the wrapper — is a line
+shorter and leaves the logic in the place §11a says owns none, so the next consumer of this
+route would have rediscovered the same bug.
+
+Three details are load-bearing:
+
+- **`counts` is taken after the system lens and *before* the `tier` filter.** This is the
+  dashboard's `applyTaskFiltersExcept` rule one layer out: a count beside a control describes
+  the population that control governs. Counted after `tier` it would report the tier you asked
+  for and four zeros, which answers nothing; counted before `includeSystem` it is this bug.
+- **Every route default is "everything"** — `includeSystem` defaults `true`, `limit` unbounded
+  — because `useTaskHealthTiers` passes no parameters and needs a verdict for *every* task. An
+  unparameterized request is byte-identical to before the filters existed. The MCP tool keeps
+  its own `false` default and sends it explicitly, so neither side inherits the other's.
+- **The response says what it summarized**: `scope: { includeSystem, tier, systemExcluded }`.
+  A caller can now tell *"25 across everything"* from *"13 among yours"*, and the 257 hidden
+  system tasks are counted out loud instead of silently fenced off. A malformed
+  `?includeSystem=fasle` is a **400**, not a guess — a misread lens quietly changes which
+  tasks the answer is about.
+
+Verified live against 358 real tasks: `?includeSystem=false&tier=critical` returns
+`counts.critical: 13` beside `matched: 13`, where the same query used to print `25`. Guarded
+by five integration tests; the one pinning this defect was mutation-tested by putting
+`summarizeHealth(results)` back and watching it fail.
+
+> [!NOTE]
+> **If the numbers still disagree, check what is actually running.** The wrapper executes
+> `mcp-server/dist/`, so this fix is invisible until `npm run build` **and** an MCP host
+> restart — the host launched the server process at session start and will not pick up a new
+> `dist/` without one. Two of the three things that run stale, in one bug.
+
+*First hit: 2026-08-13, during a live MCP exercise of `get_task_health` on a 358-task machine —
+found by noticing `counts.critical: 25` above a 13-row list, and confirmed by flipping
+`includeSystem` and watching `counts` stay put.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

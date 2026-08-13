@@ -1986,9 +1986,18 @@ describe('sync_tasks', () => {
 });
 
 describe('get_task_health', () => {
+  // Shaped like the real response: the ROUTE applies `tier` / `includeSystem` /
+  // `limit` and summarizes that same population, so `scope` says what `counts`
+  // is about and the system task is already absent. The wrapper must not filter
+  // again — filtering here while printing the server's counts is what made this
+  // tool report "Across 358 task(s): 25 critical" above thirteen rows
+  // (troubleshooting #49).
   const scan = {
     evaluatedAt: '2026-08-12T22:00:00Z',
-    counts: { tasks: 3, critical: 1, attention: 0, unknown: 1, ok: 1 },
+    scope: { includeSystem: false, tier: null, systemExcluded: 1 },
+    counts: { tasks: 2, critical: 1, attention: 0, unknown: 1, ok: 0 },
+    matched: 2,
+    returned: 2,
     tasks: [
       {
         taskId: 'a', name: 'Mine', platform: 'WINDOWS_TASK_SCHEDULER', category: 'X',
@@ -1996,18 +2005,45 @@ describe('get_task_health', () => {
         signals: [{ code: 'last-run-failed', severity: 'critical', summary: 'The last run failed.', evidence: 'Windows recorded exit code 1', weight: 50 }]
       },
       {
-        taskId: 'b', name: 'Windows own', platform: 'WINDOWS_TASK_SCHEDULER', category: 'Microsoft',
-        isSystem: true, tier: 'critical', score: 30, signals: []
+        taskId: 'c', name: 'Unmeasured', platform: 'WINDOWS_TASK_SCHEDULER', category: 'X',
+        isSystem: false, tier: 'unknown', score: 0, signals: []
       }
     ]
   };
 
-  it('hides system tasks by default, because they bury your own', async () => {
+  it('sends the system lens to the route instead of applying it here', async () => {
+    // The lens and the count must be applied in the same place, or the summary
+    // describes one population and the list another.
+    const { client, calls } = stubClient({ 'GET /tools/task-health': scan });
+    const mcp = await connect(client);
+    await call(mcp, 'get_task_health', {});
+    expect(calls[0].params).toMatchObject({ includeSystem: 'false' });
+  });
+
+  it('forwards tier and limit as query params too', async () => {
+    const { client, calls } = stubClient({ 'GET /tools/task-health': scan });
+    const mcp = await connect(client);
+    await call(mcp, 'get_task_health', { tier: 'critical', includeSystem: true, limit: 5 });
+    expect(calls[0].params).toMatchObject({ tier: 'critical', includeSystem: 'true', limit: 5 });
+  });
+
+  it('renders exactly what the route returned, without re-filtering', async () => {
+    // A second filter here could only ever disagree with the counts above it.
     const { client } = stubClient({ 'GET /tools/task-health': scan });
     const mcp = await connect(client);
     const r = await call(mcp, 'get_task_health', {});
     expect(text(r)).toMatch(/Mine/);
-    expect(text(r)).not.toMatch(/Windows own/);
+    expect(text(r)).toMatch(/Unmeasured/);
+  });
+
+  it('names the population its counts describe, and what was left out', async () => {
+    // "Across N task(s)" over a personal-only scan is the #49 sentence again:
+    // a true number under a label that claims a wider population than it counted.
+    const { client } = stubClient({ 'GET /tools/task-health': scan });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_task_health', {});
+    expect(text(r)).toMatch(/Across 2 of your task\(s\)/);
+    expect(text(r)).toMatch(/1 system task\(s\) excluded/);
   });
 
   it('carries each signal with the evidence behind it', async () => {

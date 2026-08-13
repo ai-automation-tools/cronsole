@@ -1570,45 +1570,91 @@ describe('delete_task', () => {
     expect(tool!.description).toMatch(/untrack_task/);
   });
 
-  it('calls DELETE on the task route', async () => {
-    const { client, calls } = stubClient({ 'DELETE /tasks/id1': { message: 'Task deleted' } });
+  it('calls the NATIVE-ONLY delete route, never the UI one', async () => {
+    // The whole safety property is which route this wraps. `DELETE /tasks/:id`
+    // reaches a real Task Scheduler entry through the elevated agent;
+    // `/tasks/:id/native` refuses anything but TASKHUB_NATIVE. Wrapping the
+    // wrong one silently restores the blast radius this change removed, and
+    // nothing else in the suite would notice.
+    const { client, calls } = stubClient({
+      'DELETE /tasks/id1/native': { message: 'Task deleted', archiveId: 'arc_1' }
+    });
     const mcp = await connect(client, true);
     await call(mcp, 'delete_task', { taskId: 'id1' });
-    expect(calls[0]).toMatchObject({ method: 'delete', path: '/tasks/id1' });
+    expect(calls[0]).toMatchObject({ method: 'delete', path: '/tasks/id1/native' });
+    expect(calls[0].path).not.toBe('/tasks/id1');
   });
 
-  it('url-encodes the task id', async () => {
-    const { client, calls } = stubClient({ 'DELETE /tasks/a%2Fb': { message: 'Task deleted' } });
+  it('url-encodes the task id without mangling the route suffix', async () => {
+    const { client, calls } = stubClient({
+      'DELETE /tasks/a%2Fb/native': { message: 'Task deleted' }
+    });
     const mcp = await connect(client, true);
     await call(mcp, 'delete_task', { taskId: 'a/b' });
-    expect(calls[0].path).toBe('/tasks/a%2Fb');
+    expect(calls[0].path).toBe('/tasks/a%2Fb/native');
   });
 
-  it('says plainly that the deletion cannot be undone', async () => {
-    const { client } = stubClient({ 'DELETE /tasks/id1': { message: 'Task deleted' } });
+  it('reports the archive id, so the caller knows recovery is possible', async () => {
+    const { client } = stubClient({
+      'DELETE /tasks/id1/native': {
+        message: 'Task deleted',
+        archiveId: 'arc_42',
+        executionsArchived: 7
+      }
+    });
     const mcp = await connect(client, true);
-    expect(text(await call(mcp, 'delete_task', { taskId: 'id1' }))).toMatch(/cannot be undone/i);
+    const t = text(await call(mcp, 'delete_task', { taskId: 'id1' }));
+    expect(t).toMatch(/arc_42/);
+    expect(t).toMatch(/7 run record/);
+    expect(t).toMatch(/task-archives/);
   });
 
-  it('points at disabling as the reversible alternative', async () => {
+  it('states the native-only boundary as a boundary, not a missing feature', async () => {
+    // A model that reads "not supported yet" retries or looks for a flag. The
+    // description has to foreclose that, or the refusal below gets fought.
     const { client } = stubClient({});
     const mcp = await connect(client, true);
     const tool = (await mcp.listTools()).tools.find(t => t.name === 'delete_task');
+    expect(tool!.description).toMatch(/TASKHUB_NATIVE/);
+    expect(tool!.description).toMatch(/boundary, not a missing feature/i);
+    expect(tool!.description).toMatch(/untrack_task/);
     expect(tool!.description).toMatch(/set_task_status/);
-    expect(tool!.description).toMatch(/CANNOT be undone/);
   });
 
-  it('surfaces a needs-elevation refusal honestly', async () => {
-    // An admin-ACL'd task refuses; the honest answer is the agent's own words,
-    // not a wrapper guess about why.
+  it('surfaces the backend refusal for a Windows task in the backend words', async () => {
+    // The check lives in the route. This asserts the wrapper does not soften,
+    // reinterpret or swallow it — the caller needs to learn the real boundary.
     const { client } = stubClient({
-      'DELETE /tasks/id1': () =>
-        new CronsoleApiError('The platform failed to delete the task: needs elevation', 502)
+      'DELETE /tasks/id1/native': () =>
+        new CronsoleApiError(
+          'This route deletes Cronsole-native tasks only, and this task is on ' +
+            'WINDOWS_TASK_SCHEDULER.',
+          400
+        )
     });
     const mcp = await connect(client, true);
     const r = await call(mcp, 'delete_task', { taskId: 'id1' });
     expect(r.isError).toBe(true);
-    expect(text(r)).toMatch(/needs elevation/);
+    expect(text(r)).toMatch(/Cronsole-native tasks only/);
+    expect(text(r)).toMatch(/WINDOWS_TASK_SCHEDULER/);
+  });
+
+  it('surfaces a refused-because-unarchivable delete as an error', async () => {
+    // The delete did NOT happen. Reporting this as anything but an error would
+    // tell the caller the task is gone when it is still scheduled and running.
+    const { client } = stubClient({
+      'DELETE /tasks/id1/native': () =>
+        new CronsoleApiError(
+          'Could not archive the task before deleting it, so the delete was refused. ' +
+            'The task is unchanged.',
+          500
+        )
+    });
+    const mcp = await connect(client, true);
+    const r = await call(mcp, 'delete_task', { taskId: 'id1' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/delete was refused/);
+    expect(text(r)).toMatch(/unchanged/);
   });
 });
 
@@ -1635,7 +1681,7 @@ describe('error handling across the surface', () => {
       'PATCH /tasks/x/status': boom,
       'PATCH /tasks/x/schedule': boom,
       'PATCH /tasks/x/actions': boom,
-      'DELETE /tasks/x': boom,
+      'DELETE /tasks/x/native': boom,
       'GET /tools/platforms': boom,
       'GET /tools/platforms/claude/routines': boom,
       'POST /tools/platforms/claude/routines': boom,

@@ -12,7 +12,26 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Security
+- **MCP `delete_task` is now Cronsole-native only, and archives before it destroys** (2026-08-13). The one MCP verb that could not be undone previously had the *widest* reach on the surface: it wrapped the same `DELETE /api/tasks/:id` the UI uses, so with the gate open an agent could remove a real Windows Task Scheduler entry through the elevated local agent. It now wraps **`DELETE /api/tasks/:id/native`**, which refuses every other platform with a `400`.
+
+  **The resulting property is whole-surface: no MCP tool can destroy an artifact on your machine.** Removing a Windows task over MCP means `untrack_task` — Cronsole's row goes, the scheduled task keeps running — and genuinely destroying one needs a human in the Cronsole UI. The refusal is worded as a boundary rather than a "not yet", so an assistant reports it instead of hunting for a flag.
+
+  **The restriction lives in the backend route, not in the wrapper.** A platform check inside `mcp-server/` would be a client-side check the REST API still ignores, so the guarantee would hold only for callers who went through the wrapper — which is not a guarantee. `mcp-server/` still owns no logic.
+
+  **The env gate stays shut by default.** The blast radius is now bounded and recoverable, which weakens the case for `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` — but loosening two safety dimensions in one change would mean a later failure could not be attributed to either.
+
 ### Added
+- **Deleted tasks are archived before they are destroyed** (2026-08-13). `DELETE /api/tasks/:id/native` writes the task's full definition and its **last 20 run records** to a new `DeletedTaskArchive` table *before* the delete transaction, and **refuses the delete if that write fails** — leaving the task completely unchanged. A backup that only succeeds when you did not need it is worse than none, so the archive is a precondition of the destruction rather than a best-effort side effect.
+
+  **The archive deliberately has no relation to `Task`, and therefore no cascade.** It has to outlive the row it describes — this is the `TaskExclusion` shape, not the `TaskFavorite` one. Wiring it to `Task` with a cascade would delete the backup in the same transaction that made it necessary, and every other test would still have passed.
+
+  **It captures run history because for a native task that history is real evidence** — exit code, duration, captured output. (On a Windows task a `SUCCESS` only records the agent accepting a start, which is why that judgement lives in Windows.) Without it the archive cannot answer "was this working before I deleted it?".
+
+  **Read it back at `GET /api/tools/task-archives`** (list) and `GET /api/tools/task-archives/:id` (full bundle + captured runs), both scoped to the owner — an archive holds a complete job spec, headers included. A write-only backup is most of the way back to having no backup, since one nobody can enumerate is one nobody restores from.
+
+  The archived bundle is built by the **same function** that serves `GET /api/tasks/:id/export`, so the download and the archive cannot drift into two formats — a drift that would only surface on the day someone tried to restore.
+
 - **In-app help, per control** (2026-08-12): a **?** button beside the things that most often surprise people, each opening one topic — what the control is, the two or three non-obvious facts about it, and a link to the section of the docs that covers it in full. Fourteen placements: the Dashboard title, the Source bar, the Views row, the Filters drawer, four in the New Task modal (platform · schedule · job type · command), the task modal header, the schedule and native-job editors, the Import modal, the Templates and Platforms headers, each Platforms row, Mass actions and Task health.
 
   **The Help Center and the `?` are one modal, not two.** Opened from the header it is the hub; opened from a `?` it is a single topic. They share a component because the interesting part is the seam: every topic ends in **Browse all help**, and the hub carries an index of every topic. The two entry points fail in opposite directions — a `?` is only findable once you are already looking at the control it explains, and a hub is only useful if it can reach what those buttons say — so each covers the other.

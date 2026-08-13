@@ -60,7 +60,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 23a | `cronsole status` prints `[DOWN]` for Postgres, Redis, backend **and** frontend — while `/api/health` returns 200 and the frontend serves 200 | The **same port check as #23, wrong in the other direction**: `Get-NetTCPConnection` needs the NetTCPIP CIM provider and the container check needs a resolvable docker CLI; both were wrapped in `catch { $false }`, so *"the probe could not run"* printed as *"the service is down"*. **Fixed 2026-07-28**: every service is probed by asking the service (`/api/health`, HTTP `GET /`, `pg_isready`, a RESP `PING`), the port is corroboration only, and present-but-unconfirmable reports **`WARN`** with the signal named | [→](#23a-and-the-same-probe-reported-four-services-down-while-all-four-were-serving) |
 | 24 | `showDirectoryPicker()` throws `SecurityError: Must be handling a user gesture to show a file picker` — from a handler that demonstrably *is* a click handler | An `await` ran first. The picker needs **transient user activation**, and an awaited network call consumes it before the picker opens. Open the picker **before** the request — which also fails fast when the user cancels, instead of discarding a finished export | [→](#24-showdirectorypicker-throws-must-be-handling-a-user-gesture-after-an-await) |
 | 25 | `npx tsc --noEmit` in `frontend/` exits **0**, then CI's `tsc -b` fails on type errors in the same tree | The root `tsconfig.json` is a solution file (`files: []` + references), and a plain `tsc --noEmit` **does not follow project references** — so it compiles an empty program and can never fail. Typecheck with **`npm run build`** (or `npx tsc -b`). Bites hardest when app and node projects have different `types`: a frontend test importing `node:fs` passes the check that checks nothing | [→](#25-npx-tsc---noemit-in-frontend-passes-while-cis-build-fails-on-a-type-error) |
-| 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
+| 26 | `prisma migrate dev` applies the migration then dies on `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | The **running backend holds the query engine DLL open**, so Windows refuses the rename. The migration already ran, leaving the **DB ahead of the generated client** — #22's drift, but loud. Stop the backend, `npx prisma generate`, restart (in the container: `docker compose exec backend npx prisma generate`, per [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)). **On `npm run dev` that stop must match `tsx watch` by command line, not port 3000** — the port belongs to the child, and the watcher just respawns it, so retrying never wins ([#26a](#26a-and-on-the-npm-run-dev-stack-the-fix-above-kills-the-wrong-process)) | [→](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode) |
 | 35 | The checkout-folder rename fails all 10 attempts with `Access to the path … is denied`, moments after `cronsole down` reported the agent, backend and frontend all stopped | **`Stop-Port` kills the owner of the listening socket, not the owner of the folder.** Under `npm run dev` the listener is the innermost node; `tsx watch` and its `cmd.exe` wrapper are its **ancestors**, survive, and keep a CWD handle inside `backend\` — and Windows won't rename a directory that has one. The shutdown report was true, just not the claim that mattered. **Fixed 2026-07-31** (`Stop-DevServerTree`; the migration now names the holders). The other holder is **the shell or AI session you're typing in** — same handle, invisible to any process scan, so close it and re-run from elsewhere | [→](#35-the-checkout-rename-fails-with-access-to-the-path-is-denied--right-after-down-reported-everything-stopped) |
 | 35a | The **same** rename failure with the watcher fix already in — and the abort message names the holder: `pid 47312 TaskHub.Agent.exe`, printed two lines under `agent already stopped` | **A process keeps the name it was launched with.** The exe was renamed `TaskHub.Agent` → `Cronsole.Agent`, but this agent had started three days before the rename, so all four `Get-Process -Name 'Cronsole.Agent'` call sites (probe, `down`, republish, migrate) went blind at once — each still reporting success. The tell is `StartTime` predating the rename. **Fixed 2026-07-31**: every stop looks for **both** names, a legacy-named agent probes **WARN not UP**, republish prunes pre-rename leftovers from `agent\publish\`, and the migration's abort path re-enables the launcher tasks itself. *Renaming a binary does not rename the processes already running it — keep the old name in every lookup that **stops** something* | [→](#35a-and-the-holder-was-the-agent-itself-running-under-its-pre-rename-name) |
 | 32 | A PowerShell check against the API returns **every** task when it should return one, or prints a header with one **blank** row — while the same endpoint's raw JSON is plainly correct | **`Invoke-RestMethod` writes its array to the pipeline without enumerating it**, so a directly-piped `Where-Object`/`Select-Object` receives one `Object[]` instead of N objects. `$_.prop -eq 'x'` then evaluates against the whole array and returns the *matching elements* — truthy — so everything passes the filter. Assign to a variable first, then filter, and wrap in `@()` before `.Count`. **Worst where a check is meant to prove a row is gone: the broken form prints `0` on no-match, so it looks right and can never fail in the direction it is testing** | [→](#32-a-powershell-check-against-the-api-matches-everything-or-renders-a-blank-row) |
@@ -1765,6 +1765,44 @@ and use `docker compose exec backend npx prisma generate && docker restart taskh
 > only one of them is loud when it fails.
 
 *First hit: 2026-07-28, adding the `TaskExclusion` model for untrack.*
+
+### 26a. …and on the `npm run dev` stack, the fix above kills the wrong process
+
+**Symptom** — you run the `Stop-Process` line above, `generate` still fails `EPERM`, and rerunning
+fails identically no matter how many times you try.
+
+**Cause** — the fix above finds whatever is **listening on port 3000**. Under
+`scripts/cronsole.ps1` that is the backend itself, so it works. But `npm run dev` is
+**`tsx watch`**, which is *two* processes: a watcher and the child it spawns. Port 3000 belongs to
+the **child**, so killing it leaves the watcher alive — and the watcher immediately respawns a new
+child, which re-opens the DLL. You have not stopped the backend; you have restarted it.
+
+Two things compound it. The watcher also restarts on **every source edit**, so if you are editing
+backend files while retrying, the lock is re-acquired continuously. And the child **PID rotates**
+on each restart, so the process you looked up seconds ago is not the one holding the file now.
+
+**Fix** — match the watcher by command line, not by port, and kill both:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
+  Where-Object { $_.CommandLine -like '*tsx*watch*' -or $_.CommandLine -like '*preflight*' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
+cd backend; npx prisma generate; npm run dev
+```
+
+**Then check what actually restarted it.** On a machine with the `\Cronsole-Stack\` launcher tasks
+installed, the self-heal task may bring the backend back on its own within a minute — so a
+`npm run dev` you start afterwards can die with `EADDRINUSE` while `curl /api/health` cheerfully
+returns 200. That is not a failure; it means the stack healed itself and the running backend is no
+longer the one your terminal owns. Confirm with `Get-NetTCPConnection -LocalPort 3000` and check
+the process start time before concluding your restart worked.
+
+**Cheapest sequencing:** run `prisma generate` **before** starting the backend for the day, and
+fold it into the same restart as an `mcp-server` rebuild — the Dockerized backend, the published
+agent and `mcp-server/dist/` are the three things that run stale, and `/doctor` checks all three.
+
+*First hit: 2026-08-13, adding the `DeletedTaskArchive` model for the pre-delete archive.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

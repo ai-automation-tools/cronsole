@@ -60,7 +60,18 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   asked to "star my nightly jobs" reads the tool surface, finds nothing, and
 //   concludes Cronsole has no such thing — the pack's tables are read as
 //   complete, so an omission from them is a claim, not a gap.
-export const CONNECT_PACK_VERSION = '1.6';
+// 1.7 (2026-08-13): `delete_task` narrowed to Cronsole-native tasks and made
+//   archive-first. Two corrections rather than one addition, and both were
+//   *false claims* in someone's hand, which is the version number's real job:
+//   the pack said delete "removes the real Task Scheduler entry", and its
+//   management table pointed at `DELETE /api/tasks/:id`. An assistant reading
+//   1.6 would refuse a legitimate native delete as too dangerous, or promise a
+//   Windows delete the route now refuses with a 400 — wrong in both directions.
+//   Adds the archive (`GET /api/tools/task-archives`) and, deliberately, a row
+//   for deleting a *Windows* task that names no tool at all: an omission from
+//   these tables reads as "Cronsole cannot", so a capability that exists but is
+//   withheld from assistants has to say so, or a caller invents a workaround.
+export const CONNECT_PACK_VERSION = '1.7';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

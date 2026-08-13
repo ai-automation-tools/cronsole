@@ -671,6 +671,38 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       ([Remote Access Guide](user-guides/guides/Remote_Access_Guide.md)); optional bundled
       single-origin reverse proxy. Not part of the local-first launch.
 
+- [x] **MCP delete is native-only, and archives before it destroys** *(decided and shipped
+      2026-08-13)*. `delete_task` was gated all-or-nothing by `CRONSOLE_MCP_ALLOW_DESTRUCTIVE`, and
+      when open it wrapped the same `DELETE /api/tasks/:id` the UI uses — so the one MCP verb that
+      cannot be undone had the **widest** blast radius on the surface, reaching a real Task
+      Scheduler entry through the elevated agent. Two changes, both in the backend, because
+      `mcp-server/` owns no logic and a platform check written into the wrapper would be a
+      *client-side* check the raw REST route still ignores.
+  - **A narrower route carries the narrower capability.** MCP wraps
+        `DELETE /api/tasks/:id/native`, which refuses anything but `TASKHUB_NATIVE` with a `400`
+        (the `verbDeclaredUnsupported` convention — a boundary, not a retry). The UI keeps the
+        existing full-power route, where a human is at a confirm dialog. This is *a capability is
+        a property of the route* applied literally: caller identity would be the alternative, and
+        auth today is a single 24h JWT with no claims to scope on.
+  - **The boundary is coherent, not just restrictive.** MCP can `untrack_task` a Windows task
+        (row dropped, the real task keeps running) and `delete_task` a native one (where the row
+        **is** the task, and it is archived first). So **no MCP verb can destroy an artifact on the
+        machine** — the half of the surface that needed a human keeps one.
+  - **The archive is written before the delete, and the delete refuses if it fails.** A backup
+        that only succeeds when you did not need it is worse than none. It lands in
+        `DeletedTaskArchive` — a DB row, deliberately **not** cascaded from `Task`, for the same
+        reason `TaskExclusion` is keyed on `(platform, externalId)`: it has to outlive the row it
+        describes. Not a file, because on a Dockerized stack a file lands inside the container —
+        a backup the user cannot reach, the same execution-host defect as a native `EXEC` path.
+        And not merely returned to the caller, because an agent may discard the response.
+  - **It captures the last 20 `ExecutionLog` rows with the definition.** For a native task those
+        are real outcome evidence (exit code, duration, captured output), unlike a Windows task
+        where a `SUCCESS` records the agent accepting a start — so without them the archive cannot
+        answer "was this working before I deleted it?". The delete transaction drops them.
+  - **The env gate stays shut by default.** The blast radius is now bounded and reversible, which
+        weakens the case for it — but loosening two safety dimensions in one change means a later
+        failure cannot be attributed to either. Same friction, smaller radius, recoverable.
+
 - [ ] **Product bets — from "a better Task Scheduler UI" to "a local automation control plane"**
       *(directions, not scheduled work — each needs its own design pass first)*. ★ = recommended
       first. The shared constraint: this project's guardrail is reliability first, and every bet

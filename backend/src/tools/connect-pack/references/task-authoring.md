@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.6** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.7** · canonical copy: <https://cronsole.mikesailab.com>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -147,7 +147,9 @@ you:
 | What needs attention | — | `GET /api/tools/task-health` |
 | **Star / un-star** | — | `POST` / `DELETE /api/tasks/:id/favorite` |
 | **Untrack** (remove from Cronsole, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
-| **Delete** | `delete_task` — **only** when the human set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id` |
+| **Delete** (Cronsole-native only) | `delete_task` — **only** when the human set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id/native` (archives first; refuses non-native) |
+| **Delete a Windows task** | — *(deliberately not available to an assistant)* | `DELETE /api/tasks/:id`, or the Cronsole dashboard |
+| List / read deleted-task backups | — | `GET /api/tools/task-archives[/:id]` |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.
@@ -166,11 +168,21 @@ tasks, which exist only inside Cronsole and so have nothing to keep.
 | Stop *seeing* it, keep it running | `untrack_task` | the real scheduled task |
 | Make it stop existing | `delete_task` (gated) | nothing |
 
+**`delete_task` reaches Cronsole-native tasks only.** It calls
+`DELETE /api/tasks/:id/native`, which refuses every other platform with a **400** — Windows
+included. So **no MCP verb can destroy a scheduled task on the user's machine**: for a Windows
+task the removal you have is `untrack_task` (which leaves it running), and genuinely deleting one
+needs the person to do it in the Cronsole dashboard. That 400 is a boundary, not a missing
+feature — no retry or different argument gets past it, so report it rather than working around it.
+
+**What it can delete, Cronsole backs up first.** The task definition and its last 20 run records
+are archived *before* the delete, and the delete is **refused outright if that backup fails**,
+leaving the task untouched. Archives are readable at `GET /api/tools/task-archives` (and
+`/:id` for the full definition), so a native task deleted by mistake can be rebuilt. The live task
+is still gone — its schedule stops.
+
 **If `delete_task` isn't in your tool list, that is the answer.** Say so and offer
-`set_task_status: DISABLED`, the dashboard, or the REST call. Don't route around it. Delete
-removes the real Task Scheduler entry, and Cronsole's own record goes **only after the platform
-confirms**; a task with an admin ACL gets an honest "needs elevation" refusal rather than a
-fake success.
+`set_task_status: DISABLED`, the dashboard, or the REST call. Don't route around it.
 
 Two behaviors worth knowing before you use these:
 

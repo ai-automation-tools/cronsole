@@ -1,6 +1,6 @@
 {
   "//": [
-    "Cronsole Connect Pack v1.6 - MCP server wiring.",
+    "Cronsole Connect Pack v1.7 - MCP server wiring.",
     "Newer copy: https://cronsole.mikesailab.com",
     "",
     "Merge the `cronsole` entry below into your host's MCP config:",
@@ -23,9 +23,15 @@
     "start, so the tools go MISSING rather than erroring.",
     "",
     "CRONSOLE_MCP_ALLOW_DESTRUCTIVE is omitted deliberately. Leaving it off keeps the",
-    "irreversible delete_task tool ABSENT from the tool list. The reversible verbs",
+    "delete_task tool ABSENT from the tool list. The reversible verbs",
     "(set_task_status, update_task_schedule, update_task_action) are always available -",
-    "prefer disabling a task over deleting it."
+    "prefer disabling a task over deleting it.",
+    "",
+    "If you do turn it on, know what it can and cannot reach: delete_task deletes",
+    "CRONSOLE-NATIVE tasks only and refuses every other platform with a 400, Windows",
+    "included - so no MCP tool can destroy a scheduled task on your machine. Cronsole",
+    "also archives the definition and last 20 runs BEFORE deleting, and refuses the",
+    "delete if that backup fails. See GET /api/tools/task-archives."
   ],
   "mcpServers": {
     "cronsole": {

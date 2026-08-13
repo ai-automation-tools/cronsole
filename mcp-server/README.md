@@ -46,7 +46,24 @@ supply — its tasks are the tasks it can see, run, and create.
 | `sync_tasks` | `POST /api/tasks/sync` | Import or refresh. Omit `categories` to REFRESH what you already track (adds nothing new); pass `categories` to IMPORT them — which also forgets prior untracks inside those categories, because naming a category is the gesture that started tracking it. A plain refresh deliberately does not, so it can never undo a deliberate removal. |
 | `get_task_health` | `GET /api/tools/task-health` | Tier + score per task, worst first, with signals that each name the field they came from. `unknown` is **not** `ok` — it means no evidence was reported. `disabled` is not unhealthy. System tasks hidden by default (they bury your own). |
 | `list_run_history` | `GET /api/tools/history` | Run history **across** tasks, unlike `get_task_history`. Rows are runs *Cronsole performed* — a Windows task firing on its own schedule writes nothing, so empty ≠ nothing ran. Each row carries `runKind`: `native-execution` is a real outcome, `manual-trigger` only means the agent accepted the start. |
-| `delete_task` | `DELETE /api/tasks/:id` | **Permanent** — no trash, no restore. Only registered when `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`; otherwise the tool is **absent** from `tools/list`, not present-and-erroring. Prefer `set_task_status: DISABLED` to stop it running, or `untrack_task` to stop *tracking* it. |
+| `delete_task` | `DELETE /api/tasks/:id/native` | **Cronsole-native only** — refuses every other platform with a `400`, Windows included, so no MCP verb can destroy a scheduled task on the machine. The backend **archives the definition + last 20 runs before deleting**, and refuses the delete if that archive fails (task left unchanged); recover from `GET /api/tools/task-archives`. Only registered when `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`; otherwise **absent** from `tools/list`, not present-and-erroring. Prefer `set_task_status: DISABLED` to stop it running, or `untrack_task` to stop *tracking* it. |
+
+### Why `delete_task` is native-only
+
+It used to wrap `DELETE /api/tasks/:id` — the same route the UI uses — which meant the one verb on
+this surface that could not be undone also had the **widest** reach on it, straight through to a
+real Task Scheduler entry via the elevated agent. It now wraps a narrower route that refuses
+anything but `TASKHUB_NATIVE`.
+
+The point is the whole-surface property that buys: **no MCP tool can destroy an artifact on the
+user's machine.** Windows removal over MCP means `untrack_task` (the row goes, the task keeps
+running); genuinely destroying a Windows task needs a human in the UI. Where delete *is* allowed,
+the row **is** the task, so there is no machine artifact to orphan — and it is archived first.
+
+**The check is in the backend route, and must stay there.** A platform check written into this
+package would be a *client-side* check the REST API still ignores, so the guarantee would hold only
+for callers who came through the wrapper. That is not a guarantee — it is a convention. Same reason
+`mcp-server/` owns no other logic.
 
 ### Why `delete_task` is gated and the rest are not
 
@@ -63,7 +80,10 @@ therefore **tiered**, not blanket:
   `untrack_task` is the same argument applied to *removal*: gating deletion is only honest if a
   safe way to remove a task from the dashboard exists without the gate, or an agent asked to
   "clean this up" has exactly one tool for the job and it is the irreversible one.
-- **Irreversible** (`delete_task`) — off unless you opt in.
+- **Irreversible** (`delete_task`) — off unless you opt in, *and* narrowed to native tasks with a
+  mandatory pre-delete archive (above). The gate stayed shut by default even after that narrowing:
+  loosening two safety dimensions in one change means a later failure cannot be attributed to
+  either.
 
 Why an **env var** and not a `confirm: true` parameter: the model fills a parameter in itself, so
 it is the caller assuring itself it is sure — the exact deliberation that's missing. An env var is
@@ -78,7 +98,7 @@ Set via environment (see [`.env.example`](.env.example)):
 | `CRONSOLE_TOKEN` | ✅ | — | A user JWT presented as `Authorization: Bearer <token>`. |
 | `CRONSOLE_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
-| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Register `delete_task`. Only an exact `true`/`1` opens it — a typo, an empty value, or an unexpanded `${…}` literal all fail **closed**, because a false negative costs one missing tool while a false positive hands an agent a deletion verb you never granted. When off, `delete_task` is **absent** from `tools/list`. |
+| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Register `delete_task` (**Cronsole-native tasks only**, archived before deletion). Only an exact `true`/`1` opens it — a typo, an empty value, or an unexpanded `${…}` literal all fail **closed**, because a false negative costs one missing tool while a false positive hands an agent a deletion verb you never granted. When off, `delete_task` is **absent** from `tools/list`. |
 
 > [!IMPORTANT]
 > The server reads its **process environment only** — it does not load a `.env` file, so

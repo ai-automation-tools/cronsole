@@ -23,7 +23,15 @@ belongs in the CHANGELOG.
 
 ## ▶ Next up
 
-**[Sources](#-sources--where-a-task-comes-from) is the top priority** *(scoped 2026-08-12)* — the
+**🔴 [API tokens are the top priority](#-p0--security-hardening--reopened-2026-08-13)** *(2026-08-13)* —
+the only way to get a token for the MCP server is to run `jsonwebtoken.sign` by hand with the
+backend's `JWT_SECRET`. That is not a workaround someone invented; it is
+[what our own guide tells them to do](user-guides/guides/MCP_Server_Guide.md#minting-a-token). The
+product cannot issue a credential its own documented integration requires. Ahead of Sources
+because it gates every non-browser client and is the last thing anyone should discover on a
+30-day expiry.
+
+**[Sources](#-sources--where-a-task-comes-from) is the priority after that** *(scoped 2026-08-12)* — the
 dashboard's first-level axis is now where a task comes from, and the plan is to fill it in. In order:
 
 1. ~~**Native job types — scripts**~~ — **shipped 2026-08-12.**
@@ -31,9 +39,11 @@ dashboard's first-level axis is now where a task comes from, and the plan is to 
    Cronsole-native (HTTP / Scripts), not a new platform.
 3. **POSIX agent** — launchd · cron · systemd timers in one build. The one that actually broadens
    the product.
-4. ~~**Claude Code routines**~~ — **shipped 2026-08-12**, and smaller than scoped: Anthropic exposes
-   one write-only endpoint, so `run` is real and sync / create / enable-disable are boundaries
-   rather than gaps.
+4. ~~**Claude Code routines**~~ — **shipped 2026-08-12, and completed 2026-08-13** with the full
+   read/write connector: list, create, reschedule, pause and token-free run. *(This line said the
+   platform exposed "one write-only endpoint, so sync / create / enable-disable are boundaries
+   rather than gaps" — true of the documented API, false of the product. See
+   [#50](troubleshooting/README.md#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one).)*
 5. **GitHub Actions** — read-only observer, ~a day. Note it is the **mirror image of Claude**:
    reads everything, changes nothing. Between them they bracket the observer pattern.
 
@@ -346,7 +356,55 @@ Everything below the sources track, unchanged in priority relative to each other
 
 ---
 
-## 🔴 P0 — Security hardening — ✅ COMPLETE (2026-07-09)
+## 🔴 P0 — Security hardening — REOPENED (2026-08-13)
+
+*Closed 2026-07-09; reopened for one item. The five below are still done — what reopened this is a
+gap none of them covered, because it is not a hole in a mechanism but the **absence** of one.*
+
+- [ ] **API tokens — the product cannot issue the credential its own docs require** ← **top priority**
+      *(found 2026-08-13, while answering "where do we have `CRONSOLE_TOKEN`?")*
+
+      **Symptom.** The working `CRONSOLE_TOKEN` on this machine is a JWT with a **30-day** life and
+      an `email` claim (`mike@example.com`) that does not match the user row it points at
+      (`mikeschecht@gmail.com`). Neither is something Cronsole can produce: `generateToken`
+      hardcodes `expiresIn: '24h'` and signs the user's real email.
+
+      **It was not improvised.** [`MCP_Server_Guide.md` › Minting a token](user-guides/guides/MCP_Server_Guide.md#minting-a-token)
+      instructs the user to run `jsonwebtoken.sign(..., {expiresIn:'30d'})` in a shell with
+      `JWT_SECRET` in scope. **That is the documented integration path**, and it is the only one.
+      So the finding is not "someone hand-minted a token" — it is that **hand-minting is the
+      product's answer**, and it requires the signing secret, a `userId` read out of the database,
+      Node, and a shell. A stranger following the MCP guide has to forge a credential to use a
+      feature we ship.
+
+      **Four specifics, in the order they bite:**
+      1. **No issuing surface.** The auth surface is exactly `GET /status`, `POST /setup`,
+         `POST /login`. `/login` returns the same 24h session JWT the browser uses — fine for a tab,
+         useless for a long-lived stdio client that cannot re-authenticate.
+      2. **Silent daily expiry.** Because a login token lasts 24h, the honest path costs a daily
+         re-export. And an unset or expired var does not error usefully — the MCP server refuses to
+         start and the tools go *missing* ([#8](troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)),
+         which reads as "the integration is broken", not "your credential lapsed".
+      3. **No revocation.** Nothing tracks issued tokens, so a leaked one can only be killed by
+         rotating `JWT_SECRET`, which signs everyone out at once. Defensible for a single-user
+         local app — but it is a choice nobody wrote down, and it stops being defensible the moment
+         the multi-user item below lands.
+      4. **Claims are trusted without a lookup.** `authenticateToken` verifies the signature and
+         assigns `req.user` from the payload; it never checks the `id` against the database. A
+         correctly-signed token for a deleted user stays valid for its full life, and the `email`
+         claim is whatever the signer typed. Harmless today because only `id` is used for scoping —
+         and exactly the kind of thing that stays harmless until something reads `req.user.email`.
+
+      **Shape of the fix, smallest first.** (a) `JWT_EXPIRES_IN`, defaulting to `24h` so nothing
+      changes for the browser — this alone makes the long-lived local token a *supported* thing
+      rather than a forged one. (b) A real token surface: issue named tokens from Settings, list
+      them, revoke them, store a hash rather than the token. (c) Resolve `req.user` from the DB on
+      each request, or at minimum stop trusting the `email` claim. **(a) is worth doing on its own
+      and immediately**; (b) is the honest destination and overlaps the account-system item under
+      Go-public; (c) is small and independent of both.
+
+      **When this closes, the guide's "Minting a token" section and its warning go with it** —
+      leaving it in place would keep pointing people at the forgery after the supported path exists.
 
 - [x] Agent WebSocket authentication — pairing-secret HMAC handshake, per-session command signing *(2026-07-09)*
 - [x] Encrypt `PlatformConnection.config` at rest (AES-256-GCM, migration-free legacy read) *(2026-07-09)*

@@ -25,6 +25,7 @@ model User {
   taskFavorites  TaskFavorite[]
   exclusions     TaskExclusion[]
   capabilities   PlatformCapability[]
+  deletedTasks   DeletedTaskArchive[]
 
   @@index([email])
 }
@@ -195,6 +196,55 @@ model TaskExclusion {
 
   @@unique([userId, platform, externalId])
   @@index([userId, platform])
+}
+
+/// The definition of a task, captured immediately before it was deleted.
+///
+/// Written by `DELETE /api/tasks/:id/native` — the narrow, native-only route the
+/// MCP server wraps — *before* the delete transaction runs, and the delete is
+/// refused if this write fails. A backup that only succeeds when you did not
+/// need it is worse than no backup, so the archive is a precondition of the
+/// destruction rather than a best-effort side effect.
+///
+/// Deliberately holds **no relation to Task**, and therefore no cascade: the
+/// whole point is to outlive the row it describes. This is the `TaskExclusion`
+/// shape, not the `TaskFavorite` one — a favorite is a preference about a
+/// tracked task and should die with it; an archive is a memory of a task that is
+/// already gone. Wiring it to `Task` with a cascade would delete the backup in
+/// the same transaction that made it necessary.
+///
+/// `taskId` is kept as a plain string for exactly that reason — it is a record
+/// of which id the task *had*, not a pointer to a row that still exists.
+///
+/// `bundle` is the same export bundle `GET /api/tasks/:id/export` returns
+/// (`cronsoleTaskVersion`), built by one shared function so the archive and the
+/// download can never drift into two formats. `executions` holds the last 20
+/// ExecutionLog rows, which the delete transaction destroys: for a native task
+/// those are real outcome evidence, so without them the archive cannot answer
+/// "was it working before I deleted it?".
+model DeletedTaskArchive {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+
+  /// The id the task had. Not a foreign key — that row is gone by design.
+  taskId     String
+  platform   PlatformType
+  externalId String
+  name       String
+
+  /// Export bundle, identical in shape to GET /api/tasks/:id/export.
+  bundle     Json
+
+  /// Up to the last 20 ExecutionLog rows, destroyed by the delete transaction.
+  executions Json
+
+  /// What performed the delete, e.g. "mcp". Answers "did an agent do this?"
+  deletedVia String       @default("api")
+  createdAt  DateTime     @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, platform, externalId])
 }
 
 model ExecutionLog {

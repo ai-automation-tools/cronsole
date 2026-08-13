@@ -28,6 +28,11 @@ import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateF
 import { toTaskXmlBuffer } from '../services/bulkExport.js';
 import { recordCapability, verbDeclaredUnsupported } from '../services/platformCapabilities.js';
 import { taskSourceKey } from '../services/taskSource.js';
+import {
+  archiveTaskBeforeDelete,
+  buildNativeTaskBundle,
+  ArchiveWriteError
+} from '../services/taskArchive.js';
 
 const router = Router();
 
@@ -1223,6 +1228,86 @@ router.delete('/:id', async (req: Request, res: Response) => {
   res.json({ message: 'Task deleted' });
 });
 
+/**
+ * Delete a Cronsole-native task, archiving its definition first.
+ *
+ * This is the narrow sibling of `DELETE /:id`, and it exists so the MCP server
+ * has a delete verb whose blast radius is bounded. Two things it will not do:
+ *
+ *  1. **It refuses any platform but TASKHUB_NATIVE.** Not because those
+ *     platforms cannot be deleted — Windows deletes fine through the elevated
+ *     agent, which is exactly the problem — but because destroying a real Task
+ *     Scheduler entry should have a human at a confirm dialog rather than an
+ *     agent inferring intent. The UI keeps `DELETE /:id` and its full reach.
+ *     This is *not* `verbDeclaredUnsupported`: that reports a boundary of the
+ *     platform, and this is a boundary of the route. A caller who wants a
+ *     Windows task off the dashboard wants `POST /api/tools/tasks/untrack`,
+ *     which leaves the real task running.
+ *
+ *  2. **It will not delete anything it could not archive first.** The archive
+ *     write is a precondition, so an archive failure aborts the delete with the
+ *     task still intact. The alternative — delete anyway, log the archive
+ *     failure — is worse than having no archive at all, because the caller
+ *     proceeds believing the task is recoverable.
+ *
+ * Why the restriction lives here and not in `mcp-server/`: the wrapper owns no
+ * logic, and a platform check written there would be a *client-side* check that
+ * the REST route still ignores. The guarantee has to be a property of the route
+ * or it is not a guarantee.
+ */
+router.delete('/:id/native', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) {
+    throw new HttpError(404, 'Task not found');
+  }
+
+  if (task.platform !== PlatformType.TASKHUB_NATIVE) {
+    throw new HttpError(
+      400,
+      `This route deletes Cronsole-native tasks only, and this task is on ${task.platform}. ` +
+        'Deleting it would remove the real scheduled task from the machine, which is deliberately ' +
+        'not available here. To take it off the Cronsole dashboard while leaving it running, ' +
+        'untrack it instead; to genuinely destroy it, use the task modal in the Cronsole UI.'
+    );
+  }
+
+  // Before the transaction below, and allowed to abort it. Translated to a 500
+  // rather than swallowed: the caller has to be able to tell "deleted" from
+  // "refused because I could not back it up", and those must not share a shape.
+  let archiveId: string;
+  let executionsArchived: number;
+  try {
+    ({ archiveId, executionsArchived } = await archiveTaskBeforeDelete(task, {
+      deletedVia: 'mcp'
+    }));
+  } catch (err) {
+    if (err instanceof ArchiveWriteError) {
+      throw new HttpError(500, err.message);
+    }
+    throw err;
+  }
+
+  // Native deletes never reach a connector — the DB row *is* the task — so the
+  // evidence is recorded here, the same way reschedule and export do it.
+  await recordCapability(userId, task.platform, 'delete', true);
+
+  await prisma.$transaction([
+    prisma.executionLog.deleteMany({ where: { taskId: id } }),
+    prisma.task.delete({ where: { id } })
+  ]);
+
+  notifyTasksChanged(userId);
+  res.json({
+    message: 'Task deleted',
+    archived: true,
+    archiveId,
+    executionsArchived
+  });
+});
+
 // Recent execution history for a task (manual runs + native scheduler fires)
 router.get('/:id/executions', async (req: Request, res: Response) => {
   const id = req.params.id as string;
@@ -1327,20 +1412,10 @@ router.get('/:id/export', async (req: Request, res: Response) => {
   }
 
   if (task.platform === PlatformType.TASKHUB_NATIVE) {
-    const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
-      ? (task.metadata as Record<string, unknown>)
-      : {};
-    const bundle = {
-      cronsoleTaskVersion: '1.0',
-      exportedAt: new Date().toISOString(),
-      task: {
-        name: task.name,
-        platform: task.platform,
-        category: task.category,
-        schedule: task.schedule,
-        job: meta.job ?? null
-      }
-    };
+    // One definition, shared with the pre-delete archive (`taskArchive.ts`).
+    // Two copies of the export shape would drift, and the drift would only
+    // surface when someone tried to restore from an archive.
+    const bundle = buildNativeTaskBundle(task);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${safeFilePart(task.name)}.json"`);
     // Native exports never reach a connector either — same reason as reschedule.

@@ -997,6 +997,68 @@ router.get('/history', async (req: Request, res: Response) => {
 });
 
 /**
+ * Task definitions captured just before they were deleted.
+ *
+ * The read half of the pre-delete archive (`services/taskArchive.ts`). Without
+ * it the archive would be write-only, which is most of the way back to having
+ * no archive at all — a backup nobody can enumerate is one nobody will restore
+ * from, and its absence would only be discovered at the moment it was needed.
+ *
+ * Cross-task, so it lives here rather than on `tasks.ts`, where `/archives`
+ * would be swallowed by `/:id`.
+ */
+router.get('/task-archives', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+
+  const archives = await prisma.deletedTaskArchive.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: limit
+  });
+
+  res.json({
+    total: archives.length,
+    archives: archives.map(a => ({
+      id: a.id,
+      taskId: a.taskId,
+      name: a.name,
+      platform: a.platform,
+      externalId: a.externalId,
+      deletedVia: a.deletedVia,
+      deletedAt: a.createdAt,
+      // The count, not the rows — the full run history is on the detail route.
+      executionsArchived: Array.isArray(a.executions) ? a.executions.length : 0
+    }))
+  });
+});
+
+/** One archived definition, with its bundle and captured run history. */
+router.get('/task-archives/:id', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const id = req.params.id as string;
+
+  // Scoped by userId: an archive holds a full job spec, including any headers
+  // the task was configured with.
+  const archive = await prisma.deletedTaskArchive.findFirst({ where: { id, userId } });
+  if (!archive) {
+    throw new HttpError(404, 'Archive not found');
+  }
+
+  res.json({
+    id: archive.id,
+    taskId: archive.taskId,
+    name: archive.name,
+    platform: archive.platform,
+    externalId: archive.externalId,
+    deletedVia: archive.deletedVia,
+    deletedAt: archive.createdAt,
+    bundle: archive.bundle,
+    executions: archive.executions
+  });
+});
+
+/**
  * Automation health — which tasks need attention, and **on what evidence**.
  *
  * Mounted here, not as `/api/tasks/health`: that route already exists and means

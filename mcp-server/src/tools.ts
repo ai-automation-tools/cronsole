@@ -12,7 +12,7 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *   act       run_task
  *   modify    set_task_status · update_task_schedule · update_task_action ·
  *             rename_task            untrack_task           update_native_job
- *   destroy   delete_task            (only when allowDestructive — see below)
+ *   destroy   delete_task            (native-only, and only when allowDestructive)
  *
  * Each tool is a thin call through CronsoleClient into the REST API. Business
  * rules (owner scoping, no-shell command structuring, agent signing, cron→trigger
@@ -24,6 +24,19 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  * gating it would push an agent toward encoding "don't run" in the cron, which
  * is troubleshooting #14 exactly. A gate that makes the safe path harder than the
  * unsafe one is worse than no gate.
+ *
+ * Blast radius (narrowed 2026-08-13): `delete_task` wraps
+ * `DELETE /tasks/:id/native`, which refuses every platform but TASKHUB_NATIVE
+ * and archives the definition before destroying it. So the destroy verb on this
+ * surface can no longer reach a real Task Scheduler entry, and what it can reach
+ * is recoverable. The whole-surface property that buys: **no MCP tool can
+ * destroy an artifact on the user's machine.** Windows removal over MCP means
+ * `untrack_task` — Cronsole's row goes, the scheduled task keeps running.
+ *
+ * That restriction is enforced in the BACKEND ROUTE, not here, and must stay
+ * there. A platform check in this file would be a client-side check the REST
+ * API still ignores, so the guarantee would hold only for callers who went
+ * through this wrapper — i.e. not a guarantee.
  */
 
 export interface ToolOptions {
@@ -1898,28 +1911,49 @@ Next run: ${task.nextRunTime}` : '')
     server.registerTool(
       'delete_task',
       {
-        title: 'Delete a task permanently',
+        title: 'Delete a Cronsole-native task',
         description:
-          'PERMANENTLY delete a scheduled task. For a Windows task this removes the real Task Scheduler entry ' +
-          'via the local agent (which runs elevated), and the Cronsole record is only removed after the platform ' +
-          'confirms the deletion. This CANNOT be undone — there is no trash and no restore. ' +
-          'Prefer set_task_status with DISABLED unless the task is genuinely meant to be gone: disabling stops ' +
-          'the task running and is fully reversible. ' +
-          'If the goal is to tidy the Cronsole dashboard rather than to destroy a scheduled task, use ' +
-          'untrack_task instead — it removes the task from Cronsole and leaves it running on the machine. ' +
-          'If you did not create the task in this session, export_task first so the definition can be rebuilt, ' +
-          'and confirm with the user before calling this.',
+          'Delete a **Cronsole-native** task (platform TASKHUB_NATIVE — an HTTP job or a script job run by ' +
+          'the Cronsole backend). The backend archives the task definition and its last 20 run records ' +
+          'BEFORE deleting, and refuses the delete if that archive cannot be written, so a deleted task can ' +
+          'be rebuilt from `GET /api/tools/task-archives`. The live task is still gone: the schedule stops, ' +
+          'and the row that WAS the task is removed. ' +
+          'This tool REFUSES every other platform with a 400, Windows Task Scheduler included. That is a ' +
+          'boundary, not a missing feature and not something a retry or a different argument will get past: ' +
+          'destroying a real scheduled task on the machine needs a human in the Cronsole UI. ' +
+          'For a Windows task, use untrack_task — it removes the task from the Cronsole dashboard and leaves ' +
+          'it running on the machine, which is what "remove this from my list" almost always means. ' +
+          'Prefer set_task_status with DISABLED for anything meant to stop running but survive: it is fully ' +
+          'reversible and needs no archive. Confirm with the user before calling this.',
         inputSchema: {
-          taskId: z.string().describe('The Cronsole task id (from list_tasks).')
+          taskId: z.string().describe('The Cronsole task id (from list_tasks). Must be a TASKHUB_NATIVE task.')
         }
       },
       async ({ taskId }) => {
         try {
-          const result = await client.delete<{ message?: string }>(
-            `/tasks/${encodeURIComponent(taskId)}`
-          );
+          // The narrow, native-only route — NOT `DELETE /tasks/:id`, which the
+          // UI uses and which reaches Windows through the elevated agent. The
+          // platform check is the backend's, deliberately: a check written here
+          // would be client-side, and the REST route would still ignore it.
+          const result = await client.delete<{
+            message?: string;
+            archiveId?: string;
+            executionsArchived?: number;
+          }>(`/tasks/${encodeURIComponent(taskId)}/native`);
           const msg = typeof result.message === 'string' ? result.message : 'Task deleted';
-          return ok(`${msg} (id: ${taskId}). This cannot be undone.`, { taskId, deleted: true });
+          const archived = result.archiveId
+            ? ` Archived first as ${result.archiveId}` +
+              (typeof result.executionsArchived === 'number'
+                ? ` with ${result.executionsArchived} run record(s)`
+                : '') +
+              ' — recoverable from GET /api/tools/task-archives.'
+            : '';
+          return ok(`${msg} (id: ${taskId}).${archived}`, {
+            taskId,
+            deleted: true,
+            archiveId: result.archiveId,
+            executionsArchived: result.executionsArchived
+          });
         } catch (err) {
           return toolError(err);
         }

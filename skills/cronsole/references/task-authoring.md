@@ -176,13 +176,23 @@ the category in the UI.
 |:---|:---|:---|
 | Stop it running, keep everything | `set_task_status: DISABLED` | the task, its schedule, its history |
 | Stop *seeing* it, keep it running | `untrack_task` | the real scheduled task (Cronsole's history goes) |
-| Make it stop existing | `delete_task` (gated) | nothing |
+| Make it stop existing | `delete_task` (gated, **native-only**) | nothing live — but the definition is archived |
 
-**`delete_task` is absent unless the human opted in.** If it isn't in your tool list, that is the
-answer, not an obstacle: say so and offer `set_task_status: DISABLED`, the UI, or the REST call.
-Don't route around it. Delete removes the real Task Scheduler entry via a signed agent command,
-and the DB row goes **only after the platform confirms**; an admin-ACL'd task gets an honest
-"needs elevation" refusal rather than a fake success.
+**`delete_task` reaches Cronsole-native tasks only** (2026-08-13). It wraps
+`DELETE /api/tasks/:id/native`, which refuses every other platform with a **400** — Windows
+included. So **no MCP verb can destroy a scheduled task on the machine**: for a Windows task the
+removal you have is `untrack_task`, and genuinely deleting one needs a human in the UI. That 400 is
+a boundary, not a missing feature — no retry or alternate argument gets past it.
+
+**What it can delete, the backend archives first.** The task definition plus its last 20 run
+records are written to `DeletedTaskArchive` *before* the delete, and the delete is **refused if
+that write fails**, leaving the task untouched. Read archives back at
+`GET /api/tools/task-archives[/:id]`. The live task is still gone — the schedule stops — but it can
+be rebuilt.
+
+**And it is absent unless the human opted in.** If it isn't in your tool list, that is the answer,
+not an obstacle: say so and offer `set_task_status: DISABLED`, the UI, or the REST call. Don't
+route around it.
 
 **Two behaviors worth knowing before you use these:**
 

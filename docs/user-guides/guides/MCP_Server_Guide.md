@@ -60,7 +60,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`sync_tasks`** | "Import my Backups folder", "refresh everything" — importing needs the category named; a bare refresh adds nothing new | `POST /api/tasks/sync` |
 | **`get_task_health`** | "What's broken?" — every task scored and ranked worst-first, with the evidence for each verdict | `GET /api/tools/task-health` |
 | **`list_run_history`** | "What failed this month?" — across all tasks, unlike the per-task history | `GET /api/tools/history` |
-| **`delete_task`** ⚠️ | "Delete the old test task" — **off by default**, see below | `DELETE /api/tasks/:id` |
+| **`delete_task`** ⚠️ | "Delete the old test task" — **Cronsole-native tasks only**, backed up first, and **off by default**; see below | `DELETE /api/tasks/:id/native` |
 
 **`create_task` vs. `create_task_from_template`:** use `create_task` when you already know the
 command to run — it's the direct path, and it's what the dashboard's New Task modal has always
@@ -123,8 +123,16 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 >   stays where it is and keeps running; Cronsole just stops tracking it (and forgets its Cronsole
 >   run history). Use this to tidy a cluttered dashboard or undo an import you didn't mean to do
 >   — importing that folder again brings it back.
-> - **`delete_task` is OFF unless you turn it on.** Deleting removes the real Task Scheduler
->   entry through an elevated agent, with no trash and no restore. Set
+> - **`delete_task` cannot touch a Windows task at all.** It deletes **Cronsole-native** tasks
+>   only — the HTTP and script jobs Cronsole itself runs — and refuses anything else. So your
+>   assistant can never destroy a scheduled task on your machine, no matter how it's asked. To get
+>   a Windows task off the dashboard it has `untrack_task` (which leaves it running); to genuinely
+>   delete one, you do it yourself in the Cronsole UI.
+> - **And what it *can* delete, it backs up first.** Cronsole saves the task's full definition and
+>   its last 20 runs before deleting, and **refuses to delete at all if that backup fails** —
+>   leaving the task untouched. You can list and read those backups later, so a native task deleted
+>   by mistake can be rebuilt.
+> - **`delete_task` is still OFF unless you turn it on.** Set
 >   `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` in your host's environment to expose it; otherwise your
 >   assistant won't even see the tool. That switch is deliberately *yours* — a tool parameter
 >   like "confirm: true" would just be the assistant reassuring itself.
@@ -160,7 +168,7 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 | `CRONSOLE_TOKEN` | ✅ | — | A user JWT sent as `Authorization: Bearer <token>`. |
 | `CRONSOLE_API_URL` |  | `http://localhost:3000/api` | Backend REST base URL (include `/api`). |
 | `CRONSOLE_TIMEOUT_MS` |  | `15000` | Per-request timeout. |
-| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** tool. Deleting is permanent — no trash, no restore — so it's off unless you set this to exactly `true` (anything else, including a typo, leaves it off). When off, your assistant doesn't see the tool at all. Prefer disabling a task to deleting it. |
+| `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |  | `false` | Expose the **`delete_task`** tool. It deletes **Cronsole-native tasks only** and backs each one up first, so it can't reach a Windows task — but it's still off unless you set this to exactly `true` (anything else, including a typo, leaves it off). When off, your assistant doesn't see the tool at all. Prefer disabling a task to deleting it. |
 
 > [!IMPORTANT]
 > The server reads its **process environment only** — it loads no `.env` file, so copying

@@ -3,13 +3,14 @@
  *
  * Kept as data (not inlined in the modal) so the getting-started walkthrough and
  * the guide links stay easy to edit. The walkthrough is self-contained in-app;
- * the guide links deep-link to the fuller docs in the repo. (The app repo is
- * private today, so these resolve for the owner; hosting the docs for a public
- * audience is tracked in the Go-public checklist.)
+ * the guide links deep-link to the fuller docs in the repo.
+ *
+ * The per-control `?` topics live in `help.ts` alongside these; both build their
+ * URLs from `docs.ts`, which is also where the note about these links being a
+ * checked mirror surface lives.
  */
 
-/** Base for deep-links into the repo's docs (deploy branch). */
-const DOCS_BASE = 'https://github.com/michaelschecht/cronsole/blob/main';
+import { DOCS_BASE } from './docs';
 
 export interface OnboardingStep {
   /** Emoji shown as the step marker. */
@@ -68,6 +69,11 @@ export const HELP_GUIDES: HelpLink[] = [
     label: 'UI User Guide',
     description: 'Dashboard, task details, categorizing, templates, connections',
     url: `${DOCS_BASE}/docs/user-guides/guides/UI_User_Guide.md`
+  },
+  {
+    label: 'Sources Guide',
+    description: 'Windows, Cronsole HTTP, Cronsole scripts, Claude — one at a time',
+    url: `${DOCS_BASE}/docs/user-guides/guides/Sources_Guide.md`
   },
   {
     label: 'Windows Agent Setup Guide',

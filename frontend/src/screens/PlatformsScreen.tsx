@@ -11,6 +11,8 @@ import {
 } from '../hooks/usePlatformMatrix';
 import { timeAgo } from '../utils/datetime';
 import { ClaudeRoutinesPanel } from '../components/ClaudeRoutinesPanel';
+import { HelpButton } from '../components/HelpButton';
+import { sourceTopicId } from '../data/help';
 import type { PlatformLink } from '../types';
 
 /**
@@ -112,7 +114,10 @@ export const PlatformsScreen = () => {
   return (
     <div className="space-y-10 animate-in fade-in duration-500 pb-20">
       <div>
-        <h2 className="text-2xl font-bold mb-1">Platforms</h2>
+        <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">
+          Platforms
+          <HelpButton topic="platforms" size="md" />
+        </h2>
         <p className="text-muted-foreground">
           What Cronsole can do with each connected platform, and how it knows.
         </p>
@@ -226,6 +231,10 @@ const PlatformMatrixCard = ({ row }: { row: PlatformMatrixRow }) => {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-bold text-lg">{row.label}</h4>
+              {/* Per-platform help, on the screen that is *about* platforms —
+                  so "what can this one actually do, and what can it never do?"
+                  is answered next to the matrix that raises the question. */}
+              <HelpButton topic={sourceTopicId(row.platform)} />
               {row.maturity === 'experimental' && (
                 <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border bg-warning/10 text-warning-text border-warning/30">
                   Experimental

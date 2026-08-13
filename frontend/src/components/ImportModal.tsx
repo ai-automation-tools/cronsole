@@ -5,6 +5,7 @@ import { api } from '../api';
 import { Modal } from './ui/Modal';
 import { useSettings } from '../hooks/useSettings';
 import { platformLabel } from '../platform';
+import { HelpButton } from './HelpButton';
 
 /**
  * Categories excluded from the "non-system" preset and unticked on a first run.
@@ -137,7 +138,13 @@ export const ImportModal = ({ onClose, onImport }: ImportModalProps) => {
             <h2 id="import-modal-title" className="text-xl font-bold">Import & Sync</h2>
             <p className="text-[10px] text-subtle-foreground uppercase font-bold tracking-wider">Select categories to pull into dashboard</p>
           </div>
-          <button onClick={onClose} aria-label="Close import" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors"><XCircle size={20} /></button>
+          {/* The two verbs in this modal's own title are the ones people most
+              often swap, and swapping them costs a debugging session — Sync
+              reports success forever while never discovering the folder. */}
+          <div className="flex items-center gap-1 shrink-0">
+            <HelpButton topic="import" size="md" />
+            <button onClick={onClose} aria-label="Close import" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors"><XCircle size={20} /></button>
+          </div>
         </header>
         <div className="p-6 space-y-4">
           {allCategories.length > 0 && (

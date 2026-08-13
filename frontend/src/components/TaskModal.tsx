@@ -17,6 +17,7 @@ import { EditScheduleModal } from './EditScheduleModal';
 import { EditActionModal } from './EditActionModal';
 import { EditNativeJobModal, type NativeJobInitial } from './EditNativeJobModal';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
+import { HelpButton } from './HelpButton';
 
 interface TaskModalProps {
   task: Task | null;
@@ -564,9 +565,15 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
               </p>
             )}
           </div>
-          <button onClick={onClose} aria-label="Close task details" title="Close" className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
-            <XCircle size={24} />
-          </button>
+          {/* Before Close, and after the title's own rename control — the
+              buttons in this modal differ by source and two of them look alike
+              and are not, which is exactly what the topic covers. */}
+          <div className="flex items-center gap-1 shrink-0">
+            <HelpButton topic="task-actions" size="md" />
+            <button onClick={onClose} aria-label="Close task details" title="Close" className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
+              <XCircle size={24} />
+            </button>
+          </div>
         </header>
         <div className="px-6 pt-4 border-b border-border flex gap-1">
           <button

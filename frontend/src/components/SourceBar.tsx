@@ -1,5 +1,7 @@
 import { Layers, Monitor, Zap, Bot, Globe, Terminal } from 'lucide-react';
 import { sourceLabel, sourcePlatform } from '../platform';
+import { HelpButton } from './HelpButton';
+import { sourceTopicId } from '../data/help';
 
 /**
  * **Where a task comes from** — the dashboard's first-level axis.
@@ -124,6 +126,16 @@ export const SourceBar = ({ sources, counts, totalCount, selected, onSelect }: S
       </span>
       {button('All', 'All sources', Layers, totalCount)}
       {sources.map(key => button(key, sourceLabel(key), iconFor(key), counts.get(key) ?? 0))}
+      {/*
+        Help for the source you are *on*, not a generic page about sources — the
+        question here is "what is this one, and what can Cronsole do with it?",
+        which has a different answer per source. On `All` that resolves to the
+        overview, which is the honest answer to the same question.
+
+        Beside the chips rather than inside them: a `?` nested in a chip would be
+        a button inside a button, and would steal the chip's click target.
+      */}
+      <HelpButton topic={selected === 'All' ? 'sources' : sourceTopicId(selected)} size="md" />
     </div>
   );
 };

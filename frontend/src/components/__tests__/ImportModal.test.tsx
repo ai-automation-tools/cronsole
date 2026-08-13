@@ -244,10 +244,10 @@ describe('ImportModal Component', () => {
       expect(screen.queryByText('Scanning platforms for tasks...')).not.toBeInTheDocument();
     });
 
-    // The modal renders through a portal to document.body, so query from there.
-    const closeBtn = document.querySelector('header button');
-    expect(closeBtn).toBeInTheDocument();
-    if (closeBtn) fireEvent.click(closeBtn);
+    // By accessible name, not `header button`. That positional selector was
+    // silently retargeted when a `?` was added ahead of Close in the header —
+    // it kept finding *a* button and the test failed somewhere else entirely.
+    fireEvent.click(screen.getByRole('button', { name: 'Close import' }));
     expect(onClose).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByText('Discard'));

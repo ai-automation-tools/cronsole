@@ -2,6 +2,14 @@
 
 Welcome to the **Cronsole** interface! This guide provides a comprehensive overview of how to navigate the dashboard, manage your scheduled tasks, and use advanced features like categorization and templates.
 
+> **In a hurry?** Every screen has **?** buttons next to the things that most often surprise
+> people. Each one explains that control in place and links back here. See
+> [In-app help](#8-in-app-help) for the full list.
+>
+> **Looking for one particular system?** The [Sources Guide](Sources_Guide.md) covers Windows
+> Task Scheduler, Cronsole (HTTP), Cronsole (Scripts) and Claude Code one at a time — what
+> Cronsole can and can't do with each.
+
 ---
 
 ## 1. The Dashboard
@@ -69,6 +77,9 @@ Three things worth knowing about *Run a program*:
 **Use a Windows task instead** for anything that must run as your logged-in user, or keep running
 when Cronsole is down.
 
+Both kinds can be changed afterwards — including an HTTP job's URL — from the task modal's
+Action panel. See [Editing what a task runs](#editing-what-a-task-runs).
+
 ### Source — where a task comes from
 
 The row above the saved views is the dashboard's **first level of organisation**: one button per
@@ -87,6 +98,10 @@ the **Platforms** tab — same connector, same capabilities — so only this bar
   count is taken *inside* it — so `My jobs 1` means one, not "88 across everything".
 - **A source can read `0`, and that is deliberate.** It means you have tasks from that source but
   none survive your current view. The button stays, so you can always click back out.
+
+The **?** at the end of the Source bar opens the same breakdown in the app. For what each
+source can actually do — and the things that catch people out on each one — see the
+[Sources Guide](Sources_Guide.md).
 
 ### Saved views
 Across the top of the dashboard is a row of **views** — named filter combinations, so the question
@@ -160,6 +175,48 @@ tasks, and you see exactly which ones before anything happens.
 
 To change a single task, open it and use the buttons in the task modal.
 
+### Renaming a task
+
+The **pencil** beside the task's title renames it. This works on every source, including
+Claude routines, and it does not need the agent.
+
+- **The rename is a Cronsole label. Nothing is renamed on your machine.** A Windows task's
+  real name is the last segment of its Task Scheduler path, and that path is how Cronsole
+  addresses it — every command it sends, every sync that matches it. Renaming the path would
+  make it a *different task*, so Cronsole does not.
+- **Once the two differ, the modal says so** — *"Renamed in Cronsole — Task Scheduler still
+  calls it X"* — and keeps the real path on screen. Otherwise you would go looking in Task
+  Scheduler for a name that was never there.
+- **The rename survives a sync.** Name and category are both Cronsole's labels; sync overwrites
+  only platform facts (status, schedule, next run). *(Until 12 August 2026 sync wrote the name
+  back on every pass, which is why renaming wasn't offered at all.)*
+- Renames can't collide the way a *created* task's name can — the duplicate check exists
+  because a new Windows task's name becomes its path, and a rename never touches the path.
+
+### Editing what a task runs
+
+The **Action** panel has an **Edit** button, and it does one of two quite different things.
+
+**Windows tasks** — Cronsole asks the agent to rewrite the real Task Scheduler entry, and
+records nothing until Windows confirms. The agent must be online, and the platform can refuse
+(an admin-owned task will).
+
+**Cronsole-native tasks** — the row *is* the task, so the write *is* the change. Nothing can
+refuse it and it works with the agent offline. You can change an HTTP job's URL, method,
+headers and body, or a script job's command line and working directory — the URL in particular
+used to require deleting the task and starting over, which threw away its run history.
+
+Three things to know about the native editor:
+
+- **Headers take either form.** Paste `Authorization: Bearer …` lines straight out of an API's
+  docs, or JSON. Something it can't read is refused rather than quietly sent as no headers.
+- **You can convert an HTTP job into a script job, and the other way round** — but the job is
+  **replaced, not merged**. The two kinds share no fields, so switching discards the other
+  type's: the form names exactly what goes before you click. The task keeps its name, schedule,
+  category and run history.
+- **A script job says where it will run** — your machine, or inside the container if you run
+  the backend in Docker. Same statement as the New Task form, for the same reason.
+
 ### Editing a schedule
 The modal footer shows **Edit Schedule** for Cronsole-native tasks and Windows tasks whose trigger can be represented as a cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits require the local agent because Cronsole changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe editor for those trigger types.
 
@@ -177,6 +234,8 @@ when you simply don't want to look at a task any more.
   number before you commit, and the toast afterwards tells you how many returned.
 - Not offered for Cronsole-native tasks — those exist only inside Cronsole, so there's nothing
   left to keep.
+- **Not offered for Claude routines either** — see *Disconnecting a Claude routine* below.
+  Clicking it there is refused with the reason, rather than appearing to work.
 
 **Delete from Windows** *(the irreversible one, styled red)* — deletes the real Task Scheduler
 entry. The task stops existing and will never run again.
@@ -192,6 +251,27 @@ entry. The task stops existing and will never run again.
 > [!TIP]
 > If your goal is a tidier dashboard, you almost always want **Remove from Cronsole**. Deleting
 > to clean up a view destroys automation that may have been running for years.
+
+### Disconnecting a Claude routine
+
+A Claude routine gets a third button instead: **Disconnect routine**. It is the only way to
+take one off the dashboard, and *"Remove from Cronsole"* is refused for these on purpose.
+
+The reason is that a routine is on your dashboard because **you declared it**. Anthropic
+exposes no endpoint to list routines, so Cronsole's list is your own connection config — there
+is no machine to be re-imported from, and no "don't re-import this" to remember. Removing the
+row alone left the declaration in place, so the next sync brought the task straight back while
+Cronsole's list of removed tasks read empty. *(If you hit that loop before 12 August 2026, that
+was it — [troubleshooting #47](../../troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole).)*
+
+**Disconnect routine** removes the declaration and the tracked task together, from either the
+task modal or **Platforms › Claude**. Two things it also does, both stated in its confirmation:
+
+- **It forgets the stored API token**, which claude.ai shows exactly once and will not show
+  again. Reconnecting means generating a new token there. This is precisely why it isn't folded
+  into "Remove from Cronsole" — a button may not spend something its label doesn't mention.
+- **It changes nothing at claude.ai.** The routine still exists and still runs on its own
+  schedule. You are disconnecting Cronsole from it, not deleting it.
 
 > **Note on schedule times:** every clock time in the app — the Schedule panel, the cron fields you type into, the preset chips, and absolute next/last-run timestamps — follows **Settings → Behavior → Schedule timezone**. It defaults to **Pacific**; you can pick another zone, your machine's, or UTC.
 >
@@ -270,6 +350,9 @@ The one place Cronsole changes many tasks at once. It works in two steps, in tha
    - **Disable tasks** — stop them running, without deleting anything. Reversible.
    - **Move to a category** — relabel them in Cronsole. Nothing moves on your machine.
    - **Remove from Cronsole** — stop tracking them here; they keep running on their platform.
+     Cronsole-native tasks and Claude routines are **refused individually and named** — for
+     those two the Cronsole row *is* the task (or the declaration), so there is nothing to
+     stop tracking. One refusal never halts the rest of the batch.
 2. **Which tasks?** Opens on **By category** — the way your tasks are already organised, and a
    deliberately narrow starting point rather than "everything". Switch to **all tasks**, or narrow
    by **platform**, **status** or **health** instead. The card then lists exactly which tasks would
@@ -468,6 +551,41 @@ a specification, and you already have one of those.
 - **Settings → About → API origin:** Shows the backend URL the dashboard is using. You can override it in the browser when testing a different backend; **Reset** returns to the configured `VITE_API_URL` default.
 - **Sync vs. Import:** **Sync Now** re-pulls status and schedules for categories you already track; **Import** opens the discovery picker to add new tasks. **Sync Now cannot discover a folder you don't already track** — that's what Import is for.
 - **"N tasks aren't imported":** because of the above, tasks can exist on your machine that Cronsole is deliberately ignoring. Sync Now now tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. If you don't want them, Import is not required — the message is informational, and it disappears once nothing is outstanding.
+
+---
+
+## 8. In-app help
+
+Cronsole explains itself in place. Two entry points, doing different jobs:
+
+- **Help Center** — the button in the Dashboard header. The hub: a getting-started walkthrough,
+  links to every guide, and a **Help by topic** index of everything below.
+- **? buttons** — small circled question marks next to individual controls. Each opens the
+  same modal on **one topic**: what the control is, the two or three things that surprise
+  people about it, and a link to the section of the docs that covers it in full. Every topic
+  view has *Browse all help* at the bottom, so a specific answer is never a dead end.
+
+Where the **?** buttons are, and what each one answers:
+
+| Where | Answers |
+|:--|:--|
+| Dashboard › **Source** bar | What a source is, and how each one differs → [Sources Guide](Sources_Guide.md) |
+| Dashboard › **Views** row | Saved views, what a view is, why changing a filter drops you to *Custom* |
+| Dashboard › **Filters** row | Status, ownership and category — and what the defaults are hiding |
+| **New Task** › Platform | The selected platform, in place — the help changes as you switch between Cronsole, Windows and Claude |
+| **New Task** › Schedule | Cron, your schedule timezone, and what is stored |
+| **New Task** › Job type | HTTP request vs. Run a program |
+| **New Task** › Command / Program | The no-shell rule, and where the job will actually run |
+| **Task details** header | Rename, edit, remove, delete, disconnect — which button does what |
+| **Templates** header | The catalog, starters vs. patterns, applying and saving |
+| **Platforms** › each platform row | That source specifically, including what it cannot do |
+| **Tools** › Mass actions | Scope-first bulk changes, and the typed confirmation |
+| **Tools** › Task health | The four tiers, and why *Unknown* is not *Healthy* |
+| **Import** | Import vs. Sync — the distinction that costs people the most time |
+
+Every one of these links to a heading in this repo's docs. If you follow a link and it lands
+somewhere unhelpful, that's a bug worth reporting — the links are checked by a test precisely
+because a stale help link fails silently.
 
 ---
 

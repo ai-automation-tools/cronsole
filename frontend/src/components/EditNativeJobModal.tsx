@@ -6,6 +6,7 @@ import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { errorMessage } from '../utils/errorMessage';
 import { Modal } from './ui/Modal';
+import { HelpButton } from './HelpButton';
 
 /**
  * Edit what a **Cronsole-native** task does.
@@ -159,7 +160,7 @@ export const EditNativeJobModal = ({ task, initial, executionHost, onClose }: Pr
 
       <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
         <div className="space-y-2">
-          <span className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Job type</span>
+          <span className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider inline-flex items-center gap-1">Job type<HelpButton topic="native-job-type" /></span>
           <div className="flex gap-2">
             {([
               { value: 'HTTP' as const, label: 'Call a URL', icon: Globe },

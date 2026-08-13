@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Bookmark, BookmarkPlus, Check, RotateCcw, Star, X } from 'lucide-react';
 import { isBuiltinView, type SavedView } from '../utils/savedViews';
+import { HelpButton } from './HelpButton';
 
 /**
  * Saved views — the named filter combinations across the top of the dashboard.
@@ -76,6 +77,7 @@ export const ViewBar = ({
     >
       <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-subtle-foreground shrink-0">
         <Bookmark size={12} /> Views
+        <HelpButton topic="views" />
       </span>
 
       {views.map(view => {

@@ -175,6 +175,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   *Context worth recording: this was investigated because a browser pass appeared to show the dashboard freezing for 45s at 269 tasks. **It did not.** The tab was hidden, so `requestAnimationFrame` never fired and my probe awaited a frame that could not come; Chrome's intensive throttling of long-hidden tabs explains the rest. Measured properly, a theme toggle is 0.8ms at 13,228 DOM nodes. **No virtualization was added, because none is warranted** — the fix that isn't needed is worth naming as loudly as the one that is.*
 
 ### Fixed
+- **A disabled task is no longer scored for the runs it was disabled to skip** (2026-08-13). Windows keeps counting `numberOfMissedRuns` while a task is parked, and the health scan was charging them — so on a real machine the **worst-ranked task was a disabled one**, sitting above every task that was still running and still failing.
+
+  Disabling is the recommended way to stop a task safely; it is why `set_task_status` ships ungated over MCP. A health model that deducts points for the safe fix pushes people toward the unsafe ones. The `disabled` signal itself was already weightless — this was `missed-runs` being applied on top of it.
+
+  It was an inconsistency rather than a new rule: `overdue` and `never-run` already skipped disabled tasks. The count is suppressed, not forgotten — re-enable the task and the signal comes back.
+
+  Also corrected: the evidence line read *"Windows reported 1 missed runs"* under a summary that correctly said *"1 scheduled start"*.
+
 - **The task-health scan no longer summarizes one set of tasks while listing another** (2026-08-13). Asking an assistant "what's failing?" produced *"Across 358 task(s): 25 critical"* directly above a list of **13** — the summary counted every tracked task, including the ~257 Windows owns, while the list showed only yours. Both numbers were true about different populations, and nothing in the response said so.
 
   **The filters moved onto the route, beside the counting.** `GET /api/tools/task-health` now accepts `tier`, `includeSystem` and `limit`; the MCP server forwards them and filters nothing. Previously it filtered client-side and printed the server's unfiltered counts — and a filter applied anywhere other than where the counting happens cannot be reconciled afterwards, because neither side knows what the other did.

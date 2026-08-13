@@ -110,6 +110,60 @@ function parseCronDaysOfWeek(dow: string): string[] | null {
 }
 
 /**
+ * Parses a cron minute or hour field that must name EXACTLY ONE value, returning
+ * `null` for anything else — a list (`9,17`), a range (`9-17`), a step, or a
+ * value outside the field's range.
+ *
+ * This exists for the same reason `parseCronDaysOfWeek` does, one field over, and
+ * it was missed when that one was fixed. `startBoundary` is a single `"HH:mm"`
+ * (see `WindowsTrigger`), so a multi-value time has no representation here at all
+ * — but `parseInt('9-17')` is `9` and `parseInt('9,17')` is `9`, so both passed
+ * the old `!isNaN()` guard and `padStart` then left the raw string untouched,
+ * yielding boundaries like `"9-17:00"` and `"09:0,30"` at **confidence 1.0 with
+ * no warnings**. `0 9-17 * * 1-5` — every hour, 9–5, weekdays — was reported as a
+ * perfect conversion of a trigger that fires once a day.
+ *
+ * The saving grace was that the agent rejects a malformed boundary, so nothing
+ * wrong ever reached Task Scheduler. But it surfaced as a 500/502 ("the platform
+ * is having a moment, retry") for what is purely a schedule Cronsole cannot
+ * express — a retry that can never succeed. Returning `null` drops these to the
+ * honest `lossy: 'replaced'` fallback instead, which states the cost out loud.
+ *
+ * Range-checking here is part of the same job: `0 25 * * *` built `"25:00"` and
+ * failed identically at the agent.
+ */
+function parseSingleTimeField(field: string, max: number): number | null {
+  if (!/^\d+$/.test(field)) return null;
+  const value = Number(field);
+  if (value > max) return null;
+  return value;
+}
+
+/**
+ * Parses a pure step field — `*​/N` and nothing else — returning `null` for any
+ * other shape.
+ *
+ * The same defect as `parseSingleTimeField` guards against, in the branch next
+ * door and hiding better. `'*​/10,45'.startsWith('*​/')` is true and
+ * `parseInt('10,45')` is `10`, so a step *combined with* a list or range was read
+ * as a clean step: `*​/10,45 * * * *` (every 10 minutes AND at :45) returned
+ * confidence 1.0 with no warnings, and `0 *​/6,13 * * *` quietly dropped the 13:00
+ * run.
+ *
+ * These were the more dangerous half. The multi-value *time* bug produced a
+ * malformed `startBoundary` that the agent refused, so it failed loudly; a
+ * mis-parsed step produces a perfectly well-formed `PT10M` repetition that
+ * Windows accepts and runs on the wrong schedule indefinitely. **A silent wrong
+ * schedule beats a loud error only in how it looks.**
+ */
+function parseStepField(field: string): number | null {
+  const match = field.match(/^\*\/(\d+)$/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return value > 0 ? value : null;
+}
+
+/**
  * Converts a 5-field cron string to a Windows Task Scheduler trigger configuration.
  */
 export function convertCronToWindowsTrigger(cron: string): ConversionResult {
@@ -135,12 +189,18 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   }
 
   // 1. Daily at a specific hour/minute: "M H * * *"
-  const minNum = parseInt(min, 10);
-  const hourNum = parseInt(hour, 10);
-  const isSpecificTime = !isNaN(minNum) && !isNaN(hourNum);
+  //
+  // Both fields must name exactly one in-range value: a Windows startBoundary is
+  // a single "HH:mm", so a list or a range has nowhere to go. See
+  // parseSingleTimeField for what silently happened when this used parseInt.
+  const minNum = parseSingleTimeField(min, 59);
+  const hourNum = parseSingleTimeField(hour, 23);
+  const isSpecificTime = minNum !== null && hourNum !== null;
+  const timeOf = (h: number, m: number) =>
+    `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 
   if (isSpecificTime && dom === '*' && month === '*' && dow === '*') {
-    const timeStr = `${hour.padStart(2, '0')}:${min.padStart(2, '0')}`;
+    const timeStr = timeOf(hourNum, minNum);
     return {
       confidence: 1.0,
       trigger: {
@@ -156,7 +216,7 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   if (isSpecificTime && dom === '*' && month === '*') {
     const targetDays = parseCronDaysOfWeek(dow);
     if (targetDays) {
-      const timeStr = `${hour.padStart(2, '0')}:${min.padStart(2, '0')}`;
+      const timeStr = timeOf(hourNum, minNum);
       return {
         confidence: 1.0,
         trigger: {
@@ -170,8 +230,8 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   }
 
   // 3. Hourly at specific minute: "M * * * *"
-  if (!isNaN(minNum) && hour === '*' && dom === '*' && month === '*' && dow === '*') {
-    const timeStr = `00:${min.padStart(2, '0')}`;
+  if (minNum !== null && hour === '*' && dom === '*' && month === '*' && dow === '*') {
+    const timeStr = timeOf(0, minNum);
     return {
       confidence: 1.0,
       trigger: {
@@ -187,9 +247,9 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   }
 
   // 4. Periodic minutes: "*/M * * * *"
-  if (min.startsWith('*/') && hour === '*' && dom === '*' && month === '*' && dow === '*') {
-    const intervalMins = parseInt(min.substring(2), 10);
-    if (!isNaN(intervalMins) && intervalMins > 0) {
+  if (hour === '*' && dom === '*' && month === '*' && dow === '*') {
+    const intervalMins = parseStepField(min);
+    if (intervalMins !== null) {
       // Windows repeats on a fixed interval from the start boundary; cron restarts
       // its cycle every hour. They only agree when the step divides 60 evenly —
       // "*/7" fires at :00,:07…:56 then :00 under cron (a 4-minute seam), but
@@ -221,9 +281,9 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   }
 
   // 5. Periodic hours: "0 */H * * *"
-  if (minNum === 0 && hour.startsWith('*/') && dom === '*' && month === '*' && dow === '*') {
-    const intervalHours = parseInt(hour.substring(2), 10);
-    if (!isNaN(intervalHours) && intervalHours > 0) {
+  if (minNum === 0 && dom === '*' && month === '*' && dow === '*') {
+    const intervalHours = parseStepField(hour);
+    if (intervalHours !== null) {
       // Same seam as the minute step, against a 24-hour day: cron realigns at
       // midnight, Windows does not.
       const divides = intervalHours < 24 && 24 % intervalHours === 0;
@@ -265,6 +325,20 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
   // intuition: the fallback only ever runs MORE often than asked (never less),
   // and a deliberately *rare* schedule is the input most likely to miss the
   // pattern list above — so being careful is exactly what triggers this.
+  // A list or a range in the minute or hour field is by far the most common way to
+  // reach this fallback ("every hour 9–5 on weekdays" is an ordinary thing to ask
+  // for), and the generic text below can't hint at the one workaround that exists:
+  // a Windows trigger holds a single start time, so several times means several
+  // tasks. Said first, because it is the actionable half.
+  if (/[,-]/.test(min) || /[,-]/.test(hour)) {
+    warnings.push(
+      'A Windows trigger starts at exactly one time, so a list or range in the minute or hour ' +
+      'field (e.g. "9,17" or "9-17") cannot be expressed and is not partially applied — only ' +
+      'the whole expression is replaced, below. Use one task per start time, or an even step ' +
+      '("0 */2 * * *") if the times are evenly spaced.'
+    );
+  }
+
   warnings.push(
     'This cron expression cannot be expressed as a Windows trigger, so the schedule will be ' +
     'REPLACED — not approximated — with a fixed hourly trigger: every hour from 00:00, about ' +
@@ -292,42 +366,56 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
 }
 
 /**
+ * Splits a trigger's `startBoundary` into an in-range hour and minute, or `null`.
+ *
+ * The reverse direction has the same duty of care as the forward one, and cannot
+ * assume its input came from us: this reads triggers off real machines, where a
+ * task may have been written by hand, by another tool, or by an older Cronsole
+ * that emitted the malformed boundaries this module used to produce. Unguarded,
+ * `parseInt` turned `"9-17:00"` into the cron `0 9 * * *` at **confidence 1.0** —
+ * inventing a schedule the task does not have, which is worse than declining to
+ * read it, and would then be shown as the task's schedule on the dashboard.
+ */
+function parseStartBoundary(boundary: string): { hour: number; min: number } | null {
+  const match = boundary.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const min = Number(match[2]);
+  if (hour > 23 || min > 59) return null;
+  return { hour, min };
+}
+
+/**
  * Reverses a Windows trigger back to a 5-field cron string.
  */
 export function convertWindowsTriggerToCron(trigger: WindowsTrigger): ReverseResult {
   const warnings: string[] = [];
 
   if (trigger.type === 'Daily') {
-    const parts = trigger.startBoundary.split(':');
-    if (parts.length >= 2) {
-      const hour = parseInt(parts[0], 10);
-      const min = parseInt(parts[1], 10);
-      if (!isNaN(hour) && !isNaN(min)) {
-        return {
-          confidence: 1.0,
-          cron: `${min} ${hour} * * *`,
-          warnings
-        };
-      }
+    const time = parseStartBoundary(trigger.startBoundary);
+    if (time) {
+      return {
+        confidence: 1.0,
+        cron: `${time.min} ${time.hour} * * *`,
+        warnings
+      };
     }
   }
 
   if (trigger.type === 'Weekly' && trigger.daysOfWeek && trigger.daysOfWeek.length > 0) {
-    const parts = trigger.startBoundary.split(':');
-    if (parts.length >= 2) {
-      const hour = parseInt(parts[0], 10);
-      const min = parseInt(parts[1], 10);
+    const time = parseStartBoundary(trigger.startBoundary);
+    if (time) {
       // Every named day becomes a cron day — a Windows Weekly trigger routinely
       // names several, and keeping only the first would drop the rest silently.
       const days = trigger.daysOfWeek.map(day => CRON_DAY_NAMES.indexOf(
         day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()
       ));
       const allRecognized = days.every(index => index !== -1);
-      if (!isNaN(hour) && !isNaN(min) && allRecognized) {
+      if (allRecognized) {
         const dow = [...new Set(days)].sort((a, b) => a - b).join(',');
         return {
           confidence: 1.0,
-          cron: `${min} ${hour} * * ${dow}`,
+          cron: `${time.min} ${time.hour} * * ${dow}`,
           warnings
         };
       }
@@ -336,9 +424,11 @@ export function convertWindowsTriggerToCron(trigger: WindowsTrigger): ReverseRes
 
   if (trigger.type === 'Time' && trigger.repetition) {
     const interval = trigger.repetition.interval;
-    const parts = trigger.startBoundary.split(':');
-    const startMin = parts.length >= 2 ? parseInt(parts[1], 10) : 0;
-    
+    // An unreadable boundary means minute 0, not NaN: a repetition's start minute
+    // is a detail of an otherwise-recoverable trigger, and "NaN * * * *" is not a
+    // cron string any caller can do anything with.
+    const startMin = parseStartBoundary(trigger.startBoundary)?.min ?? 0;
+
     // PT30M -> minute is */30
     const minMatch = interval.match(/^PT(\d+)M$/);
     if (minMatch) {

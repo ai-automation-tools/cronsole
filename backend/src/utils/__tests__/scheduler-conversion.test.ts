@@ -118,6 +118,96 @@ describe('Schedule Conversion Utility', () => {
       }
     });
 
+    // The day-of-week bug above, one field over, and missed when that one was
+    // fixed: parseInt('9-17') is 9, so a multi-value hour or minute passed the
+    // old !isNaN() guard and padStart left the raw string alone. Every case here
+    // produced a malformed startBoundary at confidence 1.0 with NO warnings —
+    // "0 9-17 * * 1-5" (every hour 9–5 on weekdays) was reported as a perfect
+    // conversion of a trigger that fires once a day.
+    //
+    // Asserting on the boundary's SHAPE, not just the confidence: the defect was
+    // never a wrong number, it was a string that isn't a time. A test that only
+    // checked confidence would have passed on "9-17:00".
+    it('never builds a startBoundary from a multi-value hour or minute field', () => {
+      const cases = [
+        '0 9-17 * * 1-5',  // every hour 9–5 weekdays -> was "9-17:00", Weekly
+        '0 9,17 * * *',    // twice a day            -> was "9,17:00", Daily
+        '0,30 9 * * *',    // twice an hour          -> was "09:0,30", Daily
+        '0 9-17 * * *',
+        '15,45 * * * *'    // rule 3's hourly path had the same raw padStart
+      ];
+      for (const cron of cases) {
+        const res = convertCronToWindowsTrigger(cron);
+        expect(res.trigger?.startBoundary, `${cron} must not yield a malformed boundary`)
+          .toMatch(/^\d{2}:\d{2}$/);
+        // It must also stop CLAIMING to be exact. The honest landing spot is the
+        // documented replaced-hourly fallback, which states its cost out loud.
+        expect(res.confidence, `${cron} must not report full confidence`).toBeLessThan(1.0);
+        expect(res.lossy, `${cron} discards the expression entirely`).toBe('replaced');
+      }
+    });
+
+    it('names the multi-value time field as the reason, with the workaround', () => {
+      // The generic fallback warning can't hint that several start times means
+      // several tasks — so the specific one has to, or the caller retries.
+      const res = convertCronToWindowsTrigger('0 9,17 * * *');
+      expect(res.warnings.join(' ')).toMatch(/one task per start time/i);
+    });
+
+    it('refuses an out-of-range hour or minute instead of building "25:00"', () => {
+      // Same defect, same fix site: numeric but impossible fields also reached
+      // startBoundary raw and failed at the agent as a 500/502.
+      for (const bad of ['0 25 * * *', '99 9 * * *']) {
+        const res = convertCronToWindowsTrigger(bad);
+        expect(res.trigger?.startBoundary, `${bad} must not yield a malformed boundary`)
+          .toMatch(/^\d{2}:\d{2}$/);
+        expect(res.confidence, `${bad} must not report full confidence`).toBeLessThan(1.0);
+      }
+    });
+
+    // The same defect one branch over, and the more dangerous half: a step field
+    // combined with a list or range. `'*/10,45'.startsWith('*/')` is true and
+    // parseInt('10,45') is 10, so these were read as clean steps at confidence
+    // 1.0 with no warnings — and unlike the multi-value TIME bug they produce a
+    // well-formed PT10M trigger that Windows accepts, so nothing ever errored and
+    // the task simply ran on the wrong schedule forever.
+    it('never reads a step field that carries a list or range as a clean step', () => {
+      const cases = [
+        '*/10,45 * * * *',  // every 10 min AND at :45 -> was PT10M, ",45" dropped
+        '*/5-30 * * * *',
+        '0 */6,13 * * *'    // -> was PT6H, the 13:00 run dropped
+      ];
+      for (const cron of cases) {
+        const res = convertCronToWindowsTrigger(cron);
+        expect(res.confidence, `${cron} must not report full confidence`).toBeLessThan(1.0);
+        expect(res.lossy, `${cron} is not a derived step`).toBe('replaced');
+        // Specifically NOT 'approximated': an approximated step IS built from the
+        // number given, and these would be built from half of it.
+        expect(res.trigger?.repetition?.interval).toBe('PT1H');
+      }
+    });
+
+    it('still converts a plain step exactly', () => {
+      // The step guard must not overreach either.
+      expect(convertCronToWindowsTrigger('*/15 * * * *').confidence).toBe(1.0);
+      expect(convertCronToWindowsTrigger('*/15 * * * *').trigger?.repetition?.interval).toBe('PT15M');
+      expect(convertCronToWindowsTrigger('0 */4 * * *').trigger?.repetition?.interval).toBe('PT4H');
+      // A zero or malformed step is not a step at all.
+      expect(convertCronToWindowsTrigger('*/0 * * * *').lossy).toBe('replaced');
+    });
+
+    it('still converts a zero-padded single value exactly', () => {
+      // The guard must not overreach: these are single in-range values and stay
+      // full-confidence conversions.
+      expect(convertCronToWindowsTrigger('05 09 * * *').trigger).toEqual({
+        type: 'Daily',
+        startBoundary: '09:05',
+        daysInterval: 1
+      });
+      expect(convertCronToWindowsTrigger('0 0 * * *').confidence).toBe(1.0);
+      expect(convertCronToWindowsTrigger('59 23 * * *').trigger?.startBoundary).toBe('23:59');
+    });
+
     // Windows repeats a Time trigger on a fixed interval from the start boundary,
     // so it only reproduces cron's per-hour restart when the step divides 60.
     it('warns that a minute step which does not divide 60 drifts from cron', () => {
@@ -256,6 +346,20 @@ describe('Schedule Conversion Utility', () => {
       const forward = convertCronToWindowsTrigger('0 9 * * 1-5');
       const back = convertWindowsTriggerToCron(forward.trigger!);
       expect(back.cron).toBe('0 9 * * 1,2,3,4,5');
+    });
+
+    // This path reads triggers off real machines, so it cannot assume its input
+    // came from us: a task may be hand-written, made by another tool, or left by
+    // an older Cronsole that emitted exactly these malformed boundaries. Reading
+    // "9-17:00" as 09:00 invents a schedule the task does not have and then shows
+    // it on the dashboard as fact — worse than declining to read it.
+    it('refuses a malformed start boundary rather than inventing a time from it', () => {
+      for (const startBoundary of ['9-17:00', '09:0,30', '25:00', '09:99', 'noon', '']) {
+        const res = convertWindowsTriggerToCron({ type: 'Daily', startBoundary, daysInterval: 1 });
+        expect(res.confidence, `${startBoundary} must not read as an exact time`).toBeLessThan(1.0);
+        expect(res.cron, `${startBoundary} must not yield a cron built from it`)
+          .toBe('0 * * * *');
+      }
     });
 
     it('refuses an unrecognized day name rather than guessing', () => {

@@ -1163,14 +1163,29 @@ Next run: ${task.nextRunTime}` : '')
     },
     async ({ taskId, schedule }) => {
       try {
-        const task = await client.patch<TaskRow>(
-          `/tasks/${encodeURIComponent(taskId)}/schedule`,
-          { schedule }
-        );
+        const task = await client.patch<
+          TaskRow & { conversion?: { warnings?: string[]; lossy?: 'approximated' | 'replaced' } }
+        >(`/tasks/${encodeURIComponent(taskId)}/schedule`, { schedule });
         const next = task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '';
+        // Same rule as create_task: a lossy conversion is reported at the volume
+        // of the success, because the task now runs on a schedule nobody asked
+        // for. Reachable on THIS route only since the converter stopped rating a
+        // multi-value hour ("0 9-17 * * 1-5") as an exact match — those failed at
+        // the agent before, so the silent-success path had never been open.
+        const lossyLead =
+          task.conversion?.lossy === 'replaced'
+            ? '\nThe schedule was REPLACED — the cron you gave was discarded for an hourly trigger, so this task now runs far more often than you asked. Set a schedule Windows can express, or disable the task.'
+            : task.conversion?.lossy === 'approximated'
+              ? '\nThe schedule was approximated — the trigger is built from your cron but drifts after the first cycle.'
+              : '';
+        const warnings = task.conversion?.warnings?.length
+          ? lossyLead +
+            `\nSchedule conversion warnings: ${task.conversion.warnings.join('; ')}` +
+            '\nThe registered trigger may not match the cron you gave. Verify with convert_schedule.'
+          : '';
         return ok(
-          `Schedule updated: ${task.name} [${task.platform}] now runs on "${task.schedule ?? schedule}" (UTC cron).${next}`,
-          { taskId, schedule, task: compactTask(task) }
+          `Schedule updated: ${task.name} [${task.platform}] now runs on "${task.schedule ?? schedule}" (UTC cron).${next}${warnings}`,
+          { taskId, schedule, task: compactTask(task), conversion: task.conversion }
         );
       } catch (err) {
         return toolError(err);

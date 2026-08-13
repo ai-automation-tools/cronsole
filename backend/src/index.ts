@@ -105,8 +105,12 @@ async function main() {
       userId: 'cli_user_placeholder',
       platform: PlatformType.TASKHUB_NATIVE,
       config: serializeConfig({}),
-      isActive: true,
-      healthState: 'HEALTHY'
+      isActive: true
+      // No healthState — it defaults to UNKNOWN until a health read derives one.
+      // Native is the one platform that really is healthy whenever anything can
+      // observe it (the scheduler runs in this process), which is exactly why
+      // hardcoding it here was tempting and still wrong: the value would be
+      // right by luck, written by code that had checked nothing.
     }
   });
 

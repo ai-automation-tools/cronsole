@@ -1418,7 +1418,12 @@ Next run: ${task.nextRunTime}` : '')
         '`unsupported` = the route would refuse, because the platform has no such API. ' +
         '`unsupported` is a boundary, not a to-do: no amount of retrying turns it into `verified`. ' +
         'Example: Claude Code reports `create` and `setStatus` as unsupported, because Anthropic exposes exactly ' +
-        'one routines endpoint (fire) and no way to create or pause one.',
+        'one routines endpoint (fire) and no way to create or pause one. ' +
+        'Each row also carries a `health`, which is about the connection rather than the verbs: ' +
+        '`HEALTHY`, `DEGRADED` (something was observed to fail), `OFFLINE` (nothing is connected), and ' +
+        '`UNKNOWN`. Read `UNKNOWN` as "no current evidence", NOT as a problem — either the platform has ' +
+        'never been exercised, or the last failure is old enough that nothing since has confirmed or ' +
+        'contradicted it. It is not a reason to avoid a verb; run sync_tasks if you want a fresh answer.',
       inputSchema: {
         platform: z
           .enum(ALL_PLATFORMS)

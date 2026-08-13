@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { WindowsAgentConnector } from '../WindowsAgentConnector.js';
+import { WindowsAgentConnector, UNRESPONSIVE_EVIDENCE_TTL_MS } from '../WindowsAgentConnector.js';
 import { agentManager } from '../../ws/AgentManager.js';
 import { signCommand, type SignableCommand } from '../../ws/agentAuth.js';
 
@@ -804,17 +804,44 @@ describe('WindowsAgentConnector', () => {
       expect('lastSync' in health).toBe(false);
     });
 
-    it('is DEGRADED when the newest evidence is a timeout, and names the verb', async () => {
+    /**
+     * How long ago the timeout happened is now part of the verdict, so these
+     * cases fix the clock instead of relying on wall time.
+     *
+     * Note what changed underneath them: the dates here were absolute and
+     * arbitrary while the rule was only "newest evidence wins". The moment
+     * freshness mattered they quietly became *two days stale*, and the DEGRADED
+     * assertion below started passing for the wrong reason — which is how a
+     * suite keeps agreeing with itself through a behaviour change.
+     */
+    const FAILED_AT = new Date('2026-08-11T10:05:00.000Z');
+    const RESPONDED_AT = new Date('2026-08-11T10:00:00.000Z');
+
+    /** Liveness where a timeout is the newest evidence, as in the live defect. */
+    const timedOut = {
+      connectedAt: new Date('2026-08-11T09:00:00.000Z'),
+      lastResponseAt: RESPONDED_AT,
+      lastFailureAt: FAILED_AT,
+      lastFailureVerb: 'task:list'
+    };
+
+    /** Fix "now" at `msAfterFailure` past the timeout. */
+    const atAge = (msAfterFailure: number) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(FAILED_AT.getTime() + msAfterFailure));
+    };
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('is DEGRADED when the newest evidence is a RECENT timeout, and names the verb', async () => {
       // The exact live case: the socket is present and the handshake succeeded,
-      // but discovery timed out afterwards. A later timeout outranks an earlier
+      // but discovery timed out a minute ago. A later timeout outranks an earlier
       // handshake — otherwise the wedged agent reads as healthy forever.
+      atAge(60_000);
       vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
-      vi.mocked(agentManager.getLiveness).mockReturnValue({
-        connectedAt: new Date('2026-08-11T09:00:00.000Z'),
-        lastResponseAt: new Date('2026-08-11T10:00:00.000Z'),
-        lastFailureAt: new Date('2026-08-11T10:05:00.000Z'),
-        lastFailureVerb: 'task:list'
-      });
+      vi.mocked(agentManager.getLiveness).mockReturnValue(timedOut);
 
       const health = await connector.getHealth(CONFIG);
 
@@ -822,7 +849,66 @@ describe('WindowsAgentConnector', () => {
       expect(health.reason).toContain('task:list');
       // The last contact is still reported — it happened, it is just older than
       // the failure. Degraded means "stale", not "we know nothing".
-      expect(health.lastContactAt).toEqual(new Date('2026-08-11T10:00:00.000Z'));
+      expect(health.lastContactAt).toEqual(RESPONDED_AT);
+    });
+
+    it('is still DEGRADED exactly at the TTL — the boundary is inclusive', async () => {
+      atAge(UNRESPONSIVE_EVIDENCE_TTL_MS);
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue(timedOut);
+
+      expect((await connector.getHealth(CONFIG)).state).toBe('DEGRADED');
+    });
+
+    it('becomes UNKNOWN once the timeout is older than the TTL', async () => {
+      // One millisecond past, so this pins the rule and not a comfortable margin.
+      atAge(UNRESPONSIVE_EVIDENCE_TTL_MS + 1);
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue(timedOut);
+
+      const health = await connector.getHealth(CONFIG);
+
+      expect(health.state).toBe('UNKNOWN');
+      // Not HEALTHY: nothing observed a recovery. Not DEGRADED: nothing observed
+      // the failure continuing either. The reason has to carry both halves —
+      // what went wrong, and why there is nothing newer than it.
+      expect(health.reason).toContain('task:list');
+      expect(health.reason).toContain('nothing has been asked of the agent since');
+      // Still reported. It is real, and it is what makes "since" checkable.
+      expect(health.lastContactAt).toEqual(RESPONDED_AT);
+    });
+
+    it('is UNKNOWN on a stale timeout even when the agent has never responded', async () => {
+      // No lastResponseAt at all: connected, answered nothing, one old timeout.
+      // The failure branch is reached by the `!lastContactAt` arm rather than by
+      // comparison, so it needs its own case or the aging rule is only proven on
+      // one of the two paths into it.
+      atAge(UNRESPONSIVE_EVIDENCE_TTL_MS * 40); // ~10 hours, the live case
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({
+        connectedAt: new Date('2026-08-11T09:00:00.000Z'),
+        lastFailureAt: FAILED_AT,
+        lastFailureVerb: 'task:folders'
+      });
+
+      const health = await connector.getHealth(CONFIG);
+
+      expect(health.state).toBe('UNKNOWN');
+      expect(health.reason).toContain('task:folders');
+      expect(health.lastContactAt).toBeUndefined();
+    });
+
+    it('a stale timeout does not survive a newer response', async () => {
+      // Aging must not outrank real evidence: a response after the failure is
+      // HEALTHY however old both are, because the newest thing we know is good.
+      atAge(UNRESPONSIVE_EVIDENCE_TTL_MS * 40);
+      vi.mocked(agentManager.getSocket).mockReturnValue(mockSocket);
+      vi.mocked(agentManager.getLiveness).mockReturnValue({
+        ...timedOut,
+        lastResponseAt: new Date(FAILED_AT.getTime() + 5_000)
+      });
+
+      expect((await connector.getHealth(CONFIG)).state).toBe('HEALTHY');
     });
 
     it('is HEALTHY again once a response arrives after a timeout', async () => {

@@ -1,0 +1,13 @@
+-- A connection is now born UNKNOWN rather than HEALTHY.
+--
+-- `@default(HEALTHY)` meant the Platforms card read *Online* from the instant a
+-- row was written until the next poll corrected it, having contacted the
+-- platform exactly never — a verdict derived from the row existing. That is the
+-- precondition-as-verdict shape of troubleshooting #40, one layer down, and it
+-- was worked around at one call site (refreshClaudeHealth) rather than fixed.
+--
+-- Deliberately no backfill. Every existing healthState was written by a real
+-- poll, so it is evidence; overwriting it with UNKNOWN would discard a true
+-- verdict to make the column uniform. New rows get the honest default, existing
+-- rows keep what they earned, and the next poll re-derives both.
+ALTER TABLE "PlatformConnection" ALTER COLUMN "healthState" SET DEFAULT 'UNKNOWN';

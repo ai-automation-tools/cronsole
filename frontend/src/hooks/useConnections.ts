@@ -31,6 +31,12 @@ export function healthMeta(state: HealthState | string): { label: string; dot: s
       return { label: 'Degraded', dot: 'bg-warning', text: 'text-warning-text' };
     case 'OFFLINE':
       return { label: 'Offline', dot: 'bg-danger', text: 'text-danger-text' };
+    case 'UNKNOWN':
+      // "Not checked" rather than "Unknown": it names why there is no verdict
+      // instead of just reporting that there isn't one, and it points at the
+      // fix (ask the platform something). Neutral colours on purpose — amber
+      // would make an absence of information look like a problem to solve.
+      return { label: 'Not checked', dot: 'bg-muted', text: 'text-muted-foreground' };
     default:
       return { label: 'Unknown', dot: 'bg-muted', text: 'text-muted-foreground' };
   }

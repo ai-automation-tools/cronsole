@@ -20,6 +20,22 @@ function deriveCron(trigger: unknown): string | null {
 /** The outcome verbs the agent is allowed to report for an import. */
 const IMPORT_OUTCOMES: ImportTaskResult['outcome'][] = ['created', 'replaced', 'exists', 'refused'];
 
+/**
+ * How long a request timeout stands as the *current* verdict before it becomes
+ * a fact about the past.
+ *
+ * Fifteen minutes: comfortably longer than any legitimate request (the agent
+ * verbs time out at 15s), so a genuinely wedged agent stays DEGRADED across an
+ * entire session of someone trying to use it — each attempt renews the
+ * evidence. Short enough that a single failure cannot narrate the dashboard
+ * overnight, which is what it did.
+ *
+ * The exact value is a judgement, not a measurement. What is not negotiable is
+ * that the number exists: without one, "not responding" is asserted forever
+ * from one observation.
+ */
+export const UNRESPONSIVE_EVIDENCE_TTL_MS = 15 * 60 * 1000;
+
 /** Parse an agent-supplied timestamp, rejecting nulls and pre-2000 sentinels. */
 function parseNextRun(value: unknown): Date | null {
   if (!value || (typeof value !== 'string' && typeof value !== 'number')) return null;
@@ -372,13 +388,40 @@ export class WindowsAgentConnector implements PlatformConnector {
    * A wedged agent therefore reported healthy and "synced just now" forever
    * while every request against it timed out (troubleshooting #40).
    *
-   * Three states, each earned:
+   * Four states, each earned:
    *  - no socket                    → OFFLINE. Nothing is connected.
-   *  - a request timed out most recently → DEGRADED, naming the verb. The
-   *    handshake proved the agent was alive once; a later timeout is newer
-   *    evidence and outranks it.
+   *  - a request timed out most recently, and recently → DEGRADED, naming the
+   *    verb. The handshake proved the agent was alive once; a later timeout is
+   *    newer evidence and outranks it.
+   *  - that same timeout, gone stale → UNKNOWN. See below.
    *  - otherwise                    → HEALTHY, justified by the authenticated
    *    handshake or a real response.
+   *
+   * **Evidence of a failure expires; evidence of a connection does not.** That
+   * asymmetry looks arbitrary and is the whole design. A live socket is
+   * *continuously renewed* — the transport heartbeat re-proves every few seconds
+   * that the process is up and reachable (not that its command loop works, which
+   * is why a timeout can outrank it). A timeout is the opposite: one observation,
+   * at one instant, never repeated. Nothing after it says the agent is still
+   * wedged, because nothing after it asked.
+   *
+   * So a timeout that is not renewed stops being the current state and becomes a
+   * fact about the past. Reporting it as DEGRADED indefinitely is a claim about
+   * *now* backed by evidence about *then* — which is the same error as #40 with
+   * the sign flipped: not a verdict from a precondition, but a verdict from an
+   * expired observation. Both survive because nothing forces a status field to
+   * say how old its evidence is.
+   *
+   * Measured live: one `task:folders` timeout at 21:05 left the strip reading
+   * "Agent connected but not responding" for the next ten and a half hours, over
+   * an agent that answered a sync immediately when finally asked. Nothing had
+   * asked it anything in between (troubleshooting #48).
+   *
+   * The honest replacement is UNKNOWN, not HEALTHY. We did not observe a
+   * recovery — we observed nothing at all, and this connector deliberately does
+   * not probe to find out: `getHealth` is called on a 45-second dashboard poll,
+   * and a probe would put a synthetic request on the agent for every mounted
+   * browser tab. The `sync` button is the user's probe, and it is one click.
    *
    * What it reports is `lastContactAt` — the real time of the agent's last
    * inbound event, absent when it has connected but answered nothing.
@@ -405,9 +448,25 @@ export class WindowsAgentConnector implements PlatformConnector {
     const failedAt = liveness?.lastFailureAt;
 
     if (failedAt && (!lastContactAt || failedAt > lastContactAt)) {
+      const verb = liveness?.lastFailureVerb ?? 'last request';
+
+      // Fresh enough to still describe the present.
+      if (Date.now() - failedAt.getTime() <= UNRESPONSIVE_EVIDENCE_TTL_MS) {
+        return {
+          state: HealthState.DEGRADED,
+          reason: `Agent connected but not responding (${verb} timed out)`,
+          lastContactAt
+        };
+      }
+
+      // Stale. The timeout happened, and nothing since has either confirmed or
+      // contradicted it — so the truthful report is that we do not know, with
+      // the reason naming what we last saw and why there is nothing newer.
       return {
-        state: HealthState.DEGRADED,
-        reason: `Agent connected but not responding (${liveness?.lastFailureVerb ?? 'last request'} timed out)`,
+        state: HealthState.UNKNOWN,
+        // No "unverified" prefix: the state's own label already says that, and
+        // a reason that restates its label spends the one line it gets.
+        reason: `${verb} timed out, and nothing has been asked of the agent since`,
         lastContactAt
       };
     }

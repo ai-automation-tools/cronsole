@@ -799,8 +799,12 @@ router.get('/health', async (req: Request, res: Response) => {
         userId,
         platform: PlatformType.WINDOWS_TASK_SCHEDULER,
         config: serializeConfig({}),
-        isActive: true,
-        healthState: 'HEALTHY'
+        isActive: true
+        // No healthState: it defaults to UNKNOWN, and that is the truth for a
+        // row created a microsecond ago. It used to be hardcoded `'HEALTHY'`,
+        // which asserted the agent was online before anything had asked it —
+        // a verdict from the row existing. The loop below derives the real one
+        // in this same request, so nothing is lost by not guessing.
       }
     });
     connections = [newConn];

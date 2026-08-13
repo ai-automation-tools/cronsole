@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-http-uptime-check",
+  "name": "Uptime Check (Cronsole)",
+  "description": "Call a URL every few minutes and record whether it answered. Runs in Cronsole itself — no agent, and it works on a machine with no Task Scheduler.",
+  "runtime": "http",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "http",
+    "monitoring",
+    "uptime"
+  ],
+  "icon": "Activity",
+  "core": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/5 * * * *"
+  },
+  "commandTemplate": "{{url}}",
+  "parameters": [
+    {
+      "key": "url",
+      "label": "URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "The endpoint to GET. A non-2xx response is recorded as a failed run, which is what makes this a check rather than a ping."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

@@ -142,6 +142,48 @@ export const bundledPacks: BundledPack[] = [
   },
   {
     /**
+     * Added with the templates themselves (2026-08-13). Cronsole-native is the
+     * only source that needs no agent and no credential, so this is the pack a
+     * fresh install can use before anything else is set up — which is also why
+     * two of its members are `core`.
+     */
+    id: 'cronsole-native',
+    name: 'Cronsole Native',
+    description:
+      'Jobs Cronsole schedules and runs itself — no agent, no Task Scheduler entry. Programs and scripts on the Cronsole host, plus HTTP uptime checks and heartbeats.',
+    templateIds: [
+      'native-run-program',
+      'native-node-script',
+      'native-python-script',
+      'native-git-pull',
+      'native-http-uptime-check',
+      'native-http-heartbeat'
+    ]
+  },
+  {
+    /**
+     * Added 2026-08-13, when creating a Claude routine became possible. Kept
+     * separate from `ai-agents` on purpose: that pack runs the Claude **CLI** as
+     * a task on your machine, this one creates routines Anthropic runs in the
+     * cloud. Same vendor, different execution model, and merging them would
+     * imply the local ones need a Claude Code session (they don't) or that these
+     * run on your machine (they don't).
+     */
+    id: 'claude-routines',
+    name: 'Claude Routines',
+    description:
+      'Scheduled Claude Code routines — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups.',
+    templateIds: [
+      'claude-routine-issue-triage',
+      'claude-routine-dependency-review',
+      'claude-routine-ci-failure-digest',
+      'claude-routine-docs-drift',
+      'claude-routine-standup-digest',
+      'tpl_starter_claude_routine'
+    ]
+  },
+  {
+    /**
      * Added when packs became first-class (2026-07-28). Without it these eight
      * templates belonged to **no** pack, so "download every pack" would quietly
      * be less than the catalog — the kind of silent shortfall the pack bundles

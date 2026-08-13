@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-07-31T15:34:39.613Z",
+  "updatedAt": "2026-08-13T20:29:35.476Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1061,6 +1061,220 @@
       ],
       "path": "templates/ntf-log-heartbeat.json",
       "sha256": "1bb767472b0cbf03a8df7c392bc23360e618eabd27e940c016a0ee94b669486a"
+    },
+    {
+      "id": "native-run-program",
+      "name": "Run a Program (Cronsole)",
+      "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "executable"
+      ],
+      "isStarter": true,
+      "core": true,
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-run-program.json",
+      "sha256": "20780c8d9332956bb75c61f61466de41f556ecea55f33ea6eac9be050dbf45ee"
+    },
+    {
+      "id": "native-node-script",
+      "name": "Node Script (Cronsole)",
+      "description": "Run a Node.js script on the Cronsole host on a schedule.",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "node"
+      ],
+      "isStarter": true,
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-node-script.json",
+      "sha256": "9d9c4cfe63ba3e2f59927d27d9fdf89c775b66fcbc745703d8955d3afd5f2069"
+    },
+    {
+      "id": "native-python-script",
+      "name": "Python Script (Cronsole)",
+      "description": "Run a Python script on the Cronsole host on a schedule.",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "python"
+      ],
+      "isStarter": true,
+      "runtime": "python",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-python-script.json",
+      "sha256": "4aadd3aabf3bca60780ebd647a0459f046858089aebbf9aa0ba5583c1686649c"
+    },
+    {
+      "id": "native-git-pull",
+      "name": "Keep a Repo Fresh (Cronsole)",
+      "description": "Pull the latest commits into a local repository on the Cronsole host — the agent-free version of Git Sync.",
+      "category": "dev-workflow",
+      "tags": [
+        "cronsole-native",
+        "git",
+        "sync"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-git-pull.json",
+      "sha256": "2dedb8f75c12be12f79fee36895581a79ae4c7df266ef579e15c2a639ffea031"
+    },
+    {
+      "id": "native-http-uptime-check",
+      "name": "Uptime Check (Cronsole)",
+      "description": "Call a URL every few minutes and record whether it answered. Runs in Cronsole itself — no agent, and it works on a machine with no Task Scheduler.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "http",
+        "monitoring",
+        "uptime"
+      ],
+      "core": true,
+      "runtime": "http",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-http-uptime-check.json",
+      "sha256": "95fd51b6bd9792aee2bf84df284455b9bf488594da0a4408a0501c8177952668"
+    },
+    {
+      "id": "native-http-heartbeat",
+      "name": "Monitor Heartbeat (Cronsole)",
+      "description": "Ping a dead-man’s-switch URL (Healthchecks.io, Better Stack, Cronitor) on a schedule so an outside monitor notices when Cronsole itself stops.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "http",
+        "monitoring",
+        "heartbeat"
+      ],
+      "runtime": "http",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-http-heartbeat.json",
+      "sha256": "d3801cb6b6d7c6261b13575252ba5908e6ad72068d6c0fe6682016d5f7a34654"
+    },
+    {
+      "id": "claude-routine-issue-triage",
+      "name": "Routine: Issue Triage",
+      "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "github",
+        "triage"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-issue-triage.json",
+      "sha256": "7c63080e77ac22d51be02f8f0c8dddd2c9bed3209b18f50110df1a55d652eeae"
+    },
+    {
+      "id": "claude-routine-dependency-review",
+      "name": "Routine: Dependency Review",
+      "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "dependencies",
+        "security"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-dependency-review.json",
+      "sha256": "f328f30effdc424528e209d41313412e02eb50c15dfb1e41f036587b302e0b64"
+    },
+    {
+      "id": "claude-routine-ci-failure-digest",
+      "name": "Routine: CI Failure Digest",
+      "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+      "category": "monitoring",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "ci",
+        "tests"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-ci-failure-digest.json",
+      "sha256": "378c643db203cac4b3c4e76a62df31bb8af221c98758916cee465f9f94e51ca2"
+    },
+    {
+      "id": "claude-routine-docs-drift",
+      "name": "Routine: Docs Drift Check",
+      "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "docs"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-docs-drift.json",
+      "sha256": "65261cefbf946af81ae8b35ad60d652d9cf6133202003c13b227fcf38a299831"
+    },
+    {
+      "id": "claude-routine-standup-digest",
+      "name": "Routine: Standup Digest",
+      "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "digest",
+        "report"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-standup-digest.json",
+      "sha256": "9e029cda298c06c1b0a80f539f3a35666df068f1b6329b8912dda5c6d692a4c8"
     }
   ],
   "packs": [
@@ -1164,6 +1378,36 @@
       ],
       "path": "packs/monitoring.json",
       "sha256": "78ce283c563bdedab2b685bb79270e38c0a7ef0cd81fca32916ecd9c5086eb86"
+    },
+    {
+      "id": "cronsole-native",
+      "name": "Cronsole Native",
+      "description": "Jobs Cronsole schedules and runs itself — no agent, no Task Scheduler entry. Programs and scripts on the Cronsole host, plus HTTP uptime checks and heartbeats.",
+      "templateIds": [
+        "native-run-program",
+        "native-node-script",
+        "native-python-script",
+        "native-git-pull",
+        "native-http-uptime-check",
+        "native-http-heartbeat"
+      ],
+      "path": "packs/cronsole-native.json",
+      "sha256": "e402962717aba6438824e85c5546a0cf38b2838efd7eb29216f34bb65ff5745d"
+    },
+    {
+      "id": "claude-routines",
+      "name": "Claude Routines",
+      "description": "Scheduled Claude Code routines — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups.",
+      "templateIds": [
+        "claude-routine-issue-triage",
+        "claude-routine-dependency-review",
+        "claude-routine-ci-failure-digest",
+        "claude-routine-docs-drift",
+        "claude-routine-standup-digest",
+        "tpl_starter_claude_routine"
+      ],
+      "path": "packs/claude-routines.json",
+      "sha256": "80394d84a1b0eb2db4d3306d0e093585cf26d69285ce3a511eb365ae2d3529b1"
     },
     {
       "id": "system-utilities",

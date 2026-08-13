@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "claude-routine-standup-digest",
+  "name": "Routine: Standup Digest",
+  "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "claude-code",
+    "routine",
+    "digest",
+    "report"
+  ],
+  "icon": "Newspaper",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 15 * * 1-5"
+  },
+  "commandTemplate": "Summarize activity in {{repo}} since yesterday morning: what merged, what is waiting on review, and what has been open long enough to be stuck. Write it as a short standup update in plain sentences, no bullet lists longer than five items.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The repository to summarize."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

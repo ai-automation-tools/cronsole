@@ -3407,15 +3407,18 @@ Fixed by `parseStepField()`, which matches `^\*\/(\d+)$` and nothing else. Plain
 read a malformed `"9-17:00"` off a real machine as `0 9 * * *` at confidence 1.0 — inventing a
 schedule the task does not have and then displaying it as fact.
 
-**Two known instances of this class remain, on other surfaces** (logged, not fixed here):
+**Two instances of this class were logged on other surfaces; one is now fixed:**
 
 - `frontend/src/utils/timezone.ts` — `shiftCron` correctly *refuses* to shift a multi-value hour
   (its `isNum` guard is right), but returns `shifted: false` with **no `reason`**. So a Pacific user
   typing `0 9-17 * * 1-5` gets it stored verbatim as UTC — 7–8 hours from what they meant, with
   nothing on screen. The `reason` field exists precisely for "has a clock time we would have moved
   but could not".
-- `registry-site/index.html` — the gallery's standalone `describeCron` renders `0 9 1,15 3 *` as
-  *"March 1st"*, dropping the 15th (`parseInt('1,15')`, day-of-month position).
+- ~~`registry-site/index.html`~~ — **fixed 2026-08-13.** The gallery's standalone `describeCron`
+  rendered `0 9 1,15 3 *` as *"March 1st"*, dropping the 15th (`parseInt('1,15')`, day-of-month
+  position). The month branch now returns **null** when the day is multi-valued, so the page shows
+  the raw cron and no prose rather than a confident wrong date — the same choice the converter
+  makes when it cannot express a schedule. Shipped with the 2026-08-13 catalog publish.
 
 > [!NOTE]
 > The MCP half is invisible until `cd mcp-server && npm run build` **and** an MCP host restart.

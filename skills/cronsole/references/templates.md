@@ -36,7 +36,10 @@ catalogSync  → DB (boot + interval)
 
 ## Core vs. extended — the distribution tiers
 
-Templates carry an optional **`core`** flag. **Current split: 5 core + 50 extended = 55.**
+Templates carry an optional **`core`** flag. **Current split: 7 core + 59 extended = 66**
+(2026-08-13, when the Cronsole-native and Claude-routine families landed — the two native
+entries are core because native is the only target that works on a fresh install with **no
+agent and no credential**, so it is the one family a default catalog can promise).
 
 - **`catalogSync` auto-syncs only `core: true`** — it intersects the `core` ids from
   `listRaw()` with the normalized `list()` rows. A fresh install gets a **small curated
@@ -120,7 +123,7 @@ reads `.templates` and ignores the rest.
 | **`buildRegistry` throws on an unknown or duplicated id** | Turns silent drift into a broken build. That is the whole point of declaring. |
 | **`packs` is optional in both directions** | A pre-packs registry has no key and parses; a pre-packs app parses a registry that has one (`z.object()` strips unknown keys). No coordinated release needed. Omitted entirely when empty, so a pre-packs registry stays byte-identical. |
 | **No timestamp inside a bundle** | Registry files are hashed over exact bytes; a clock would change the hash every build and make the drift test meaningless. |
-| **Every template belongs to ≥1 pack; overlap is fine** | A template in no pack is unreachable by collection and makes "download every pack" less than the catalog. A test asserts 55/55. |
+| **Every template belongs to ≥1 pack; overlap is fine** | A template in no pack is unreachable by collection and makes "download every pack" less than the catalog. A test asserts full coverage (66/66 today). |
 | **The registry owns data; the gallery owns presentation** | Icons/colors are keyed by pack id in the site with a default — adding a pack needs no site change. |
 
 ## Adding or changing a template

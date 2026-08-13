@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-git-pull",
+  "name": "Keep a Repo Fresh (Cronsole)",
+  "description": "Pull the latest commits into a local repository on the Cronsole host — the agent-free version of Git Sync.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "cronsole-native",
+    "git",
+    "sync"
+  ],
+  "icon": "GitBranch",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 */6 * * *"
+  },
+  "commandTemplate": "git -C \"{{repoPath}}\" pull --ff-only",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the repository on the machine running the Cronsole backend. `--ff-only` refuses rather than creating a merge nobody reviewed."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

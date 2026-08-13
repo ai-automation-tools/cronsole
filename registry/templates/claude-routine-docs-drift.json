@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "claude-routine-docs-drift",
+  "name": "Routine: Docs Drift Check",
+  "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "ai",
+    "claude-code",
+    "routine",
+    "docs"
+  ],
+  "icon": "BookOpenCheck",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 16 * * 5"
+  },
+  "commandTemplate": "Compare the documentation under {{docsPath}} in {{repo}} against the code it describes. List every claim that is no longer true, with the file and line that contradicts it, worst first. Ignore wording and style — only report statements a reader would act on and be wrong.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The repository to check."
+    },
+    {
+      "key": "docsPath",
+      "label": "Docs path",
+      "type": "text",
+      "default": "docs/",
+      "required": true,
+      "help": "Repo-relative folder holding the documentation."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

@@ -27,6 +27,8 @@ import {
   windowsTaskPath
 } from '../utils/windowsTaskFolder.js';
 import { TaskService } from '../services/TaskService.js';
+import { recordCapability, verbDeclaredUnsupported } from '../services/platformCapabilities.js';
+import { ensureClaudeConnection } from '../services/claudeConnection.js';
 import { exportCatalog } from '../catalog/exportCatalog.js';
 import { importTemplates } from '../catalog/importCatalog.js';
 import { denormalizeTemplate } from '../catalog/denormalize.js';
@@ -207,13 +209,22 @@ const applySchema = z.object({
    * (utils/templateCommand.ts validates shape and semantics for granular
    * per-parameter errors, so the boundary schema stays permissive here).
    */
-  parameters: z.unknown().optional()
+  parameters: z.unknown().optional(),
+  /**
+   * Claude Code only: the git repositories the created routine may check out and
+   * work in. Same rule as `POST /api/tasks` — never defaulted, because a routine
+   * with no sources still runs (it just has no checkout) while attaching the
+   * *wrong* repository to an agent that can commit is not a mistake the user can
+   * see before it happens. Applying a Claude template without this creates a
+   * routine that runs against nothing, which is why it is offered at all.
+   */
+  repositoryUrls: z.array(z.string().trim().url()).max(10).optional()
 });
 
 // Apply a template to a platform
 router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { platform, command, schedule, scheduleExpression, name, parameters, folder } = req.body;
+  const { platform, command, schedule, scheduleExpression, name, parameters, folder, repositoryUrls } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   const template = await prisma.template.findUnique({
@@ -259,7 +270,18 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
   if (parameters !== undefined) {
     const commandTemplate = template.commandTemplate || template.command || '';
     const values = resolveTemplateParams(template.parameters, parameters);
-    if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
+    // Per-token substitution for every platform that ends up running a
+    // *program*, so a parameter value containing spaces or quotes is exactly one
+    // argument. Cronsole-native joined Windows here on 2026-08-13, when native
+    // gained `EXEC` jobs: substituting into the string and re-tokenizing it
+    // afterwards would split `C:\Program Files\app.exe` back into two arguments,
+    // which is the injection-adjacent bug the structured path exists to prevent.
+    // A Claude routine's "command" is a natural-language prompt, so it takes the
+    // plain substitution — there is no argv to protect.
+    if (
+      platform === PlatformType.WINDOWS_TASK_SCHEDULER ||
+      platform === PlatformType.TASKHUB_NATIVE
+    ) {
       const resolved = substituteStructuredCommand(commandTemplate, values);
       structuredAction = resolved.action;
       finalCommand = resolved.command;
@@ -292,6 +314,13 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
     });
   }
 
+  // Same reason as POST /api/tasks: with a readable Claude Code session the
+  // platform is reachable before any connection row exists, and refusing over a
+  // missing row would be Cronsole declining to do something it can do.
+  if (platform === PlatformType.CLAUDE_CODE) {
+    await ensureClaudeConnection(userId);
+  }
+
   const connection = await prisma.platformConnection.findUnique({
     where: { userId_platform: { userId, platform } }
   });
@@ -312,32 +341,57 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
     finalSchedule,
     finalCommand,
     { ...deserializeConfig(connection.config), userId },
-    { trigger: conversion.trigger, action: structuredAction, folder: finalFolder }
+    {
+      trigger: conversion.trigger,
+      action: structuredAction,
+      folder: finalFolder,
+      ...(repositoryUrls ? { repositoryUrls } : {})
+    }
   );
 
+  // Applying a template IS a create through the connector, so it is evidence
+  // about this install exactly like `POST /api/tasks` is — a platform whose only
+  // successful create came from the Templates tab must not read `declared`.
+  await recordCapability(userId, platform, 'create', result.success, result.message);
+
   if (!result.success) {
-    return res.status(500).json({ error: result.message || 'Failed to apply template' });
+    // A platform with no create API at all is a client error, not a server one —
+    // the same split `POST /api/tasks` makes. A `500` invites a retry that can
+    // never succeed.
+    return res.status(verbDeclaredUnsupported(platform, 'create') ? 400 : 500)
+      .json({ error: result.message || 'Failed to apply template' });
   }
 
-  // Track a Windows task right away (mirrors POST /tasks): the dashboard
-  // shows it without waiting for a sync, and the duplicate-name guard above
-  // sees it immediately — so a back-to-back re-apply with the same name 409s
-  // instead of silently overwriting the task that was just created.
-  // Windows ONLY: CronsoleNativeConnector.createTask writes its own row (with
-  // metadata.job — an upsert here would wipe it and break the task), and no
-  // other connector can succeed today.
-  if (platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
-    // Prefer the path the agent actually registered; fall back to the folder we
-    // asked for. The fallback must use finalFolder, not a hardcoded \Cronsole —
-    // otherwise a task created in \Work would be tracked under the wrong
-    // externalId and every later run/delete/edit would miss it.
-    const externalId = result.externalId || windowsTaskPath(finalFolder, finalName);
-    const upserted = await TaskService.upsertTasks(userId, platform, [{
+  // Track the created task right away (mirrors POST /tasks): the dashboard shows
+  // it without waiting for a sync, and the duplicate-name guard above sees it
+  // immediately — so a back-to-back re-apply with the same name 409s instead of
+  // silently overwriting the task that was just created.
+  //
+  // **Cronsole-native is excluded, and it is the only exclusion.**
+  // `CronsoleNativeConnector.createTask` writes its own row with `metadata.job`
+  // — the job spec IS the task there — and this upsert would replace metadata
+  // with the `{schedule, command, state}` shape, leaving a task the executor
+  // refuses to run. Claude joined the tracked set on 2026-08-13, when creating a
+  // routine became possible: without this, applying a Claude template created a
+  // real routine at Anthropic and showed nothing until the next sync.
+  if (platform !== PlatformType.TASKHUB_NATIVE) {
+    // Prefer the id the platform actually registered. The fallback is **Windows
+    // only** — there a task's path is derivable, and it must be built from
+    // finalFolder rather than a hardcoded \Cronsole, or a task created in \Work
+    // is tracked under the wrong externalId and every later run/delete/edit
+    // misses it. Nowhere else is an id guessable: a Claude routine's `trig_…` is
+    // minted by Anthropic, so a fabricated one would track a row that points at
+    // nothing.
+    const externalId = result.externalId
+      || (platform === PlatformType.WINDOWS_TASK_SCHEDULER
+        ? windowsTaskPath(finalFolder, finalName)
+        : null);
+    const upserted = externalId ? await TaskService.upsertTasks(userId, platform, [{
       externalId,
       name: finalName,
       status: 'ACTIVE' as const,
       metadata: { schedule: finalSchedule, command: finalCommand, state: 'Ready' }
-    }]);
+    }]) : [];
     if (upserted.length > 0) {
       await prisma.task.update({
         where: { id: upserted[0].id },

@@ -86,8 +86,13 @@ list folders first if you're not sure what already exists.
 to ACTIVE/DISABLED when the task reappears, so `list_tasks(status: "MISSING")` answers "what did
 I lose?".
 `create_task_from_template` fills the template's `{{placeholder}}` parameters from the values
-you pass. Both create tools are gated to the platforms Cronsole can actually create on today
-(**Windows Task Scheduler** + **Cronsole-native**), and their optional **`folder`** chooses the
+you pass. `create_task` is gated to the platforms a **command line** can be scheduled on
+(**Windows Task Scheduler** + **Cronsole-native**); `create_task_from_template` also accepts
+**`CLAUDE_CODE`**, because a Claude template's "command" is a *prompt* — applying one creates a
+real Claude Code routine, with optional **`repositoryUrls`** for the repositories it may check
+out. That last one needs a Claude Code session on the machine running the backend; without one
+the call returns a `400` saying so, so ask your assistant to check
+`list_claude_routines` → `session.mode` first. Their optional **`folder`** chooses the
 real Task Scheduler folder the task lands in — default `\Cronsole`, and it becomes the task's
 category in Cronsole. Any *other* folder must already exist: removing a Task Scheduler folder
 needs elevation, so Cronsole won't leave behind one you'd have to delete by hand. **`list_folders`

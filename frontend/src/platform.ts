@@ -70,10 +70,19 @@ export const platformBadgeClass = (p: string) =>
 
 export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';
 
-// Platforms Cronsole can actually CREATE a task on today (a registered, working
-// connector). Everything else a template lists is "compatible with" only — no
-// agent/API yet (macOS launchd, ChatGPT), or an experimental scaffold not wired
-// for creation (Claude). Templates advertise broader targetPlatforms; Apply is
-// gated to this set so a badge never implies an export that silently fails.
-export const CREATABLE_PLATFORMS = new Set(['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE']);
-export const isCreatablePlatform = (p: string) => CREATABLE_PLATFORMS.has(p);
+// Which platforms Cronsole can CREATE a task on used to be a constant here —
+// `new Set(['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'])`, with a comment
+// calling Claude "an experimental scaffold not wired for creation".
+//
+// **It is not a constant, and it never was one about this app** (removed
+// 2026-08-13). For Claude the answer is a property of the *install*: with a
+// readable Claude Code session the connector creates routines, without one
+// `create` is a boundary — so no literal compiled into this bundle can be right
+// in both cases. The server already computes it, per user, with the evidence
+// behind it: `GET /api/tools/platforms`. Read it through
+// `usePlatformCreatability()` in `hooks/usePlatformMatrix.ts`.
+//
+// Same rule as `isSystem` and the Failures tier: **the server sends a verdict,
+// the browser renders it.** A second copy in the browser is the drift that took
+// a whole folder out of every sync (troubleshooting #20a) — and this copy had
+// already gone wrong in both directions inside two days.

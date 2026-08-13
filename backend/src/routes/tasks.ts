@@ -10,6 +10,7 @@ import { notifyTasksChanged } from '../ws/uiChannel.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
+import { buildNativeJob } from '../services/nativeJob.js';
 import { queueFailureNotification } from '../services/FailureNotificationService.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-conversion.js';
@@ -558,6 +559,9 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
       trigger,
       folder: finalFolder,
       createFolder: createFolder === true,
+      // Native-only: it writes its own row, so the label rides along with the
+      // create rather than being applied to a row the caller upserted.
+      ...(category ? { category } : {}),
       // Claude-only, and never defaulted. A routine with no repositories still
       // runs; attaching the wrong one to an agent with write access is the
       // mistake a user cannot see before it happens.
@@ -578,6 +582,29 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     return res.status(verbDeclaredUnsupported(platform, 'create') ? 400 : 500).json({
       error: result.message || 'Failed to create task',
       ...(result.foldersCreated?.length ? { foldersCreated: result.foldersCreated } : {})
+    });
+  }
+
+  // Cronsole-native writes its OWN row inside the connector, job spec included —
+  // for that platform the row *is* the task. The upsert below would overwrite
+  // `metadata` with the `{schedule, command, state}` shape every other platform
+  // carries, dropping `metadata.job` and leaving a task the executor refuses to
+  // run ("Task has no job spec in metadata.job") after a create that reported
+  // success. So it is read back rather than written again. (The template-apply
+  // route has skipped native for this reason since native shipped; this path did
+  // not, and the defect was unreachable only because nothing created a native
+  // task through the connector.)
+  if (platform === PlatformType.TASKHUB_NATIVE) {
+    const created = await prisma.task.update({
+      where: { platform_externalId: { platform, externalId: result.externalId! } },
+      data: category ? { category } : {}
+    });
+    notifyTasksChanged(userId);
+    return res.json({
+      message: 'Task created successfully',
+      task: created,
+      conversion: { warnings: conversionWarnings, lossy: conversionLossy },
+      foldersCreated: []
     });
   }
 
@@ -620,53 +647,6 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     foldersCreated: result.foldersCreated ?? []
   });
 });
-
-/**
- * Build the stored job from validated input.
- *
- * Normalizing here rather than storing the request body means a field the client
- * invented never reaches `metadata.job`, and the executor only ever reads shapes
- * this function can produce.
- */
-function buildNativeJob(job: Record<string, unknown>): NativeJob {
-  if (job.jobType === 'EXEC') {
-    const env = job.env as Record<string, string> | undefined;
-    // A caller may send either a structured {executable, args[]} — what MCP and
-    // the API use — or a `command` line, which is what a human types. The line is
-    // tokenized **here**, by the same `toStructuredAction` the Windows create
-    // path uses, so there is exactly one definition of "how a command line
-    // becomes argv" and the browser never needs a copy of it. Whichever arrives,
-    // what gets stored is always the structured form the executor reads.
-    const structured = typeof job.command === 'string' && job.command.trim()
-      ? toStructuredAction(job.command)
-      : null;
-    return {
-      jobType: 'EXEC',
-      executable: structured ? structured.executable : String(job.executable ?? '').trim(),
-      args: structured
-        ? structured.args
-        : Array.isArray(job.args) ? (job.args as string[]) : undefined,
-      workingDirectory: job.workingDirectory ? String(job.workingDirectory).trim() : undefined,
-      env: env && Object.keys(env).length ? env : undefined,
-      timeoutMs: job.timeoutMs !== undefined ? Number(job.timeoutMs) : undefined
-    };
-  }
-  if (job.jobType !== 'HTTP') {
-    // Hand an unrecognized — or missing — discriminator straight through, so
-    // `validateJob` rejects it **by name** rather than this function silently
-    // coercing it into an HTTP job. A typo'd `jobType` that quietly becomes a
-    // working HTTP task is worse than a 400: the caller gets a task that is not
-    // the one they described.
-    return job as unknown as NativeJob;
-  }
-  return {
-    jobType: 'HTTP',
-    url: String(job.url).trim(),
-    method: String(job.method || 'GET').toUpperCase(),
-    headers: (job.headers as Record<string, string>) || undefined,
-    body: job.body ? String(job.body) : undefined
-  };
-}
 
 const createNativeSchema = z.object({
   name: z.string().trim().min(1, 'name is required'),

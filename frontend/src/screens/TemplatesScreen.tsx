@@ -24,7 +24,8 @@ import { useNavigate, useLocation } from 'react-router';
 import { api } from '../api';
 import type { Template, ImportResult } from '../types';
 import { ApplyTemplateModal } from '../components/ApplyTemplateModal';
-import { isCreatablePlatform, platformLabel } from '../platform';
+import { platformLabel } from '../platform';
+import { usePlatformCreatability, type Creatability } from '../hooks/usePlatformMatrix';
 import { useSettings, type TemplateView } from '../hooks/useSettings';
 import { useScheduleZone } from '../hooks/useScheduleZone';
 import { TEMPLATE_RESOURCES } from '../data/templateResources';
@@ -97,6 +98,26 @@ const buildTemplateTagFacet = (list: Template[], pin: string) => {
   return counts;
 };
 
+/**
+ * Targets, counted the same way as tags — a template contributes to every
+ * platform it declares.
+ *
+ * Added 2026-08-13 with the Cronsole-native and Claude-routine families. Until
+ * then the catalog was Windows and a handful of macOS patterns, so "which
+ * platform is this for?" was answered well enough by the OS chips. It is not any
+ * more: `cross-platform` now covers a Cronsole-native script, a Claude routine
+ * and a git command for the Windows agent, which are three different things to
+ * anyone deciding what they can actually use.
+ */
+const buildTemplateTargetFacet = (list: Template[], pin: string) => {
+  const counts = new Map<string, number>();
+  for (const t of list) {
+    for (const p of t.targetPlatforms ?? []) counts.set(p, (counts.get(p) ?? 0) + 1);
+  }
+  if (pin !== 'All' && !counts.has(pin)) counts.set(pin, 0);
+  return counts;
+};
+
 const TemplateChip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
   <button
     onClick={onClick}
@@ -145,7 +166,44 @@ const TemplateSchedule = ({ template, className }: { template: Template; classNa
   );
 };
 
-const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void }) => (
+/**
+ * The "Compatible with" badges — one per declared target, styled by what
+ * Cronsole can actually do with that target **on this install**.
+ *
+ * Three states, because the matrix has three answers. `unknown` (the matrix has
+ * not landed) renders as a plain badge with no claim attached: a target marked
+ * "can't create here" because a request is still in flight would be an assertion
+ * made from an absence.
+ */
+const TargetBadges = ({ template, creatability }: { template: Template; creatability: (p: string) => Creatability }) => (
+  <div className="flex items-center gap-2 flex-wrap mb-6">
+    <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground">Compatible with</span>
+    {template.targetPlatforms.map(p => {
+      const can = creatability(p);
+      return (
+        <span
+          key={p}
+          title={
+            can === 'yes' ? 'Cronsole can create this task here'
+              : can === 'no' ? 'Compatible pattern — Cronsole can’t create tasks here on this install'
+                : 'Checking what Cronsole can do here…'
+          }
+          className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full border ${
+            can === 'yes'
+              ? 'bg-primary/15 text-foreground border-primary/30'
+              : can === 'no'
+                ? 'bg-muted text-subtle-foreground border-border opacity-70'
+                : 'bg-muted text-subtle-foreground border-border'
+          }`}
+        >
+          {platformLabel(p)}{can === 'no' && ' *'}
+        </span>
+      );
+    })}
+  </div>
+);
+
+const TemplateCard = ({ template, onApply, onToggleFavorite, creatability }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void; creatability: (p: string) => Creatability }) => (
   <div className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
     <div className="p-6 flex-1">
       <div className="flex items-start justify-between gap-2 mb-4">
@@ -167,24 +225,10 @@ const TemplateCard = ({ template, onApply, onToggleFavorite }: { template: Templ
       <h3 className="text-xl font-bold mb-2 group-hover:text-foreground transition-colors">{template.name}</h3>
       <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{template.description}</p>
 
-      {/* "Compatible with" — honest framing: creatable platforms are highlighted,
-          the rest are compatibility labels only (no agent/API yet), so the badges
-          never imply a one-click export that silently fails. */}
-      <div className="flex items-center gap-2 flex-wrap mb-6">
-        <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground">Compatible with</span>
-        {template.targetPlatforms.map(p => {
-          const creatable = isCreatablePlatform(p);
-          return (
-            <span
-              key={p}
-              title={creatable ? 'Cronsole can create this task here' : 'Compatible pattern — Cronsole can’t create tasks here yet'}
-              className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full border ${creatable ? 'bg-primary/15 text-foreground border-primary/30' : 'bg-muted text-subtle-foreground border-border opacity-70'}`}
-            >
-              {platformLabel(p)}{!creatable && ' *'}
-            </span>
-          );
-        })}
-      </div>
+      {/* "Compatible with" — honest framing: what Cronsole can create on THIS
+          install is highlighted, the rest are compatibility labels only, so a
+          badge never implies a one-click apply that silently fails. */}
+      <TargetBadges template={template} creatability={creatability} />
 
       <div className="space-y-3">
         <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
@@ -242,13 +286,14 @@ const TemplateListRow = ({ template, onApply, onToggleFavorite }: { template: Te
   </div>
 );
 
-const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, onToggleFavorite, view = 'grid' }: {
+const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, onToggleFavorite, creatability, view = 'grid' }: {
   icon: LucideIcon;
   title: string;
   subtitle: string;
   templates: Template[];
   onApply: (t: Template) => void;
   onToggleFavorite: (t: Template) => void;
+  creatability: (p: string) => Creatability;
   view?: 'grid' | 'list';
 }) => {
   if (templates.length === 0) return null;
@@ -267,7 +312,7 @@ const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, onTogg
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {templates.map(t => <TemplateCard key={t.id} template={t} onApply={onApply} onToggleFavorite={onToggleFavorite} />)}
+          {templates.map(t => <TemplateCard key={t.id} template={t} onApply={onApply} onToggleFavorite={onToggleFavorite} creatability={creatability} />)}
         </div>
       )}
     </div>
@@ -522,9 +567,13 @@ export const TemplatesScreen = () => {
   const [selectedOs, setSelectedOs] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedTag, setSelectedTag] = useState('All');
+  const [selectedTarget, setSelectedTarget] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const { settings, update } = useSettings();
   const view = settings.templateView;
+  // What Cronsole can create where, from the server's capability matrix — never
+  // a constant in this bundle (see hooks/usePlatformMatrix.ts).
+  const { creatability } = usePlatformCreatability();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -585,30 +634,35 @@ export const TemplatesScreen = () => {
   // instead of showing a 0-count chip.
   const narrow = useCallback((
     list: Template[],
-    opts: { os?: boolean; category?: boolean; tag?: boolean }
+    opts: { os?: boolean; category?: boolean; tag?: boolean; target?: boolean }
   ) => {
     let out = list;
     if (opts.os && selectedOs !== 'All') out = out.filter(t => (t.os ?? '') === selectedOs);
     if (opts.category && selectedCategory !== 'All') out = out.filter(t => (t.category ?? '') === selectedCategory);
     if (opts.tag && selectedTag !== 'All') out = out.filter(t => (t.tags ?? []).includes(selectedTag));
+    if (opts.target && selectedTarget !== 'All') out = out.filter(t => (t.targetPlatforms ?? []).includes(selectedTarget));
     return out;
-  }, [selectedOs, selectedCategory, selectedTag]);
+  }, [selectedOs, selectedCategory, selectedTag, selectedTarget]);
 
   const osFacets = useMemo(
-    () => buildTemplateFacet(narrow(searchKindFiltered, { category: true, tag: true }), t => t.os, selectedOs),
+    () => buildTemplateFacet(narrow(searchKindFiltered, { category: true, tag: true, target: true }), t => t.os, selectedOs),
     [searchKindFiltered, narrow, selectedOs]
   );
   const categoryFacets = useMemo(
-    () => buildTemplateFacet(narrow(searchKindFiltered, { os: true, tag: true }), t => t.category, selectedCategory),
+    () => buildTemplateFacet(narrow(searchKindFiltered, { os: true, tag: true, target: true }), t => t.category, selectedCategory),
     [searchKindFiltered, narrow, selectedCategory]
   );
   const tagFacets = useMemo(
-    () => buildTemplateTagFacet(narrow(searchKindFiltered, { os: true, category: true }), selectedTag),
+    () => buildTemplateTagFacet(narrow(searchKindFiltered, { os: true, category: true, target: true }), selectedTag),
     [searchKindFiltered, narrow, selectedTag]
+  );
+  const targetFacets = useMemo(
+    () => buildTemplateTargetFacet(narrow(searchKindFiltered, { os: true, category: true, tag: true }), selectedTarget),
+    [searchKindFiltered, narrow, selectedTarget]
   );
 
   const filtered = useMemo(
-    () => narrow(searchKindFiltered, { os: true, category: true, tag: true }),
+    () => narrow(searchKindFiltered, { os: true, category: true, tag: true, target: true }),
     [searchKindFiltered, narrow]
   );
 
@@ -618,6 +672,10 @@ export const TemplatesScreen = () => {
   const osValues = useMemo(() => Array.from(osFacets.keys()).sort((a, b) => templateOsLabel(a).localeCompare(templateOsLabel(b))), [osFacets]);
   const categoryValues = useMemo(() => Array.from(categoryFacets.keys()).sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b))), [categoryFacets]);
   const tagValues = useMemo(() => Array.from(tagFacets.keys()).sort((a, b) => a.localeCompare(b)), [tagFacets]);
+  const targetValues = useMemo(
+    () => Array.from(targetFacets.keys()).sort((a, b) => platformLabel(a).localeCompare(platformLabel(b))),
+    [targetFacets]
+  );
 
   if (isLoading) {
     return (
@@ -630,8 +688,8 @@ export const TemplatesScreen = () => {
 
   const hasTemplates = all.length > 0;
   const favoriteCount = all.filter(t => t.isFavorite).length;
-  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedCategory !== 'All' || selectedTag !== 'All' || favoritesOnly || !!search.trim();
-  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedCategory('All'); setSelectedTag('All'); setFavoritesOnly(false); };
+  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedCategory !== 'All' || selectedTag !== 'All' || selectedTarget !== 'All' || favoritesOnly || !!search.trim();
+  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedCategory('All'); setSelectedTag('All'); setSelectedTarget('All'); setFavoritesOnly(false); };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -730,6 +788,31 @@ export const TemplatesScreen = () => {
               )}
             </div>
 
+            {/* Target sits above OS on purpose: "what can I create this on"
+                is the first question now that the catalog holds Windows tasks,
+                Cronsole-native jobs and Claude routines side by side, and it is
+                the one the OS chips cannot answer (three of those four families
+                are `cross-platform`). Each chip carries a marker for what this
+                install can actually create — the same server verdict the cards
+                and the Apply modal use, so the tab cannot disagree with itself. */}
+            {targetValues.length > 1 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0">Target</span>
+                <TemplateChip active={selectedTarget === 'All'} onClick={() => setSelectedTarget('All')}>All</TemplateChip>
+                {targetValues.map(p => {
+                  const can = creatability(p);
+                  return (
+                    <TemplateChip key={p} active={selectedTarget === p} onClick={() => setSelectedTarget(p)}>
+                      <span title={can === 'no' ? 'Cronsole can’t create tasks here on this install' : undefined}>
+                        {platformLabel(p)}{can === 'no' && ' *'}
+                      </span>
+                      <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedTarget === p ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{targetFacets.get(p) ?? 0}</span>
+                    </TemplateChip>
+                  );
+                })}
+              </div>
+            )}
+
             {osValues.length > 1 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0">OS</span>
@@ -783,8 +866,8 @@ export const TemplatesScreen = () => {
             <TemplateKanban templates={filtered} onApply={openTemplate} onToggleFavorite={toggleFavorite} />
           ) : (
             <div className="space-y-10 pb-20">
-              <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={openTemplate} onToggleFavorite={toggleFavorite} />
-              <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={openTemplate} onToggleFavorite={toggleFavorite} />
+              <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={openTemplate} onToggleFavorite={toggleFavorite} creatability={creatability} />
+              <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={openTemplate} onToggleFavorite={toggleFavorite} creatability={creatability} />
             </div>
           )}
         </>

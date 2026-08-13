@@ -259,20 +259,27 @@ const sourceClaude: HelpTopic = {
   id: 'source:CLAUDE_CODE',
   title: 'Claude Code routines',
   summary:
-    'Fire a routine that already exists at claude.ai. Anthropic exposes one routines endpoint ' +
-    'and calling it runs the routine — everything about this source follows from that.',
+    'Prompts Anthropic runs on a schedule, in the cloud, against the repositories you attach. ' +
+    'What Cronsole can do here depends on this install — see below.',
   points: [
     {
-      label: 'Connect, not create',
+      label: 'Signed in to the Claude Code CLI here? Cronsole can do everything',
       body:
-        'There is no create endpoint, so the New Task form is titled "Connect a routine" for ' +
-        'this option and asks for an id and a token instead of a schedule.'
+        'With a readable Claude Code session on the machine running Cronsole, it lists your real ' +
+        'routines, creates them (including from a template), reschedules, pauses and runs them ' +
+        'with no per-routine token. Without one, it can fire routines you connected by token.'
     },
     {
-      label: 'Your list is your own declaration',
+      label: 'Without a session, your list is your own declaration',
       body:
-        'Nothing can enumerate routines, so "sync" returns what you typed in. The registry is ' +
-        'the platform.'
+        'Nothing is fetched, so "sync" returns the routines you typed in, and one deleted at ' +
+        'claude.ai still lists until its next run fails. The registry is the platform.'
+    },
+    {
+      label: 'Deleting a routine is impossible from here',
+      body:
+        'Neither Claude API exposes a delete. Cronsole can pause a routine and forget it; ' +
+        'removing it happens at claude.ai.'
     },
     {
       label: 'The token is shown once, by claude.ai',
@@ -581,10 +588,17 @@ const templates: HelpTopic = {
         'gallery. New ones arrive from the hosted registry without updating the app.'
     },
     {
+      label: 'Filter by target, not by OS',
+      body:
+        'Target is which system the task gets created on — Windows, Cronsole itself, or a Claude ' +
+        'Code routine. Most templates are "cross-platform", so the OS row cannot answer it.'
+    },
+    {
       label: 'A compatible target is not a compiled one',
       body:
         'A template can list a platform Cronsole has no compiler for. That is the honest ' +
-        '"copy this and set it up yourself" path, not a silent failure.'
+        '"copy this and set it up yourself" path, not a silent failure. What is greyed out is ' +
+        'about this install: a Claude routine needs you signed in to the Claude Code CLI here.'
     },
     {
       label: 'You can grow the catalog',

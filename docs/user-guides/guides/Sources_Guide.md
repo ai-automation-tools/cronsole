@@ -87,7 +87,10 @@ agent is the only thing that can touch Task Scheduler.
 ## Cronsole (HTTP)
 
 **Call a URL on a schedule.** Webhooks, health checks, poking a deploy hook, kicking an n8n
-flow. Created with **New Task › Cronsole › HTTP request**.
+flow. Created with **New Task › Cronsole › HTTP request**, or from a **Cronsole Native**
+template (*Uptime Check* ships built in; *Monitor Heartbeat* is in the gallery). A template
+applied here always makes a `GET` — a job that needs a method, headers or a body is a full
+spec, so use New Task.
 
 These are *Cronsole-native*: the database row **is** the task. Nothing appears in Windows Task
 Scheduler, the agent is not involved, and it runs whether or not the agent is connected — but
@@ -121,7 +124,8 @@ No agent, no round trip, nothing that can refuse — the write *is* the change.
 ## Cronsole (Scripts)
 
 **Run a program on a schedule**, with its exit code, duration and output recorded. Created
-with **New Task › Cronsole › Run a program**.
+with **New Task › Cronsole › Run a program**, or from a **Cronsole Native** template — *Run a
+Program* ships built in, with Node, Python and `git pull` starters in the gallery.
 
 Same platform as *Cronsole (HTTP)* — the Source bar separates them because they are different
 things to look at, and the Platforms tab does not because they have identical capabilities.
@@ -151,29 +155,51 @@ runs, export, delete.
 
 ## Claude Code routines
 
-**Fire a routine that already exists at claude.ai.** Added with **New Task › Claude**, which
-is titled *Connect a routine* rather than *New Task* — because that is what it is.
+**Prompts Anthropic runs on a schedule, in the cloud, against the repositories you attach.**
+Added with **New Task › Claude**, or by applying a **Claude Routines** template.
 
-Anthropic exposes exactly one routines endpoint, and calling it **runs the routine**. There is
-no create, no list, no pause, no read. Everything about this source follows from that.
+**What Cronsole can do here depends on your install**, and this is the one source where that is
+true. There are two ways in:
+
+| | **Signed in to the Claude Code CLI** on the machine running Cronsole | **Not signed in** |
+|---|---|---|
+| Sync | Real: names, schedules, enabled state, next run | Returns the routines *you declared* |
+| Create | Yes — including from a template | No; create at claude.ai, then connect |
+| Enable / disable, edit schedule | Yes | No — do it at claude.ai |
+| Run now | Yes, no token needed | Needs the routine's own API token |
+
+Cronsole reads the session from the CLI's credentials at the moment it needs it, and **never
+stores or refreshes it** — refreshing would rotate the CLI's own token and could sign you out of
+Claude Code from a background poll. Nothing to configure: sign in with `/login` and sync.
 
 ### What Cronsole can do here
 
-**Run now** — and connect, edit and disconnect the declaration. That is the whole list.
-Create and enable/disable are marked *Unsupported* on the Platforms tab rather than
-*Declared*, because no evidence for them can ever arrive.
+Signed in: **sync · run now · create · enable/disable · edit schedule**, plus connect, edit and
+disconnect the declaration. Not signed in: **run now** and the declaration verbs; create,
+enable/disable and edit-schedule show as *Unsupported* on the Platforms tab, which is that tab
+answering about *this install* rather than about the product.
+
+**Delete is impossible either way** — neither Claude API exposes one. Cronsole can pause a
+routine and forget it; removing it happens at claude.ai.
 
 ### Things that surprise people
 
-- **Your list of routines is your own declaration.** There is no endpoint to enumerate them,
-  so "sync" here returns the routines you typed in. The registry *is* the platform.
+- **Applying a Claude template creates a real routine.** The "command" is a prompt, so the Apply
+  screen says *Resolved prompt* and offers a **Repositories** box. A routine with no repository
+  still runs — it just has no checkout — so Cronsole never guesses one for you: a routine can
+  commit, and the wrong repo is not a mistake you can see before it happens.
+- **Without a session, your list of routines is your own declaration.** Nothing is fetched, so
+  "sync" returns the routines you typed in and a routine deleted at claude.ai still lists until
+  its next run fails.
 - **The token is shown once, by claude.ai.** Get it from the routine → *Edit* → *Add another
   trigger* → *API* → *Generate token*; generating a new one revokes the old. Cronsole stores it
   encrypted and never shows it again — there is no reveal button, because claude.ai cannot
   re-display it either. Mistyped the id? **Edit** the routine and Cronsole keeps the token.
-- **The card shows no schedule, on purpose.** The routine's cadence lives at claude.ai and is
-  not readable through the one endpoint that exists. Cronsole shows what it knows rather than a
-  guess. *Run now* works regardless.
+  Signed in to the CLI, you do not need a token at all.
+- **The next-run time comes from Anthropic, not from the cron.** Routine runs carry a few
+  minutes of scheduling jitter, so a locally computed time would disagree with claude.ai forever
+  with nothing on screen to say which was right. Without a session there is no schedule to show,
+  and the card shows none rather than a guess.
 - **"Remove from Cronsole" is refused here — use *Disconnect routine*.** On Windows, untracking
   means "don't re-import this"; here there is nothing on a machine to be re-imported from, so
   the row would simply come back on the next sync while the exclusion table read empty.
@@ -184,14 +210,15 @@ Create and enable/disable are marked *Unsupported* on the Platforms tab rather t
     *"Remove from Cronsole"* must not quietly spend a credential.
   - **The routine itself keeps running at claude.ai.** Disconnecting is a Cronsole action, not
     an Anthropic one.
-- **Pausing stays in claude.ai.** Routines really can be paused — a paused routine is exactly
-  what makes a fire request fail — so Cronsole can *observe* the paused state as a run failure
-  while being unable to read or set it.
-- **Health here comes from your runs, not from a probe.** A health check that called the
-  endpoint would *fire your routine* and eat into its daily cap, so Cronsole reports what the
-  last real run showed instead.
-- **This connector is experimental** because Anthropic ships the endpoint as a research
-  preview behind a dated beta header and says the shapes may change.
+- **Health here comes from your runs, not from a probe.** Without a session the only endpoint
+  *fires your routine*, so a health check would eat into its daily cap; with one, a read exists
+  but `getHealth` polls every 45 seconds per open tab, so probing would put a steady stream of
+  requests on Anthropic for a question **sync already answers**. Sync is your probe, on every
+  source.
+- **This connector is experimental**, and specifically: the documented endpoint is a research
+  preview behind a dated beta header, and the API that makes create/list/pause possible is
+  undocumented and beta-gated. If it changes, Cronsole falls back to the declared-routine path
+  rather than breaking — which is why that path is kept rather than retired.
 
 ---
 

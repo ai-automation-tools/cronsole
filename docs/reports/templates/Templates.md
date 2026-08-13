@@ -262,9 +262,25 @@ task and hands it to the matching `PlatformConnector.createTask()`:
 | `targetPlatform` | What gets created | Connector |
 |---|---|---|
 | `WINDOWS_TASK_SCHEDULER` | A real Task Scheduler entry (action = resolved `command`, trigger = cron→Windows trigger) | `WindowsAgentConnector` (via WebSocket to the .NET agent) |
-| `CLAUDE_CODE` | A Claude Code routine (prompt = `command`, schedule = cron) | Claude connector *(scaffold)* |
+| `TASKHUB_NATIVE` | A job Cronsole schedules and runs itself. **The command decides the job type**: a URL → an HTTP `GET` job, anything else → a no-shell `EXEC` job (`{executable, args[]}`) *on the backend host* | `CronsoleNativeConnector` (writes its own row — `metadata.job` **is** the task) |
+| `CLAUDE_CODE` | A real Claude Code routine (prompt = `command`, cron passed through unchanged — Claude's `cron_expression` is already 5-field UTC), optionally with `repositoryUrls` | `ClaudeConnector`, **OAuth mode only**: without a readable Claude Code session on the backend's machine `create` is `unsupported` and the route answers `400` |
 | `CHATGPT` / `JULES` | Quick-link only — opens native UI | none (link) |
 | macOS (future) | `launchd`/cron job via macOS agent | *not built — §7* |
+
+Three rules the native and Claude rows carry (added 2026-08-13 with the Cronsole Native and
+Claude Routines packs):
+
+1. **One definition of what a native task runs.** `buildNativeJob` / `nativeJobFromCommand` live in
+   `services/nativeJob.ts` and are shared by `POST /api/tasks/native`, `PATCH /api/tasks/:id/job`
+   and the connector. A second definition is how a template stores a job spec creation itself
+   would have refused.
+2. **Per-token substitution covers native too.** Apply resolves `{{placeholders}}` through
+   `substituteStructuredCommand` for Windows **and** Cronsole-native, so a parameter value with a
+   space stays exactly one argument. Claude takes the plain substitution — a prompt has no argv to
+   protect.
+3. **Apply tracks every platform except native**, which writes its own row. The generic upsert
+   would overwrite `metadata.job` with the `{schedule, command, state}` shape other platforms
+   carry, leaving a task the executor refuses to run after a create that reported success.
 
 **Cron → trigger conversion** is the bridge layer: the stored 5-field UTC cron is translated to
 a Windows Task Scheduler trigger on apply, and rendered back to cron for display. This is the

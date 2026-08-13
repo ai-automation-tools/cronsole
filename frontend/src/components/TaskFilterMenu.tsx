@@ -18,6 +18,7 @@ import {
   type SystemFilter,
   type TaskFilters
 } from '../utils/taskFilters';
+import { HelpButton } from './HelpButton';
 
 /**
  * The dashboard's secondary filters, collapsed into one control.
@@ -164,6 +165,15 @@ export const TaskFilterMenu = ({
             aria-label="Filters"
             className="absolute z-40 mt-2 w-64 bg-raised border border-border rounded-2xl shadow-2xl p-3 space-y-3"
           >
+            {/* Inside the drawer, not on the trigger: the trigger already
+                carries a count badge, and a second glyph on it would compete
+                with the one number that has to be readable at a glance. */}
+            <div className="flex items-center justify-between gap-2 pb-1 border-b border-border">
+              <span className="text-[10px] font-black uppercase tracking-wider text-subtle-foreground">
+                Filters
+              </span>
+              <HelpButton topic="filters" />
+            </div>
             <Section title="Status">
               {(['active', 'any', 'disabled', 'missing'] as StatusFilter[]).map(s => (
                 <button

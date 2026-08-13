@@ -25,6 +25,7 @@ import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
 import { SourceBar } from '../components/SourceBar';
+import { HelpButton } from '../components/HelpButton';
 import { ViewBar } from '../components/ViewBar';
 import { platformLabel, platformBadgeClass } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
@@ -441,7 +442,18 @@ export const DashboardScreen = ({
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold mb-1">Unified Task Dashboard</h2>
+          {/*
+            Two help affordances here, doing different jobs. This `?` explains
+            *this screen* — the source → view → filter layering, which is the
+            thing a new user misreads. The Help Center button beside the actions
+            is the hub: guides, the walkthrough, and the index of every topic.
+            The topic view links back to it, so picking the narrower one first
+            never dead-ends.
+          */}
+          <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">
+            Unified Task Dashboard
+            <HelpButton topic="dashboard" size="md" />
+          </h2>
           <p className="text-muted-foreground" data-testid="task-count-line">
             Manage {tasks?.length || 0} tasks across your ecosystem.
           </p>

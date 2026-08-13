@@ -29,6 +29,7 @@ import { useSettings, type TemplateView } from '../hooks/useSettings';
 import { useScheduleZone } from '../hooks/useScheduleZone';
 import { TEMPLATE_RESOURCES } from '../data/templateResources';
 import { useToast } from '../hooks/useToast';
+import { HelpButton } from '../components/HelpButton';
 
 // Human labels for the enum-ish template facets (see backend/src/seed.ts).
 const TEMPLATE_OS_LABELS: Record<string, string> = {
@@ -636,7 +637,10 @@ export const TemplatesScreen = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-end gap-3 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold mb-1">Schedule Template Library</h2>
+          <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">
+            Schedule Template Library
+            <HelpButton topic="templates" size="md" />
+          </h2>
           <p className="text-muted-foreground">Prebuilt automation patterns for any platform.</p>
         </div>
         <div className="flex items-center gap-2">

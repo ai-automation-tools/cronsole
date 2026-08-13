@@ -8,6 +8,8 @@ import { CRON_PRESETS, presetLabel } from '../utils/cronPresets';
 import { Modal } from './ui/Modal';
 import { ScheduleZoneHint } from './ScheduleZoneHint';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
+import { HelpButton } from './HelpButton';
+import { sourceTopicId } from '../data/help';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
@@ -254,7 +256,16 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
         <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Platform</label>
+            {/*
+              The help follows the selection rather than sitting on each button:
+              three `?`s inside three platform chips would be buttons inside
+              buttons (invalid, and each steals its chip's click target), and the
+              question a user has here is about the option they just picked.
+            */}
+            <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1">
+              Platform
+              <HelpButton topic={sourceTopicId(platform)} />
+            </label>
             <div className="flex gap-2">
               {platformButton('TASKHUB_NATIVE', 'Cronsole', Zap, 'bg-native/10 border-native/40 text-native-text')}
               {platformButton('WINDOWS_TASK_SCHEDULER', 'Windows', Monitor, 'bg-primary/10 border-primary/40 text-foreground')}
@@ -357,6 +368,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-danger-text">*</span>
+              <HelpButton topic="schedule" />
             </label>
             <input
               value={schedule}
@@ -406,7 +418,10 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               only appears for Cronsole-native — where the choice is real. */}
           {!isWindows && !isClaude && (
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Job type</label>
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1">
+                Job type
+                <HelpButton topic="native-job-type" />
+              </label>
               <div className="flex gap-2">
                 {([
                   ['HTTP', 'HTTP request', Globe] as const,
@@ -435,6 +450,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             <div className="space-y-2">
               <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Terminal size={11} /> Command <span className="text-danger-text">*</span>
+                <HelpButton topic="command" />
               </label>
               <textarea
                 value={command}
@@ -450,6 +466,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <Terminal size={11} /> Program <span className="text-danger-text">*</span>
+                  <HelpButton topic="command" />
                 </label>
                 <textarea
                   value={script}

@@ -414,6 +414,22 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       Green on 6 consecutive runs.
       **Not covered:** the task-detail modal (its body is one live task) and the Tools tab's
       individual tool panels — named here so the gap stays visible rather than reading as coverage.
+- [x] **In-app help, per control** *(requested and shipped 2026-08-12)*: a **?** beside fourteen
+      controls, each opening one topic — what it is, the two or three non-obvious facts, and a
+      link to the doc section that covers it. The Help Center and the `?` are **one modal**: the
+      hub indexes every topic and every topic ends in *Browse all help*, because the two entry
+      points fail in opposite directions (a `?` is only findable once you are looking at the
+      control it explains; a hub is only useful if it can reach what those buttons say).
+      Source help **follows the source you are on** — the Source bar, each Platforms row and the
+      New Task platform selector all resolve to that source's topic, degrading to the platform
+      and then to the overview so a connector landing before its help copy still opens something
+      true. New [`Sources_Guide.md`](user-guides/guides/Sources_Guide.md) is the deep-link target.
+      **`HelpTopic.doc` is required**: a topic with nowhere to point is one explaining something
+      undocumented, and the fix is a doc, not a popover that becomes the only place a rule is
+      written down.
+      **The links are checked** (`frontend/src/data/__tests__/docsLinks.test.ts`, 43 assertions) —
+      a stale anchor does not fail on its own, since GitHub serves the page scrolled to the top
+      with no error anywhere. Mutation-tested.
 
 ### Open
 

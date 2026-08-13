@@ -36,6 +36,7 @@ import {
 } from '../../utils/massActions';
 import { useToast } from '../../hooks/useToast';
 import { MassActionConfirm } from './MassActionConfirm';
+import { HelpButton } from '../HelpButton';
 
 /**
  * The Mass Actions console — **the only** place Cronsole changes many tasks at
@@ -372,6 +373,7 @@ export const MassActionsTool = () => {
         <div>
           <h3 className="font-bold text-lg flex items-center gap-2">
             <Layers size={18} className="text-primary" /> Mass actions
+            <HelpButton topic="mass-actions" />
           </h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
             Change many tasks at once. Pick what you want to do, then choose which tasks it applies

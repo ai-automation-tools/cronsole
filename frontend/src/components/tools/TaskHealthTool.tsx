@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { api } from '../../api';
+import { HelpButton } from '../HelpButton';
 
 export type HealthTier = 'ok' | 'attention' | 'critical' | 'unknown';
 
@@ -107,7 +108,10 @@ export const TaskHealthTool = () => {
           <Activity size={20} />
         </div>
         <div className="min-w-0">
-          <h3 className="font-bold">Task health</h3>
+          <h3 className="font-bold flex items-center gap-1.5">
+            Task health
+            <HelpButton topic="task-health" />
+          </h3>
           <p className="text-sm text-muted-foreground">
             Which tasks need attention, and the evidence behind each verdict — read from
             Windows' own run results, not just Cronsole's records.

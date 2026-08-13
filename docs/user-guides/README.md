@@ -18,7 +18,8 @@ Windows agent. If you haven't set Cronsole up yet, start with
 
 | Guide | What it covers |
 |:---|:---|
-| [**🖥️ UI User Guide**](guides/UI_User_Guide.md) | Navigating the dashboard, task cards and views, categorization and overrides, and applying templates. |
+| [**🖥️ UI User Guide**](guides/UI_User_Guide.md) | Navigating the dashboard, task cards and views, renaming and editing tasks, categorization and overrides, applying templates, and the in-app **?** help. |
+| [**🧭 Sources Guide**](guides/Sources_Guide.md) | One section per source — Windows Task Scheduler, Cronsole (HTTP), Cronsole (Scripts), Claude Code — covering what Cronsole can and can't do with each. |
 | [**🤖 Windows Agent Setup Guide**](guides/Agent_Setup_Guide.md) | Installing, registering, running, verifying, and troubleshooting the local .NET agent. |
 | [**🧩 MCP Server Guide**](guides/MCP_Server_Guide.md) | Wiring the MCP server into Claude / Codex / Cursor to list, run, and create tasks in natural language. |
 | [**🌐 Remote Access Guide**](guides/Remote_Access_Guide.md) <sub>· advanced · optional</sub> | Reach your own local Cronsole from other devices (Tailscale / Cloudflare Tunnel). A future, self-hosted enhancement — Cronsole is local-first by default. |

@@ -10,6 +10,7 @@ import { CRON_PRESETS, presetLabel } from '../utils/cronPresets';
 import { describeCron } from '../utils/schedule';
 import { Modal } from './ui/Modal';
 import { ScheduleZoneHint } from './ScheduleZoneHint';
+import { HelpButton } from './HelpButton';
 
 interface EditScheduleModalProps {
   task: Task;
@@ -107,6 +108,7 @@ export const EditScheduleModal = ({ task, onClose }: EditScheduleModalProps) => 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-danger-text">*</span>
+              <HelpButton topic="schedule" />
             </label>
             <input
               value={schedule}

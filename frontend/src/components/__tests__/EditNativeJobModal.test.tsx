@@ -54,6 +54,12 @@ const execInitial: NativeJobInitial = {
   workingDirectory: 'D:\\jobs'
 };
 
+/*
+ * A note on the queries below: the job-type buttons are matched by their **exact**
+ * accessible name, not `/Run a program/i`. The `?` beside the "Job type" label is
+ * named "Help: HTTP request or Run a program", so a substring match now finds two
+ * controls — correctly. Loose name regexes get less precise as a screen grows.
+ */
 const renderModal = (initial: NativeJobInitial, executionHost?: string) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -151,7 +157,7 @@ describe('switching job type', () => {
     renderModal(httpInitial);
     expect(screen.queryByText(/will be discarded/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Run a program/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run a program' }));
     const warning = screen.getByText(/will be discarded/i);
     expect(warning).toBeInTheDocument();
     expect(warning.textContent).toMatch(/URL, method, headers and body/);
@@ -162,7 +168,7 @@ describe('switching job type', () => {
     // The core of replace-not-patch. A `url` surviving into an EXEC job is a
     // field the executor never reads and a reader cannot explain.
     renderModal(httpInitial);
-    fireEvent.click(screen.getByRole('button', { name: /Run a program/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run a program' }));
     fireEvent.change(screen.getByLabelText(/^Command/), { target: { value: 'node digest.js' } });
     fireEvent.click(screen.getByRole('button', { name: /Save Job/i }));
 

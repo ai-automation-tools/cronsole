@@ -23,7 +23,7 @@ New to Cronsole? Follow this path in order:
 
 1. [**⬇️ Install**](install/README.md) — get the stack running (Windows, macOS, or clone-the-repo).
 2. [**⚙️ Configure**](setup/README.md) — environment variables, backend connection, agent pairing.
-3. [**🖥️ Use the dashboard**](user-guides/guides/UI_User_Guide.md) — views, categories, templates, Run Now.
+3. [**🖥️ Use the dashboard**](user-guides/guides/UI_User_Guide.md) — views, categories, templates, Run Now. Per-source detail lives in the [**🧭 Sources Guide**](user-guides/guides/Sources_Guide.md).
 4. [**🤖 Run the Windows agent**](user-guides/guides/Agent_Setup_Guide.md) — install, register, verify, troubleshoot.
 
 ## 🚀 Guides

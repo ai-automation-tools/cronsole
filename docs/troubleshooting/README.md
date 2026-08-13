@@ -23,6 +23,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 |:--|:---|:---|:--|
 | 49 | `get_task_health` reports *"Across 358 task(s): 25 critical"* directly above a list of **13** — and `counts` disagrees with `matched` in the same response | The **wrapper** filters and the **server** counts. `GET /api/tools/task-health` has no `tier`, `includeSystem` or `limit` at all: it scores every task and summarizes the same set, honestly. `mcp-server` implements all three client-side, then forwards the server's unfiltered `counts` beside a `matched` taken from the filtered set — so one response describes two populations. **Fixed 2026-08-13** — the three filters moved onto the route, beside the counting, and the response now names the population it summarized. **The tell, if it recurs: `counts` does not change when you flip `includeSystem`** | [→](#49-get_task_healths-counts-describe-a-different-population-than-its-list) |
 | 48 | Windows sits at **Degraded** for hours — *"connected but not responding"* — while the agent is running fine and answers the moment you press Sync | The verdict was real and had **expired**. A request timeout is one observation at one instant and is never renewed, so with nothing asking the agent anything afterwards, "not responding" kept being asserted from a single failure hours earlier. Health now ages that evidence out to **UNKNOWN** ("Not checked") past 15 minutes. **The tell: every capability row shows recent successes and zero failures, and the newest timestamp anywhere on the platform is hours old** | [→](#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy) |
+| 52 | An open edit modal **closes by itself**, discarding what you typed — on a timer, not on a keystroke, and with no error | A reset effect keyed on the **task object** rather than its **id**. The dashboard passes `tasks.find(...)`, so every refetch (45s poll, `task:updated`, the editor's own invalidation) hands down a new object and re-runs `setShowEditor(false)`. **Object identity is not entity identity** on a live-data screen. **Fixed 2026-08-13** by depending on `task?.id` | [→](#52-an-open-edit-modal-closes-by-itself-discarding-what-you-typed) |
 | 47 | A Claude routine's task keeps coming back after **Remove from Cronsole** — and `TaskExclusion` is empty, as if untrack never ran | Untrack ran; its exclusion was then legitimately cleared. `ClaudeConnector.syncTasks` returns the routines the user **declared** in `PlatformConnection.config`, so the exclusion fences the user's own config while the declaration stays — and importing the Claude category clears exclusions by design. **A Claude task is its declaration**: untrack now 400s for `CLAUDE_CODE`, and disconnecting the routine removes its tasks | [→](#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole) |
 | 46 | Every local suite passes, CI is red six pushes running — on an eslint rule and one integration assertion | `npm test` is **not** the CI gate. Two steps have no equivalent it runs: `npm run lint` (frontend only; `@typescript-eslint/no-explicit-any` is an **error**) and `npm run test:integration` (separate vitest config + real Postgres). A status-code change is invisible to unit tests and loud in integration tests | [→](#46-every-local-suite-passes-and-ci-is-red--npm-test-is-not-the-ci-gate) |
 | 51 | `update_task_schedule` / `create_task` fail with **`502`/`500 Invalid startBoundary '9-17:00'`** on an ordinary cron like `0 9-17 * * 1-5`, and retrying changes nothing | `parseInt('9-17')` is `9`, so a **list or range in the hour or minute field** passed the "specific time" guard and `padStart` left the raw text in `startBoundary`. **The tell: `convert_schedule` rates it `score: 1` with no warnings while `diverges: true` and `effectiveRuns` show one run a day.** Not an agent fault — the agent is the only layer that rejected it. **Fixed 2026-08-13**: these drop to the honest replaced-with-hourly fallback, and a lossy conversion now rides the schedule-edit **success** too | [→](#51-a-schedule-edit-returns-502-for-a-cron-that-is-simply-not-expressible) |
@@ -3427,6 +3428,61 @@ schedule the task does not have and then displaying it as fact.
 *First hit: 2026-08-13, during a hand-driven MCP regression pass. Found by probing for a cron that
 would prove a `400`-vs-`502` distinction — `*/7 * * * *` was the expected input and turned out to
 convert fine (`approximated`), so the search widened to multi-value fields and hit this instead.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 52. An open edit modal closes by itself, discarding what you typed
+
+**Symptom.** You open a task's editor, start typing a cron expression or a command, and the modal
+vanishes — back to the task details view, with the edit gone. Nothing was saved and no error
+appeared. It is not reproducible on demand: sometimes it survives a minute, sometimes it dies
+mid-word. Nobody clicked anything.
+
+**The tell:** it happens on a **timer, not on a keystroke**. Leave the editor open, touch nothing,
+and it still closes. Trigger a sync from another tab and it closes immediately.
+
+**Cause.** A reset effect keyed on an object identity that changes on every refetch.
+
+`TaskModal` receives its task as `tasks.find(t => t.id === routeTaskId)` — a **new object every
+time the tasks query resolves**, even when nothing about the task changed. It held:
+
+```tsx
+useEffect(() => {
+  if (task) { setActiveTab('overview'); setShowEditor(false); }
+}, [task]);          // ← fires on every refetch, not on every task
+```
+
+The effect's intent is *"a different task was opened, reset the view"*. The dependency it was
+given answers a different question — *"did I receive a different object?"* — and the two stop
+agreeing the moment the data is live. The 45-second poll, any `task:updated` socket event, and the
+editor's own `invalidateQueries` after a successful save all re-ran it and slammed the editor shut.
+
+**Fix.** Depend on the identity the question is actually about:
+
+```tsx
+const taskId = task?.id;
+useEffect(() => {
+  if (taskId) { setActiveTab('overview'); setShowEditor(false); }
+}, [taskId]);
+```
+
+**The general rule.** In a live-data screen, *object identity is not entity identity.* Any effect
+that resets UI state "when the record changes" must key on the record's **id**, or it will fire on
+every background refresh — and the more useful the state it resets, the worse the symptom. The
+failure is silent by construction: nothing throws, no request fails, and the only witness is the
+person who was mid-sentence.
+
+**Why it went unnoticed for a month.** The three modals this replaced were short-lived and
+single-field — you opened one, changed one value, saved within a few seconds, and mostly beat the
+poll. Merging them into one longer form (name, category, schedule, command) made the window wide
+enough to lose, which is how a latent bug becomes a reported one: **the defect did not change, the
+exposure did.**
+
+*First hit: 2026-08-13, while collapsing the four per-part edit controls into a single editor. Found
+by reading the effect during the refactor rather than by hitting it — but it was live in the shipped
+app, where an `EditScheduleModal` left open across a poll closed the same way.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

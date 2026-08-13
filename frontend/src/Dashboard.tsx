@@ -341,7 +341,6 @@ const Dashboard = () => {
         task={routeTaskId ? (tasks || []).find(t => t.id === routeTaskId) ?? null : null}
         onClose={() => navigate('/')}
         onRun={runMutation.mutate}
-        onCategoryUpdate={handleCategoryUpdate}
         onToggleFavorite={favoriteMutation.mutate}
       />
       {cloningTask && (

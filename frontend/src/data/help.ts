@@ -423,18 +423,25 @@ const taskActions: HelpTopic = {
     'possible differs by source — and two of them look similar and are not.',
   points: [
     {
-      label: 'Rename changes a Cronsole label only',
+      label: 'Edit opens everything editable, in one form',
+      body:
+        'Name, category, schedule and what the task runs. It is never disabled — the labels can ' +
+        'be changed on every source — and anything this task cannot change says why, in the form.'
+    },
+    {
+      label: 'Save reports each part separately',
+      body:
+        'Behind the one form are three different writes. Only what you changed is sent, and if ' +
+        'the agent refuses one part the others still land — the form says which, and keeps the ' +
+        'failed part filled in so Save retries just that.'
+    },
+    {
+      label: 'Renaming changes a Cronsole label only',
       body:
         'Nothing is renamed on your machine. A Windows task\'s real name is the last part of its ' +
         'Task Scheduler path, and that path is how every command addresses it — so once the two ' +
-        'differ, the modal keeps showing the real one.'
-    },
-    {
-      label: 'Edit means two different things',
-      body:
-        'For a Windows task, Cronsole asks the agent to rewrite the real entry and records ' +
-        'nothing until Windows confirms. For a native task the row is the task, so the write is ' +
-        'the change — no agent, nothing that can refuse.'
+        'differ, the modal keeps showing the real one. Changing the category does not move it ' +
+        'between Task Scheduler folders either.'
     },
     {
       label: 'Remove from Cronsole is the safe one',
@@ -460,8 +467,8 @@ const taskActions: HelpTopic = {
     url: uiGuide('removing-a-task--two-very-different-buttons')
   },
   more: [
-    { label: 'UI User Guide › Renaming a task', url: uiGuide('renaming-a-task') },
-    { label: 'UI User Guide › Editing what a task runs', url: uiGuide('editing-what-a-task-runs') }
+    { label: 'UI User Guide › Editing a task', url: uiGuide('editing-a-task') },
+    { label: 'UI User Guide › What it runs', url: uiGuide('what-it-runs') }
   ]
 };
 

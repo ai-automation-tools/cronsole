@@ -74,7 +74,6 @@ const renderModal = (props: Partial<React.ComponentProps<typeof TaskModal>> = {}
         task={mockTask}
         onClose={vi.fn()}
         onRun={vi.fn()}
-        onCategoryUpdate={vi.fn()}
         {...props}
       />
     </QueryClientProvider>
@@ -123,46 +122,47 @@ describe('TaskModal Component', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('allows changing category and clicking Save to update', () => {
-    const onCategoryUpdate = vi.fn();
-    renderModal({ onCategoryUpdate });
-
-    // Click "Change" button
-    const changeBtn = screen.getByText('Change');
-    fireEvent.click(changeBtn);
-
-    // Get the input textbox
-    const input = screen.getByRole('textbox');
-    expect(input).toHaveValue('Automation');
-
-    // Change input value
-    fireEvent.change(input, { target: { value: 'NewCategoryVal' } });
-
-    // Click "Save"
-    const saveBtn = screen.getByText('Save');
-    fireEvent.click(saveBtn);
-
-    expect(onCategoryUpdate).toHaveBeenCalledWith('task-123', 'NewCategoryVal');
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  /*
+   * This screen is now a read-only view plus the verbs. It used to carry four
+   * separate edit affordances — a rename pencil in the title, a "Change" link on
+   * the category card, an "Edit" in the Action section header and "Edit Schedule"
+   * in the footer — which all became the single Edit button asserted below. The
+   * editing behaviour itself is covered in EditTaskModal.test.tsx.
+   */
+  it('shows the category without offering an inline editor for it', () => {
+    renderModal();
+    expect(screen.getByText('Automation')).toBeInTheDocument();
+    expect(screen.queryByText('Change')).not.toBeInTheDocument();
   });
 
-  it('allows canceling category edit', () => {
-    const onCategoryUpdate = vi.fn();
-    renderModal({ onCategoryUpdate });
+  it('offers exactly one edit control, and never disables it', () => {
+    // Name and category are editable on every platform, so "nothing here can be
+    // changed" is never true — a disabled Edit would be a lie on all of them.
+    renderModal();
+    const editButtons = screen.getAllByRole('button', { name: /^Edit$/ });
+    expect(editButtons).toHaveLength(1);
+    expect(editButtons[0]).toBeEnabled();
+  });
 
-    // Click "Change"
-    fireEvent.click(screen.getByText('Change'));
+  it('opens the editor with every part of the task in it', () => {
+    renderModal({
+      task: {
+        ...mockTask,
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        schedule: '0 3 * * *',
+        metadata: {
+          actions: [{ type: 'Exec', path: 'powershell.exe', arguments: '-File C:\\x.ps1' }]
+        }
+      }
+    });
 
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: 'NewCategoryVal' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }));
 
-    // Click "Cancel"
-    const cancelBtn = screen.getByText('Cancel');
-    fireEvent.click(cancelBtn);
-
-    expect(onCategoryUpdate).not.toHaveBeenCalled();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.getByText('Automation')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Edit task' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Name/)).toHaveValue('Test Modal Task');
+    expect(screen.getByLabelText(/^Category/)).toHaveValue('Automation');
+    expect(screen.getByDisplayValue('0 3 * * *')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('powershell.exe -File C:\\x.ps1')).toBeInTheDocument();
   });
 
   it('loads and shows execution history on the Run History tab', async () => {
@@ -321,107 +321,6 @@ describe('TaskModal Component', () => {
       expect(api.delete).toHaveBeenCalledWith('/tasks/task-123');
     });
     expect(onClose).toHaveBeenCalled();
-  });
-
-  it('edits a Cronsole-native task schedule via PATCH /tasks/:id/schedule', async () => {
-    vi.mocked(api.post).mockResolvedValue({ data: { score: 1, warnings: [] } });
-    vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask, schedule: '0 8 * * *' } });
-
-    renderModal({
-      task: {
-        ...mockTask,
-        platform: 'TASKHUB_NATIVE',
-        schedule: '0 3 * * *',
-        metadata: {
-          job: { jobType: 'HTTP', url: 'https://example.com/health', method: 'GET' }
-        }
-      }
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /Edit Schedule/i }));
-    expect(screen.getByText('Cronsole-native')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByDisplayValue('0 3 * * *'), {
-      target: { value: '0 8 * * *' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Update Schedule/i }));
-
-    await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith('/tasks/task-123/schedule', { schedule: '0 8 * * *' });
-    });
-  });
-
-  it('edits a Windows task command & settings via PATCH /tasks/:id/actions', async () => {
-    vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask } });
-    renderModal({
-      task: {
-        ...mockTask,
-        platform: 'WINDOWS_TASK_SCHEDULER',
-        metadata: {
-          actions: [{ type: 'Exec', path: 'powershell.exe', arguments: '-File C:\\x.ps1', workingDirectory: 'C:\\scripts' }],
-          description: 'Old desc',
-          runLevel: 'LUA'
-        }
-      }
-    });
-
-    // The Action section's Edit button opens the editor (prefilled).
-    fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }));
-    const commandInput = screen.getByDisplayValue('powershell.exe -File C:\\x.ps1');
-    fireEvent.change(commandInput, { target: { value: 'powershell.exe -File C:\\y.ps1' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
-
-    await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith('/tasks/task-123/actions', {
-        command: 'powershell.exe -File C:\\y.ps1',
-        workingDirectory: 'C:\\scripts',
-        description: 'Old desc',
-        runLevel: 'least'
-      });
-    });
-  });
-
-  it('quotes a spaced executable path in the prefilled command so it round-trips', async () => {
-    vi.mocked(api.patch).mockResolvedValue({ data: { ...mockTask } });
-    renderModal({
-      task: {
-        ...mockTask,
-        platform: 'WINDOWS_TASK_SCHEDULER',
-        metadata: {
-          actions: [{ type: 'Exec', path: 'C:\\Program Files\\App\\app.exe', arguments: '--run', workingDirectory: '' }],
-          description: '',
-          runLevel: 'LUA'
-        }
-      }
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }));
-    // The executable path with a space is quoted so the backend tokenizes it back
-    // to a single executable instead of splitting on "C:\Program".
-    screen.getByDisplayValue('"C:\\Program Files\\App\\app.exe" --run');
-    // Change only the description; the (unchanged) command must still be the quoted form.
-    // (Working dir + description share the "(optional)" placeholder — description is second.)
-    const optionalInputs = screen.getAllByPlaceholderText('(optional)');
-    fireEvent.change(optionalInputs[1], { target: { value: 'now with a description' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
-
-    await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith('/tasks/task-123/actions', {
-        command: '"C:\\Program Files\\App\\app.exe" --run',
-        workingDirectory: '',
-        description: 'now with a description',
-        runLevel: 'least'
-      });
-    });
-  });
-
-  it('disables the Action Edit button when no command is reported yet', () => {
-    renderModal({
-      task: { ...mockTask, platform: 'WINDOWS_TASK_SCHEDULER', metadata: {} }
-    });
-    const editBtn = screen.getByRole('button', { name: /^Edit$/ });
-    expect(editBtn).toBeDisabled();
   });
 
   it('triggers patch request when Enable/Disable is clicked', async () => {

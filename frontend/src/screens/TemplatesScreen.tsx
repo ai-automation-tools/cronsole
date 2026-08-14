@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from 'react';
 import {
   Sparkles,
   Library,

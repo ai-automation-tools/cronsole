@@ -283,7 +283,7 @@ const Dashboard = () => {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 bg-primary rounded-lg flex items-center justify-center font-bold text-primary-foreground text-sm">T</div>
+            <img src="/favicon.svg" alt="" aria-hidden className="h-7 w-7 rounded-lg" />
             <span className="font-bold">Cronsole</span>
           </div>
         </div>

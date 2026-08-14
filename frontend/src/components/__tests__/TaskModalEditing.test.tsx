@@ -26,13 +26,15 @@ import { TaskModal } from '../TaskModal';
 import { api } from '../../api';
 
 /**
- * Two edits that are both **Cronsole labels, never the machine** — and the whole
- * risk in each is letting a user believe otherwise.
+ * What this read-only screen still has to say about a task, and the one removal
+ * verb that is unique to Claude.
  *
- * Rename writes the DB row and stops: a Windows task keeps its Task Scheduler
- * path, so someone who renames one here and then searches Task Scheduler for the
- * new name finds nothing. The modal therefore has to keep showing the real path
- * and say so once the two diverge.
+ * A rename is a **Cronsole label, never the machine**: it writes the DB row and
+ * stops, so a Windows task keeps its Task Scheduler path. Someone who renames one
+ * and then searches Task Scheduler for the new name finds nothing — which is why
+ * this screen keeps showing the real path and says so once the two diverge. (The
+ * rename *itself* moved into EditTaskModal and is tested there; what is pinned
+ * here is that the divergence is still disclosed.)
  *
  * Disconnect is Claude's stand-in for untrack, and exists because untrack cannot
  * work there: a Claude task is tracked *because* the routine is declared in the
@@ -66,7 +68,7 @@ const renderModal = (task: Task, onClose = vi.fn()) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <TaskModal task={task} onClose={onClose} onRun={vi.fn()} onCategoryUpdate={vi.fn()} />
+      <TaskModal task={task} onClose={onClose} onRun={vi.fn()} />
     </QueryClientProvider>
   );
 };
@@ -79,29 +81,7 @@ beforeEach(() => {
   vi.mocked(api.delete).mockResolvedValue({ data: { removed: 'trig_01ABCDEF', tasksRemoved: 1, connectionRemoved: true } });
 });
 
-describe('renaming a task', () => {
-  it('sends the trimmed name to the label route, not to a platform route', async () => {
-    // PATCH /tasks/:id is the label route. Sending this to /actions or /schedule
-    // would reach the agent and try to change the real task.
-    renderModal(windowsTask);
-    fireEvent.click(screen.getByRole('button', { name: /Rename Nightly Backup/i }));
-    fireEvent.change(screen.getByLabelText('Task name'), { target: { value: '  Backup (2am)  ' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-
-    await waitFor(() =>
-      expect(api.patch).toHaveBeenCalledWith('/tasks/task-1', { name: 'Backup (2am)' })
-    );
-  });
-
-  it('does not call the API when the name was not changed', async () => {
-    renderModal(windowsTask);
-    fireEvent.click(screen.getByRole('button', { name: /Rename Nightly Backup/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-
-    await waitFor(() => expect(screen.queryByLabelText('Task name')).not.toBeInTheDocument());
-    expect(api.patch).not.toHaveBeenCalled();
-  });
-
+describe('a renamed task', () => {
   it('keeps the real path on screen, so the machine is still findable', () => {
     // The path is how you find the task in Task Scheduler AND how every signed
     // agent command addresses it. A rename must never appear to move it.

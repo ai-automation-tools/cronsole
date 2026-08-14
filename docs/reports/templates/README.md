@@ -38,6 +38,7 @@ converting the cron to the platform's native trigger for you.
 |:---|:---|
 | [**🧪 Examples**](../examples/README.md) | Sample `GET /templates` and `POST /templates/{id}/apply` payloads. |
 | [**🖥️ UI User Guide**](../../user-guides/guides/UI_User_Guide.md) | Applying a template from the dashboard. |
+| [**💬 Template prompts**](../../prompts/mcp-server/templates.md) | Finding and applying a template by asking an assistant. |
 
 ---
 

@@ -175,41 +175,78 @@ tasks, and you see exactly which ones before anything happens.
 
 To change a single task, open it and use the buttons in the task modal.
 
-### Renaming a task
+### Editing a task
 
-The **pencil** beside the task's title renames it. This works on every source, including
-Claude routines, and it does not need the agent.
+One **Edit** button in the modal footer opens everything editable about the task in a single
+form: its name, its category, its schedule, and what it runs. *(Until 13 August 2026 those were
+four separate controls in four places — a pencil by the title, a "Change" link on the category
+card, an "Edit" in the Action panel and an "Edit Schedule" in the footer — each opening
+something different.)*
 
-- **The rename is a Cronsole label. Nothing is renamed on your machine.** A Windows task's
-  real name is the last segment of its Task Scheduler path, and that path is how Cronsole
-  addresses it — every command it sends, every sync that matches it. Renaming the path would
-  make it a *different task*, so Cronsole does not.
-- **Once the two differ, the modal says so** — *"Renamed in Cronsole — Task Scheduler still
-  calls it X"* — and keeps the real path on screen. Otherwise you would go looking in Task
+The Edit button is **never disabled**, because name and category can be changed on every
+source. Anything this particular task *cannot* change says so, in words, inside the form —
+rather than being a greyed-out button with the explanation hidden in a tooltip you can't read
+on a phone.
+
+#### Saving: one button, reported part by part
+
+Behind the one form there are still **three different writes**, and they do not fail alike:
+the labels are Cronsole's own database row, while a Windows schedule or command change is a
+request to the agent that Windows can refuse.
+
+So **Save sends only what you changed, and each part reports its own result.** If the agent is
+offline while you renamed a task and changed its schedule, the rename lands, the schedule
+doesn't, and the form says exactly that — *"1 of 2 parts saved"* — keeping the failed part
+filled in so pressing Save again retries only what's outstanding. Nothing is rolled back:
+undoing the successful half would need the same agent that just failed.
+
+Closing with unsaved changes asks first.
+
+#### Name and category
+
+Both are **Cronsole labels. Neither touches your machine.**
+
+- A Windows task's real name is the last segment of its Task Scheduler path, and that path is
+  how Cronsole addresses it — every command it sends, every sync that matches it. Renaming the
+  path would make it a *different task*, so Cronsole doesn't. The editor says which name Task
+  Scheduler will keep using, before you save.
+- Once the two differ, the task modal says so too — *"Renamed in Cronsole — Task Scheduler
+  still calls it X"* — and keeps the real path on screen. Otherwise you'd go looking in Task
   Scheduler for a name that was never there.
-- **The rename survives a sync.** Name and category are both Cronsole's labels; sync overwrites
-  only platform facts (status, schedule, next run). *(Until 12 August 2026 sync wrote the name
-  back on every pass, which is why renaming wasn't offered at all.)*
+- Changing the category does **not** move the task to a different Task Scheduler folder.
+- Both survive a sync: sync overwrites only platform facts (status, schedule, next run).
+  *(Until 12 August 2026 sync wrote the name back on every pass, which is why renaming wasn't
+  offered at all.)*
 - Renames can't collide the way a *created* task's name can — the duplicate check exists
   because a new Windows task's name becomes its path, and a rename never touches the path.
 
-### Editing what a task runs
+#### Schedule
 
-The **Action** panel has an **Edit** button, and it does one of two quite different things.
+Editable for Cronsole-native tasks and for Windows tasks whose trigger can be represented as a
+cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits
+need the local agent, because Cronsole changes the real Task Scheduler trigger first. Boot,
+logon, event and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe
+editor for those trigger types — the form says so instead of hiding the section.
+
+#### What it runs
+
+This does one of two quite different things.
 
 **Windows tasks** — Cronsole asks the agent to rewrite the real Task Scheduler entry, and
 records nothing until Windows confirms. The agent must be online, and the platform can refuse
-(an admin-owned task will).
+(an admin-owned task will). Available for tasks with a single reported command; a multi-action
+task, or one the agent hasn't described yet, says which of those it is.
 
 **Cronsole-native tasks** — the row *is* the task, so the write *is* the change. Nothing can
 refuse it and it works with the agent offline. You can change an HTTP job's URL, method,
 headers and body, or a script job's command line and working directory — the URL in particular
 used to require deleting the task and starting over, which threw away its run history.
 
-Three things to know about the native editor:
+Three things to know about the native side:
 
 - **Headers take either form.** Paste `Authorization: Bearer …` lines straight out of an API's
-  docs, or JSON. Something it can't read is refused rather than quietly sent as no headers.
+  docs, or JSON. Something it can't read blocks the save rather than being quietly sent as no
+  headers.
 - **You can convert an HTTP job into a script job, and the other way round** — but the job is
   **replaced, not merged**. The two kinds share no fields, so switching discards the other
   type's: the form names exactly what goes before you click. The task keeps its name, schedule,
@@ -217,8 +254,8 @@ Three things to know about the native editor:
 - **A script job says where it will run** — your machine, or inside the container if you run
   the backend in Docker. Same statement as the New Task form, for the same reason.
 
-### Editing a schedule
-The modal footer shows **Edit Schedule** for Cronsole-native tasks and Windows tasks whose trigger can be represented as a cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits require the local agent because Cronsole changes the real Task Scheduler trigger first. Boot, logon, event, and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe editor for those trigger types.
+A **Claude routine's** prompt is defined at claude.ai; Cronsole can schedule and fire it, not
+rewrite it.
 
 ### Removing a task — two very different buttons
 The modal footer offers **two** ways to make a task go away, and they are not interchangeable.
@@ -300,14 +337,17 @@ Categories live under **Filters › Category** on the Dashboard toolbar:
 - Picking one puts a **pill** on the toolbar (`Backups ×`) so you can see and clear it without reopening the menu.
 
 ### Re-categorizing a Task (Two Ways)
-1. **Directly on the Card:**
+1. **Directly on the Card** — a shortcut for the one-word change:
    - Hover over the **Folder Icon** or the category text.
    - Click the text to turn it into an input field.
    - Type your new category name and press **Enter** to save.
-2. **Inside the Task Modal:**
-   - Click a task card to open the modal.
-   - Look for the **"Local Category"** section.
-   - Click **"Change"**, type the new name, and press **Enter** or click **Save**.
+2. **In the task editor** — alongside everything else about the task:
+   - Click a task card to open the modal, then **Edit**.
+   - Change the **Category** field and press **Save changes**.
+
+Neither moves the task to a different Task Scheduler folder — the category is a Cronsole
+label. To change many tasks at once, use [Mass actions](#mass-actions) on the Tools tab, which
+counts how many would be detached from their folder *before* you commit.
 
 ---
 

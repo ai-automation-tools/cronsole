@@ -1,15 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
   <title id="title">Cronsole Command Grid icon</title>
-  <desc id="desc">A square Cronsole icon showing connected task nodes inside a dark control-plane tile.</desc>
+  <desc id="desc">A square Cronsole icon showing connected task nodes inside a dark control-plane tile, ringed in emerald.</desc>
   <defs>
     <linearGradient id="bg" x1="28" y1="24" x2="228" y2="232" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#18181b"/>
       <stop offset="0.52" stop-color="#09090b"/>
       <stop offset="1" stop-color="#050505"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="64" y1="48" x2="200" y2="208" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8b5cf6"/>
-      <stop offset="1" stop-color="#10b981"/>
     </linearGradient>
     <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
       <feGaussianBlur stdDeviation="5" result="blur"/>
@@ -20,7 +16,15 @@
     </filter>
   </defs>
   <rect width="256" height="256" rx="54" fill="url(#bg)"/>
-  <rect x="20" y="20" width="216" height="216" rx="42" fill="none" stroke="url(#accent)" stroke-width="8"/>
+  <!-- Emerald ring, inset by half its stroke width so the stroke's outer edge
+       lands on the plate edge. Without it the near-black plate dissolves into a
+       dark browser tab strip and only the grid reads.
+
+       It REPLACES the gradient outline that used to sit 20px in, rather than
+       joining it: two concentric rings 20px apart are ~1px each with ~1px of gap
+       at 16px, which is the size a favicon is actually judged at, and they turn
+       to mush. The purple half of that gradient survives in the bars and dots. -->
+  <rect x="7" y="7" width="242" height="242" rx="47" fill="none" stroke="#10b981" stroke-width="14"/>
   <path d="M76 94h104M76 128h104M76 162h104" stroke="#27272a" stroke-width="16" stroke-linecap="round"/>
   <path d="M76 94h54M76 128h82M76 162h42" stroke="#8b5cf6" stroke-width="16" stroke-linecap="round"/>
   <circle cx="76" cy="94" r="18" fill="#10b981"/>

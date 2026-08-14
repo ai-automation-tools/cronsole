@@ -4,6 +4,7 @@ import { AlertTriangle, CalendarClock, Check, Info } from 'lucide-react';
 import { api } from '../../api';
 import { CRON_PRESETS, presetLabel } from '../../utils/cronPresets';
 import { useScheduleZone } from '../../hooks/useScheduleZone';
+import { ToolCard } from './ToolCard';
 
 interface SchedulePreview {
   score: number;
@@ -80,21 +81,15 @@ export const ScheduleTesterTool = () => {
   const invalid = data && data.score === 0;
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-          <CalendarClock size={20} />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-bold">Schedule tester</h3>
-          <p className="text-sm text-muted-foreground">
-            Type a cron and see what the platform will actually do with it — the trigger it becomes and
-            the next five times it fires. Creates nothing.
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-3">
+    <ToolCard
+      icon={CalendarClock}
+      title="Schedule tester"
+      description={<>
+        Type a cron and see what the platform will actually do with it — the trigger it becomes and
+        the next five times it fires. Creates nothing.
+      </>}
+    >
+      <div className="space-y-2.5">
         <label className="block">
           <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">
             Cron (5 fields, {zone.label})
@@ -104,7 +99,10 @@ export const ScheduleTesterTool = () => {
             onChange={e => setCron(e.target.value)}
             spellCheck={false}
             aria-label="Cron expression to test"
-            className="mt-1.5 w-full bg-background border border-border rounded-xl px-4 py-2 text-sm font-mono outline-none focus:border-primary"
+            // Capped: a full-width card makes a 5-field cron a 1,100px input,
+            // where the value occupies the first inch and the caret is a long
+            // way from the label. The field should look like what it holds.
+            className="mt-1.5 block w-full max-w-md bg-background border border-border rounded-xl px-4 py-2 text-sm font-mono outline-none focus:border-primary"
           />
           {stored.reason ? (
             <span className="mt-1 block text-[10px] text-warning-text">{stored.reason}</span>
@@ -141,7 +139,7 @@ export const ScheduleTesterTool = () => {
             value={platform}
             onChange={e => setPlatform(e.target.value)}
             aria-label="Platform to test against"
-            className="mt-1.5 w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary"
+            className="mt-1.5 block w-full max-w-md bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary"
           >
             {PLATFORMS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
@@ -223,7 +221,7 @@ export const ScheduleTesterTool = () => {
           </>
         )}
       </div>
-    </div>
+    </ToolCard>
   );
 };
 

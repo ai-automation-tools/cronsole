@@ -8,36 +8,48 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/surface-MCP_server-8B5CF6?style=for-the-badge" alt="MCP server">
-  <img src="https://img.shields.io/badge/tools-16-2ea44f?style=for-the-badge" alt="16 tools">
+  <img src="https://img.shields.io/badge/tools-27-2ea44f?style=for-the-badge" alt="27 tools">
+  <a href="../README.md"><img src="https://img.shields.io/badge/↩-prompt_library-6B7280?style=for-the-badge" alt="Prompt library"></a>
 </p>
 
 ---
 
-These prompts are for an assistant (Claude Code, Cursor, Codex, Claude Desktop, …) that has the
-**Cronsole MCP server** connected. The server is a thin wrapper over the REST API exposing
-**16 tools** — so the assistant can operate your real Windows Task Scheduler and Cronsole-native
-tasks by calling them for you.
+These prompts are for an assistant — Claude Code, Cursor, Codex, Claude Desktop — that has the
+**Cronsole MCP server** connected. The server is a thin wrapper over the REST API, so asking it
+to make a task makes a real one: a Task Scheduler entry on your machine, a job in Cronsole's own
+scheduler, or a routine on your Claude account.
 
 > [!IMPORTANT]
-> **Prerequisites** (one-time): the backend running, the MCP server built
+> **Prerequisites**, once: the backend running, the MCP server built
 > (`cd mcp-server && npm run build`), and `CRONSOLE_TOKEN` exported in the environment your host
-> launched from. If every MCP call returns `403 Invalid or expired token`, the token isn't
-> reaching the server — see the [**MCP Server Guide**](../../user-guides/guides/MCP_Server_Guide.md)
-> and [troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token).
+> launched from. If the tools are missing entirely, or every call returns
+> `403 Invalid or expired token`, the token isn't reaching the server — see the
+> [**MCP Server Guide**](../../user-guides/guides/MCP_Server_Guide.md) and
+> [troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token).
 
-**The toolbox these prompts drive:**
+## 🗂️ The prompt sets
 
-| Tier | Tools |
+| Set | What you'll find |
 |:---|:---|
-| **Read** | `list_tasks`, `list_templates`, `list_folders`, `get_task_history`, `export_task`, `convert_schedule` |
-| **Create** | `create_task`, `create_native_task`, `create_task_from_template` |
-| **Act** | `run_task` |
-| **Manage** (reversible) | `set_task_status`, `update_task_schedule`, `update_task_action`, `untrack_task` |
-| **Destroy** (gated) | `delete_task` — only if `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` |
+| [**🪟 Windows tasks**](windows-tasks.md) | Real Task Scheduler jobs through the local agent — scripts, backups, maintenance, folders, and what "success" really means on Windows. |
+| [**🤖 AI agent jobs**](ai-agent-jobs.md) | Headless coding-agent runs against a local repo — one prompt per CLI (Claude Code, Codex, Gemini, opencode, Cursor, Antigravity, Aider), the fencing each one offers, and how to update a checkout on a schedule. |
+| [**🖥️ Cronsole-native tasks**](native-tasks.md) | HTTP calls and script jobs run by the backend itself — no agent, exact cron, and a real exit code. |
+| [**🧠 Claude routines**](claude-routines.md) | Scheduled agent runs in Anthropic's cloud: create, connect, pause, disconnect — and which of the two API modes your install has. |
+| [**📄 Templates**](templates.md) | Finding a catalog recipe and applying it, when you know the use case but not the command. |
+| [**🔎 Inspect & audit**](inspect-and-audit.md) | What you have, what's failing, what hasn't run in months — and how much of that Cronsole can prove. |
+| [**⚙️ Manage tasks**](manage-tasks.md) | Run now, park, reschedule, repoint the command, rename. The reversible half. |
+| [**🧹 Cleanup & removal**](cleanup-and-removal.md) | Disable, untrack, disconnect, delete — four verbs and the question that picks between them. |
 
----
+## ⭐ Start here
 
-## 🔎 Inspect & audit
+If you've just wired the server up, these four in order will tell you whether everything works
+and teach you the shape of the rest.
+
+```text
+Using Cronsole, list the platforms and tell me what this install can actually do:
+which capabilities are verified here, which are only declared, and whether the
+Windows agent is online.
+```
 
 ```text
 Using Cronsole, show me all my scheduled tasks grouped by category, with each
@@ -45,171 +57,68 @@ one's schedule and last run result.
 ```
 
 ```text
-Using Cronsole, list every task whose last run failed, then pull the recent run
-history for each so I can see what went wrong.
-```
-
-```text
-Using Cronsole, which of my tasks are currently disabled? For each, tell me its
-schedule so I can decide whether to re-enable it.
-```
-
-```text
-Using Cronsole, export the task called "Daily Portfolio Analysis" and show me
-the exact command and trigger it's registered with.
-```
-
-```text
-Using Cronsole, what Task Scheduler folders can I create tasks in on this
-machine? I want one that already exists, not a new one.
-```
-
-## 🛠️ Convert & preview a schedule
-
-Always worth doing *before* a create — a schedule the converter can't express natively gets
-**replaced** with an hourly trigger: roughly 8,760 runs a year where you asked for one. The
-response says so plainly and carries `lossy: 'replaced'` alongside the upcoming run dates, but
-only if you look *before* creating the task.
-
-```text
 Using Cronsole, convert the cron "0 9 * * 1-5" to a Windows trigger and tell me
-exactly which days and time (local) it will fire. I want weekdays at 9am.
+exactly which days and local time it will fire. Say plainly whether anything was
+approximated or replaced.
 ```
 
 ```text
-Using Cronsole, I want a job at 7am and 7pm US Pacific time. Work out the UTC
-cron for each, check the conversion, and tell me the resulting triggers before
-creating anything.
+Use the Cronsole MCP server to create a Windows task that runs
+D:\jobs\nightly-backup.ps1 every day at 2am Pacific. Check the schedule
+conversion first, put it in \Cronsole, and confirm the registered action.
 ```
 
-## ➕ Create tasks
+## 🧰 The toolbox
 
-**From a command you already know** (the direct path — no template needed):
+26 tools are always present; `delete_task` appears only when the operator enabled it.
 
-```text
-Use the Cronsole MCP server to create a Windows Task Scheduler job that runs
-D:\jobs\nightly-backup.ps1 every day at 2am my time (US Pacific). Check the
-schedule conversion first, put it in the \Cronsole folder, and confirm it
-registered with a clean no-shell action.
-```
+| Tier | Tools |
+|:---|:---|
+| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `export_task` · `convert_schedule` |
+| **Create** | `create_task` · `create_native_task` · `create_native_script_task` · `create_task_from_template` · `create_claude_routine` |
+| **Act** | `run_task` · `sync_tasks` |
+| **Modify** (reversible) | `set_task_status` · `update_task_schedule` · `update_task_action` · `update_native_job` · `rename_task` · `untrack_task` |
+| **Connect** | `connect_claude_routine` · `edit_claude_routine` · `disconnect_claude_routine` |
+| **Destroy** (gated, native-only) | `delete_task` — needs `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` |
 
-```text
-Using Cronsole, create a task named "Prune Docker" that runs
-`docker system prune -f` every Sunday at 3am Pacific. Verify the trigger before
-you finish.
-```
+Gating is tiered rather than blanket. Reversible verbs are ungated, including `set_task_status`
+— parking a task is the recommended safe move, and putting a gate on the safe path pushes people
+toward the unsafe one. Only the irreversible verb is gated, and it can't reach a Windows task at
+all.
 
-**A real-world example** — the "clean up runaway Python processes" job (this exact request
-built a logging cleanup script + two daily tasks):
+## 💡 Getting good results
 
-```text
-Use the Cronsole MCP server to create a Windows Task Scheduler job that
-periodically kills leftover Python processes that are old AND still burning CPU
-(so it won't touch fresh or idle jobs). Run it at 7am and 7pm Pacific, log every
-kill, and dry-run the logic before scheduling it.
-```
+- **Say where you are.** Cronsole stores every schedule as UTC. "7am" converts correctly only
+  if the assistant knows which 7am you meant.
+- **Ask it to check before it commits.** "Convert the schedule first and show me the trigger" is
+  the difference between a monthly job and 8,760 runs a year.
+- **Ask it to verify after.** A green status is not proof a command runs. On Windows it isn't
+  even proof the command finished.
+- **Be specific about the command.** "Run my script" sends it hunting through templates;
+  `powershell.exe -File C:\jobs\x.ps1` is a direct create.
+- **Let it refuse.** Cronsole's refusals — folder must exist, `\Microsoft\` denied, duplicate
+  name 409, untrack not available for native — are load-bearing. An assistant working around one
+  is doing you no favors.
 
-**From a template** (when you have a use case, not a command):
+## 🚧 What this surface can't do
 
-```text
-Using Cronsole, list the available templates for database backups, then create a
-task from the best fit — I run Postgres locally and want a nightly dump.
-```
+Some operations are REST or dashboard only, and the assistant should say so rather than
+improvise a substitute. See [**rest-api/**](../rest-api/README.md):
 
-**A Cronsole-native HTTP job** (backend-run, no agent needed):
-
-```text
-Using Cronsole, create a native task that pings https://my-service.example.com/health
-every 15 minutes so I get failure notifications when it goes down.
-```
-
-## ▶️ Run now
-
-```text
-Using Cronsole, run the "Sync AI Documents Repos" task right now and tell me
-whether it succeeded.
-```
-
-```text
-Using Cronsole, run "Weekly System Cleanup" now, then check its run history to
-confirm it actually completed rather than just started.
-```
-
-## ⚙️ Manage existing tasks
-
-```text
-Using Cronsole, disable the task "Daily Market Summary" for now — I'll turn it
-back on later. Don't change its schedule.
-```
-
-```text
-Using Cronsole, re-schedule "Weekly PR Creator" to run weekdays at 6pm Pacific
-instead of whenever it runs now. Check the conversion first.
-```
-
-```text
-Using Cronsole, the command for "Update AI Lab Repos" points at the wrong
-script. Show me its current action, then repoint it at
-D:\AI_Agents\_maintenance\update-repos.ps1 — keep everything else the same.
-```
-
-> [!TIP]
-> `update_task_action` **replaces** the action — it doesn't patch one field. Ask the
-> assistant to read the current command first (it will), so it doesn't silently reset the run
-> level.
-
-## 🧹 Tidy the dashboard (without deleting anything)
-
-```text
-Using Cronsole, I imported the whole \Microsoft\ folder by mistake. Stop tracking
-those in Cronsole — but do NOT delete any of them, they're Windows' own tasks.
-```
-
-```text
-Using Cronsole, remove "SoftLandingDeferralTask" from my dashboard. I don't care
-about it, but leave the scheduled task alone.
-```
-
-> [!TIP]
-> `untrack_task` is the verb for *"get this out of my dashboard"*. It drops Cronsole's record
-> and its Cronsole run history; the scheduled task stays on the machine and keeps running, and
-> future syncs won't pull it back. Reversible — re-import that category in the dashboard to
-> track it again. It is **ungated**, on purpose: gating deletion is only honest if there's a
-> safe way to remove something without the gate, or the only tool for a tidy-up is the one that
-> destroys real tasks.
-
-## 🗑️ Delete (gated)
-
-```text
-Using Cronsole, delete the test task "MCP Test - Webhook Ping" — it was only for
-a one-off check.
-```
-
-> [!NOTE]
-> If `delete_task` isn't enabled (`CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`), the assistant won't
-> see the tool at all and will offer to **disable** or **untrack** the task instead, or point
-> you to the dashboard / REST. That's intentional — an irreversible verb stays behind an
-> out-of-band switch the model can't flip for itself.
->
-> **If you only want it off your dashboard, don't reach for delete at all** — that's
-> `untrack_task` above, and it leaves the scheduled task running.
-
-## 🧾 What the MCP server can't do
-
-Some operations are **REST-only** — the assistant should say so rather than improvise a
-substitute. For these, see [**rest-api/**](../rest-api/README.md):
-
-- Template **import / export**
-- **Save a task as a template**
-- Registry **sync** and agent **pairing**
+- Template **import / export**, and **save a task as a template**
+- **Bulk** status, recategorize, and untrack
+- **Analytics**, CSV export, and deleted-task archives
+- **Favorites**, and agent **pairing**
+- Deleting a real **Windows** task — that's the dashboard, per task
 
 ## 🔗 Related
 
 | Resource | Why |
 |:---|:---|
 | [**🧩 MCP Server Guide**](../../user-guides/guides/MCP_Server_Guide.md) | Setup, token minting, host wiring, its own troubleshooting. |
-| [**✍️ Task authoring & management**](../../../skills/cronsole/references/task-authoring.md) | The invariants behind these prompts — UTC cron, no-shell, folders, verification. |
-| [**🌐 REST API prompts**](../rest-api/README.md) | The REST-only operations above. |
+| [**✍️ Task authoring & management**](../../../skills/cronsole/references/task-authoring.md) | The invariants behind these prompts, written for an agent. |
+| [**🌐 REST API prompts**](../rest-api/README.md) | The operations listed above. |
+| [**📦 mcp-server package**](../../../mcp-server/README.md) | The tool source and the MCP Inspector. |
 
 ---
 

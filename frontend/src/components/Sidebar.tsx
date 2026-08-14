@@ -86,7 +86,15 @@ export const Sidebar = ({ activeTab, setActiveTab, open = false, onClose }: Side
         className={`fixed md:static inset-y-0 left-0 z-40 w-64 shrink-0 border-r border-border bg-background flex flex-col gap-2 p-4 transition-transform duration-200 md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="mb-8 px-2 flex items-center gap-2">
-          <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center font-bold text-primary-foreground shadow-lg shadow-primary/20">T</div>
+          {/* The app icon itself, not a letter tile — this read `T` for TaskHub
+              for the whole of the rename. Decorative: the wordmark beside it
+              already names the product. */}
+          <img
+            src="/favicon.svg"
+            alt=""
+            aria-hidden
+            className="h-8 w-8 rounded-lg shadow-lg shadow-primary/20"
+          />
           <h1 className="text-xl font-bold tracking-tight">Cronsole</h1>
           <button
             onClick={onClose}

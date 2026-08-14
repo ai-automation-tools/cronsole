@@ -4,6 +4,7 @@ import { Bot, Download, FileJson, FileText, Loader2, Package } from 'lucide-reac
 import { api } from '../../api';
 import { useToast } from '../../hooks/useToast';
 import { downloadBlob, filenameFromDisposition } from '../../utils/saveExport';
+import { ToolCard } from './ToolCard';
 
 interface ConnectDownload {
   id: string;
@@ -66,22 +67,17 @@ export const ConnectPackTool = () => {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-          <Bot size={20} />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-bold">
-            Connect another AI tool
-            {data && <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">v{data.version}</span>}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Instructions that teach Claude Code, Cursor, Codex, or your own agent to create and manage
-            tasks through this Cronsole. Works over MCP, or plain REST if your tool has no MCP support.
-          </p>
-        </div>
-      </div>
+    <ToolCard
+      icon={Bot}
+      title={<>
+        Connect another AI tool
+        {data && <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">v{data.version}</span>}
+      </>}
+      description={<>
+        Instructions that teach Claude Code, Cursor, Codex, or your own agent to create and manage
+        tasks through this Cronsole. Works over MCP, or plain REST if your tool has no MCP support.
+      </>}
+    >
 
       {isLoading && (
         <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -124,6 +120,6 @@ export const ConnectPackTool = () => {
         Cronsole you are running. A copy on another machine won't update itself — if it and Cronsole ever
         disagree, Cronsole is right; download the pack again.
       </p>
-    </div>
+    </ToolCard>
   );
 };

@@ -698,6 +698,28 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       **The links are checked** (`frontend/src/data/__tests__/docsLinks.test.ts`, 43 assertions) —
       a stale anchor does not fail on its own, since GitHub serves the page scrolled to the top
       with no error anywhere. Mutation-tested.
+- [x] **One Edit button per task, instead of four** *(requested and shipped 2026-08-13)*. The task
+      modal carried four edit affordances in four places with three different shapes — a rename
+      pencil in the title, a *Change* link on the category card, an *Edit* in the Action panel
+      (opening one of two modals by platform), and *Edit Schedule* in the footer. Now one **Edit**
+      opening `EditTaskModal`; `EditScheduleModal` / `EditActionModal` / `EditNativeJobModal` are
+      deleted, their fields extracted to `components/edit/`, and the prefill + gating rules moved
+      to `utils/taskEditing.ts` so one rule decides both what a field holds and whether its section
+      renders.
+      **The design constraint: one gesture, still three routes.** Labels are a DB row this process
+      owns; a Windows schedule or command change is an elevated agent round trip Windows can
+      refuse. So Save sends only changed sections, sequentially, and **reports each separately** —
+      a section that lands is re-baselined and goes clean, one that fails keeps its values and its
+      error, and a second press retries only what is outstanding. The same per-item rule the bulk
+      verbs follow, and for the same reason. **All-or-nothing was rejected**: the rollback runs
+      through the same offline agent that just failed.
+      A part this platform cannot change is now a **sentence in the form**, not a disabled button
+      with the reason in a tooltip — which is unreadable on the phone this app must work on. The
+      Edit button itself is never disabled, since name and category are editable on every source.
+      Also fixed under it: [#52](troubleshooting/README.md#52-an-open-edit-modal-closes-by-itself-discarding-what-you-typed),
+      an open editor closing itself on every background refetch (reset effect keyed on the task
+      **object**, which `tasks.find(...)` makes new each time, rather than on its id). Pre-existing;
+      merging four short-lived modals into one long form is what made it costly.
 
 ### Open
 

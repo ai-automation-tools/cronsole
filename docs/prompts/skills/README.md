@@ -86,6 +86,31 @@ the MCP server and its tests could now be silently lying, and how do I verify
 the wrapper still agrees with the API?
 ```
 
+## 🔗 Work on a connector or a platform
+
+```text
+Using the cronsole skill, I want to add a connector for a scheduler that can only
+be read, never controlled. Is a read-only connector a finished thing or a stalled
+one, and what does the capability matrix have to say about it?
+```
+
+```text
+Using the cronsole skill, explain the two Claude Code API modes and why
+unsupportedVerbs is a getter rather than a fixed array. What does that mean for
+any test I write against Claude's capabilities?
+```
+
+```text
+Using the cronsole skill, I'm adding a verb a platform can't support. Walk me
+through declared vs. unsupported, which status code each produces, and why
+getting it wrong is worse than leaving the verb out.
+```
+
+```text
+Using the cronsole skill, why can't a health check just probe the platform? Show
+me where the verdict comes from instead, and what a timestamp is allowed to mean.
+```
+
 ## 🐛 Debug a trap
 
 The skill's whole point is catching these before you burn an afternoon:

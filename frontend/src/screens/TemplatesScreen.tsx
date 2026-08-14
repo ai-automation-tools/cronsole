@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from 'react';
 import {
   Sparkles,
   Library,
@@ -31,6 +31,7 @@ import { useScheduleZone } from '../hooks/useScheduleZone';
 import { TEMPLATE_RESOURCES } from '../data/templateResources';
 import { useToast } from '../hooks/useToast';
 import { HelpButton } from '../components/HelpButton';
+import { TemplateFilterBar, type TemplateFacet } from '../components/TemplateFilterBar';
 
 // Human labels for the enum-ish template facets (see backend/src/seed.ts).
 const TEMPLATE_OS_LABELS: Record<string, string> = {
@@ -118,19 +119,6 @@ const buildTemplateTargetFacet = (list: Template[], pin: string) => {
   return counts;
 };
 
-const TemplateChip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
-  <button
-    onClick={onClick}
-    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-      active
-        ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20'
-        : 'bg-surface border-border text-muted-foreground hover:border-foreground/20'
-    }`}
-  >
-    {children}
-  </button>
-);
-
 // Per-user favorite toggle (a star) shown on template cards/rows. Optimistic —
 // the click flips template.isFavorite via the ['templates'] cache immediately.
 const FavoriteStar = ({ template, onToggle, size = 16 }: { template: Template; onToggle: (t: Template) => void; size?: number }) => (
@@ -176,8 +164,8 @@ const TemplateSchedule = ({ template, className }: { template: Template; classNa
  * made from an absence.
  */
 const TargetBadges = ({ template, creatability }: { template: Template; creatability: (p: string) => Creatability }) => (
-  <div className="flex items-center gap-2 flex-wrap mb-6">
-    <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground">Compatible with</span>
+  <div className="flex items-center gap-1.5 flex-wrap mb-3">
+    <span className="text-[9px] font-black uppercase tracking-widest text-subtle-foreground">Compatible with</span>
     {template.targetPlatforms.map(p => {
       const can = creatability(p);
       return (
@@ -203,60 +191,85 @@ const TargetBadges = ({ template, creatability }: { template: Template; creatabi
   </div>
 );
 
-const TemplateCard = ({ template, onApply, onToggleFavorite, creatability }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void; creatability: (p: string) => Creatability }) => (
-  <div className="bg-surface border border-border rounded-3xl overflow-hidden flex flex-col shadow-2xl transition-all hover:border-primary/30 group">
-    <div className="p-6 flex-1">
-      <div className="flex items-start justify-between gap-2 mb-4">
-        <div className="flex flex-wrap gap-2">
-          {template.isStarter && (
-            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
-              <Sparkles size={9} /> Starter
-            </span>
-          )}
-          {template.scriptType && (
-            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-claude/10 text-claude-text border border-claude/20">
-              {template.scriptType.replace(/_/g, ' ')}
-            </span>
-          )}
+/**
+ * Sized to match the dashboard's `TaskCard` — same `rounded-2xl`, same `p-5`
+ * worth of breathing room, same three-up grid. They are the two card grids in
+ * the app and they were visibly different sizes, which made the tabs read as two
+ * products.
+ *
+ * The description is clamped and the tag list capped so every card in a row is
+ * about the same height. Uncapped, one template with nine tags set the row
+ * height for its two neighbours.
+ */
+const CARD_TAG_LIMIT = 3;
+
+const TemplateCard = ({ template, onApply, onToggleFavorite, creatability }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void; creatability: (p: string) => Creatability }) => {
+  const tags = template.tags ?? [];
+  const shownTags = tags.slice(0, CARD_TAG_LIMIT);
+  const hiddenTags = tags.length - shownTags.length;
+
+  return (
+    <div className="bg-surface border border-border rounded-2xl overflow-hidden flex flex-col shadow-xl transition-all hover:border-primary/50 group">
+      <div className="p-4 flex-1 flex flex-col">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex flex-wrap gap-1.5">
+            {template.isStarter && (
+              <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/15 text-foreground border border-primary/30 flex items-center gap-1">
+                <Sparkles size={9} /> Starter
+              </span>
+            )}
+            {template.scriptType && (
+              <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-claude/10 text-claude-text border border-claude/20">
+                {template.scriptType.replace(/_/g, ' ')}
+              </span>
+            )}
+          </div>
+          <FavoriteStar template={template} onToggle={onToggleFavorite} size={16} />
         </div>
-        <FavoriteStar template={template} onToggle={onToggleFavorite} size={18} />
+
+        <h3 className="text-base font-bold mb-1 leading-tight">{template.name}</h3>
+        <p className="text-xs text-muted-foreground mb-3 leading-snug line-clamp-2" title={template.description}>
+          {template.description}
+        </p>
+
+        {/* "Compatible with" — honest framing: what Cronsole can create on THIS
+            install is highlighted, the rest are compatibility labels only, so a
+            badge never implies a one-click apply that silently fails. */}
+        <TargetBadges template={template} creatability={creatability} />
+
+        <div className="space-y-1.5 mt-auto">
+          <div className="flex items-center gap-2 text-[11px] bg-background px-2.5 py-1.5 rounded-lg border border-border/50">
+            <Clock size={12} className="text-foreground shrink-0" />
+            <TemplateSchedule template={template} className="text-foreground font-mono" />
+          </div>
+          <div className="flex items-center gap-2 text-[11px] bg-background px-2.5 py-1.5 rounded-lg border border-border/50">
+            <ExternalLink size={12} className="text-claude-text shrink-0" />
+            <span className="truncate text-foreground italic" title={template.command}>{template.command}</span>
+          </div>
+        </div>
+
+        {tags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap mt-2">
+            {shownTags.map(tag => (
+              <span key={tag} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-background text-subtle-foreground border border-border/60 flex items-center gap-1">
+                <Tag size={8} /> {tag}
+              </span>
+            ))}
+            {hiddenTags > 0 && (
+              <span className="text-[10px] font-semibold text-subtle-foreground" title={tags.join(', ')}>
+                +{hiddenTags}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      <h3 className="text-xl font-bold mb-2 group-hover:text-foreground transition-colors">{template.name}</h3>
-      <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{template.description}</p>
-
-      {/* "Compatible with" — honest framing: what Cronsole can create on THIS
-          install is highlighted, the rest are compatibility labels only, so a
-          badge never implies a one-click apply that silently fails. */}
-      <TargetBadges template={template} creatability={creatability} />
-
-      <div className="space-y-3">
-        <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
-          <Clock size={14} className="text-foreground" />
-          <TemplateSchedule template={template} className="text-foreground font-mono" />
-        </div>
-        <div className="flex items-center gap-3 text-xs bg-background p-3 rounded-2xl border border-border/50">
-          <ExternalLink size={14} className="text-claude-text" />
-          <span className="truncate text-foreground italic">{template.command}</span>
-        </div>
-      </div>
-
-      {template.tags && template.tags.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap mt-4">
-          {template.tags.map(tag => (
-            <span key={tag} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-background text-subtle-foreground border border-border/60 flex items-center gap-1">
-              <Tag size={9} /> {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      <button onClick={() => onApply(template)} className="w-full bg-muted hover:bg-primary-hover text-foreground hover:text-primary-foreground py-2.5 text-sm font-bold flex items-center justify-center gap-2 transition-all border-t border-border group-hover:border-primary/20">
+        Apply Template <ArrowRight size={14} />
+      </button>
     </div>
-
-    <button onClick={() => onApply(template)} className="w-full bg-muted hover:bg-primary-hover text-foreground hover:text-primary-foreground py-4 font-bold flex items-center justify-center gap-2 transition-all border-t border-border group-hover:border-primary/20">
-      Apply Template <ArrowRight size={16} />
-    </button>
-  </div>
-);
+  );
+};
 
 // Compact single-line row used by the List view.
 const TemplateListRow = ({ template, onApply, onToggleFavorite }: { template: Template; onApply: (t: Template) => void; onToggleFavorite: (t: Template) => void }) => (
@@ -311,7 +324,8 @@ const TemplateGroup = ({ icon: Icon, title, subtitle, templates, onApply, onTogg
           {templates.map(t => <TemplateListRow key={t.id} template={t} onApply={onApply} onToggleFavorite={onToggleFavorite} />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        // Matches the dashboard's task grid exactly — same breakpoints, same gap.
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {templates.map(t => <TemplateCard key={t.id} template={t} onApply={onApply} onToggleFavorite={onToggleFavorite} creatability={creatability} />)}
         </div>
       )}
@@ -677,6 +691,39 @@ export const TemplatesScreen = () => {
     [targetFacets]
   );
 
+  /**
+   * The four facets, in the order they answer a reader's questions.
+   *
+   * **Target is first on purpose.** "What can I create this on?" is the opening
+   * question now that the catalog holds Windows tasks, Cronsole-native jobs and
+   * Claude routines side by side, and it is the one the OS chips cannot answer —
+   * three of those four families are `cross-platform`. Its marker comes from the
+   * server's capability matrix, the same verdict the cards and the Apply modal
+   * use, so the tab cannot disagree with itself.
+   */
+  const facets: TemplateFacet[] = useMemo(() => [
+    {
+      id: 'target',
+      label: 'Target',
+      values: targetValues,
+      counts: targetFacets,
+      selected: selectedTarget,
+      onSelect: setSelectedTarget,
+      labelFor: platformLabel,
+      markerFor: (p: string) => (creatability(p) === 'no' ? ' *' : ''),
+      titleFor: (p: string) =>
+        creatability(p) === 'no' ? 'Cronsole can’t create tasks here on this install' : undefined
+    },
+    { id: 'os', label: 'OS', values: osValues, counts: osFacets, selected: selectedOs, onSelect: setSelectedOs, labelFor: templateOsLabel },
+    { id: 'category', label: 'Category', values: categoryValues, counts: categoryFacets, selected: selectedCategory, onSelect: setSelectedCategory, labelFor: templateCategoryLabel },
+    { id: 'tag', label: 'Tag', icon: Tag, values: tagValues, counts: tagFacets, selected: selectedTag, onSelect: setSelectedTag, labelFor: (t: string) => t }
+  ], [
+    targetValues, targetFacets, selectedTarget, creatability,
+    osValues, osFacets, selectedOs,
+    categoryValues, categoryFacets, selectedCategory,
+    tagValues, tagFacets, selectedTag
+  ]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
@@ -740,118 +787,20 @@ export const TemplatesScreen = () => {
         </div>
       ) : (
         <>
-          {/* Filter bar: search + Type / OS / Category facets */}
-          <div className="bg-surface border border-border rounded-2xl p-4 space-y-4 shadow-md">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-              <div className="relative flex-1">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle-foreground" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  onKeyDown={e => e.key === 'Escape' && setSearch('')}
-                  placeholder="Search templates by name, command, category…"
-                  className="w-full bg-background border border-border rounded-xl pl-9 pr-9 py-2 text-sm outline-none focus:border-primary transition-colors"
-                />
-                {search && (
-                  <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle-foreground hover:text-foreground" title="Clear search">
-                    <X size={15} />
-                  </button>
-                )}
-              </div>
-              <button
-                onClick={() => setFavoritesOnly(v => !v)}
-                title={favoritesOnly ? 'Show all templates' : 'Show favorites only'}
-                aria-pressed={favoritesOnly}
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${favoritesOnly ? 'bg-warning/15 text-warning-text border-warning/40' : 'bg-background text-muted-foreground border-border hover:text-foreground'}`}
-              >
-                <Star size={13} className={favoritesOnly ? 'fill-current' : ''} /> Favorites
-                {favoriteCount > 0 && (
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${favoritesOnly ? 'bg-warning/20' : 'bg-muted text-subtle-foreground'}`}>{favoriteCount}</span>
-                )}
-              </button>
-              <div className="flex items-center gap-1.5 bg-background border border-border p-1 rounded-xl shrink-0">
-                {(['all', 'starters', 'patterns'] as const).map(k => (
-                  <button
-                    key={k}
-                    onClick={() => setKind(k)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${kind === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    {k}
-                  </button>
-                ))}
-              </div>
-              {hasActiveFilters && (
-                <button onClick={clearFilters} className="text-xs font-bold text-subtle-foreground hover:text-foreground flex items-center gap-1 shrink-0" title="Clear all filters">
-                  <X size={13} /> Clear
-                </button>
-              )}
-            </div>
-
-            {/* Target sits above OS on purpose: "what can I create this on"
-                is the first question now that the catalog holds Windows tasks,
-                Cronsole-native jobs and Claude routines side by side, and it is
-                the one the OS chips cannot answer (three of those four families
-                are `cross-platform`). Each chip carries a marker for what this
-                install can actually create — the same server verdict the cards
-                and the Apply modal use, so the tab cannot disagree with itself. */}
-            {targetValues.length > 1 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0">Target</span>
-                <TemplateChip active={selectedTarget === 'All'} onClick={() => setSelectedTarget('All')}>All</TemplateChip>
-                {targetValues.map(p => {
-                  const can = creatability(p);
-                  return (
-                    <TemplateChip key={p} active={selectedTarget === p} onClick={() => setSelectedTarget(p)}>
-                      <span title={can === 'no' ? 'Cronsole can’t create tasks here on this install' : undefined}>
-                        {platformLabel(p)}{can === 'no' && ' *'}
-                      </span>
-                      <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedTarget === p ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{targetFacets.get(p) ?? 0}</span>
-                    </TemplateChip>
-                  );
-                })}
-              </div>
-            )}
-
-            {osValues.length > 1 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0">OS</span>
-                <TemplateChip active={selectedOs === 'All'} onClick={() => setSelectedOs('All')}>All</TemplateChip>
-                {osValues.map(os => (
-                  <TemplateChip key={os} active={selectedOs === os} onClick={() => setSelectedOs(os)}>
-                    {templateOsLabel(os)}
-                    <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedOs === os ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{osFacets.get(os) ?? 0}</span>
-                  </TemplateChip>
-                ))}
-              </div>
-            )}
-
-            {categoryValues.length > 1 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0">Category</span>
-                <TemplateChip active={selectedCategory === 'All'} onClick={() => setSelectedCategory('All')}>All</TemplateChip>
-                {categoryValues.map(cat => (
-                  <TemplateChip key={cat} active={selectedCategory === cat} onClick={() => setSelectedCategory(cat)}>
-                    {templateCategoryLabel(cat)}
-                    <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{categoryFacets.get(cat) ?? 0}</span>
-                  </TemplateChip>
-                ))}
-              </div>
-            )}
-
-            {tagValues.length > 1 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground w-16 shrink-0 flex items-center gap-1"><Tag size={10} /> Tags</span>
-                <TemplateChip active={selectedTag === 'All'} onClick={() => setSelectedTag('All')}>All</TemplateChip>
-                {tagValues.map(tag => (
-                  <TemplateChip key={tag} active={selectedTag === tag} onClick={() => setSelectedTag(tag)}>
-                    {tag}
-                    <span className={`ml-2 px-1.5 py-0.5 rounded-md text-[10px] ${selectedTag === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-subtle-foreground'}`}>{tagFacets.get(tag) ?? 0}</span>
-                  </TemplateChip>
-                ))}
-              </div>
-            )}
-          </div>
+          <TemplateFilterBar
+            search={search}
+            onSearch={setSearch}
+            kind={kind}
+            onKind={setKind}
+            favoritesOnly={favoritesOnly}
+            onFavoritesOnly={setFavoritesOnly}
+            favoriteCount={favoriteCount}
+            facets={facets}
+            hasActiveFilters={hasActiveFilters}
+            onClear={clearFilters}
+            shown={filtered.length}
+            total={all.length}
+          />
 
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[30vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">

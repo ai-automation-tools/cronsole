@@ -4,6 +4,7 @@ import { Download, FileSpreadsheet, Info, Loader2 } from 'lucide-react';
 import { api } from '../../api';
 import { useToast } from '../../hooks/useToast';
 import { downloadBlob, filenameFromDisposition } from '../../utils/saveExport';
+import { ToolCard } from './ToolCard';
 
 const RANGES = [
   { days: 7, label: 'Last 7 days' },
@@ -86,19 +87,14 @@ export const RunHistoryTool = () => {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-          <FileSpreadsheet size={20} />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-bold">Export run history</h3>
-          <p className="text-sm text-muted-foreground">
-            Every recorded run across all your tasks as a CSV — the answer to
-            "what failed this month?", which the per-task history can't give you.
-          </p>
-        </div>
-      </div>
+    <ToolCard
+      icon={FileSpreadsheet}
+      title="Export run history"
+      description={<>
+        Every recorded run across all your tasks as a CSV — the answer to
+        "what failed this month?", which the per-task history can't give you.
+      </>}
+    >
 
       <div className="space-y-3">
         <label className="block">
@@ -107,7 +103,7 @@ export const RunHistoryTool = () => {
             value={days}
             onChange={e => setDays(Number(e.target.value))}
             aria-label="Period to export"
-            className="mt-1.5 w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary"
+            className="mt-1.5 block w-full max-w-xs bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary"
           >
             {RANGES.map(r => (
               <option key={r.days} value={r.days}>{r.label}</option>
@@ -153,6 +149,6 @@ export const RunHistoryTool = () => {
           {busy ? 'Exporting…' : 'Download CSV'}
         </button>
       </div>
-    </div>
+    </ToolCard>
   );
 };

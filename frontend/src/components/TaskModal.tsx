@@ -13,9 +13,8 @@ import { hhmmInZone, resolveZone, zoneAbbrev, zoneLabel } from '../utils/timezon
 import { isRunnable, runButtonTitle } from '../utils/taskActions';
 import { useRemoveClaudeRoutine } from '../hooks/useClaudeRoutines';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
-import { EditScheduleModal } from './EditScheduleModal';
-import { EditActionModal } from './EditActionModal';
-import { EditNativeJobModal, type NativeJobInitial } from './EditNativeJobModal';
+import { EditTaskModal } from './EditTaskModal';
+import { platformName } from '../utils/taskEditing';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 import { HelpButton } from './HelpButton';
 
@@ -23,7 +22,6 @@ interface TaskModalProps {
   task: Task | null;
   onClose: () => void;
   onRun: (task: Task) => void;
-  onCategoryUpdate: (taskId: string, category: string) => void;
   /** Optional so the modal stays renderable without the dashboard's mutations. */
   onToggleFavorite?: (task: Task) => void;
 }
@@ -156,91 +154,14 @@ function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
   return { rows, reported: false };
 }
 
-/**
- * Prefill for the Cronsole-native job editor.
- *
- * Always editable, unlike the Windows path — a native task's job spec is a
- * column in a row this process owns, so there is no agent to be offline, no
- * multi-action shape to refuse, and nothing that has to have been reported by a
- * sync first. A task whose stored job is unreadable still opens: the form
- * defaults to HTTP with empty fields, which is a repair rather than a dead end.
+/*
+ * The editor's prefill and gating rules used to live here as `actionEditInfo` /
+ * `nativeJobEditInfo`. They moved to `utils/taskEditing.ts` when the four edit
+ * buttons collapsed into one `EditTaskModal` — the same rules decide both what a
+ * field is prefilled with and whether its section renders at all, and deriving
+ * them in two places is how a section ends up editable in the UI and refused by
+ * the route.
  */
-function nativeJobEditInfo(task: Task): NativeJobInitial {
-  const meta = (task.metadata ?? {}) as Meta;
-  const job = (meta.job ?? {}) as Meta;
-  const isExec = asText(job.jobType) === 'EXEC';
-
-  // Rebuild the command line from the stored {executable, args[]}, quoting an
-  // executable containing whitespace so it re-tokenizes to the same argv on
-  // save — the same round-trip rule the Windows prefill follows, and for the
-  // same reason (`C:\Program Files\node.exe` would otherwise split in two).
-  const exe = asText(job.executable) ?? '';
-  const exeToken = /\s/.test(exe) ? `"${exe}"` : exe;
-  const args = Array.isArray(job.args) ? (job.args as unknown[]).map(a => String(a)) : [];
-  const argTokens = args.map(a => (/\s/.test(a) ? `"${a}"` : a));
-
-  const headers = job.headers && typeof job.headers === 'object'
-    ? JSON.stringify(job.headers, null, 2)
-    : '';
-
-  return {
-    jobType: isExec ? 'EXEC' : 'HTTP',
-    url: asText(job.url) ?? '',
-    method: (asText(job.method) ?? 'GET').toUpperCase(),
-    headers,
-    body: asText(job.body) ?? '',
-    command: exe ? [exeToken, ...argTokens].join(' ') : '',
-    workingDirectory: asText(job.workingDirectory) ?? ''
-  };
-}
-
-/**
- * Whether the task's action + settings can be edited from Cronsole, plus the
- * prefill for the editor. Gated to Windows tasks with exactly one reported exec
- * action — the agent replaces the single exec action, so multi-action or
- * not-yet-synced tasks stay read-only with an honest reason.
- */
-function actionEditInfo(task: Task): {
-  editable: boolean;
-  reason: string;
-  initial: { command: string; workingDirectory: string; description: string; runLevel: 'least' | 'highest' };
-} {
-  const meta = (task.metadata ?? {}) as Meta;
-  const runLevel: 'least' | 'highest' = /highest/i.test(asText(meta.runLevel) ?? '') ? 'highest' : 'least';
-  const description = asText(meta.description) ?? '';
-
-  if (task.platform !== 'WINDOWS_TASK_SCHEDULER') {
-    return { editable: false, reason: 'Command editing is only available for Windows Task Scheduler tasks.', initial: { command: '', workingDirectory: '', description, runLevel } };
-  }
-
-  const acts = Array.isArray(meta.actions) ? meta.actions : [];
-  const execActs = acts
-    .map(a => (a ?? {}) as Meta)
-    .filter(a => asText(a.path) ?? asText(a.executable));
-
-  if (execActs.length !== 1) {
-    return {
-      editable: false,
-      reason: acts.length === 0
-        ? "The agent hasn't reported this task's command yet — sync and try again."
-        : "This task has multiple actions; editing multi-action tasks isn't supported yet.",
-      initial: { command: '', workingDirectory: '', description, runLevel }
-    };
-  }
-
-  const act = execActs[0];
-  const exe = asText(act.path) ?? asText(act.executable) ?? '';
-  const args = asText(act.arguments);
-  // Quote the executable when it contains whitespace so the reconstructed command
-  // re-tokenizes back to the same { executable, args } on save — otherwise a path
-  // like C:\Program Files\app.exe would split into "C:\Program" + args. The
-  // backend's toStructuredAction strips the quotes. (Reported args already carry
-  // their own quoting, so they round-trip as-is.)
-  const exeToken = /\s/.test(exe) ? `"${exe}"` : exe;
-  const command = args ? `${exeToken} ${args}` : exeToken;
-  const workingDirectory = asText(act.workingDirectory) ?? '';
-  return { editable: true, reason: '', initial: { command, workingDirectory, description, runLevel } };
-}
 
 /** Extra settings a newer agent reports; empty for older syncs (section hides). */
 function settingsRows(task: Task): DetailRow[] {
@@ -286,13 +207,16 @@ const RowList = ({ rows }: { rows: DetailRow[] }) => (
   </div>
 );
 
-export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavorite }: TaskModalProps) => {
-  const [isEditingCategory, setIsEditingCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState('');
+export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalProps) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'runs'>('overview');
-  const [showScheduleEditor, setShowScheduleEditor] = useState(false);
-  const [showActionEditor, setShowActionEditor] = useState(false);
-  const [showJobEditor, setShowJobEditor] = useState(false);
+  /*
+   * One editor, one flag. This was three — schedule, Windows action, native job —
+   * reached from three different places on this screen, alongside an inline
+   * rename form and an inline category input. `EditTaskModal` is now the single
+   * entry point for everything editable about a task; this modal is a read-only
+   * view of it plus the verbs (run, remove, delete, export).
+   */
+  const [showEditor, setShowEditor] = useState(false);
 
   // A native job runs wherever the BACKEND runs, which on a Dockerized stack is
   // inside the container — so an EXEC path is resolved against a filesystem that
@@ -306,16 +230,24 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
     ?.find(p => p.platform === 'TASKHUB_NATIVE')?.executionHost?.summary;
   const [exporting, setExporting] = useState(false);
 
+  /*
+   * Keyed on the task **id**, not the task object.
+   *
+   * The dashboard passes `tasks.find(t => t.id === routeTaskId)`, so every
+   * refetch — the 45s poll, any `task:updated` socket event, the invalidation the
+   * editor itself fires — hands this component a new object for the same task.
+   * Depending on the object meant this effect ran on all of them and slammed any
+   * open editor shut mid-edit. The question it actually wants to ask is "is this
+   * a different task than the one I was showing", and that is the id.
+   */
+  const taskId = task?.id;
   useEffect(() => {
-    if (task) {
+    if (taskId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setNewCategory(task.category || '');
-      setIsEditingCategory(false);
       setActiveTab('overview');
-      setShowScheduleEditor(false);
-      setShowActionEditor(false);
+      setShowEditor(false);
     }
-  }, [task]);
+  }, [taskId]);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -371,33 +303,13 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
   });
 
   /*
-   * Rename — a Cronsole label, never the machine.
-   *
-   * `PATCH /api/tasks/:id` writes the DB row and nothing else, so a renamed
-   * Windows task still answers to its old path in Task Scheduler. That is not
-   * hidden: the real `externalId` sits under the title, and once the two diverge
-   * the header says so in words. Same doctrine as category — a Cronsole label
-   * may differ from the machine, but it may never *pretend* not to.
-   *
-   * Safe from the sync that used to make this impossible: `upsertTasks` no
-   * longer writes `name` on update, because no platform can supply a new name
-   * for an existing row (a Windows rename changes the path, which is the id).
+   * Rename and recategorize both live in `EditTaskModal` now, on the one route
+   * that writes them (`PATCH /api/tasks/:id`). Both are **Cronsole labels, never
+   * the machine**: a renamed Windows task still answers to its old Task
+   * Scheduler path, and a recategorized one stays in its folder. That is not
+   * hidden — the real `externalId` sits under the title here, the header says so
+   * in words once the two diverge, and the editor says it again before the save.
    */
-  const [renaming, setRenaming] = useState(false);
-  const [draftName, setDraftName] = useState('');
-
-  const renameMutation = useMutation({
-    mutationFn: async (name: string) => api.patch(`/tasks/${task!.id}`, { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setRenaming(false);
-      toast('Renamed in Cronsole.', 'success');
-    },
-    onError: (error: unknown) => {
-      const err = error as Error & { response?: { data?: { error?: string } } };
-      toast(`Rename failed: ${err.response?.data?.error || err.message}`, 'error');
-    }
-  });
 
   // Disconnect a Claude routine — this platform's stand-in for untrack, and the
   // only thing that actually removes a Claude task (see the footer button).
@@ -466,22 +378,14 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
 
   if (!task) return null;
 
-  // What the machine calls this task, when the machine has an opinion.
-  //
-  // Only Windows does: its `externalId` is the Task Scheduler path, and the name
-  // is the last segment — which is exactly why a rename there is a *new task*
-  // rather than a new name, and why a Cronsole rename can safely survive sync.
-  // Claude's id is an opaque `trig_…` and a native task's row is the task, so
-  // neither has a second name to disagree with.
-  const platformName =
-    task.platform === 'WINDOWS_TASK_SCHEDULER' ? task.externalId.split('\\').pop() ?? '' : '';
+  // What the machine calls this task, when the machine has an opinion — shared
+  // with the editor so both can only ever say the same thing about it.
+  const machineName = platformName(task);
 
   const meta = (task.metadata ?? {}) as Meta;
   const sched = scheduleInfo(task, prefs.timezone);
   const actions = actionInfo(task);
   const settings = settingsRows(task);
-  const actionEdit = actionEditInfo(task);
-  const nativeJob = nativeJobEditInfo(task);
   const nextRun = asText(meta.nextRunTime);
   const lastRun = task.lastRunAt ?? asText(meta.lastRunTime) ?? null;
 
@@ -500,56 +404,14 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
               <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/20 text-foreground border border-primary/30">
                 {task.platform}
               </span>
-              {renaming ? (
-                <form
-                  className="flex items-center gap-2"
-                  onSubmit={e => {
-                    e.preventDefault();
-                    const next = draftName.trim();
-                    if (!next || next === task.name) { setRenaming(false); return; }
-                    renameMutation.mutate(next);
-                  }}
-                >
-                  <label htmlFor="task-rename" className="sr-only">Task name</label>
-                  <input
-                    id="task-rename"
-                    autoFocus
-                    value={draftName}
-                    onChange={e => setDraftName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setRenaming(false); } }}
-                    maxLength={200}
-                    className="text-2xl font-bold bg-background border border-border rounded-lg px-2 py-1 min-w-0 w-full max-w-sm"
-                  />
-                  <button
-                    type="submit"
-                    disabled={renameMutation.isPending}
-                    className="text-xs font-bold px-3 py-2 rounded-lg bg-primary/20 border border-primary/30 hover:bg-primary/30 disabled:opacity-50"
-                  >
-                    {renameMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRenaming(false)}
-                    className="text-xs font-bold px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted"
-                  >
-                    Cancel
-                  </button>
-                </form>
-              ) : (
-                <>
-                  <h2 id="task-modal-title" className="text-2xl font-bold">{task.name}</h2>
-                  <button
-                    onClick={() => { setDraftName(task.name); setRenaming(true); }}
-                    aria-label={`Rename ${task.name}`}
-                    title="Rename in Cronsole (the scheduled task itself is not renamed)"
-                    className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  {onToggleFavorite && (
-                    <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={20} />
-                  )}
-                </>
+              {/*
+                Read-only. The rename pencil that used to sit here was one of four
+                edit affordances on this screen; all four are now the single Edit
+                button in the footer.
+              */}
+              <h2 id="task-modal-title" className="text-2xl font-bold">{task.name}</h2>
+              {onToggleFavorite && (
+                <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={20} />
               )}
             </div>
             <code className="text-xs text-subtle-foreground bg-background px-2 py-1 rounded">{task.externalId}</code>
@@ -559,15 +421,14 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
               someone searching Task Scheduler for the new name would find
               nothing and reasonably conclude Cronsole had lost the task.
             */}
-            {platformName && platformName !== task.name && (
+            {machineName && machineName !== task.name && (
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Renamed in Cronsole — Task Scheduler still calls it <span className="font-mono">{platformName}</span>.
+                Renamed in Cronsole — Task Scheduler still calls it <span className="font-mono">{machineName}</span>.
               </p>
             )}
           </div>
-          {/* Before Close, and after the title's own rename control — the
-              buttons in this modal differ by source and two of them look alike
-              and are not, which is exactly what the topic covers. */}
+          {/* Before Close — the buttons in this modal differ by source and two of
+              them look alike and are not, which is exactly what the topic covers. */}
           <div className="flex items-center gap-1 shrink-0">
             <HelpButton topic="task-actions" size="md" />
             <button onClick={onClose} aria-label="Close task details" title="Close" className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
@@ -702,35 +563,8 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
             {sched.rows.length > 0 && <RowList rows={sched.rows} />}
           </DetailSection>
 
-          {/* Actions */}
-          <DetailSection
-            icon={Terminal}
-            title="Action"
-            action={task.platform === 'TASKHUB_NATIVE' ? (
-              /*
-                Always enabled, unlike the Windows twin below. A native job spec
-                lives in a row this backend owns, so there is no agent to be
-                offline and no reported-action shape to refuse — gating it on
-                anything would be inventing a precondition it does not have.
-              */
-              <button
-                onClick={() => setShowJobEditor(true)}
-                title="Edit what this Cronsole-native task runs"
-                className="flex items-center gap-1.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors"
-              >
-                <Pencil size={12} /> Edit
-              </button>
-            ) : task.platform === 'WINDOWS_TASK_SCHEDULER' ? (
-              <button
-                onClick={() => actionEdit.editable && setShowActionEditor(true)}
-                disabled={!actionEdit.editable}
-                title={actionEdit.editable ? 'Edit this task’s command & settings' : actionEdit.reason}
-                className="flex items-center gap-1.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-subtle-foreground"
-              >
-                <Pencil size={12} /> Edit
-              </button>
-            ) : undefined}
-          >
+          {/* Actions — read-only here; the editor owns every field on this screen. */}
+          <DetailSection icon={Terminal} title="Action">
             {actions.reported ? (
               <RowList rows={actions.rows} />
             ) : (
@@ -750,44 +584,10 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
 
           <div className="bg-background p-4 rounded-xl border border-border">
             <span className="text-xs text-subtle-foreground block mb-2 uppercase font-bold tracking-widest">Local Category</span>
-            {isEditingCategory ? (
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  autoFocus
-                  value={newCategory} 
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (onCategoryUpdate(task.id, newCategory), setIsEditingCategory(false))}
-                  className="bg-surface border border-border rounded-lg px-3 py-1 text-sm flex-1 outline-none focus:border-primary"
-                  placeholder="Enter category name..."
-                />
-                <button 
-                  onClick={() => { onCategoryUpdate(task.id, newCategory); setIsEditingCategory(false); }}
-                  className="bg-primary hover:bg-primary-hover px-3 py-1 rounded-lg text-xs font-bold"
-                >
-                  Save
-                </button>
-                <button 
-                  onClick={() => setIsEditingCategory(false)}
-                  className="bg-muted hover:bg-muted px-3 py-1 rounded-lg text-xs font-bold"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Folder size={14} className="text-foreground" />
-                  <span className="text-sm font-semibold">{task.category || 'Uncategorized'}</span>
-                </div>
-                <button 
-                  onClick={() => { setNewCategory(task.category); setIsEditingCategory(true); }}
-                  className="text-xs text-foreground hover:text-foreground font-bold"
-                >
-                  Change
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Folder size={14} className="text-foreground" />
+              <span className="text-sm font-semibold">{task.category || 'Uncategorized'}</span>
+            </div>
           </div>
 
           <details className="group">
@@ -941,26 +741,20 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
               {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export
             </button>
           )}
-          {(() => {
-            // Editable for Cronsole-native tasks (backend owns the scheduler) and
-            // for Windows tasks whose trigger is cron-expressible (task.schedule
-            // is set). Boot/logon/event/on-demand Windows triggers read back as
-            // no schedule and stay read-only until they have a safe editor.
-            const editable = (task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && !!task.schedule;
-            const reason = task.platform === 'WINDOWS_TASK_SCHEDULER'
-              ? "This task runs on a trigger Cronsole can't edit yet (boot, logon, event, or on-demand only)."
-              : 'Schedule editing is only available for Cronsole-native tasks and cron-expressible Windows tasks.';
-            return (
-              <button
-                onClick={() => editable && setShowScheduleEditor(true)}
-                disabled={!editable}
-                title={editable ? 'Edit this task’s schedule' : reason}
-                className="flex-1 bg-muted hover:bg-muted/80 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-              >
-                Edit Schedule
-              </button>
-            );
-          })()}
+          {/*
+            The one edit control. Never disabled: name and category are editable
+            on every platform, so there is no task for which "nothing can be
+            changed" is true. The parts that *this* platform cannot change are
+            stated inside the editor, in words — a disabled button with a tooltip
+            explaining why cannot be read on a phone, which this app must work on.
+          */}
+          <button
+            onClick={() => setShowEditor(true)}
+            title="Edit this task’s name, category, schedule and what it runs"
+            className="flex-1 bg-muted hover:bg-muted/80 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center justify-center gap-2"
+          >
+            <Pencil size={16} /> Edit
+          </button>
           <button
             onClick={() => { if (isRunnable(task)) { onRun(task); onClose(); } }}
             disabled={!isRunnable(task)}
@@ -971,18 +765,11 @@ export const TaskModal = ({ task, onClose, onRun, onCategoryUpdate, onToggleFavo
           </button>
         </footer>
     </Modal>
-      {showScheduleEditor && (
-        <EditScheduleModal task={task} onClose={() => setShowScheduleEditor(false)} />
-      )}
-      {showActionEditor && (
-        <EditActionModal task={task} initial={actionEdit.initial} onClose={() => setShowActionEditor(false)} />
-      )}
-      {showJobEditor && (
-        <EditNativeJobModal
+      {showEditor && (
+        <EditTaskModal
           task={task}
-          initial={nativeJob}
           executionHost={nativeExecutionHost}
-          onClose={() => setShowJobEditor(false)}
+          onClose={() => setShowEditor(false)}
         />
       )}
     </>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, BarChart3, Clock, Info, Loader2, Timer, TrendingUp } from 'lucide-react';
 import { api } from '../../api';
+import { ToolCard } from './ToolCard';
 
 type View = 'failures' | 'duration' | 'idle';
 
@@ -214,19 +215,14 @@ export const ExecutionAnalyticsTool = () => {
   const idleSystemHidden = (data?.idle.tasks ?? []).filter(t => t.isSystem).length;
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-          <TrendingUp size={20} />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-bold">Execution analytics</h3>
-          <p className="text-sm text-muted-foreground">
-            What failed, what's getting slower, and what hasn't run — the questions a
-            per-task history can't answer.
-          </p>
-        </div>
-      </div>
+    <ToolCard
+      icon={TrendingUp}
+      title="Execution analytics"
+      description={<>
+        What failed, what's getting slower, and what hasn't run — the questions a
+        per-task history can't answer.
+      </>}
+    >
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1 bg-background border border-border rounded-xl p-1" role="tablist">
@@ -500,6 +496,6 @@ export const ExecutionAnalyticsTool = () => {
           )}
         </div>
       )}
-    </div>
+    </ToolCard>
   );
 };

@@ -22,20 +22,22 @@ import { TaskHealthTool } from '../components/tools/TaskHealthTool';
  * for a per-task view.
  */
 export const ToolsScreen = () => (
-  <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+  // Centred, and the same `max-w-6xl` the Platforms tab uses. Both screens are a
+  // single column of full-width panels, so they have to agree on where that
+  // column ends — otherwise two tabs of the same app read as two layouts.
+  <div className="space-y-5 animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto">
     <div>
       <h2 className="text-2xl font-bold mb-1">Tools</h2>
       <p className="text-muted-foreground">Act on many tasks at once, check task health, see what failed or stalled, try a schedule, back up and restore tasks, and connect AI tools.</p>
     </div>
 
-    {/* No `items-start`: the default `stretch` plus `h-full` on every card is
-        what makes each row line up instead of ending ragged. Cards carry a
-        `min-h` floor so a short one doesn't look stubby next to a tall one, and
-        anything that can grow (a restore plan, the health list) scrolls inside
-        its own card rather than stretching the whole row. */}
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-      {/* Full width, and first: it is the only card here that *acts*, and its
-          scope list needs the room. Everything below it reports. */}
+    {/* One card per row. A two-column grid put every card in a forced
+        equal-height pair, so the shorter of the two carried the taller one's
+        slack as dead space — and the tools are different enough sizes that
+        there was always a shorter one. A stack has no pairs to balance: each
+        card is its own height. Padding and spacing live in `ToolCard`. */}
+    <div className="space-y-4">
+      {/* First: it is the only card here that *acts*. Everything below reports. */}
       <MassActionsTool />
       <TaskHealthTool />
       <ExecutionAnalyticsTool />

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { api } from '../../api';
 import { HelpButton } from '../HelpButton';
+import { ToolCard } from './ToolCard';
 
 export type HealthTier = 'ok' | 'attention' | 'critical' | 'unknown';
 
@@ -102,22 +103,14 @@ export const TaskHealthTool = () => {
   const healthy = scoped.length - visible.length;
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-          <Activity size={20} />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-bold flex items-center gap-1.5">
-            Task health
-            <HelpButton topic="task-health" />
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Which tasks need attention, and the evidence behind each verdict — read from
-            Windows' own run results, not just Cronsole's records.
-          </p>
-        </div>
-      </div>
+    <ToolCard
+      icon={Activity}
+      title={<>Task health <HelpButton topic="task-health" /></>}
+      description={<>
+        Which tasks need attention, and the evidence behind each verdict — read from
+        Windows' own run results, not just Cronsole's records.
+      </>}
+    >
 
       {isLoading && (
         <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -136,9 +129,13 @@ export const TaskHealthTool = () => {
           {/* The summary IS the default view. A card on a utility tab should
               answer its question in one glance; the per-task detail is a
               deliberate second click, not something that fills the tab.
-              Centred in whatever height the row settles at, so the slack of an
-              equal-height grid reads as breathing room rather than a gap. */}
-          <div className="flex-1 flex flex-col justify-center gap-4 border-t border-border pt-4">
+
+              Plain flow, no `flex-1` and no centring. Both were there to place
+              this block inside a card stretched to match a taller neighbour;
+              with one card per row the card is its own height and there is no
+              slack to distribute. Centring nothing still costs nothing, but it
+              reads as a rule that is doing something. */}
+          <div className="flex flex-col gap-3 border-t border-border pt-3">
           <div className="grid grid-cols-4 gap-2">
             {[
               { label: 'Critical', value: critical, className: 'text-danger-text' },
@@ -282,6 +279,6 @@ export const TaskHealthTool = () => {
           )}
         </>
       )}
-    </div>
+    </ToolCard>
   );
 };

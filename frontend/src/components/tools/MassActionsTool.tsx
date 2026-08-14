@@ -37,6 +37,7 @@ import {
 import { useToast } from '../../hooks/useToast';
 import { MassActionConfirm } from './MassActionConfirm';
 import { HelpButton } from '../HelpButton';
+import { ToolCard } from './ToolCard';
 
 /**
  * The Mass Actions console — **the only** place Cronsole changes many tasks at
@@ -368,27 +369,22 @@ export const MassActionsTool = () => {
   const chosen = activeVerb ? VERB_META[activeVerb] : null;
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem] xl:col-span-2">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <Layers size={18} className="text-primary" /> Mass actions
-            <HelpButton topic="mass-actions" />
-          </h3>
-          <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-            Change many tasks at once. Pick what you want to do, then choose which tasks it applies
-            to. Nothing is asked of a platform until you confirm.
-          </p>
-        </div>
-        {activeVerb && !busy && (
-          <button
-            onClick={() => { setActiveVerb(null); setReport(null); }}
-            className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          >
-            <ArrowLeft size={13} /> All actions
-          </button>
-        )}
-      </div>
+    <ToolCard
+      icon={Layers}
+      title={<>Mass actions <HelpButton topic="mass-actions" /></>}
+      description={<>
+        Change many tasks at once. Pick what you want to do, then choose which tasks it applies
+        to. Nothing is asked of a platform until you confirm.
+      </>}
+      action={activeVerb && !busy ? (
+        <button
+          onClick={() => { setActiveVerb(null); setReport(null); }}
+          className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0"
+        >
+          <ArrowLeft size={13} /> All actions
+        </button>
+      ) : undefined}
+    >
 
       {/* ---- Step 1: what do you want to do? ----------------------------- */}
       {!activeVerb && (
@@ -643,7 +639,7 @@ export const MassActionsTool = () => {
         already takes all / folder / selection; <strong>importing</strong> is on the Dashboard,
         where discovery lives.
       </p>
-    </div>
+    </ToolCard>
   );
 };
 

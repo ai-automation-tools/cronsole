@@ -11,6 +11,7 @@ import {
   writeFilesToDirectory,
   type ExportFilePayload
 } from '../../utils/saveExport';
+import { ToolCard } from './ToolCard';
 
 interface PlatformFolder {
   path: string;
@@ -167,19 +168,14 @@ export const BulkExportTool = () => {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-          <FolderDown size={20} />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-bold">Back up scheduled tasks</h3>
-          <p className="text-sm text-muted-foreground">
-            Save Windows Task Scheduler tasks as native XML. Exports what is on <strong>this machine</strong> —
-            including tasks you never imported into Cronsole.
-          </p>
-        </div>
-      </div>
+    <ToolCard
+      icon={FolderDown}
+      title="Back up scheduled tasks"
+      description={<>
+        Save Windows Task Scheduler tasks as native XML. Exports what is on <strong>this machine</strong> —
+        including tasks you never imported into Cronsole.
+      </>}
+    >
 
       {error && (
         <div className="text-sm rounded-xl border border-warning/40 bg-warning/10 text-warning-text px-4 py-3">
@@ -226,7 +222,9 @@ export const BulkExportTool = () => {
             onChange={e => setFolder(e.target.value)}
             disabled={isLoading}
             aria-label="Folder to export"
-            className="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+            // Wider cap than the other selects — these are full Task Scheduler
+            // paths, which genuinely need the room.
+            className="block w-full max-w-xl bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
           >
             <option value="">{isLoading ? 'Loading folders…' : 'Choose a folder…'}</option>
             {selectableFolders.map(f => (
@@ -327,6 +325,6 @@ export const BulkExportTool = () => {
           )}
         </div>
       )}
-    </div>
+    </ToolCard>
   );
 };

@@ -116,7 +116,11 @@ export const PlatformsScreen = () => {
   const deleteLink = (id: string) => saveLinks(links.filter(l => l.id !== id));
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500 pb-20">
+    // The width lives on the wrapper, not on each section, so the heading is
+    // centred with the cards it introduces rather than starting at a different
+    // left edge. Same `max-w-6xl mx-auto` as the Tools tab — the two screens are
+    // the same shape and must end their column in the same place.
+    <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto">
       <div>
         <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">
           Platforms
@@ -127,7 +131,7 @@ export const PlatformsScreen = () => {
         </p>
       </div>
 
-      <section className="space-y-4 max-w-5xl">
+      <section className="space-y-4">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
           <h3 className="text-[10px] font-black text-subtle-foreground uppercase tracking-[0.2em] ml-1">
             Capability matrix
@@ -153,7 +157,7 @@ export const PlatformsScreen = () => {
         {data?.platforms.map(row => <PlatformMatrixCard key={row.platform} row={row} />)}
       </section>
 
-      <section className="space-y-4 max-w-5xl">
+      <section className="space-y-4">
         <div className="flex justify-between items-end gap-4 flex-wrap">
           <div>
             <h3 className="text-[10px] font-black text-subtle-foreground uppercase tracking-[0.2em] ml-1">

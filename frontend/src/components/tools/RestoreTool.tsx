@@ -3,6 +3,7 @@ import { AlertTriangle, FileWarning, FolderPlus, History, Loader2, Upload } from
 import { api } from '../../api';
 import { useToast } from '../../hooks/useToast';
 import { readRestoreSelection, type RestoreUpload } from '../../utils/readRestore';
+import { ToolCard } from './ToolCard';
 
 type RestoreAction = 'create' | 'overwrite' | 'skip' | 'refuse';
 type RestoreOutcome = 'created' | 'replaced' | 'exists' | 'refused';
@@ -175,19 +176,14 @@ export const RestoreTool = () => {
   const guessedPaths = plan?.items.filter(i => i.source === 'filename').length ?? 0;
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-6 space-y-5 flex flex-col h-full min-h-[26rem]">
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-          <History size={20} />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-bold">Restore tasks from a backup</h3>
-          <p className="text-sm text-muted-foreground">
-            Register Windows tasks back onto <strong>this machine</strong> from an export. Cronsole shows you
-            exactly what it would do before anything is written.
-          </p>
-        </div>
-      </div>
+    <ToolCard
+      icon={History}
+      title="Restore tasks from a backup"
+      description={<>
+        Register Windows tasks back onto <strong>this machine</strong> from an export. Cronsole shows you
+        exactly what it would do before anything is written.
+      </>}
+    >
 
       <input
         ref={fileInput}
@@ -366,7 +362,7 @@ export const RestoreTool = () => {
           </p>
         </div>
       )}
-    </div>
+    </ToolCard>
   );
 };
 

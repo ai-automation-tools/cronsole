@@ -1,10 +1,44 @@
 import axios from 'axios';
 
 const API_ORIGIN_STORAGE_KEY = 'cronsole.apiOrigin';
+
+/**
+ * Build-time sentinel for `VITE_API_URL` meaning "the API is served from the same
+ * origin as this page" — the single-origin reverse-proxy deployment, where Caddy
+ * serves the built frontend at `/` and forwards `/api` + `/socket.io` to the
+ * backend (see docs/user-guides/guides/Remote_Access_Guide.md).
+ *
+ * It exists because the alternative is worse in a way that is easy to miss: with
+ * an absolute origin baked in, one build can only ever be correct at one address,
+ * so reaching Cronsole from a phone meant setting the per-device API-origin
+ * override by hand on every device — localStorage state that is invisible, easy
+ * to get wrong, and lost the moment site data is cleared. Resolving against
+ * `window.location` instead makes ONE build correct at every address it is served
+ * from: `https://cronsole.example.com` through the tunnel and `http://localhost:8080`
+ * on the proxy locally, with nothing stored per device.
+ *
+ * Deliberately a build-time value only, not something `setApiOrigin` accepts. The
+ * Settings override exists to point at a DIFFERENT origin than the page; "follow
+ * the page" is already what `resetApiOrigin()` returns you to, and storing a
+ * sentinel that resolves differently per address would make the saved value mean
+ * something different depending on where it was read.
+ */
+const SAME_ORIGIN = 'same-origin';
+
 export const DEFAULT_API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_URL ?? 'http://localhost:3000');
 
 function normalizeApiOrigin(origin: string): string {
   const trimmed = origin.trim().replace(/\/+$/, '');
+
+  // An empty VITE_API_URL means the same thing as the sentinel: `??` above only
+  // catches null/undefined, so `VITE_API_URL=` in an env file arrives as ''.
+  if (trimmed === '' || trimmed === SAME_ORIGIN) {
+    if (typeof window === 'undefined') {
+      throw new Error('Same-origin API mode needs a browser window to resolve against.');
+    }
+    return window.location.origin;
+  }
+
   const parsed = new URL(trimmed);
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error('API origin must start with http:// or https://');
@@ -39,6 +73,17 @@ export function subscribeApiOrigin(cb: (origin: string) => void): () => void {
 }
 
 export function setApiOrigin(origin: string): string {
+  // The stored override must always be an explicit absolute origin. Blank and the
+  // build-time `same-origin` sentinel both resolve against `window.location`, so
+  // SAVING one would freeze today's address into a value whose whole point is to
+  // follow the page — right on the machine you set it on, wrong through the tunnel.
+  // "Follow the page" is what Reset already gives you (it returns to the build's
+  // default, which IS same-origin on a proxied build).
+  const raw = origin.trim().replace(/\/+$/, '');
+  if (raw === '' || raw === SAME_ORIGIN) {
+    throw new Error('Enter a full API origin (http:// or https://), or use Reset to follow this page.');
+  }
+
   let next: string;
   try {
     next = normalizeApiOrigin(origin);
@@ -71,7 +116,34 @@ export function resetApiOrigin(): string {
 // only to keep the E2E suite and local dev working without the login flow; a
 // real login token always wins.
 const AUTH_TOKEN_STORAGE_KEY = 'cronsole.token';
-const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
+
+/**
+ * The dev/E2E fallback token — and it is gated on `import.meta.env.DEV`, which is
+ * the only thing that keeps the comment above true in a BUILD.
+ *
+ * The intent ("no committed dev fallback — a hardcoded token is a leaked
+ * credential") was always right; the mechanism leaked anyway. Vite loads
+ * `.env.local` in every mode, not just dev, and compiles each `VITE_*` reference
+ * in as a literal — so `npm run build` inlined a real owner JWT straight into
+ * `dist/assets/*.js`. Measured on this machine before the fix: a valid token for
+ * the owner account, `exp` in 2036, readable in the served JavaScript by anyone
+ * who could load the page. `getAuthToken()` returns it whenever no one has logged
+ * in, so the login screen was not a gate at all — the bundle arrived already
+ * authenticated.
+ *
+ * That was survivable while `dist/` only ever ran on localhost. It stops being
+ * survivable the moment the single-origin proxy serves that same bundle through a
+ * public tunnel, which is exactly what the remote-access work does.
+ *
+ * `import.meta.env.DEV` is statically `false` in any build, so this collapses to
+ * `undefined` and the minifier drops the string entirely — the secret cannot
+ * reach a bundle even if `VITE_DEV_TOKEN` is set in the environment that builds
+ * it. Enforced by scripts/check-bundle-secrets.mjs, which fails the build if a
+ * JWT-shaped literal ever reappears.
+ */
+const DEV_TOKEN = import.meta.env.DEV
+  ? (import.meta.env.VITE_DEV_TOKEN as string | undefined)
+  : undefined;
 
 function readStoredToken(): string | null {
   if (typeof window === 'undefined') return null;

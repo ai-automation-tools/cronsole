@@ -2,6 +2,12 @@
 .env
 .env.*
 !.env.example
+# Vite build-mode config, NOT a secret store: `vite build --mode remote` reads it
+# to set VITE_API_URL=same-origin for the single-origin proxy build. It is tracked
+# because it is part of how the app is built, and it holds exactly one non-secret
+# value. Keep it that way — anything confidential belongs in an ignored .env, and
+# a VITE_* variable is compiled into the bundle and served to every visitor anyway.
+!frontend/.env.remote
 *.pem
 *.key
 
@@ -92,6 +98,17 @@ logs/
 
 # --- Local-only docs (historical plans, engineering specs, research) ---
 docs/archive/
+
+# --- Local-only docs: THIS machine's deployment ---
+# Runbooks for the instance running on this specific machine — tailnet hostnames,
+# device names, the exact ALLOWED_ORIGINS in force, which decisions were taken and
+# why. Not secrets, but personal infrastructure identifiers that must not ride along
+# into a repo headed for public release, and true of exactly one machine, so they
+# would be wrong for anyone who cloned them.
+#
+# The generalizable half of this belongs in docs/user-guides/guides/, which IS
+# tracked. If something written here would help a stranger, it is in the wrong file.
+docs/local/
 
 # --- .claude/: track ONLY commands, skills, and agents ---
 # Deny by default, then re-include the three shared dirs. Everything else under

@@ -21,6 +21,9 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 55 | The dashboard opens **already signed in** on a browser that has never logged in — including through the remote-access proxy, where "already signed in" means *anyone who loads the page* | `VITE_DEV_TOKEN` was compiled into `dist/`. Vite loads `.env.local` in **every** mode and inlines each `VITE_*` reference as a literal, so `npm run build` baked a real owner JWT (`exp` 2036) into the served JavaScript, and `getAuthToken()` sends it whenever nobody is logged in — the login screen was decorative. **The source was clean; the compiler added the secret.** **Fixed 2026-08-15**: the reference is gated on `import.meta.env.DEV` so it folds away in a build, and `scripts/check-bundle-secrets.mjs` fails the build if a credential-shaped literal reappears | [→](#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in) |
+| 54 | **Every** `docker compose` command fails with *"required variable CLOUDFLARE_TUNNEL_TOKEN is missing a value"* — including `docker compose up -d`, which only wants Postgres and Redis | Compose interpolates the **whole file before it selects a profile**, so a `${VAR:?message}` in a service you never start still fails commands that do not involve it. A tunnel credential became a precondition for starting the database. **Fixed 2026-08-15** by using `:-` (empty default); the unset token now surfaces in `docker compose logs tunnel` instead | [→](#54-a-compose-profile-you-never-start-breaks-every-compose-command) |
+| 53 | Behind the remote-access proxy the phone shows an **old version of the dashboard** — a fix you just made is live on `:7373` and absent on `:8080`, with no error anywhere | The proxy serves `frontend/dist`, a **build artifact**, not the Vite dev server. It is a fourth thing that runs stale alongside the Dockerized backend, `agent/publish/`, and `mcp-server/dist/`. Run `npm run build:remote` in `frontend/`. **The tell: the two origins disagree, and only the proxied one is behind** | [→](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current) |
 | 49 | `get_task_health` reports *"Across 358 task(s): 25 critical"* directly above a list of **13** — and `counts` disagrees with `matched` in the same response | The **wrapper** filters and the **server** counts. `GET /api/tools/task-health` has no `tier`, `includeSystem` or `limit` at all: it scores every task and summarizes the same set, honestly. `mcp-server` implements all three client-side, then forwards the server's unfiltered `counts` beside a `matched` taken from the filtered set — so one response describes two populations. **Fixed 2026-08-13** — the three filters moved onto the route, beside the counting, and the response now names the population it summarized. **The tell, if it recurs: `counts` does not change when you flip `includeSystem`** | [→](#49-get_task_healths-counts-describe-a-different-population-than-its-list) |
 | 48 | Windows sits at **Degraded** for hours — *"connected but not responding"* — while the agent is running fine and answers the moment you press Sync | The verdict was real and had **expired**. A request timeout is one observation at one instant and is never renewed, so with nothing asking the agent anything afterwards, "not responding" kept being asserted from a single failure hours earlier. Health now ages that evidence out to **UNKNOWN** ("Not checked") past 15 minutes. **The tell: every capability row shows recent successes and zero failures, and the newest timestamp anywhere on the platform is hours old** | [→](#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy) |
 | 52 | An open edit modal **closes by itself**, discarding what you typed — on a timer, not on a keystroke, and with no error | A reset effect keyed on the **task object** rather than its **id**. The dashboard passes `tasks.find(...)`, so every refetch (45s poll, `task:updated`, the editor's own invalidation) hands down a new object and re-runs `setShowEditor(false)`. **Object identity is not entity identity** on a live-data screen. **Fixed 2026-08-13** by depending on `task?.id` | [→](#52-an-open-edit-modal-closes-by-itself-discarding-what-you-typed) |
@@ -3483,6 +3486,165 @@ exposure did.**
 *First hit: 2026-08-13, while collapsing the four per-part edit controls into a single editor. Found
 by reading the effect during the refactor rather than by hitting it — but it was live in the shipped
 app, where an `EditScheduleModal` left open across a poll closed the same way.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 53. The proxied dashboard is stale while the dev server is current
+
+**Symptom.** You fix something in the frontend, confirm it on `http://localhost:7373`, then open
+Cronsole on your phone through the tunnel (or `http://127.0.0.1:8080` locally) and the fix is not
+there. Hard-refreshing does not help. Nothing errors, and both pages otherwise work.
+
+**Cause.** The single-origin proxy serves **`frontend/dist`** — a build artifact — not the Vite dev
+server. Deliberately: dev serves hundreds of unbundled ES modules and opens its own HMR WebSocket
+on `:7373`, which is slow over a tunnel and would need the tunnel hostname in Vite's
+`allowedHosts`. The cost is that the proxied copy only changes when you rebuild.
+
+**Fix.**
+
+```bash
+cd frontend && npm run build:remote     # mode `remote` => VITE_API_URL=same-origin
+```
+
+The proxy mounts `./frontend/dist` read-only and Caddy serves it directly, so no container restart
+is needed — the next request picks up the new files.
+
+**The general rule.** This is a **fourth thing that runs stale**, and it belongs on the list with
+the other three (the Dockerized backend, `agent/publish/`, `mcp-server/dist/`). All four share one
+shape: *a compiled or published copy that keeps serving while the source moves underneath it*, with
+no error to say so. It differs from the other three in one way worth knowing — it is **conditional**,
+present only when the opt-in `proxy` profile is running, so it will not be on your mind by default.
+
+Two supporting details keep it from being worse than it is. The Caddyfile sends `Cache-Control:
+no-cache` for the entry document and `immutable` only for Vite's fingerprinted `/assets/*`, so a
+rebuild is picked up on the next load rather than living in the phone's cache indefinitely. And
+`npm run build:remote` runs `check-bundle-secrets.mjs` after the build, so the rebuild you have to
+remember is also the thing that re-verifies the bundle (see [#55](#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in)).
+
+*First hit: 2026-08-15, while building the single-origin reverse proxy.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 54. A compose profile you never start breaks every compose command
+
+**Symptom.** After adding the remote-access services, every Docker Compose command against the
+repo fails:
+
+```
+error while interpolating services.tunnel.environment.TUNNEL_TOKEN: required variable
+CLOUDFLARE_TUNNEL_TOKEN is missing a value: Set CLOUDFLARE_TUNNEL_TOKEN in .env — ...
+```
+
+Including `docker compose up -d`, which starts only Postgres and Redis and has nothing to do with
+the tunnel. `docker compose config --services` fails the same way, so you cannot even list what is
+defined.
+
+**Cause.** `${CLOUDFLARE_TUNNEL_TOKEN:?message}` — Compose's "required variable" syntax. It reads
+as a scoped precondition on the `tunnel` service, and it is not: **Compose interpolates the entire
+file before it decides which profiles are active.** A required variable anywhere in the file is
+therefore required for *every* command against that file, whether or not the service using it is
+ever started. The effect was that a Cloudflare tunnel credential became a precondition for starting
+the database.
+
+**Fix.** Use an empty default and let the service fail on its own terms:
+
+```yaml
+TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+```
+
+An unset token now surfaces at `docker compose logs tunnel` when you actually start it, instead of
+at every unrelated command. It cannot be caught earlier in the container: `cloudflare/cloudflared`
+is a **distroless image with no shell**, so the command cannot be wrapped in a guard that prints a
+better message (`docker run --entrypoint /bin/sh` fails with `stat /bin/sh: no such file`).
+
+**The general rule.** `:?` is for a variable the **whole file** cannot work without — not for one a
+single optional service needs. Profiles scope what *runs*; they do not scope what is *interpolated*.
+Anything added under a profile should be checked with `docker compose config --services` **without**
+that profile enabled, which is the cheap test that would have caught this immediately.
+
+*First hit: 2026-08-15, while adding the `proxy` and `remote` profiles. Caught before commit by
+running `docker compose config --services` — the failure was total and instant, which is the good
+case; the bad case is a teammate hitting it on a clean clone.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 55. The dashboard is "already signed in" on a browser that never logged in
+
+**Symptom.** You open the built dashboard from an origin that has never authenticated — a fresh
+profile, a different port, or the new remote-access proxy — and it renders the full task list
+immediately. No login screen. `localStorage` for that origin is empty.
+
+**This is the severe one on this page.** Through the remote-access proxy it means the login screen
+is not a gate: anyone who can load the page is already the owner.
+
+**Cause.** A real JWT compiled into the JavaScript bundle.
+
+`api.ts` reads an optional dev/E2E fallback token:
+
+```ts
+const DEV_TOKEN = import.meta.env.VITE_DEV_TOKEN as string | undefined;
+// getAuthToken(): return loginToken ?? DEV_TOKEN;
+```
+
+Three true statements that together produce the leak:
+
+1. **Vite loads `.env.local` in every mode**, not only `dev` — so `npm run build` sees it.
+2. **A `VITE_*` reference is inlined as a literal at build time.** It is not read at runtime; it
+   becomes part of the served JavaScript.
+3. **`getAuthToken()` falls back to it whenever nobody is logged in** — exactly the state a new
+   visitor is in.
+
+Measured on this machine before the fix: `dist/assets/index-*.js` contained a valid token for the
+owner account with `exp` in **2036**, readable by anyone who could fetch the page.
+
+**The tell, and why nothing caught it.** Every place someone would look said the code was fine. The
+comment above the line reads *"There is intentionally NO committed dev fallback — a hardcoded token
+is a leaked credential"*, and that intent was correct. `.env.local` is gitignored, so nothing was
+committed. All tests passed. The app behaved properly. **The source never contained the secret; the
+compiler put it there** — which is why a linter or a source grep could not have found it, and why
+the check that does find it reads the *build output*.
+
+**Fix.** Gate the reference so it cannot survive a build:
+
+```ts
+const DEV_TOKEN = import.meta.env.DEV
+  ? (import.meta.env.VITE_DEV_TOKEN as string | undefined)
+  : undefined;
+```
+
+`import.meta.env.DEV` is statically `false` in any build, so the branch folds and the minifier drops
+the string — the secret cannot reach a bundle even when `VITE_DEV_TOKEN` is set in the building
+environment. Dev and the Playwright E2E suite are unaffected; there `DEV` is `true`.
+
+Then verify, on every build: `frontend/scripts/check-bundle-secrets.mjs` scans `dist/` for
+credential-shaped literals (JWTs, AWS/GitHub/Anthropic/OpenAI keys, private-key blocks) and fails
+the build with the offending file. It is wired into **both** `npm run build` and
+`npm run build:remote`.
+
+**Check your own build:**
+
+```bash
+cd frontend && npm run check:bundle
+```
+
+**The general rule.** *A `VITE_*` variable is public by construction.* It is compiled into the
+bundle and served to every visitor, so it can never hold a secret — the prefix is a marker meaning
+"safe to publish", not "available to the frontend". Anything sensitive belongs behind a backend
+route. And when a fallback exists so that *development* is convenient, gate it on `DEV` explicitly:
+the failure mode is not a crash but a silent, total loss of the auth boundary, and it only becomes
+visible the day the bundle is served somewhere other than localhost.
+
+*First hit: 2026-08-15, found while verifying the remote-access proxy in a browser — the proxied
+origin rendered a signed-in dashboard it had no credential for. **Pre-existing**: the plain
+`npm run build` had the same defect, and had it for as long as `VITE_DEV_TOKEN` has been in
+`.env.local`. It was survivable only because `dist/` had never been served anywhere but localhost;
+the remote-access work is what would have published it.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

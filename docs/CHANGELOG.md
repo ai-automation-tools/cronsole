@@ -13,6 +13,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Security
+- **A real owner token was compiled into the production frontend bundle** (found and fixed 2026-08-15). `api.ts` read an optional dev/E2E fallback, `import.meta.env.VITE_DEV_TOKEN`, used whenever nobody is logged in. Vite loads `.env.local` in **every** mode — not just `dev` — and inlines each `VITE_*` reference as a literal, so `npm run build` baked a valid JWT for the owner account (`exp` 2036) straight into `dist/assets/*.js`. Any browser that loaded the built dashboard was **already authenticated**: the login screen rendered only when the token was absent, so on a built copy it effectively never did.
+
+  **The blast radius was local until now, which is exactly why this had to be fixed first.** `dist/` had never been served anywhere but localhost. The single-origin proxy below serves that same bundle through a public Cloudflare tunnel — so shipping the remote-access work without this fix would have published a permanent credential for an app whose purpose is running commands on your machine.
+
+  **The fix is structural, not a rule to remember.** The reference is now gated on `import.meta.env.DEV`, which is statically `false` in any build, so the branch folds and the minifier drops the string — the secret cannot reach a bundle even when `VITE_DEV_TOKEN` is set in the building environment. Dev and the Playwright E2E suite are unaffected.
+
+  **And it is verified on every build.** `frontend/scripts/check-bundle-secrets.mjs` scans the build output for credential-shaped literals (JWTs, AWS/GitHub/Anthropic/OpenAI keys, private-key blocks) and fails with the offending file; it is wired into both `npm run build` and `npm run build:remote`, and exposed as `npm run check:bundle`. It deliberately reads **`dist/`, not the source** — the source never contained the secret, the compiler added it, so a linter or a source grep would have reported the code as clean. Mutation-tested: reverting the gate makes it fail.
+
+  **The general rule, now written down:** a `VITE_*` variable is *public by construction*. The prefix means "safe to publish", not "available to the frontend". See [troubleshooting #55](troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in).
 - **MCP `delete_task` is now Cronsole-native only, and archives before it destroys** (2026-08-13). The one MCP verb that could not be undone previously had the *widest* reach on the surface: it wrapped the same `DELETE /api/tasks/:id` the UI uses, so with the gate open an agent could remove a real Windows Task Scheduler entry through the elevated local agent. It now wraps **`DELETE /api/tasks/:id/native`**, which refuses every other platform with a `400`.
 
   **The resulting property is whole-surface: no MCP tool can destroy an artifact on your machine.** Removing a Windows task over MCP means `untrack_task` — Cronsole's row goes, the scheduled task keeps running — and genuinely destroying one needs a human in the Cronsole UI. The refusal is worded as a boundary rather than a "not yet", so an assistant reports it instead of hunting for a flag.
@@ -20,6 +29,27 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   **The restriction lives in the backend route, not in the wrapper.** A platform check inside `mcp-server/` would be a client-side check the REST API still ignores, so the guarantee would hold only for callers who went through the wrapper — which is not a guarantee. `mcp-server/` still owns no logic.
 
   **The env gate stays shut by default.** The blast radius is now bounded and recoverable, which weakens the case for `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` — but loosening two safety dimensions in one change would mean a later failure could not be attributed to either.
+
+### Added
+- **Remote access: a single-origin reverse proxy and a Cloudflare Tunnel profile** (2026-08-15). Reaching your own instance from a phone previously meant exposing **two** origins (`:7373` and `:3000`) and typing the **Settings → About → API origin** override into every device — invisible `localStorage` state, easy to get wrong, lost when site data is cleared. Two opt-in Compose profiles replace that:
+
+  ```bash
+  docker compose --profile proxy  up -d   # Caddy only — verify at 127.0.0.1:8080
+  docker compose --profile remote up -d   # proxy + cloudflared
+  ```
+
+  **One origin.** `proxy/Caddyfile` serves the built dashboard at `/` and forwards `/api/*` and `/socket.io/*` to the backend. Socket.IO's `/ui` namespace rides inside the protocol rather than the URL, so the one socket rule covers live updates. A `try_files` fallback keeps React Router deep links (`/tasks/:id`) working on refresh — the exact link someone sends to their phone.
+
+  **`npm run build:remote`** builds with `VITE_API_URL=same-origin`, a new sentinel that resolves the API against `window.location` instead of a baked-in address. One build is now correct at every address it is served from — the tunnel hostname and `localhost:8080` — which is what removes the per-device override. It is a **build-time** value only: `setApiOrigin` refuses to *store* it, because a saved value that resolves against the page would freeze whichever address it was saved at.
+
+  **`TRUST_PROXY`** (backend, off by default) makes Express read the client address from `X-Forwarded-For`. Behind the proxy without it, every request appears to come from the proxy and the login rate-limiter collapses to one global bucket — ten wrong passwords from anywhere lock the owner out. Off by default because trusting the header is the widening choice: on a directly-reachable `:3000` it lets a caller forge their address and evade the limiter.
+
+  **The proxy binds `127.0.0.1:8080`, not `0.0.0.0`.** cloudflared reaches it over the compose network, and Tailscale reaches it with `tailscale serve --bg --http=8080 http://127.0.0.1:8080`, which re-serves loopback **on the tailnet only** — so both paths get one origin without anything binding a public interface. Binding `0.0.0.0` would publish the dashboard to whatever Wi-Fi the machine is on. Note the explicit `--http=`: the shorter `tailscale serve --bg 8080` implies TLS and **hangs indefinitely** provisioning a certificate when the tailnet has HTTPS disabled, rather than failing with a message. Plain HTTP is not a hole here — a tailnet is WireGuard-encrypted device to device — but HTTPS is a one-toggle upgrade, at the cost of publishing machine names to public Certificate Transparency logs.
+
+  **`TRUST_PROXY` is a per-deployment decision, not a consequence of the proxy.** Set it behind Cloudflare Tunnel (only `proxy:80` is routed, so the proxy is genuinely the only way in); leave it unset on Tailscale, where the tailnet exposes the whole machine and `:3000` stays directly addressable, making a trusted `X-Forwarded-For` forgeable. The same proxy yields opposite answers. Guide: [Remote Access](user-guides/guides/Remote_Access_Guide.md). Verified end to end on this machine — dashboard, API, SPA deep link, Socket.IO handshake, and a `401` on an unauthenticated read, all through the single origin.
+
+### Fixed
+- **A `${VAR:?}` in an unused Compose profile broke every `docker compose` command** (2026-08-15). The `tunnel` service declared its token as required, and Compose interpolates the **whole file before it selects a profile** — so `docker compose up -d`, which starts only Postgres and Redis, failed on a missing Cloudflare credential, as did `docker compose config`. A tunnel token had become a precondition for starting the database. Now `${CLOUDFLARE_TUNNEL_TOKEN:-}`; an unset token surfaces in `docker compose logs tunnel` instead. It cannot be caught earlier in-container — `cloudflare/cloudflared` is distroless, with no shell to wrap the command in. ([#54](troubleshooting/README.md#54-a-compose-profile-you-never-start-breaks-every-compose-command))
 
 ### Changed
 - **The app icon gains an emerald ring, and the toolbar stops showing a `T`** (2026-08-13). The favicon is a near-black plate, which dissolves into a dark browser tab strip — at 16px only the grid read, floating with no edge. A solid `#10b981` ring now sits at the plate edge (inset by half its 14px stroke, so the stroke's outer edge lands on the edge), matching the Agent-Chat icon set.

@@ -47,6 +47,17 @@ describe('account creation is /setup only', () => {
     expect(ok.status).toBe(200);
     expect(ok.body.token).toBeTruthy();
 
+    // The response states the credential's lifetime. This is the whole point of
+    // reporting it: an expired token makes the MCP server refuse to start, so its
+    // tools go MISSING rather than erroring (troubleshooting #8) — a caller told
+    // "24h" up front can diagnose that, one that was never told can only discover
+    // it. Asserted against the real token so the header and the claim cannot drift.
+    expect(ok.body.expiresIn).toBe('24h');
+    const { exp, iat } = JSON.parse(
+      Buffer.from(ok.body.token.split('.')[1], 'base64url').toString()
+    ) as { exp: number; iat: number };
+    expect(exp - iat).toBe(24 * 60 * 60);
+
     const bad = await request(app)
       .post('/api/auth/login')
       .send({ email: creds.email, password: 'wrong-password' });

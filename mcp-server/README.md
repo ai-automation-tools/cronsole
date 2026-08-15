@@ -117,17 +117,34 @@ Set via environment (see [`.env.example`](.env.example)):
 > won't see a newly set variable** — close it and open a fresh one, then relaunch the host.
 > Restarting the host alone is not enough.
 
-**Minting a token** (the same kind the frontend dev token is): run from `backend/` with the
-backend's `JWT_SECRET` in scope —
+**Getting a token** — log in and use what the API returns. No signing secret, no database lookup,
+no Node required.
+
+1. Set `JWT_EXPIRES_IN=30d` in `backend/.env` and restart the backend. A login token is `24h` by
+   default, which suits a browser tab and not a stdio client that cannot re-authenticate.
+2. Log in and read `token` off the response:
 
 ```bash
-node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'30d'}))"
+curl -s -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"your-password"}'
+# => { "token": "eyJ...", "expiresIn": "30d", "user": { ... } }
 ```
+
+`expiresIn` is returned on purpose: an expired token makes this server **refuse to start**, so the
+tools go *missing* rather than erroring — knowing the lifetime up front is what makes that
+diagnosable rather than mysterious.
 
 > ⚠️ The token is a real credential — keep it in your environment, never in a committed file.
 > `.mcp.json` references it as `${CRONSOLE_TOKEN}` precisely so the literal secret never lands
-> in the repo. A per-user pairing flow replaces this hand-minted token once the Go-public
-> account system lands (see the roadmap).
+> in the repo.
+
+> **Note:** `JWT_EXPIRES_IN` applies to *every* token, so raising it also lengthens browser
+> sessions. Separating them — and getting revocation, which does not exist today — needs the named
+> token surface on the roadmap under P0. Until 2026-08-15 this section told you to hand-mint with
+> `jsonwebtoken.sign` and the backend's `JWT_SECRET`; see the
+> [MCP Server Guide](../docs/user-guides/guides/MCP_Server_Guide.md#getting-a-token) if you still
+> hold one of those.
 
 ## Build & run
 

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { prisma } from '../db.js';
-import { generateToken, authenticateToken, AuthRequest } from '../auth/auth.js';
+import { generateToken, authenticateToken, tokenLifetime, AuthRequest } from '../auth/auth.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
 import { makeAuthLimiter } from '../middleware/authLimiter.js';
@@ -80,7 +80,11 @@ router.post('/setup', authLimiter, validateBody(credentialsSchema), async (req: 
   }
 
   const token = generateToken(user);
-  res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+  // `expiresIn` is reported, not merely configured: an expired CRONSOLE_TOKEN
+  // makes the MCP server refuse to start, so its tools go *missing* rather than
+  // erroring (troubleshooting #8). A caller told "24h" up front can diagnose that
+  // in seconds; one that was never told can only discover it.
+  res.json({ token, expiresIn: tokenLifetime(), user: { id: user.id, email: user.email, name: user.name } });
 });
 
 // There is deliberately NO generic `POST /register` here.
@@ -119,7 +123,11 @@ router.post('/login', authLimiter, validateBody(loginSchema), async (req: Reques
   }
 
   const token = generateToken(user);
-  res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+  // `expiresIn` is reported, not merely configured: an expired CRONSOLE_TOKEN
+  // makes the MCP server refuse to start, so its tools go *missing* rather than
+  // erroring (troubleshooting #8). A caller told "24h" up front can diagnose that
+  // in seconds; one that was never told can only discover it.
+  res.json({ token, expiresIn: tokenLifetime(), user: { id: user.id, email: user.email, name: user.name } });
 });
 
 const changePasswordSchema = z.object({

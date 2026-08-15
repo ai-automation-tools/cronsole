@@ -192,19 +192,70 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 > parent, so an already-open terminal keeps handing the *old* environment to everything it
 > launches. Restarting your MCP host inside that terminal won't pick up a newly set variable.
 
-### Minting a token
+### Getting a token
 
-The MCP server acts as one Cronsole user — mint a JWT the same way the frontend dev token is
-minted. From `backend/` (with the backend's `JWT_SECRET` in scope):
+The MCP server acts as one Cronsole user, authenticating with a JWT. **Log in and use the token
+the API gives you** — you do not need the signing secret, a database lookup, or Node.
+
+**1. Set the lifetime.** A login token lasts `24h` by default, which suits a browser tab and not a
+stdio client that cannot re-authenticate. In `backend/.env`:
+
+```bash
+JWT_EXPIRES_IN=30d
+```
+
+Restart the backend. Accepted forms are a duration (`24h`, `30d`, `12h`) or a plain number of
+**seconds**; the backend refuses to start on anything it cannot turn into a usable lifetime, rather
+than issuing tokens that fail at first use.
+
+**2. Log in and read the token off the response.**
+
+```bash
+curl -s -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"your-password"}'
+```
+
+```json
+{ "token": "eyJhbGciOi...", "expiresIn": "30d", "user": { "id": "...", "email": "..." } }
+```
+
+`expiresIn` is returned deliberately: an expired token makes the MCP server **refuse to start**, so
+its tools go *missing* rather than erroring — which reads as "the integration is broken" instead of
+"my credential lapsed" ([troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)).
+Knowing the lifetime up front is what makes that diagnosable.
+
+**3. Export it** as `CRONSOLE_TOKEN` in the environment your MCP host launches from. On Windows a
+newly-set variable needs a **fresh terminal** — a process inherits its parent's environment.
+
+> [!WARNING]
+> The token is a real credential — keep it in your environment or your host's env block, never in a
+> committed file.
+
+> [!NOTE]
+> **`JWT_EXPIRES_IN` is one value for every token**, so raising it for the MCP server also lengthens
+> browser sessions — a 30-day token in `localStorage`, including on a phone if you use
+> [remote access](Remote_Access_Guide.md). Separating them needs an issuing surface that can mint a
+> token distinct from a login: named tokens, listed and revocable, stored as hashes. That is on the
+> [Roadmap](../../ROADMAP.md) under P0, and it is also what will bring **revocation** — today a
+> leaked token can only be killed by rotating `JWT_SECRET`, which signs out everything at once.
+
+<details>
+<summary>Previously: hand-minting with <code>jsonwebtoken.sign</code></summary>
+
+Until 2026-08-15 this guide told you to run:
 
 ```bash
 node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'30d'}))"
 ```
 
-> [!WARNING]
-> The token is a real credential — keep it in your environment or your host's env block,
-> never in a committed file. A proper per-user pairing flow replaces this hand-minted token
-> once the account system lands (see the [Roadmap](../../ROADMAP.md) › Go-public).
+That required the **signing secret**, a `userId` read out of the database, Node, and a shell — and
+it produced a token the product itself could not issue, since `expiresIn` was hardcoded to `24h`.
+It is recorded here only so anyone still holding such a token knows where it came from. **Replace
+it via the login flow above**; hand-minted tokens keep working until they expire, and nothing
+tracks or revokes them.
+
+</details>
 
 ## Wire it into your assistant
 

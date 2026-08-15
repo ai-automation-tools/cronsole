@@ -43,33 +43,21 @@ const view = (
   blurb: string
 ): SavedView => ({ id, name, filters: { ...DEFAULT_FILTERS, ...filters }, blurb });
 
-/**
- * Starred tasks, and nothing else deciding what you see.
- *
- * `status: 'any'` and `system: 'include'` are the whole point: a star is an
- * explicit, per-task choice this user made, so no *default* lens may overrule
- * it. Starring a task, parking it, and then finding it missing from the view
- * named after your stars would make the star mean "shown, conditions apply".
- * The one task you starred out of `\Microsoft\` is shown for the same reason.
- *
- * Exported by name because the dashboard opens on it (see `DashboardScreen`),
- * and looking a default up by string id is how a rename becomes a blank screen.
+/*
+ * Favorites used to be a built-in view here — `{favorites:'only', status:'any',
+ * system:'include'}`, with a comment explaining that a star outranks every other
+ * lens. It is a **row in the source rail** now (see `FAVORITES_KEY` in
+ * `sourceTree.ts`), which is where people look for it and where it composes with
+ * a view instead of replacing one. It is gone from this file rather than kept
+ * and hidden: a view nothing renders is dead state that reads as meaningful.
  */
-export const FAVORITES_VIEW: SavedView = {
-  id: 'favorites',
-  name: 'Favorites',
-  filters: { ...DEFAULT_FILTERS, status: 'any', system: 'include', favorites: 'only' },
-  blurb:
-    'Only the tasks you have starred — including disabled, missing, and system ones, because you starred them on purpose.'
-};
 
 /**
- * The five views the roadmap named, plus Favorites and All. Four of the five needed
- * filter dimensions that did not exist — only "My jobs" was expressible by the
- * old toggles.
+ * The five views the roadmap named, plus All. Four of the five needed filter
+ * dimensions that did not exist — only "My jobs" was expressible by the old
+ * toggles.
  *
- * Favorites leads because it is the view the dashboard opens on once you have
- * any; the bar should not make you hunt for the list you are already looking at.
+ * **Favorites is not here** — it is a row in the source rail. See the note above.
  */
 export const BUILTIN_VIEWS: SavedView[] = [
   /**
@@ -88,7 +76,6 @@ export const BUILTIN_VIEWS: SavedView[] = [
    */
   view('all', 'All', { status: 'any', system: 'include' },
     'Every task, including the ones Windows owns and anything disabled or missing. No lens at all.'),
-  FAVORITES_VIEW,
   view('my-jobs', 'My jobs', { status: 'active', system: 'personal' },
     'Your active tasks. Hides Windows’ own tasks and anything disabled or missing.'),
   view('failures', 'Failures', { status: 'any', system: 'personal', outcome: 'failing' },
@@ -132,12 +119,22 @@ export function openingFilters(defaults: TaskFilters): TaskFilters {
 /**
  * The filters a saved view should actually store.
  *
- * Source is stripped, because a view does not own one: it is the outer lens,
- * `filtersEqual` ignores it, and a view carrying `source: WINDOWS` would be a
- * value nothing reads — dead state that reads as meaningful to the next person.
+ * **Source, category and favorites are all stripped**, because a view owns none
+ * of them: they are the source rail — navigation — `filtersEqual` ignores all
+ * three, and a view carrying `source: WINDOWS` or `favorites: 'only'` would be a
+ * value nothing reads. Dead state that reads as meaningful to the next person is
+ * worse than no state, because it invites someone to start honouring it.
+ *
+ * Category joined source here on 2026-08-15 when the rail took it over, and
+ * favorites joined when Favorites became a rail row.
  */
 export function viewFiltersFrom(filters: TaskFilters): TaskFilters {
-  return { ...filters, source: DEFAULT_FILTERS.source };
+  return {
+    ...filters,
+    source: DEFAULT_FILTERS.source,
+    category: DEFAULT_FILTERS.category,
+    favorites: DEFAULT_FILTERS.favorites
+  };
 }
 
 /** Built-ins first, then the user's own, for the view bar. */
@@ -258,12 +255,15 @@ export function filtersToParams(
   const match = matchView(filters, saved);
   if (match) {
     params.set('view', match.id);
-    // Source rides *alongside* the view id rather than being folded into it.
-    // It is the outer lens (see `filtersEqual`), so a view no longer carries a
-    // platform — and if this were dropped here, selecting a source would vanish
-    // from the URL the moment the rest of the filters happened to match a view,
-    // and reload as "All sources". A bookmark has to reproduce what you see.
+    // The rail's two dimensions ride *alongside* the view id rather than being
+    // folded into it. They are navigation (see `filtersEqual`), so a view no
+    // longer carries either — and if these were dropped here, picking a source
+    // or a folder would vanish from the URL the moment the rest of the filters
+    // happened to match a view, and reload as "All sources". A bookmark has to
+    // reproduce what you see.
     if (filters.source !== DEFAULT_FILTERS.source) params.set('source', filters.source);
+    if (filters.category !== DEFAULT_FILTERS.category) params.set('category', filters.category);
+    if (filters.favorites !== DEFAULT_FILTERS.favorites) params.set('fav', filters.favorites);
     return params;
   }
   if (filters.status !== DEFAULT_FILTERS.status) params.set('status', filters.status);
@@ -293,12 +293,14 @@ export function filtersFromParams(
   const id = params.get('view');
   if (id) {
     const found = allViews(saved).find(v => v.id === id);
-    // The view supplies every dimension except source, which is read from its
-    // own param — the mirror of how `filtersToParams` writes it.
+    // The view supplies every dimension except the rail's two, which are read
+    // from their own params — the mirror of how `filtersToParams` writes them.
     if (found) {
       return {
         ...found.filters,
-        source: readSource(params)
+        source: readSource(params),
+        category: params.get('category') || DEFAULT_FILTERS.category,
+        favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites)
       };
     }
   }

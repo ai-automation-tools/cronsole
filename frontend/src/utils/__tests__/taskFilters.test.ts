@@ -373,10 +373,29 @@ describe('activeFilterCount', () => {
     // would be the invisible fence with a nicer lid, so the count is what stops
     // the collapse from hiding *that* filters are set.
     expect(activeFilterCount({ ...DEFAULT_FILTERS, status: 'any' })).toBe(1);
-    expect(activeFilterCount({ ...DEFAULT_FILTERS, status: 'any', category: 'Backups' })).toBe(2);
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, status: 'any', due: 'today' })).toBe(2);
     expect(
-      activeFilterCount({ ...DEFAULT_FILTERS, status: 'any', system: 'include', favorites: 'only' })
+      activeFilterCount({ ...DEFAULT_FILTERS, status: 'any', system: 'include', outcome: 'failing' })
     ).toBe(3);
+  });
+
+  it('counts none of the three dimensions the rail owns', () => {
+    // The badge may only describe what its own drawer can clear. Source has
+    // never been in the popover; category left it for the rail's second level,
+    // and favorites left the views bar for a rail row. Counting any of them
+    // would put a "1 filter" badge on a drawer with nothing set in it.
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, category: 'Backups' })).toBe(0);
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' })).toBe(0);
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, favorites: 'only' })).toBe(0);
+    expect(
+      activeFilterCount({
+        ...DEFAULT_FILTERS,
+        category: 'Backups',
+        source: 'CLAUDE_CODE',
+        favorites: 'only',
+        due: 'today'
+      })
+    ).toBe(1);
   });
 
   it('measures against a supplied baseline, so the All view reads 0', () => {
@@ -389,7 +408,10 @@ describe('activeFilterCount', () => {
     const allView = { ...DEFAULT_FILTERS, status: 'any' as const, system: 'include' as const };
     expect(activeFilterCount(allView)).toBe(2);            // vs the dashboard default
     expect(activeFilterCount(allView, allView)).toBe(0);   // vs the view you are on
-    expect(activeFilterCount({ ...allView, category: 'Backups' }, allView)).toBe(1);
+    // A dimension the drawer still owns moves the badge; category no longer does.
+    expect(activeFilterCount({ ...allView, due: 'today' }, allView)).toBe(1);
+    expect(activeFilterCount({ ...allView, category: 'Backups' }, allView)).toBe(0);
+    expect(activeFilterCount({ ...allView, favorites: 'only' }, allView)).toBe(0);
   });
 
   it('ignores whitespace-only search, like filtersEqual does', () => {
@@ -471,11 +493,28 @@ describe('filtersEqual', () => {
     // light up the wrong chip over the wrong list.
     const variants: Partial<typeof DEFAULT_FILTERS>[] = [
       { status: 'any' }, { system: 'only' }, { outcome: 'failing' },
-      { due: 'today' }, { favorites: 'only' },
-      { category: 'Backup' }, { search: 'x' }
+      { due: 'today' }, { search: 'x' }
     ];
     for (const v of variants) {
       expect(filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, ...v })).toBe(false);
+    }
+  });
+
+  it('ignores all three dimensions the source rail owns', () => {
+    // Source, category and favorites are navigation. Picking a system, a folder
+    // or the starred scope must not drop the view bar to "Custom", because none
+    // is a *hidden* constraint — the rail row is lit, the heading names the
+    // source and the breadcrumb names the folder. Each joined this list as the
+    // rail took it over; before that each lived somewhere hidden (the Filters
+    // popover, the views bar) and was genuinely disqualifying.
+    const rail: Partial<typeof DEFAULT_FILTERS>[] = [
+      { source: 'WINDOWS_TASK_SCHEDULER' },
+      { category: 'Backup' },
+      { favorites: 'only' },
+      { source: 'TASKHUB_NATIVE:EXEC', category: 'Reports', favorites: 'only' }
+    ];
+    for (const v of rail) {
+      expect(filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, ...v })).toBe(true);
     }
   });
 

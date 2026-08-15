@@ -16,10 +16,15 @@ import {
 
 const filters = (over: Partial<TaskFilters> = {}): TaskFilters => ({ ...DEFAULT_FILTERS, ...over });
 
+// Distinguished by dimensions a view actually owns. It has been re-keyed twice
+// as the rail took dimensions over: first off `category`, then off `favorites`.
+// Both stopped separating anything once `filtersEqual` began ignoring them, at
+// which point a view "distinguished" by one was equal to something else in the
+// list. `outcome` + `due` are still the view bar's own.
 const mine: SavedView = {
   id: 'v-mine',
-  name: 'Nightly backups',
-  filters: filters({ category: 'Backup', due: 'today' })
+  name: 'Healthy and due',
+  filters: filters({ outcome: 'healthy', due: 'today' })
 };
 
 /** By id, never by index — the order changed once (Favorites was added to the
@@ -28,9 +33,11 @@ const mine: SavedView = {
 const builtin = (id: string) => BUILTIN_VIEWS.find(v => v.id === id)!;
 
 describe('BUILTIN_VIEWS', () => {
-  it('ships All and Favorites plus the five views the roadmap named, in bar order', () => {
+  it('ships All plus the five views the roadmap named, in bar order', () => {
+    // Favorites is deliberately absent — it became a row in the source rail, so
+    // a chip here would be a second control for a dimension the rail owns.
     expect(BUILTIN_VIEWS.map(v => v.id))
-      .toEqual(['all', 'favorites', 'my-jobs', 'failures', 'due-today', 'disabled', 'system']);
+      .toEqual(['all', 'my-jobs', 'failures', 'due-today', 'disabled', 'system']);
   });
 
   it('makes All actually mean all — no lens at all', () => {
@@ -46,15 +53,16 @@ describe('BUILTIN_VIEWS', () => {
     expect(all.category).toBe('All');
   });
 
-  it('makes Favorites ignore every other lens', () => {
-    // A star is an explicit per-task choice, so no *default* may overrule it —
-    // otherwise starring a task and then parking it makes it vanish from the
-    // view named after your stars, and the star quietly means "shown,
-    // conditions apply".
-    const fav = builtin('favorites').filters;
-    expect(fav.favorites).toBe('only');
-    expect(fav.status).toBe('any');
-    expect(fav.system).toBe('include');
+  it('no longer ships a Favorites view at all', () => {
+    // It is a rail row now. Keeping the view around unrendered would be dead
+    // state that reads as meaningful to whoever finds it next.
+    expect(BUILTIN_VIEWS.find(v => v.id === 'favorites')).toBeUndefined();
+    // And the star still outranks the *defaults* where that mattered: a bare
+    // URL opens on All (every status, system included), so clicking Favorites
+    // from a fresh load withholds nothing.
+    const opening = openingFilters(filters());
+    expect(opening.status).toBe('any');
+    expect(opening.system).toBe('include');
   });
 
   it('gives every built-in a blurb naming what it leaves out', () => {
@@ -122,11 +130,24 @@ describe('matchView', () => {
     expect(matchView(mine.filters, [mine])?.id).toBe('v-mine');
   });
 
-  it('returns null once any dimension is tweaked', () => {
-    // The chip must go dark: leaving "Failures" lit over a list narrowed to one
-    // category makes the label a lie about its own contents.
-    const tweaked = filters({ ...builtin('failures').filters, category: 'Backup' });
+  it('returns null once a dimension the view owns is tweaked', () => {
+    // The chip must go dark: leaving "Failures" lit over a list narrowed by a
+    // hidden lens makes the label a lie about its own contents.
+    const tweaked = filters({ ...builtin('failures').filters, due: 'overdue' });
     expect(matchView(tweaked, [])).toBeNull();
+  });
+
+  it('stays lit when only the rail moved', () => {
+    // Source and category are navigation, and navigation must not invalidate
+    // the slice. Both are visible — a lit rail row, the heading, the breadcrumb,
+    // and a pill that clears the folder — and the rule this comparison enforces
+    // is about *hidden* constraints.
+    const navigated = filters({
+      ...builtin('failures').filters,
+      source: 'WINDOWS_TASK_SCHEDULER',
+      category: 'AI-Tools'
+    });
+    expect(matchView(navigated, [])?.id).toBe('failures');
   });
 });
 
@@ -173,13 +194,15 @@ describe('URL codec', () => {
     expect(filtersFromParams(filtersToParams(rich, []), [])).toEqual(rich);
   });
 
-  it('carries the starred lens in the URL, so a Favorites link survives a paste', () => {
-    expect(filtersToParams(builtin('favorites').filters, []).toString()).toBe('view=favorites');
-    // And ad-hoc (favorites plus something else), where there is no view id to
-    // lean on and the dimension has to be written out by name.
-    const adhoc = filters({ favorites: 'only', category: 'Backup' });
-    expect(filtersToParams(adhoc, []).get('fav')).toBe('only');
-    expect(filtersFromParams(filtersToParams(adhoc, []), [])).toEqual(adhoc);
+  it('carries the starred lens alongside a view id, so a Favorites link survives a paste', () => {
+    // Favorites is a rail dimension now, so it rides *beside* the view exactly
+    // as source and category do — a matched view returns early, and without this
+    // the starred scope would vanish from the URL and reload showing everything.
+    const starred = filters({ ...builtin('failures').filters, favorites: 'only' });
+    const p = filtersToParams(starred, []);
+    expect(p.get('view')).toBe('failures');
+    expect(p.get('fav')).toBe('only');
+    expect(filtersFromParams(p, [])).toEqual(starred);
   });
 
   it('round-trips a saved view through its id', () => {
@@ -248,11 +271,33 @@ describe('source is the outer lens, not part of a view', () => {
     expect(matchView(withSource, saved)?.id).toBe('failures');
   });
 
-  it('viewFiltersFrom strips the source before a view stores it', () => {
-    // A stored platform would be state nothing reads — matchView ignores it —
+  it('viewFiltersFrom strips both rail dimensions before a view stores them', () => {
+    // Either one stored would be state nothing reads — matchView ignores both —
     // while looking meaningful to whoever opens the JSON next.
-    expect(viewFiltersFrom(filters({ source: 'TASKHUB_NATIVE', category: 'Backup' })))
-      .toEqual(filters({ category: 'Backup' }));
+    expect(viewFiltersFrom(filters({ source: 'TASKHUB_NATIVE', category: 'Backup', due: 'today' })))
+      .toEqual(filters({ due: 'today' }));
+  });
+
+  it('category rides alongside a view id in the URL, exactly as source does', () => {
+    // Same failure, same fix: a matched view returns early, so a selected
+    // folder would vanish from the URL and the page would reload showing every
+    // folder in the source.
+    const p = filtersToParams(
+      filters({ ...builtin('failures').filters, source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Tools' }),
+      saved
+    );
+    expect(p.get('view')).toBe('failures');
+    expect(p.get('source')).toBe('WINDOWS_TASK_SCHEDULER');
+    expect(p.get('category')).toBe('AI-Tools');
+  });
+
+  it('round-trips a folder through the URL on top of a view', () => {
+    const original = filters({
+      ...builtin('my-jobs').filters,
+      source: 'WINDOWS_TASK_SCHEDULER',
+      category: 'AI-Tools'
+    });
+    expect(filtersFromParams(filtersToParams(original, saved), saved)).toEqual(original);
   });
 });
 

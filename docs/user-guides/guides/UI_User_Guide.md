@@ -19,7 +19,7 @@ The Dashboard is your "one pane of glass" for monitoring every scheduled task in
 ### The health strip
 
 A single line under the title, answering *"is anything wrong, and what did Cronsole last do?"* —
-so deciding what to do next doesn't mean reading the sidebar. Three facts:
+so deciding what to do next doesn't mean hunting for it. Three facts:
 
 - **Connection.** *"All 2 platforms online"*, or the platform that isn't, with the reason. It
   names a platform only when something is wrong with it.
@@ -34,7 +34,7 @@ so deciding what to do next doesn't mean reading the sidebar. Three facts:
 ### Task Cards
 Each task is represented by a card showing:
 - **Platform Badge:** Identifies where the task lives (e.g., Windows, Claude, or Cronsole-native).
-*   **Favorite star:** Star a task to pin it to the dashboard's opening view — see *Favorites* below.
+*   **Favorite star:** Star a task so it shows under **Favorites** in the source rail — see *Favorites* below.
 *   **Status Indicator:** A green dot for `ACTIVE` tasks and a gray dot for `DISABLED` tasks.
 *   **Local Category:** A folder icon showing the Cronsole-specific category.
 *   **External ID:** The native path or ID used by the source platform.
@@ -82,25 +82,68 @@ Action panel. See [Editing what a task runs](#editing-what-a-task-runs).
 
 ### Source — where a task comes from
 
-The row above the saved views is the dashboard's **first level of organisation**: one button per
-system your tasks come from — *All sources*, *Windows Task Scheduler*, *Cronsole (HTTP)*,
-*Cronsole (Scripts)*, and whatever you connect next. It appears once you have tasks from more than
-one source.
+The **rail down the left of the dashboard** is where you navigate. It is a tree, two levels deep,
+and it answers *where a task lives* before anything else asks *which slice of it you want*:
 
-**Cronsole-native splits by what the task does**, because "call a URL every 15 minutes" and "run
-this script nightly" are different enough to want separating. They are still the same platform on
-the **Platforms** tab — same connector, same capabilities — so only this bar divides them.
+```
+SOURCES
+  All sources          269
+  ★ Favorites            6
+▾ ● Windows Task Scheduler  254
+     AI-Maintenance         12
+     AI-Tools                8
+     Claude                  5
+     Uncategorized          41
+   ⃠ System tasks            HIDDEN   257
+▸ ● Cronsole (Native)         12
+      HTTP jobs               7
+      Scripts                 5
+▸ ● Claude Code                3
+```
 
-- **It composes with views instead of replacing them.** Picking a source does *not* reset the view
-  bar. Select *Windows Task Scheduler* and click *Failures* and both stay lit — you are looking at
-  failing Windows tasks, and the two chips say so together.
-- **The counts are scoped to what you would actually see.** With a source selected, every view
-  count is taken *inside* it — so `My jobs 1` means one, not "88 across everything".
-- **A source can read `0`, and that is deliberate.** It means you have tasks from that source but
-  none survive your current view. The button stays, so you can always click back out.
+**Level 1 is the system.** *All sources* and **Favorites** lead, separated by a rule from the
+platforms below — those two are scopes over everything rather than one system each. Then one row per
+platform you have tasks from **or are
+connected to**. The coloured dot is that platform's connection health — this is the same reading the
+old sidebar's "System Status" panel used to give, moved next to the thing it describes.
 
-The **?** at the end of the Source bar opens the same breakdown in the app. For what each
-source can actually do — and the things that catch people out on each one — see the
+**Level 2 is whatever that system groups by**, which is genuinely different per platform:
+
+| Source | Level 2 is… |
+|---|---|
+| **Windows Task Scheduler** | your **Task Scheduler folders** — `\AI-Maintenance\`, `\AI-Tools\`, and the rest, exactly as they are on the machine |
+| **Cronsole (Native)** | the **job type** — *HTTP jobs* and *Scripts*. These used to be two top-level sources; a platform sitting beside a job type was two levels of concept in one list. **Both are always listed**, empty or not: there are exactly two, always, so *Scripts* disappearing because you have not written a script task yet would read as a missing feature |
+| **Claude Code** and others | the category label the task carries |
+
+- **Moving around the rail never changes your view.** Pick *Failures*, then walk from Windows into
+  `AI-Tools` and on to Claude — *Failures* stays lit the whole way, because navigating is not
+  filtering. Both constraints are on screen: the rail row is lit, the page heading names the source,
+  and the line under it is a breadcrumb (*Windows Task Scheduler › AI-Tools*).
+- **Picking a source clears the folder.** A folder belongs to the system it came from, so switching
+  to Claude cannot leave you inside a Windows folder that Claude has never heard of.
+- **The counts are scoped to what you would actually see.** Every number is taken under all your
+  *other* filters, so it predicts the click. That is also why a row can legitimately read `0`.
+- **A row can read `0` for two different reasons**, and both are useful: nothing from that source
+  survives your current view, or you are connected to it and have imported nothing yet. The row
+  stays either way — it is navigation, and an empty destination still needs a route to it.
+- **`\Microsoft\` is one collapsed *System tasks* group at the bottom**, not twenty folders mixed
+  in with yours. Windows keeps ~257 of its own there and the dashboard hides them by default; a
+  **HIDDEN** badge on the row says so while that is true, and the group states
+  so in its own label and states the count, so nothing is quietly fenced off. Open it and pick a
+  folder to look inside one. The group itself only expands — it is a disclosure, not a filter.
+
+**Collapse it** with the button at the top of the rail. Collapsed, it becomes a narrow column of
+icons — each system with its health dot and its count, names on hover — and the folder level is
+**dropped rather than shrunk**, because a Task Scheduler folder name has nowhere to go at that
+width and a column of tooltips is worse than admitting the tree needs room. The choice is
+remembered between visits.
+
+On a phone the rail is a drawer: tap **Sources** beside the page heading. The breadcrumb under the
+heading is what tells you where you are while it is closed. The drawer always opens at full width —
+an icons-only tree inside a panel you had to tap open would be two gestures to reach one folder.
+
+The **?** at the top of the rail opens the same breakdown in the app, for the source you are on.
+For what each source can actually do — and the things that catch people out on each one — see the
 [Sources Guide](Sources_Guide.md).
 
 ### Saved views
@@ -111,7 +154,6 @@ rebuilt from scratch on every visit. Six ship built in:
 | View | Shows |
 |---|---|
 | **All** | Every task, with no lens at all — including the ones Windows owns and anything disabled or missing. The one click that means "stop hiding things". |
-| ⭐ **Favorites** | Only the tasks you've starred (see *Favorites* below). Deliberately ignores every other lens — a starred task shows even if it's disabled, missing, or one of Windows' own. |
 | **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. The default *until you star something*. |
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |
 | **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
@@ -121,19 +163,24 @@ rebuilt from scratch on every visit. Six ship built in:
 - **Saving your own:** change any filters and the row shows a **Custom** chip plus **Save view**. Name it and it becomes a chip of its own, with a count, kept between visits. Delete one with the `×` on its chip — that only removes the name; the tasks and the filters you're currently looking at are untouched.
 - **Every view is a link.** The URL carries the view (`?view=failures`) or the individual filters, so you can bookmark one or paste it to another machine. A link to a saved view *someone else* made falls back to the normal dashboard rather than showing you nothing.
 - **The counts are honest about what they don't know.** *Failures* is answered by the health check (the same one on the Tools tab), which has to read every task first. Until it finishes, the chip shows **`–`, not `0`** — because `0` would claim nothing is failing, and the app hasn't looked yet. A banner above the list says the same thing while it loads. A task with no run evidence at all counts as *unmeasured*, not as passing.
-- **Changing a filter drops you to Custom — except the source.** The chip goes dark on purpose: once you narrow "Failures" to one category, the list is no longer what that label says it is. **Source is the exception**, because it has its own always-visible bar: with *Windows Task Scheduler* selected and *Failures* lit, both constraints are on screen, so neither chip is lying.
+- **Changing a filter drops you to Custom — except the rail.** The chip goes dark on purpose: once you narrow "Failures" by a lens you cannot see, the list is no longer what that label says it is. **The source rail is the exception** — both of its levels are — because a rail selection is never hidden: the row is lit, the heading names the source and the breadcrumb names the folder. With *Windows Task Scheduler › AI-Tools* selected and *Failures* lit, all three constraints are on screen, so no chip is lying.
 
 ### Favorites
 Click the **star** on any task — on a card, a list row, a kanban card, the Schedule timeline, or in
 the task's own detail modal — to mark it a favorite. Stars are yours alone and change nothing on the
 platform, so starring works fine with the agent offline.
 
-- **The dashboard opens on *All*, not on your favorites.** Click the **Favorites** chip — the one
-  with the star — whenever you want just the starred ones. It briefly opened on Favorites; showing
+- **Favorites is a row in the source rail**, second from the top, under *All sources*. It used to be
+  a chip in the views bar; starred-is-a-place is where people look for it, and as a rail row it
+  **composes with whichever view is lit** instead of replacing it — *Failures* + *Favorites* is your
+  failing starred tasks, and both controls say so together.
+- **The dashboard opens on *All*, not on your favorites.** It briefly opened on Favorites; showing
   you a subset you picked weeks ago, and then having to explain itself, turned out to be worse than
   simply showing everything.
-- **A star outranks every other filter.** *Favorites* shows a starred task even when it's disabled,
-  missing, or one of Windows' own — you starred it deliberately, so nothing hides it by default.
+- **A star still outranks the defaults.** A bare URL opens on **All** — every status, system
+  included — so clicking Favorites from a fresh load shows every starred task, including disabled,
+  missing and OS-owned ones. It narrows only if you have deliberately picked a narrowing view, and
+  that view is lit on screen while it does.
 - **Un-tracking or deleting a task takes its star with it.** Starring is a preference about a task
   Cronsole tracks, not a record that outlives it (unlike a **removed** task, which Cronsole
   remembers so sync doesn't re-import it).
@@ -141,12 +188,11 @@ platform, so starring works fine with the agent offline.
 ### Views, Search & Filters
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
-- **The Filters button** holds status, ownership and category. *(Platform is not in here — it graduated to the **Source** bar above the views.)* The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
+- **The Filters button** holds status and ownership. *(Neither source nor folder is in here — both are the **source rail** on the left. The button's count ignores them too, because a badge may only count what its own menu can clear.)* The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
   - **Status** — *Active only* (the default), *All statuses*, or **isolate** just the *Disabled* or just the *Missing* ones. Isolating is not the same as including: it shows you **less**, and an isolated state appears as its own pill outside the menu so it can't be mistaken for normal.
   - **Ownership** — Windows keeps hundreds of its own scheduled tasks under `\Microsoft\`; on a typical machine they outnumber yours roughly 3:1, so Cronsole hides them by default. This is **independent of Status**, so the normal view is *yours **and** active* — either can be opened up without touching the other. The choice is remembered between visits, and the section only appears if you've actually imported some.
-  - **Platform** and **Category** — both **faceted**: each option shows a live count *under the filters already applied*, and options with nothing under them drop out rather than showing zero-count noise.
-- **What a filter is hiding is never inside the menu.** Two of these lenses are defaults you didn't pick today, and they hold rows back while looking like a neutral starting state — so they say so on the toolbar itself: `189 system hidden`, `10 inactive hidden`. Each is also the button that undoes it. Category and platform don't need this: they appear as **pills** you can read and dismiss (`Backups ×`), which tells you the rest is elsewhere without needing a number.
-- **Counts describe the view you're in, not the whole dashboard.** A count beside a filter is a promise about what clicking it will reveal, so it's taken over everything the *other* filters allow. On the Favorites view with two stars, the status filter counts against those two — not against all 269.
+- **What a filter is hiding is never inside the menu.** Two of these lenses are defaults you didn't pick today, and they hold rows back while looking like a neutral starting state — so they say so on the toolbar itself: `189 system hidden`, `10 inactive hidden`. Each is also the button that undoes it. The rail's two dimensions don't need this: the rail shows its own selection, and the folder also appears as a **pill** you can read and dismiss (`Backups ×`) — which is what names it on a phone, where the rail is closed.
+- **Counts describe the view you're in, not the whole dashboard.** A count beside a filter is a promise about what clicking it will reveal, so it's taken over everything the *other* filters allow. With Favorites selected and two stars, the status filter counts against those two — not against all 269.
 
 ---
 

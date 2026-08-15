@@ -15,7 +15,8 @@ import {
   Search,
   X,
   Download,
-  Trash2
+  Trash2,
+  PanelLeft
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
@@ -24,10 +25,10 @@ import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
-import { SourceBar } from '../components/SourceBar';
+import { SourceRail } from '../components/SourceRail';
 import { HelpButton } from '../components/HelpButton';
 import { ViewBar } from '../components/ViewBar';
-import { platformLabel, platformBadgeClass } from '../platform';
+import { platformLabel, platformBadgeClass, sourceLabel } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
 import {
   applyTaskFilters,
@@ -104,7 +105,8 @@ export const DashboardScreen = ({
   // it is a standing answer to "whose machine is this dashboard about", not a
   // per-visit choice, and re-hiding 257 rows on every page load is the thing this
   // filter exists to stop.
-  const { update } = useSettings();
+  const { settings: prefs, update } = useSettings();
+  const railCollapsed = prefs.railCollapsed;
 
   // ---- Filter state ------------------------------------------------------
   //
@@ -162,8 +164,69 @@ export const DashboardScreen = ({
   const setFilter = <K extends keyof TaskFilters>(key: K, value: TaskFilters[K]) =>
     setFilters({ ...filters, [key]: value });
 
+  /**
+   * Apply a rail node's filter patch.
+   *
+   * A patch rather than a single dimension because the rail's two levels are not
+   * the same dimension: a Windows folder sets `category`, a native job type sets
+   * `source`, and picking any *source* row must also clear the folder — a folder
+   * belongs to the source it came from, so carrying `AI-Tools` across to Claude
+   * would filter to nothing while the rail showed Claude selected. Each node
+   * states everything it sets, so that reset is part of the node rather than a
+   * rule the caller has to remember.
+   */
+  const applyRailPatch = (patch: Partial<TaskFilters>) => setFilters({ ...filters, ...patch });
+
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>(settings.defaultView);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // The source rail as a drawer, below `md` only. Local state and not the URL:
+  // a bookmark reproduces *which tasks you are looking at*, and a link that also
+  // reopened a drawer would make two URLs that mean the same thing.
+  const [railOpen, setRailOpen] = useState(false);
+
+  // Escape closes the drawer. Only bound while it is open, so it cannot steal
+  // the key from the search box's own clear-on-Escape.
+  useEffect(() => {
+    if (!railOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRailOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [railOpen]);
+
+  /**
+   * What the page is looking at, in words — the heading and its breadcrumb.
+   *
+   * The heading used to be the constant "Unified Task Dashboard", which was true
+   * and told you nothing: with a source and a folder selected in the rail, the
+   * one line at the top of the page was the only thing on screen that did not
+   * say which of your 354 tasks you were being shown. Naming the scope is the
+   * payoff of making scope navigable.
+   */
+  // Favorites outranks the source in the heading: it is the row you clicked, and
+  // it is a scope *over* every source rather than one of them. Reading "All
+  // Tasks" above six starred rows is the same lie as a lit chip over a list it
+  // no longer describes.
+  const starredOnly = filters.favorites === 'only';
+
+  const scopeHeading = starredOnly
+    ? 'Favorites'
+    : filters.source === 'All'
+      ? 'All Tasks'
+      : sourceLabel(filters.source);
+
+  const scopeTrail =
+    !starredOnly && filters.source === 'All' && filters.category === 'All'
+      ? null
+      : [
+          starredOnly ? '★ Favorites' : null,
+          filters.source === 'All' ? (starredOnly ? null : 'All sources') : sourceLabel(filters.source),
+          filters.category === 'All' ? null : filters.category
+        ]
+          .filter(Boolean)
+          .join(' › ');
 
   // "/" focuses search (unless already typing somewhere); Escape clears it.
   useEffect(() => {
@@ -196,7 +259,7 @@ export const DashboardScreen = ({
   // `isSystem` is the server's verdict, not a rule re-derived here (see types.ts).
   // The two rules — outermost lens, count over ALL tasks — live in applySystemLens
   // so they are pinned by tests instead of by whoever reads this component next.
-  const { visible: tasks, hidden: hiddenBySystemFilter } = useMemo(
+  const { visible: tasks, hidden: systemTaskCount } = useMemo(
     () => applySystemLens(allTasks, filters.system),
     [allTasks, filters.system]
   );
@@ -231,18 +294,77 @@ export const DashboardScreen = ({
       tiers
     });
 
-  const { categories, categoryCounts } = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const t of facetBase('category')) {
-      const c = t.category || 'Uncategorized';
-      counts.set(c, (counts.get(c) ?? 0) + 1);
-    }
-    // The selected category stays pinned even when it empties, so the view
-    // doesn't jump out from under you the moment its last task is filtered out.
-    if (filters.category !== 'All' && !counts.has(filters.category)) counts.set(filters.category, 0);
-    return { categories: ['All', ...Array.from(counts.keys()).sort()], categoryCounts: counts };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, viewFilters, now, settings.timezone, tiers]);
+  /**
+   * The population the **source rail** counts over: every task passing every
+   * lens the rail does not own — status, outcome, due, search — with the rail's
+   * own dimensions (source, category, favorites) and the system lens all
+   * neutralized.
+   *
+   * Three things about it are deliberate.
+   *
+   * It starts from `allTasks`, **not** the system-lensed `tasks`. The rail has to
+   * show the `\Microsoft\` group, so it needs the tasks that lens is hiding;
+   * building it from the lensed list would make the group vanish exactly when it
+   * has something to disclose.
+   *
+   * The dimensions are neutralized rather than excluded, because
+   * `applyTaskFiltersExcept` leaves out one and the rail offers several. Setting
+   * them to their permissive values through the same pipeline gets the same
+   * result without a second spelling of "leave this out".
+   *
+   * **`favorites` has to be in that list**, and leaving it out was a live bug for
+   * the length of one commit: with Favorites selected, `All sources` counted 6
+   * and clicking it showed 363. A rail row's count is a promise about what
+   * clicking it does, so a population narrowed by a dimension the rail *offers*
+   * can never count the alternatives.
+   *
+   * And it is one list, not three counts. `buildSourceTree` buckets it, so the
+   * root, the source rows and the folder rows are partitions of a single pass —
+   * which is what makes "All" exactly the sum of its parts rather than a number
+   * computed by its own route that can drift from the rows beneath it.
+   */
+  const railPopulation = useMemo(
+    () =>
+      applyTaskFilters(
+        allTasks ?? [],
+        {
+          ...viewFilters,
+          source: 'All',
+          category: 'All',
+          favorites: 'any',
+          system: 'include'
+        },
+        { now, timezone: settings.timezone, tiers }
+      ),
+    [allTasks, viewFilters, now, settings.timezone, tiers]
+  );
+
+  /**
+   * How many rows the **system lens** is holding back from *this list* — the
+   * number on the "N system hidden" chip.
+   *
+   * Deliberately not `applySystemLens`'s `hidden`, which counts system tasks
+   * that *exist* (257 on this machine) and says so in its own docstring. Both
+   * numbers are legitimate and they answer different questions: existence gates
+   * whether the Ownership control is worth showing at all, and this one is a
+   * promise about what clicking the chip reveals.
+   *
+   * They were the same value until the source rail landed, and nothing had ever
+   * printed them side by side. The rail's `\Microsoft\` group counts the same
+   * set, faceted — so under the Failures view the chip read "257 system hidden"
+   * two inches from a rail row reading 111, and clicking it revealed 111. Same
+   * defect the status chip had when it printed `Showing All 269` above two rows:
+   * **a count beside a filter control is a promise about what clicking it does.**
+   */
+  const hiddenBySystemFilter = useMemo(
+    () =>
+      applyTaskFiltersExcept(allTasks ?? [], viewFilters, 'system', {
+        now,
+        timezone: settings.timezone,
+        tiers
+      }).filter(t => t.isSystem === true).length,
+    [allTasks, viewFilters, now, settings.timezone, tiers]
+  );
 
   // The population the status toggle governs: every task that passes every
   // OTHER lens. This is the number the chip must speak in — see
@@ -272,65 +394,6 @@ export const DashboardScreen = ({
     () => (tasks ?? []).filter(t => t.status === 'MISSING').length,
     [tasks]
   );
-
-  // The "All" chip counts every task visible under the current active/platform
-  // constraints — i.e. the sum of the per-category counts.
-  const totalVisibleCount = useMemo(
-    () => Array.from(categoryCounts.values()).reduce((sum, n) => sum + n, 0),
-    [categoryCounts]
-  );
-
-  // The population the source bar governs: every task passing every OTHER lens.
-  // Faceted the same way the category chips are, and never by the source
-  // selection itself — you must still be able to switch sources.
-  //
-  // Kept as an array, not just its counts, because the bar's "All sources"
-  // number is this length. Deriving it from the same pass that produces the
-  // per-source counts is what stops the two disagreeing: `All` is exactly the
-  // sum of the parts because it *is* the thing the parts partition.
-  const sourceGoverned = useMemo(
-    () => facetBase('source'),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tasks, viewFilters, now, settings.timezone, tiers]
-  );
-
-  const platformCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const t of sourceGoverned) {
-      const key = t.source ?? t.platform;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    return counts;
-  }, [sourceGoverned]);
-
-  /**
-   * Which source buttons exist — taken from **every** task the user has, not
-   * from the faceted population the counts come from.
-   *
-   * These are two different questions and conflating them broke the axis. Built
-   * from the facet, the bar vanished on the Favorites view: both starred tasks
-   * were Windows, so it saw one source, decided there was nothing to choose
-   * between, and removed the only control that could have switched away. An
-   * outer lens may not disappear because an inner filter narrowed the list.
-   *
-   * So: **existence** answers "do you have this source at all" and comes from
-   * the whole list; the **count** answers "what will I see if I click" and stays
-   * faceted, which is why a source can legitimately read `0` here. That zero is
-   * the honest version — it predicts the empty list instead of hiding the way to
-   * it, and it is the same promise every other count on this screen makes.
-   */
-  const sourceOptions = useMemo(() => {
-    const keys = new Set((allTasks ?? []).map(t => t.source ?? t.platform));
-    // Keep the *selected* source listed even when nothing derives it. A link
-    // written before Cronsole-native split — `?platform=TASKHUB_NATIVE` — still
-    // filters correctly by prefix, but no button equals it, so the bar would sit
-    // entirely unlit above a filtered list. That is the inverse of the lit-chip
-    // problem and just as dishonest: the constraint is real and nothing on
-    // screen names it. Same rule the category facet already follows for a
-    // selection that empties.
-    if (filters.source !== 'All') keys.add(filters.source);
-    return Array.from(keys).sort();
-  }, [allTasks, filters.source]);
 
   // One pipeline, in one place. This used to be four hand-rolled `.filter()`
   // passes inline, which is fine at four and is exactly how the fifth ends up
@@ -439,7 +502,94 @@ export const DashboardScreen = ({
 
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="flex items-start animate-in fade-in duration-500">
+      {/*
+        The source rail, as a **panel**.
+
+        Its own surface plus a right border, filling the height of the viewport
+        under the toolbar — not a column of links floating on the page. That
+        separation is doing real work: the rail and the task list are different
+        kinds of thing (one is chrome you navigate with, one is the content you
+        navigated to), and rendering both on `background` with a gap between made
+        them read as two halves of one scrolling document.
+
+        `sticky top-0` rather than scrolling with the list: at 350 tasks the tree
+        would otherwise be off screen within one flick, which is exactly when you
+        want to switch folders. The height is the viewport minus the 56px
+        toolbar, so the panel's border runs the full edge.
+
+        **Width is a preference.** Expanded is `w-72` — sized to its longest
+        *primary* label, since "Windows Task Scheduler" beside an icon tile, a
+        health dot and a count needs about 200px of text and at `w-60` the very
+        thing the rail exists to switch between rendered as "Windows Task Sc…".
+        Collapsed is `w-[4.5rem]`: icon tiles only, no folder level, names in
+        tooltips. A folder name may truncate (its full name is in `title`); the
+        name of the system you are looking at may not.
+
+        Hidden below `md` and reachable from the "Sources" button in the header
+        instead. A tree cannot degrade to a horizontal scroller the way the old
+        flat source bar did — the second level has nowhere to go — so on a phone
+        it is a drawer, opened from beside the list it re-scopes.
+      */}
+      <aside
+        /*
+          `bg-surface` at full strength, not `/60`. The alpha version resolved to
+          ~97% lightness against a 100% page in the light theme — a step you
+          cannot see, leaving the border to do all the separating on its own.
+          The token is a real 5% step in light and 3% in dark, which is what
+          makes the panel read as chrome rather than as page.
+        */
+        className={`hidden md:flex flex-col shrink-0 self-start sticky top-0 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-border bg-surface transition-[width] duration-200 ${
+          railCollapsed ? 'w-[4.5rem] px-2 py-4' : 'w-72 px-3 py-4'
+        }`}
+      >
+        <SourceRail
+          population={railPopulation}
+          filters={filters}
+          onSelect={applyRailPatch}
+          collapsed={railCollapsed}
+          onToggleCollapsed={() => update('railCollapsed', !railCollapsed)}
+        />
+      </aside>
+
+      {railOpen && (
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Sources">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setRailOpen(false)}
+            aria-hidden
+          />
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-background border-r border-border p-4 overflow-y-auto animate-in slide-in-from-left duration-200">
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-bold text-sm">Sources</span>
+              <button
+                onClick={() => setRailOpen(false)}
+                aria-label="Close sources"
+                className="p-1.5 rounded-lg text-subtle-foreground hover:text-foreground hover:bg-surface transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <SourceRail
+              population={railPopulation}
+              filters={filters}
+              // Never collapsed in the drawer: it opened at full width on
+              // purpose, and an icons-only tree inside a panel you had to tap to
+              // open would be two gestures to reach one folder.
+              collapsed={false}
+              // Picking a source is navigation, and navigation closes the drawer
+              // — leaving it open over the list it just changed hides the result
+              // of the tap that closed the question.
+              onSelect={patch => {
+                applyRailPatch(patch);
+                setRailOpen(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 min-w-0 space-y-5 px-4 py-5 md:px-8 md:py-7">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="min-w-0">
           {/*
@@ -451,11 +601,31 @@ export const DashboardScreen = ({
             never dead-ends.
           */}
           <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">
-            Unified Task Dashboard
+            {/* Opens the rail on a phone, where it is a drawer. Beside the
+                heading it re-scopes rather than up in the app toolbar — the
+                toolbar is not the thing this control acts on. */}
+            <button
+              onClick={() => setRailOpen(true)}
+              aria-label="Open sources"
+              title="Sources"
+              className="md:hidden p-1.5 -ml-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+            >
+              <PanelLeft size={18} />
+            </button>
+            {scopeHeading}
             <HelpButton topic="dashboard" size="md" />
           </h2>
+          {/*
+            A breadcrumb when scoped, the ecosystem line when not.
+
+            It earns its place on the phone: the rail is a closed drawer there, so
+            without this nothing on screen says which folder the list is narrowed
+            to — the "a constraint the user did not choose must be named in the
+            page" rule, applied to a constraint they *did* choose but can no
+            longer see.
+          */}
           <p className="text-muted-foreground" data-testid="task-count-line">
-            Manage {tasks?.length || 0} tasks across your ecosystem.
+            {scopeTrail ?? `Manage ${tasks?.length || 0} tasks across your ecosystem.`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
@@ -566,17 +736,10 @@ export const DashboardScreen = ({
         </div>
       ) : (
         <>
-          {/* The first-level axis: where a task comes from. Above the view
-              bar because it is the outer lens — see SourceBar for why picking
-              a source does not drop the view bar to "Custom". */}
-          <SourceBar
-            sources={sourceOptions}
-            counts={platformCounts}
-            totalCount={sourceGoverned.length}
-            selected={filters.source}
-            onSelect={next => setFilter('source', next)}
-          />
-
+          {/* Source used to be a chip row here. It is the rail on the left now —
+              the first-level axis deserved navigation, not a fourth horizontal
+              bar competing with the three below it. The view bar is what is left,
+              and it is now the only one. */}
           <ViewBar
             views={views}
             activeViewId={activeView?.id ?? null}
@@ -663,11 +826,9 @@ export const DashboardScreen = ({
                   update('showSystemTasks', next === 'include');
                   setFilter('system', next);
                 }}
-                categories={categories}
-                categoryCounts={categoryCounts}
-                totalVisibleCount={totalVisibleCount}
                 baseFilters={activeView?.filters}
                 hiddenBySystemFilter={hiddenBySystemFilter}
+                systemTaskCount={systemTaskCount}
                 hiddenByActiveFilter={hiddenByActiveFilter}
               />
             </div>
@@ -1052,6 +1213,7 @@ export const DashboardScreen = ({
       >
         <Zap size={22} />
       </button>
+      </div>
     </div>
   );
 };

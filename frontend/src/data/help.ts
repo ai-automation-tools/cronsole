@@ -48,13 +48,15 @@ const dashboard: HelpTopic = {
   title: 'The dashboard',
   summary:
     'One list of every scheduled task Cronsole can see, from every system it is connected to. ' +
-    'It is organised in layers: source, then view, then filters, each narrower than the last.',
+    'It is organised in layers: the rail on the left says WHERE, a view says WHICH SLICE, and ' +
+    'the filters narrow it further.',
   points: [
     {
-      label: 'Source is the outer lens',
+      label: 'The rail is where a task lives',
       body:
-        'The top row picks which system tasks come from. It stays lit while you change views, ' +
-        'because "failing Windows tasks" is two constraints and both are on screen.'
+        'Left side: each system you are connected to, opening to that system’s own grouping — ' +
+        'Task Scheduler folders for Windows, job type for Cronsole. Moving around it never ' +
+        'changes which view you are in, because navigating is not filtering.'
     },
     {
       label: 'A view is a named set of filters',
@@ -96,20 +98,26 @@ const sources: HelpTopic = {
   title: 'Where tasks come from',
   summary:
     'A source is the system a task lives on. It is the first thing you ask about a task, so it ' +
-    'gets the outermost control — above the saved views, not inside the Filters drawer.',
+    'is the rail down the left — navigation, not a filter buried in a drawer.',
   points: [
     {
-      label: 'A source is finer than a platform',
+      label: 'Each source opens to its own grouping',
       body:
-        'Cronsole-native holds two genuinely different kinds of task, so this bar splits ' +
-        'Cronsole (HTTP) from Cronsole (Scripts). The Platforms tab does not — they are one ' +
-        'connector with identical capabilities.'
+        'Windows opens to your real Task Scheduler folders. Cronsole-native opens to its job ' +
+        'type — HTTP jobs and Scripts — which are the same connector with identical ' +
+        'capabilities, so the Platforms tab does not split them.'
     },
     {
       label: 'It composes with views',
       body:
-        'Picking a source does not reset the view bar. Select Windows and click Failures and ' +
-        'both stay lit, because both constraints are visible at once.'
+        'Moving around the rail does not reset the view bar. Select Windows, then a folder, ' +
+        'then click Failures — all of it stays lit, because every constraint is visible at once.'
+    },
+    {
+      label: 'Favorites is a row here too',
+      body:
+        'Second from the top, under All sources. It narrows to your starred tasks and leaves ' +
+        'your view alone, so Failures + Favorites is your failing starred tasks.'
     },
     {
       label: 'The counts are what you would see',
@@ -120,12 +128,12 @@ const sources: HelpTopic = {
     {
       label: 'A source may read 0',
       body:
-        'That means you have tasks from it but none survive the current view. The button stays ' +
-        'so you can click back out. It vanishes only when you have none from that source at all.'
+        'That means none of its tasks survive the current view — or you are connected to it and ' +
+        'have imported nothing yet. The row stays either way, so you can always click into it.'
     }
   ],
   doc: { label: 'Sources Guide › What a source is', url: sourcesGuide('what-a-source-is') },
-  more: [{ label: 'UI User Guide › Source bar', url: uiGuide('source--where-a-task-comes-from') }]
+  more: [{ label: 'UI User Guide › The source rail', url: uiGuide('source--where-a-task-comes-from') }]
 };
 
 const sourceWindows: HelpTopic = {
@@ -484,14 +492,15 @@ const views: HelpTopic = {
     {
       label: 'Six ship built in',
       body:
-        'All, Favorites, My jobs, Failures, Due today, Disabled and System. Disabled isolates ' +
+        'All, My jobs, Failures, Due today, Disabled and System. Disabled isolates ' +
         'parked tasks; that is not the same as the Status filter merely including them.'
     },
     {
-      label: 'Changing any filter drops you to Custom',
+      label: 'Changing a filter drops you to Custom',
       body:
-        'On purpose. Narrow "Failures" to one category and the list is no longer what that label ' +
-        'says it is. Source is the exception — it has its own visible bar.'
+        'On purpose: narrow "Failures" by a lens you cannot see and the label stops describing ' +
+        'the list. The rail is the exception — picking a source or a folder keeps the view lit, ' +
+        'because both are on screen in the rail, the heading and the breadcrumb.'
     },
     {
       label: 'Every view is a link',
@@ -513,8 +522,8 @@ const filters: HelpTopic = {
   id: 'filters',
   title: 'Filters',
   summary:
-    'Status, ownership and category. Platform is not in here — it graduated to the Source bar ' +
-    'above. The number on the button is how many filters are set.',
+    'Status and ownership. Source and folder are not in here — they are the rail on the left. ' +
+    'The number on the button is how many filters are set.',
   points: [
     {
       label: 'Two defaults are hiding rows right now',

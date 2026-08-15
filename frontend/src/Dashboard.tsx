@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, X, Menu } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { CloneTaskModal } from './components/CloneTaskModal';
 import { HelpModal } from './components/HelpModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type { Task } from './types';
-import { Sidebar } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
 import { TaskModal } from './components/TaskModal';
 import { ImportModal } from './components/ImportModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
@@ -37,7 +37,6 @@ const Dashboard = () => {
   const setActiveTab = (tab: string) => navigate(tab === 'dashboard' ? '/' : `/${tab}`);
   const routeTaskId = section === 'tasks' ? segments[1] : undefined;
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cloningTask, setCloningTask] = useState<Task | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -265,30 +264,26 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground font-sans selection:bg-primary/30 overflow-hidden">
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-      <main className="flex-1 p-4 md:p-10 overflow-y-auto">
-        {/* Mobile top bar — the drawer toggle (the sidebar is off-canvas below md). */}
-        <div className="flex items-center gap-3 mb-6 md:hidden">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg border border-border text-foreground hover:bg-surface transition-colors"
-            aria-label="Open menu"
-          >
-            <Menu size={20} />
-          </button>
-          <div className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="" aria-hidden className="h-7 w-7 rounded-lg" />
-            <span className="font-bold">Cronsole</span>
-          </div>
-        </div>
+    /*
+      Column, not row. Navigation moved from a 256px left rail to a top toolbar
+      (see TopBar), which frees the left column on the dashboard for the source
+      and folder tree — the thing that actually changes, and the thing you
+      navigate 350 tasks by. Every other tab gets the full width.
+    */
+    <div className="flex flex-col h-screen bg-background text-foreground font-sans selection:bg-primary/30 overflow-hidden">
+      <TopBar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/*
+        No padding here — each screen owns its own.
+
+        The dashboard needs that: its source rail is a full-height *panel* with
+        its own surface and a border against the content, and a padded `main`
+        would inset it, leaving a strip of page background down the left and
+        making the panel read as a floating column instead of part of the chrome.
+        Every other screen wraps itself in the padding this used to apply.
+      */}
+      <main className="flex-1 overflow-y-auto">
         {!settings.onboardingSeen && (
-          <div className="mb-6 flex items-center gap-4 flex-wrap bg-primary/10 border border-primary/30 rounded-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-500">
+          <div className="mx-4 md:mx-8 mt-5 md:mt-7 flex items-center gap-4 flex-wrap bg-primary/10 border border-primary/30 rounded-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-500">
             <Sparkles size={20} className="text-primary shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-foreground">New to Cronsole?</p>
@@ -332,10 +327,14 @@ const Dashboard = () => {
             settings={settings}
           />
         )}
-        {activeTab === 'templates' && <TemplatesScreen />}
-        {activeTab === 'platforms' && <PlatformsScreen />}
-        {activeTab === 'tools' && <ToolsScreen />}
-        {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
+        {activeTab !== 'dashboard' && (
+          <div className="px-4 py-5 md:px-8 md:py-7">
+            {activeTab === 'templates' && <TemplatesScreen />}
+            {activeTab === 'platforms' && <PlatformsScreen />}
+            {activeTab === 'tools' && <ToolsScreen />}
+            {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
+          </div>
+        )}
       </main>
       <TaskModal
         task={routeTaskId ? (tasks || []).find(t => t.id === routeTaskId) ?? null : null}

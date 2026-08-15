@@ -23,6 +23,64 @@ belongs in the CHANGELOG.
 
 ## ▶ Next up
 
+### 🔴🔴 Top priority — requested 2026-08-15
+
+Three items, requested directly after the dashboard IA redesign landed. Ordered as given.
+
+1. **Custom views on the source rail.** Users can already save a named filter combination, but it
+   becomes a chip in the horizontal views bar. Let them save one **into the rail**, alongside
+   *All sources* and *Favorites*.
+
+   **The design question to settle first, because it decides everything else:** the rail is
+   *navigation* (**where** a task lives) and views are *slices* (**which** of them). Favorites
+   crossed that line on 2026-08-15 and it worked, because a starred set reads as a place. A saved
+   view is less obviously one. Two candidate shapes:
+   - **Scopes** — a rail row saves only the rail's own dimensions (source + category + favorites)
+     and composes with whatever view is lit, exactly as Favorites does. Consistent with every other
+     row; cannot express "failing Windows tasks" as one click.
+   - **Pinned views** — a rail row carries a full `TaskFilters`, so picking one *replaces* the view.
+     More powerful, but it makes the rail's rows behave in two different ways depending on origin,
+     which is the folder-vs-source inconsistency that this redesign existed to remove.
+
+   Whichever wins, the invariants it must not break: `filtersEqual` ignores the rail's dimensions,
+   `viewFiltersFrom` strips them, the Filters badge counts none of them, and **every rail count is
+   taken with every rail dimension neutralized** (see the 363-vs-6 bug below). A rail row also needs
+   a delete affordance and an order — `savedViews` is currently an unordered array.
+
+2. **More Cronsole-native job types.** Native has exactly two — `HTTP` and `EXEC` — and they are the
+   `STRUCTURAL_SUBTYPES` the rail always lists. Widen that set so Cronsole is useful without an
+   agent on more than "call a URL" and "run a program".
+
+   Candidates worth scoping: a **script** type that writes an inline body to a temp file and runs it
+   under a named interpreter (PowerShell / bash / python), so a user does not need the script on
+   disk first; a **database query**; an **MCP tool call**; a **compound/sequence** job. Each new type
+   touches the same five places, and missing one is how a job is accepted at create time and fails
+   at 3am: `buildNativeJob` + `validateJob` (`services/nativeJob.ts`, one definition shared by
+   create, edit and the connector), `NativeTaskExecutor`, `taskSource.ts` (the server derives the
+   subtype — the browser must not), `STRUCTURAL_SUBTYPES` + an icon in the rail, and at least one
+   template per type, since a source with nothing in the catalog is a source the product does not
+   really have. The `EXEC` rules carry over unchanged and are non-negotiable: **no shell** unless the
+   user names one, and **`childEnv()`, never `process.env`** — a scheduled job must not inherit the
+   key that encrypts every stored platform credential.
+
+3. **Fix the themes — light first.** The light theme clashes and is hard to read; the dark theme's
+   palette is also open to reconsideration. This is `frontend/src/index.css` and nowhere else: every
+   colour is already a semantic role token, which is what makes a theme pass an edit *there* rather
+   than a 263-site sweep.
+
+   What to check rather than guess at: the roles were tokenised on 2026-08-12 specifically because
+   the light theme was wearing dark mode's status colours and **every status role failed WCAG AA on
+   white (1.67–2.77 against a 4.5 bar)**. That fix corrected the `-text` variants; it did not audit
+   the whole light ramp, and the surface steps are the likely culprit now — light runs
+   `background 100% → surface 95% → raised 98%`, which inverts the dark ramp's direction and gives a
+   *raised* panel less contrast than a *surface* one. Measure contrast for every role pair in both
+   themes before changing values, and keep the two rules the token system exists to enforce: the
+   accent (`--x`) and its text form (`--x-text`) are separate because the text version must invert
+   between themes and the accent must not; and a shared hue is not a shared role (`--system` vs
+   `--claude`, `--danger` vs `--isolate`). Any change here is visible on every screen, so it wants
+   the visual-regression baselines regenerated — note that masking hides colour, not geometry
+   ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
+
 ### 🔴 Start here next session — 2026-08-13 follow-ups
 
 Left open at the end of the 2026-08-13 MCP/Claude test pass and the cron-parsing sweep that came
@@ -641,6 +699,33 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 </details>
 
 ## 🟡 P2 — Product value
+
+### Dashboard IA redesign *(requested 2026-08-15 — pass 1 shipped, pass 2 open)*
+
+> **Why.** The dashboard was hard to navigate: five full-width things stacked above the first
+> task, three of them horizontal chip rows doing different jobs at the same visual weight, and
+> the axis you actually navigate a real machine by — *which Task Scheduler folder is this in?* —
+> was a facet buried inside the Filters popover. Requested as "put the sections on top, put the
+> sources in a left sidebar, and let each source show its own groupings".
+
+- [x] **Pass 1 — the shell** *(2026-08-15)*: section links moved to a **top toolbar**
+      (`components/TopBar.tsx`); the left column became a two-level **source rail**
+      (`components/SourceRail.tsx` + pure `utils/sourceTree.ts`) — the system at level 1, that
+      system's own grouping at level 2 (Windows → Task Scheduler folders, Cronsole-native → job
+      type, which stopped being two *top-level* sources). The category facet left the Filters
+      popover; the sidebar's "System Status" panel was deleted and per-platform health became a dot
+      on the rail row. `\Microsoft\` is one collapsed, counted disclosure group with **no filter
+      patch**, so the rail never becomes a third controller of the system lens.
+      **The behaviour change worth remembering:** `filtersEqual` now ignores `category` as well as
+      `source`, so navigating the rail no longer drops the view bar to *Custom*. A folder click
+      used to and a source click did not — two halves of one control behaving oppositely. The rule
+      was always about **hidden** constraints, and a rail selection is not hidden.
+      23 new tests (16 tree + 7 component); 508 green; verified in-browser against 363 real tasks.
+- [ ] **Pass 2 — scoping** *(open)*: views filtered to the source they make sense for (*System* is
+      Windows-only and reads `0` everywhere else); source-scoped header actions, so **Sync** and
+      **Import** state which platform they mean; per-source empty states, so a connected platform
+      with nothing imported says how to import from it. Mobile layout still needs a real device
+      check — the automation session could not resize the browser window.
 
 ### Open — UX & UI refinement pass *(logged 2026-08-12)*
 

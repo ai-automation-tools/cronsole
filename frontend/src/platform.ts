@@ -57,6 +57,23 @@ export const sourceLabel = (key: string) =>
     'TASKHUB_NATIVE:EXEC': 'Cronsole (Scripts)'
   }[key] ?? platformSourceLabel(key.split(':')[0]));
 
+/**
+ * The label for a source's **subtype alone**, for a level-2 row in the source
+ * rail.
+ *
+ * `sourceLabel` names the whole source ("Cronsole (Scripts)"), which is right for
+ * a flat control where nothing else supplies the context. In the rail the parent
+ * row already says *Cronsole*, so repeating it in the child spends the width the
+ * tree exists to buy and makes two rows that read almost identically. A key with
+ * no subtype falls back to the full source label — the honest answer when the
+ * source is not subdivided.
+ */
+export const sourceSubtypeLabel = (key: string) =>
+  ({
+    'TASKHUB_NATIVE:HTTP': 'HTTP jobs',
+    'TASKHUB_NATIVE:EXEC': 'Scripts'
+  }[key] ?? sourceLabel(key));
+
 /** Which platform a source key belongs to — for identity colour and icons. */
 export const sourcePlatform = (key: string) => key.split(':')[0];
 

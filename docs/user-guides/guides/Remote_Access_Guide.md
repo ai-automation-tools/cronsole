@@ -136,7 +136,21 @@ makes it one HTTPS URL instead of two plaintext ports.
    on it. The cost of leaving it unset is that the login limiter is one shared bucket, which is
    the right trade when the only callers are your own devices.
 
-4. **Open it on your phone.** `http://my-pc.tailnet-name.ts.net:8080` — one origin, the login
+4. **Turn off key expiry on the PC.** [Admin → Machines](https://login.tailscale.com/admin/machines)
+   → your PC → **Disable key expiry**.
+
+   > [!WARNING]
+   > **This is the one that will catch you months later.** Tailscale node keys expire after
+   > **180 days** by default. When that happens the machine drops off the tailnet and needs
+   > re-authentication — the URL still resolves, it simply stops answering, with no warning
+   > beforehand and no obvious connection to anything you changed. Check yours with
+   > `tailscale status --json` and look at `Self.KeyExpiry`.
+   >
+   > Disable it for the machine in the **server** role. Leaving expiry **on** for your phone is
+   > the right call: a phone that needs re-auth tells you immediately, whereas the PC failing
+   > silently is what leaves you with no way in.
+
+5. **Open it on your phone.** `http://my-pc.tailnet-name.ts.net:8080` — one origin, the login
    screen, and no per-device API-origin override to set, because the `remote` build resolves the
    API against `window.location`. Add it to your home screen and you have the roadmap's "trigger
    from your phone in under 30 seconds", with zero public exposure.
@@ -310,6 +324,8 @@ the host-run stack that `scripts/cronsole.ps1` starts.
 | `tailscale serve --bg 8080` **hangs forever**, no output, no error | It is trying to provision a TLS certificate on a tailnet where HTTPS is not enabled. Kill it, then use `tailscale serve --bg --http=8080 http://127.0.0.1:8080`, or enable HTTPS Certificates in the admin console. `"CertDomains": null` in `tailscale status --json` is the tell. |
 | Tailnet URL loads but the task list is empty | The origin in `ALLOWED_ORIGINS` does not match what `tailscale serve status` prints — check the **scheme and the port**, and add the short MagicDNS name as well as the full one. |
 | Nothing resolves on the phone | Both devices must be signed into the **same** tailnet (`tailscale status` should list the phone). MagicDNS must be on in the admin console. |
+| Worked for months, then stopped, and nothing changed | **Node key expiry** — the 180-day default. The URL still resolves but the machine has left the tailnet. Check `Self.KeyExpiry` in `tailscale status --json`, re-authenticate, then disable key expiry for the PC so it cannot recur. |
+| The URL changed by itself | The Tailscale device name follows the OS hostname, so renaming the machine renames the URL. Pin the machine name in the admin console to decouple them. Enabling HTTPS also changes it — to `https://…` with **no** `:8080`, which needs a matching `ALLOWED_ORIGINS` update. |
 | Locked out after a few wrong passwords, from every device | `TRUST_PROXY` is unset, so the per-IP limiter is one global bucket. Set `TRUST_PROXY=1` (only behind the proxy) and wait out the 15-minute window. |
 
 ## 🔗 Related

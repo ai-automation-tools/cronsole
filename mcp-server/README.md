@@ -117,17 +117,27 @@ Set via environment (see [`.env.example`](.env.example)):
 > won't see a newly set variable** — close it and open a fresh one, then relaunch the host.
 > Restarting the host alone is not enough.
 
-**Minting a token** (the same kind the frontend dev token is): run from `backend/` with the
-backend's `JWT_SECRET` in scope —
+**Getting a token** — issue one from the dashboard: **Settings -> Account -> API tokens -> New API
+token**. Name it, pick a lifetime (**30 / 60 / 90 days, or never**), confirm with your password, and
+copy it. It is shown once; nothing stores it, only its `jti`, which is what makes revocation
+possible.
 
-```bash
-node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'30d'}))"
-```
+Export it as `CRONSOLE_TOKEN` in the environment your MCP host launches from.
+
+> Prefer **never expires** for a machine you control. An expired token makes this server *refuse to
+> start*, so its tools go **missing** rather than erroring — a never-expiring token removes that
+> failure mode, and is only safe to offer because **Revoke** in the same panel kills it immediately
+> without touching any other client.
 
 > ⚠️ The token is a real credential — keep it in your environment, never in a committed file.
 > `.mcp.json` references it as `${CRONSOLE_TOKEN}` precisely so the literal secret never lands
-> in the repo. A per-user pairing flow replaces this hand-minted token once the Go-public
-> account system lands (see the roadmap).
+> in the repo. The list shows a last-used date, so an unfamiliar token that is being used is worth
+> revoking.
+
+> **Note:** API tokens are separate from your browser session, which stays at 24h. Until 2026-08-15
+> this section told you to hand-mint with `jsonwebtoken.sign` and the backend's `JWT_SECRET`; such
+> tokens carry no `jti` and cannot be revoked individually — see the
+> [MCP Server Guide](../docs/user-guides/guides/MCP_Server_Guide.md#getting-a-token).
 
 ## Build & run
 

@@ -67,6 +67,21 @@ export const TEMPLATE_RESOURCES: ResourceSection[] = [
     ]
   },
   {
+    title: 'Remote access',
+    links: [
+      {
+        label: 'Tailscale admin console',
+        url: 'https://console.tailscale.com/',
+        description: 'Manage the tailnet that fronts Cronsole — machines, key expiry, MagicDNS.'
+      },
+      {
+        label: 'Remote Access Guide',
+        url: `${REPO}/docs/user-guides/guides/Remote_Access_Guide.md`,
+        description: 'Reach your local Cronsole from a phone or laptop via `tailscale serve`.'
+      }
+    ]
+  },
+  {
     title: 'Template repositories',
     links: [
       {

@@ -26,6 +26,7 @@ model User {
   exclusions     TaskExclusion[]
   capabilities   PlatformCapability[]
   deletedTasks   DeletedTaskArchive[]
+  apiTokens      ApiToken[]
 
   @@index([email])
 }
@@ -420,3 +421,40 @@ enum HealthState {
 }
 
 
+/// A long-lived credential for a non-browser client — the MCP server above all,
+/// which is a stdio process that cannot re-authenticate when a session lapses.
+///
+/// The row exists to make revocation possible, which is what makes a
+/// never-expiring token safe to offer at all. Before this, the only way to kill a
+/// leaked token was rotating JWT_SECRET, which signs out every client at once.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// What it is for, in the user's words ("Claude Code on my desktop").
+  name       String
+
+  /// The token's `jti` claim. We store THIS, never the token or a hash of it:
+  /// the signature already proves authenticity, so the only thing the database
+  /// needs to answer is "has this one been revoked?". Storing anything more
+  /// would be a second copy of a credential with no use for it.
+  jti        String    @unique
+
+  /// NULL means never expires. Deliberately nullable rather than a sentinel date
+  /// far in the future — "no expiry" is a different fact from "expires in 2099",
+  /// and only one of them survives contact with a date comparison.
+  expiresAt  DateTime?
+
+  /// Throttled to roughly once a minute (see authenticateToken) so an active
+  /// client does not turn every request into a write.
+  lastUsedAt DateTime?
+
+  /// Set instead of deleting the row, so a revoked token stays visible as a
+  /// thing that once existed rather than silently vanishing from the list.
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([jti])
+}

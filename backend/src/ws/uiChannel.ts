@@ -1,5 +1,5 @@
 import type { Server } from 'socket.io';
-import { verifyToken } from '../auth/auth.js';
+import { checkToken } from '../auth/auth.js';
 
 /**
  * Browser live-update channel.
@@ -30,13 +30,21 @@ export function registerUiChannel(io: Server): void {
   const ns = io.of(NS);
 
   // Authenticate on the handshake with the user's JWT (sent as auth.token).
-  ns.use((socket, next) => {
+  // Async on purpose: an API token's revocation lives in the database, and
+  // `checkToken` is the one definition of "is this good right now" that the REST
+  // middleware also uses. A revoked token that the API refuses but this handshake
+  // accepts would keep streaming task updates over an open channel — revocation
+  // has to cover every door or it is not revocation.
+  ns.use(async (socket, next) => {
     const token = (socket.handshake.auth as { token?: unknown })?.token;
-    const user = typeof token === 'string' ? verifyToken(token) : null;
-    if (!user) {
+    if (typeof token !== 'string') {
       return next(new Error('unauthorized'));
     }
-    socket.data.userId = user.id;
+    const result = await checkToken(token);
+    if (!result.ok) {
+      return next(new Error('unauthorized'));
+    }
+    socket.data.userId = result.user.id;
     next();
   });
 

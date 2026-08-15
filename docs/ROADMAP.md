@@ -80,7 +80,7 @@ delete)` in `\Cronsole` is left disabled and wants deleting.
 **🔴 [API tokens are the top priority](#-p0--security-hardening--reopened-2026-08-13)** *(2026-08-13)* —
 the only way to get a token for the MCP server is to run `jsonwebtoken.sign` by hand with the
 backend's `JWT_SECRET`. That is not a workaround someone invented; it is
-[what our own guide tells them to do](user-guides/guides/MCP_Server_Guide.md#minting-a-token). The
+[what our own guide tells them to do](user-guides/guides/MCP_Server_Guide.md#getting-a-token). The
 product cannot issue a credential its own documented integration requires. Ahead of Sources
 because it gates every non-browser client and is the last thing anyone should discover on a
 30-day expiry.
@@ -455,7 +455,7 @@ gap none of them covered, because it is not a hole in a mechanism but the **abse
       (`mikeschecht@gmail.com`). Neither is something Cronsole can produce: `generateToken`
       hardcodes `expiresIn: '24h'` and signs the user's real email.
 
-      **It was not improvised.** [`MCP_Server_Guide.md` › Minting a token](user-guides/guides/MCP_Server_Guide.md#minting-a-token)
+      **It was not improvised.** [`MCP_Server_Guide.md` › Getting a token](user-guides/guides/MCP_Server_Guide.md#getting-a-token)
       instructs the user to run `jsonwebtoken.sign(..., {expiresIn:'30d'})` in a shell with
       `JWT_SECRET` in scope. **That is the documented integration path**, and it is the only one.
       So the finding is not "someone hand-minted a token" — it is that **hand-minting is the
@@ -489,8 +489,43 @@ gap none of them covered, because it is not a hole in a mechanism but the **abse
       and immediately**; (b) is the honest destination and overlaps the account-system item under
       Go-public; (c) is small and independent of both.
 
-      **When this closes, the guide's "Minting a token" section and its warning go with it** —
-      leaving it in place would keep pointing people at the forgery after the supported path exists.
+      - [x] **(a) `JWT_EXPIRES_IN`** — *shipped 2026-08-15.* Defaults to `24h`, so a browser session
+            is unchanged unless someone sets it. Validated by **probe-signing at boot** rather than
+            by pattern-matching (`ms` accepts a wide, undocumented range of spellings, so a regex
+            would reject valid values or admit invalid ones), and the probe also rejects values that
+            parse but mint an already-expired token. An all-digits value is converted to a **number**
+            so it reads as *seconds*: `jsonwebtoken` hands a string to `ms`, which treats a unitless
+            string as **milliseconds**, so `JWT_EXPIRES_IN=3600` would otherwise have issued
+            **3.6-second** tokens — every login succeeding and every request after it 403ing. Login
+            and setup now also return **`expiresIn`**, because the failure this item exists to fix is
+            a credential lapsing *silently*. **The guide's hand-minting instructions are gone**,
+            replaced by log-in-and-read-the-token; the old command survives only in a collapsed block
+            so anyone still holding such a token knows what it was.
+      - [x] **(b) A real token surface** — *shipped 2026-08-15.* `ApiToken` + three routes
+            (`POST`/`GET`/`DELETE /api/auth/tokens`) and a manager in **Settings → Account**: name a
+            token, pick **30 / 60 / 90 days or never**, confirm with your password, copy it once.
+            The list shows last-used dates and revokes individually.
+        - **`never` is only offered because these are revocable.** A permanent credential you can
+              withdraw is a convenience; one you cannot is a liability — and revocation is the thing
+              that was missing, since a leaked token could previously only be killed by rotating
+              `JWT_SECRET`, signing out every client at once.
+        - **The database stores the `jti` and nothing else.** The signature already proves
+              authenticity, so the only question a row has to answer is *"has this been withdrawn?"*.
+              Storing the token, or a hash of it, would be a second copy of a credential with no use
+              for it.
+        - **Revocation covers every door.** `checkToken` is one definition shared by the REST
+              middleware and the Socket.IO handshake — a revoked token the API refuses but the
+              live-update channel accepts would keep streaming task updates, and that is the half
+              nobody would think to test. It also **fails closed**: if the database cannot be asked,
+              the answer is `503`, not "assume valid".
+        - **It cost the hot path nothing.** Only tokens *with* a `jti` are looked up; a browser
+              session carries none, so the dashboard poll still verifies a signature and stops.
+              `lastUsedAt` is throttled to ~60s so an active client does not turn every read into a
+              write.
+        - **Browser sessions deliberately stay at 24h**, decoupled from API tokens — which is the
+              coupling (a) knowingly left open. `JWT_EXPIRES_IN` still governs logins only.
+      - [ ] **(c) Resolve `req.user` from the DB** (or stop trusting the `email` claim). Small,
+            independent of both.
 
 - [x] Agent WebSocket authentication — pairing-secret HMAC handshake, per-session command signing *(2026-07-09)*
 - [x] Encrypt `PlatformConnection.config` at rest (AES-256-GCM, migration-free legacy read) *(2026-07-09)*

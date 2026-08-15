@@ -28,6 +28,7 @@ import {
 import { ThemeToggle } from './ThemeToggle';
 import { useSettings, DEFAULT_SETTINGS, type Settings, type DashboardView } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
+import { ApiTokensRow } from './settings/ApiTokensRow';
 import { useAuth } from '../hooks/useAuth';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { platformLabel } from '../platform';
@@ -327,6 +328,12 @@ const AccountSection = () => {
             {busy && <Loader2 size={14} className="animate-spin" />} Update password
           </button>
         </div>
+      </Row>
+      <Row
+        label="API tokens"
+        description="Long-lived credentials for clients that can't log in — the MCP server above all. Separate from your browser session, and revocable here."
+      >
+        <ApiTokensRow />
       </Row>
       <Row label="Sign out" description="End this session on this device.">
         <button

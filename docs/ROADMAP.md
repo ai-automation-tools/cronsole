@@ -929,11 +929,31 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       path today.
 - [ ] **Route-level code-splitting** *(optional follow-up to the frontend refactor)*: the single
       bundle trips Vite's 500 kB hint; cheap now that the router and screen modules exist.
-- [ ] **Remote access (self-hosted) — the final, optional enhancement** *(do everything else
-      first)*: reach your **own** local instance from other devices (the code-server model) via
-      Tailscale or Cloudflare Tunnel + Access. Delivered as docs + optional tooling
-      ([Remote Access Guide](user-guides/guides/Remote_Access_Guide.md)); optional bundled
-      single-origin reverse proxy. Not part of the local-first launch.
+- [~] **Remote access (self-hosted) — the final, optional enhancement**: reach your **own** local
+      instance from other devices (the code-server model) via Tailscale or Cloudflare Tunnel +
+      Access. Not part of the local-first launch. **The tooling shipped 2026-08-15**; what remains
+      is polish, not plumbing.
+  - [x] **Bundled single-origin reverse proxy** — `proxy/Caddyfile` + two opt-in Compose profiles
+        (`proxy`, `remote`). Serves the built dashboard at `/`, forwards `/api/*` and
+        `/socket.io/*` to the backend, SPA fallback for router deep links. Bound to
+        `127.0.0.1:8080`; cloudflared reaches it over the compose network.
+  - [x] **Same-origin frontend builds** — `npm run build:remote` (`VITE_API_URL=same-origin`)
+        resolves the API against `window.location`, so **one build is correct at every address**
+        and the per-device API-origin override is no longer needed.
+  - [x] **Cloudflare Tunnel profile + Access instructions**, and `TRUST_PROXY` so the login
+        rate-limiter stays per-client behind the proxy.
+  - [x] **Pre-req found and fixed while verifying it**: a real owner JWT was compiled into the
+        production bundle via `VITE_DEV_TOKEN`, making the login screen decorative on any built
+        copy. Gated on `import.meta.env.DEV` + guarded by `check-bundle-secrets.mjs` on every
+        build. See the CHANGELOG and [troubleshooting #55](troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in).
+  - [ ] **PWA manifest + icons** so the dashboard installs to a phone home screen — the last
+        piece of the "trigger from your phone in under 30 seconds" goal.
+  - [ ] **Auth hardening for an internet-facing gate** *(deliberately deferred 2026-08-15 — the
+        network gate is doing this job today)*: there is no password reset, so forgetting the one
+        password while travelling is only fixable at the keyboard; and the 24h JWT lives in
+        `localStorage` on a phone that can be lost, with no refresh flow and no revocation. Both
+        are acceptable behind Tailscale or Access and are the first things to revisit if the gate
+        is ever relaxed.
 
 - [x] **MCP delete is native-only, and archives before it destroys** *(decided and shipped
       2026-08-13)*. `delete_task` was gated all-or-nothing by `CRONSOLE_MCP_ALLOW_DESTRUCTIVE`, and

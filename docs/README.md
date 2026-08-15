@@ -32,7 +32,7 @@ New to Cronsole? Follow this path in order:
 |:---|:---|
 | [**⬇️ install/**](install/README.md) | Install Cronsole — Windows, macOS, and clone-the-repo paths. |
 | [**⚙️ setup/**](setup/README.md) | Configure it — environment variables, Docker vs. manual, agent pairing. |
-| [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive Cronsole from Claude/Codex/Cursor), and remote access from other devices. |
+| [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive Cronsole from Claude/Codex/Cursor), and [remote access](user-guides/guides/Remote_Access_Guide.md) so you can reach your own instance from your phone. |
 | [**💬 prompts/**](prompts/README.md) | Talk to it — copy-paste prompts for driving Cronsole in natural language, grouped by what you're doing: [scheduled scripts](prompts/mcp-server/windows-tasks.md), [headless coding-agent runs](prompts/mcp-server/ai-agent-jobs.md), [HTTP and script jobs](prompts/mcp-server/native-tasks.md), [Claude routines](prompts/mcp-server/claude-routines.md), audits, cleanup — plus the `cronsole` skill and the REST API. |
 | [**🧯 troubleshooting/**](troubleshooting/README.md) | Fix it — symptom → cause → fix for problems we've actually hit. |
 | [**🧪 testing/**](testing/README.md) | Verify it — functional, integration, regression, and UAT: what to test, what covers it today, and how to run it. Includes copy-pasteable [manual runbooks](testing/manual-testing/README.md) for what no suite can prove (real Task Scheduler, agent resilience, security at rest). |
@@ -55,8 +55,11 @@ New to Cronsole? Follow this path in order:
 | [**🗺️ ROADMAP.md**](ROADMAP.md) | The living plan — what's shipped and what's next (P0 → P3), plus open decisions. |
 
 > [!NOTE]
-> Engineering specs, research, and the historical phase plans are kept locally under
-> `docs/archive/` and are **not tracked in git**.
+> Two folders here are **local-only and not tracked in git**, so they will be absent from a fresh
+> clone. `docs/archive/` holds the engineering specs, research and historical phase plans.
+> `docs/local/` holds how *one particular machine* is deployed — hostnames, device names, and the
+> settings in force. Anything in `docs/local/` that would help a stranger belongs in
+> [user-guides/guides/](user-guides/guides/) instead, which is tracked.
 
 ## 📂 Related
 

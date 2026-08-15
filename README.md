@@ -80,7 +80,7 @@ so what you see is consistent no matter where a task actually lives.
 |:---|:---|
 | **Unified dashboard** | Every synced task in one view, with platform and status badges, across grid / list / kanban / schedule layouts. Each card says **when the task runs** in plain words — *"Daily at 8:00 AM PDT"*, read in your own timezone — so you don't have to open a task to find out. |
 | **Favorites** | Star the handful of tasks you actually watch, and the dashboard opens on them. With none starred it opens normally, so it stays out of your way until you use it — and when it does filter itself, it says so and offers the full list in one click. |
-| **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. |
+| **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. Cronsole is local-first, so reaching it from a phone is an opt-in step: [**Remote Access**](docs/user-guides/guides/Remote_Access_Guide.md) ships a single-origin reverse proxy you put behind Tailscale or a Cloudflare Tunnel, keeping the dashboard off the public internet. |
 | **Live sync** | The local agent keeps Cronsole in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
 | **Cronsole-native tasks** | Create HTTP jobs (webhooks, health checks) that Cronsole schedules and runs itself — no OS task needed. |
 | **Template library** | 55 ready-to-use script starters and use-case patterns, in 6 downloadable packs — including the **Developer Pack** and AI CLI packs for Claude Code + Codex; fill in the blanks and Cronsole creates a real scheduled task. Backed by a versioned, hosted [template registry](docs/reports/templates/Registry_Schema_v1.md) so the catalog updates independently of the app. **Grow it without a reseed**: export/import templates as JSON, or **Save as template** straight from a real task. |
@@ -210,6 +210,7 @@ And the key guides, one click away:
 | [**🖥️ UI User Guide**](docs/user-guides/guides/UI_User_Guide.md) | Navigating the dashboard, categorizing tasks, applying templates. |
 | [**🤖 Windows Agent Setup**](docs/user-guides/guides/Agent_Setup_Guide.md) | Installing, verifying, and troubleshooting the local agent. |
 | [**🧩 MCP Server**](docs/user-guides/guides/MCP_Server_Guide.md) | Wiring Cronsole into Claude / Codex / Cursor to manage tasks in natural language. |
+| [**🌐 Remote Access**](docs/user-guides/guides/Remote_Access_Guide.md) <sub>· optional</sub> | Reaching your own instance from your phone — one HTTPS origin behind Tailscale or a Cloudflare Tunnel, with nothing on the public internet. |
 | [**💬 Prompts to start with**](docs/prompts/mcp-server/README.md) | What to actually say once the MCP server is connected, grouped by what you're trying to do. |
 | [**🔥 Smoke Test**](docs/testing/manual-testing/runbooks/Smoke_Test.md) | Verifying your stack is actually alive and the agent is talking — in about 10 minutes. |
 

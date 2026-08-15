@@ -71,10 +71,20 @@ cronsole/
 │   ├── agent-tools/           # dev tooling docs: mcp/, clis/, agents/
 │   ├── resources/             # curated external links: repos/, websites/
 │   ├── reports/               # templates/ (catalog spec) + examples/ (JSON payloads)
-│   └── archive/               # LOCAL-ONLY (gitignored): specs/, research/, phases/, Project_Plan.md
+│   ├── archive/               # LOCAL-ONLY (gitignored): specs/, research/, phases/, Project_Plan.md
+│   └── local/                 # LOCAL-ONLY (gitignored): how THIS machine is deployed —
+│                              #   tailnet hostnames, device names, the settings in force, and
+│                              #   the decision record behind them. The generalizable half of
+│                              #   anything here belongs in user-guides/guides/, which IS tracked.
+│                              #   Gitignored means NOT BACKED UP; copy it off before a rebuild.
 ├── registry/                  # static template registry artifact (index.json + templates/*.json)
 │                              #   generated from backend/src/catalog/bundled.ts; mirrored to the
 │                              #   public cronsole-registry repo (GitHub Pages). Do not hand-edit.
+├── proxy/                     # OPT-IN single-origin reverse proxy (remote access).
+│                              #   Caddyfile only; started via `docker compose --profile proxy`
+│                              #   (or `--profile remote`, which adds cloudflared). Serves the
+│                              #   BUILT frontend (frontend/dist) at / and forwards /api +
+│                              #   /socket.io to the backend. Nothing here runs by default.
 ├── backend/                   # Node.js + Express + Prisma (Phase 3)
 │   ├── prisma/
 │   ├── src/
@@ -164,7 +174,7 @@ Invoke via `Skill` tool when the work matches.
 - **`release-engineering`** — shipping to strangers: versioning across the four independently-versioned components (app / agent+protocol / MCP server / registry schema), WiX MSI, Authenticode signing, macOS notarization, agent auto-update & trust, the legal minimum. Covers four open roadmap items `senior-devops` doesn't: **Installer packages**, **Agent distribution & trust**, **Versioning & releases**, **Legal minimum**.
 
 ### Diagnosis & consistency (custom commands)
-- **`/doctor`** — run this **before debugging your own code** when live behavior contradicts the source. Checks the **three things that run stale** (Dockerized backend, published agent, `mcp-server/dist/`), agent connectivity, and `CRONSOLE_TOKEN` expansion. Most "impossible" behavior is one of those.
+- **`/doctor`** — run this **before debugging your own code** when live behavior contradicts the source. Checks the **three things that run stale** (Dockerized backend, published agent, `mcp-server/dist/`), agent connectivity, and `CRONSOLE_TOKEN` expansion. Most "impossible" behavior is one of those. *(There is a **conditional fourth**: `frontend/dist/`, but only while the opt-in remote-access `proxy` profile is running — see §9 › Remote access and [#53](docs/troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current). It is not on the standing list because on a normal stack nothing serves it.)*
 - **`/sync-surfaces`** — the §11a mirror-surface check, mechanized: maps a diff onto the surfaces it obligates and reports what drifted. Run before committing anything non-trivial.
 
 ### MCP & AI Integration (Phase 6)
@@ -387,6 +397,14 @@ These are project-specific overrides on top of the parent workspace's general st
 - **The CSV export neutralizes formula injection and ships UTF-8 + BOM.** Cronsole stores command lines, so a cell beginning `=`, `+`, `-` or `@` would be executed by Excel on open — a task named `=cmd|'/c calc'!A1` would make the report a live payload. The BOM is not cosmetic either: without it Excel decodes non-ASCII task names as ANSI. Encoding is part of the format, same as the UTF-16 the Task Scheduler XML needs.
 
 ### Security
+- **A `VITE_*` variable is public by construction, and the source being clean proves nothing** *(2026-08-15)*. Vite loads `.env.local` in **every** mode — not just `dev` — and inlines each `VITE_*` reference as a **literal** at build time. So `VITE_DEV_TOKEN`, an optional dev/E2E fallback that `getAuthToken()` returns whenever nobody is logged in, was compiled into `dist/assets/*.js` as a valid owner JWT with `exp` in 2036: **every built copy of the dashboard arrived already authenticated**, and the login screen rendered only in the case that could no longer occur. The prefix means *"safe to publish"*, not *"available to the frontend"* — anything sensitive belongs behind a backend route.
+  - **The interesting part is why nothing caught it.** The comment above the line said *"there is intentionally NO committed dev fallback — a hardcoded token is a leaked credential"*, and that intent was right. `.env.local` is gitignored, so nothing was committed. Every test passed. **The source never contained the secret; the compiler added it** — which is why the guard reads the **build output** (`frontend/scripts/check-bundle-secrets.mjs`, wired into both build scripts) and not the source. A linter would have reported the code as clean, correctly, forever. Same family as #40: a verdict taken from a precondition (*"we never committed a token"*) instead of from what actually happened (*"is there one in the bundle?"*).
+  - **The fix is a fold, not a rule.** `import.meta.env.DEV ? … : undefined` is statically `false` in a build, so the branch and its string disappear — the secret cannot reach a bundle even when the variable is set in the building environment. A convention someone must remember would have been the weaker half of this.
+  - **It was survivable only because `dist/` had never left localhost.** The remote-access proxy serves that exact bundle through a public tunnel, so this had to be fixed *before* that shipped rather than after. Blast radius is a property of where the artifact is served, and that changed without the artifact changing.
+- **Remote access is opt-in, single-origin, and the network layer is the real gate** *(2026-08-15)*. Cronsole stays local-first (§3); reaching your own instance from a phone is `proxy/Caddyfile` behind two Compose profiles (`proxy`, `remote`), documented in [Remote Access](docs/user-guides/guides/Remote_Access_Guide.md). Three rules come with it.
+  - **`same-origin` is a build-time value, never a stored one.** `npm run build:remote` sets `VITE_API_URL=same-origin`, which resolves the API against `window.location` — so **one build is correct at every address it is served from**, and the per-device API-origin override (invisible `localStorage`, retyped on every phone) stops being necessary. `setApiOrigin` **refuses to store** the sentinel: a saved value that resolves against the page would freeze whichever address it was saved at, right locally and wrong through the tunnel.
+  - **`TRUST_PROXY` is off by default, and the test is not "is there a proxy" but "can the caller also reach `:3000`".** Trusting `X-Forwarded-For` is the widening choice: with the proxy as the *only* route in (Cloudflare Tunnel — `:3000` stays on the host, only `proxy:80` is published) it must be `1`, or every request appears to come from Caddy and the login limiter collapses to **one global bucket**, so ten wrong passwords from anywhere lock the owner out. On **Tailscale it must stay unset**, because the tailnet exposes the whole machine — `:3000` is directly addressable, so a trusted header is forgeable by anything on the tailnet, and the shared bucket is the right trade when every caller is already one of your own devices. **The same proxy yields opposite answers on the two paths**, which is why this is a per-deployment decision rather than a setting that follows the proxy.
+  - **The proxy binds loopback, and the exposure is Cloudflare Access's job.** `127.0.0.1:8080`, because cloudflared reaches it over the compose network — publishing it to the LAN would add an unauthenticated-at-the-network-layer copy of the thing Access is guarding. Cronsole's own login (one password, no reset, no MFA, no refresh) is the **second** factor behind that gate and must never be treated as the gate.
 - Secrets never in code. Use `.env.local` for dev. **There is no "prod" secret store — Cronsole is local-first** (§3), so secrets live in the user's own `.env` / environment on the machine running the stack. *(This line read "AWS Secrets Manager / Vault for prod" until 2026-07-31 — a leftover of the hosted plan dropped 2026-07-13, the same staleness already corrected in the §3 Hosting row.)*
 - WebSocket: WSS only. JWT for users, pairing-secret-derived token for agents.
 - No `0.0.0.0` binds in the agent. It's a *client*, not a server.

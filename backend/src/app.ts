@@ -26,6 +26,33 @@ const RESTORE_BODY_LIMIT = '32mb';
 export function createApp(): Express {
   const app = express();
 
+  // Who the login rate-limiter thinks it is throttling.
+  //
+  // UNSET BY DEFAULT, and that default is the safe one: Express reads `req.ip`
+  // from the socket, so a forged `X-Forwarded-For` cannot move a caller into a
+  // different bucket. Trusting the header is the *widening* choice, which is why
+  // it is opt-in rather than inferred.
+  //
+  // Set it ONLY behind the single-origin reverse proxy (TRUST_PROXY=1, one hop —
+  // Caddy), where the backend is not directly reachable. There, every request
+  // arrives from the proxy's address, so without this the per-IP limiter in
+  // `makeAuthLimiter` collapses to ONE global bucket — ten wrong passwords from
+  // anywhere lock the owner out of their own dashboard — and express-rate-limit
+  // v8 logs ERR_ERL_UNEXPECTED_X_FORWARDED_FOR because it can see the header it
+  // has been told not to believe.
+  //
+  // The caveat is the whole reason it isn't just switched on: if `:3000` is
+  // reachable directly, anyone who can hit it can forge the header and evade the
+  // limiter entirely. Trust a proxy only when it is genuinely the only way in.
+  // See docs/user-guides/guides/Remote_Access_Guide.md.
+  const trustProxy = process.env.TRUST_PROXY;
+  if (trustProxy) {
+    // Numeric hop counts must not be passed as strings — Express treats a string
+    // as a subnet/hostname list, so '1' would be read as an IP to trust rather
+    // than "one hop", and `req.ip` would silently stay the proxy's.
+    app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
+  }
+
   // Same origin list Socket.IO enforces (see config/origins.ts). This was a bare
   // `cors()` — reflect-any-origin — while the socket channel was restricted, so
   // the two halves of the same API disagreed about who may call it.

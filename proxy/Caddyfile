@@ -1,0 +1,70 @@
+# Cronsole single-origin reverse proxy.
+#
+# Cronsole is normally TWO origins — the frontend (:7373) and the API + Socket.IO
+# (:3000), which the browser calls directly. That is fine on the machine it runs
+# on, but it makes remote access unpleasant: a second origin means a second thing
+# to expose, a second entry in ALLOWED_ORIGINS, and the per-device API-origin
+# override typed in by hand on every phone. This collapses both behind ONE origin,
+# so a tunnel has a single hostname to publish and the built frontend can resolve
+# its API against `window.location` (VITE_API_URL=same-origin) with nothing stored
+# per device.
+#
+# Opt-in: `docker compose --profile proxy up -d`. Nothing here runs by default.
+
+{
+	# No admin API. It is unauthenticated and would be reachable from anything
+	# sharing the compose network — a config-rewrite endpoint sitting behind the
+	# same tunnel as the dashboard.
+	admin off
+
+	# TLS is terminated at the Cloudflare edge; cloudflared speaks plain HTTP to
+	# this container over the private compose network. Without this Caddy would
+	# try to provision its own certificate for a hostname it does not own.
+	auto_https off
+}
+
+:80 {
+	encode zstd gzip
+
+	# --- The API ---------------------------------------------------------------
+	# `handle` blocks are mutually exclusive, so the first matching one wins and
+	# the SPA fallback below can never swallow an API request. Using `handle_path`
+	# here would strip the /api prefix the backend actually mounts its routes on.
+	handle /api/* {
+		reverse_proxy {$CRONSOLE_BACKEND_UPSTREAM:host.docker.internal:3000}
+	}
+
+	# --- Live updates ----------------------------------------------------------
+	# Socket.IO is mounted at its default path with NAMESPACES (`/ui` for browser
+	# dashboards, `/` for agents). A namespace rides inside the protocol, not in
+	# the URL, so proxying this one path covers both — there is no `/ui` route to
+	# forward. Caddy upgrades WebSockets here without extra configuration.
+	handle /socket.io/* {
+		reverse_proxy {$CRONSOLE_BACKEND_UPSTREAM:host.docker.internal:3000}
+	}
+
+	# --- The dashboard ---------------------------------------------------------
+	# Static files from the production build, NOT a proxy to the Vite dev server:
+	# dev serves hundreds of unbundled ES modules and opens its own HMR WebSocket
+	# on :7373, which is slow over a tunnel and would need the tunnel hostname
+	# added to Vite's allowedHosts. The cost is that `frontend/dist` is a build
+	# artifact that can go stale — see the guide and troubleshooting.
+	handle {
+		root * /srv
+
+		# React Router owns /tasks/:id and /templates/:id. Without this fallback a
+		# deep link — or any refresh away from `/` — is a 404 from the file server,
+		# which is exactly the link someone shares to their phone.
+		try_files {path} /index.html
+		file_server
+
+		# Vite fingerprints everything under /assets, so those are immutable. The
+		# entry document must never be cached, or a rebuilt dashboard keeps serving
+		# the old bundle from the phone's cache with no way for the user to tell.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+
+		@html path / /index.html
+		header @html Cache-Control "no-cache"
+	}
+}

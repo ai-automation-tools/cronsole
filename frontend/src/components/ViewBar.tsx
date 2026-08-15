@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bookmark, BookmarkPlus, Check, RotateCcw, Star, X } from 'lucide-react';
+import { Bookmark, BookmarkPlus, Check, RotateCcw, X } from 'lucide-react';
 import { isBuiltinView, type SavedView } from '../utils/savedViews';
 import { HelpButton } from './HelpButton';
 
@@ -96,21 +96,13 @@ export const ViewBar = ({
               } ${isBuiltinView(view.id) ? '' : 'group-hover/view:pr-7'}`}
             >
               {/*
-                The Favorites chip carries the same star the tasks do, in the
-                same amber. It is `text-warning-text`, never a raw `text-yellow-…`
-                utility: one literal cannot be legible on both the dark surface
-                and the light one, which is why every status colour here is a
-                role token (see index.css). `fill-current` matches a *starred*
-                task's star rather than the hollow outline of an unstarred one —
-                the chip stands for the set, not for the act of starring.
+                Favorites used to be a chip here, carrying a star. It is a row in
+                the **source rail** now: starred-is-a-place is how people look for
+                it, and as a rail row it composes with whichever view is lit
+                instead of replacing it. Nothing is left behind here — a chip that
+                still rendered would be a second control for a dimension the rail
+                owns, which is the duplication the rail was built to remove.
               */}
-              {view.id === 'favorites' && (
-                <Star
-                  size={11}
-                  aria-hidden="true"
-                  className={`shrink-0 fill-current ${active ? '' : 'text-warning-text'}`}
-                />
-              )}
               {view.name}
               {/*
                 `null` is not zero. A view whose count depends on the health

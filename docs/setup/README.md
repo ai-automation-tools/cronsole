@@ -129,7 +129,7 @@ For installing, registering, verifying, and troubleshooting the agent itself, se
 
 - Backend healthy: `GET http://localhost:3000/api/health` → `{ "status": "ok", ... }`.
 - Dashboard reading live data: it shows **your** tasks once the agent has synced.
-- Agent connected: the sidebar **Windows Agent** status reads **Online**.
+- Agent connected: **Windows Task Scheduler** in the dashboard's source rail carries a green dot.
 
 > [!TIP]
 > Something not coming up? Check [**🧯 Troubleshooting**](../troubleshooting/README.md) — it

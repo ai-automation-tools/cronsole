@@ -72,6 +72,16 @@ export interface Settings {
    * the dashboard before the change froze a copy into their localStorage.
    */
   savedViews: SavedView[];
+  /**
+   * Is the dashboard's source rail collapsed to icons?
+   *
+   * A preference, so it persists — someone who works in a narrow window and
+   * collapses the rail should not re-collapse it on every visit. Deliberately
+   * **not** in the URL: a bookmark reproduces *which tasks you are looking at*,
+   * and a link that also folded someone else's sidebar would make two URLs mean
+   * the same thing. Same reasoning as the rail's per-branch expansion state.
+   */
+  railCollapsed: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -89,6 +99,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onboardingSeen: false,
   lastImportCategories: null,
   savedViews: [],
+  railCollapsed: false,
 };
 
 const STORAGE_KEY = 'cronsole.settings';

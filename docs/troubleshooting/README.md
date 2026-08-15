@@ -41,6 +41,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 41 | A browser verification hangs 45s with `Runtime.evaluate timed out` / `Script injection timed out`, but the page is alive afterwards and the action completed | The tab is **hidden**: `requestAnimationFrame` fires **0 times**, so any probe awaiting a frame waits forever, and timers are throttled (`setTimeout(50)` → 620ms; intensive throttling clamps to ~1/min). Not an app problem. Tell: `setTimeout` fires while `rAF` never does. Measure synchronously (`performance.now()` + forced reflow) or with a `MutationObserver` | [→](#41-a-browser-verification-freezes-for-45s--the-tab-is-hidden-and-requestanimationframe-never-fires) |
 | 36 | **Every** Playwright E2E spec fails on a dashboard heading that plainly exists, against a stack that is healthy — `4 failed, 5 did not run` | `VITE_DEV_TOKEN` in `frontend/.env.local` is **empty**, signed with a rotated `JWT_SECRET`, or names a `User.id` that doesn't exist — so the browser sits on the login screen. The suite has no login step by design. **The tell is the page snapshot in `test-results/*/error-context.md` showing a Sign in form.** E2E is the one suite not in CI, so this disables the whole full-stack gate while everything else stays green | [→](#36-every-playwright-e2e-test-fails-on-a-heading-that-exists--the-browser-is-sitting-on-the-login-screen) |
 | 37 | The E2E suite passes 9/9 and your **real** Windows agent is offline immediately afterwards — and stays offline | [#5](#5-windows-offline-after-running-a-transient-test-agent) reached through the test suite: `mock-agent.spec.ts` takes the single per-user agent socket and clears the mapping on disconnect. The agent process stays UP, so every process-level check lies. `pwsh scripts/cronsole.ps1 restart`, then **check `/api/tasks/health` as the last step of the run** | [→](#37-running-the-e2e-suite-knocks-your-real-windows-agent-offline--and-it-stays-that-way) |
+| 53 | A count beside a filter control disagrees with another count for the same set, and both look right | Two questions sharing one number: *what exists* vs *what clicking reveals*. Anything printed beside a control that changes the list must be **faceted** (every other lens applied); existence counts may only gate whether a control renders | [→](#53-two-counts-for-the-same-set-disagree-on-screen--and-both-are-right) |
 | 1 | Backend crash-loops on startup with an opaque `[Object: null prototype] {}` uncaught exception | `ts-node` can't parse the installed TypeScript version | [→](#1-backend-crash-loops-with-object-null-prototype) |
 | 2 | Dashboard shows no tasks / `403 Invalid or expired token`; agent handshake rejected | Docker's default secrets don't match your rotated `backend/.env` | [→](#2-403-invalid-or-expired-token-or-agent-rejected) |
 | 3 | Port 3000 shows as `LISTENING` but every request returns `HTTP 000` / `EADDRINUSE` on restart | Docker's port proxy holds the port even though the app process died | [→](#3-port-listening-but-http-000--eaddrinuse) |
@@ -3715,6 +3716,42 @@ it thinks changed*.
 
 *First hit: 2026-08-15, while adding the `ApiToken` model. The edit itself predates that by weeks;
 nothing had needed a new migration in between, which is exactly why it lay dormant.*
+
+### 53. Two counts for the same set disagree on screen — and both are "right"
+
+**Symptom.** The dashboard's filter bar says `257 system hidden`. Two inches to its left, the source
+rail's `System tasks` group says `111`. Clicking the chip reveals 111 rows. Nothing errors,
+no test fails, and each number is individually defensible.
+
+**Cause.** They answered **different questions** and had never been rendered side by side before.
+
+- `applySystemLens(...).hidden` counts system tasks that **exist** — deliberately, and its docstring
+  says so: the ownership toggle needs a number even in the `'only'` state, where the lens hides
+  nothing.
+- The rail's group counts the same set **faceted** — every *other* lens applied.
+
+Under the *Failures* view those are 257 and 111. The chip was rendering the existence count under a
+label (`N system hidden`) that claims something about **this list**, so it over-promised by 146.
+
+**The tell.** The disagreement only appears once two surfaces print the same set. Before the source
+rail, `hidden` had exactly one consumer, so a number that answered the wrong question looked fine
+for months.
+
+**Fix.** Split them by the question, not by the caller:
+
+- **"What will clicking reveal?"** → faceted (`applyTaskFiltersExcept(all, filters, 'system')`
+  filtered to `isSystem`). Anything printed next to a control that changes the list.
+- **"Do you have any of these at all?"** → existence. Only for deciding whether a control is worth
+  rendering. It must *not* be faceted, or the Ownership control would vanish on a view containing no
+  system tasks — removing the explanation exactly when the list looks suspiciously short.
+
+**The rule.** **A count beside a filter control is a promise about what clicking it does.** Same
+defect the status chip had when it printed `Showing All 269` above two rows. When one number has two
+plausible meanings, give each meaning its own name — `hiddenBySystemFilter` versus
+`systemTaskCount` — rather than picking one and hoping every future caller wants that one.
+
+*First hit: 2026-08-15, during the dashboard IA redesign. The bug predates it; the redesign is only
+what put the two numbers in the same viewport.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

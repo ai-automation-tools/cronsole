@@ -7,7 +7,6 @@ import {
   EyeOff,
   Filter,
   Folder,
-  LayoutDashboard,
   User,
   X
 } from 'lucide-react';
@@ -34,12 +33,16 @@ import { HelpButton } from './HelpButton';
  * while claiming to show all 269). So the split is by *whether a lens speaks
  * for itself*:
  *
- *  - **Category** becomes a **pill**, outside the drawer. You can read
- *    "Backups" and know the rest is elsewhere; a count would add nothing.
- *  - **Platform is not here at all.** It graduated to the *source bar* above
- *    the view bar — the dashboard's first-level axis — and leaving a copy here
- *    would be two controls for one dimension, which is the "two ways to say
- *    these tasks" duplication that cost the dashboard its row selection.
+ *  - **Neither source nor category is here.** Both graduated to the *source
+ *    rail* — the dashboard's navigation, source at level 1 and the platform's
+ *    own grouping (a Task Scheduler folder, a native job type) at level 2.
+ *    Leaving a copy of either here would be two controls for one dimension,
+ *    which is the "two ways to say these tasks" duplication that cost the
+ *    dashboard its row selection.
+ *  - **Category keeps its pill**, though, and that is not a contradiction: a
+ *    pill *names and clears* a constraint, it does not offer the alternatives.
+ *    It earns its place on the phone, where the rail is a closed drawer and the
+ *    pill is the only thing on screen saying which folder you are in.
  *  - **System and status** print what they are holding back, outside the
  *    drawer, always. They are *defaults* — nobody chose them today — and on a
  *    real machine they withhold 189 and 10 rows while looking like a neutral
@@ -56,9 +59,6 @@ interface Props {
   setFilter: <K extends keyof TaskFilters>(key: K, value: TaskFilters[K]) => void;
   /** Persisted alongside the system lens — see the dashboard's note on why. */
   onSystemLensChange: (next: SystemFilter) => void;
-  categories: string[];
-  categoryCounts: Map<string, number>;
-  totalVisibleCount: number;
   /**
    * What the count on the trigger is measured *against*.
    *
@@ -73,8 +73,21 @@ interface Props {
    * view", which is the only thing the drawer can clear.
    */
   baseFilters?: TaskFilters;
-  /** Tasks Windows itself owns, counted over everything the other lenses allow. */
+  /**
+   * Rows the system lens is holding back **from this list** — every other lens
+   * applied. This is the number on the "N system hidden" chip, and it has to
+   * predict the click.
+   */
   hiddenBySystemFilter: number;
+  /**
+   * How many OS-owned tasks **exist at all**, ignoring every other lens.
+   *
+   * A different question, and only this one may gate the Ownership control: a
+   * lens for a problem you do not have is noise, but the control must not vanish
+   * merely because the *current view* has no system tasks in it — that would
+   * remove the way back exactly when the list looks suspiciously short.
+   */
+  systemTaskCount: number;
   /** Tasks the status lens is holding back, in this view. */
   hiddenByActiveFilter: number;
 }
@@ -96,11 +109,9 @@ export const TaskFilterMenu = ({
   filters,
   setFilter,
   onSystemLensChange,
-  categories,
-  categoryCounts,
-  totalVisibleCount,
   baseFilters,
   hiddenBySystemFilter,
+  systemTaskCount,
   hiddenByActiveFilter
 }: Props) => {
   const [open, setOpen] = useState(false);
@@ -193,8 +204,10 @@ export const TaskFilterMenu = ({
             </Section>
 
             {/* Only when the machine actually has OS-owned tasks — a lens for a
-                problem you don't have is noise. */}
-            {hiddenBySystemFilter > 0 && (
+                problem you don't have is noise. Gated on *existence*, never on
+                what the current view is withholding: a view with no system
+                tasks in it would otherwise hide the control that explains why. */}
+            {systemTaskCount > 0 && (
               <Section title="Ownership">
                 {(['personal', 'include', 'only'] as SystemFilter[]).map(s => (
                   <button
@@ -212,21 +225,11 @@ export const TaskFilterMenu = ({
               </Section>
             )}
 
-            <Section title="Category">
-              <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
-                {categories.map(cat => (
-                  <button key={cat} onClick={() => setFilter('category', cat)} className={`${row} ${filters.category === cat ? rowOn : rowOff}`}>
-                    <span className="flex items-center gap-2 truncate">
-                      {cat === 'All' ? <LayoutDashboard size={12} /> : <Folder size={12} />}
-                      <span className="truncate">{cat}</span>
-                    </span>
-                    <span className="text-[10px] tabular-nums text-subtle-foreground shrink-0">
-                      {cat === 'All' ? totalVisibleCount : categoryCounts.get(cat) ?? 0}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </Section>
+            {/* Category is not here any more — it is the source rail's second
+                level, where a Task Scheduler folder is the axis you navigate
+                by rather than a list inside a popover. Same reasoning that took
+                platform out of this drawer: two controls for one dimension is
+                how the two drift, and the rail's counts are faceted properly. */}
           </div>
         )}
       </div>

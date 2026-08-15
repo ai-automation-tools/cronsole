@@ -64,7 +64,7 @@ To confirm the agent process is running silently in the background:
 ### 3. Connection Check
 To verify that the agent has connected to the Cronsole server:
 - Open the Cronsole Dashboard ([http://localhost:7373/](http://localhost:7373/)).
-- The **Windows Agent** status in the sidebar should display **Online**.
+- **Windows Task Scheduler** in the dashboard's source rail should carry a green dot (**Online**).
 - Verify that your local Windows scheduled tasks are successfully imported/synchronized.
 
 ---

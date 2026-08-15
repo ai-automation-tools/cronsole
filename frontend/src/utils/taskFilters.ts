@@ -384,11 +384,18 @@ export function effectiveFilters(filters: TaskFilters, viewMode: string): TaskFi
  * a popover cannot hide *that* they are set — a closed drawer over a filtered
  * list is the invisible fence again, just with a nicer lid.
  *
- * **`platform` is not counted, because the popover no longer holds it.** Source
- * is the bar above the view bar, always visible and always showing its own
- * selection, so counting it here would attribute a constraint to a control that
- * cannot clear it — a badge saying "1 filter" over a drawer with nothing set.
- * The count must only ever describe what is behind *this* trigger.
+ * **Neither `source` nor `category` is counted, because the popover holds
+ * neither.** Both are the source rail — source at level 1, the platform's own
+ * grouping at level 2 — which is always showing its own selection, so counting
+ * them here would attribute a constraint to a control that cannot clear it: a
+ * badge saying "1 filter" over a drawer with nothing set in it. The count must
+ * only ever describe what is behind *this* trigger.
+ *
+ * `category` joined `source` in that exemption when the rail took it over
+ * (2026-08-15), and `favorites` joined when Favorites became a rail row. The
+ * category *pill* still exists and still clears it — but a pill names a
+ * constraint rather than offering the alternatives, and a badge counting
+ * something a second control already displays is double-reporting.
  */
 export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFAULT_FILTERS): number {
   let n = 0;
@@ -396,8 +403,6 @@ export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFA
   if (filters.system !== base.system) n++;
   if (filters.outcome !== base.outcome) n++;
   if (filters.due !== base.due) n++;
-  if (filters.favorites !== base.favorites) n++;
-  if (filters.category !== base.category) n++;
   if (filters.search.trim() !== base.search.trim()) n++;
   return n;
 }
@@ -442,15 +447,28 @@ export function withheldBy(
 /**
  * Are two filter sets the same question? Used to name the active view.
  *
- * **`platform` is deliberately excluded.** Source is the dashboard's outer lens
- * — its own control above the view bar — so "Failures" and "Failures, Windows
- * only" are the same *question* asked of different sources, and the view chip
- * stays lit for both. That is not the lit-chip-over-a-list-it-no-longer-
- * describes problem this comparison exists to prevent: the source is on screen,
- * selected, one line above. A constraint the reader can see is not a hidden one.
+ * **`source`, `category` and `favorites` are all excluded** — together they are
+ * the source rail, which is *navigation*, and navigation must not invalidate the
+ * slice you are looking through. "Failures" and "Failures, in Windows ›
+ * AI-Tools" are the same question asked in two places, so the view chip stays
+ * lit for both; so is "Failures, starred only".
  *
- * Every other dimension still counts, so narrowing a category or flipping the
- * status lens drops you to "Custom" exactly as before.
+ * That is not the lit-chip-over-a-list-it-no-longer-describes problem this
+ * comparison exists to prevent, and the reason is precise: **the rule is about
+ * *hidden* constraints.** Both of these are on screen — the rail row is lit, the
+ * heading names the source, the breadcrumb names the folder, and the category
+ * carries a pill that clears it. A constraint the reader can see is not a hidden
+ * one.
+ *
+ * `category` joined `source` here on 2026-08-15 when the rail took it over, and
+ * `favorites` joined them when Favorites became a rail row rather than a chip in
+ * the views bar. Before those moves each was hidden — a facet inside the Filters
+ * popover, and a lens the bar itself owned — and so genuinely disqualifying.
+ * **The dimensions did not change; where they are displayed did, and that is
+ * what this comparison is actually about.**
+ *
+ * Every other dimension still counts, so flipping the status lens or picking a
+ * due window drops you to "Custom" exactly as before.
  */
 export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
   return (
@@ -458,8 +476,6 @@ export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
     a.system === b.system &&
     a.outcome === b.outcome &&
     a.due === b.due &&
-    a.favorites === b.favorites &&
-    a.category === b.category &&
     a.search.trim() === b.search.trim()
   );
 }

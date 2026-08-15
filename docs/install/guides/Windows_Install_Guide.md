@@ -63,7 +63,7 @@ sign in — not just the agent — use the
 
 > [!TIP]
 > Open [localhost:7373](http://localhost:7373) — the **Windows Agent** status in the
-> sidebar should read **Online** with your tasks imported.
+> source rail should show **Windows Task Scheduler** with a green dot and your tasks imported.
 
 - Backend healthy: `GET http://localhost:3000/api/health` → `{ "status": "ok", ... }`.
 - Your real Task Scheduler tasks appear on the dashboard.

@@ -31,6 +31,7 @@ they're saved locally and grouped under a **User Defined** section.
 |:---|:---|
 | [**crontab.guru**](https://crontab.guru/) | Sanity-check cron expressions (Cronsole stores schedules as 5-field cron). |
 | [**Windows Task Scheduler docs**](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page) | Reference for the platform the Windows agent wraps. |
+| [**Tailscale admin console**](https://console.tailscale.com/) | Manage the tailnet that fronts Cronsole for remote access — machines, key expiry, MagicDNS. See the [Remote Access Guide](../../user-guides/guides/Remote_Access_Guide.md). |
 
 ## 🔗 Related
 

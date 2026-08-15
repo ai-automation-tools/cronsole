@@ -2,7 +2,14 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { prisma } from '../db.js';
-import { generateToken, authenticateToken, tokenLifetime, AuthRequest } from '../auth/auth.js';
+import {
+  generateToken,
+  authenticateToken,
+  tokenLifetime,
+  issueApiToken,
+  type ApiTokenLifetime,
+  AuthRequest
+} from '../auth/auth.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
 import { makeAuthLimiter } from '../middleware/authLimiter.js';
@@ -156,6 +163,113 @@ router.patch('/password', authenticateToken, validateBody(changePasswordSchema),
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
+  res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
+// API tokens — long-lived credentials for non-browser clients
+// ---------------------------------------------------------------------------
+//
+// The MCP server is a stdio process that cannot re-authenticate when a 24h
+// session lapses, so before this the documented answer was to hand-forge a JWT
+// with the backend's signing secret. These routes replace that.
+//
+// `never` is offered as a lifetime ONLY because these are revocable. A permanent
+// credential you can withdraw is a convenience; a permanent credential you cannot
+// is a liability, and until now the only way to kill any token was rotating
+// JWT_SECRET, which signs out every client at once.
+
+const createTokenSchema = z.object({
+  name: z.string().trim().min(1, 'Give the token a name').max(80),
+  // Not a free-form duration. A fixed set keeps the UI, the API and the docs
+  // describing the same thing, and stops "90" (days? seconds?) being a question.
+  expiresIn: z.enum(['30d', '60d', '90d', 'never']),
+  password: z.string().min(1, 'Your password is required to issue a token')
+});
+
+/**
+ * Issue a token. Requires the current password **as well as** a valid session:
+ * this mints a credential that can outlive every session and, at `never`, outlive
+ * the machine — so a borrowed open tab must not be enough to create one. Same
+ * reasoning as `PATCH /password`.
+ *
+ * The token is returned **once**. Nothing stores it (only its `jti`), so there is
+ * no reveal endpoint and cannot be one — the same shape as the Claude routine
+ * token, and for the same reason.
+ */
+router.post('/tokens', authenticateToken, authLimiter, validateBody(createTokenSchema), async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { name, expiresIn, password } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.password) {
+    throw new HttpError(401, 'Not authenticated');
+  }
+  if (!(await bcrypt.compare(password, user.password))) {
+    throw new HttpError(401, 'Password is incorrect');
+  }
+
+  const { token, record } = await issueApiToken(
+    { id: user.id, email: user.email },
+    { name, lifetime: expiresIn as ApiTokenLifetime }
+  );
+
+  res.status(201).json({
+    // Said plainly, because this is the only time it is ever shown.
+    token,
+    warning: 'Copy this now — it cannot be shown again.',
+    apiToken: {
+      id: record.id,
+      name: record.name,
+      expiresAt: record.expiresAt,
+      createdAt: record.createdAt,
+      revokedAt: null,
+      lastUsedAt: null
+    }
+  });
+});
+
+/**
+ * List issued tokens. Never returns a token — only the facts needed to decide
+ * whether to revoke one: what it is called, when it was made, when it expires
+ * (`null` = never), when it was last seen, and whether it is already revoked.
+ *
+ * Revoked rows are included rather than hidden. A credential that once existed is
+ * part of the history you want when working out what happened.
+ */
+router.get('/tokens', authenticateToken, async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const tokens = await prisma.apiToken.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, name: true, createdAt: true, expiresAt: true, lastUsedAt: true, revokedAt: true }
+  });
+  res.json({ tokens });
+});
+
+/**
+ * Revoke a token. Owner-scoped by `userId` in the `where`, not by a fetch-then-
+ * compare — the scoping belongs in the query so there is no window where the row
+ * is in hand and the check has not run yet.
+ *
+ * Marks `revokedAt` rather than deleting: the row is the only record that the
+ * credential ever existed, and a list that silently loses entries is worse at the
+ * one job it has.
+ */
+router.delete('/tokens/:id', authenticateToken, async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+
+  const result = await prisma.apiToken.updateMany({
+    where: { id: req.params.id as string, userId, revokedAt: null },
+    data: { revokedAt: new Date() }
+  });
+
+  if (result.count === 0) {
+    // Same answer for "not yours", "not there" and "already revoked" — the first
+    // two must not be distinguishable, and the third is idempotent anyway.
+    throw new HttpError(404, 'No active token with that id');
+  }
+
   res.json({ success: true });
 });
 

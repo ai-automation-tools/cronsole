@@ -501,13 +501,29 @@ gap none of them covered, because it is not a hole in a mechanism but the **abse
             a credential lapsing *silently*. **The guide's hand-minting instructions are gone**,
             replaced by log-in-and-read-the-token; the old command survives only in a collapsed block
             so anyone still holding such a token knows what it was.
-      - [ ] **(b) A real token surface** — named tokens issued from Settings, listed, revoked, stored
-            as hashes. **Now the load-bearing half**: (a) deliberately leaves `JWT_EXPIRES_IN` as one
-            value for *all* tokens, so raising it for the MCP server also gives the browser a
-            long-lived session in `localStorage` — including on a phone, now that remote access
-            ships. Separating them needs an issuer that can mint a token distinct from a login. This
-            is also where **revocation** arrives: today a leaked token can only be killed by rotating
-            `JWT_SECRET`, which signs out everything at once.
+      - [x] **(b) A real token surface** — *shipped 2026-08-15.* `ApiToken` + three routes
+            (`POST`/`GET`/`DELETE /api/auth/tokens`) and a manager in **Settings → Account**: name a
+            token, pick **30 / 60 / 90 days or never**, confirm with your password, copy it once.
+            The list shows last-used dates and revokes individually.
+        - **`never` is only offered because these are revocable.** A permanent credential you can
+              withdraw is a convenience; one you cannot is a liability — and revocation is the thing
+              that was missing, since a leaked token could previously only be killed by rotating
+              `JWT_SECRET`, signing out every client at once.
+        - **The database stores the `jti` and nothing else.** The signature already proves
+              authenticity, so the only question a row has to answer is *"has this been withdrawn?"*.
+              Storing the token, or a hash of it, would be a second copy of a credential with no use
+              for it.
+        - **Revocation covers every door.** `checkToken` is one definition shared by the REST
+              middleware and the Socket.IO handshake — a revoked token the API refuses but the
+              live-update channel accepts would keep streaming task updates, and that is the half
+              nobody would think to test. It also **fails closed**: if the database cannot be asked,
+              the answer is `503`, not "assume valid".
+        - **It cost the hot path nothing.** Only tokens *with* a `jti` are looked up; a browser
+              session carries none, so the dashboard poll still verifies a signature and stops.
+              `lastUsedAt` is throttled to ~60s so an active client does not turn every read into a
+              write.
+        - **Browser sessions deliberately stay at 24h**, decoupled from API tokens — which is the
+              coupling (a) knowingly left open. `JWT_EXPIRES_IN` still governs logins only.
       - [ ] **(c) Resolve `req.user` from the DB** (or stop trusting the `email` claim). Small,
             independent of both.
 

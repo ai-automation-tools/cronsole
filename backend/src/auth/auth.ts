@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
+import { prisma } from '../db.js';
 
 // Fail fast on a missing/weak JWT secret. A signing key is what stands between
 // an anonymous request and a forged identity — booting with a hardcoded fallback
@@ -81,9 +83,136 @@ export interface AuthRequest extends Request {
 }
 
 /**
- * Middleware to verify JWT token
+ * Selectable lifetimes for an issued API token. `never` is only offered because
+ * these tokens are **revocable** — see `ApiToken`. A permanent credential that
+ * cannot be withdrawn short of rotating `JWT_SECRET` (which signs out every
+ * client at once) would not be a feature.
  */
-export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const API_TOKEN_LIFETIMES = {
+  '30d': 30 * 24 * 60 * 60,
+  '60d': 60 * 24 * 60 * 60,
+  '90d': 90 * 24 * 60 * 60,
+  never: null
+} as const;
+
+export type ApiTokenLifetime = keyof typeof API_TOKEN_LIFETIMES;
+
+export const isApiTokenLifetime = (v: unknown): v is ApiTokenLifetime =>
+  typeof v === 'string' && Object.prototype.hasOwnProperty.call(API_TOKEN_LIFETIMES, v);
+
+/**
+ * How stale `ApiToken.lastUsedAt` may get. Without a floor, an active MCP client
+ * turns every read into a write — the field is for "when did I last see this
+ * credential", where a minute's precision is plenty and per-request accuracy
+ * would cost more than the answer is worth.
+ */
+const LAST_USED_THROTTLE_MS = 60_000;
+
+/**
+ * Issue a long-lived API token for a non-browser client, and record it so it can
+ * be revoked.
+ *
+ * The `jti` is what makes revocation possible: the database stores that claim and
+ * nothing else about the token. The signature already proves authenticity, so the
+ * only question the row has to answer is *"has this been withdrawn?"* — storing
+ * the token, or even a hash of it, would be a second copy of a credential with no
+ * use for it.
+ */
+export async function issueApiToken(
+  user: { id: string; email: string },
+  opts: { name: string; lifetime: ApiTokenLifetime }
+): Promise<{ token: string; record: { id: string; name: string; expiresAt: Date | null; createdAt: Date } }> {
+  const seconds = API_TOKEN_LIFETIMES[opts.lifetime];
+  const jti = randomUUID();
+  const expiresAt = seconds === null ? null : new Date(Date.now() + seconds * 1000);
+
+  const token = jwt.sign(
+    { id: user.id, email: user.email, jti },
+    JWT_SECRET,
+    // No `expiresIn` at all for `never`. Deliberately not a date far in the
+    // future: "this token has no expiry" and "this token expires in 2099" are
+    // different facts, and only one of them stays true.
+    (seconds === null ? {} : { expiresIn: seconds }) as jwt.SignOptions
+  );
+
+  const record = await prisma.apiToken.create({
+    data: { userId: user.id, name: opts.name, jti, expiresAt },
+    select: { id: true, name: true, expiresAt: true, createdAt: true }
+  });
+
+  return { token, record };
+}
+
+/**
+ * Middleware to verify a JWT.
+ *
+ * Two kinds of token reach here and they are checked differently. A **browser
+ * session** carries no `jti`: the signature and `exp` are the whole story, and it
+ * costs no database round trip — which matters, because every dashboard poll goes
+ * through this. An **API token** carries a `jti` and is looked up, because the
+ * point of issuing it was to be able to take it back.
+ *
+ * That split is why revocation did not cost the hot path anything.
+ */
+export type TokenCheck =
+  | { ok: true; user: { id: string; email: string } }
+  | { ok: false; status: number; error: string };
+
+/**
+ * The single definition of "is this token good right now", shared by the REST
+ * middleware and the Socket.IO handshake.
+ *
+ * It is one function on purpose. Revocation that the API honours and the live-update
+ * socket ignores is not revocation — a withdrawn token would keep an open channel
+ * streaming task updates, which is the half nobody would think to test.
+ */
+export async function checkToken(token: string): Promise<TokenCheck> {
+  let payload: { id: string; email: string; jti?: string };
+  try {
+    payload = jwt.verify(token, JWT_SECRET) as typeof payload;
+  } catch {
+    return { ok: false, status: 403, error: 'Invalid or expired token' };
+  }
+
+  if (payload.jti) {
+    let record;
+    try {
+      record = await prisma.apiToken.findUnique({
+        where: { jti: payload.jti },
+        select: { id: true, revokedAt: true, expiresAt: true, lastUsedAt: true }
+      });
+    } catch {
+      // The database is the only thing that can answer "was this revoked?", so
+      // being unable to ask is not permission to assume "no". Fail closed.
+      return { ok: false, status: 503, error: 'Cannot verify token right now' };
+    }
+
+    // A missing row means the token was signed by this secret but is unknown to
+    // this database — treat it as withdrawn, not as unrecognised-but-fine.
+    if (!record || record.revokedAt) {
+      return { ok: false, status: 403, error: 'This API token has been revoked' };
+    }
+
+    // `never` tokens carry no `exp`, so for anything WITH an expiry the stored
+    // date is a second check that does not depend on the claim inside the token.
+    if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) {
+      return { ok: false, status: 403, error: 'Invalid or expired token' };
+    }
+
+    const stale = !record.lastUsedAt || Date.now() - record.lastUsedAt.getTime() > LAST_USED_THROTTLE_MS;
+    if (stale) {
+      // Observing a request must never fail it — the rule `recordCapability`
+      // follows. This is bookkeeping, not a precondition.
+      prisma.apiToken
+        .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
+        .catch(() => {});
+    }
+  }
+
+  return { ok: true, user: { id: payload.id, email: payload.email } };
+}
+
+export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -91,13 +220,13 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
-    }
-    req.user = user;
-    next();
-  });
+  const result = await checkToken(token);
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
+  }
+
+  req.user = result.user;
+  next();
 };
 
 /**

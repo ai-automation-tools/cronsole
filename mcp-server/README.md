@@ -117,34 +117,27 @@ Set via environment (see [`.env.example`](.env.example)):
 > won't see a newly set variable** — close it and open a fresh one, then relaunch the host.
 > Restarting the host alone is not enough.
 
-**Getting a token** — log in and use what the API returns. No signing secret, no database lookup,
-no Node required.
+**Getting a token** — issue one from the dashboard: **Settings -> Account -> API tokens -> New API
+token**. Name it, pick a lifetime (**30 / 60 / 90 days, or never**), confirm with your password, and
+copy it. It is shown once; nothing stores it, only its `jti`, which is what makes revocation
+possible.
 
-1. Set `JWT_EXPIRES_IN=30d` in `backend/.env` and restart the backend. A login token is `24h` by
-   default, which suits a browser tab and not a stdio client that cannot re-authenticate.
-2. Log in and read `token` off the response:
+Export it as `CRONSOLE_TOKEN` in the environment your MCP host launches from.
 
-```bash
-curl -s -X POST http://localhost:3000/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"you@example.com","password":"your-password"}'
-# => { "token": "eyJ...", "expiresIn": "30d", "user": { ... } }
-```
-
-`expiresIn` is returned on purpose: an expired token makes this server **refuse to start**, so the
-tools go *missing* rather than erroring — knowing the lifetime up front is what makes that
-diagnosable rather than mysterious.
+> Prefer **never expires** for a machine you control. An expired token makes this server *refuse to
+> start*, so its tools go **missing** rather than erroring — a never-expiring token removes that
+> failure mode, and is only safe to offer because **Revoke** in the same panel kills it immediately
+> without touching any other client.
 
 > ⚠️ The token is a real credential — keep it in your environment, never in a committed file.
 > `.mcp.json` references it as `${CRONSOLE_TOKEN}` precisely so the literal secret never lands
-> in the repo.
+> in the repo. The list shows a last-used date, so an unfamiliar token that is being used is worth
+> revoking.
 
-> **Note:** `JWT_EXPIRES_IN` applies to *every* token, so raising it also lengthens browser
-> sessions. Separating them — and getting revocation, which does not exist today — needs the named
-> token surface on the roadmap under P0. Until 2026-08-15 this section told you to hand-mint with
-> `jsonwebtoken.sign` and the backend's `JWT_SECRET`; see the
-> [MCP Server Guide](../docs/user-guides/guides/MCP_Server_Guide.md#getting-a-token) if you still
-> hold one of those.
+> **Note:** API tokens are separate from your browser session, which stays at 24h. Until 2026-08-15
+> this section told you to hand-mint with `jsonwebtoken.sign` and the backend's `JWT_SECRET`; such
+> tokens carry no `jti` and cannot be revoked individually — see the
+> [MCP Server Guide](../docs/user-guides/guides/MCP_Server_Guide.md#getting-a-token).
 
 ## Build & run
 

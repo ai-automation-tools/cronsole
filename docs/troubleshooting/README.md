@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 56 | `prisma migrate dev` says a migration **"was modified after it was applied"** and offers to **reset the schema** — on a database holding real tasks — while `prisma migrate status` insists everything is *"up to date"* | An applied migration file was **edited after the fact** (here: explanatory comments added). That changes its checksum without changing a line of SQL, and Prisma reads a checksum mismatch as history it cannot trust. `migrate status` does not compare checksums, which is why nothing surfaced it until the next migration. **Do not accept the reset.** Verify the live table against the file's DDL, then update the stored checksum in `_prisma_migrations` | [→](#56-prisma-wants-to-reset-your-database-over-a-migration-you-only-added-a-comment-to) |
 | 55 | The dashboard opens **already signed in** on a browser that has never logged in — including through the remote-access proxy, where "already signed in" means *anyone who loads the page* | `VITE_DEV_TOKEN` was compiled into `dist/`. Vite loads `.env.local` in **every** mode and inlines each `VITE_*` reference as a literal, so `npm run build` baked a real owner JWT (`exp` 2036) into the served JavaScript, and `getAuthToken()` sends it whenever nobody is logged in — the login screen was decorative. **The source was clean; the compiler added the secret.** **Fixed 2026-08-15**: the reference is gated on `import.meta.env.DEV` so it folds away in a build, and `scripts/check-bundle-secrets.mjs` fails the build if a credential-shaped literal reappears | [→](#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in) |
 | 54 | **Every** `docker compose` command fails with *"required variable CLOUDFLARE_TUNNEL_TOKEN is missing a value"* — including `docker compose up -d`, which only wants Postgres and Redis | Compose interpolates the **whole file before it selects a profile**, so a `${VAR:?message}` in a service you never start still fails commands that do not involve it. A tunnel credential became a precondition for starting the database. **Fixed 2026-08-15** by using `:-` (empty default); the unset token now surfaces in `docker compose logs tunnel` instead | [→](#54-a-compose-profile-you-never-start-breaks-every-compose-command) |
 | 53 | Behind the remote-access proxy the phone shows an **old version of the dashboard** — a fix you just made is live on `:7373` and absent on `:8080`, with no error anywhere | The proxy serves `frontend/dist`, a **build artifact**, not the Vite dev server. It is a fourth thing that runs stale alongside the Dockerized backend, `agent/publish/`, and `mcp-server/dist/`. Run `npm run build:remote` in `frontend/`. **The tell: the two origins disagree, and only the proxied one is behind** | [→](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current) |
@@ -3645,6 +3646,75 @@ origin rendered a signed-in dashboard it had no credential for. **Pre-existing**
 `npm run build` had the same defect, and had it for as long as `VITE_DEV_TOKEN` has been in
 `.env.local`. It was survivable only because `dist/` had never been served anywhere but localhost;
 the remote-access work is what would have published it.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 56. Prisma wants to reset your database over a migration you only added a comment to
+
+**Symptom.** Adding a model and running `npx prisma migrate dev`:
+
+```
+The migration `20260728203202_add_task_exclusions` was modified after it was applied.
+We need to reset the "public" schema at "localhost:5432"
+
+You may use prisma migrate reset to drop the development database.
+All data will be lost.
+```
+
+On a dev machine that is holding hundreds of real tracked tasks, the owner account, and every
+platform connection. And **`npx prisma migrate status` says `Database schema is up to date!`** — so
+the two commands flatly contradict each other.
+
+**Cause.** An **applied migration file was edited afterwards.** In this case someone added a block
+of explanatory comments to the top of `add_task_exclusions/migration.sql`. Those are `--` comments:
+valid SQL, zero semantic change, and **the checksum still moves**, because Prisma hashes the file
+bytes. A checksum mismatch reads to Prisma as *"the history you are standing on is not the history
+that produced this database"*, and its only safe generic answer is to rebuild from scratch.
+
+`migrate status` disagrees because it answers a different question — *are all migrations applied* —
+and does not compare checksums. So the drift is invisible from the command you would naturally use
+to check, right up until the day you add a migration.
+
+**Do not accept the reset.** Verify, then reconcile.
+
+**1. Find which migration drifted** (compare the stored checksum to the file's sha256):
+
+```js
+// run from backend/ so @prisma/client resolves
+const rows = await prisma.$queryRawUnsafe(
+  `SELECT migration_name, checksum FROM _prisma_migrations ORDER BY started_at`);
+// sha256 each prisma/migrations/<name>/migration.sql and compare
+```
+
+**2. Verify the live schema actually matches the file** — this is the step that makes the fix safe
+rather than a guess. Read the real table out of `information_schema.columns`, `pg_indexes` and
+`pg_constraint`, and check it against the DDL in the file: every column name/type/nullability, both
+indexes, and the foreign key's `ON DELETE` behaviour. If they match, the edit was cosmetic and the
+database is exactly what the file describes.
+
+**3. Only then, update the stored checksum** to the file's sha256:
+
+```sql
+UPDATE _prisma_migrations SET checksum = $1 WHERE migration_name = $2;
+```
+
+`migrate dev` then proceeds normally.
+
+**The rule.** **Never edit a migration that has been applied — not even a comment.** A migration
+file is not documentation; it is a hashed record of what was done. Explanations belong in
+`schema.prisma` (which is regenerated and safe to annotate), in the changelog, or here.
+
+**Why this is worse than it looks.** The dangerous part is not the drift, it is the **prompt**.
+`migrate dev` presents "reset the database, all data will be lost" as the ordinary next step, in the
+middle of a routine task, on the machine where the data actually lives. A person in a hurry — or an
+agent following the instruction on screen — destroys a real database over a comment. The right
+reflex when Prisma offers a reset on anything but a scratch database is to stop and find out *what
+it thinks changed*.
+
+*First hit: 2026-08-15, while adding the `ApiToken` model. The edit itself predates that by weeks;
+nothing had needed a new migration in between, which is exactly why it lay dormant.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

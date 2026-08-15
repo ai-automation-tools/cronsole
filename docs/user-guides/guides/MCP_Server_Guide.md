@@ -194,51 +194,69 @@ Configuration is via environment variables (see [`mcp-server/.env.example`](../.
 
 ### Getting a token
 
-The MCP server acts as one Cronsole user, authenticating with a JWT. **Log in and use the token
-the API gives you** — you do not need the signing secret, a database lookup, or Node.
+The MCP server acts as one Cronsole user, authenticating with a JWT. Issue one from the dashboard —
+no signing secret, no database lookup, no Node.
 
-**1. Set the lifetime.** A login token lasts `24h` by default, which suits a browser tab and not a
-stdio client that cannot re-authenticate. In `backend/.env`:
+**1. Open Settings → Account → API tokens** and click **New API token**.
 
-```bash
-JWT_EXPIRES_IN=30d
-```
+**2. Name it, pick a lifetime, confirm with your password.**
 
-Restart the backend. Accepted forms are a duration (`24h`, `30d`, `12h`) or a plain number of
-**seconds**; the backend refuses to start on anything it cannot turn into a usable lifetime, rather
-than issuing tokens that fail at first use.
+| Field | Notes |
+|:---|:---|
+| **Name** | What it is for — *"Claude Code on my desktop"*. It is how you will recognise it later when deciding what to revoke. |
+| **Expires** | **30 / 60 / 90 days, or never.** 30 days is the default. |
+| **Password** | Required even though you are already signed in. This mints a credential that can outlive every session, so a borrowed open tab must not be enough to create one. |
 
-**2. Log in and read the token off the response.**
+**3. Copy the token immediately.** It is shown **once**. Nothing stores it — only its `jti`, which
+is what makes revocation possible — so there is no reveal endpoint and cannot be one.
 
-```bash
-curl -s -X POST http://localhost:3000/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"you@example.com","password":"your-password"}'
-```
-
-```json
-{ "token": "eyJhbGciOi...", "expiresIn": "30d", "user": { "id": "...", "email": "..." } }
-```
-
-`expiresIn` is returned deliberately: an expired token makes the MCP server **refuse to start**, so
-its tools go *missing* rather than erroring — which reads as "the integration is broken" instead of
-"my credential lapsed" ([troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)).
-Knowing the lifetime up front is what makes that diagnosable.
-
-**3. Export it** as `CRONSOLE_TOKEN` in the environment your MCP host launches from. On Windows a
+**4. Export it** as `CRONSOLE_TOKEN` in the environment your MCP host launches from. On Windows a
 newly-set variable needs a **fresh terminal** — a process inherits its parent's environment.
+
+> [!TIP]
+> **Prefer "never expires" for a machine you control, and revoke rather than rotate.** An expired
+> token makes the MCP server *refuse to start*, so its tools go **missing** rather than erroring —
+> which reads as "the integration is broken" rather than "my credential lapsed"
+> ([troubleshooting #8](../../troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)).
+> A never-expiring token removes that failure mode entirely, and is only safe to offer *because*
+> you can revoke it: **Settings → Account → API tokens → Revoke** kills one token immediately,
+> without touching any other client.
 
 > [!WARNING]
 > The token is a real credential — keep it in your environment or your host's env block, never in a
-> committed file.
+> committed file. The list shows each token's last-used date, so an unfamiliar one that is being
+> used is worth revoking.
 
-> [!NOTE]
-> **`JWT_EXPIRES_IN` is one value for every token**, so raising it for the MCP server also lengthens
-> browser sessions — a 30-day token in `localStorage`, including on a phone if you use
-> [remote access](Remote_Access_Guide.md). Separating them needs an issuing surface that can mint a
-> token distinct from a login: named tokens, listed and revocable, stored as hashes. That is on the
-> [Roadmap](../../ROADMAP.md) under P0, and it is also what will bring **revocation** — today a
-> leaked token can only be killed by rotating `JWT_SECRET`, which signs out everything at once.
+**These are separate from your browser session**, which stays at 24h (`JWT_EXPIRES_IN`) regardless.
+That separation is the point: a long-lived credential for a client that cannot re-authenticate, and
+a short one for a tab that can.
+
+<details>
+<summary>Alternative: a long-lived login token via <code>JWT_EXPIRES_IN</code></summary>
+
+`JWT_EXPIRES_IN` in `backend/.env` sets how long a **login** token lasts (default `24h`, accepts a
+duration or a plain number of seconds). Raising it also works for the MCP server — log in with
+`curl` and use the returned `token` — but it lengthens *every* browser session too, including on a
+phone if you use [remote access](Remote_Access_Guide.md), and those tokens carry no `jti` so they
+**cannot be revoked** individually. Prefer an API token.
+
+</details>
+
+<details>
+<summary>Previously: hand-minting with <code>jsonwebtoken.sign</code></summary>
+
+Until 2026-08-15 this guide told you to run:
+
+```bash
+node -e "console.log(require('jsonwebtoken').sign({id:'<userId>',email:'<email>'}, process.env.JWT_SECRET, {expiresIn:'30d'}))"
+```
+
+That required the **signing secret**, a `userId` read out of the database, Node, and a shell — and
+it produced a token the product itself could not issue. Such tokens keep working until they expire
+and **nothing tracks or revokes them**, so replace one with an API token above; the only way to kill
+a hand-minted token is rotating `JWT_SECRET`, which signs out every client at once.
+
+</details>
 
 <details>
 <summary>Previously: hand-minting with <code>jsonwebtoken.sign</code></summary>

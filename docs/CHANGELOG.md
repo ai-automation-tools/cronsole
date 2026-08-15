@@ -12,6 +12,22 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+- **API tokens with selectable expiry, and revocation** (2026-08-15). **Settings → Account → API tokens**: name a token, pick **30 / 60 / 90 days or never**, confirm with your password, copy it once. The list shows each token's last-used date and revokes any one of them individually. Backed by `ApiToken` and `POST`/`GET`/`DELETE /api/auth/tokens`.
+
+  **`never` is only on the menu because these are revocable.** A permanent credential you can withdraw is a convenience; one you cannot is a liability — and until now nothing could be withdrawn at all, since the only way to kill a token was rotating `JWT_SECRET`, which signs out every client at once. That is also why this shipped as a *manager* rather than a "copy your token" button.
+
+  **The database stores the `jti` and nothing else.** The signature already proves authenticity, so the only question a row has to answer is *"has this been withdrawn?"* — storing the token, or a hash of it, would be a second copy of a credential with no use for it. The token is shown once and there is no reveal endpoint, because there is nothing to reveal.
+
+  **Revocation covers every door.** `checkToken` is a single definition shared by the REST middleware and the Socket.IO handshake: a revoked token that the API refuses but the live-update channel still accepts would keep streaming task updates, which is the half nobody would think to test. It **fails closed** — if the database cannot be asked, the answer is `503`, never "assume valid".
+
+  **And it cost the hot path nothing.** Only tokens carrying a `jti` are looked up; a browser session has none, so the dashboard's poll still verifies a signature and stops. `lastUsedAt` is throttled to roughly a minute so an active client does not turn every read into a write.
+
+  **Browser sessions stay at 24h**, deliberately decoupled — that coupling was the known limit of the `JWT_EXPIRES_IN` change below, and this closes it. Issuing requires your password even though you are already signed in: this mints a credential that can outlive every session, so a borrowed open tab must not be enough to create one. Covered by 14 integration tests against real Postgres, including IDOR (one owner cannot revoke another's token, and the refusal is indistinguishable from not-found).
+
+### Fixed
+- **A drifted migration checksum made `prisma migrate dev` demand a database reset** (2026-08-15). `20260728203202_add_task_exclusions` had explanatory comments added to it *after* it was applied, which changes its checksum without changing a line of SQL. Prisma reads that as history it cannot trust and offers to drop the schema — on a dev machine holding 365 real tasks. `migrate status` reported "up to date" throughout, so nothing surfaced it until someone tried to add a migration. Reconciled by verifying the live `TaskExclusion` table against the file's DDL column-by-column (identical, including both indexes and the FK's `ON DELETE RESTRICT`) and then updating the stored checksum. **Never edit an applied migration** — even a comment; put the explanation in the schema or the docs.
+
 ### Security
 - **Cronsole can issue the credential its own MCP integration requires** (2026-08-15). Token lifetime was hardcoded to `24h` — right for a browser tab, useless for a long-lived stdio client that cannot re-authenticate. So [`MCP_Server_Guide.md`](user-guides/guides/MCP_Server_Guide.md#getting-a-token) told users to run `jsonwebtoken.sign(..., {expiresIn:'30d'})` by hand, with the backend's `JWT_SECRET` in scope and a `userId` read out of the database. **That was not a workaround someone invented; it was the documented path** — a stranger following our own guide had to forge a credential to use a feature we ship.
 

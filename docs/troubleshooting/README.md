@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 59 | A Cronsole-native `CHECK` that **correctly finds a problem** comes back as HTTP **502** — `run_task` throws, so an agent reports *"I couldn't run the check"* over a message that says the check ran and the endpoint is broken. The dashboard raises a *Failed to run* toast rather than showing a failing result | `POST /api/tasks/:id/run` returned `502` for **every** unsuccessful run. That was right for Windows and Claude, where a failure IS a failure to dispatch — and wrong the moment a job type arrived whose failures are *findings*. `502` means *retry, the gateway had a problem*, so the one job type worth alerting on reported itself in the one way that says ignore this. **Fixed 2026-08-15**: `runTask` gained **`ran`** (orthogonal to `success`), so a job that executed and failed is a **200 carrying `success: false`** and only a genuine failure-to-start is a 502. **The tell: only Cronsole-native can hit it** — it is the one platform where dispatch and execution are the same act | [→](#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check) |
 | 57 | A count beside a filter control disagrees with another count for the same set, and both look right | Two questions sharing one number: *what exists* vs *what clicking reveals*. Anything printed beside a control that changes the list must be **faceted** (every other lens applied); existence counts may only gate whether a control renders | [→](#57-two-counts-for-the-same-set-disagree-on-screen--and-both-are-right) |
 | 58 | A published template the running build cannot parse makes the **entire hosted catalog** vanish — the app silently serves its bundled snapshot, the gallery on the web shows templates the app does not have, and nothing errors | `RegistryCatalogSource.fetchAll` threw on the first unreadable template, and `listRaw`'s catch falls back to the **whole** bundled catalog. The realistic trigger is a **version gap**, not corruption: `action` is a Zod discriminated union, so a member added later (`script`/`check`, 2026-08-15) is an unknown discriminator to every older install. **Fixed 2026-08-15**: skip and log the one template, keep the rest. A **checksum mismatch still throws** — that is integrity on executable content, not a version gap | [→](#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog) |
 | 56 | `prisma migrate dev` says a migration **"was modified after it was applied"** and offers to **reset the schema** — on a database holding real tasks — while `prisma migrate status` insists everything is *"up to date"* | An applied migration file was **edited after the fact** (here: explanatory comments added). That changes its checksum without changing a line of SQL, and Prisma reads a checksum mismatch as history it cannot trust. `migrate status` does not compare checksums, which is why nothing surfaced it until the next migration. **Do not accept the reset.** Verify the live table against the file's DDL, then update the stored checksum in `_prisma_migrations` | [→](#56-prisma-wants-to-reset-your-database-over-a-migration-you-only-added-a-comment-to) |
@@ -3802,6 +3803,69 @@ item the item, or the batch?**
 
 *First hit: 2026-08-15.* Found while scoping ADR 0002 — before publishing a new action kind rather
 than after, which is the only reason it is a note and not an incident.
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 59. A check that correctly finds a problem is reported as "could not run the check"
+
+**Symptom.** A Cronsole-native `CHECK` that fails its assertion comes back as an HTTP **502**. Over
+MCP, `run_task` *throws*:
+
+```
+Cronsole API error (HTTP 502): GET https://api.example.com/health → 200 (expected 200–299) | body does not contain "ok"
+```
+
+The message is correct and the status code contradicts it. An agent reading the error reports *"I
+couldn't run the check"*; the truth is *"the check ran and your endpoint is broken."* In the
+dashboard the same run raised a red *Failed to run* toast rather than showing a failing result.
+
+**Cause.** `POST /api/tasks/:id/run` ended every unsuccessful run with `res.status(502)`. The
+comment above it argued the case, and argued it **correctly for the platforms that existed when it
+was written**: for Windows and Claude a failure IS a failure to dispatch — an offline agent, an ACL
+denial, a paused routine — so `500` would send you to debug Cronsole and `502` is right.
+
+`CHECK` (2026-08-15) broke the premise. **A failing check is the check working**: it is a fact about
+the user's system, which is the entire reason the job type exists. `502` means *the gateway had a
+problem, retry* — so the one job type whose failures are worth acting on reported them in the one
+way that says "ignore this and try again". The same applies to a `SCRIPT` exiting non-zero: the run
+happened, and its exit code is the answer.
+
+**The tell** is that Cronsole-native is the only platform that can reach this — it is the only one
+where dispatch and execution are the same act, so `success` means something different there than it
+does everywhere else in the codebase (see `ExecutionLog`'s rule in CLAUDE.md §9).
+
+**Fix.** Say which question `success` is answering. `PlatformConnector.runTask` gained **`ran`**,
+orthogonal to `success`:
+
+| `success` | `ran`   | meaning                                          | route |
+|-----------|---------|--------------------------------------------------|-------|
+| `true`    | `false` | the platform accepted the start (Windows, Claude) | 200   |
+| `true`    | `true`  | the job executed here and passed                  | 200   |
+| `false`   | `true`  | the job executed here and **failed**              | **200, `success: false`** |
+| `false`   | `false` | it could not be started at all                    | 502   |
+
+`ran` is stamped once in `executeJob`, not in each executor, so a fifth job type cannot ship having
+forgotten it — and a spec rejected by `validateJob` never executed, so it stays `false` and keeps
+the 502.
+
+**Two consumers had to change with it**, and both are the sort of thing a status-code fix leaves
+behind:
+
+- The dashboard's `runMutation` read only the HTTP status, so a 200 would have toasted *"triggered
+  successfully"* over a failing check.
+- `run_task` returns the failing run as a **result**, not an error, with the text `Task ran and
+  FAILED: …` — a model that reads only the first line must not come away thinking it passed.
+
+**The general shape.** A status code is a claim about *what kind of thing went wrong*, and it is
+inherited from whatever the route did first. When a route gains a genuinely new kind of outcome, the
+old code's reasoning can stay word-for-word correct about the old cases while being wrong about the
+new one — and nothing fails, because a status code has no test unless someone writes one. Ask:
+**does every branch that returns this code still mean what the comment above it says?**
+
+*First hit: 2026-08-15.* Found by driving the new job types end-to-end on a live stack — the
+structural argument that they worked was sound, and this is exactly what it could not have told us.
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

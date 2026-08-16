@@ -3,7 +3,7 @@ import request from 'supertest';
 import { PlatformType, TaskStatus } from '@prisma/client';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/db.js';
-import { createUser, createNativeTask } from './helpers.js';
+import { createUser, createNativeTask, createNativeConnection } from './helpers.js';
 
 const app = createApp();
 
@@ -192,5 +192,100 @@ describe('PATCH /tasks/:id/job', () => {
 
     const after = await prisma.task.findUnique({ where: { id: theirs.id } });
     expect(job(after!)).toMatchObject({ url: 'https://example.com/health' });
+  });
+});
+
+/**
+ * `POST /api/tasks/:id/run` — the status code a failing run comes back with.
+ *
+ * Native is the only platform where dispatch and execution are the same act, so
+ * it is the only one that can distinguish "the job ran and reported failure"
+ * from "the job could not be started". That distinction *is* the feature: until
+ * 2026-08-15 both were 502, which told an agent to retry a check that had
+ * worked perfectly and was reporting a real problem (troubleshooting #59).
+ *
+ * Offline probes only — a test that needs the network to fail is a test that
+ * fails for the wrong reason on a bad day.
+ */
+describe('POST /tasks/:id/run — completed-but-failed vs could-not-start', () => {
+  let owner: Awaited<ReturnType<typeof createUser>>;
+
+  beforeEach(async () => {
+    owner = await createUser('native-run@example.com');
+    await createNativeConnection(owner.user.id);
+  });
+
+  it('answers 200 with a failing verdict when the job ran and failed', async () => {
+    const task = await createNativeTask(owner.user.id, { name: 'Freshness check' });
+    await prisma.task.update({
+      where: { id: task.id },
+      data: {
+        metadata: {
+          job: {
+            jobType: 'CHECK',
+            probe: {
+              kind: 'fileFresh',
+              // Forward slashes: the probe only has to fail to find it, and a
+              // Windows-style literal here is all escape sequences.
+              path: 'D:/definitely/not/here/backup.tar',
+              maxAgeMinutes: 60
+            }
+          }
+        }
+      }
+    });
+
+    const res = await request(app)
+      .post(`/api/tasks/${task.id}/run`)
+      .set('Authorization', owner.auth)
+      .expect(200);
+
+    // 200 because the REQUEST succeeded; success:false because its ANSWER is
+    // bad news. Both halves matter — a 200 alone would read as a healthy check.
+    expect(res.body.success).toBe(false);
+    expect(res.body.ran).toBe(true);
+    expect(res.body.message).toMatch(/backup\.tar/);
+
+    // The verdict still lands in history as a failure: the status code changed,
+    // what Cronsole recorded did not.
+    const logs = await prisma.executionLog.findMany({ where: { taskId: task.id } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].status).toBe('FAILURE');
+    expect(res.body.executionId).toBe(logs[0].id);
+  });
+
+  it('still answers 502 when the job could not be started at all', async () => {
+    // A row with no job spec never reaches an executor, so `ran` stays false.
+    // This is the branch that must NOT become a 200 — nothing was measured, so
+    // there is no verdict to report, and a retry is the right advice.
+    const task = await createNativeTask(owner.user.id, { name: 'No spec' });
+    await prisma.task.update({ where: { id: task.id }, data: { metadata: {} } });
+
+    const res = await request(app)
+      .post(`/api/tasks/${task.id}/run`)
+      .set('Authorization', owner.auth)
+      .expect(502);
+
+    expect(res.body.error).toMatch(/job spec/i);
+  });
+
+  it('records a passing run as success, so the 200 is not unconditional', async () => {
+    // Guards the obvious wrong fix: `res.json(...)` for every native outcome.
+    const task = await createNativeTask(owner.user.id, { name: 'Disk check' });
+    await prisma.task.update({
+      where: { id: task.id },
+      data: {
+        metadata: {
+          job: { jobType: 'CHECK', probe: { kind: 'diskFree', path: process.cwd(), minFreeBytes: 1 } }
+        }
+      }
+    });
+
+    const res = await request(app)
+      .post(`/api/tasks/${task.id}/run`)
+      .set('Authorization', owner.auth)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
   });
 });

@@ -152,7 +152,25 @@ export interface NativeRunResult {
   success: boolean;
   log: string;
   durationMs: number;
+  /**
+   * Whether the job actually executed, making `success` a verdict about the
+   * user's system rather than a failure to start. Only `validateJob` rejecting
+   * the spec returns `false` — past that point something ran, even if it ran
+   * badly (a missing interpreter reports `ENOENT` as a failed run, which is the
+   * honest answer: the spec was runnable, this machine could not run it).
+   *
+   * The route reads it to decide 200-with-a-verdict vs 502; see the table on
+   * `PlatformConnector.runTask` and troubleshooting #59.
+   */
+  ran: boolean;
 }
+
+/**
+ * What one executor returns. `ran` is stamped by `executeJob` rather than by each
+ * executor, so a fifth job type cannot ship having forgotten it — the only way to
+ * reach an executor at all is through the branch that sets it.
+ */
+type ExecutedRunResult = Omit<NativeRunResult, 'ran'>;
 
 const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
@@ -409,8 +427,18 @@ function validateProbe(probe: unknown): string | null {
 export async function executeJob(job: NativeJob): Promise<NativeRunResult> {
   const invalid = validateJob(job);
   if (invalid) {
-    return { success: false, log: invalid, durationMs: 0 };
+    // Nothing executed. A malformed spec is a failure to *start*, so it must not
+    // be reported as a verdict about the user's system — the caller turns that
+    // distinction into 502 vs 200.
+    return { success: false, log: invalid, durationMs: 0, ran: false };
   }
+  // Everything past validation executes, so `ran` is set once here rather than
+  // in each of the four executors, where a new job type could forget it.
+  const result = await runByJobType(job);
+  return { ...result, ran: true };
+}
+
+function runByJobType(job: NativeJob): Promise<Omit<NativeRunResult, 'ran'>> {
   switch (job.jobType) {
     case 'EXEC': return executeExec(job);
     case 'SCRIPT': return executeScript(job);
@@ -419,7 +447,7 @@ export async function executeJob(job: NativeJob): Promise<NativeRunResult> {
   }
 }
 
-async function executeHttp(job: HttpJob): Promise<NativeRunResult> {
+async function executeHttp(job: HttpJob): Promise<ExecutedRunResult> {
   const method = (job.method ?? 'GET').toUpperCase();
   const startedAt = Date.now();
   try {
@@ -460,7 +488,7 @@ async function executeHttp(job: HttpJob): Promise<NativeRunResult> {
  * exit code is the outcome. That is Cronsole-native's genuine advantage, and the
  * reason the output is worth keeping.
  */
-function executeExec(job: ExecJob): Promise<NativeRunResult> {
+function executeExec(job: ExecJob): Promise<ExecutedRunResult> {
   const args = job.args ?? [];
   return runProcess({
     executable: job.executable,
@@ -492,13 +520,13 @@ interface ProcessSpec {
  * and truncation — is identical, and a second copy of it is how one job type
  * quietly stops honouring `childEnv`.
  */
-function runProcess(spec: ProcessSpec): Promise<NativeRunResult> {
+function runProcess(spec: ProcessSpec): Promise<ExecutedRunResult> {
   const startedAt = Date.now();
   const args = spec.args;
   const timeoutMs = Math.min(spec.timeoutMs ?? DEFAULT_EXEC_TIMEOUT_MS, MAX_EXEC_TIMEOUT_MS);
   const label = spec.label;
 
-  return new Promise<NativeRunResult>(resolve => {
+  return new Promise<ExecutedRunResult>(resolve => {
     let output = '';
     let truncated = false;
     let timedOut = false;
@@ -516,7 +544,7 @@ function runProcess(spec: ProcessSpec): Promise<NativeRunResult> {
       }
     };
 
-    const done = (result: NativeRunResult) => {
+    const done = (result: ExecutedRunResult) => {
       if (settled) return;
       settled = true;
       resolve(result);
@@ -611,7 +639,7 @@ function runProcess(spec: ProcessSpec): Promise<NativeRunResult> {
  * Mode `0o600`: the body may hold a token the user pasted in, and `os.tmpdir()`
  * is world-readable on POSIX.
  */
-async function executeScript(job: ScriptJob): Promise<NativeRunResult> {
+async function executeScript(job: ScriptJob): Promise<ExecutedRunResult> {
   const startedAt = Date.now();
   const spec = SCRIPT_INTERPRETERS[job.interpreter];
   let dir: string | null = null;
@@ -663,9 +691,9 @@ async function executeScript(job: ScriptJob): Promise<NativeRunResult> {
  * the number — a bare "failed" makes the run history useless for the one job
  * type whose history is the point.
  */
-async function executeCheck(job: CheckJob): Promise<NativeRunResult> {
+async function executeCheck(job: CheckJob): Promise<ExecutedRunResult> {
   const startedAt = Date.now();
-  const done = (success: boolean, log: string): NativeRunResult => ({
+  const done = (success: boolean, log: string): ExecutedRunResult => ({
     success,
     log,
     durationMs: Date.now() - startedAt

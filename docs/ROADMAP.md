@@ -30,20 +30,23 @@ Three items, requested directly after the dashboard IA redesign landed. Ordered 
 it is the unfinished half of something already in users' hands rather than something not started.
 
 0. **Finish what the native job types left open** *(added 2026-08-15, after `SCRIPT` + `CHECK`
-   shipped — [ADR 0002](adr/0002-native-job-types.md))*. Four items, worst-first.
+   shipped — [ADR 0002](adr/0002-native-job-types.md))*. Six items, worst-first — items 5 and 6 were
+   found by item 1's live drive, which is what it was for.
 
-   1. **Neither new job type has been driven end-to-end on a live stack.** The suite is strong on
-      the parts it covers — the `SCRIPT` tests spawn real `node` processes (including one proving a
-      scheduled script still cannot read `process.env`), and the `CHECK` tests hit a real
-      filesystem and a real socket — but **nothing has yet gone through `POST /api/tasks/native` →
-      `NativeScheduler` → `ExecutionLog` on the running backend.** The structural argument that it
-      works is good (both native routes take `job: z.unknown()` and delegate entirely to
-      `buildNativeJob` + `validateJob`, so no route change was needed) and *a structural argument is
-      exactly what the §9 honesty rule says not to accept in place of evidence* — this is
-      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
-      one layer up. It was blocked only by an expired `CRONSOLE_TOKEN` (the old hand-signed
-      `cli_user_placeholder` kind, `exp` 2026-08-14); with an API token from Settings → Account it
-      is ten minutes. **Create one of each, run it, read the history back, then delete.**
+   1. ~~**Neither new job type has been driven end-to-end on a live stack.**~~ — **verified
+      2026-08-15**, unblocked by the API token surface that shipped the same day. Both types went
+      `POST /api/tasks/native` → `NativeScheduler` → `ExecutionLog` on the running backend, driven
+      through the MCP tools: a `SCRIPT` (node) and an `http` `CHECK`, each on `* * * * *`, each run
+      manually **and** left to be fired by the scheduler — the stored run carries a `[scheduled]`
+      prefix, which is what distinguishes the two paths in `ExecutionLog`. Then the negative case,
+      because a check that cannot fail proves nothing: a `CHECK` whose `expectBodyContains` does not
+      match **failed a 200** (`body does not contain "…"`) and a `SCRIPT` exiting 3 was recorded
+      `FAILURE` with stdout *and* stderr captured. Deletes archived first — `executionsArchived: 3`,
+      and the script **body** is in the archive bundle, which is the ADR's whole argument for
+      `SCRIPT` over `EXEC`. Two things the unit suite could not have told us: `childEnv()` holds on a
+      real stack (**20** env keys visible to the child, none of `DATABASE_URL` / `JWT_SECRET` /
+      `ENCRYPTION_KEY`), and the defect in item 5 below, which only exists once a job type's failure
+      is a *finding* rather than a fault.
    2. **Per-job encrypted fields do not exist, and two deferred job types are blocked on it.**
       `NOTIFY` needs it (a Discord webhook URL *is* its authentication) and `SQL` needs it (a
       connection string is a `PlatformConnection`-grade secret). Today a `SCRIPT` job's `env` is
@@ -61,6 +64,44 @@ it is the unfinished half of something already in users' hands rather than somet
       `grid-cols-2 sm:grid-cols-4`, written and read back as correct, and never rendered at 375px —
       the same gap item 4 below describes for the rail and toolbar, now with more surface in it.
       Fold into that Playwright pass rather than checking it by hand.
+   5. ~~**A `CHECK` that correctly reports a problem is returned as a `502`**~~ — **fixed
+      2026-08-15**, same day it was found. `runTask` gained **`ran`**, orthogonal to `success`, so a
+      job that executed and failed is a **200 carrying `success: false`** and only a real
+      failure-to-start is a `502`; `ran` is stamped once in `executeJob`, so a fifth job type cannot
+      ship having forgotten it, and a spec rejected by `validateJob` never executed and keeps the
+      502. Both consumers moved with it — the dashboard would otherwise have toasted *"triggered
+      successfully"* over a failing check, and `run_task` now returns `Task ran and FAILED: …` as a
+      **result** rather than throwing. Pinned by three integration tests (the discrimination one
+      mutation-tested), three executor tests and two MCP tests, and confirmed on the live stack.
+      [#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check).
+      *Original finding, kept because the reasoning is the reusable part:* `POST /api/tasks/:id/run` ended
+      `res.status(502)` on any unsuccessful run, and the comment above it argues the case well **for
+      the platforms that existed when it was written**: a Windows or Claude run that fails, fails
+      *upstream* — an offline agent, an ACL denial, a paused routine — so `500` would send someone to
+      debug Cronsole. **`CHECK` breaks that premise.** A failing check is not the platform refusing
+      to start it; it is the check **running perfectly and reporting a fact about the system**, which
+      is the one thing the type was added for. `502` means *the gateway had a problem, retry* — the
+      exact reading the `setStatus` route already refuses to give a structural refusal, four hundred
+      lines up in the same file. The same applies to a `SCRIPT` exiting non-zero: the run happened,
+      and its outcome is the answer, not a dispatch failure.
+      **It is not cosmetic, and the MCP surface is where it bites.** `run_task` on a failing check
+      *throws* — the agent receives `Cronsole API error (HTTP 502): … body does not contain "…"` and
+      has no way to tell **"your disk is full"** from **"monitoring is broken."** Those demand
+      opposite actions, and today they are the same error. Native is also the one platform where
+      dispatch and execution are the same act, so the dispatch-vs-outcome distinction the code is
+      built on has no meaning there.
+      **The fix is a discrimination, not a status swap** — Windows must keep its `502`. Most likely a
+      `200` carrying `success: false` for a native run that *completed* with a failing verdict,
+      keeping `502` for a run that could not be started at all; `ExecutionLog` and
+      `queueFailureNotification` already record it as `FAILURE` either way and want no change. Note
+      this reaches the UI too, which will currently show a failing check as a request error.
+   6. **A passing check does not say which assertions it made.** `NativeTaskExecutor` returns
+      `` `${head} | all assertions passed` `` on success, where `head` carries only the status
+      measurement — so a check with an `expectBodyContains` logs *byte-identically* to one with no
+      body assertion at all. The failing path names the specific assertion; the passing path does
+      not. Small, but it is the ADR's own rule (*every probe's log states the **measurement**, not
+      just a verdict*) unmet in the success case, and it means a body assertion silently dropped
+      between the tool and the stored job would look exactly like one that ran and passed.
 
 1. **Custom views on the source rail.** Users can already save a named filter combination, but it
    becomes a chip in the horizontal views bar. Let them save one **into the rail**, alongside
@@ -190,8 +231,13 @@ radius, and they are listed here rather than left in the completed item so they 
 7. **The sync response's `missing` is a delta, not a state** — it counts rows *newly* marked
    `MISSING` by that pass, so it reads `0` beside `count: 5` while two rows sit `MISSING`. Defensible,
    but it is presented next to a state field and invites the wrong reading.
-8. **`NativeTaskExecutor.test.ts` is flaky under parallel load** — one test timed out at 7s in a full
-   run and passed in isolation and on re-run. It spawns real processes. Not investigated.
+8. **The native-executor tests are flaky under parallel load** — a test times out in a full run and
+   passes in isolation and on re-run. Both files that spawn real processes are affected:
+   `NativeTaskExecutor.test.ts` (first seen 2026-08-13) and `NativeJobTypes.test.ts` — the latter
+   measured 2026-08-15 at **1 failure in 3 full-suite runs**, always
+   `executeJob — SCRIPT > reports a non-zero exit as a failure`. So it is process spawning under
+   contention, not one bad test, and the fix is a per-test timeout or serialising those two files
+   rather than chasing an assertion. Worth doing before it trains anyone to re-run a red suite.
 
 **Chores, not roadmap items** (dev machine, 2026-08-13): the MCP host needs a restart to load the
 rebuilt `mcp-server/dist/`, and the Windows task `Cronsole conversion-response probe (safe to

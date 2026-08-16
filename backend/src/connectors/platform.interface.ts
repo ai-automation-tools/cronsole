@@ -204,8 +204,32 @@ export interface PlatformConnector {
 
   /**
    * Trigger a task run.
+   *
+   * `ran` says **what `success` is a verdict about**, and the two are orthogonal:
+   *
+   * | `success` | `ran`   | meaning                                        |
+   * |-----------|---------|------------------------------------------------|
+   * | `true`    | `false` | the platform accepted the start (Windows, Claude) |
+   * | `true`    | `true`  | the job executed here and passed (native)      |
+   * | `false`   | `true`  | the job executed here and **failed** (native)  |
+   * | `false`   | `false` | it could not be started at all                 |
+   *
+   * Set `ran: true` only once the job has actually executed — never for a
+   * dispatch. It exists because the third row is not an error: a CHECK that
+   * fails is the check *working*, reporting a fact about the user's system, and
+   * that is the entire reason the job type exists. Without this field the route
+   * answered `502` for it (troubleshooting #59), which means *retry, the gateway
+   * had a problem* — so an agent could not tell "your disk is full" from
+   * "monitoring is broken", two findings that demand opposite actions.
+   *
+   * Only Cronsole-native can set it: it is the one platform where dispatch and
+   * execution are the same act, so for every other connector `success` describes
+   * a handshake and nothing more (see `ExecutionLog`'s rule in CLAUDE.md §9).
    */
-  runTask(externalId: string, config: any): Promise<{ success: boolean; platformRunId?: string; message?: string }>;
+  runTask(
+    externalId: string,
+    config: any
+  ): Promise<{ success: boolean; ran?: boolean; platformRunId?: string; message?: string }>;
 
   /**
    * Enable/Disable a task. `message` carries a platform failure reason (e.g. an

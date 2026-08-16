@@ -1523,6 +1523,27 @@ router.post('/:id/run', async (req: Request, res: Response) => {
 
   if (result.success) {
     res.json({ message: 'Task run command sent', ...result });
+  } else if (result.ran) {
+    // The job EXECUTED and reported failure. That is not a transport problem,
+    // so it is a 200 carrying a failing verdict — the request succeeded, and
+    // its answer is bad news about the user's system.
+    //
+    // This is the whole reason CHECK exists: a check that fails is the check
+    // WORKING. Answering 502 here (as this route did until 2026-08-15) says
+    // "the gateway had a problem, retry", so `run_task` threw and an agent
+    // could not tell "your disk is full" from "monitoring is broken" — two
+    // findings that demand opposite actions (troubleshooting #59).
+    //
+    // Native is the only platform that can reach this branch, because it is the
+    // only one where dispatch and execution are the same act. Windows and Claude
+    // keep the 502 below: there, a failure IS a failure to dispatch.
+    res.json({
+      ...result,
+      // After the spread: a connector that returned no message must not blank
+      // the one field a human reads to find out what failed.
+      message: result.message || 'Task ran and reported failure',
+      executionId: execution.id
+    });
   } else {
     // 502, not 500: the run failed *upstream*, and 500 claims Cronsole broke.
     // Almost every real cause here is the platform answering — a paused Claude

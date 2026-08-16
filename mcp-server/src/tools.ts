@@ -421,7 +421,14 @@ export function registerTools(
       description:
         'Trigger a task to run immediately by its Cronsole id (get ids from list_tasks). ' +
         'For a Windows task this sends a signed run command to the local agent; for a native task the backend runs it. ' +
-        'Returns the run result.',
+        'IMPORTANT: distinguish the two ways this reports bad news. A Cronsole-native job runs ' +
+        'inside the request, so a job that executed and FAILED comes back as a normal result with ' +
+        '"ran": true and "success": false — that is a finding about the user\'s system (a failing ' +
+        'CHECK is the check working, e.g. the disk is full or an endpoint is serving an error ' +
+        'page), and retrying it will not help. A tool ERROR means the run could not be started at ' +
+        'all — an offline agent, a paused routine, a bad id — which is a problem with the ' +
+        'monitoring, not with what it monitors. Do not report the first kind as "I could not run ' +
+        'the task", and do not report the second as a failing check.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).')
       }
@@ -431,8 +438,15 @@ export function registerTools(
         const result = await client.post<Record<string, unknown>>(
           `/tasks/${encodeURIComponent(taskId)}/run`
         );
-        const msg = typeof result.message === 'string' ? result.message : 'Task run command sent';
-        return ok(msg, { taskId, result });
+        // A 200 with `success: false` is a completed run with a failing verdict.
+        // It stays a tool *result* — the call did what was asked — but the text
+        // has to say so, or a model reading only the first line reports the run
+        // as fine. Presentation only; the judgement is the route's.
+        const detail = typeof result.message === 'string' ? result.message : '';
+        if (result.success === false) {
+          return ok(`Task ran and FAILED: ${detail || 'no detail reported'}`, { taskId, result });
+        }
+        return ok(detail || 'Task run command sent', { taskId, result });
       } catch (err) {
         return toolError(err);
       }

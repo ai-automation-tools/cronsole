@@ -137,7 +137,7 @@ The 15 tools and their routes:
 | `create_task` | `POST /api/tasks` | |
 | `create_native_task` | `POST /api/tasks/native` | full job spec, not a command string |
 | `create_task_from_template` | `POST /api/templates/:id/apply` | |
-| `run_task` | `POST /api/tasks/:id/run` | |
+| `run_task` | `POST /api/tasks/:id/run` | **200 + `success:false` = ran and failed (a finding); error = could not start** |
 | `set_task_status` | `PATCH /api/tasks/:id/status` | reversible → ungated |
 | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` | reversible → ungated |
 | `update_task_action` | `PATCH /api/tasks/:id/actions` | replaces, doesn't patch |

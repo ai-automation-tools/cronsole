@@ -367,6 +367,38 @@ describe('run_task', () => {
     expect(r.isError).toBe(true);
     expect(text(r)).toMatch(/HTTP 404.*Task not found/);
   });
+
+  // A native job runs inside the request, so "the run failed" arrives as a 200
+  // with success:false. It must stay a RESULT (the call did what was asked) while
+  // saying plainly that the run failed — an agent that reads only the first line
+  // otherwise reports a failing check as a healthy one.
+  it('surfaces a completed-but-failed run as a result, not an error', async () => {
+    const { client } = stubClient({
+      'POST /tasks/chk/run': {
+        success: false,
+        ran: true,
+        message: 'GET https://api.example.com → 200 (expected 200–299) | body does not contain "ok"'
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'run_task', { taskId: 'chk' });
+    expect(r.isError).toBeFalsy();
+    expect(text(r)).toMatch(/ran and FAILED/);
+    expect(text(r)).toMatch(/body does not contain/);
+  });
+
+  // The other half of the discrimination: a run that could not be STARTED is
+  // still an error. If both collapsed into one shape the tool would be back to
+  // making "your disk is full" indistinguishable from "monitoring is broken".
+  it('still errors when the run could not be started at all', async () => {
+    const { client } = stubClient({
+      'POST /tasks/win/run': () => new CronsoleApiError('Agent is offline', 502)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'run_task', { taskId: 'win' });
+    expect(r.isError).toBe(true);
+    expect(text(r)).not.toMatch(/ran and FAILED/);
+  });
 });
 
 describe('list_templates', () => {

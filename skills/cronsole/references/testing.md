@@ -61,7 +61,7 @@ the split is the lesson:
   an empty frame that *still* breaks whenever a row's height changes.
 
 Three things that look like flake and are not
-([#43](../../docs/troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)):
+([#43](../../../docs/troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)):
 
 1. **`maxDiffPixels` defaults to 0** and GPU antialiasing is not deterministic. `playwright.config.ts`
    sets **40** — far above one-pixel noise, far below a one-character shift.

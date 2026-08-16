@@ -26,12 +26,13 @@ belongs in the CHANGELOG.
 ### 🔴🔴 Top priority — requested 2026-08-15
 
 Three items, requested directly after the dashboard IA redesign landed. Ordered as given.
-**Items 1 and 2 have shipped** (collections 2026-08-16; native job types 2026-08-15), and the work
-job types left behind is item 0 below — ahead of the rest because it is the unfinished half of
-something already in users' hands rather than something not started.
+**Items 1, 2 and 4 have shipped** — collections (2026-08-16), the native job types (2026-08-15),
+and the phone verification (2026-08-16). What the job types left behind is item 0 below, ahead of
+the rest because it is the unfinished half of something already in users' hands rather than
+something not started.
 
-**Open here: item 0's sub-items 2, 3, 4 and 6, plus items 3 (themes) and 4 (phone).** Items 0.4 and
-4 are the same Playwright pass and should be done once, not twice.
+**Still open here: item 0's sub-items 2, 3 and 6, plus item 3 (themes).** Item 0.4 closed with
+item 4 — they were the same Playwright pass, done once.
 
 0. **Finish what the native job types left open** *(added 2026-08-15, after `SCRIPT` + `CHECK`
    shipped — [ADR 0002](adr/0002-native-job-types.md))*. Six items, worst-first — items 5 and 6 were

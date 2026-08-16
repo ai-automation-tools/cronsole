@@ -37,7 +37,7 @@ Everything that runs on every PR. This *is* the safety net — the whole list is
 | R1.5 | **Type check / build** | `tsc` strict mode passing — no `any` creep | ✅ `backend` + `frontend` jobs |
 | R1.6 | **Agent unit sweep** | Trigger building/reading, quoting, config, auth | ✅ `windows-agent` job |
 | R1.7 | **MCP build** | The wrapper still compiles against the SDK | ✅ `mcp-server` job |
-| R1.8 | **E2E sweep** | Full-stack flows: sync, run, apply, offline — **plus layout + visual regression at 1280px and 375px** (`layout.spec.ts`) | ⬜ **Not in CI** — run locally |
+| R1.8 | **E2E sweep** | Full-stack flows: sync, run, apply, offline — **plus layout + visual regression at 1280px and 375px** (`layout.spec.ts`, 32 tests). **It is the only layer that renders CSS**: jsdom does not evaluate media queries, so no unit test can see a responsive layout | ⬜ **Not in CI** — run locally, and it **silently rotted for a day** on 2026-08-16 because of exactly that ([#61](../../troubleshooting/README.md#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green)) |
 
 ## 🧬 Invariant guards
 
@@ -72,7 +72,7 @@ a regression test is a fix with an expiry date.
 | R3.5 | **Encryption at rest** | Config never lands in the DB as plaintext | ✅ `encryption-at-rest.integration.test.ts` |
 | R3.6 | **Tenant isolation** | Cross-user access stays impossible as routes are added | ✅ `idor.integration.test.ts` |
 | R3.6a | **Login rate limit** | Credential-guessing surfaces stay limited. Per-IP, **10 / 15 min**, on `/auth/login` **and** `/auth/setup` | ✅ `authLimiter.test.ts` |
-| R3.7 | **Dependency audit** | Production `npm audit` stays at **0**, in **all three** packages — `backend/`, `frontend/`, `mcp-server/`. Checking only one is how it drifted: on 2026-07-31 backend and mcp-server were clean while frontend carried 2 high (`react-router` [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2)) | ⬜ Not gated — run `npm audit --omit=dev` in each; see [`artifacts/cronsole_security_audit_2026-07-10.md`](../../../artifacts/cronsole_security_audit_2026-07-10.md) |
+| R3.7 | **Dependency audit** | Production `npm audit` stays at **0**, in **all three** packages — `backend/`, `frontend/`, `mcp-server/`. Checking only one is how it drifted: on 2026-07-31 backend and mcp-server were clean while frontend carried 2 high (`react-router` [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2)) | ⬜ Not gated — run `npm audit --omit=dev` in each; see [`artifacts/taskhub_security_audit_2026-07-10.md`](../../../artifacts/taskhub_security_audit_2026-07-10.md) |
 | R3.8 | **Secret scanning** | No `.env` values or keys committed | ⬜ |
 
 ## 🐛 Bug-fix regression
@@ -96,11 +96,11 @@ one), **#6** (non-ASCII in PowerShell scripts), **#7** (agent command with no ha
 
 | # | Test type | What it protects | Status |
 |:--|:---|:---|:--|
-| R5.1 | **Performance budget** | Dashboard load **< 2s** (NFR1). A baseline exists; nothing fails when we drift past it | ⬜ See [`artifacts/cronsole_performance_2026-07-10.md`](../../../artifacts/cronsole_performance_2026-07-10.md) |
+| R5.1 | **Performance budget** | Dashboard load **< 2s** (NFR1). A baseline exists; nothing fails when we drift past it | ⬜ See [`artifacts/taskhub_performance_2026-07-10.md`](../../../artifacts/taskhub_performance_2026-07-10.md) |
 | R5.2 | **Bundle size** | Frontend bundle doesn't creep | ⬜ |
-| R5.3 | **Resilience / soak** | Reconnect behavior + stale-pruning guard hold under network blips | 🟡 See [`artifacts/cronsole_resilience_2026-07-10.md`](../../../artifacts/cronsole_resilience_2026-07-10.md) |
+| R5.3 | **Resilience / soak** | Reconnect behavior + stale-pruning guard hold under network blips | 🟡 See [`artifacts/taskhub_resilience_2026-07-10.md`](../../../artifacts/taskhub_resilience_2026-07-10.md) |
 | R5.4 | **Visual regression** | Layout and spacing on the dense surfaces don't break silently. **Chrome only** — Platforms, Import and the task-detail modal are asserted structurally, since masking hides colour but not geometry. **Theme pairs are still uncovered** | 🟡 `layout.spec.ts`, local (E2E is not in CI) |
-| R5.5 | **Mobile layout** | Stays usable at 375px: no horizontal overflow, one-row views bar, sticky toolbar survives a long scroll, 44px FAB | ✅ `layout.spec.ts` — the resize finally *applies* (`page.setViewportSize`); a real device check is still open |
+| R5.5 | **Mobile layout** | Stays usable at 375px: no horizontal overflow, one-row views bar, sticky toolbar survives a long scroll, 44px FAB — **and, since the 2026-08-15 IA redesign**, the rail's drawer opening/closing, five toolbar sections on one row, the native job types as two rows of two, and collections reachable | ✅ `layout.spec.ts` — the resize finally *applies* (`page.setViewportSize`); a real device check (touch, iOS Safari) is still open |
 | R5.6 | **Migration safety** | A migration applies cleanly to a **populated** DB, not just an empty one | ⬜ |
 | R5.7 | **Dependency upgrade** | Full sweep after any dep bump — the suite is the upgrade gate | 🟡 |
 

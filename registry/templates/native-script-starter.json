@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-starter",
+  "name": "Write a Script (Cronsole)",
+  "description": "A starting point for a scheduled script you write in Cronsole itself. Nothing needs to exist on disk — the body is stored with the task and runs under the interpreter you pick.",
+  "runtime": "node",
+  "os": "cross-platform",
+  "category": "other",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "starter"
+  ],
+  "icon": "FileCode",
+  "isStarter": true,
+  "core": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * *"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "node",
+    "body": "// Runs on the machine hosting the Cronsole backend.\n// Anything printed here lands in the task's run history.\n// A non-zero exit is recorded as a failed run.\n\nconst startedAt = new Date();\nconsole.log(`Ran at ${startedAt.toISOString()}`);\n\n// Replace this with the work.\n// process.exit(1) to record a failure.\n"
+  },
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

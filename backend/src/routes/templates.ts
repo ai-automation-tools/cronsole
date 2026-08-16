@@ -15,7 +15,8 @@ import { StructuredAction } from '../utils/commandParser.js';
 import {
   resolveTemplateParams,
   substituteStructuredCommand,
-  substitutePlainCommand
+  substitutePlainCommand,
+  substituteNativeJob
 } from '../utils/templateCommand.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
@@ -295,6 +296,24 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
         : template.command || '';
   }
 
+  /**
+   * A template whose action is a native SCRIPT or CHECK carries its spec in
+   * `nativeJob`, because neither can round-trip through a command line — a
+   * script body has newlines and a probe has structure. `command` for those is a
+   * human-readable description, and nothing runs it.
+   *
+   * Substitution walks the JSON's string values, which is the safest form there
+   * is: each field is exactly one value with no tokenizer downstream, so a
+   * parameter cannot split into extra arguments the way it can on a command line.
+   */
+  const finalNativeJob =
+    template.nativeJob && parameters !== undefined
+      ? substituteNativeJob(
+          template.nativeJob,
+          resolveTemplateParams(template.parameters, parameters)
+        )
+      : template.nativeJob ?? undefined;
+
   // Never register a task with unfilled {{placeholders}} (see Templates.md §5).
   // The parameters path already threw on unfilled keys; this guards the legacy path.
   if (finalCommand.includes('{{')) {
@@ -345,6 +364,7 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
       trigger: conversion.trigger,
       action: structuredAction,
       folder: finalFolder,
+      ...(finalNativeJob !== undefined ? { nativeJob: finalNativeJob } : {}),
       ...(repositoryUrls ? { repositoryUrls } : {})
     }
   );

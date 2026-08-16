@@ -21,10 +21,16 @@ export class CronsoleNativeConnector implements PlatformConnector {
     return [];
   }
 
-  async runTask(externalId: string, _config: any): Promise<{ success: boolean; platformRunId?: string; message?: string }> {
+  async runTask(
+    externalId: string,
+    _config: any
+  ): Promise<{ success: boolean; ran?: boolean; platformRunId?: string; message?: string }> {
     const task = await prisma.task.findUnique({
       where: { platform_externalId: { platform: this.platform, externalId } }
     });
+    // Both of these are failures to *start*: nothing executed, so `ran` stays
+    // false and the route answers 502. Only the executeJob result below is a
+    // verdict about the user's system.
     if (!task) {
       return { success: false, message: 'Native task not found' };
     }
@@ -34,8 +40,11 @@ export class CronsoleNativeConnector implements PlatformConnector {
       return { success: false, message: 'Task has no job spec in metadata.job' };
     }
 
+    // `ran` comes from the executor, not from "we got this far": a spec that
+    // fails validateJob never executes, and reporting that as a verdict would
+    // hand the user a "check failed" for a task that never ran.
     const result = await executeJob(job);
-    return { success: result.success, message: result.log };
+    return { success: result.success, ran: result.ran, message: result.log };
   }
 
   async setTaskStatus(externalId: string, enabled: boolean, _config: any): Promise<{ success: boolean }> {
@@ -97,13 +106,20 @@ export class CronsoleNativeConnector implements PlatformConnector {
     // containing a space is **one argument** in the structured form and two
     // after a round trip through the command line. Same reason the Windows
     // connector takes `options.action`.
-    const job: NativeJob = options?.action && !isUrlCommand(command)
-      ? buildNativeJob({
-          jobType: 'EXEC',
-          executable: options.action.executable,
-          args: options.action.args
-        })
-      : nativeJobFromCommand(command);
+    // A full spec outranks both, and must: a SCRIPT body and a CHECK probe have
+    // no command-line form at all, so deriving a job from `command` for those
+    // would silently turn a template's description string into an EXEC job.
+    // Still through `buildNativeJob` + `validateJob` — a template is untrusted
+    // content, and this is the same boundary the API and the edit route use.
+    const job: NativeJob = options?.nativeJob
+      ? buildNativeJob(options.nativeJob as Record<string, unknown>)
+      : options?.action && !isUrlCommand(command)
+        ? buildNativeJob({
+            jobType: 'EXEC',
+            executable: options.action.executable,
+            args: options.action.args
+          })
+        : nativeJobFromCommand(command);
     const invalid = validateJob(job);
     if (invalid) {
       return { success: false, message: invalid };

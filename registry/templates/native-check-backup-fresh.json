@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-check-backup-fresh",
+  "name": "Backup Freshness Check (Cronsole)",
+  "description": "Fail if a backup file has not been written recently — the dead-man switch for a job that stopped silently. A missing file fails too.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "backup",
+  "tags": [
+    "cronsole-native",
+    "check",
+    "backup",
+    "monitoring"
+  ],
+  "icon": "ShieldCheck",
+  "core": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * *"
+  },
+  "action": {
+    "kind": "check",
+    "probe": {
+      "kind": "fileFresh",
+      "path": "{{filePath}}",
+      "maxAgeMinutes": "{{maxAgeMinutes}}"
+    }
+  },
+  "parameters": [
+    {
+      "key": "filePath",
+      "label": "File to watch",
+      "type": "string",
+      "required": true,
+      "help": "Path as seen by the machine running the Cronsole backend — the container on a Dockerized stack, not your desktop. A path that is only valid on your PC will report the file as missing."
+    },
+    {
+      "key": "maxAgeMinutes",
+      "label": "Fail if older than (minutes)",
+      "type": "number",
+      "default": "1440",
+      "required": true,
+      "help": "Default is 24 hours, which suits a nightly backup. Leave headroom for the job to finish."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

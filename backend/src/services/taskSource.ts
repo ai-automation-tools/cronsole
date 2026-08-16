@@ -29,6 +29,16 @@ import { PlatformType } from '@prisma/client';
 export const SOURCE_SEP = ':';
 
 /**
+ * The native job types that get their own source key.
+ *
+ * Kept as an explicit list rather than "whatever `jobType` says", so a row
+ * carrying a `jobType` this build does not know about — a task created by a newer
+ * Cronsole, or a hand-edited row — falls back to the bare platform key instead of
+ * inventing a source the rail cannot render and no filter can reach.
+ */
+export const NATIVE_SUBTYPES = ['HTTP', 'EXEC', 'SCRIPT', 'CHECK'] as const;
+
+/**
  * The source key for a task.
  *
  * Only Cronsole-native subdivides today. A native task whose job spec is missing
@@ -42,7 +52,7 @@ export function taskSourceKey(platform: PlatformType, metadata: unknown): string
 
   const job = (metadata as { job?: { jobType?: unknown } } | null)?.job;
   const jobType = typeof job?.jobType === 'string' ? job.jobType : null;
-  if (jobType === 'HTTP' || jobType === 'EXEC') {
+  if (jobType && (NATIVE_SUBTYPES as readonly string[]).includes(jobType)) {
     return `${platform}${SOURCE_SEP}${jobType}`;
   }
   return platform;

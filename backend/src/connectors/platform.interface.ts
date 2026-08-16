@@ -17,6 +17,17 @@ export interface CreateTaskOptions {
    */
   action?: StructuredAction;
   /**
+   * A complete Cronsole-native job spec, for a template whose action cannot be
+   * expressed as a command line — SCRIPT (the body is the template) and CHECK
+   * (a probe with expectations). Cronsole-native only; every other connector
+   * ignores it.
+   *
+   * When present it **replaces** the command-derived job entirely, so a template
+   * stores the spec the executor will read rather than one re-guessed from a
+   * display string at apply time.
+   */
+  nativeJob?: unknown;
+  /**
    * Normalized native folder to create the task in — Windows Task Scheduler
    * only (e.g. `\Cronsole`, `\Work\Backups`). Defaults to `\Cronsole` when unset.
    * Must already have passed windowsTaskFolderError: it is part of the signed
@@ -193,8 +204,32 @@ export interface PlatformConnector {
 
   /**
    * Trigger a task run.
+   *
+   * `ran` says **what `success` is a verdict about**, and the two are orthogonal:
+   *
+   * | `success` | `ran`   | meaning                                        |
+   * |-----------|---------|------------------------------------------------|
+   * | `true`    | `false` | the platform accepted the start (Windows, Claude) |
+   * | `true`    | `true`  | the job executed here and passed (native)      |
+   * | `false`   | `true`  | the job executed here and **failed** (native)  |
+   * | `false`   | `false` | it could not be started at all                 |
+   *
+   * Set `ran: true` only once the job has actually executed — never for a
+   * dispatch. It exists because the third row is not an error: a CHECK that
+   * fails is the check *working*, reporting a fact about the user's system, and
+   * that is the entire reason the job type exists. Without this field the route
+   * answered `502` for it (troubleshooting #59), which means *retry, the gateway
+   * had a problem* — so an agent could not tell "your disk is full" from
+   * "monitoring is broken", two findings that demand opposite actions.
+   *
+   * Only Cronsole-native can set it: it is the one platform where dispatch and
+   * execution are the same act, so for every other connector `success` describes
+   * a handshake and nothing more (see `ExecutionLog`'s rule in CLAUDE.md §9).
    */
-  runTask(externalId: string, config: any): Promise<{ success: boolean; platformRunId?: string; message?: string }>;
+  runTask(
+    externalId: string,
+    config: any
+  ): Promise<{ success: boolean; ran?: boolean; platformRunId?: string; message?: string }>;
 
   /**
    * Enable/Disable a task. `message` carries a platform failure reason (e.g. an

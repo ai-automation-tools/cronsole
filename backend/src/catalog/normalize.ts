@@ -77,6 +77,14 @@ export interface NormalizedTemplate {
   command: string;
   commandTemplate: string;
   parameters: Prisma.InputJsonValue;
+  /**
+   * A native job spec for `script` / `check` actions.
+   *
+   * `Prisma.DbNull` rather than `null` for the absent case — for a nullable Json
+   * column Prisma reserves plain `null` to mean "leave unchanged", so writing it
+   * would make a template that *stopped* having a job keep its old one forever.
+   */
+  nativeJob: Prisma.InputJsonValue | typeof Prisma.DbNull;
   tags: string[];
   scriptType: ScriptType;
   os: OsTarget;
@@ -96,7 +104,41 @@ function deriveCommand(t: RegistryTemplate): string {
   const a = t.action!; // schema guarantees action || commandTemplate
   if (a.kind === 'exec') return formatCommandLine([a.program, ...a.args]);
   if (a.kind === 'prompt') return a.text;
+  if (a.kind === 'script') {
+    // The command string is a **description**, not something to run. A script's
+    // body cannot round-trip through a command line, so the real spec travels in
+    // `nativeJob` and this only has to give the card and the list something
+    // readable. Nothing executes it: `CronsoleNativeConnector` prefers
+    // `nativeJob` and never re-derives a job from this string.
+    return `${a.interpreter} script (${a.body.split('\n').length} lines)`;
+  }
+  if (a.kind === 'check') {
+    const probe = a.probe as { kind?: unknown; url?: unknown; host?: unknown; port?: unknown; path?: unknown };
+    const target = probe.url ?? (probe.host ? `${probe.host}:${probe.port}` : probe.path) ?? '';
+    return `check ${String(probe.kind ?? 'unknown')} ${String(target)}`.trim();
+  }
   return a.url; // http
+}
+
+/**
+ * The stored native job spec, for the two action kinds a command line cannot
+ * express.
+ *
+ * Deliberately **not** produced for `http`: a native HTTP job is fully described
+ * by its URL, `nativeJobFromCommand` already reconstructs it, and giving it a
+ * second representation would create two sources of truth for templates that
+ * work today.
+ */
+function deriveNativeJob(t: RegistryTemplate): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  const a = t.action;
+  if (!a) return Prisma.DbNull;
+  if (a.kind === 'script') {
+    return { jobType: 'SCRIPT', interpreter: a.interpreter, body: a.body };
+  }
+  if (a.kind === 'check') {
+    return { jobType: 'CHECK', probe: a.probe as Prisma.InputJsonValue };
+  }
+  return Prisma.DbNull;
 }
 
 export function normalizeTemplate(t: RegistryTemplate): NormalizedTemplate {
@@ -132,6 +174,7 @@ export function normalizeTemplate(t: RegistryTemplate): NormalizedTemplate {
     command,
     commandTemplate: command,
     parameters: (t.parameters ?? []) as Prisma.InputJsonValue,
+    nativeJob: deriveNativeJob(t),
     tags: t.tags ?? [],
     scriptType: t.runtime ? RUNTIME_TO_SCRIPT[t.runtime] : ScriptType.AI_PROMPT,
     os: t.os ? OS_TO_TARGET[t.os] : OsTarget.CROSS_PLATFORM,

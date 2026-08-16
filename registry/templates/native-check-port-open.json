@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-check-port-open",
+  "name": "Port Reachable Check (Cronsole)",
+  "description": "Confirm something still accepts connections on a host and port — a database, a broker, an internal service with no HTTP endpoint to call.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "check",
+    "monitoring",
+    "network"
+  ],
+  "icon": "PlugZap",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/10 * * * *"
+  },
+  "action": {
+    "kind": "check",
+    "probe": {
+      "kind": "tcp",
+      "host": "{{host}}",
+      "port": "{{port}}"
+    }
+  },
+  "parameters": [
+    {
+      "key": "host",
+      "label": "Host",
+      "type": "string",
+      "required": true,
+      "help": "Resolved from the machine running the Cronsole backend, so an internal name has to be reachable from there."
+    },
+    {
+      "key": "port",
+      "label": "Port",
+      "type": "number",
+      "default": "5432",
+      "required": true,
+      "help": "The check succeeds if a TCP connection is accepted within 15 seconds. It does not log in or send anything."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

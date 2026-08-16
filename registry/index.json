@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-08-13T20:29:35.476Z",
+  "updatedAt": "2026-08-16T00:27:59.481Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1178,6 +1178,124 @@
       "sha256": "d3801cb6b6d7c6261b13575252ba5908e6ad72068d6c0fe6682016d5f7a34654"
     },
     {
+      "id": "native-script-starter",
+      "name": "Write a Script (Cronsole)",
+      "description": "A starting point for a scheduled script you write in Cronsole itself. Nothing needs to exist on disk — the body is stored with the task and runs under the interpreter you pick.",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "starter"
+      ],
+      "isStarter": true,
+      "core": true,
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-starter.json",
+      "sha256": "cf2fd7d8dfe13a851b7742812ea39432e7303ca6ac290adc2a0e5fb31a1aef3f"
+    },
+    {
+      "id": "native-script-powershell-disk-report",
+      "name": "PowerShell Disk Report (Cronsole)",
+      "description": "Print free space for every fixed drive on the Cronsole host, so the numbers land in the run history and you can read them back over time.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "powershell",
+        "monitoring",
+        "disk"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-powershell-disk-report.json",
+      "sha256": "fed85c228fb8cdf0d6c86203535635f4714d2467f0e66c3524207dd1a1085f21"
+    },
+    {
+      "id": "native-check-endpoint-healthy",
+      "name": "Endpoint Health Check (Cronsole)",
+      "description": "Call a URL and require the response to actually say it is healthy — not just return 200. A failure here is a fact about your system, so it is worth alerting on.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "uptime"
+      ],
+      "core": true,
+      "runtime": "http",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-endpoint-healthy.json",
+      "sha256": "c1e465e4299e49fbb92c4a48ba56be599b34f85f9fd297bb24d7a70917d43933"
+    },
+    {
+      "id": "native-check-backup-fresh",
+      "name": "Backup Freshness Check (Cronsole)",
+      "description": "Fail if a backup file has not been written recently — the dead-man switch for a job that stopped silently. A missing file fails too.",
+      "category": "backup",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "backup",
+        "monitoring"
+      ],
+      "core": true,
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-backup-fresh.json",
+      "sha256": "ab9efcff89fd2101dbc1babeba0d3d262d874ca603a59bdb36250c52bcb9c0ae"
+    },
+    {
+      "id": "native-check-disk-space",
+      "name": "Disk Space Check (Cronsole)",
+      "description": "Fail when free space on a volume drops below your floor, so you hear about it before something else fails for a reason that looks unrelated.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "disk"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-disk-space.json",
+      "sha256": "34ecacbfe3d7ba2be19532c364b0ac1cd76171425a3ec95f0a1b330e8fd377b2"
+    },
+    {
+      "id": "native-check-port-open",
+      "name": "Port Reachable Check (Cronsole)",
+      "description": "Confirm something still accepts connections on a host and port — a database, a broker, an internal service with no HTTP endpoint to call.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "network"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-port-open.json",
+      "sha256": "30bf12839dcb69167dcdb14518f18f0fdb8bcface08ddb200fccff3fc2a14836"
+    },
+    {
       "id": "claude-routine-issue-triage",
       "name": "Routine: Issue Triage",
       "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
@@ -1389,10 +1507,16 @@
         "native-python-script",
         "native-git-pull",
         "native-http-uptime-check",
-        "native-http-heartbeat"
+        "native-http-heartbeat",
+        "native-script-starter",
+        "native-script-powershell-disk-report",
+        "native-check-endpoint-healthy",
+        "native-check-backup-fresh",
+        "native-check-disk-space",
+        "native-check-port-open"
       ],
       "path": "packs/cronsole-native.json",
-      "sha256": "e402962717aba6438824e85c5546a0cf38b2838efd7eb29216f34bb65ff5745d"
+      "sha256": "78641cdc022848e125257754948ab79dc0b44d952f7e1503db5c8c5e27d7fc73"
     },
     {
       "id": "claude-routines",

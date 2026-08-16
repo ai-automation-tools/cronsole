@@ -29,7 +29,26 @@ const quoteIfSpaced = (s: string): string => (/\s/.test(s) ? `"${s}"` : s);
 // ---------------------------------------------------------------------------
 
 export type RunLevel = 'least' | 'highest';
-export type JobType = 'HTTP' | 'EXEC';
+export type JobType = 'HTTP' | 'EXEC' | 'SCRIPT' | 'CHECK';
+export type ScriptInterpreter = 'powershell' | 'pwsh' | 'bash' | 'sh' | 'python' | 'node';
+export type CheckKind = 'http' | 'tcp' | 'fileFresh' | 'diskFree';
+
+/**
+ * The interpreters offered, and what each is for.
+ *
+ * A **mirror** of the backend's `SCRIPT_INTERPRETERS` allowlist — the server is
+ * the authority and rejects anything outside it, so this list can only ever be
+ * the same or smaller. It exists because a `<select>` needs labels, not because
+ * the browser gets a vote.
+ */
+export const SCRIPT_INTERPRETERS: { value: ScriptInterpreter; label: string }[] = [
+  { value: 'powershell', label: 'PowerShell (Windows)' },
+  { value: 'pwsh', label: 'PowerShell 7 (pwsh)' },
+  { value: 'bash', label: 'Bash' },
+  { value: 'sh', label: 'sh' },
+  { value: 'python', label: 'Python' },
+  { value: 'node', label: 'Node.js' }
+];
 
 /** Cronsole labels. Neither is owned by the platform; both are DB-only writes. */
 export interface LabelValues {
@@ -56,7 +75,61 @@ export interface NativeJobValues {
   body: string;
   command: string;
   workingDirectory: string;
+  // SCRIPT
+  interpreter: ScriptInterpreter;
+  scriptBody: string;
+  // CHECK. `checkUrl` is deliberately separate from `url`: switching HTTP ↔ Check
+  // replaces the job, so carrying one field across the two would make a discarded
+  // value silently reappear as the new job's.
+  checkKind: CheckKind;
+  checkUrl: string;
+  checkMethod: string;
+  expectStatusMin: string;
+  expectStatusMax: string;
+  expectBodyContains: string;
+  expectJsonPath: string;
+  expectJsonEquals: string;
+  checkHost: string;
+  checkPort: string;
+  checkPath: string;
+  maxAgeMinutes: string;
+  minFreeMb: string;
 }
+
+/** Empty form state, so every caller starts from the same shape. */
+export const emptyNativeJobValues = (): NativeJobValues => ({
+  jobType: 'HTTP',
+  url: '',
+  method: 'GET',
+  headers: '',
+  body: '',
+  command: '',
+  workingDirectory: '',
+  interpreter: 'powershell',
+  scriptBody: '',
+  checkKind: 'http',
+  checkUrl: '',
+  checkMethod: 'GET',
+  expectStatusMin: '200',
+  expectStatusMax: '299',
+  expectBodyContains: '',
+  expectJsonPath: '',
+  expectJsonEquals: '',
+  checkHost: '',
+  checkPort: '',
+  checkPath: '',
+  maxAgeMinutes: '60',
+  minFreeMb: '1024'
+});
+
+/** What switching *away* from a stored job type throws away, named before the click. */
+export const discardedByTypeSwitch = (stored: JobType): string =>
+  ({
+    HTTP: 'URL, method, headers and body',
+    EXEC: 'command and working directory',
+    SCRIPT: 'script body and interpreter',
+    CHECK: 'check and everything it compares against'
+  }[stored]);
 
 // ---------------------------------------------------------------------------
 // Section availability
@@ -192,7 +265,13 @@ function windowsActionEdit(task: Task): RunsEdit {
 function nativeJobEdit(task: Task): RunsEdit {
   const meta = (task.metadata ?? {}) as Meta;
   const job = (meta.job ?? {}) as Meta;
-  const isExec = asText(job.jobType) === 'EXEC';
+  const stored = asText(job.jobType);
+  // An unrecognized stored type falls back to HTTP with empty fields — the same
+  // "a broken row still opens" repair the original did. It is not silent: the
+  // form shows HTTP selected while the task's source row still reads whatever
+  // the server derived, and saving is an explicit act.
+  const jobType: JobType =
+    stored === 'EXEC' || stored === 'SCRIPT' || stored === 'CHECK' ? stored : 'HTTP';
 
   const exe = asText(job.executable) ?? '';
   const args = Array.isArray(job.args) ? (job.args as unknown[]).map(a => String(a)) : [];
@@ -200,19 +279,56 @@ function nativeJobEdit(task: Task): RunsEdit {
     ? [quoteIfSpaced(exe), ...args.map(quoteIfSpaced)].join(' ')
     : '';
 
+  const probe = (job.probe ?? {}) as Meta;
+  const probeKind = asText(probe.kind);
+  const range = (probe.expectStatus ?? {}) as Meta;
+  const jsonPath = (probe.expectJsonPath ?? {}) as Meta;
+  const minFreeBytes = Number(probe.minFreeBytes);
+
   return {
     kind: 'native',
     editable: true,
     initial: {
-      jobType: isExec ? 'EXEC' : 'HTTP',
+      ...emptyNativeJobValues(),
+      jobType,
       url: asText(job.url) ?? '',
       method: (asText(job.method) ?? 'GET').toUpperCase(),
       headers: job.headers && typeof job.headers === 'object'
         ? JSON.stringify(job.headers, null, 2)
         : '',
-      body: asText(job.body) ?? '',
+      // `body` is the HTTP request body on an HTTP job and the script text on a
+      // SCRIPT one — the same key, two unrelated meanings. Each is read only for
+      // its own type, or switching HTTP → Scripts would drop the request body
+      // into the editor as the script, one line after the form promised to
+      // discard it.
+      body: jobType === 'HTTP' ? asText(job.body) ?? '' : '',
       command,
-      workingDirectory: asText(job.workingDirectory) ?? ''
+      workingDirectory: asText(job.workingDirectory) ?? '',
+
+      interpreter: (asText(job.interpreter) ?? 'powershell') as ScriptInterpreter,
+      scriptBody: jobType === 'SCRIPT' ? asText(job.body) ?? '' : '',
+
+      checkKind:
+        probeKind === 'tcp' || probeKind === 'fileFresh' || probeKind === 'diskFree'
+          ? probeKind
+          : 'http',
+      checkUrl: asText(probe.url) ?? '',
+      checkMethod: (asText(probe.method) ?? 'GET').toUpperCase(),
+      expectStatusMin: asText(range.min) ?? '200',
+      expectStatusMax: asText(range.max) ?? '299',
+      expectBodyContains: asText(probe.expectBodyContains) ?? '',
+      expectJsonPath: asText(jsonPath.path) ?? '',
+      expectJsonEquals: asText(jsonPath.equals) ?? '',
+      checkHost: asText(probe.host) ?? '',
+      checkPort: asText(probe.port) ?? '',
+      checkPath: asText(probe.path) ?? '',
+      maxAgeMinutes: asText(probe.maxAgeMinutes) ?? '60',
+      // Megabytes in the form, bytes on the wire. Nobody types 10737418240, and
+      // a field whose unit is only in its label is a field people get wrong by
+      // three orders of magnitude.
+      minFreeMb: Number.isFinite(minFreeBytes) && minFreeBytes > 0
+        ? String(Math.round(minFreeBytes / (1024 * 1024)))
+        : '1024'
     }
   };
 }
@@ -281,6 +397,23 @@ export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | 
       ...(v.body.trim() ? { body: v.body } : {})
     };
   }
+
+  if (v.jobType === 'SCRIPT') {
+    return {
+      jobType: 'SCRIPT',
+      interpreter: v.interpreter,
+      // Not trimmed. Leading whitespace is significant in Python, and a trailing
+      // newline is what makes a shell script's last line run — trimming a script
+      // body the way a form field is trimmed silently changes what it does.
+      body: v.scriptBody,
+      ...(v.workingDirectory.trim() ? { workingDirectory: v.workingDirectory.trim() } : {})
+    };
+  }
+
+  if (v.jobType === 'CHECK') {
+    return { jobType: 'CHECK', probe: checkProbePayload(v) };
+  }
+
   return {
     jobType: 'EXEC',
     // Sent as a command line on purpose: the backend tokenizes it with the same
@@ -290,6 +423,85 @@ export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | 
     command: v.command.trim(),
     ...(v.workingDirectory.trim() ? { workingDirectory: v.workingDirectory.trim() } : {})
   };
+}
+
+/**
+ * The probe half of a CHECK payload.
+ *
+ * Only the selected kind's fields are sent — the form carries all four so a user
+ * can switch back without retyping, but a probe that shipped `host` alongside
+ * `url` would store something the executor never reads, which is the merge
+ * problem `PATCH /job` replaces rather than patches to avoid.
+ */
+function checkProbePayload(v: NativeJobValues): Record<string, unknown> {
+  if (v.checkKind === 'tcp') {
+    return { kind: 'tcp', host: v.checkHost.trim(), port: Number(v.checkPort) };
+  }
+  if (v.checkKind === 'fileFresh') {
+    return {
+      kind: 'fileFresh',
+      path: v.checkPath.trim(),
+      maxAgeMinutes: Number(v.maxAgeMinutes)
+    };
+  }
+  if (v.checkKind === 'diskFree') {
+    return {
+      kind: 'diskFree',
+      path: v.checkPath.trim(),
+      minFreeBytes: Math.round(Number(v.minFreeMb) * 1024 * 1024)
+    };
+  }
+  return {
+    kind: 'http',
+    url: v.checkUrl.trim(),
+    method: v.checkMethod,
+    expectStatus: { min: Number(v.expectStatusMin), max: Number(v.expectStatusMax) },
+    ...(v.expectBodyContains.trim() ? { expectBodyContains: v.expectBodyContains.trim() } : {}),
+    ...(v.expectJsonPath.trim()
+      ? { expectJsonPath: { path: v.expectJsonPath.trim(), equals: v.expectJsonEquals } }
+      : {})
+  };
+}
+
+/**
+ * Is the form complete enough to send? Returns the reason it is not.
+ *
+ * Shared by the create and edit forms so a job cannot be submittable in one and
+ * refused in the other — the same one-derivation rule the prefill and the gate
+ * already follow.
+ */
+export function nativeJobIncomplete(v: NativeJobValues): string | null {
+  if (v.jobType === 'HTTP') {
+    return /^https?:\/\//i.test(v.url.trim()) ? null : 'Enter a URL starting with http:// or https://';
+  }
+  if (v.jobType === 'EXEC') {
+    return v.command.trim() ? null : 'Enter the command to run';
+  }
+  if (v.jobType === 'SCRIPT') {
+    return v.scriptBody.trim() ? null : 'Write the script to run';
+  }
+  if (v.checkKind === 'http') {
+    if (!/^https?:\/\//i.test(v.checkUrl.trim())) return 'Enter a URL starting with http:// or https://';
+    const min = Number(v.expectStatusMin);
+    const max = Number(v.expectStatusMax);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+      return 'The expected status range must run from low to high';
+    }
+    if (v.expectJsonPath.trim() && !v.expectJsonEquals.trim()) {
+      return 'Give the JSON path a value to compare against';
+    }
+    return null;
+  }
+  if (v.checkKind === 'tcp') {
+    if (!v.checkHost.trim()) return 'Enter a host';
+    const port = Number(v.checkPort);
+    return Number.isInteger(port) && port > 0 && port < 65536 ? null : 'Enter a port between 1 and 65535';
+  }
+  if (!v.checkPath.trim()) return 'Enter a path';
+  if (v.checkKind === 'fileFresh') {
+    return Number(v.maxAgeMinutes) > 0 ? null : 'Enter an age limit in minutes';
+  }
+  return Number(v.minFreeMb) > 0 ? null : 'Enter a minimum free space in MB';
 }
 
 export function windowsActionPayload(v: WindowsActionValues): Record<string, unknown> {

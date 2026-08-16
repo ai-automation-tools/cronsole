@@ -21,7 +21,11 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 61 | **Every** E2E test fails (`18 of 18`) with `element(s) not found`, while backend/integration/frontend suites are all green and the app works fine in a browser | A **shared helper** referenced a label the UI no longer uses — `dashboardReady()` waited on the heading *"Unified Task Dashboard"*, which the 2026-08-15 redesign replaced with one naming the current scope. One string, every test. Four more assertions named things the redesign **removed** (the source bar, the System Status panel, `Cronsole (Scripts)`, native's unsupported `Edit action`). **Nothing caught it because `test:e2e` is not in CI**, and no other suite can substitute: jsdom does not evaluate media queries, so `hidden md:flex` is invisible to the unit tests. Anchor helpers on `data-testid`, not labels. **Two repair traps: a mask for a removed element masks nothing, and a test that fails only in a full run is unmasked live data, not flake** | [→](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) |
+| 60 | A schedule with a multi-value hour (`0 9-17 * * 1-5`) is stored **verbatim as UTC** and runs 7–8 hours off — while the hint under the field says *"this schedule has no fixed clock time, so it reads the same in PDT and UTC"* | `shiftCron` correctly declines to shift an hour field that isn't a single number, but returned no **`reason`** — and `ScheduleZoneHint` renders "no reason" as **"the zone is irrelevant"**, so a missing warning became a confident false statement. **Fixed 2026-08-15**: a refusal now asks whether the expression pins a clock time (`hour !== '*'`, or a partial-hour zone with a multi-value minute) and explains itself; genuinely invariant expressions still say nothing. **The general rule: if the empty case has its own message, declining to answer and answering "no problem" are the same code path** | [→](#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter) |
+| 59 | A Cronsole-native `CHECK` that **correctly finds a problem** comes back as HTTP **502** — `run_task` throws, so an agent reports *"I couldn't run the check"* over a message that says the check ran and the endpoint is broken. The dashboard raises a *Failed to run* toast rather than showing a failing result | `POST /api/tasks/:id/run` returned `502` for **every** unsuccessful run. That was right for Windows and Claude, where a failure IS a failure to dispatch — and wrong the moment a job type arrived whose failures are *findings*. `502` means *retry, the gateway had a problem*, so the one job type worth alerting on reported itself in the one way that says ignore this. **Fixed 2026-08-15**: `runTask` gained **`ran`** (orthogonal to `success`), so a job that executed and failed is a **200 carrying `success: false`** and only a genuine failure-to-start is a 502. **The tell: only Cronsole-native can hit it** — it is the one platform where dispatch and execution are the same act | [→](#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check) |
 | 57 | A count beside a filter control disagrees with another count for the same set, and both look right | Two questions sharing one number: *what exists* vs *what clicking reveals*. Anything printed beside a control that changes the list must be **faceted** (every other lens applied); existence counts may only gate whether a control renders | [→](#57-two-counts-for-the-same-set-disagree-on-screen--and-both-are-right) |
+| 58 | A published template the running build cannot parse makes the **entire hosted catalog** vanish — the app silently serves its bundled snapshot, the gallery on the web shows templates the app does not have, and nothing errors | `RegistryCatalogSource.fetchAll` threw on the first unreadable template, and `listRaw`'s catch falls back to the **whole** bundled catalog. The realistic trigger is a **version gap**, not corruption: `action` is a Zod discriminated union, so a member added later (`script`/`check`, 2026-08-15) is an unknown discriminator to every older install. **Fixed 2026-08-15**: skip and log the one template, keep the rest. A **checksum mismatch still throws** — that is integrity on executable content, not a version gap | [→](#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog) |
 | 56 | `prisma migrate dev` says a migration **"was modified after it was applied"** and offers to **reset the schema** — on a database holding real tasks — while `prisma migrate status` insists everything is *"up to date"* | An applied migration file was **edited after the fact** (here: explanatory comments added). That changes its checksum without changing a line of SQL, and Prisma reads a checksum mismatch as history it cannot trust. `migrate status` does not compare checksums, which is why nothing surfaced it until the next migration. **Do not accept the reset.** Verify the live table against the file's DDL, then update the stored checksum in `_prisma_migrations` | [→](#56-prisma-wants-to-reset-your-database-over-a-migration-you-only-added-a-comment-to) |
 | 55 | The dashboard opens **already signed in** on a browser that has never logged in — including through the remote-access proxy, where "already signed in" means *anyone who loads the page* | `VITE_DEV_TOKEN` was compiled into `dist/`. Vite loads `.env.local` in **every** mode and inlines each `VITE_*` reference as a literal, so `npm run build` baked a real owner JWT (`exp` 2036) into the served JavaScript, and `getAuthToken()` sends it whenever nobody is logged in — the login screen was decorative. **The source was clean; the compiler added the secret.** **Fixed 2026-08-15**: the reference is gated on `import.meta.env.DEV` so it folds away in a build, and `scripts/check-bundle-secrets.mjs` fails the build if a credential-shaped literal reappears | [→](#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in) |
 | 54 | **Every** `docker compose` command fails with *"required variable CLOUDFLARE_TUNNEL_TOKEN is missing a value"* — including `docker compose up -d`, which only wants Postgres and Redis | Compose interpolates the **whole file before it selects a profile**, so a `${VAR:?message}` in a service you never start still fails commands that do not involve it. A tunnel credential became a precondition for starting the database. **Fixed 2026-08-15** by using `:-` (empty default); the unset token now surfaces in `docker compose logs tunnel` instead | [→](#54-a-compose-profile-you-never-start-breaks-every-compose-command) |
@@ -3752,6 +3756,238 @@ plausible meanings, give each meaning its own name — `hiddenBySystemFilter` ve
 
 *First hit: 2026-08-15, during the dashboard IA redesign. The bug predates it; the redesign is only
 what put the two numbers in the same viewport.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 58. One unreadable template silently empties the whole hosted catalog
+
+**Symptom.** Nothing errors. The Templates tab shows the bundled set and no imported ones, and
+the gallery on the web shows templates the app does not have. Nothing on screen says the registry
+was even consulted.
+
+**Cause.** `RegistryCatalogSource.fetchAll` parsed each template with
+`registryTemplateSchema.parse(...)`, which **throws**. That throw propagated to `listRaw`, whose
+`catch` falls back to the *entire* bundled snapshot. So a single template file this build cannot
+read discards every other template in the registry — including the dozens it could read perfectly
+well.
+
+The version gap is the realistic trigger, not corruption. The registry is a **published** artifact
+that installed copies of Cronsole fetch, and the schema's `action` is a Zod *discriminated union* —
+a member added later (`script` and `check`, 2026-08-15) is an unknown discriminator to every older
+install, which fails the parse. Adding one action kind would have blanked the catalog for every
+user who had not updated, with a green build, a clean push, and no symptom locally.
+
+This is the [§11b](../../CLAUDE.md) failure mode in its purest form: **the surface that breaks is
+not in this repo, and it breaks after everything here has passed.**
+
+**Fix.** Skip the template, keep the catalog:
+
+```ts
+try {
+  templates.push(registryTemplateSchema.parse(JSON.parse(text)));
+} catch (err) {
+  this.log(`registry template "${entry.id}" skipped (not readable by this version): ${reason}`);
+}
+```
+
+A **checksum mismatch still throws.** That distinction is the whole point of the fix: an unknown
+schema feature is a version gap and costs you one template, while a checksum mismatch is an
+integrity failure on executable content — serving the rest of a tampered catalog is not the lesser
+evil. Skipping is also what makes the schema additively extensible: a new `action.kind` now costs
+an older install the new templates and nothing else.
+
+**The general shape.** A loader that treats "one item I cannot read" as "the whole feed is bad"
+turns every forward-compatible change into an outage, and does it *quietly*, because the fallback
+path looks like a working app. Ask of any fetch-and-parse loop: **is the blast radius of one bad
+item the item, or the batch?**
+
+*First hit: 2026-08-15.* Found while scoping ADR 0002 — before publishing a new action kind rather
+than after, which is the only reason it is a note and not an incident.
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 59. A check that correctly finds a problem is reported as "could not run the check"
+
+**Symptom.** A Cronsole-native `CHECK` that fails its assertion comes back as an HTTP **502**. Over
+MCP, `run_task` *throws*:
+
+```
+Cronsole API error (HTTP 502): GET https://api.example.com/health → 200 (expected 200–299) | body does not contain "ok"
+```
+
+The message is correct and the status code contradicts it. An agent reading the error reports *"I
+couldn't run the check"*; the truth is *"the check ran and your endpoint is broken."* In the
+dashboard the same run raised a red *Failed to run* toast rather than showing a failing result.
+
+**Cause.** `POST /api/tasks/:id/run` ended every unsuccessful run with `res.status(502)`. The
+comment above it argued the case, and argued it **correctly for the platforms that existed when it
+was written**: for Windows and Claude a failure IS a failure to dispatch — an offline agent, an ACL
+denial, a paused routine — so `500` would send you to debug Cronsole and `502` is right.
+
+`CHECK` (2026-08-15) broke the premise. **A failing check is the check working**: it is a fact about
+the user's system, which is the entire reason the job type exists. `502` means *the gateway had a
+problem, retry* — so the one job type whose failures are worth acting on reported them in the one
+way that says "ignore this and try again". The same applies to a `SCRIPT` exiting non-zero: the run
+happened, and its exit code is the answer.
+
+**The tell** is that Cronsole-native is the only platform that can reach this — it is the only one
+where dispatch and execution are the same act, so `success` means something different there than it
+does everywhere else in the codebase (see `ExecutionLog`'s rule in CLAUDE.md §9).
+
+**Fix.** Say which question `success` is answering. `PlatformConnector.runTask` gained **`ran`**,
+orthogonal to `success`:
+
+| `success` | `ran`   | meaning                                          | route |
+|-----------|---------|--------------------------------------------------|-------|
+| `true`    | `false` | the platform accepted the start (Windows, Claude) | 200   |
+| `true`    | `true`  | the job executed here and passed                  | 200   |
+| `false`   | `true`  | the job executed here and **failed**              | **200, `success: false`** |
+| `false`   | `false` | it could not be started at all                    | 502   |
+
+`ran` is stamped once in `executeJob`, not in each executor, so a fifth job type cannot ship having
+forgotten it — and a spec rejected by `validateJob` never executed, so it stays `false` and keeps
+the 502.
+
+**Two consumers had to change with it**, and both are the sort of thing a status-code fix leaves
+behind:
+
+- The dashboard's `runMutation` read only the HTTP status, so a 200 would have toasted *"triggered
+  successfully"* over a failing check.
+- `run_task` returns the failing run as a **result**, not an error, with the text `Task ran and
+  FAILED: …` — a model that reads only the first line must not come away thinking it passed.
+
+**The general shape.** A status code is a claim about *what kind of thing went wrong*, and it is
+inherited from whatever the route did first. When a route gains a genuinely new kind of outcome, the
+old code's reasoning can stay word-for-word correct about the old cases while being wrong about the
+new one — and nothing fails, because a status code has no test unless someone writes one. Ask:
+**does every branch that returns this code still mean what the comment above it says?**
+
+*First hit: 2026-08-15.* Found by driving the new job types end-to-end on a live stack — the
+structural argument that they worked was sound, and this is exactly what it could not have told us.
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 60. A schedule is stored 7–8 hours off, and the UI says the timezone doesn't matter
+
+**Symptom.** With `Settings › Schedule timezone` on Pacific, you type a working-day schedule:
+
+```
+0 9-17 * * 1-5
+```
+
+It is stored **exactly as typed** and runs 01:00–09:00 Pacific. The hint under the field, where
+every other schedule prints *"Stored as … UTC"*, instead reads:
+
+> This schedule has no fixed clock time, so it reads the same in PDT and UTC.
+
+**Cause.** `shiftCron` only converts an expression whose minute **and** hour are single numbers
+(plus the hourly `M * * * *` case). `9-17` is not, so it correctly declined to shift — and returned
+`{ shifted: false }` with **no `reason`**.
+
+The trap is what `reason` being absent *means* downstream. `ScheduleZoneHint` has three branches:
+a reason (warning), a shift (shows the stored UTC), and otherwise **"no fixed clock time"**. So
+`shifted: false` with no reason is not silence — **it is a positive claim that the zone is
+irrelevant**, and here both halves of that claim were false. The user is told the conversion was
+unnecessary while their working day sits in the database seven hours out.
+
+This is the same family as [#51/#51a](#51a-the-same-bug-in-the-step-branch--and-this-one-never-errors-at-all):
+a multi-value cron field taking a path written for a single value. The difference is that this one
+never touches `parseInt`, so it produces no wrong number anywhere — just a wrong *sentence*.
+
+**Fix.** Every path that declines to shift must pick a side, so the refusal branch now asks whether
+the expression pins a clock time at all:
+
+- **`hour !== '*'`** — it names hours (`9-17`, `1,13`, `*/6`, or a fixed hour with several
+  minutes). A zone change moves them, so this is a **refusal** and gets a reason naming what to do.
+- **`hour === '*'`** — it recurs every hour, so a whole-hour offset really does leave it identical
+  and saying nothing is correct. The one exception is a partial-hour zone (+05:30) with a
+  multi-value minute field, which would have moved.
+
+`*/6` counts as pinning clock times, which is easy to argue past: it fires at 00/06/12/18, and those
+are four *different* wall-clock times in Pacific — the same reasoning that already makes "hourly at
+:20" shift for a half-hour zone.
+
+**The general shape.** Ask what a UI renders when your function returns *nothing*. If the empty case
+has its own message, then **declining to answer and answering "no problem here" are the same code
+path**, and a missing warning is upgraded into a confident false statement. A "nothing to report"
+branch is a claim and needs the same evidence as any other.
+
+*First hit: 2026-08-15.* Logged during the 2026-08-13 cron-parsing sweep as *"stores a zoned cron
+7–8 hours off, silently"*; the `ScheduleZoneHint` half — that it was not silent but actively wrong —
+turned up when fixing it.
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 61. The whole E2E suite fails, and every other suite is green
+
+**Symptom.** `npm run test:e2e` fails **every test** — 18 of 18 — with variations of:
+
+```
+Locator: getByRole('heading', { name: 'Unified Task Dashboard' })
+Expected: visible
+Error: element(s) not found
+```
+
+Meanwhile `npm test` passes in backend (715), integration (223) and frontend (541). The app works
+perfectly when you open it.
+
+**Cause.** A **shared helper** referenced a label the UI no longer uses. `dashboardReady()` waited
+for a heading reading *"Unified Task Dashboard"*; the 2026-08-15 IA redesign replaced it with a
+heading that names the current scope (*"All Tasks"*, a source, or a collection). Every test in the
+file calls that helper, so one stale string took the entire suite down.
+
+The same commit stranded four more assertions, and they are worth knowing as a class — each named
+a **thing the redesign removed**:
+
+| Assertion | What happened to it |
+|:---|:---|
+| `[role="group"][aria-label="Task source"]` | the horizontal source **bar**, replaced by the rail |
+| `aside` → `System Status` panel | deleted; per-platform health moved onto the rail row |
+| `Cronsole (Scripts)` | renamed to **Programs** when `SCRIPT` took the name |
+| `Edit action: Unsupported` for native | became supported when `PATCH /:id/job` shipped |
+
+**Why nothing caught it.** `test:e2e` **is not in CI** — it needs a live stack (frontend + backend +
+Postgres + an agent), so it only runs when someone runs it. And no other suite can stand in for it:
+**jsdom does not evaluate CSS media queries**, so `hidden md:flex` is invisible to the unit tests and
+they pass whether the class is right or wrong.
+
+**Fix.** Anchor shared helpers on things that are not labels:
+
+```ts
+// Not a heading whose text names the current scope.
+await expect(page.getByTestId('task-count-line')).toBeVisible();
+await expect(page.getByTestId('task-list')).toBeVisible();
+```
+
+Then port each stranded assertion to where the behaviour actually lives — the rail marks selection
+with `aria-current` (it is navigation, not a toggle), and health is a dot whose `title` carries the
+state as text.
+
+**Two traps while repairing it.**
+
+- **A mask for an element that no longer exists is indistinguishable from no mask.** The visual
+  baselines masked the removed source bar, so they silently stopped masking anything there.
+- **A test that passes alone and fails in a full run is usually unmasked live data, not flake.**
+  `dashboard chrome` differed by 96 pixels only when the mock-agent spec ran first — because that
+  spec changes the missing-task count, and *"Clear 2 Missing"* was inside the screenshot. The Tools
+  tab had the same fault via the Task health tiles. Both are now masked. Reaching for `retries`
+  there would have hidden a real rule this file already states: **screenshot the chrome, assert the
+  content.**
+
+**The general shape.** A test suite is a mirror surface like any doc — it *describes* the UI. The
+difference is that it fails loudly when it drifts, which is only useful **if something runs it**.
+Ask of any suite outside CI: *what would tell me this had stopped working?*
+
+*First hit: 2026-08-16.* Found by starting the mobile-verification pass, not by a failing build.
+The mobile layout it was meant to check turned out to be fine.
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

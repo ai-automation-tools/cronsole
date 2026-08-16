@@ -36,13 +36,15 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | Tool | What you'd ask for | Backend route |
 |:---|:---|:---|
 | **`list_tasks`** | "List my Windows tasks", "which tasks failed?", "show tasks in the Backup category" | `GET /api/tasks` |
-| **`run_task`** | "Run the nightly backup now" | `POST /api/tasks/:id/run` |
+| **`run_task`** | "Run the nightly backup now", "run my disk check and tell me what it found" | `POST /api/tasks/:id/run` |
 | **`list_templates`** | "What backup templates are there?", "show AI agent templates" | `GET /api/templates` |
 | **`list_folders`** | "Which Task Scheduler folders can I create a task in?" | `GET /api/tasks/folders` |
 | **`create_task`** | "Run `C:\jobs\nightly.ps1` every weekday at 6am" — any command you already know | `POST /api/tasks` |
 | **`create_task_from_template`** | "Create a daily repo digest from the Claude Code template at 7am, in the Dev folder" | `POST /api/templates/:id/apply` |
 | **`create_native_task`** | "Ping my health endpoint every 15 minutes and POST this JSON to the webhook" | `POST /api/tasks/native` |
-| **`create_native_script_task`** | "Run my cleanup script every night at 2am and tell me if it fails" | `POST /api/tasks/native` |
+| **`create_native_program_task`** | "Run my cleanup script every night at 2am and tell me if it fails" | `POST /api/tasks/native` |
+| **`create_native_script_task`** | "Write me a script that prunes old logs and run it nightly" | `POST /api/tasks/native` |
+| **`create_native_check_task`** | "Check every 5 minutes that my API returns healthy, and alert me if not" | `POST /api/tasks/native` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |
 | **`get_task_history`** | "Did last night's backup work?", "why did the report task fail?" | `GET /api/tasks/:id/executions` |
 | **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" | `GET /api/tasks/:id/export` |
@@ -62,6 +64,16 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`get_task_health`** | "What's broken?" — every task scored and ranked worst-first, with the evidence for each verdict | `GET /api/tools/task-health` |
 | **`list_run_history`** | "What failed this month?" — across all tasks, unlike the per-task history | `GET /api/tools/history` |
 | **`delete_task`** ⚠️ | "Delete the old test task" — **Cronsole-native tasks only**, backed up first, and **off by default**; see below | `DELETE /api/tasks/:id/native` |
+
+**`run_task` reports two different kinds of bad news, and they mean opposite things.** A
+Cronsole-native job runs *inside* the request, so if it executes and fails — a check whose endpoint
+is down, a script that exits non-zero — that comes back as a **normal result** saying the run
+failed, with the measurement that failed it. That is a finding about your system, and re-running it
+will not change anything. A **tool error** means the run could not be started at all: the agent is
+offline, the routine is paused, the id is wrong. Only the second one is worth retrying, and only the
+first one means the thing you were monitoring is actually broken. (Windows and Claude tasks can only
+produce the second kind — Cronsole hands the task to them and does not wait, so what it reports is
+whether the handoff worked. Use `get_task_history` for what a Windows task actually did.)
 
 **`create_task` vs. `create_task_from_template`:** use `create_task` when you already know the
 command to run — it's the direct path, and it's what the dashboard's New Task modal has always
@@ -121,7 +133,7 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 > [!IMPORTANT]
 > **What's safe, what's real, and what's off by default.**
 > - **Read-only, call freely:** `list_*`, `get_task_history`, `export_task`, `convert_schedule`.
-> - **Real effects on your machine:** `run_task`, `create_task`, `create_native_task`, `create_native_script_task`,
+> - **Real effects on your machine:** `run_task`, `create_task`, `create_native_task`, `create_native_program_task`, `create_native_script_task`, `create_native_check_task`,
 >   `create_task_from_template` (running / registering tasks) and `set_task_status`,
 >   `update_task_schedule`, `update_task_action` (changing them). Same guardrails as clicking
 >   **Run Now**, **Apply**, or **Edit** in the dashboard — and all of them are reversible.

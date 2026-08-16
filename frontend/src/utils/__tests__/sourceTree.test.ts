@@ -74,10 +74,15 @@ describe('buildSourceTree — top level', () => {
 
     const fav = tree.find(n => n.key === FAVORITES_KEY)!;
     expect(fav.count).toBe(2);
-    // It narrows the starred dimension and resets the rail's other two — it does
-    // NOT rewrite status or system. Composing with the lit view is the whole
-    // point of it being a rail row rather than a view of its own.
-    expect(fav.patch).toEqual({ source: 'All', category: 'All', favorites: 'only' });
+    // It narrows the starred dimension and resets every other rail dimension —
+    // it does NOT rewrite status or system. Composing with the lit view is the
+    // whole point of it being a rail row rather than a view of its own.
+    expect(fav.patch).toEqual({
+      source: 'All',
+      category: 'All',
+      favorites: 'only',
+      collection: 'All'
+    });
   });
 
   it('makes every other rail node clear the starred scope', () => {
@@ -167,22 +172,24 @@ describe('buildSourceTree — level 2 grouping', () => {
 
     const native = find(tree, 'Cronsole (Native)')!;
     // Job type, and labelled by subtype alone — the parent already says Cronsole.
-    expect(labels(native.children)).toEqual(['HTTP jobs', 'Scripts']);
-    expect(find(tree, 'Scripts')!.count).toBe(2);
+    // Alphabetical, so the list order is not the order they happened to ship in.
+    expect(labels(native.children)).toEqual(['Checks', 'HTTP jobs', 'Programs', 'Scripts']);
+    expect(find(tree, 'Programs')!.count).toBe(2);
     // And it patches the source, not the category — the two groupings are
     // genuinely different dimensions.
-    expect(find(tree, 'Scripts')!.patch).toEqual({
+    expect(find(tree, 'Programs')!.patch).toEqual({
       source: 'TASKHUB_NATIVE:EXEC',
       category: 'All',
-      favorites: 'any'
+      favorites: 'any',
+      collection: 'All'
     });
   });
 
-  it('lists both native job types even when one has no tasks', () => {
-    // Structure, not data: native has exactly two job types, always. *Scripts*
-    // disappearing because you have written no script tasks yet reads as a
-    // missing feature rather than an empty bucket — and the rail is navigation,
-    // so an empty destination still needs a route to it.
+  it('lists every native job type even when none has tasks', () => {
+    // Structure, not data: native has exactly four job types, always. *Checks*
+    // disappearing because you have written no checks yet reads as a missing
+    // feature rather than an empty bucket — and the rail is navigation, so an
+    // empty destination still needs a route to it.
     const tree = buildSourceTree({
       population: [
         task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:HTTP' })
@@ -191,8 +198,30 @@ describe('buildSourceTree — level 2 grouping', () => {
     });
 
     const native = find(tree, 'Cronsole (Native)')!;
-    expect(labels(native.children)).toEqual(['HTTP jobs', 'Scripts']);
+    expect(labels(native.children)).toEqual(['Checks', 'HTTP jobs', 'Programs', 'Scripts']);
+    expect(find(tree, 'Checks')!.count).toBe(0);
     expect(find(tree, 'Scripts')!.count).toBe(0);
+    expect(find(tree, 'Programs')!.count).toBe(0);
+  });
+
+  it('routes the new job types to their own source keys', () => {
+    const tree = buildSourceTree({
+      population: [
+        task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:SCRIPT' }),
+        task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:CHECK' }),
+        task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:CHECK' })
+      ],
+      filters: filters()
+    });
+
+    expect(find(tree, 'Scripts')!.count).toBe(1);
+    expect(find(tree, 'Checks')!.count).toBe(2);
+    expect(find(tree, 'Checks')!.patch).toEqual({
+      source: 'TASKHUB_NATIVE:CHECK',
+      category: 'All',
+      favorites: 'any',
+      collection: 'All'
+    });
   });
 });
 
@@ -233,6 +262,7 @@ describe('buildSourceTree — the \\Microsoft\\ group', () => {
       source: 'WINDOWS_TASK_SCHEDULER',
       category: 'Microsoft\\Windows\\Chkdsk',
       favorites: 'any',
+      collection: 'All',
       system: 'include'
     });
   });
@@ -314,5 +344,88 @@ describe('expandedSourceFor', () => {
 
   it('resolves a subtype to its platform row', () => {
     expect(expandedSourceFor(filters({ source: 'TASKHUB_NATIVE:EXEC' }))).toBe('TASKHUB_NATIVE');
+  });
+});
+
+describe('buildSourceTree — collections', () => {
+  const claude = () =>
+    task({ platform: 'CLAUDE_CODE', source: 'CLAUDE_CODE', category: 'Claude' });
+
+  it('lists a collection whether or not anything is in it', () => {
+    // The STRUCTURAL_SUBTYPES rule, not the folder rule. A collection is
+    // *declared*, so an empty one is a real place the user made and named — and
+    // it is exactly where they need to navigate to put the first task in it.
+    const tree = buildSourceTree({
+      population: [task()],
+      filters: filters(),
+      collections: [{ id: 'c1', name: 'Empty set' }]
+    });
+
+    const row = find(tree, 'Empty set')!;
+    expect(row).toBeDefined();
+    expect(row.count).toBe(0);
+  });
+
+  it('counts only its members, across platforms', () => {
+    const a = task({ collectionIds: ['c1'] });
+    const b = claude();
+    (b as Task).collectionIds = ['c1'];
+    const tree = buildSourceTree({
+      population: [a, b, task()],
+      filters: filters(),
+      collections: [{ id: 'c1', name: 'View2' }]
+    });
+
+    // Two members from two different platforms — the whole point of the feature.
+    expect(find(tree, 'View2')!.count).toBe(2);
+  });
+
+  it('resets every other rail dimension when selected', () => {
+    const tree = buildSourceTree({
+      population: [task()],
+      filters: filters({ source: 'WINDOWS_TASK_SCHEDULER', favorites: 'only' }),
+      collections: [{ id: 'c1', name: 'View2' }]
+    });
+
+    // A collection spans systems, so selecting one cannot leave a source or a
+    // star narrowing it — the heading would name the collection over a list
+    // filtered by something it does not mention.
+    expect(find(tree, 'View2')!.patch).toEqual({
+      source: 'All',
+      category: 'All',
+      favorites: 'any',
+      collection: 'c1'
+    });
+  });
+
+  it('clears the collection when any other rail row is picked', () => {
+    const tree = buildSourceTree({
+      population: [task()],
+      filters: filters({ collection: 'c1' }),
+      collections: [{ id: 'c1', name: 'View2' }]
+    });
+
+    // Every node states the whole rail scope, so a collection cannot survive a
+    // click that does not mention it.
+    expect(find(tree, 'Windows Task Scheduler')!.patch).toMatchObject({ collection: 'All' });
+    expect(tree[0].patch).toMatchObject({ collection: 'All' });
+    expect(find(tree, 'AI-Tools')!.patch).toMatchObject({ collection: 'All' });
+  });
+
+  it('is selected only when its own id is the one in force', () => {
+    const collections = [
+      { id: 'c1', name: 'One' },
+      { id: 'c2', name: 'Two' }
+    ];
+    const tree = buildSourceTree({
+      population: [task()],
+      filters: filters({ collection: 'c1' }),
+      collections
+    });
+
+    expect(isRailNodeSelected(find(tree, 'One')!, filters({ collection: 'c1' }))).toBe(true);
+    expect(isRailNodeSelected(find(tree, 'Two')!, filters({ collection: 'c1' }))).toBe(false);
+    // And "All sources" must NOT light up while a collection is selected.
+    expect(isRailNodeSelected(tree[0], filters({ collection: 'c1' }))).toBe(false);
   });
 });

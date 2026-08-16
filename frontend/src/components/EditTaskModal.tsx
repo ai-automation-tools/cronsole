@@ -17,7 +17,7 @@ import { WindowsActionFields } from './edit/WindowsActionFields';
 import { NativeJobFields } from './edit/NativeJobFields';
 import {
   labelValues, platformName, runsEdit, scheduleEdit,
-  nativeJobPayload, windowsActionPayload,
+  nativeJobPayload, windowsActionPayload, emptyNativeJobValues,
   type LabelValues, type NativeJobValues, type WindowsActionValues
 } from '../utils/taskEditing';
 
@@ -88,7 +88,10 @@ interface Props {
 }
 
 const EMPTY_WINDOWS: WindowsActionValues = { command: '', workingDirectory: '', description: '', runLevel: 'least' };
-const EMPTY_NATIVE: NativeJobValues = { jobType: 'HTTP', url: '', method: 'GET', headers: '', body: '', command: '', workingDirectory: '' };
+// From the shared factory rather than a literal: a literal here is a second
+// definition of the form's shape, and adding a job type would leave it missing
+// fields that the prefill path sets — the drift `emptyNativeJobValues` removes.
+const EMPTY_NATIVE: NativeJobValues = emptyNativeJobValues();
 
 /** The backend's own sentence, with the one error worth translating translated.
  *  "Agent offline" is technically accurate and tells a user nothing about what to

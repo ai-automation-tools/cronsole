@@ -7,7 +7,7 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *
  *   read      list_tasks · list_templates · list_folders · get_task_history ·
  *             export_task · convert_schedule
- *   create    create_task · create_native_task · create_native_script_task ·
+' *   create    create_task · create_native_task · create_native_program_task ·
  *             create_task_from_template
  *   act       run_task
  *   modify    set_task_status · update_task_schedule · update_task_action ·
@@ -421,7 +421,14 @@ export function registerTools(
       description:
         'Trigger a task to run immediately by its Cronsole id (get ids from list_tasks). ' +
         'For a Windows task this sends a signed run command to the local agent; for a native task the backend runs it. ' +
-        'Returns the run result.',
+        'IMPORTANT: distinguish the two ways this reports bad news. A Cronsole-native job runs ' +
+        'inside the request, so a job that executed and FAILED comes back as a normal result with ' +
+        '"ran": true and "success": false — that is a finding about the user\'s system (a failing ' +
+        'CHECK is the check working, e.g. the disk is full or an endpoint is serving an error ' +
+        'page), and retrying it will not help. A tool ERROR means the run could not be started at ' +
+        'all — an offline agent, a paused routine, a bad id — which is a problem with the ' +
+        'monitoring, not with what it monitors. Do not report the first kind as "I could not run ' +
+        'the task", and do not report the second as a failing check.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).')
       }
@@ -431,8 +438,15 @@ export function registerTools(
         const result = await client.post<Record<string, unknown>>(
           `/tasks/${encodeURIComponent(taskId)}/run`
         );
-        const msg = typeof result.message === 'string' ? result.message : 'Task run command sent';
-        return ok(msg, { taskId, result });
+        // A 200 with `success: false` is a completed run with a failing verdict.
+        // It stays a tool *result* — the call did what was asked — but the text
+        // has to say so, or a model reading only the first line reports the run
+        // as fine. Presentation only; the judgement is the route's.
+        const detail = typeof result.message === 'string' ? result.message : '';
+        if (result.success === false) {
+          return ok(`Task ran and FAILED: ${detail || 'no detail reported'}`, { taskId, result });
+        }
+        return ok(detail || 'Task run command sent', { taskId, result });
       } catch (err) {
         return toolError(err);
       }
@@ -938,15 +952,23 @@ export function registerTools(
   );
 
   // -------------------------------------------------------------------------
-  // create_native_script_task
+  // create_native_program_task
+  //
+  // Renamed from `create_native_script_task` on 2026-08-15 (ADR 0002). It never
+  // took a script — it takes a command line naming a program that must ALREADY
+  // EXIST on the backend's machine. The old name now belongs to the tool that
+  // actually carries a script body, and leaving it here would have made the two
+  // indistinguishable at the moment of choosing.
   // -------------------------------------------------------------------------
   server.registerTool(
-    'create_native_script_task',
+    'create_native_program_task',
     {
-      title: 'Create a Cronsole-native task that runs a program',
+      title: 'Create a Cronsole-native task that runs an existing program',
       description:
-        'Create a Cronsole-native task that RUNS A PROGRAM on a schedule, executed by the Cronsole backend ' +
-        'itself rather than by an OS scheduler. Use this when the job is a script or executable and you want ' +
+        'Create a Cronsole-native task that RUNS AN EXISTING PROGRAM on a schedule, executed by the Cronsole ' +
+        'backend itself rather than by an OS scheduler. The program must already exist on the backend host — ' +
+        'to supply the script CONTENT instead, use create_native_script_task, which stores the body and needs ' +
+        'nothing on disk. Use this when the job is an executable and you want ' +
         'real run results — exit code, duration and captured output land in the task history, unlike a Windows ' +
         'task where a SUCCESS only means the agent accepted the start. ' +
         'IMPORTANT: this runs wherever the Cronsole BACKEND runs, which is the user\'s machine for a normal ' +
@@ -1002,6 +1024,201 @@ ${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task
 Next run: ${task.nextRunTime}` : '')
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Native task created';
+        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // create_native_script_task
+  //
+  // The name moved here from the EXEC tool (see above). This one carries the
+  // script BODY, which is the whole point: an agent writing a script has nowhere
+  // to put it on the user's disk, and before this the only way to schedule one
+  // was to tell the user to save a file first and then point a program job at it.
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'create_native_script_task',
+    {
+      title: 'Create a Cronsole-native task that runs a script you provide',
+      description:
+        'Create a Cronsole-native task from a SCRIPT YOU WRITE HERE. Cronsole stores the body, writes it to a ' +
+        'temporary file at run time under the interpreter you name, runs it, and deletes it. Nothing has to ' +
+        'exist on the user\'s disk first, which is what makes this the right tool when YOU are authoring the ' +
+        'script — use create_native_program_task instead only when the program is already installed. ' +
+        'Exit code, duration and captured output land in the task history. ' +
+        'IMPORTANT: this runs wherever the Cronsole BACKEND runs, which is the user\'s machine for a normal ' +
+        'local install but is INSIDE THE CONTAINER if the backend is Dockerized. The interpreter must exist ' +
+        'there: "node" always does (Cronsole runs on it), while powershell/pwsh/python may not — prefer node ' +
+        'unless the user asked for a specific language or the executionHost on the Cronsole-native row of ' +
+        'GET /api/tools/platforms says otherwise. ' +
+        'Unlike a program job, the body IS a shell script for its interpreter, so pipes and && work normally.',
+      inputSchema: {
+        name: z.string().describe('Task name.'),
+        interpreter: z
+          .enum(['powershell', 'pwsh', 'bash', 'sh', 'python', 'node'])
+          .describe(
+            'Which interpreter runs the body. Fixed list — not a path. "node" is the safest default because ' +
+            'the Cronsole backend itself runs on Node, so it is present on every install.'
+          ),
+        body: z
+          .string()
+          .describe(
+            'The script itself. Whitespace is preserved exactly (significant in Python), and a non-zero exit ' +
+            'is recorded as a failed run. Write output to stdout — it is captured into the run history.'
+          ),
+        schedule: z
+          .string()
+          .describe(
+            '5-field cron in UTC: "min hour dom month dow". Used AS GIVEN by the backend scheduler — no ' +
+            'Windows trigger conversion and none of its lossiness.'
+          ),
+        workingDirectory: z
+          .string()
+          .optional()
+          .describe('Directory to run in. Must exist on the machine the backend runs on.'),
+        timeoutMs: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Kill the job after this long. Defaults to 5 minutes; 60 minutes is the maximum.'),
+        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
+      }
+    },
+    async ({ name, interpreter, body, schedule, workingDirectory, timeoutMs, category }) => {
+      try {
+        const job: Record<string, unknown> = { jobType: 'SCRIPT', interpreter, body };
+        if (workingDirectory) job.workingDirectory = workingDirectory;
+        if (timeoutMs !== undefined) job.timeoutMs = timeoutMs;
+
+        const payload: Record<string, unknown> = { name, schedule, job };
+        if (category) payload.category = category;
+
+        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/native', payload);
+        const task = result.task;
+        const created = task
+          ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
+            (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
+          : '';
+        const msg = typeof result.message === 'string' ? result.message : 'Native script task created';
+        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // create_native_check_task
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'create_native_check_task',
+    {
+      title: 'Create a Cronsole-native task that checks something',
+      description:
+        'Create a monitoring CHECK that runs on a schedule: call an endpoint and assert on the response, test ' +
+        'that a TCP port accepts connections, verify a file has been written recently, or verify free disk ' +
+        'space. Use this rather than create_native_task when the point is to VERIFY something rather than to ' +
+        'trigger it — a check can fail a 200 that serves an error page, which an HTTP job by design cannot. ' +
+        'A failed check is a fact about the user\'s system, so these are the runs worth alerting on. ' +
+        'The fileFresh and diskFree probes measure the filesystem of the machine the Cronsole BACKEND runs on, ' +
+        'which is the container on a Dockerized stack — check executionHost on the Cronsole-native row of ' +
+        'GET /api/tools/platforms before using a path the user gave you from their desktop.',
+      inputSchema: {
+        name: z.string().describe('Task name.'),
+        schedule: z
+          .string()
+          .describe('5-field cron in UTC: "min hour dom month dow". Used as given by the backend scheduler.'),
+        kind: z
+          .enum(['http', 'tcp', 'fileFresh', 'diskFree'])
+          .describe('Which probe to run. The remaining fields depend on this.'),
+        url: z.string().optional().describe('http only: absolute URL to request.'),
+        method: z.string().optional().describe('http only: HTTP method. Defaults to GET.'),
+        expectStatusMin: z
+          .number()
+          .int()
+          .optional()
+          .describe('http only: lowest acceptable status. Defaults to 200.'),
+        expectStatusMax: z
+          .number()
+          .int()
+          .optional()
+          .describe('http only: highest acceptable status. Defaults to 299.'),
+        expectBodyContains: z
+          .string()
+          .optional()
+          .describe(
+            'http only: text the response body must contain. This is what turns an uptime ping into a real ' +
+            'health check.'
+          ),
+        expectJsonPath: z
+          .string()
+          .optional()
+          .describe('http only: dotted path into a JSON response, e.g. "status.db". Requires expectJsonEquals.'),
+        expectJsonEquals: z
+          .string()
+          .optional()
+          .describe('http only: the value expectJsonPath must equal, compared as text.'),
+        host: z.string().optional().describe('tcp only: host to connect to, resolved from the backend host.'),
+        port: z.number().int().optional().describe('tcp only: port that must accept a connection within 15s.'),
+        path: z
+          .string()
+          .optional()
+          .describe('fileFresh / diskFree only: path on the BACKEND\'s filesystem.'),
+        maxAgeMinutes: z
+          .number()
+          .optional()
+          .describe('fileFresh only: fail if the file is older than this, or missing.'),
+        minFreeBytes: z
+          .number()
+          .optional()
+          .describe('diskFree only: fail below this many free bytes. 10 GB is 10737418240.'),
+        category: z.string().optional().describe('Cronsole category for grouping. Defaults to "Cronsole".')
+      }
+    },
+    async (args) => {
+      try {
+        // Shaped here rather than passed through, so the tool's flat arguments
+        // become the nested probe the executor reads. The backend validates it
+        // regardless — this only decides which fields are offered.
+        const probe: Record<string, unknown> = { kind: args.kind };
+        if (args.kind === 'http') {
+          probe.url = args.url;
+          if (args.method) probe.method = args.method;
+          probe.expectStatus = {
+            min: args.expectStatusMin ?? 200,
+            max: args.expectStatusMax ?? 299
+          };
+          if (args.expectBodyContains) probe.expectBodyContains = args.expectBodyContains;
+          if (args.expectJsonPath && args.expectJsonEquals !== undefined) {
+            probe.expectJsonPath = { path: args.expectJsonPath, equals: args.expectJsonEquals };
+          }
+        } else if (args.kind === 'tcp') {
+          probe.host = args.host;
+          probe.port = args.port;
+        } else {
+          probe.path = args.path;
+          if (args.kind === 'fileFresh') probe.maxAgeMinutes = args.maxAgeMinutes;
+          else probe.minFreeBytes = args.minFreeBytes;
+        }
+
+        const payload: Record<string, unknown> = {
+          name: args.name,
+          schedule: args.schedule,
+          job: { jobType: 'CHECK', probe }
+        };
+        if (args.category) payload.category = args.category;
+
+        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/native', payload);
+        const task = result.task;
+        const created = task
+          ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
+            (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
+          : '';
+        const msg = typeof result.message === 'string' ? result.message : 'Native check created';
         return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
       } catch (err) {
         return toolError(err);

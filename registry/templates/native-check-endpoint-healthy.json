@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-check-endpoint-healthy",
+  "name": "Endpoint Health Check (Cronsole)",
+  "description": "Call a URL and require the response to actually say it is healthy — not just return 200. A failure here is a fact about your system, so it is worth alerting on.",
+  "runtime": "http",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "check",
+    "monitoring",
+    "uptime"
+  ],
+  "icon": "Activity",
+  "core": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/5 * * * *"
+  },
+  "action": {
+    "kind": "check",
+    "probe": {
+      "kind": "http",
+      "url": "{{url}}",
+      "method": "GET",
+      "expectStatus": {
+        "min": 200,
+        "max": 299
+      },
+      "expectBodyContains": "{{expectText}}"
+    }
+  },
+  "parameters": [
+    {
+      "key": "url",
+      "label": "URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "The health endpoint to call, e.g. https://example.com/healthz."
+    },
+    {
+      "key": "expectText",
+      "label": "Response must contain",
+      "type": "string",
+      "default": "ok",
+      "required": true,
+      "help": "Text that must appear in the response body. This is what makes it a health check rather than a ping — a 200 without this fails."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

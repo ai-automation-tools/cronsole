@@ -63,10 +63,41 @@ describe('shiftCron', () => {
     expect(shiftCron('0 12 * * 0,7', -480)).toEqual({ cron: '0 4 * * 0,7', shifted: true });
   });
 
-  it('leaves expressions with no fixed clock time alone', () => {
+  it('leaves expressions with no fixed clock time alone, and says nothing about them', () => {
+    // No reason, because there is nothing to explain: the hour is a wildcard, so
+    // these recur every hour and a whole-hour offset genuinely cannot move them.
     expect(shiftCron('*/15 * * * *', -480)).toEqual({ cron: '*/15 * * * *', shifted: false });
-    expect(shiftCron('0 */6 * * *', -480)).toEqual({ cron: '0 */6 * * *', shifted: false });
     expect(shiftCron('20 * * * *', -480)).toEqual({ cron: '20 * * * *', shifted: false });
+    expect(shiftCron('* * * * *', -480)).toEqual({ cron: '* * * * *', shifted: false });
+  });
+
+  // The bug this pins: `shifted: false` with no reason is NOT silence. The hint
+  // renders it as "no fixed clock time, so it reads the same in PDT and UTC",
+  // so an unshiftable expression that DOES pin a clock time gets a confident
+  // false statement printed under it while being stored 7–8 hours off.
+  it('explains a multi-value hour instead of calling it clock-time-free', () => {
+    // The reported case: a Pacific user's working day, stored as 01:00–09:00.
+    const workday = shiftCron('0 9-17 * * 1-5', -480);
+    expect(workday.cron).toBe('0 9-17 * * 1-5');
+    expect(workday.shifted).toBe(false);
+    expect(workday.reason).toMatch(/single hour/);
+  });
+
+  it('explains an hour list and an hour step too — both pin real clock times', () => {
+    // `0 */6 * * *` fires at 00:00, 06:00, 12:00 and 18:00. That is four fixed
+    // clock times, and they are four DIFFERENT ones in Pacific — exactly the
+    // reasoning that makes "hourly at :20" shift for a half-hour zone below.
+    expect(shiftCron('0 */6 * * *', -480).reason).toBeTruthy();
+    expect(shiftCron('0 1,13 * * *', -480).reason).toBeTruthy();
+    // A fixed hour with several minutes still pins an hour.
+    expect(shiftCron('0,30 9 * * *', -480).reason).toBeTruthy();
+  });
+
+  it('flags a multi-value minute only when the zone offset is a partial hour', () => {
+    // Whole-hour zone: `0,30 * * * *` really is the same statement in both.
+    expect(shiftCron('0,30 * * * *', -480)).toEqual({ cron: '0,30 * * * *', shifted: false });
+    // Kolkata: the minutes would have moved, and we cannot move them.
+    expect(shiftCron('0,15 * * * *', 330).reason).toBeTruthy();
   });
 
   it('does move the minute of an hourly schedule for a half-hour zone', () => {

@@ -22,8 +22,19 @@ and Cronsole's own scheduler fires it. That buys three things a Windows task can
   can turn a monthly job into an hourly one.
 - **The run history is real.** Exit code, duration and captured output land in the task
   history, where a Windows task can only tell you the agent accepted the start.
+- **"It failed" and "it wouldn't run" are different answers.** A native job runs inside the
+  request, so when you ask an assistant to run one, a job that executed and **failed** comes
+  back as a normal result reporting the failure and what caused it — that is a finding about
+  your system, and re-running changes nothing. An *error* means it could not be started at all.
+  Only the second is worth retrying. (This is why a failing check is worth asking for by name:
+  "run my disk check and tell me what it found" gets you the measurement, not a shrug.)
 
-There are two job types and they share nothing, which is the one thing to keep straight.
+There are **four** job types and they share nothing, which is the one thing to keep straight:
+**HTTP**, **Programs** (`EXEC`), **Scripts** (`SCRIPT`, added 2026-08-15 — the body lives in
+Cronsole) and **Checks** (`CHECK`, same date — a probe plus an assertion). The two newest have no
+prompt section of their own here yet; the tools are `create_native_script_task` and
+`create_native_check_task`, and [ADR 0002](../../adr/0002-native-job-types.md) describes what each
+is for.
 
 ## 🌐 Create an HTTP task
 

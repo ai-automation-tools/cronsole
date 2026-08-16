@@ -92,7 +92,12 @@ const GROUPED_BY_SUBTYPE = new Set(['TASKHUB_NATIVE']);
  * prediction of what clicking does.
  */
 const STRUCTURAL_SUBTYPES: Record<string, string[]> = {
-  TASKHUB_NATIVE: ['TASKHUB_NATIVE:HTTP', 'TASKHUB_NATIVE:EXEC']
+  TASKHUB_NATIVE: [
+    'TASKHUB_NATIVE:HTTP',
+    'TASKHUB_NATIVE:EXEC',
+    'TASKHUB_NATIVE:SCRIPT',
+    'TASKHUB_NATIVE:CHECK'
+  ]
 };
 
 /**
@@ -149,18 +154,40 @@ function tally(tasks: Task[], keyOf: (t: Task) => string): Map<string, number> {
 export interface SourceTreeInput {
   /**
    * The **rail population**: every task passing every lens the rail does *not*
-   * own — status, outcome, due, favorites, search — with source, category and
-   * the system lens all left out.
+   * own — status, outcome, due, search — with the rail's own dimensions
+   * (source, category, favorites, collection) and the system lens left out.
    *
-   * Left out rather than applied, because those are the three dimensions this
-   * tree offers. A population narrowed by the source you are on cannot count
-   * the source you might switch to, which is the bug that made the old source
-   * bar vanish on a single-source view.
+   * Left out rather than applied, because those are the dimensions this tree
+   * offers. A population narrowed by the source you are on cannot count the
+   * source you might switch to, which is the bug that made the old source bar
+   * vanish on a single-source view — and the same bug had `All sources` reading
+   * 6 over 363 rows while Favorites was selected.
+   *
+   * *(This comment listed `favorites` among the lenses that ARE applied until
+   * 2026-08-16. The caller had it right; the doc did not.)*
    */
   population: Task[];
   filters: TaskFilters;
   /** Platforms with a `PlatformConnection`, so a connected-but-empty one lists. */
   connectedPlatforms?: string[];
+  /**
+   * The user's collections, in rail order.
+   *
+   * Passed in rather than derived from `population`, and that is the whole
+   * difference between this dimension and every other one in the rail: a source
+   * or a folder is **observed** — Cronsole knows `\AI-Tools\` exists because a
+   * task is in it — while a collection is **declared**, so an empty one exists
+   * just as much as a full one and only its owner can say so. Deriving them from
+   * task membership would make a collection disappear the moment you removed its
+   * last task, which is precisely when you want to see it and add another.
+   */
+  collections?: CollectionSummary[];
+}
+
+/** The minimum the rail needs to render a collection row. */
+export interface CollectionSummary {
+  id: string;
+  name: string;
 }
 
 /**
@@ -173,7 +200,8 @@ export interface SourceTreeInput {
 export function buildSourceTree({
   population,
   filters,
-  connectedPlatforms = []
+  connectedPlatforms = [],
+  collections = []
 }: SourceTreeInput): RailNode[] {
   // The lens the *list* is currently under. When it already includes system
   // tasks, a source row must count them too — otherwise the row promises 254
@@ -209,12 +237,29 @@ export function buildSourceTree({
         key: platform,
         label: platformSourceLabel(platform),
         count: showsSystem ? mine.length : personal.length,
-        patch: { source: platform, category: 'All', favorites: 'any' },
+        patch: { ...RAIL_SCOPE_RESET, source: platform },
         children: childrenFor(platform, personal, system, showsSystem)
       } satisfies RailNode;
     });
 
   const scoped = showsSystem ? population : population.filter(t => t.isSystem !== true);
+
+  /**
+   * One row per collection, whether or not it currently holds anything.
+   *
+   * This is the `STRUCTURAL_SUBTYPES` rule rather than the folder rule: a
+   * collection is **declared**, so an empty one is a real place the user made
+   * and named — and it is exactly where they need to navigate in order to put
+   * the first task in it. A folder, being observed, cannot be empty and known.
+   */
+  const collectionRows = collections.map(
+    (c): RailNode => ({
+      key: collectionKey(c.id),
+      label: c.name,
+      count: scoped.filter(t => t.collectionIds?.includes(c.id) === true).length,
+      patch: { ...RAIL_SCOPE_RESET, collection: c.id }
+    })
+  );
 
   return [
     {
@@ -223,21 +268,44 @@ export function buildSourceTree({
       // Counted the same way each source row is, so the root is exactly the sum
       // of its rows under whatever lens is in force.
       count: scoped.length,
-      // Every rail node states the whole rail scope — `favorites` included since
-      // it became a row here. Otherwise clicking a source while starred-only is
-      // in force would leave you filtered to favorites with the rail insisting
-      // you are looking at the whole source.
-      patch: { source: ALL_SOURCES, category: 'All', favorites: 'any' }
+      patch: { ...RAIL_SCOPE_RESET }
     },
     {
       key: FAVORITES_KEY,
       label: 'Favorites',
       count: scoped.filter(t => t.isFavorite === true).length,
-      patch: { source: ALL_SOURCES, category: 'All', favorites: 'only' }
+      patch: { ...RAIL_SCOPE_RESET, favorites: 'only' }
     },
+    ...collectionRows,
     ...sourceRows
   ];
 }
+
+/**
+ * The rail scope every node resets before applying its own dimension.
+ *
+ * **Every rail node states the whole rail scope**, so picking any row means
+ * exactly what it says. Without this, clicking a source while a collection (or
+ * starred-only) is in force leaves you filtered by something the heading no
+ * longer mentions — the rail insisting you are looking at the whole source while
+ * four tasks are on screen. Kept as one constant so a fifth rail dimension
+ * cannot be added to some nodes and forgotten on others.
+ */
+const RAIL_SCOPE_RESET = {
+  source: ALL_SOURCES,
+  category: 'All',
+  favorites: 'any',
+  collection: 'All'
+} as const satisfies Partial<TaskFilters>;
+
+/** Rail key for a collection row — namespaced so it cannot collide with a platform. */
+export const collectionKey = (id: string) => `${COLLECTION_PREFIX}${id}`;
+
+/** The collection id a rail key names, or null if it is not a collection row. */
+export const collectionIdFromKey = (key: string): string | null =>
+  key.startsWith(COLLECTION_PREFIX) ? key.slice(COLLECTION_PREFIX.length) : null;
+
+const COLLECTION_PREFIX = 'collection:';
 
 /**
  * A platform's level-2 rows.
@@ -273,7 +341,7 @@ function childrenFor(
             key,
             label: sourceSubtypeLabel(key),
             count: counts.get(key) ?? 0,
-            patch: { source: key, category: 'All', favorites: 'any' as const }
+            patch: { ...RAIL_SCOPE_RESET, source: key }
           }));
       })()
     : // Folders. On Windows this is the Task Scheduler folder; elsewhere it is
@@ -286,7 +354,7 @@ function childrenFor(
           key: `${platform}/${category}`,
           label: category,
           count,
-          patch: { source: platform, category, favorites: 'any' as const }
+          patch: { ...RAIL_SCOPE_RESET, source: platform, category }
         }));
 
   if (system.length > 0) {
@@ -332,9 +400,9 @@ function systemGroup(platform: string, system: Task[], showsSystem: boolean): Ra
         count,
         // `include`, never `only`. See the note above.
         patch: {
+          ...RAIL_SCOPE_RESET,
           source: platform,
           category,
-          favorites: 'any' as const,
           system: 'include' as const
         }
       }))

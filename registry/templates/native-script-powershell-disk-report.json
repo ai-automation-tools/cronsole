@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-powershell-disk-report",
+  "name": "PowerShell Disk Report (Cronsole)",
+  "description": "Print free space for every fixed drive on the Cronsole host, so the numbers land in the run history and you can read them back over time.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "powershell",
+    "monitoring",
+    "disk"
+  ],
+  "icon": "HardDrive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * *"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "powershell",
+    "body": "# Needs PowerShell on the machine running the Cronsole backend.\n# That is your desktop for a normal install, and the CONTAINER on a\n# Dockerized stack — where these drives are the container’s, not yours.\n\nGet-CimInstance Win32_LogicalDisk -Filter \"DriveType=3\" |\n  ForEach-Object {\n    $freeGb  = [math]::Round($_.FreeSpace / 1GB, 1)\n    $totalGb = [math]::Round($_.Size / 1GB, 1)\n    \"{0} {1} GB free of {2} GB\" -f $_.DeviceID, $freeGb, $totalGb\n  }\n"
+  },
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

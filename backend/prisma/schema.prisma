@@ -23,6 +23,7 @@ model User {
   templates      Template[]
   favorites      TemplateFavorite[]
   taskFavorites  TaskFavorite[]
+  collections    TaskCollection[]
   exclusions     TaskExclusion[]
   capabilities   PlatformCapability[]
   deletedTasks   DeletedTaskArchive[]
@@ -132,6 +133,7 @@ model Task {
 
   executions  ExecutionLog[]
   favorites   TaskFavorite[]
+  collections TaskCollectionMember[]
 
   @@unique([platform, externalId])
   @@index([userId, platform])
@@ -152,6 +154,66 @@ model Task {
 /// tracking, so when you untrack or delete it the star going with it is the
 /// honest outcome. Sync `upsert`s on `(platform, externalId)`, so ids are stable
 /// across syncs and a MISSING task keeps both its row and its star.
+/// A named, hand-picked set of tasks — "the four things I check every morning".
+///
+/// **Membership is declared, not derived, and that is the whole point.** A saved
+/// view is a *query*: it stores filters and its contents are whatever matches
+/// today. A collection stores the tasks themselves, so it can hold two Claude
+/// routines and two Windows tasks that share no property a filter could name.
+/// Neither can express the other, which is why this is a table rather than
+/// another field on SavedView.
+///
+/// It is `TaskFavorite` made plural and named, and it inherits that model's
+/// decisions for that model's reasons: a per-user join rather than a column
+/// (multi-tenancy would make one user's collection everyone's), and keyed on the
+/// **Task row with a cascade** — a collection is a preference about tasks
+/// Cronsole is *tracking*, so when a task is untracked or deleted its membership
+/// goes with it. The contrast with TaskExclusion still holds: an exclusion must
+/// outlive the row it describes, a membership must not.
+///
+/// `name` is unique per user because the rail renders one row per collection,
+/// and two rows reading "Morning checks" is a UI with no way to tell you which
+/// is which.
+model TaskCollection {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+
+  /// Explicit rail order. Saved views are an unordered array and the roadmap
+  /// already flags that as a gap to retrofit — starting ordered costs one column
+  /// now and a migration later.
+  position  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   TaskCollectionMember[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+/// One task's membership in one collection.
+///
+/// Cascades from **both** sides: deleting the collection drops its memberships
+/// (they describe nothing without it), and deleting the task drops them too
+/// (same rule as a favorite — a membership that outlived its task would put a
+/// row in a collection that resolves to nothing, or worse, re-attach to a
+/// re-imported task the user never added).
+model TaskCollectionMember {
+  id           String         @id @default(cuid())
+  collectionId String
+  collection   TaskCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  taskId       String
+  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+
+  @@unique([collectionId, taskId])
+  @@index([collectionId])
+  @@index([taskId])
+}
+
 model TaskFavorite {
   id        String   @id @default(cuid())
   userId    String
@@ -291,6 +353,15 @@ model Template {
   category          TemplateCategory @default(OTHER)         // for UI grouping/filtering
   commandTemplate   String?          @db.Text                // command with {{placeholders}}
   parameters        Json?            // [{ key, label, type, default, required, help }]
+  // A full Cronsole-native job spec, for templates whose action cannot be
+  // expressed as a command line: SCRIPT (the body is the template) and CHECK
+  // (a probe with expectations). Null for every other template, which still
+  // resolves through `command` / `commandTemplate` exactly as before.
+  //
+  // Applied by CronsoleNativeConnector, which prefers this over deriving a job
+  // from the command string — so a template stores the spec the executor reads
+  // rather than one re-guessed at apply time.
+  nativeJob         Json?
   tags              String[]         @default([])            // free-form tags (e.g. git, build, ai) — distinct from the single `category`
   isStarter         Boolean          @default(false)         // true = Tier A curated starter
   icon              String?          // lucide icon name for the card

@@ -74,6 +74,33 @@ describe('executeJob', () => {
     expect(axios.request).not.toHaveBeenCalled();
   });
 
+  // `ran` is what lets the route answer 200-with-a-verdict instead of 502, so a
+  // spec that never executed must not claim to be a verdict about anything. Both
+  // directions are asserted: a rejected spec is `false`, a real failed request is
+  // `true` — collapsing either way reintroduces troubleshooting #59.
+  it('reports ran:false for a spec that never executed', async () => {
+    const result = await executeJob({ jobType: 'HTTP', url: 'notaurl' } as NativeJob);
+
+    expect(result.ran).toBe(false);
+  });
+
+  it('reports ran:true for a request that executed and failed', async () => {
+    vi.mocked(axios.request).mockResolvedValue({ status: 500, data: 'boom' });
+
+    const result = await executeJob({ jobType: 'HTTP', url: 'https://example.com' });
+
+    expect(result.success).toBe(false);
+    expect(result.ran).toBe(true);
+  });
+
+  it('reports ran:true for a network error, which is a real attempt', async () => {
+    vi.mocked(axios.request).mockRejectedValue(new Error('ECONNREFUSED'));
+
+    const result = await executeJob({ jobType: 'HTTP', url: 'https://example.com' });
+
+    expect(result.ran).toBe(true);
+  });
+
   it('truncates long response bodies in the log', async () => {
     vi.mocked(axios.request).mockResolvedValue({ status: 200, data: 'x'.repeat(2000) });
 

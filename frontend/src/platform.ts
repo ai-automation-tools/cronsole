@@ -54,7 +54,14 @@ export const platformSourceLabel = (p: string) =>
 export const sourceLabel = (key: string) =>
   ({
     'TASKHUB_NATIVE:HTTP': 'Cronsole (HTTP)',
-    'TASKHUB_NATIVE:EXEC': 'Cronsole (Scripts)'
+    // `EXEC` was labelled "Scripts" until 2026-08-15, which promised more than
+    // the type delivered: it runs a program that must **already exist** on the
+    // backend host, and Cronsole never sees the script itself. The real
+    // inline-body type now owns that name. Presentation only — no stored
+    // `jobType`, source key, saved view or link changes.
+    'TASKHUB_NATIVE:EXEC': 'Cronsole (Programs)',
+    'TASKHUB_NATIVE:SCRIPT': 'Cronsole (Scripts)',
+    'TASKHUB_NATIVE:CHECK': 'Cronsole (Checks)'
   }[key] ?? platformSourceLabel(key.split(':')[0]));
 
 /**
@@ -71,8 +78,48 @@ export const sourceLabel = (key: string) =>
 export const sourceSubtypeLabel = (key: string) =>
   ({
     'TASKHUB_NATIVE:HTTP': 'HTTP jobs',
-    'TASKHUB_NATIVE:EXEC': 'Scripts'
+    'TASKHUB_NATIVE:EXEC': 'Programs',
+    'TASKHUB_NATIVE:SCRIPT': 'Scripts',
+    'TASKHUB_NATIVE:CHECK': 'Checks'
   }[key] ?? sourceLabel(key));
+
+/**
+ * One sentence saying what a source **is**, for the dashboard's main pane.
+ *
+ * The rail and the breadcrumb name the scope; neither says what the scope *means*,
+ * and a level-2 row reading "Checks" over an empty list is a destination with no
+ * explanation of why you would put anything in it. The rail deliberately lists
+ * job types that hold nothing yet — the empty ones are exactly the ones a user has
+ * never used and most needs a sentence for.
+ *
+ * **This is a summary, never the documentation.** It is one line; the `?` beside
+ * it opens the matching `HelpTopic`, which links to the Sources Guide. Same rule
+ * `help.ts` holds itself to — a control may summarise a doc, but must never
+ * quietly become the only place a rule is written down.
+ *
+ * Degrades key → platform → nothing, mirroring `sourceLabel` and `sourceTopicId`:
+ * a source added server-side before it is described here renders no blurb rather
+ * than a wrong one.
+ */
+export const sourceDescription = (key: string): string | null => {
+  const exact: Record<string, string> = {
+    'TASKHUB_NATIVE:HTTP':
+      'Cronsole calls a URL on your schedule — webhooks, deploy hooks, keeping something warm. Success means the endpoint accepted the request.',
+    'TASKHUB_NATIVE:EXEC':
+      'Cronsole runs a program that already exists on the machine the backend runs on, and records its exit code, duration and output. No shell unless you name one.',
+    'TASKHUB_NATIVE:SCRIPT':
+      'Cronsole stores the script itself and runs it under an interpreter you pick — nothing has to exist on disk first, and you can read and edit the body here.',
+    'TASKHUB_NATIVE:CHECK':
+      'Cronsole measures something and compares it to what you expect — an endpoint, a port, a file that should still be fresh, free disk space. A failure here is a fact about your system, not a bug in a script.',
+    WINDOWS_TASK_SCHEDULER:
+      'Real Task Scheduler entries on your machine, read and controlled through the Cronsole agent. They keep running whether or not Cronsole is up.',
+    TASKHUB_NATIVE:
+      'Scheduled and executed by Cronsole itself. Nothing appears in Windows Task Scheduler and no agent is involved — but these only run while the Cronsole backend is running.',
+    CLAUDE_CODE:
+      'Prompts Anthropic runs on a schedule in the cloud. What Cronsole can do here depends on whether this machine has a Claude Code session it can read.'
+  };
+  return exact[key] ?? exact[key.split(':')[0]] ?? null;
+};
 
 /** Which platform a source key belongs to — for identity colour and icons. */
 export const sourcePlatform = (key: string) => key.split(':')[0];

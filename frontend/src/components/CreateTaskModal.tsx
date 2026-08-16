@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Globe, Bot } from 'lucide-react';
+import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Bot } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useScheduleZone } from '../hooks/useScheduleZone';
@@ -10,8 +10,13 @@ import { ScheduleZoneHint } from './ScheduleZoneHint';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 import { HelpButton } from './HelpButton';
 import { sourceTopicId } from '../data/help';
-
-const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
+import { NativeJobFields } from './edit/NativeJobFields';
+import {
+  emptyNativeJobValues,
+  nativeJobPayload,
+  nativeJobIncomplete,
+  type NativeJobValues
+} from '../utils/taskEditing';
 
 /**
  * The three things this modal can put on your dashboard — and one of them is
@@ -26,9 +31,6 @@ const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
  * believing Cronsole made a routine that it did not.
  */
 type CreatePlatform = 'TASKHUB_NATIVE' | 'WINDOWS_TASK_SCHEDULER' | 'CLAUDE_CODE';
-
-/** What a Cronsole-native task does. Windows tasks are always a command. */
-type NativeJobType = 'HTTP' | 'EXEC';
 
 interface CreateTaskModalProps {
   onClose: () => void;
@@ -52,16 +54,13 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   // 8am where you are rather than 8am UTC.
   const [schedule, setSchedule] = useState('0 8 * * *');
   const storedSchedule = zone.toUtc(schedule);
-  // Native job fields
-  const [jobType, setJobType] = useState<NativeJobType>('HTTP');
-  const [url, setUrl] = useState('');
-  const [method, setMethod] = useState('GET');
-  const [body, setBody] = useState('');
-  // Native EXEC fields. `script` is a whole command line for the user's
-  // convenience; it is tokenized into {executable, args[]} on submit, never
-  // handed to a shell.
-  const [script, setScript] = useState('');
-  const [workingDirectory, setWorkingDirectory] = useState('');
+  // The native job spec, in the **same shape the edit modal uses**. It was six
+  // separate `useState`s covering only HTTP and EXEC, which is how a create form
+  // and an edit form end up accepting different jobs — the four job types would
+  // each have had two field sets, two validations and two payload builders.
+  // `NativeJobFields` renders it and `nativeJobPayload` serializes it, so the
+  // wire format has one definition.
+  const [job, setJob] = useState<NativeJobValues>(emptyNativeJobValues);
 
   // Where a native task will actually run. Read from the platform matrix rather
   // than assumed: the same spec means "your machine" on a host-run backend and
@@ -80,7 +79,19 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const isClaude = platform === 'CLAUDE_CODE';
-  const isExec = !isWindows && !isClaude && jobType === 'EXEC';
+  const isNative = !isWindows && !isClaude;
+  /**
+   * Which job types actually touch the backend's own filesystem, and so need the
+   * execution-host disclosure below. `CHECK` is conditional on its probe: an
+   * endpoint check reaches out over the network and does not care where it runs,
+   * while a file or disk probe measures *this* machine — and a check that passes
+   * against the wrong filesystem is worse than no check at all.
+   */
+  const usesLocalFilesystem =
+    isNative &&
+    (job.jobType === 'EXEC' ||
+      job.jobType === 'SCRIPT' ||
+      (job.jobType === 'CHECK' && (job.checkKind === 'fileFresh' || job.checkKind === 'diskFree')));
   // Full class names so Tailwind's compiler sees them (no template interpolation).
   const focusAccent = isWindows
     ? 'focus:border-primary'
@@ -142,16 +153,11 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
         name,
         category,
         schedule: storedSchedule.cron,
-        job: isExec
-          // `command` as typed — the server tokenizes it into {executable,
-          // args[]} with the same parser the Windows path uses. Splitting it
-          // here would be a second definition of a security-relevant parse.
-          ? {
-              jobType: 'EXEC',
-              command: script,
-              workingDirectory: workingDirectory.trim() || undefined
-            }
-          : { jobType: 'HTTP', url, method, body: body || undefined }
+        // The same builder the edit modal posts to `PATCH /tasks/:id/job`. An
+        // EXEC job still goes as a command *line* — the server tokenizes it with
+        // the parser the Windows path uses, so a security-relevant parse has one
+        // definition and the browser never holds a copy of it.
+        job: nativeJobPayload(job)
       });
     },
     onSuccess: (res: unknown) => {
@@ -198,8 +204,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
     }
   });
 
-  const validUrl = /^https?:\/\//i.test(url.trim());
-  const targetValid = isWindows ? !!command.trim() : isExec ? !!script.trim() : validUrl;
+  // Native completeness is `nativeJobIncomplete` — the same check the edit form
+  // uses — so a job cannot be submittable in one form and refused in the other.
+  const targetValid = isWindows ? !!command.trim() : !nativeJobIncomplete(job);
   // Claude asks for different things and fewer of them: the id and token are
   // required, the name is optional (it falls back to the id), and there is no
   // schedule to require because Cronsole does not set one.
@@ -414,36 +421,6 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           </div>
           )}
 
-          {/* What a native task does. Windows tasks are always a command, so this
-              only appears for Cronsole-native — where the choice is real. */}
-          {!isWindows && !isClaude && (
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1">
-                Job type
-                <HelpButton topic="native-job-type" />
-              </label>
-              <div className="flex gap-2">
-                {([
-                  ['HTTP', 'HTTP request', Globe] as const,
-                  ['EXEC', 'Run a program', Terminal] as const
-                ]).map(([value, label, Icon]) => (
-                  <button
-                    key={value}
-                    onClick={() => setJobType(value)}
-                    aria-pressed={jobType === value}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-                      jobType === value
-                        ? 'bg-native/10 border-native/40 text-native-text'
-                        : 'bg-background border-border text-subtle-foreground hover:border-foreground/30'
-                    }`}
-                  >
-                    <Icon size={13} /> {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Claude has no target field: the routine's prompt, repos and
               connectors are all defined at claude.ai and unreadable from here. */}
           {isClaude ? null : isWindows ? (
@@ -461,49 +438,30 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               />
               <p className="text-[10px] text-subtle-foreground italic">Runs the program directly as your user — no hidden shell wrapper. Name <span className="font-mono">cmd.exe /c</span> explicitly if you need shell features like redirection.</p>
             </div>
-          ) : isExec ? (
+          ) : (
             <>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Terminal size={11} /> Program <span className="text-danger-text">*</span>
-                  <HelpButton topic="command" />
-                </label>
-                <textarea
-                  value={script}
-                  onChange={e => setScript(e.target.value)}
-                  rows={2}
-                  placeholder={executionHost?.os === 'win32'
-                    ? 'powershell -File "D:\\scripts\\report.ps1"'
-                    : '/usr/bin/python3 /opt/scripts/report.py'}
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-native transition-colors resize-y"
-                />
-                <p className="text-[10px] text-subtle-foreground italic">
-                  Runs the program directly — <span className="font-semibold">no shell</span>, so
-                  <span className="font-mono"> &amp;&amp; </span> and <span className="font-mono">|</span> are
-                  ordinary characters rather than operators. Name <span className="font-mono">cmd.exe /c</span> or
-                  <span className="font-mono"> /bin/sh -c</span> explicitly if you need them.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Working directory (optional)</label>
-                <input
-                  value={workingDirectory}
-                  onChange={e => setWorkingDirectory(e.target.value)}
-                  placeholder={executionHost?.os === 'win32' ? 'D:\\scripts' : '/opt/scripts'}
-                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-native transition-colors"
-                />
-              </div>
+              {/*
+                The same job form the task modal edits with. Its own
+                execution-host line is suppressed (no `executionHost` prop) in
+                favour of the richer disclosure below, which has the server's
+                evidence and can shout when the answer is "a container".
+              */}
+              <NativeJobFields
+                value={job}
+                onChange={setJob}
+                storedJobType={job.jobType}
+              />
 
               {/*
-                Where this will actually run — the one thing that makes an EXEC
-                job ambiguous. On a host-run backend the path means what the user
-                thinks; inside a container the identical task runs against a
-                filesystem that is not theirs and fails as "executable not found"
-                for a file they can see in Explorer. The server decides which,
-                and it is stated before the click rather than discovered after.
+                Where this will actually run — the one thing that makes a job
+                touching the filesystem ambiguous. On a host-run backend the path
+                means what the user thinks; inside a container the identical task
+                runs against a filesystem that is not theirs and fails as
+                "executable not found" for a file they can see in Explorer. The
+                server decides which, and it is stated before the click rather
+                than discovered after.
               */}
-              {executionHost && (
+              {usesLocalFilesystem && executionHost && (
                 <div className={`text-[11px] rounded-xl px-3 py-2 flex items-start gap-2 border ${
                   executionHost.kind === 'container'
                     ? 'text-warning-text bg-warning/10 border-warning/30'
@@ -516,43 +474,6 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                     {executionHost.summary}
                     <span className="opacity-70"> ({executionHost.evidence})</span>
                   </span>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">HTTP request <span className="text-danger-text">*</span></label>
-                <div className="flex gap-2">
-                  <select
-                    value={method}
-                    onChange={e => setMethod(e.target.value)}
-                    className="bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-native transition-colors"
-                  >
-                    {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                  <input
-                    value={url}
-                    onChange={e => setUrl(e.target.value)}
-                    placeholder="https://…"
-                    className="flex-1 bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-native transition-colors"
-                  />
-                </div>
-                {url.trim() && !validUrl && (
-                  <p className="text-[10px] text-warning-text italic">URL must start with http:// or https://</p>
-                )}
-              </div>
-
-              {method !== 'GET' && method !== 'HEAD' && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Request body (optional)</label>
-                  <textarea
-                    value={body}
-                    onChange={e => setBody(e.target.value)}
-                    rows={3}
-                    placeholder='{"message": "hello"}'
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs font-mono text-foreground outline-none focus:border-native transition-colors resize-y"
-                  />
                 </div>
               )}
             </>

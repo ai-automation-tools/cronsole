@@ -22,13 +22,16 @@ import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
+import { ManageCollectionsModal } from '../components/ManageCollectionsModal';
+import { useCollections } from '../hooks/useCollections';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
 import { SourceRail } from '../components/SourceRail';
 import { HelpButton } from '../components/HelpButton';
+import { sourceTopicId } from '../data/help';
 import { ViewBar } from '../components/ViewBar';
-import { platformLabel, platformBadgeClass, sourceLabel } from '../platform';
+import { platformLabel, platformBadgeClass, sourceLabel, sourceDescription } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
 import {
   applyTaskFilters,
@@ -184,6 +187,8 @@ export const DashboardScreen = ({
   // a bookmark reproduces *which tasks you are looking at*, and a link that also
   // reopened a drawer would make two URLs that mean the same thing.
   const [railOpen, setRailOpen] = useState(false);
+  const [managingCollections, setManagingCollections] = useState(false);
+  const { data: collections } = useCollections();
 
   // Escape closes the drawer. Only bound while it is open, so it cannot steal
   // the key from the search box's own clear-on-Escape.
@@ -211,18 +216,73 @@ export const DashboardScreen = ({
   // no longer describes.
   const starredOnly = filters.favorites === 'only';
 
-  const scopeHeading = starredOnly
-    ? 'Favorites'
-    : filters.source === 'All'
-      ? 'All Tasks'
-      : sourceLabel(filters.source);
+  /**
+   * The selected collection, if any — resolved to its NAME for display.
+   *
+   * The filter holds an id (so a rename does not invalidate open links), which
+   * means the heading has to look it up. When the lookup fails the scope is
+   * still real — a deleted collection, or a link from someone else — so it is
+   * named as unknown rather than silently reading "All Tasks" over a list
+   * filtered to nothing.
+   */
+  const selectedCollection =
+    filters.collection === 'All'
+      ? null
+      : (collections ?? []).find(c => c.id === filters.collection) ?? null;
+  const collectionMissing = filters.collection !== 'All' && !selectedCollection;
+
+  // A collection outranks both the source and the star in the heading, for the
+  // reason Favorites outranks the source: it is the row you clicked, and it is a
+  // scope *over* every source rather than one of them.
+  const scopeHeading = selectedCollection
+    ? selectedCollection.name
+    : collectionMissing
+      ? 'Unknown collection'
+      : starredOnly
+        ? 'Favorites'
+        : filters.source === 'All'
+          ? 'All Tasks'
+          : sourceLabel(filters.source);
+
+  /**
+   * The one-line explanation of the selected source.
+   *
+   * Only for a real source — "All Tasks" has no single thing to describe, and
+   * `sourceDescription` returns null for a source nobody has written up yet
+   * rather than inventing a sentence for it.
+   */
+  const scopeDescription = selectedCollection
+    ? `A set of ${selectedCollection.count} task${selectedCollection.count === 1 ? '' : 's'} you picked by hand. Unlike a view, it is not a filter — it can hold tasks from different platforms.`
+    : collectionMissing
+      ? 'This collection no longer exists, or belongs to another account. Pick a source on the left to get back.'
+      : filters.source === 'All'
+        ? null
+        : sourceDescription(filters.source);
+
+  /**
+   * Which help topic the `?` beside the description opens.
+   *
+   * A collection's scope is not a source — it deliberately sets `source: 'All'` —
+   * so routing on `filters.source` alone would open the generic sources topic
+   * over a description that is talking about collections.
+   */
+  const scopeTopic =
+    selectedCollection || collectionMissing ? 'collections' : sourceTopicId(filters.source);
 
   const scopeTrail =
-    !starredOnly && filters.source === 'All' && filters.category === 'All'
+    !starredOnly &&
+    filters.collection === 'All' &&
+    filters.source === 'All' &&
+    filters.category === 'All'
       ? null
       : [
+          selectedCollection ? `◈ ${selectedCollection.name}` : null,
           starredOnly ? '★ Favorites' : null,
-          filters.source === 'All' ? (starredOnly ? null : 'All sources') : sourceLabel(filters.source),
+          filters.source === 'All'
+            ? starredOnly || selectedCollection
+              ? null
+              : 'All sources'
+            : sourceLabel(filters.source),
           filters.category === 'All' ? null : filters.category
         ]
           .filter(Boolean)
@@ -316,7 +376,9 @@ export const DashboardScreen = ({
    * the length of one commit: with Favorites selected, `All sources` counted 6
    * and clicking it showed 363. A rail row's count is a promise about what
    * clicking it does, so a population narrowed by a dimension the rail *offers*
-   * can never count the alternatives.
+   * can never count the alternatives. **`collection` is in the list for the same
+   * reason** — it is a rail dimension, so with a 4-task collection selected an
+   * un-neutralized population would have every source row reading at most 4.
    *
    * And it is one list, not three counts. `buildSourceTree` buckets it, so the
    * root, the source rows and the folder rows are partitions of a single pass —
@@ -332,6 +394,7 @@ export const DashboardScreen = ({
           source: 'All',
           category: 'All',
           favorites: 'any',
+          collection: 'All',
           system: 'include'
         },
         { now, timezone: settings.timezone, tiers }
@@ -549,6 +612,7 @@ export const DashboardScreen = ({
           onSelect={applyRailPatch}
           collapsed={railCollapsed}
           onToggleCollapsed={() => update('railCollapsed', !railCollapsed)}
+          onManageCollections={() => setManagingCollections(true)}
         />
       </aside>
 
@@ -583,6 +647,12 @@ export const DashboardScreen = ({
               onSelect={patch => {
                 applyRailPatch(patch);
                 setRailOpen(false);
+              }}
+              // Closes the drawer with it: the manager is a modal, and leaving
+              // the drawer open behind it stacks two overlays on a phone.
+              onManageCollections={() => {
+                setRailOpen(false);
+                setManagingCollections(true);
               }}
             />
           </div>
@@ -627,6 +697,29 @@ export const DashboardScreen = ({
           <p className="text-muted-foreground" data-testid="task-count-line">
             {scopeTrail ?? `Manage ${tasks?.length || 0} tasks across your ecosystem.`}
           </p>
+          {/*
+            What the selected source *is*, in one line.
+
+            The heading and breadcrumb name the scope; neither says what it means.
+            That gap is widest exactly where it matters most: the rail lists every
+            native job type whether or not you have one, so a brand-new user's
+            first sight of "Checks" is a lit row over an empty list with nothing
+            explaining why they would put anything in it.
+
+            Shown only when a source is selected — on "All Tasks" there is no one
+            thing to describe, and a paragraph that is always present stops being
+            read. The `?` beside it opens the matching help topic, which is what
+            keeps this a summary rather than the documentation.
+          */}
+          {scopeDescription && (
+            <p
+              className="text-sm text-subtle-foreground mt-2 max-w-2xl flex items-start gap-1.5"
+              data-testid="source-description"
+            >
+              <span>{scopeDescription}</span>
+              <HelpButton topic={scopeTopic} />
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2.5">
           {/*
@@ -1213,6 +1306,10 @@ export const DashboardScreen = ({
       >
         <Zap size={22} />
       </button>
+
+      {managingCollections && (
+        <ManageCollectionsModal onClose={() => setManagingCollections(false)} />
+      )}
       </div>
     </div>
   );

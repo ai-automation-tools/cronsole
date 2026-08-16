@@ -185,6 +185,33 @@ platform, so starring works fine with the agent offline.
   Cronsole tracks, not a record that outlives it (unlike a **removed** task, which Cronsole
   remembers so sync doesn't re-import it).
 
+### Collections
+A **collection** is a set of tasks you pick by hand and give a name — "Morning checks", "Client
+work", "View2". It appears as a row in the source rail above your platforms, with its own count.
+
+**A collection is not a saved filter, and that distinction is the whole feature.** A view stores
+*conditions* (active, failing, due today) and shows whatever matches them right now. A collection
+stores *the tasks themselves*. That is the only way to group four things that have nothing in
+common except that you care about them together — a Claude routine, two Windows tasks in different
+folders, and a Cronsole-native check, one of them disabled. No filter can describe that set, because
+there is no shared property to filter on.
+
+- **Add a task from the bookmark button**, next to the star on any task's detail modal. It opens a
+  checklist of your collections; ticking one adds the task immediately. **You can create a
+  collection from there too**, with the task already in it — the moment you notice a task needs a
+  home is the moment you want the home.
+- **A task can be in any number of collections.** That is why the control is a checklist rather than
+  a star: one task, many sets.
+- **Collections compose with your view**, exactly like Favorites. Selecting one keeps whichever view
+  is lit, so *Failures* + your collection is the failing tasks in it. Selecting one also clears any
+  source, folder or starred scope — a collection spans systems, so it cannot sit "inside" one.
+- **Manage, rename and delete** from *Manage collections* at the bottom of the rail.
+- **Deleting a collection never deletes tasks.** It removes the grouping; the tasks stay in Cronsole
+  and keep running, and the confirmation says so with the count.
+- **Removing a task from Cronsole takes it out of any collection holding it** — the same rule as the
+  star. A membership is a preference about a task Cronsole tracks, not a record that outlives it.
+- Collections are yours alone, change nothing on any platform, and work with the agent offline.
+
 ### Views, Search & Filters
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.

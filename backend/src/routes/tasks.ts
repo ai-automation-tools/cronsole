@@ -49,7 +49,7 @@ import { previewSchedule } from '../services/schedulePreview.js';
 // List all tasks (with a flattened last-run summary for the dashboard)
 router.get('/', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
-  const [tasks, favorites] = await Promise.all([
+  const [tasks, favorites, memberships] = await Promise.all([
     prisma.task.findMany({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
@@ -61,9 +61,22 @@ router.get('/', async (req: Request, res: Response) => {
         }
       }
     }),
-    prisma.taskFavorite.findMany({ where: { userId }, select: { taskId: true } })
+    prisma.taskFavorite.findMany({ where: { userId }, select: { taskId: true } }),
+    // Scoped through the collection's owner, not the task's: a membership row is
+    // reachable only from a collection, so this is the join that cannot return
+    // another tenant's grouping even if a task id were somehow shared.
+    prisma.taskCollectionMember.findMany({
+      where: { collection: { userId } },
+      select: { taskId: true, collectionId: true }
+    })
   ]);
   const favoriteIds = new Set(favorites.map(f => f.taskId));
+  const collectionsByTask = new Map<string, string[]>();
+  for (const m of memberships) {
+    const list = collectionsByTask.get(m.taskId);
+    if (list) list.push(m.collectionId);
+    else collectionsByTask.set(m.taskId, [m.collectionId]);
+  }
   res.json(tasks.map(({ executions, ...task }) => ({
     ...task,
     lastRunStatus: executions[0]?.status ?? null,
@@ -72,6 +85,11 @@ router.get('/', async (req: Request, res: Response) => {
     // Per-viewer, from the TaskFavorite join — never a column on Task, which in a
     // multi-tenant DB would make one user's star everyone's.
     isFavorite: favoriteIds.has(task.id),
+    // Which hand-picked collections hold this task. Same per-viewer join rule as
+    // `isFavorite` — a collection belongs to a user, not to the task. Sent as
+    // ids rather than names so a rename is one write and never a re-sync of
+    // every task row.
+    collectionIds: collectionsByTask.get(task.id) ?? [],
     // Server-owned verdict, not a rule the browser re-derives. "Is this the OS's
     // task or mine?" already has exactly one definition here (the same one
     // summarizeUntracked uses), and a second copy in the frontend is the shape
@@ -1523,6 +1541,27 @@ router.post('/:id/run', async (req: Request, res: Response) => {
 
   if (result.success) {
     res.json({ message: 'Task run command sent', ...result });
+  } else if (result.ran) {
+    // The job EXECUTED and reported failure. That is not a transport problem,
+    // so it is a 200 carrying a failing verdict — the request succeeded, and
+    // its answer is bad news about the user's system.
+    //
+    // This is the whole reason CHECK exists: a check that fails is the check
+    // WORKING. Answering 502 here (as this route did until 2026-08-15) says
+    // "the gateway had a problem, retry", so `run_task` threw and an agent
+    // could not tell "your disk is full" from "monitoring is broken" — two
+    // findings that demand opposite actions (troubleshooting #59).
+    //
+    // Native is the only platform that can reach this branch, because it is the
+    // only one where dispatch and execution are the same act. Windows and Claude
+    // keep the 502 below: there, a failure IS a failure to dispatch.
+    res.json({
+      ...result,
+      // After the spread: a connector that returned no message must not blank
+      // the one field a human reads to find out what failed.
+      message: result.message || 'Task ran and reported failure',
+      executionId: execution.id
+    });
   } else {
     // 502, not 500: the run failed *upstream*, and 500 claims Cronsole broke.
     // Almost every real cause here is the platform answering — a paused Claude

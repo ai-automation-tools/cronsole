@@ -121,13 +121,19 @@ No agent, no round trip, nothing that can refuse — the write *is* the change.
 
 ---
 
-## Cronsole (Scripts)
+## Cronsole (Programs)
 
-**Run a program on a schedule**, with its exit code, duration and output recorded. Created
-with **New Task › Cronsole › Run a program**, or from a **Cronsole Native** template — *Run a
-Program* ships built in, with Node, Python and `git pull` starters in the gallery.
+**Run a program that already exists on the backend's machine**, with its exit code, duration
+and output recorded. Created with **New Task › Cronsole › Run a program**, or from a **Cronsole
+Native** template — *Run a Program* ships built in, with Node, Python and `git pull` starters
+in the gallery.
 
-Same platform as *Cronsole (HTTP)* — the Source bar separates them because they are different
+> **This row was called *Scripts* until 2026-08-15**, which promised more than it delivered:
+> the script has to be on disk already and Cronsole never sees it. The name now belongs to
+> [Cronsole (Scripts)](#cronsole-scripts), which stores the script itself. Nothing about your
+> existing tasks changed — only the label.
+
+Same platform as *Cronsole (HTTP)* — the Source rail separates them because they are different
 things to look at, and the Platforms tab does not because they have identical capabilities.
 
 ### What Cronsole can do here
@@ -150,6 +156,85 @@ runs, export, delete.
 - **Use a Windows task instead** for anything that must run as your logged-in user, needs your
   user's privileges, or has to keep running while Cronsole is down. The agent is the thing that
   unambiguously means *your machine*; the backend is not.
+
+---
+
+## Cronsole (Scripts)
+
+**Write the script here and Cronsole runs it on your schedule**, under an interpreter you pick
+from a fixed list: PowerShell, PowerShell 7, Bash, sh, Python, or Node. Created with **New Task
+› Cronsole › Write a script**.
+
+The difference from *Cronsole (Programs)* is where the script lives. A program job names a file
+that must already exist on the machine the backend runs on; a script job stores the **body**, so
+there is nothing to put on disk first.
+
+### What Cronsole can do here
+
+The same list as every other Cronsole-native job: run, create, enable/disable, edit schedule,
+edit what it runs, export, delete.
+
+### Things that surprise people
+
+- **This is the one job type where a shell is expected.** You picked the interpreter and wrote
+  the body, so `|`, `&&` and redirection all behave normally. That is not a hole in the no-shell
+  rule — that rule bans an *implicit* shell wrapped around a command you typed. Here nothing is
+  re-parsed, and **the interpreter is a fixed list, never a path you type**.
+- **The interpreter has to exist where the backend runs.** `node` always does — Cronsole itself
+  runs on it — which makes it the safe choice inside a container. PowerShell and Python may not
+  be there, and the run log says so by name rather than reporting a missing file.
+- **The script is stored, so it travels with the task.** You can read and edit it in the app, it
+  is included in an export and in the archive taken before a delete, and a template carrying one
+  works on a fresh install. None of that is true of a program job pointing at a path.
+- **Whitespace is preserved exactly.** The body is not trimmed the way a form field is — leading
+  indentation matters in Python, and a trailing newline is what makes a shell script's last line
+  run.
+- **The temporary file is deleted afterwards**, including when the script times out and is
+  killed, and it is written so only the account running the backend can read it.
+- **It does not inherit Cronsole's environment**, exactly like a program job. Set what you need
+  explicitly.
+
+---
+
+## Cronsole (Checks)
+
+**Measure something and compare it to what you expect.** Four kinds:
+
+| Check | What it measures | Fails when |
+|---|---|---|
+| **Endpoint** | An HTTP request | Status outside the range you set, or the body missing text / a JSON field you require |
+| **Port** | A TCP connection | Nothing accepts a connection within 15s |
+| **File freshness** | A file's last-modified time | Older than your limit — **or missing** |
+| **Disk space** | Free space on a volume | Below your floor |
+
+Created with **New Task › Cronsole › Check something**.
+
+### What Cronsole can do here
+
+The same list as every other Cronsole-native job: run, create, enable/disable, edit schedule,
+edit what it runs, export, delete.
+
+### Things that surprise people
+
+- **A failure here means something.** This is the point of the type. A failed script is usually a
+  bug in your script; a failed check is the thing you actually wanted to know about — so these
+  are the runs worth pointing failure notifications at, and the ones whose history is worth
+  reading.
+- **A 200 is not the same as healthy**, which is why an endpoint check is not just an HTTP job.
+  It can require the response body to contain a string, or a dotted JSON path
+  (`status.db`) to equal a value. An HTTP *job* only asks whether the request was accepted — the
+  right test for firing a webhook, the wrong one for monitoring.
+- **A missing field and a changed field are reported differently.** `status.db is "up", expected
+  "down"` and `status.cache is not present` are different facts about an API, and the run log
+  says which.
+- **File and disk checks measure the *backend's* filesystem** — the container's, on a Dockerized
+  stack, not yours. The form names the execution host before you save, because a check that
+  passes against the wrong disk is worse than no check at all.
+- **A missing file fails the freshness check** rather than being skipped. The check exists to
+  notice that a backup stopped being written; a backup that was never written is the same
+  problem in its worst form.
+- **The log always states the measurement**, not just a verdict: `D:\backups\nightly.zip last
+  modified 3.0h ago (limit 60m)`. The number is the reason you ran the check.
 
 ---
 

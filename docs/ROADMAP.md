@@ -26,42 +26,151 @@ belongs in the CHANGELOG.
 ### 🔴🔴 Top priority — requested 2026-08-15
 
 Three items, requested directly after the dashboard IA redesign landed. Ordered as given.
+**Items 1 and 2 have shipped** (collections 2026-08-16; native job types 2026-08-15), and the work
+job types left behind is item 0 below — ahead of the rest because it is the unfinished half of
+something already in users' hands rather than something not started.
 
-1. **Custom views on the source rail.** Users can already save a named filter combination, but it
-   becomes a chip in the horizontal views bar. Let them save one **into the rail**, alongside
-   *All sources* and *Favorites*.
+**Open here: item 0's sub-items 2, 3, 4 and 6, plus items 3 (themes) and 4 (phone).** Items 0.4 and
+4 are the same Playwright pass and should be done once, not twice.
 
-   **The design question to settle first, because it decides everything else:** the rail is
-   *navigation* (**where** a task lives) and views are *slices* (**which** of them). Favorites
-   crossed that line on 2026-08-15 and it worked, because a starred set reads as a place. A saved
-   view is less obviously one. Two candidate shapes:
-   - **Scopes** — a rail row saves only the rail's own dimensions (source + category + favorites)
-     and composes with whatever view is lit, exactly as Favorites does. Consistent with every other
-     row; cannot express "failing Windows tasks" as one click.
-   - **Pinned views** — a rail row carries a full `TaskFilters`, so picking one *replaces* the view.
-     More powerful, but it makes the rail's rows behave in two different ways depending on origin,
-     which is the folder-vs-source inconsistency that this redesign existed to remove.
+0. **Finish what the native job types left open** *(added 2026-08-15, after `SCRIPT` + `CHECK`
+   shipped — [ADR 0002](adr/0002-native-job-types.md))*. Six items, worst-first — items 5 and 6 were
+   found by item 1's live drive, which is what it was for.
 
-   Whichever wins, the invariants it must not break: `filtersEqual` ignores the rail's dimensions,
-   `viewFiltersFrom` strips them, the Filters badge counts none of them, and **every rail count is
-   taken with every rail dimension neutralized** (see the 363-vs-6 bug below). A rail row also needs
-   a delete affordance and an order — `savedViews` is currently an unordered array.
+   1. ~~**Neither new job type has been driven end-to-end on a live stack.**~~ — **verified
+      2026-08-15**, unblocked by the API token surface that shipped the same day. Both types went
+      `POST /api/tasks/native` → `NativeScheduler` → `ExecutionLog` on the running backend, driven
+      through the MCP tools: a `SCRIPT` (node) and an `http` `CHECK`, each on `* * * * *`, each run
+      manually **and** left to be fired by the scheduler — the stored run carries a `[scheduled]`
+      prefix, which is what distinguishes the two paths in `ExecutionLog`. Then the negative case,
+      because a check that cannot fail proves nothing: a `CHECK` whose `expectBodyContains` does not
+      match **failed a 200** (`body does not contain "…"`) and a `SCRIPT` exiting 3 was recorded
+      `FAILURE` with stdout *and* stderr captured. Deletes archived first — `executionsArchived: 3`,
+      and the script **body** is in the archive bundle, which is the ADR's whole argument for
+      `SCRIPT` over `EXEC`. Two things the unit suite could not have told us: `childEnv()` holds on a
+      real stack (**20** env keys visible to the child, none of `DATABASE_URL` / `JWT_SECRET` /
+      `ENCRYPTION_KEY`), and the defect in item 5 below, which only exists once a job type's failure
+      is a *finding* rather than a fault.
+   2. **Per-job encrypted fields do not exist, and two deferred job types are blocked on it.**
+      `NOTIFY` needs it (a Discord webhook URL *is* its authentication) and `SQL` needs it (a
+      connection string is a `PlatformConnection`-grade secret). Today a `SCRIPT` job's `env` is
+      already a plausible home for a secret with nothing but column storage behind it — so this is
+      a **current** gap, not only a blocker for future work. Probably its own ADR; the two deferred
+      types should be sequenced together behind it rather than picked off separately.
+   3. **The gallery renders a script body as escaped JSON.** `registry-site/index.html` falls back
+      to `JSON.stringify(tpl.action)` when a template has no `commandTemplate`, which is honest and
+      not broken — but it means the one template family whose *content is the whole point* is the
+      one displayed as `"body": "// Runs on...\n// Anything printed..."`. A `script` action should
+      render its body as code, and a `check` action should render as a readable assertion. No
+      capability claim on that page is stale, which is why this is a polish item rather than a §11b
+      publish blocker — but it is the page strangers judge the catalog by.
+   4. ~~**The four new job-type buttons have not been seen below `md`.**~~ — **verified and fixed
+      2026-08-16**, in the Playwright pass of item 4. The `grid-cols-2 sm:grid-cols-4` is right:
+      two rows of two at 375px, nothing overflowing. But they rendered **34px** tall against the
+      **42px** platform picker one field up — the same "pick one of N" control, 8px shorter for no
+      reason anyone chose. `py-2` → `py-3`, and the test asserts ≥ 40 against that sibling rather
+      than against an abstract guideline.
+   5. ~~**A `CHECK` that correctly reports a problem is returned as a `502`**~~ — **fixed
+      2026-08-15**, same day it was found. `runTask` gained **`ran`**, orthogonal to `success`, so a
+      job that executed and failed is a **200 carrying `success: false`** and only a real
+      failure-to-start is a `502`; `ran` is stamped once in `executeJob`, so a fifth job type cannot
+      ship having forgotten it, and a spec rejected by `validateJob` never executed and keeps the
+      502. Both consumers moved with it — the dashboard would otherwise have toasted *"triggered
+      successfully"* over a failing check, and `run_task` now returns `Task ran and FAILED: …` as a
+      **result** rather than throwing. Pinned by three integration tests (the discrimination one
+      mutation-tested), three executor tests and two MCP tests, and confirmed on the live stack.
+      [#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check).
+      *Original finding, kept because the reasoning is the reusable part:* `POST /api/tasks/:id/run` ended
+      `res.status(502)` on any unsuccessful run, and the comment above it argues the case well **for
+      the platforms that existed when it was written**: a Windows or Claude run that fails, fails
+      *upstream* — an offline agent, an ACL denial, a paused routine — so `500` would send someone to
+      debug Cronsole. **`CHECK` breaks that premise.** A failing check is not the platform refusing
+      to start it; it is the check **running perfectly and reporting a fact about the system**, which
+      is the one thing the type was added for. `502` means *the gateway had a problem, retry* — the
+      exact reading the `setStatus` route already refuses to give a structural refusal, four hundred
+      lines up in the same file. The same applies to a `SCRIPT` exiting non-zero: the run happened,
+      and its outcome is the answer, not a dispatch failure.
+      **It is not cosmetic, and the MCP surface is where it bites.** `run_task` on a failing check
+      *throws* — the agent receives `Cronsole API error (HTTP 502): … body does not contain "…"` and
+      has no way to tell **"your disk is full"** from **"monitoring is broken."** Those demand
+      opposite actions, and today they are the same error. Native is also the one platform where
+      dispatch and execution are the same act, so the dispatch-vs-outcome distinction the code is
+      built on has no meaning there.
+      **The fix is a discrimination, not a status swap** — Windows must keep its `502`. Most likely a
+      `200` carrying `success: false` for a native run that *completed* with a failing verdict,
+      keeping `502` for a run that could not be started at all; `ExecutionLog` and
+      `queueFailureNotification` already record it as `FAILURE` either way and want no change. Note
+      this reaches the UI too, which will currently show a failing check as a request error.
+   6. **A passing check does not say which assertions it made.** `NativeTaskExecutor` returns
+      `` `${head} | all assertions passed` `` on success, where `head` carries only the status
+      measurement — so a check with an `expectBodyContains` logs *byte-identically* to one with no
+      body assertion at all. The failing path names the specific assertion; the passing path does
+      not. Small, but it is the ADR's own rule (*every probe's log states the **measurement**, not
+      just a verdict*) unmet in the success case, and it means a body assertion silently dropped
+      between the tool and the stored job would look exactly like one that ran and passed.
 
-2. **More Cronsole-native job types.** Native has exactly two — `HTTP` and `EXEC` — and they are the
-   `STRUCTURAL_SUBTYPES` the rail always lists. Widen that set so Cronsole is useful without an
-   agent on more than "call a URL" and "run a program".
+1. ~~**Custom views on the source rail.**~~ — **shipped 2026-08-16 as Collections**, and the item
+   as written described the wrong feature.
 
-   Candidates worth scoping: a **script** type that writes an inline body to a temp file and runs it
-   under a named interpreter (PowerShell / bash / python), so a user does not need the script on
-   disk first; a **database query**; an **MCP tool call**; a **compound/sequence** job. Each new type
-   touches the same five places, and missing one is how a job is accepted at create time and fails
-   at 3am: `buildNativeJob` + `validateJob` (`services/nativeJob.ts`, one definition shared by
-   create, edit and the connector), `NativeTaskExecutor`, `taskSource.ts` (the server derives the
-   subtype — the browser must not), `STRUCTURAL_SUBTYPES` + an icon in the rail, and at least one
-   template per type, since a source with nothing in the catalog is a source the product does not
-   really have. The `EXEC` rules carry over unchanged and are non-negotiable: **no shell** unless the
-   user names one, and **`childEnv()`, never `process.env`** — a scheduled job must not inherit the
-   key that encrypts every stored platform credential.
+   **What it said** was: let users save a named *filter combination* into the rail, and it agonised
+   over scopes-vs-pinned-views. **What was actually wanted** — confirmed with the requester before
+   any code was written — is to pick *specific tasks* ("two from Claude, two from Windows Task
+   Scheduler") and name the set. Those are different in kind, and no amount of filter-saving reaches
+   the second: **a view's membership is derived, a collection's is declared.** The four tasks in a
+   collection can share no property a filter could name, which is exactly why someone wants one.
+   *(Lesson worth keeping: the design question the item spent three paragraphs on was unanswerable
+   because it was the wrong question. Asking what the feature is **for** dissolved it.)*
+
+   Shipped as `TaskCollection` + `TaskCollectionMember` — **`TaskFavorite` made plural and named**,
+   inheriting that model's decisions for its reasons: a per-user join (never a column), and keyed on
+   the Task row **with a cascade**, because a membership is a preference about a task Cronsole is
+   *tracking* and must not outlive it. `POST/GET/PATCH/DELETE /api/collections` plus a single
+   add-and-remove members route; a bookmark button on every task opens a checklist that can also
+   create; the rail gets one row per collection above the platforms, and *Manage collections* at the
+   bottom.
+
+   The invariants the old item listed were all honoured, and one is new: `filtersEqual` and
+   `activeFilterCount` exclude `collection` **by omission** (they list what they compare), which is
+   correct and easy to "fix" wrongly, so both now say so. `viewFiltersFrom` strips it — sharper here
+   than for the other rail dimensions, since **a collection id is a foreign key**: a view storing one
+   would not degrade when the collection is deleted, it would break, and sharing it would hand
+   someone an id that means nothing in their account. Every rail node resets the whole rail scope
+   through one `RAIL_SCOPE_RESET` constant rather than per-node literals, so a fifth dimension cannot
+   be added to some nodes and forgotten on others. Ordering shipped with it (`position`), so the
+   `savedViews`-is-unordered gap is not inherited.
+
+   **Not done:** no MCP surface (deliberate — the same call as favorites, which are also REST-only),
+   no bulk "add selection to collection" (row selection was removed from the dashboard in 2026-08-12
+   and is not coming back), and drag-to-reorder in the manager (the column exists; the UI writes it
+   only on create).
+
+2. ~~**More Cronsole-native job types.**~~ — **shipped 2026-08-15.** Native went from two types to
+   four: **`SCRIPT`** (a body you write, run under a fixed-list interpreter) and **`CHECK`** (one
+   monitor type, four probes) joined `HTTP` and `EXEC`. Scoped and decided in
+   [ADR 0002](adr/0002-native-job-types.md); `NOTIFY` and `SEQUENCE` are deferred there with
+   reasons, and `SQL` / SSH / Docker / MCP-call / free-standing file-prune are rejected.
+
+   Delivered through all five places plus six templates (three core), the MCP surface
+   (`create_native_script_task` / `create_native_check_task`, with the old EXEC tool renamed to
+   `create_native_program_task`), per-source descriptions in the dashboard, help topics, and the
+   Sources Guide. Three things worth carrying forward:
+
+   - **Type count is navigation cost.** `STRUCTURAL_SUBTYPES` lists native's subtypes whether or not
+     a task uses one, so every job type is a permanent rail row for every user. That is what made
+     `CHECK` one type with four probes rather than four types, and what demoted `NOTIFY` to a
+     create-modal preset over an `HTTP` job.
+   - **The rail row labelled *Scripts* was `EXEC` all along**, and needed a file that already existed
+     on the backend host — so the script itself was the one part of the task Cronsole could not
+     show, export or archive. It is now *Programs*, and the MCP tool was renamed to match.
+   - **Publishing a new registry `action.kind` would have blanked the hosted catalog** for every
+     older install, because the fetch threw on the first unreadable template and fell back to the
+     whole bundled snapshot. Found while scoping, fixed before publishing
+     ([#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog)).
+
+   Still open from the ADR: `NOTIFY` and `SQL` both wait on **per-job encrypted fields**, which does
+   not exist and may deserve its own ADR; `SEQUENCE` is last and only if per-step verdicts are the
+   goal. The `EXEC` rules carried over unchanged and remain non-negotiable: **no implicit shell**,
+   and **`childEnv()`, never `process.env`**.
 
 3. **Fix the themes — light first.** The light theme clashes and is hard to read; the dark theme's
    palette is also open to reconsideration. This is `frontend/src/index.css` and nowhere else: every
@@ -81,7 +190,28 @@ Three items, requested directly after the dashboard IA redesign landed. Ordered 
    the visual-regression baselines regenerated — note that masking hides colour, not geometry
    ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
 
-4. **Verify the redesigned dashboard on a phone — it has never been seen at that width.** The
+4. ~~**Verify the redesigned dashboard on a phone.**~~ — **done 2026-08-16, and it found the suite
+   itself was dead.** The redesigned mobile layout is **correct**: the rail hides below `md` and its
+   drawer opens from beside the heading, picking a source closes it, Escape closes it, all five
+   toolbar sections fit on one row at 375px with their accessible names intact, nothing overflows
+   horizontally, and the FAB is a 56px target. Ten mobile tests now assert that at a viewport
+   Playwright sets directly, so it is a standing check rather than a thing re-reasoned about.
+
+   **The finding that mattered was not in the layout.** `npm run test:e2e` was **100% broken — 18 of
+   18 failing** — and had been since this very redesign: `dashboardReady()` waited for a heading
+   reading *"Unified Task Dashboard"*, which the redesign replaced with one that names the current
+   scope, and every test calls that helper. Three more drove the horizontal source *bar* the rail
+   replaced, one asserted a "System Status" sidebar panel the redesign deleted, and one demanded
+   `Edit action: Unsupported` for Cronsole-native after `PATCH /:id/job` made it supported. **Every
+   other suite was green throughout**, which is the point: nothing else in this repo renders CSS.
+
+   **`test:e2e` is not in CI, which is why nobody knew.** Wiring it in is a real item and not a
+   small one — several assertions lean on this machine's 363 real tasks and a live agent, and the
+   visual baselines are Windows-rasterized — so it needs a deterministic fixture story first. Doing
+   it hastily would produce a flaky job that gets disabled, which is the failure this suite's own
+   header warns about. Logged under P1 rather than bolted on here.
+
+   *(Original item, kept because the diagnosis was right:)* The
    top toolbar, the source rail and its drawer all shipped on 2026-08-15 with their responsive
    classes written and read back as correct, and **not once rendered below `md`**. The browser
    automation used to check everything else reported `resize_window` as succeeding while
@@ -110,12 +240,26 @@ out of it. Ordered worst-first. Items 1–2 are the **unfixed remainder of the d
 they are the same `parseInt`-on-a-multi-value-field shape on surfaces outside that commit's blast
 radius, and they are listed here rather than left in the completed item so they cannot read as done.
 
-1. **`shiftCron` stores a zoned cron 7–8 hours off, silently** — `frontend/src/utils/timezone.ts`.
-   The `isNum` guard correctly *refuses* to shift a multi-value hour, then returns `shifted: false`
-   with **no `reason`**, so a Pacific user typing `0 9-17 * * 1-5` has it stored verbatim as UTC with
-   nothing on screen. `reason` exists for exactly this case ("has a clock time we would have moved
-   but could not"); the two paths that set it only cover midnight-crossing. **The most user-facing
-   item on this list** — it is wrong output, not a confusing message.
+1. ~~**`shiftCron` stores a zoned cron 7–8 hours off, silently**~~ — **fixed 2026-08-15.** The
+   refusal branch now asks whether the expression pins a clock time — `hour !== '*'` (a range,
+   list, step, or a fixed hour with several minutes), plus the partial-hour-zone case where a
+   multi-value *minute* would have moved — and explains itself; genuinely invariant expressions
+   (`*/15 * * * *`, `20 * * * *`) still say nothing, because warning about those is what teaches
+   people to ignore warnings. Storage and conversion behaviour are unchanged: the same expressions
+   shift, the same ones don't.
+   **It was worse than "silently", which is why it is worth reading the entry.** `ScheduleZoneHint`
+   renders a missing `reason` as *"This schedule has no fixed clock time, so it reads the same in
+   PDT and UTC"* — so this was not an absent warning but a **confident false statement**, printed
+   under a working day being stored seven hours out. **If the empty case has its own message, then
+   declining to answer and answering "no problem here" are the same code path.**
+   [#60](troubleshooting/README.md#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter).
+   *(Checked while here: the frontend's `describeCron` has no day-of-month branch at all and guards
+   every other shape with `isNum`, so it returns `null` and the card falls back to the raw cron —
+   it does not carry the sibling of the gallery bug in item 2.)*
+   **Not done, and deliberately:** Cronsole still cannot *convert* a multi-value hour, only refuse
+   it honestly. `0 9-15 * * *` → `0 17-23 * * *` is expressible and would be a real improvement;
+   ranges that cross midnight (`9-17` in Pacific) are not, and per-element weekday rolls make the
+   general case sharp. Worth its own item rather than smuggling into a warning fix.
 2. ~~**The gallery's `describeCron` drops day-of-month values**~~ — **fixed 2026-08-13.**
    `registry-site/index.html` rendered `0 9 1,15 3 *` as *"March 1st"* (`parseInt('1,15')`). The
    month branch now returns **no reading at all** for a multi-value day rather than a confident
@@ -143,8 +287,13 @@ radius, and they are listed here rather than left in the completed item so they 
 7. **The sync response's `missing` is a delta, not a state** — it counts rows *newly* marked
    `MISSING` by that pass, so it reads `0` beside `count: 5` while two rows sit `MISSING`. Defensible,
    but it is presented next to a state field and invites the wrong reading.
-8. **`NativeTaskExecutor.test.ts` is flaky under parallel load** — one test timed out at 7s in a full
-   run and passed in isolation and on re-run. It spawns real processes. Not investigated.
+8. **The native-executor tests are flaky under parallel load** — a test times out in a full run and
+   passes in isolation and on re-run. Both files that spawn real processes are affected:
+   `NativeTaskExecutor.test.ts` (first seen 2026-08-13) and `NativeJobTypes.test.ts` — the latter
+   measured 2026-08-15 at **1 failure in 3 full-suite runs**, always
+   `executeJob — SCRIPT > reports a non-zero exit as a failure`. So it is process spawning under
+   contention, not one bad test, and the fix is a per-test timeout or serialising those two files
+   rather than chasing an assertion. Worth doing before it trains anyone to re-run a red suite.
 
 **Chores, not roadmap items** (dev machine, 2026-08-13): the MCP host needs a restart to load the
 rebuilt `mcp-server/dist/`, and the Windows task `Cronsole conversion-response probe (safe to
@@ -156,15 +305,17 @@ delete)` in `\Cronsole` is left disabled and wants deleting.
 
 ---
 
-**🔴 [API tokens are the top priority](#-p0--security-hardening--reopened-2026-08-13)** *(2026-08-13)* —
-the only way to get a token for the MCP server is to run `jsonwebtoken.sign` by hand with the
-backend's `JWT_SECRET`. That is not a workaround someone invented; it is
-[what our own guide tells them to do](user-guides/guides/MCP_Server_Guide.md#getting-a-token). The
-product cannot issue a credential its own documented integration requires. Ahead of Sources
-because it gates every non-browser client and is the last thing anyone should discover on a
-30-day expiry.
+**✅ [API tokens](#-p0--security-hardening--reopened-2026-08-13) — largely closed 2026-08-15.**
+This was the top priority from 2026-08-13: the only way to get a token for the MCP server was to run
+`jsonwebtoken.sign` by hand with the backend's `JWT_SECRET`, which was not a workaround someone
+invented but [what our own guide told them to do](user-guides/guides/MCP_Server_Guide.md#getting-a-token)
+— the product could not issue a credential its own documented integration required.
+**(a) `JWT_EXPIRES_IN` and (b) the real token surface both shipped**: name a token in
+Settings → Account, pick 30/60/90 days or never, revoke it individually. The guide's hand-minting
+instructions are gone. **Only (c) remains** — resolve `req.user` from the DB rather than trusting
+the `email` claim — which is small, independent, and no longer gates anything.
 
-**[Sources](#-sources--where-a-task-comes-from) is the priority after that** *(scoped 2026-08-12)* — the
+**[Sources](#-sources--where-a-task-comes-from) is the priority once the block above is clear** *(scoped 2026-08-12)* — the
 dashboard's first-level axis is now where a task comes from, and the plan is to fill it in. In order:
 
 1. ~~**Native job types — scripts**~~ — **shipped 2026-08-12.**
@@ -199,7 +350,7 @@ Everything below the sources track, unchanged in priority relative to each other
 
 ## 🔷 Sources — where a task comes from
 
-> **The current top priority** *(scoped 2026-08-12)*. The dashboard's first-level axis is now the
+> **The priority once the *Next up* block is clear** *(scoped 2026-08-12; it read "the current top priority" until 2026-08-16, when the 2026-08-15 requests took precedence)*. The dashboard's first-level axis is now the
 > **source** a task comes from, and Cronsole ships with two: Windows Task Scheduler and
 > Cronsole-native. This section is the plan for the rest.
 >
@@ -521,12 +672,17 @@ Everything below the sources track, unchanged in priority relative to each other
 
 ---
 
-## 🔴 P0 — Security hardening — REOPENED (2026-08-13)
+## 🟡 P0 — Security hardening — reopened 2026-08-13, substantially closed 2026-08-15
 
 *Closed 2026-07-09; reopened for one item. The five below are still done — what reopened this is a
 gap none of them covered, because it is not a hole in a mechanism but the **absence** of one.*
 
-- [ ] **API tokens — the product cannot issue the credential its own docs require** ← **top priority**
+*As of 2026-08-15 that gap is filled: **(a) `JWT_EXPIRES_IN` and (b) a real, revocable token
+surface both shipped**. Only **(c)** is open — resolve `req.user` from the database instead of
+trusting the `email` claim — which is small and independent, so this section no longer gates
+anything. The header stays red-adjacent rather than green because one item is still open.*
+
+- [~] **API tokens — the product cannot issue the credential its own docs require** — **(a) and (b) shipped 2026-08-15; only (c) open**
       *(found 2026-08-13, while answering "where do we have `CRONSOLE_TOKEN`?")*
 
       **Symptom.** The working `CRONSOLE_TOKEN` on this machine is a JWT with a **30-day** life and
@@ -615,6 +771,21 @@ gap none of them covered, because it is not a hole in a mechanism but the **abse
 ## 🟠 P1 — Correctness & honesty
 
 New correctness work lands here as it is found. Everything logged before 2026-08-12 is closed.
+
+- [ ] **Run the E2E suite in CI — it is the only thing that renders CSS, and nothing runs it**
+      *(logged 2026-08-16)*. `npm run test:e2e` sat **100% broken for a day** (18 of 18) after the
+      IA redesign moved a heading every test waited on, while backend 715, integration 223 and
+      frontend 541 stayed green. **jsdom does not evaluate media queries**, so the unit suite passes
+      whether `hidden md:flex` is right or wrong; Playwright is the only layer that can see a
+      responsive layout, a real stylesheet, or a drawer that does not open.
+      **The blocker is fixtures, not the runner.** Several assertions lean on this machine's live
+      data — native job-type rows, a connected agent's health dot, source counts — and the visual
+      baselines are Windows-rasterized while CI is Linux. So it needs (a) a seeded, deterministic
+      dataset the assertions can name, (b) the mock agent from `mock-agent.spec.ts` promoted to the
+      shared harness, and (c) a Linux baseline set, which the per-platform snapshot suffix already
+      supports. **Doing it hastily is worse than not doing it**: a flaky visual job gets disabled,
+      and a disabled suite is what produced this item. Until then, `workflows.md` states the
+      obligation to run it after any dashboard change.
 
 - [x] **`get_task_health` summarized a different population than it listed** *(logged and fixed
       2026-08-13, found by hand-driving the tool against 358 real tasks)*: with `includeSystem: false` the
@@ -1061,9 +1232,12 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
       vs. template vs. diagnostic tools. The UX pass above lands squarely in `DashboardScreen.tsx`,
       so that is the one to split *while you are there*, not afterwards.
-- [ ] **Claude Code connector** — *promoted to top priority under
-      [Sources](#-sources--where-a-task-comes-from) (2026-08-12).* Promote from experimental
-      scaffold to production-ready.
+- [x] **Claude Code connector** — *shipped 2026-08-12, completed 2026-08-13.* No longer an
+      experimental scaffold: the connector lists, creates, reschedules, pauses and runs routines,
+      with a declared-registry fallback when no Claude Code session is readable. See
+      [Sources](#-sources--where-a-task-comes-from) › item 4 and
+      [#50](troubleshooting/README.md#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one).
+      Residual Claude items are in the 2026-08-13 follow-up list, not here.
 - [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
 - [~] **Template gallery site** — parts 1, 2, 4, 5 shipped; **part 3, the one-click "Add to my
       Cronsole" deep-link/protocol handoff, remains**. Download + Copy JSON use the shipped Import

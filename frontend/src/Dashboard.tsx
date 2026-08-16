@@ -75,10 +75,21 @@ const Dashboard = () => {
         });
         if (!ok) throw new Error('Cancelled');
       }
-      await api.post(`/tasks/${task.id}/run`);
-      return { task };
+      const response = await api.post(`/tasks/${task.id}/run`);
+      return { task, result: response.data as { success?: boolean; ran?: boolean; message?: string } };
     },
-    onSuccess: ({ task }) => {
+    // A 2xx no longer means the task is fine. A Cronsole-native run happens
+    // inside the request, so the route answers 200 with `success: false` when
+    // the job executed and reported failure — a failing CHECK is the check
+    // working, not a transport error. Reading only the HTTP status would toast
+    // "triggered successfully" over "your disk is full".
+    onSuccess: ({ task, result }) => {
+      if (result?.success === false) {
+        const detail = result.message || 'the run reported failure';
+        if (settings.toastOnFailure) toast(`"${task.name}" ran and failed: ${detail}`, 'error');
+        notifyFailure('Cronsole — run failed', `${task.name}: ${detail}`);
+        return;
+      }
       if (settings.toastOnSuccess) {
         toast(`"${task.name}" triggered successfully.`, 'success');
       }

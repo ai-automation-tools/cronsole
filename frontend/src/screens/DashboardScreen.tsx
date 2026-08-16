@@ -22,6 +22,8 @@ import type { Task } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
+import { ManageCollectionsModal } from '../components/ManageCollectionsModal';
+import { useCollections } from '../hooks/useCollections';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
@@ -185,6 +187,8 @@ export const DashboardScreen = ({
   // a bookmark reproduces *which tasks you are looking at*, and a link that also
   // reopened a drawer would make two URLs that mean the same thing.
   const [railOpen, setRailOpen] = useState(false);
+  const [managingCollections, setManagingCollections] = useState(false);
+  const { data: collections } = useCollections();
 
   // Escape closes the drawer. Only bound while it is open, so it cannot steal
   // the key from the search box's own clear-on-Escape.
@@ -212,11 +216,33 @@ export const DashboardScreen = ({
   // no longer describes.
   const starredOnly = filters.favorites === 'only';
 
-  const scopeHeading = starredOnly
-    ? 'Favorites'
-    : filters.source === 'All'
-      ? 'All Tasks'
-      : sourceLabel(filters.source);
+  /**
+   * The selected collection, if any — resolved to its NAME for display.
+   *
+   * The filter holds an id (so a rename does not invalidate open links), which
+   * means the heading has to look it up. When the lookup fails the scope is
+   * still real — a deleted collection, or a link from someone else — so it is
+   * named as unknown rather than silently reading "All Tasks" over a list
+   * filtered to nothing.
+   */
+  const selectedCollection =
+    filters.collection === 'All'
+      ? null
+      : (collections ?? []).find(c => c.id === filters.collection) ?? null;
+  const collectionMissing = filters.collection !== 'All' && !selectedCollection;
+
+  // A collection outranks both the source and the star in the heading, for the
+  // reason Favorites outranks the source: it is the row you clicked, and it is a
+  // scope *over* every source rather than one of them.
+  const scopeHeading = selectedCollection
+    ? selectedCollection.name
+    : collectionMissing
+      ? 'Unknown collection'
+      : starredOnly
+        ? 'Favorites'
+        : filters.source === 'All'
+          ? 'All Tasks'
+          : sourceLabel(filters.source);
 
   /**
    * The one-line explanation of the selected source.
@@ -225,15 +251,38 @@ export const DashboardScreen = ({
    * `sourceDescription` returns null for a source nobody has written up yet
    * rather than inventing a sentence for it.
    */
-  const scopeDescription =
-    filters.source === 'All' ? null : sourceDescription(filters.source);
+  const scopeDescription = selectedCollection
+    ? `A set of ${selectedCollection.count} task${selectedCollection.count === 1 ? '' : 's'} you picked by hand. Unlike a view, it is not a filter — it can hold tasks from different platforms.`
+    : collectionMissing
+      ? 'This collection no longer exists, or belongs to another account. Pick a source on the left to get back.'
+      : filters.source === 'All'
+        ? null
+        : sourceDescription(filters.source);
+
+  /**
+   * Which help topic the `?` beside the description opens.
+   *
+   * A collection's scope is not a source — it deliberately sets `source: 'All'` —
+   * so routing on `filters.source` alone would open the generic sources topic
+   * over a description that is talking about collections.
+   */
+  const scopeTopic =
+    selectedCollection || collectionMissing ? 'collections' : sourceTopicId(filters.source);
 
   const scopeTrail =
-    !starredOnly && filters.source === 'All' && filters.category === 'All'
+    !starredOnly &&
+    filters.collection === 'All' &&
+    filters.source === 'All' &&
+    filters.category === 'All'
       ? null
       : [
+          selectedCollection ? `◈ ${selectedCollection.name}` : null,
           starredOnly ? '★ Favorites' : null,
-          filters.source === 'All' ? (starredOnly ? null : 'All sources') : sourceLabel(filters.source),
+          filters.source === 'All'
+            ? starredOnly || selectedCollection
+              ? null
+              : 'All sources'
+            : sourceLabel(filters.source),
           filters.category === 'All' ? null : filters.category
         ]
           .filter(Boolean)
@@ -327,7 +376,9 @@ export const DashboardScreen = ({
    * the length of one commit: with Favorites selected, `All sources` counted 6
    * and clicking it showed 363. A rail row's count is a promise about what
    * clicking it does, so a population narrowed by a dimension the rail *offers*
-   * can never count the alternatives.
+   * can never count the alternatives. **`collection` is in the list for the same
+   * reason** — it is a rail dimension, so with a 4-task collection selected an
+   * un-neutralized population would have every source row reading at most 4.
    *
    * And it is one list, not three counts. `buildSourceTree` buckets it, so the
    * root, the source rows and the folder rows are partitions of a single pass —
@@ -343,6 +394,7 @@ export const DashboardScreen = ({
           source: 'All',
           category: 'All',
           favorites: 'any',
+          collection: 'All',
           system: 'include'
         },
         { now, timezone: settings.timezone, tiers }
@@ -560,6 +612,7 @@ export const DashboardScreen = ({
           onSelect={applyRailPatch}
           collapsed={railCollapsed}
           onToggleCollapsed={() => update('railCollapsed', !railCollapsed)}
+          onManageCollections={() => setManagingCollections(true)}
         />
       </aside>
 
@@ -594,6 +647,12 @@ export const DashboardScreen = ({
               onSelect={patch => {
                 applyRailPatch(patch);
                 setRailOpen(false);
+              }}
+              // Closes the drawer with it: the manager is a modal, and leaving
+              // the drawer open behind it stacks two overlays on a phone.
+              onManageCollections={() => {
+                setRailOpen(false);
+                setManagingCollections(true);
               }}
             />
           </div>
@@ -658,7 +717,7 @@ export const DashboardScreen = ({
               data-testid="source-description"
             >
               <span>{scopeDescription}</span>
-              <HelpButton topic={sourceTopicId(filters.source)} />
+              <HelpButton topic={scopeTopic} />
             </p>
           )}
         </div>
@@ -1247,6 +1306,10 @@ export const DashboardScreen = ({
       >
         <Zap size={22} />
       </button>
+
+      {managingCollections && (
+        <ManageCollectionsModal onClose={() => setManagingCollections(false)} />
+      )}
       </div>
     </div>
   );

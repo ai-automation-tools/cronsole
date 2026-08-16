@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ChevronRight, Layers, Monitor, Zap, Bot, Globe, Terminal, EyeOff, Star,
-  PanelLeftClose, PanelLeftOpen, FileCode, Activity
+  PanelLeftClose, PanelLeftOpen, FileCode, Activity, Bookmark, Plus
 } from 'lucide-react';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { sourcePlatform } from '../platform';
@@ -11,10 +11,12 @@ import {
   buildSourceTree,
   expandedSourceFor,
   isRailNodeSelected,
+  collectionIdFromKey,
   ALL_SOURCES,
   FAVORITES_KEY,
   type RailNode
 } from '../utils/sourceTree';
+import { useCollections } from '../hooks/useCollections';
 import type { Task } from '../types';
 import type { TaskFilters } from '../utils/taskFilters';
 
@@ -90,6 +92,12 @@ interface SourceRailProps {
    */
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
+  /**
+   * Open the collection manager. Optional so the rail still renders in tests and
+   * in any caller that has no manager wired — a missing handler hides the "+"
+   * rather than rendering a button that does nothing.
+   */
+  onManageCollections?: () => void;
 }
 
 export const SourceRail = ({
@@ -97,9 +105,11 @@ export const SourceRail = ({
   filters,
   onSelect,
   collapsed = false,
-  onToggleCollapsed
+  onToggleCollapsed,
+  onManageCollections
 }: SourceRailProps) => {
   const { data: connections } = useConnections();
+  const { data: collections } = useCollections();
 
   const tree = useMemo(
     () =>
@@ -109,14 +119,21 @@ export const SourceRail = ({
         // Only platforms with a real connection. An unconfigured one has never
         // been asked anything, so listing it would put a permanent dead row in
         // the navigation — the same reason HealthStrip filters on `state`.
-        connectedPlatforms: (connections ?? []).filter(c => c.state).map(c => c.platform)
+        connectedPlatforms: (connections ?? []).filter(c => c.state).map(c => c.platform),
+        collections: collections ?? []
       }),
-    [population, filters, connections]
+    [population, filters, connections, collections]
   );
 
   const health = useMemo(
     () => new Map((connections ?? []).filter(c => c.state).map(c => [c.platform, c])),
     [connections]
+  );
+
+  /** Rail keys of the collection rows, in the order the tree emitted them. */
+  const collectionRowKeys = useMemo(
+    () => tree.map(n => n.key).filter(k => collectionIdFromKey(k) !== null),
+    [tree]
   );
 
   /**
@@ -186,18 +203,30 @@ export const SourceRail = ({
 
       <ul className="space-y-0.5">
         {tree.map(node => {
-          // The two scope rows — everything, and starred — are not platforms.
-          // They lead the rail and are separated from it by a rule, because
-          // "which system?" and "which slice of all of them?" are different
-          // questions and a reader should not have to infer the boundary.
-          const isScope = node.key === ALL_SOURCES || node.key === FAVORITES_KEY;
+          // The scope rows — everything, starred, and each collection — are not
+          // platforms. They lead the rail and are separated from it by a rule,
+          // because "which system?" and "which slice of all of them?" are
+          // different questions and a reader should not have to infer the
+          // boundary. A collection is a scope in exactly this sense: a set that
+          // spans every system rather than living inside one.
+          const collectionId = collectionIdFromKey(node.key);
+          const isScope =
+            node.key === ALL_SOURCES || node.key === FAVORITES_KEY || collectionId !== null;
           const open = isOpen(node.key);
           const conn = health.get(node.key);
+          // The rule sits under the LAST scope row, wherever that is — under
+          // Favorites when there are no collections, under the final collection
+          // when there are. Hard-coding it to Favorites would draw the boundary
+          // through the middle of the scope group the moment one is created.
+          const lastScope =
+            collectionRowKeys.length > 0
+              ? collectionRowKeys[collectionRowKeys.length - 1]
+              : FAVORITES_KEY;
 
           return (
             <li
               key={node.key}
-              className={node.key === FAVORITES_KEY ? 'mb-2 pb-2 border-b border-border/70' : ''}
+              className={node.key === lastScope ? 'mb-2 pb-2 border-b border-border/70' : ''}
             >
               <Row
                 node={node}
@@ -209,7 +238,9 @@ export const SourceRail = ({
                     ? Layers
                     : node.key === FAVORITES_KEY
                       ? Star
-                      : iconFor(node.key)
+                      : collectionId !== null
+                        ? Bookmark
+                        : iconFor(node.key)
                 }
                 iconTone={node.key === FAVORITES_KEY ? 'warning' : undefined}
                 dot={conn ? healthMeta(conn.state) : null}
@@ -243,6 +274,28 @@ export const SourceRail = ({
           );
         })}
       </ul>
+
+      {/*
+        Creating a collection lives at the bottom of the rail rather than beside
+        the rows, because it is a different kind of act: every row above answers
+        "show me these", and this one makes a new place. Hidden when collapsed —
+        naming a collection needs a dialog, and a 72px rail has nowhere to say
+        what the button would do.
+
+        Rendered only when a handler exists, so the rail stays usable in tests
+        and in any caller that has not wired the manager. A button that opens
+        nothing is worse than no button.
+      */}
+      {!collapsed && onManageCollections && (
+        <button
+          type="button"
+          onClick={onManageCollections}
+          className="mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <Plus size={13} className="shrink-0" />
+          {collections?.length ? 'Manage collections' : 'New collection'}
+        </button>
+      )}
     </nav>
   );
 };

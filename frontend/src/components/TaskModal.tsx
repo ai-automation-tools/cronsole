@@ -13,6 +13,7 @@ import { hhmmInZone, resolveZone, zoneAbbrev, zoneLabel } from '../utils/timezon
 import { isRunnable, runButtonTitle } from '../utils/taskActions';
 import { useRemoveClaudeRoutine } from '../hooks/useClaudeRoutines';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
+import { TaskCollectionMenu } from './TaskCollectionMenu';
 import { EditTaskModal } from './EditTaskModal';
 import { platformName } from '../utils/taskEditing';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
@@ -413,6 +414,13 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               {onToggleFavorite && (
                 <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={20} />
               )}
+              {/*
+                Beside the star, because they are the same kind of act — a
+                Cronsole-side label on a task, touching no platform — and putting
+                them together is what makes "in a collection" read as a peer of
+                "starred" rather than as a filter that lives somewhere else.
+              */}
+              <TaskCollectionMenu task={task} size={19} />
             </div>
             <code className="text-xs text-subtle-foreground bg-background px-2 py-1 rounded">{task.externalId}</code>
             {/*

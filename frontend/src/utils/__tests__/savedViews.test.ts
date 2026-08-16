@@ -324,3 +324,37 @@ describe('describeFilters', () => {
     expect(describeFilters(filters({ status: 'any', system: 'include' }))).toBe('no filters — every task');
   });
 });
+
+describe('collections and saved views', () => {
+  it('strips the collection from a saved view', () => {
+    // A collection id is a FOREIGN KEY. A view that stored one would not degrade
+    // when the collection is deleted — it would resolve to nothing — and sharing
+    // it would send someone an id that means nothing in their account.
+    const stored = viewFiltersFrom({ ...DEFAULT_FILTERS, collection: 'c1', status: 'disabled' });
+    expect(stored.collection).toBe('All');
+    // The dimensions a view DOES own survive.
+    expect(stored.status).toBe('disabled');
+  });
+
+  it('carries the collection in the URL alongside a matched view', () => {
+    // A matched view returns early when serializing, so a rail dimension has to
+    // ride beside the view id or a bookmark fails to reproduce what you see.
+    const params = filtersToParams(
+      { ...DEFAULT_FILTERS, status: 'any', system: 'include', collection: 'c1' },
+      []
+    );
+    expect(params.get('view')).toBe('all');
+    expect(params.get('collection')).toBe('c1');
+  });
+
+  it('reads the collection back beside a view id', () => {
+    const back = filtersFromParams(new URLSearchParams('view=failures&collection=c1'), []);
+    expect(back.collection).toBe('c1');
+    expect(back.outcome).toBe('failing');
+  });
+
+  it('round-trips a collection with no view', () => {
+    const params = filtersToParams({ ...DEFAULT_FILTERS, collection: 'c1' }, []);
+    expect(filtersFromParams(params, []).collection).toBe('c1');
+  });
+});

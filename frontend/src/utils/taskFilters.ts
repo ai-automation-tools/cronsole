@@ -61,6 +61,21 @@ export interface TaskFilters {
   source: string;
   /** `'All'` or an exact category (`'Uncategorized'` for tasks with none). */
   category: string;
+  /**
+   * `'All'`, or the id of a **collection** — a named set of tasks the user
+   * hand-picked.
+   *
+   * The fourth rail dimension, and the only one whose membership is *declared*
+   * rather than *derived*. Every other filter here is a predicate over a task's
+   * own properties, so it can be evaluated against a task in isolation; this one
+   * is a lookup into a set the user assembled, which is exactly what lets a
+   * collection hold two Claude routines and two Windows tasks that share no
+   * property any other dimension could name.
+   *
+   * It holds the **id**, never the name, so renaming a collection does not
+   * invalidate every open URL and saved link pointing at it.
+   */
+  collection: string;
   /** Free text, matched by `matchesTaskSearch`. */
   search: string;
 }
@@ -87,6 +102,7 @@ export const DEFAULT_FILTERS: TaskFilters = {
   favorites: 'any',
   source: 'All',
   category: 'All',
+  collection: 'All',
   search: ''
 };
 
@@ -133,6 +149,23 @@ export function matchesSystem(task: Task, filter: SystemFilter): boolean {
  */
 export function matchesFavorites(task: Task, filter: FavoritesFilter): boolean {
   return filter === 'any' || task.isFavorite === true;
+}
+
+/**
+ * The collection lens — is this task in the named set?
+ *
+ * `collectionIds` is the server's per-viewer answer (the `TaskCollectionMember`
+ * join), optional on the wire for the same reason `isFavorite` is: an older
+ * backend that sends nothing should read as "in no collection" rather than as
+ * meaningful.
+ *
+ * **It matches on membership, not on any property of the task**, which is what
+ * separates this from every other predicate in this file — and why a collection
+ * can hold a Claude routine and a Windows task side by side.
+ */
+export function matchesCollection(task: Task, filter: string): boolean {
+  if (filter === 'All') return true;
+  return task.collectionIds?.includes(filter) === true;
 }
 
 /** Separator between a platform and its subtype in a source key. */
@@ -285,6 +318,7 @@ export type FilterDimension =
   | 'favorites'
   | 'source'
   | 'category'
+  | 'collection'
   | 'due'
   | 'outcome'
   | 'search';
@@ -350,6 +384,7 @@ export function applyTaskFiltersExcept(
       (skip('category') ||
         filters.category === 'All' ||
         (task.category || 'Uncategorized') === filters.category) &&
+      (skip('collection') || matchesCollection(task, filters.collection)) &&
       (skip('due') || matchesDue(task, filters.due, options.now, zone)) &&
       (skip('outcome') || matchesOutcome(task, filters.outcome, options.tiers)) &&
       (skip('search') ||
@@ -396,6 +431,12 @@ export function effectiveFilters(filters: TaskFilters, viewMode: string): TaskFi
  * category *pill* still exists and still clears it — but a pill names a
  * constraint rather than offering the alternatives, and a badge counting
  * something a second control already displays is double-reporting.
+ *
+ * **`collection` is exempt by the same rule, and it is exempt by *omission*** —
+ * this function lists what it counts rather than what it skips. That is
+ * deliberate but easy to misread as an oversight: a new *drawer* filter must be
+ * added here, and a new *rail* dimension must not. The same is true of
+ * `filtersEqual` below.
  */
 export function activeFilterCount(filters: TaskFilters, base: TaskFilters = DEFAULT_FILTERS): number {
   let n = 0;
@@ -467,8 +508,14 @@ export function withheldBy(
  * **The dimensions did not change; where they are displayed did, and that is
  * what this comparison is actually about.**
  *
+ * `collection` joined them when collections shipped, for exactly the same
+ * reason: a collection is a rail row, it is lit while it applies, and the
+ * heading names it. "Failures, in View2" is still the Failures question.
+ *
  * Every other dimension still counts, so flipping the status lens or picking a
- * due window drops you to "Custom" exactly as before.
+ * due window drops you to "Custom" exactly as before. Note this function is
+ * written as a list of what it **compares**, so a rail dimension is excluded by
+ * being left out — adding one here would silently break navigation-keeps-the-view.
  */
 export function filtersEqual(a: TaskFilters, b: TaskFilters): boolean {
   return (

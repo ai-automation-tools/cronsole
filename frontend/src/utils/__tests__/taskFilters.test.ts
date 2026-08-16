@@ -9,6 +9,7 @@ import {
   filtersEqual,
   matchesDue,
   matchesFavorites,
+  matchesCollection,
   matchesOutcome,
   matchesSource,
   matchesStatus,
@@ -527,5 +528,68 @@ describe('filtersEqual', () => {
     expect(
       filtersEqual(DEFAULT_FILTERS, { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' })
     ).toBe(true);
+  });
+});
+
+describe('matchesCollection', () => {
+  const now = new Date('2026-08-16T00:00:00Z');
+  const opts = { now, timezone: 'utc' as const };
+
+  it("passes everything when the lens is 'All'", () => {
+    expect(matchesCollection(task('a'), 'All')).toBe(true);
+  });
+
+  it('matches on declared membership, not on any property of the task', () => {
+    // The distinguishing feature of this dimension: two tasks identical in every
+    // filterable respect can differ here, and two tasks with nothing in common
+    // can match together.
+    const inSet = task('a', { collectionIds: ['c1'] });
+    const notInSet = task('b');
+    expect(matchesCollection(inSet, 'c1')).toBe(true);
+    expect(matchesCollection(notInSet, 'c1')).toBe(false);
+  });
+
+  it('reads a missing collectionIds as "in nothing", never as meaningful', () => {
+    // Same wire rule as isFavorite/isSystem: an older backend that sends no
+    // field degrades to "not a member" rather than matching everything.
+    expect(matchesCollection(task('a'), 'c1')).toBe(false);
+  });
+
+  it('spans platforms — the reason collections exist', () => {
+    const claudeTask = task('a', { platform: 'CLAUDE_CODE', collectionIds: ['c1'] });
+    const windowsTask = task('b', { platform: 'WINDOWS_TASK_SCHEDULER', collectionIds: ['c1'] });
+    const other = task('c', { platform: 'WINDOWS_TASK_SCHEDULER' });
+
+    const got = applyTaskFilters(
+      [claudeTask, windowsTask, other],
+      { ...DEFAULT_FILTERS, collection: 'c1' },
+      opts
+    );
+    expect(got.map(t => t.id)).toEqual(['a', 'b']);
+  });
+
+  it('is a dimension applyTaskFiltersExcept can leave out', () => {
+    // What a rail count is taken over: every other lens, this one neutralized.
+    const tasks = [
+      task('a', { collectionIds: ['c1'] }),
+      task('b'),
+      task('c', { status: 'DISABLED', collectionIds: ['c1'] })
+    ];
+    const filters = { ...DEFAULT_FILTERS, collection: 'c1' };
+
+    expect(applyTaskFilters(tasks, filters, opts).map(t => t.id)).toEqual(['a']);
+    // Leaving it out counts the alternatives — without which a collection row's
+    // count could never exceed what the collection already shows.
+    expect(
+      applyTaskFiltersExcept(tasks, filters, 'collection', opts).map(t => t.id)
+    ).toEqual(['a', 'b']);
+  });
+
+  it('is not counted by the Filters badge, and does not drop a view to Custom', () => {
+    // It is a rail dimension: displayed by the rail, cleared by the rail. Both
+    // of these functions exclude it by OMISSION, which is easy to "fix" wrongly.
+    const withCollection = { ...DEFAULT_FILTERS, collection: 'c1' };
+    expect(activeFilterCount(withCollection)).toBe(0);
+    expect(filtersEqual(withCollection, DEFAULT_FILTERS)).toBe(true);
   });
 });

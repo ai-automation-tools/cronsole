@@ -103,25 +103,40 @@ it is the unfinished half of something already in users' hands rather than somet
       just a verdict*) unmet in the success case, and it means a body assertion silently dropped
       between the tool and the stored job would look exactly like one that ran and passed.
 
-1. **Custom views on the source rail.** Users can already save a named filter combination, but it
-   becomes a chip in the horizontal views bar. Let them save one **into the rail**, alongside
-   *All sources* and *Favorites*.
+1. ~~**Custom views on the source rail.**~~ — **shipped 2026-08-16 as Collections**, and the item
+   as written described the wrong feature.
 
-   **The design question to settle first, because it decides everything else:** the rail is
-   *navigation* (**where** a task lives) and views are *slices* (**which** of them). Favorites
-   crossed that line on 2026-08-15 and it worked, because a starred set reads as a place. A saved
-   view is less obviously one. Two candidate shapes:
-   - **Scopes** — a rail row saves only the rail's own dimensions (source + category + favorites)
-     and composes with whatever view is lit, exactly as Favorites does. Consistent with every other
-     row; cannot express "failing Windows tasks" as one click.
-   - **Pinned views** — a rail row carries a full `TaskFilters`, so picking one *replaces* the view.
-     More powerful, but it makes the rail's rows behave in two different ways depending on origin,
-     which is the folder-vs-source inconsistency that this redesign existed to remove.
+   **What it said** was: let users save a named *filter combination* into the rail, and it agonised
+   over scopes-vs-pinned-views. **What was actually wanted** — confirmed with the requester before
+   any code was written — is to pick *specific tasks* ("two from Claude, two from Windows Task
+   Scheduler") and name the set. Those are different in kind, and no amount of filter-saving reaches
+   the second: **a view's membership is derived, a collection's is declared.** The four tasks in a
+   collection can share no property a filter could name, which is exactly why someone wants one.
+   *(Lesson worth keeping: the design question the item spent three paragraphs on was unanswerable
+   because it was the wrong question. Asking what the feature is **for** dissolved it.)*
 
-   Whichever wins, the invariants it must not break: `filtersEqual` ignores the rail's dimensions,
-   `viewFiltersFrom` strips them, the Filters badge counts none of them, and **every rail count is
-   taken with every rail dimension neutralized** (see the 363-vs-6 bug below). A rail row also needs
-   a delete affordance and an order — `savedViews` is currently an unordered array.
+   Shipped as `TaskCollection` + `TaskCollectionMember` — **`TaskFavorite` made plural and named**,
+   inheriting that model's decisions for its reasons: a per-user join (never a column), and keyed on
+   the Task row **with a cascade**, because a membership is a preference about a task Cronsole is
+   *tracking* and must not outlive it. `POST/GET/PATCH/DELETE /api/collections` plus a single
+   add-and-remove members route; a bookmark button on every task opens a checklist that can also
+   create; the rail gets one row per collection above the platforms, and *Manage collections* at the
+   bottom.
+
+   The invariants the old item listed were all honoured, and one is new: `filtersEqual` and
+   `activeFilterCount` exclude `collection` **by omission** (they list what they compare), which is
+   correct and easy to "fix" wrongly, so both now say so. `viewFiltersFrom` strips it — sharper here
+   than for the other rail dimensions, since **a collection id is a foreign key**: a view storing one
+   would not degrade when the collection is deleted, it would break, and sharing it would hand
+   someone an id that means nothing in their account. Every rail node resets the whole rail scope
+   through one `RAIL_SCOPE_RESET` constant rather than per-node literals, so a fifth dimension cannot
+   be added to some nodes and forgotten on others. Ordering shipped with it (`position`), so the
+   `savedViews`-is-unordered gap is not inherited.
+
+   **Not done:** no MCP surface (deliberate — the same call as favorites, which are also REST-only),
+   no bulk "add selection to collection" (row selection was removed from the dashboard in 2026-08-12
+   and is not coming back), and drag-to-reorder in the manager (the column exists; the UI writes it
+   only on create).
 
 2. ~~**More Cronsole-native job types.**~~ — **shipped 2026-08-15.** Native went from two types to
    four: **`SCRIPT`** (a body you write, run under a fixed-list interpreter) and **`CHECK`** (one

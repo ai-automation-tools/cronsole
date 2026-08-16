@@ -13,6 +13,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Collections — name a set of tasks you picked by hand** (2026-08-16). Put two Claude routines and two Windows tasks in one place, call it whatever you want, and click it in the sidebar. A collection appears in the source rail above your platforms, with its own count.
+
+  **This is not a saved filter, and that is the point.** A view stores *conditions* — active, failing, due today — so its contents are whatever matches when you look. A collection stores *the tasks*. That is the only way to group four things that have nothing in common except that you care about them together: different platforms, different schedules, one of them disabled. No filter can describe that set, because there is nothing to filter on.
+
+  Add a task from the **bookmark button** next to the star on any task — it opens a checklist of your collections, and you can create a new one from there with the task already in it. Collections compose with whatever view is lit, exactly like Favorites: *Failures* + your collection is the failing tasks in it. Manage, rename and delete them from the bottom of the sidebar.
+
+  **Deleting a collection never deletes tasks** — it removes the grouping, and the confirmation says so with the count. Removing a task from Cronsole does remove it from any collection holding it, which is the same rule the star already follows: a membership describes a task Cronsole is tracking, so it goes when the task does.
+
 - **Cronsole-native gained two job types: Scripts and Checks** (2026-08-15). Native could call a URL or run a program that already existed on the backend's machine. It can now run a **script you write in Cronsole itself**, and run a **check** that measures something and compares it to what you expect. Decision record: [ADR 0002](adr/0002-native-job-types.md).
 
   **Scripts store the body, which is the entire point.** Every native "script" until now was a command line pointing at a file that had to exist on the machine the backend runs on — a filesystem you cannot see on a Dockerized stack. So the most important half of the task, *what it actually does*, was the half Cronsole could not show you, include in an export, archive before a delete, or ship as a template. A script job holds the text: pick an interpreter (**PowerShell · PowerShell 7 · Bash · sh · Python · Node**), write the body, and Cronsole writes it to a temp file at run time, runs it, and deletes it — including when it times out and is killed.

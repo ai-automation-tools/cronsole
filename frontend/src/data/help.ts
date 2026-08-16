@@ -589,6 +589,43 @@ const taskActions: HelpTopic = {
 
 /* ── Dashboard controls ──────────────────────────────────────────────────── */
 
+const collections: HelpTopic = {
+  id: 'collections',
+  title: 'Collections',
+  summary:
+    'A set of tasks you pick by hand and name. Unlike a view, it is not a filter — it can hold ' +
+    'tasks from different platforms that have nothing else in common.',
+  points: [
+    {
+      label: 'Declared, not matched',
+      body:
+        'A view stores conditions and shows whatever matches them now. A collection stores the ' +
+        'tasks themselves, which is the only way to group a Claude routine and two Windows ' +
+        'tasks that share no property to filter on.'
+    },
+    {
+      label: 'Add from the bookmark button',
+      body:
+        'Next to the star on any task. It opens a checklist — a task can be in any number of ' +
+        'collections — and you can create a new one from there with the task already in it.'
+    },
+    {
+      label: 'It composes with your view',
+      body:
+        'Failures + your collection is the failing tasks in it. Picking one does clear any ' +
+        'source, folder or starred scope, because a collection spans systems rather than ' +
+        'sitting inside one.'
+    },
+    {
+      label: 'Deleting one never deletes tasks',
+      body:
+        'It removes the grouping only; the tasks stay in Cronsole and keep running. Removing a ' +
+        'task from Cronsole does take it out of any collection — the same rule as the star.'
+    }
+  ],
+  doc: { label: 'UI User Guide › Collections', url: uiGuide('collections') }
+};
+
 const views: HelpTopic = {
   id: 'views',
   title: 'Saved views',
@@ -864,6 +901,7 @@ const TOPIC_LIST: HelpTopic[] = [
   command,
   taskActions,
   views,
+  collections,
   filters,
   importSync,
   templates,

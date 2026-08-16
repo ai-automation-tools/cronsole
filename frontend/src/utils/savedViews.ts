@@ -119,21 +119,27 @@ export function openingFilters(defaults: TaskFilters): TaskFilters {
 /**
  * The filters a saved view should actually store.
  *
- * **Source, category and favorites are all stripped**, because a view owns none
- * of them: they are the source rail — navigation — `filtersEqual` ignores all
- * three, and a view carrying `source: WINDOWS` or `favorites: 'only'` would be a
- * value nothing reads. Dead state that reads as meaningful to the next person is
- * worse than no state, because it invites someone to start honouring it.
+ * **Source, category, favorites and collection are all stripped**, because a
+ * view owns none of them: they are the source rail — navigation — `filtersEqual`
+ * ignores all four, and a view carrying `source: WINDOWS` or `favorites: 'only'`
+ * would be a value nothing reads. Dead state that reads as meaningful to the
+ * next person is worse than no state, because it invites someone to start
+ * honouring it.
  *
- * Category joined source here on 2026-08-15 when the rail took it over, and
- * favorites joined when Favorites became a rail row.
+ * Category joined source here on 2026-08-15 when the rail took it over,
+ * favorites joined when Favorites became a rail row, and collection joined when
+ * collections shipped. **Stripping collection is the one that matters most**: a
+ * collection id is a foreign key, so a view that stored one would break — not
+ * degrade, break — the day that collection is deleted, and it would be shareable
+ * to someone for whom the id resolves to nothing.
  */
 export function viewFiltersFrom(filters: TaskFilters): TaskFilters {
   return {
     ...filters,
     source: DEFAULT_FILTERS.source,
     category: DEFAULT_FILTERS.category,
-    favorites: DEFAULT_FILTERS.favorites
+    favorites: DEFAULT_FILTERS.favorites,
+    collection: DEFAULT_FILTERS.collection
   };
 }
 
@@ -215,7 +221,7 @@ function oneOf<T extends string>(raw: string | null, allowed: T[], fallback: T):
 
 /** Every param this module writes — the caller uses it to spot a bare URL. */
 export const FILTER_PARAM_KEYS = [
-  'view', 'status', 'system', 'outcome', 'due', 'fav', 'source', 'platform', 'category', 'q'
+  'view', 'status', 'system', 'outcome', 'due', 'fav', 'source', 'platform', 'category', 'collection', 'q'
 ] as const;
 
 /**
@@ -264,6 +270,7 @@ export function filtersToParams(
     if (filters.source !== DEFAULT_FILTERS.source) params.set('source', filters.source);
     if (filters.category !== DEFAULT_FILTERS.category) params.set('category', filters.category);
     if (filters.favorites !== DEFAULT_FILTERS.favorites) params.set('fav', filters.favorites);
+    if (filters.collection !== DEFAULT_FILTERS.collection) params.set('collection', filters.collection);
     return params;
   }
   if (filters.status !== DEFAULT_FILTERS.status) params.set('status', filters.status);
@@ -273,6 +280,7 @@ export function filtersToParams(
   if (filters.favorites !== DEFAULT_FILTERS.favorites) params.set('fav', filters.favorites);
   if (filters.source !== DEFAULT_FILTERS.source) params.set('source', filters.source);
   if (filters.category !== DEFAULT_FILTERS.category) params.set('category', filters.category);
+  if (filters.collection !== DEFAULT_FILTERS.collection) params.set('collection', filters.collection);
   if (filters.search.trim()) params.set('q', filters.search.trim());
   return params;
 }
@@ -300,7 +308,8 @@ export function filtersFromParams(
         ...found.filters,
         source: readSource(params),
         category: params.get('category') || DEFAULT_FILTERS.category,
-        favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites)
+        favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites),
+        collection: params.get('collection') || DEFAULT_FILTERS.collection
       };
     }
   }
@@ -312,6 +321,7 @@ export function filtersFromParams(
     favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites),
     source: readSource(params),
     category: params.get('category') || DEFAULT_FILTERS.category,
+    collection: params.get('collection') || DEFAULT_FILTERS.collection,
     search: params.get('q') || ''
   };
 }

@@ -84,7 +84,8 @@ describe('SourceRail', () => {
     expect(onSelect).toHaveBeenCalledWith({
       source: 'WINDOWS_TASK_SCHEDULER',
       category: 'AI-Tools',
-      favorites: 'any'
+      favorites: 'any',
+      collection: 'All'
     });
   });
 
@@ -97,7 +98,7 @@ describe('SourceRail', () => {
     );
 
     fireEvent.click(await screen.findByText('Claude Code'));
-    expect(onSelect).toHaveBeenCalledWith({ source: 'CLAUDE_CODE', category: 'All', favorites: 'any' });
+    expect(onSelect).toHaveBeenCalledWith({ source: 'CLAUDE_CODE', category: 'All', favorites: 'any', collection: 'All' });
   });
 
   it('shows platform health beside the platform it describes', async () => {
@@ -131,6 +132,7 @@ describe('SourceRail', () => {
       source: 'WINDOWS_TASK_SCHEDULER',
       category: 'Microsoft\\Windows\\Defrag',
       favorites: 'any',
+      collection: 'All',
       system: 'include'
     });
   });
@@ -208,7 +210,8 @@ describe('SourceRail', () => {
       expect(onSelect).toHaveBeenCalledWith({
         source: 'WINDOWS_TASK_SCHEDULER',
         category: 'All',
-        favorites: 'any'
+        favorites: 'any',
+        collection: 'All'
       });
     });
 

@@ -34,6 +34,13 @@ export interface Task {
    * empty Favorites view.
    */
   isFavorite?: boolean;
+  /**
+   * Ids of *this viewer's* collections that hold the task — the
+   * `TaskCollectionMember` join, per user, never a column. Ids rather than names
+   * so renaming a collection is one write instead of a re-sync of every task.
+   * Optional on the wire, same degradation rule as `isFavorite`.
+   */
+  collectionIds?: string[];
   // Flattened last-execution summary from GET /api/tasks
   lastRunStatus?: string | null;
   lastRunAt?: string | null;

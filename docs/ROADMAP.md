@@ -81,6 +81,27 @@ Three items, requested directly after the dashboard IA redesign landed. Ordered 
    the visual-regression baselines regenerated — note that masking hides colour, not geometry
    ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
 
+4. **Verify the redesigned dashboard on a phone — it has never been seen at that width.** The
+   top toolbar, the source rail and its drawer all shipped on 2026-08-15 with their responsive
+   classes written and read back as correct, and **not once rendered below `md`**. The browser
+   automation used to check everything else reported `resize_window` as succeeding while
+   `window.innerWidth` stayed at 2124 and `matchMedia('(min-width: 768px)')` stayed `true`, so the
+   breakpoints never fired.
+
+   **The unit suite cannot cover this**: jsdom does not evaluate CSS media queries, so `hidden
+   md:flex` is invisible to it — every test passes whether the class is right or wrong. What needs
+   eyes (or a viewport-setting test) at 375px: the rail `<aside>` disappearing, the *Sources* button
+   beside the page heading opening the drawer, picking a source closing it, the toolbar dropping its
+   labels to icons below `sm`, the breadcrumb being the only thing naming the current folder, and
+   the FAB not colliding with the sticky filter zone. Also worth a look: page padding moved off
+   `<main>` onto each screen in the same change, so a screen that forgot its wrapper is flush to the
+   edge only at small widths.
+
+   **Playwright is the fix, not a manual pass** — the e2e suite already exists (`npm run test:e2e`)
+   and Playwright sets the viewport directly rather than resizing a real window, so this can become
+   a standing check instead of something re-verified by hand every time. The `<375px` requirement is
+   a first-class target (CLAUDE.md §9) and is currently unenforced by anything.
+
 ### 🔴 Start here next session — 2026-08-13 follow-ups
 
 Left open at the end of the 2026-08-13 MCP/Claude test pass and the cron-parsing sweep that came

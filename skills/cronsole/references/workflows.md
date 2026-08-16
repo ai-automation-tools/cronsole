@@ -223,6 +223,21 @@ so `hidden md:flex` is invisible to the 541 unit tests and they pass whether the
 class is right or wrong — the E2E suite is the *only* thing in this repo that
 can see a responsive layout.
 
+**Two things the E2E run costs you, both recoverable, neither obvious:**
+
+```powershell
+# 1. It takes the REAL Windows agent offline and leaves it there (#37): the mock
+#    agent displaces its socket, and the process stays UP while the dashboard
+#    says "Offline - Agent not connected". `cronsole.ps1 status` agrees with the
+#    lie, because it only checks the process.
+Get-Process Cronsole.Agent | Stop-Process -Force
+pwsh scripts/cronsole.ps1 up
+
+# 2. It does NOT rebuild frontend/dist, so anything reached through the proxy
+#    (Tailscale / Cloudflare) is still on the last build (#53).
+cd frontend && npm run build:remote
+```
+
 Before a release, also work the [manual runbooks](../../../docs/testing/manual-testing/README.md)
 — they cover what no suite can (real COM, agent resilience, security at rest).
 

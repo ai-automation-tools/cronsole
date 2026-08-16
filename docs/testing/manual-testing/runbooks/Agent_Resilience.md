@@ -153,7 +153,7 @@ Leave the stack idle after killing an agent mid-run.
 
 **Expect:** the stale-pruning guard clears orphaned "running" state rather than leaving a task
 pinned as running forever. Cross-check
-[`artifacts/cronsole_resilience_2026-07-10.md`](../../../../artifacts/cronsole_resilience_2026-07-10.md).
+[`artifacts/taskhub_resilience_2026-07-10.md`](../../../../artifacts/taskhub_resilience_2026-07-10.md).
 
 ## 10. Survives a reboot
 

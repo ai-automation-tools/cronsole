@@ -226,7 +226,7 @@ cd ..\frontend ; npm audit --omit=dev
 
 **Expect:** **0 production vulnerabilities**. Nothing gates this in CI, so this reading is the
 check. Baseline:
-[`artifacts/cronsole_security_audit_2026-07-10.md`](../../../../artifacts/cronsole_security_audit_2026-07-10.md).
+[`artifacts/taskhub_security_audit_2026-07-10.md`](../../../../artifacts/taskhub_security_audit_2026-07-10.md).
 
 ## 13. No secrets committed
 

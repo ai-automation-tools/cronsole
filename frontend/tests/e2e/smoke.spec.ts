@@ -9,7 +9,9 @@ test.describe('dashboard smoke', () => {
   test('loads the dashboard and renders live task data', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Unified Task Dashboard' })).toBeVisible();
+    // The scope heading, which names what you are looking at ('All Tasks' on a
+    // bare URL). It read 'Unified Task Dashboard' until the 2026-08-15 redesign.
+    await expect(page.getByRole('heading', { name: 'All Tasks' })).toBeVisible();
 
     // The subtitle count only renders if the backend returned tasks, so this
     // single assertion covers frontend → backend → Postgres end to end.

@@ -61,7 +61,14 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
           Job type<HelpButton topic="native-job-type" />
         </span>
         {/* Two rows of two below `sm`: four labelled buttons on one line are
-            unreadable at 375px, which is a first-class target. */}
+            unreadable at 375px, which is a first-class target.
+
+            `py-3` rather than `py-2`, which is what shipped: at 375px these came
+            out **34px** tall against the **42px** platform picker directly above
+            them — the same "pick one of N" control, one field up, 8px shorter for
+            no reason anyone chose. Measured, not guessed (roadmap item 0.4). The
+            type stays `text-xs`: "Check something" at `text-sm` wraps in a
+            half-width column, and a wrapped label is worse than a small one. */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {([
             { value: 'HTTP' as const, label: 'Call a URL', icon: Globe },
@@ -74,7 +81,7 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
               type="button"
               disabled={disabled}
               onClick={() => set('jobType', opt.value)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 ${
+              className={`px-3 py-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 ${
                 value.jobType === opt.value
                   ? 'bg-primary border-primary text-primary-foreground'
                   : 'bg-background border-border text-muted-foreground hover:border-foreground/30'

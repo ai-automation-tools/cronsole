@@ -136,7 +136,10 @@ export const TaskHealthTool = () => {
               slack to distribute. Centring nothing still costs nothing, but it
               reads as a rule that is doing something. */}
           <div className="flex flex-col gap-3 border-t border-border pt-3">
-          <div className="grid grid-cols-4 gap-2">
+          {/* `data-testid` so the visual suite can mask it: these four numbers are
+              live task health, and an unmasked live count inside "static chrome"
+              is what made the Tools baseline fail on a digit change. */}
+          <div className="grid grid-cols-4 gap-2" data-testid="task-health-counts">
             {[
               { label: 'Critical', value: critical, className: 'text-danger-text' },
               { label: 'Attention', value: attention, className: 'text-warning-text' },

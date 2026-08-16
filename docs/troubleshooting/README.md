@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 61 | **Every** E2E test fails (`18 of 18`) with `element(s) not found`, while backend/integration/frontend suites are all green and the app works fine in a browser | A **shared helper** referenced a label the UI no longer uses — `dashboardReady()` waited on the heading *"Unified Task Dashboard"*, which the 2026-08-15 redesign replaced with one naming the current scope. One string, every test. Four more assertions named things the redesign **removed** (the source bar, the System Status panel, `Cronsole (Scripts)`, native's unsupported `Edit action`). **Nothing caught it because `test:e2e` is not in CI**, and no other suite can substitute: jsdom does not evaluate media queries, so `hidden md:flex` is invisible to the unit tests. Anchor helpers on `data-testid`, not labels. **Two repair traps: a mask for a removed element masks nothing, and a test that fails only in a full run is unmasked live data, not flake** | [→](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) |
 | 60 | A schedule with a multi-value hour (`0 9-17 * * 1-5`) is stored **verbatim as UTC** and runs 7–8 hours off — while the hint under the field says *"this schedule has no fixed clock time, so it reads the same in PDT and UTC"* | `shiftCron` correctly declines to shift an hour field that isn't a single number, but returned no **`reason`** — and `ScheduleZoneHint` renders "no reason" as **"the zone is irrelevant"**, so a missing warning became a confident false statement. **Fixed 2026-08-15**: a refusal now asks whether the expression pins a clock time (`hour !== '*'`, or a partial-hour zone with a multi-value minute) and explains itself; genuinely invariant expressions still say nothing. **The general rule: if the empty case has its own message, declining to answer and answering "no problem" are the same code path** | [→](#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter) |
 | 59 | A Cronsole-native `CHECK` that **correctly finds a problem** comes back as HTTP **502** — `run_task` throws, so an agent reports *"I couldn't run the check"* over a message that says the check ran and the endpoint is broken. The dashboard raises a *Failed to run* toast rather than showing a failing result | `POST /api/tasks/:id/run` returned `502` for **every** unsuccessful run. That was right for Windows and Claude, where a failure IS a failure to dispatch — and wrong the moment a job type arrived whose failures are *findings*. `502` means *retry, the gateway had a problem*, so the one job type worth alerting on reported itself in the one way that says ignore this. **Fixed 2026-08-15**: `runTask` gained **`ran`** (orthogonal to `success`), so a job that executed and failed is a **200 carrying `success: false`** and only a genuine failure-to-start is a 502. **The tell: only Cronsole-native can hit it** — it is the one platform where dispatch and execution are the same act | [→](#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check) |
 | 57 | A count beside a filter control disagrees with another count for the same set, and both look right | Two questions sharing one number: *what exists* vs *what clicking reveals*. Anything printed beside a control that changes the list must be **faceted** (every other lens applied); existence counts may only gate whether a control renders | [→](#57-two-counts-for-the-same-set-disagree-on-screen--and-both-are-right) |
@@ -3920,6 +3921,73 @@ branch is a claim and needs the same evidence as any other.
 *First hit: 2026-08-15.* Logged during the 2026-08-13 cron-parsing sweep as *"stores a zoned cron
 7–8 hours off, silently"*; the `ScheduleZoneHint` half — that it was not silent but actively wrong —
 turned up when fixing it.
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 61. The whole E2E suite fails, and every other suite is green
+
+**Symptom.** `npm run test:e2e` fails **every test** — 18 of 18 — with variations of:
+
+```
+Locator: getByRole('heading', { name: 'Unified Task Dashboard' })
+Expected: visible
+Error: element(s) not found
+```
+
+Meanwhile `npm test` passes in backend (715), integration (223) and frontend (541). The app works
+perfectly when you open it.
+
+**Cause.** A **shared helper** referenced a label the UI no longer uses. `dashboardReady()` waited
+for a heading reading *"Unified Task Dashboard"*; the 2026-08-15 IA redesign replaced it with a
+heading that names the current scope (*"All Tasks"*, a source, or a collection). Every test in the
+file calls that helper, so one stale string took the entire suite down.
+
+The same commit stranded four more assertions, and they are worth knowing as a class — each named
+a **thing the redesign removed**:
+
+| Assertion | What happened to it |
+|:---|:---|
+| `[role="group"][aria-label="Task source"]` | the horizontal source **bar**, replaced by the rail |
+| `aside` → `System Status` panel | deleted; per-platform health moved onto the rail row |
+| `Cronsole (Scripts)` | renamed to **Programs** when `SCRIPT` took the name |
+| `Edit action: Unsupported` for native | became supported when `PATCH /:id/job` shipped |
+
+**Why nothing caught it.** `test:e2e` **is not in CI** — it needs a live stack (frontend + backend +
+Postgres + an agent), so it only runs when someone runs it. And no other suite can stand in for it:
+**jsdom does not evaluate CSS media queries**, so `hidden md:flex` is invisible to the unit tests and
+they pass whether the class is right or wrong.
+
+**Fix.** Anchor shared helpers on things that are not labels:
+
+```ts
+// Not a heading whose text names the current scope.
+await expect(page.getByTestId('task-count-line')).toBeVisible();
+await expect(page.getByTestId('task-list')).toBeVisible();
+```
+
+Then port each stranded assertion to where the behaviour actually lives — the rail marks selection
+with `aria-current` (it is navigation, not a toggle), and health is a dot whose `title` carries the
+state as text.
+
+**Two traps while repairing it.**
+
+- **A mask for an element that no longer exists is indistinguishable from no mask.** The visual
+  baselines masked the removed source bar, so they silently stopped masking anything there.
+- **A test that passes alone and fails in a full run is usually unmasked live data, not flake.**
+  `dashboard chrome` differed by 96 pixels only when the mock-agent spec ran first — because that
+  spec changes the missing-task count, and *"Clear 2 Missing"* was inside the screenshot. The Tools
+  tab had the same fault via the Task health tiles. Both are now masked. Reaching for `retries`
+  there would have hidden a real rule this file already states: **screenshot the chrome, assert the
+  content.**
+
+**The general shape.** A test suite is a mirror surface like any doc — it *describes* the UI. The
+difference is that it fails loudly when it drifts, which is only useful **if something runs it**.
+Ask of any suite outside CI: *what would tell me this had stopped working?*
+
+*First hit: 2026-08-16.* Found by starting the mobile-verification pass, not by a failing build.
+The mobile layout it was meant to check turned out to be fine.
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

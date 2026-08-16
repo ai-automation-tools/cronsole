@@ -22,9 +22,16 @@ test.describe.serial('mock Windows agent flows', () => {
   test('syncs a deterministic agent task and runs it from the dashboard', async ({ page }) => {
     await page.goto('/');
 
-    const statusPanel = page.locator('aside').filter({ hasText: 'System Status' });
-    await expect(statusPanel.getByText('Windows')).toBeVisible();
-    await expect(statusPanel.getByText('Online').first()).toBeVisible();
+    // Per-platform health lives on the source rail row now. The sidebar's
+    // "System Status" panel this used to read was deleted in the 2026-08-15
+    // redesign: it listed exactly these platforms with exactly these dots, and a
+    // status readout beside the thing it describes needs no panel of its own.
+    // The `title` carries the state as text, which is what a dot cannot.
+    const rail = page.getByTestId('source-rail');
+    await expect(rail.getByRole('button', { name: /^Windows Task Scheduler/ })).toBeVisible();
+    // The state is on the dot itself, which carries it as text for anyone who
+    // cannot use colour to tell a green circle from an amber one.
+    await expect(rail.getByTitle('Windows Task Scheduler — Online')).toBeVisible();
 
     await page.getByRole('button', { name: 'Import tasks' }).click();
     await expect(page.getByRole('heading', { name: 'Import & Sync' })).toBeVisible();
@@ -159,20 +166,28 @@ test.describe.serial('mock Windows agent flows', () => {
   });
 
   test('shows the agent as offline after the socket disconnects', async ({ page }) => {
+    // Read off the rail's health dot, whose title carries the state as text.
+    // This used to read the sidebar's "System Status" panel, deleted in the
+    // 2026-08-15 redesign — health moved beside the platform it describes.
+    const rail = page.getByTestId('source-rail');
     await page.goto('/');
-    await expect(page.locator('aside').getByText('Online').first()).toBeVisible();
+    await expect(rail.getByTitle('Windows Task Scheduler — Online')).toBeVisible();
 
     agent.disconnect();
     await page.reload();
 
-    await expect(page.locator('aside').getByText('Offline')).toBeVisible();
+    await expect(rail.getByTitle('Windows Task Scheduler — Offline')).toBeVisible();
   });
 
   test('keeps the primary dashboard usable below 375px', async ({ page }) => {
     await page.setViewportSize({ width: 374, height: 812 });
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Unified Task Dashboard' })).toBeVisible();
+    // Anchored on the count line, not a heading label — the heading now names
+    // the scope and changes with it. Below `md` the rail is a drawer, so the
+    // button that opens it is the other thing that must survive this width.
+    await expect(page.getByTestId('task-count-line')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open sources' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Import tasks' })).toBeVisible();
   });
 });

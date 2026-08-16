@@ -209,8 +209,19 @@ one would move the registry off its documented URL). Neither regenerates the reg
 cd backend  && npm test && npm run test:integration   # needs real Postgres
 cd ../frontend && npm run lint && npm test
 cd ../agent  && dotnet test
-cd ../frontend && npm run test:e2e                     # needs a LIVE stack; not in CI
+cd ../frontend && npm run test:e2e                     # needs a LIVE stack; NOT IN CI
 ```
+
+**Run the E2E suite after any dashboard change, and treat "not in CI" as a
+standing hazard rather than a footnote.** On 2026-08-16 it was found **100%
+broken — 18 of 18 tests failing** — and had been since the 2026-08-15 IA
+redesign: one shared helper waited for a heading (`Unified Task Dashboard`) that
+the redesign replaced, and three more tests drove the horizontal source *bar*
+the rail replaced. Every other suite was green the whole time, because none of
+them evaluate CSS or render a real browser. **jsdom does not do media queries**,
+so `hidden md:flex` is invisible to the 541 unit tests and they pass whether the
+class is right or wrong — the E2E suite is the *only* thing in this repo that
+can see a responsive layout.
 
 Before a release, also work the [manual runbooks](../../../docs/testing/manual-testing/README.md)
 — they cover what no suite can (real COM, agent resilience, security at rest).

@@ -64,10 +64,12 @@ something already in users' hands rather than something not started.
       render its body as code, and a `check` action should render as a readable assertion. No
       capability claim on that page is stale, which is why this is a polish item rather than a §11b
       publish blocker — but it is the page strangers judge the catalog by.
-   4. **The four new job-type buttons have not been seen below `md`.** They are a
-      `grid-cols-2 sm:grid-cols-4`, written and read back as correct, and never rendered at 375px —
-      the same gap item 4 below describes for the rail and toolbar, now with more surface in it.
-      Fold into that Playwright pass rather than checking it by hand.
+   4. ~~**The four new job-type buttons have not been seen below `md`.**~~ — **verified and fixed
+      2026-08-16**, in the Playwright pass of item 4. The `grid-cols-2 sm:grid-cols-4` is right:
+      two rows of two at 375px, nothing overflowing. But they rendered **34px** tall against the
+      **42px** platform picker one field up — the same "pick one of N" control, 8px shorter for no
+      reason anyone chose. `py-2` → `py-3`, and the test asserts ≥ 40 against that sibling rather
+      than against an abstract guideline.
    5. ~~**A `CHECK` that correctly reports a problem is returned as a `502`**~~ — **fixed
       2026-08-15**, same day it was found. `runTask` gained **`ran`**, orthogonal to `success`, so a
       job that executed and failed is a **200 carrying `success: false`** and only a real
@@ -188,7 +190,28 @@ something already in users' hands rather than something not started.
    the visual-regression baselines regenerated — note that masking hides colour, not geometry
    ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
 
-4. **Verify the redesigned dashboard on a phone — it has never been seen at that width.** The
+4. ~~**Verify the redesigned dashboard on a phone.**~~ — **done 2026-08-16, and it found the suite
+   itself was dead.** The redesigned mobile layout is **correct**: the rail hides below `md` and its
+   drawer opens from beside the heading, picking a source closes it, Escape closes it, all five
+   toolbar sections fit on one row at 375px with their accessible names intact, nothing overflows
+   horizontally, and the FAB is a 56px target. Ten mobile tests now assert that at a viewport
+   Playwright sets directly, so it is a standing check rather than a thing re-reasoned about.
+
+   **The finding that mattered was not in the layout.** `npm run test:e2e` was **100% broken — 18 of
+   18 failing** — and had been since this very redesign: `dashboardReady()` waited for a heading
+   reading *"Unified Task Dashboard"*, which the redesign replaced with one that names the current
+   scope, and every test calls that helper. Three more drove the horizontal source *bar* the rail
+   replaced, one asserted a "System Status" sidebar panel the redesign deleted, and one demanded
+   `Edit action: Unsupported` for Cronsole-native after `PATCH /:id/job` made it supported. **Every
+   other suite was green throughout**, which is the point: nothing else in this repo renders CSS.
+
+   **`test:e2e` is not in CI, which is why nobody knew.** Wiring it in is a real item and not a
+   small one — several assertions lean on this machine's 363 real tasks and a live agent, and the
+   visual baselines are Windows-rasterized — so it needs a deterministic fixture story first. Doing
+   it hastily would produce a flaky job that gets disabled, which is the failure this suite's own
+   header warns about. Logged under P1 rather than bolted on here.
+
+   *(Original item, kept because the diagnosis was right:)* The
    top toolbar, the source rail and its drawer all shipped on 2026-08-15 with their responsive
    classes written and read back as correct, and **not once rendered below `md`**. The browser
    automation used to check everything else reported `resize_window` as succeeding while
@@ -748,6 +771,21 @@ anything. The header stays red-adjacent rather than green because one item is st
 ## 🟠 P1 — Correctness & honesty
 
 New correctness work lands here as it is found. Everything logged before 2026-08-12 is closed.
+
+- [ ] **Run the E2E suite in CI — it is the only thing that renders CSS, and nothing runs it**
+      *(logged 2026-08-16)*. `npm run test:e2e` sat **100% broken for a day** (18 of 18) after the
+      IA redesign moved a heading every test waited on, while backend 715, integration 223 and
+      frontend 541 stayed green. **jsdom does not evaluate media queries**, so the unit suite passes
+      whether `hidden md:flex` is right or wrong; Playwright is the only layer that can see a
+      responsive layout, a real stylesheet, or a drawer that does not open.
+      **The blocker is fixtures, not the runner.** Several assertions lean on this machine's live
+      data — native job-type rows, a connected agent's health dot, source counts — and the visual
+      baselines are Windows-rasterized while CI is Linux. So it needs (a) a seeded, deterministic
+      dataset the assertions can name, (b) the mock agent from `mock-agent.spec.ts` promoted to the
+      shared harness, and (c) a Linux baseline set, which the per-platform snapshot suffix already
+      supports. **Doing it hastily is worse than not doing it**: a flaky visual job gets disabled,
+      and a disabled suite is what produced this item. Until then, `workflows.md` states the
+      obligation to run it after any dashboard change.
 
 - [x] **`get_task_health` summarized a different population than it listed** *(logged and fixed
       2026-08-13, found by hand-driving the tool against 358 real tasks)*: with `includeSystem: false` the

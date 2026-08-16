@@ -1,8 +1,14 @@
 import type { ComponentProps } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TaskCard } from '../TaskCard';
 import type { Task } from '../../types';
 import { vi, describe, it, expect } from 'vitest';
+
+// The card carries the collections control, which reads `GET /collections`.
+vi.mock('../../api', () => ({
+  api: { get: vi.fn().mockResolvedValue({ data: [] }), post: vi.fn(), patch: vi.fn(), delete: vi.fn() }
+}));
 
 const mockTask: Task = {
   id: 'task-123',
@@ -27,7 +33,12 @@ const renderCard = (task: Task = mockTask, overrides: Partial<ComponentProps<typ
     onToggleStatus: vi.fn(),
     ...overrides
   };
-  render(<TaskCard {...props} />);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <TaskCard {...props} />
+    </QueryClientProvider>
+  );
   return props;
 };
 

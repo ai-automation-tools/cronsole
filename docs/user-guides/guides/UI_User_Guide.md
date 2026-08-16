@@ -196,10 +196,13 @@ common except that you care about them together — a Claude routine, two Window
 folders, and a Cronsole-native check, one of them disabled. No filter can describe that set, because
 there is no shared property to filter on.
 
-- **Add a task from the bookmark button**, next to the star on any task's detail modal. It opens a
-  checklist of your collections; ticking one adds the task immediately. **You can create a
-  collection from there too**, with the task already in it — the moment you notice a task needs a
-  home is the moment you want the home.
+- **Add a task from the bookmark button**, which sits next to the star wherever a task appears —
+  every card in Grid, every row in List, every Kanban and Schedule entry, and the detail modal
+  (where it is labelled *Add to collection* in full). It opens a checklist of your collections;
+  ticking one adds the task immediately. **You can create a collection from there too**, with the
+  task already in it — the moment you notice a task needs a home is the moment you want the home.
+- **The button carries a number** once a task is in something, so you can see at a glance which
+  tasks are already filed without opening anything.
 - **A task can be in any number of collections.** That is why the control is a checklist rather than
   a star: one task, many sets.
 - **Collections compose with your view**, exactly like Favorites. Selecting one keeps whichever view

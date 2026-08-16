@@ -130,6 +130,19 @@ item 4 — they were the same Playwright pass, done once.
    create; the rail gets one row per collection above the platforms, and *Manage collections* at the
    bottom.
 
+   *Follow-up, same day:* **"a bookmark button on every task" was true of one surface out of five.**
+   It shipped in the task detail modal only, because the panel was an absolutely positioned child
+   and every other task surface clips — the List view sits inside `overflow-hidden`, each Kanban
+   column inside `overflow-y-auto`. So the rail offered a place you could navigate to and, in
+   practice, barely fill: adding a task meant opening it first and finding an unlabelled 19px glyph,
+   while the star — the same per-user label on the same tasks — was already on all five. Fixed by
+   portalling the panel to `document.body` with fixed placement (anchored to the trigger, flipped
+   when there is no room below, re-anchored on scroll), which is what let the control go everywhere
+   the star is. The button now carries its membership count, and the modal spells the action out in
+   words. **Both the help topic and the UI guide already claimed "next to the star on any task"** —
+   the docs described the intended design and the code had reached one surface of it, which is the
+   §11a drift running in the unusual direction.
+
    The invariants the old item listed were all honoured, and one is new: `filtersEqual` and
    `activeFilterCount` exclude `collection` **by omission** (they list what they compare), which is
    correct and easy to "fix" wrongly, so both now say so. `viewFiltersFrom` strips it — sharper here
@@ -787,6 +800,23 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       supports. **Doing it hastily is worse than not doing it**: a flaky visual job gets disabled,
       and a disabled suite is what produced this item. Until then, `workflows.md` states the
       obligation to run it after any dashboard change.
+
+- [x] **Every agent verb reported a timeout 15 seconds after succeeding** *(logged and fixed
+      2026-08-16, found while investigating a genuine `List folders` failure the health strip was
+      reporting)*. All ten verbs in `WindowsAgentConnector` scheduled a 15s deadline and never
+      cleared it, so a request answered in 200ms still called `markUnresponsive`. Two of the stale
+      timer's three effects were self-cancelling; the third wrote the health record — so Windows
+      sat at **DEGRADED — "not responding (task:list timed out)"** essentially permanently, and
+      could not stay HEALTHY for more than 15s after its last request. Measured live: sync 200 at
+      03:42:30 → HEALTHY at t+0 and t+8 → DEGRADED at t+17, nothing asked in between.
+      **This is [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+      with the sign flipped** — a status field reporting a failure that never happened rather than
+      health it never observed — and the worse direction, since it trains the reader to ignore the
+      one line that is supposed to mean something. Fixed with a single `agentRequest` helper owning
+      the deadline (the `ran`-stamped-once-in-`executeJob` argument: a rule ten call sites must
+      remember is one the eleventh forgets). Pinned by a table-driven test over all ten verbs that
+      fails 10/10 against the old code
+      ([#62](troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request)).
 
 - [x] **`get_task_health` summarized a different population than it listed** *(logged and fixed
       2026-08-13, found by hand-driving the tool against 358 real tasks)*: with `includeSystem: false` the

@@ -606,8 +606,10 @@ const collections: HelpTopic = {
     {
       label: 'Add from the bookmark button',
       body:
-        'Next to the star on any task. It opens a checklist — a task can be in any number of ' +
-        'collections — and you can create a new one from there with the task already in it.'
+        'Next to the star wherever a task appears — every card, row, Kanban and Schedule entry, ' +
+        'and the detail modal. It opens a checklist — a task can be in any number of collections ' +
+        '— and you can create a new one from there with the task already in it. The button shows ' +
+        'a number once the task is in something.'
     },
     {
       label: 'It composes with your view',

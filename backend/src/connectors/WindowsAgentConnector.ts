@@ -1,3 +1,4 @@
+import type { Socket } from 'socket.io';
 import { PlatformType, HealthState } from '@prisma/client';
 import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, UpdateScheduleOptions, PlatformFolder, ImportTaskResult } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
@@ -36,6 +37,96 @@ const IMPORT_OUTCOMES: ImportTaskResult['outcome'][] = ['created', 'replaced', '
  */
 export const UNRESPONSIVE_EVIDENCE_TTL_MS = 15 * 60 * 1000;
 
+/** How long any single agent verb waits for its response before giving up. */
+export const AGENT_REQUEST_TIMEOUT_MS = 15_000;
+
+/** The two ways a request can finish, handed to the caller's callbacks. */
+type Settle<T> = { resolve: (value: T) => void; reject: (error: Error) => void };
+
+/**
+ * One request/response round trip with the agent.
+ *
+ * It owns the whole lifecycle — register the response listener, send, and hold
+ * a deadline that removes the listener and records the agent as unresponsive.
+ *
+ * **The deadline is cancelled the moment the request settles, and that is the
+ * entire reason this helper exists.** Each of the ten verbs used to schedule
+ * its own `setTimeout` and never clear it, so a call that came back in 200ms
+ * still ran `markUnresponsive` fifteen seconds later. The stale `reject`/
+ * `resolve` was harmless — the promise had settled — which is exactly why this
+ * survived: the only surviving effect was a *stamp on the health record*.
+ * Windows therefore reported "Agent connected but not responding (task:list
+ * timed out)" fifteen seconds after every successful sync, and could not stay
+ * HEALTHY for longer than that between requests. Measured live: sync HTTP 200
+ * at 03:42:30 → HEALTHY at t+0s and t+8s → DEGRADED at t+17s, with nothing
+ * asked of the agent in between.
+ *
+ * That is [#40](docs/troubleshooting/README.md#40) with the sign flipped. #40
+ * was a status field reporting health it had not observed; this reported a
+ * *failure that never happened*, which is the same dishonesty pointed the other
+ * way — and the more expensive one, because it trains the reader to ignore the
+ * one line that is supposed to mean something is wrong.
+ *
+ * It is a helper rather than ten `clearTimeout` calls for the reason `ran` is
+ * stamped once inside `executeJob`: a rule every call site must remember is a
+ * rule the eleventh verb will forget, and this failure is silent by
+ * construction — nothing throws, no test goes red, and the only witness is a
+ * dashboard quietly slandering a working agent.
+ *
+ * `onResponse` receives every payload on `responseEvent` and settles only the
+ * ones that belong to it — several verbs share a channel and must match on the
+ * task path first. A payload that is not ours leaves both the listener and the
+ * deadline in place, which is what makes that filtering safe.
+ */
+function agentRequest<T>(
+  socket: Socket,
+  userId: string,
+  verb: string,
+  responseEvent: string,
+  send: () => void,
+  onResponse: (payload: any, settle: Settle<T>) => void,
+  onTimeout: (settle: Settle<T>) => void
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      socket.off(responseEvent, handler);
+    };
+
+    // Every exit runs through here, so the listener and the deadline are
+    // released exactly once whichever path finishes first.
+    const settle: Settle<T> = {
+      resolve: value => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      },
+      reject: error => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      }
+    };
+
+    const handler = (payload: any) => onResponse(payload, settle);
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      // The only place a timeout is ever recorded. Reached only when the agent
+      // really did not answer within the window.
+      agentManager.markUnresponsive(userId, verb);
+      onTimeout(settle);
+    }, AGENT_REQUEST_TIMEOUT_MS);
+
+    socket.on(responseEvent, handler);
+    send();
+  });
+}
+
 /** Parse an agent-supplied timestamp, rejecting nulls and pre-2000 sentinels. */
 function parseNextRun(value: unknown): Date | null {
   if (!value || (typeof value !== 'string' && typeof value !== 'number')) return null;
@@ -56,12 +147,12 @@ export class WindowsAgentConnector implements PlatformConnector {
       throw new Error('Agent offline');
     }
 
-    return new Promise((resolve, reject) => {
-      // Listen for the one-time response
-      const handler = (payload: any) => {
-        socket.off('task:full_list', handler);
+    return agentRequest<TaskInfo[]>(
+      socket, userId, 'task:list', 'task:full_list',
+      () => socket.emit('task:list'),
+      (payload, settle) => {
         if (payload && payload.tasks) {
-          resolve(payload.tasks.map((t: any) => ({
+          settle.resolve(payload.tasks.map((t: any) => ({
             externalId: t.path,
             name: t.name,
             status: (t.state === 'Ready' || t.state === 'Running') ? 'ACTIVE' : 'DISABLED',
@@ -70,20 +161,11 @@ export class WindowsAgentConnector implements PlatformConnector {
             metadata: t
           })));
         } else {
-          reject(new Error('Invalid task list received from agent'));
+          settle.reject(new Error('Invalid task list received from agent'));
         }
-      };
-
-      socket.on('task:full_list', handler);
-      socket.emit('task:list');
-
-      // Timeout after 15s
-      setTimeout(() => {
-        socket.off('task:full_list', handler);
-        agentManager.markUnresponsive(userId, 'task:list');
-        reject(new Error('Agent sync timeout'));
-      }, 15000);
-    });
+      },
+      settle => settle.reject(new Error('Agent sync timeout'))
+    );
   }
 
   async runTask(externalId: string, config: any): Promise<{ success: boolean; platformRunId?: string; message?: string }> {
@@ -94,26 +176,16 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { success: false, message: 'Agent offline' };
     }
 
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
+    return agentRequest<{ success: boolean; platformRunId?: string; message?: string }>(
+      socket, userId, 'task:run', 'task:executed',
+      () => emitSignedCommand(socket, { event: 'task:run', taskPath: externalId }),
+      (payload, settle) => {
         if (payload.taskExternalId === externalId) {
-          socket.off('task:executed', handler);
-          resolve({
-            success: payload.success,
-            message: payload.output
-          });
+          settle.resolve({ success: payload.success, message: payload.output });
         }
-      };
-
-      socket.on('task:executed', handler);
-      emitSignedCommand(socket, { event: 'task:run', taskPath: externalId });
-
-      setTimeout(() => {
-        socket.off('task:executed', handler);
-        agentManager.markUnresponsive(userId, 'task:run');
-        resolve({ success: false, message: 'Agent trigger timeout' });
-      }, 15000);
-    });
+      },
+      settle => settle.resolve({ success: false, message: 'Agent trigger timeout' })
+    );
   }
 
   async deleteTask(externalId: string, config: any): Promise<{ success: boolean; message?: string }> {
@@ -124,26 +196,16 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { success: false, message: 'Agent offline' };
     }
 
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
+    return agentRequest<{ success: boolean; message?: string }>(
+      socket, userId, 'task:delete', 'task:deleted',
+      () => emitSignedCommand(socket, { event: 'task:delete', taskPath: externalId }),
+      (payload, settle) => {
         if (payload.taskExternalId === externalId) {
-          socket.off('task:deleted', handler);
-          resolve({
-            success: payload.success,
-            message: payload.message
-          });
+          settle.resolve({ success: payload.success, message: payload.message });
         }
-      };
-
-      socket.on('task:deleted', handler);
-      emitSignedCommand(socket, { event: 'task:delete', taskPath: externalId });
-
-      setTimeout(() => {
-        socket.off('task:deleted', handler);
-        agentManager.markUnresponsive(userId, 'task:delete');
-        resolve({ success: false, message: 'Agent delete timeout' });
-      }, 15000);
-    });
+      },
+      settle => settle.resolve({ success: false, message: 'Agent delete timeout' })
+    );
   }
 
   /**
@@ -159,10 +221,11 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { success: false, folders: [], message: 'Agent offline' };
     }
 
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
-        socket.off('task:folders_list', handler);
-        resolve({
+    return agentRequest<{ success: boolean; folders: PlatformFolder[]; message?: string }>(
+      socket, userId, 'task:folders', 'task:folders_list',
+      () => socket.emit('task:folders', {}),
+      (payload, settle) => {
+        settle.resolve({
           success: !!payload?.success,
           folders: Array.isArray(payload?.folders)
             ? payload.folders.map((f: any): PlatformFolder => ({
@@ -173,17 +236,9 @@ export class WindowsAgentConnector implements PlatformConnector {
             : [],
           message: payload?.message
         });
-      };
-
-      socket.on('task:folders_list', handler);
-      socket.emit('task:folders', {});
-
-      setTimeout(() => {
-        socket.off('task:folders_list', handler);
-        agentManager.markUnresponsive(userId, 'task:folders');
-        resolve({ success: false, folders: [], message: 'Agent folder list timeout' });
-      }, 15000);
-    });
+      },
+      settle => settle.resolve({ success: false, folders: [], message: 'Agent folder list timeout' })
+    );
   }
 
   async exportTask(externalId: string, config: any): Promise<{ success: boolean; xml?: string; message?: string }> {
@@ -196,27 +251,20 @@ export class WindowsAgentConnector implements PlatformConnector {
 
     // Read-only, like syncTasks — no per-command signature (the socket is
     // authenticated at the handshake). The agent returns the task's native XML.
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
+    return agentRequest<{ success: boolean; xml?: string; message?: string }>(
+      socket, userId, 'task:export', 'task:exported',
+      () => socket.emit('task:export', { taskPath: externalId }),
+      (payload, settle) => {
         if (payload.taskExternalId === externalId) {
-          socket.off('task:exported', handler);
-          resolve({
+          settle.resolve({
             success: payload.success,
             xml: payload.xml,
             message: payload.message
           });
         }
-      };
-
-      socket.on('task:exported', handler);
-      socket.emit('task:export', { taskPath: externalId });
-
-      setTimeout(() => {
-        socket.off('task:exported', handler);
-        agentManager.markUnresponsive(userId, 'task:export');
-        resolve({ success: false, message: 'Agent export timeout' });
-      }, 15000);
-    });
+      },
+      settle => settle.resolve({ success: false, message: 'Agent export timeout' })
+    );
   }
 
   /**
@@ -242,11 +290,18 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { success: false, outcome: 'refused', message: 'Agent offline', foldersCreated: [] };
     }
 
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
+    return agentRequest<ImportTaskResult>(
+      socket, userId, 'task:import', 'task:imported',
+      () => emitSignedCommand(socket, {
+        event: 'task:import',
+        taskPath: externalId,
+        xml,
+        overwrite: options.overwrite,
+        createFolders: options.createFolders
+      }),
+      (payload, settle) => {
         if (payload.taskExternalId === externalId) {
-          socket.off('task:imported', handler);
-          resolve({
+          settle.resolve({
             success: !!payload.success,
             // Trust the agent's own verb, but never let an unrecognized one read
             // as success: an outcome we can't interpret is a refusal we can.
@@ -257,28 +312,14 @@ export class WindowsAgentConnector implements PlatformConnector {
               : []
           });
         }
-      };
-
-      socket.on('task:imported', handler);
-      emitSignedCommand(socket, {
-        event: 'task:import',
-        taskPath: externalId,
-        xml,
-        overwrite: options.overwrite,
-        createFolders: options.createFolders
-      });
-
-      setTimeout(() => {
-        socket.off('task:imported', handler);
-        agentManager.markUnresponsive(userId, 'task:import');
-        resolve({
-          success: false,
-          outcome: 'refused',
-          message: 'Agent restore timeout',
-          foldersCreated: []
-        });
-      }, 15000);
-    });
+      },
+      settle => settle.resolve({
+        success: false,
+        outcome: 'refused',
+        message: 'Agent restore timeout',
+        foldersCreated: []
+      })
+    );
   }
 
   async setTaskStatus(externalId: string, enabled: boolean, config: any): Promise<{ success: boolean; message?: string }> {
@@ -289,26 +330,16 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { success: false, message: 'Agent offline' };
     }
 
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
+    return agentRequest<{ success: boolean; message?: string }>(
+      socket, userId, 'task:set_status', 'task:status_set',
+      () => emitSignedCommand(socket, { event: 'task:set_status', taskPath: externalId, enabled }),
+      (payload, settle) => {
         if (payload.taskExternalId === externalId) {
-          socket.off('task:status_set', handler);
-          resolve({
-            success: payload.success,
-            message: payload.message
-          });
+          settle.resolve({ success: payload.success, message: payload.message });
         }
-      };
-
-      socket.on('task:status_set', handler);
-      emitSignedCommand(socket, { event: 'task:set_status', taskPath: externalId, enabled });
-
-      setTimeout(() => {
-        socket.off('task:status_set', handler);
-        agentManager.markUnresponsive(userId, 'task:set_status');
-        resolve({ success: false, message: 'Agent status update timeout' });
-      }, 15000);
-    });
+      },
+      settle => settle.resolve({ success: false, message: 'Agent status update timeout' })
+    );
   }
 
   /**
@@ -340,26 +371,16 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { success: false, message: 'Agent offline' };
     }
 
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
+    return agentRequest<{ success: boolean; message?: string; clientError?: boolean }>(
+      socket, userId, 'task:update_schedule', 'task:schedule_updated',
+      () => emitSignedCommand(socket, { event: 'task:update_schedule', taskPath: externalId, trigger }),
+      (payload, settle) => {
         if (payload.taskExternalId === externalId) {
-          socket.off('task:schedule_updated', handler);
-          resolve({
-            success: payload.success,
-            message: payload.message
-          });
+          settle.resolve({ success: payload.success, message: payload.message });
         }
-      };
-
-      socket.on('task:schedule_updated', handler);
-      emitSignedCommand(socket, { event: 'task:update_schedule', taskPath: externalId, trigger });
-
-      setTimeout(() => {
-        socket.off('task:schedule_updated', handler);
-        agentManager.markUnresponsive(userId, 'task:update_schedule');
-        resolve({ success: false, message: 'Agent schedule update timeout' });
-      }, 15000);
-    });
+      },
+      settle => settle.resolve({ success: false, message: 'Agent schedule update timeout' })
+    );
   }
 
   async updateActions(externalId: string, input: UpdateActionsInput, config: any): Promise<{ success: boolean; message?: string }> {
@@ -370,35 +391,25 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { success: false, message: 'Agent offline' };
     }
 
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
-        if (payload.taskExternalId === externalId) {
-          socket.off('task:updated', handler);
-          resolve({
-            success: payload.success,
-            message: payload.message
-          });
-        }
-      };
-
-      socket.on('task:updated', handler);
+    return agentRequest<{ success: boolean; message?: string }>(
+      socket, userId, 'task:update', 'task:updated',
       // The action, working dir, description, and run level are all covered by
       // the command signature (see agentAuth.ts commandMessage 'task:update').
-      emitSignedCommand(socket, {
+      () => emitSignedCommand(socket, {
         event: 'task:update',
         taskPath: externalId,
         action: input.action,
         workingDirectory: input.workingDirectory,
         description: input.description,
         runLevel: input.runLevel
-      });
-
-      setTimeout(() => {
-        socket.off('task:updated', handler);
-        agentManager.markUnresponsive(userId, 'task:update');
-        resolve({ success: false, message: 'Agent action update timeout' });
-      }, 15000);
-    });
+      }),
+      (payload, settle) => {
+        if (payload.taskExternalId === externalId) {
+          settle.resolve({ success: payload.success, message: payload.message });
+        }
+      },
+      settle => settle.resolve({ success: false, message: 'Agent action update timeout' })
+    );
   }
 
   /**
@@ -503,11 +514,38 @@ export class WindowsAgentConnector implements PlatformConnector {
       return { success: false, message: 'Agent offline', foldersCreated: [] };
     }
 
-    return new Promise((resolve) => {
-      const handler = (payload: any) => {
+    // Structure the command into { executable, args[] } so the agent registers
+    // a direct ExecAction with no shell (closes the cmd.exe injection sink).
+    // Prefer the action the template route resolved from raw parameters
+    // (per-token substitution — a parameter can't split into extra args);
+    // fall back to tokenizing the command string for plain create/clone flows.
+    // Both the action and the trigger are covered by the command signature.
+    const action = options?.action ?? toStructuredAction(command);
+    const trigger = options?.trigger ?? null;
+
+    return agentRequest<{ success: boolean; externalId?: string; message?: string; foldersCreated: string[] }>(
+      socket, userId, 'task:create', 'task:created',
+      // The folder is signed: it decides WHERE the task lands, and Windows
+      // silently overwrites a same-named task in the same folder — so an
+      // unsigned folder would let an on-path attacker redirect a create onto an
+      // existing task. Normalized here so the string the agent verifies is
+      // byte-identical to the one we signed.
+      () => emitSignedCommand(socket, {
+        event: 'task:create',
+        name,
+        schedule,
+        command,
+        action,
+        trigger,
+        folder: normalizeWindowsTaskFolder(options?.folder ?? DEFAULT_TASK_FOLDER),
+        // Coerced to a real boolean rather than passed through: it is signed, so
+        // an undefined here and a `false` on the agent would produce different
+        // canonical strings and fail every create.
+        createFolder: options?.createFolder === true
+      }),
+      (payload, settle) => {
         if (payload.name === name) {
-          socket.off('task:created', handler);
-          resolve({
+          settle.resolve({
             success: payload.success,
             externalId: payload.path,
             message: payload.message,
@@ -521,42 +559,8 @@ export class WindowsAgentConnector implements PlatformConnector {
               : []
           });
         }
-      };
-
-      // Structure the command into { executable, args[] } so the agent registers
-      // a direct ExecAction with no shell (closes the cmd.exe injection sink).
-      // Prefer the action the template route resolved from raw parameters
-      // (per-token substitution — a parameter can't split into extra args);
-      // fall back to tokenizing the command string for plain create/clone flows.
-      // Both the action and the trigger are covered by the command signature.
-      const action = options?.action ?? toStructuredAction(command);
-      const trigger = options?.trigger ?? null;
-
-      socket.on('task:created', handler);
-      // The folder is signed: it decides WHERE the task lands, and Windows
-      // silently overwrites a same-named task in the same folder — so an
-      // unsigned folder would let an on-path attacker redirect a create onto an
-      // existing task. Normalized here so the string the agent verifies is
-      // byte-identical to the one we signed.
-      emitSignedCommand(socket, {
-        event: 'task:create',
-        name,
-        schedule,
-        command,
-        action,
-        trigger,
-        folder: normalizeWindowsTaskFolder(options?.folder ?? DEFAULT_TASK_FOLDER),
-        // Coerced to a real boolean rather than passed through: it is signed, so
-        // an undefined here and a `false` on the agent would produce different
-        // canonical strings and fail every create.
-        createFolder: options?.createFolder === true
-      });
-
-      setTimeout(() => {
-        socket.off('task:created', handler);
-        agentManager.markUnresponsive(userId, 'task:create');
-        resolve({ success: false, message: 'Agent creation timeout', foldersCreated: [] });
-      }, 15000);
-    });
+      },
+      settle => settle.resolve({ success: false, message: 'Agent creation timeout', foldersCreated: [] })
+    );
   }
 }

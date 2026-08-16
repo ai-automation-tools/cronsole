@@ -940,3 +940,87 @@ describe('WindowsAgentConnector', () => {
     });
   });
 });
+
+/**
+ * A verb that SUCCEEDS must never report a timeout afterwards.
+ *
+ * Every verb used to schedule its 15-second deadline and never cancel it, so a
+ * request answered in 200ms still ran `markUnresponsive` a quarter of a minute
+ * later. The stale `resolve`/`reject` was a no-op — the promise had settled —
+ * so the only surviving effect was a stamp on the health record, and Windows
+ * reported "Agent connected but not responding (task:list timed out)" fifteen
+ * seconds after every successful sync. It could not stay HEALTHY longer than
+ * that between requests.
+ *
+ * Table-driven over all ten verbs on purpose: the defect was ten copies of one
+ * mistake, and the next verb is the one at risk. A new agent verb belongs in
+ * this table.
+ */
+describe('a successful agent request cancels its own deadline', () => {
+  const CONFIG = { userId: 'test_user' };
+  const TRIGGER = { type: 'Daily' as const, startBoundary: '03:00', daysInterval: 1 };
+  const ACTION_INPUT = {
+    action: { executable: 'cmd.exe', args: [] },
+    workingDirectory: '',
+    description: '',
+    runLevel: 'least' as const
+  };
+
+  const ROUND_TRIPS: {
+    verb: string;
+    responseEvent: string;
+    payload: Record<string, unknown>;
+    call: (c: WindowsAgentConnector) => Promise<unknown>;
+  }[] = [
+    { verb: 'task:list', responseEvent: 'task:full_list', payload: { tasks: [] },
+      call: c => c.syncTasks(CONFIG) },
+    { verb: 'task:run', responseEvent: 'task:executed', payload: { taskExternalId: '\T', success: true },
+      call: c => c.runTask('\T', CONFIG) },
+    { verb: 'task:delete', responseEvent: 'task:deleted', payload: { taskExternalId: '\T', success: true },
+      call: c => c.deleteTask('\T', CONFIG) },
+    { verb: 'task:folders', responseEvent: 'task:folders_list', payload: { success: true, folders: [] },
+      call: c => c.listFolders(CONFIG) },
+    { verb: 'task:export', responseEvent: 'task:exported', payload: { taskExternalId: '\T', success: true, xml: '<Task/>' },
+      call: c => c.exportTask('\T', CONFIG) },
+    { verb: 'task:import', responseEvent: 'task:imported', payload: { taskExternalId: '\T', success: true, outcome: 'created' },
+      call: c => c.importTask('\T', '<Task/>', { overwrite: false, createFolders: false }, CONFIG) },
+    { verb: 'task:set_status', responseEvent: 'task:status_set', payload: { taskExternalId: '\T', success: true },
+      call: c => c.setTaskStatus('\T', true, CONFIG) },
+    { verb: 'task:update_schedule', responseEvent: 'task:schedule_updated', payload: { taskExternalId: '\T', success: true },
+      call: c => c.updateSchedule('\T', '0 3 * * *', CONFIG, { trigger: TRIGGER }) },
+    { verb: 'task:update', responseEvent: 'task:updated', payload: { taskExternalId: '\T', success: true },
+      call: c => c.updateActions('\T', ACTION_INPUT, CONFIG) },
+    { verb: 'task:create', responseEvent: 'task:created', payload: { name: 'T', success: true, path: '\Cronsole\T' },
+      call: c => c.createTask('T', '0 3 * * *', 'notepad.exe', CONFIG) }
+  ];
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it.each(ROUND_TRIPS)('$verb', async ({ responseEvent, payload, call }) => {
+    vi.useFakeTimers();
+    const socket = {
+      emit: vi.fn(),
+      on: vi.fn((event: string, handler: (p: unknown) => void) => {
+        if (event === responseEvent) setTimeout(() => handler(payload), 10);
+      }),
+      off: vi.fn(),
+      data: { sessionKey: SESSION_KEY }
+    };
+    vi.mocked(agentManager.getSocket).mockReturnValue(socket as never);
+
+    const pending = call(new WindowsAgentConnector());
+    await vi.advanceTimersByTimeAsync(10);
+    await pending;
+
+    // The request is finished. Nothing may happen to the health record after
+    // this, however long the process stays up.
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(agentManager.markUnresponsive).not.toHaveBeenCalled();
+    // And the listener is released rather than accumulating one per request.
+    expect(socket.off).toHaveBeenCalledWith(responseEvent, expect.any(Function));
+  });
+});

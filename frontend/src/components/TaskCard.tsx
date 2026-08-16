@@ -5,6 +5,7 @@ import { platformLabel, platformBadgeClass } from '../platform';
 import { TaskRowActions } from './TaskRowActions';
 import { TaskSchedule } from './TaskSchedule';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
+import { TaskCollectionMenu } from './TaskCollectionMenu';
 
 interface TaskCardProps {
   task: Task;
@@ -89,6 +90,14 @@ export const TaskCard = memo(({
             {onToggleFavorite && (
               <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={16} />
             )}
+            {/*
+              Beside the star on every task surface, not just in the modal: both
+              are Cronsole-side labels on a task that touch no platform, and
+              collections are a rail dimension you can navigate to — so the
+              control that fills one has to be as reachable as the one that
+              fills Favorites.
+            */}
+            <TaskCollectionMenu task={task} size={16} />
             <div className="flex items-center gap-1.5 bg-background px-2 py-1 rounded-lg border border-border">
               <div className={`h-2 w-2 rounded-full ${task.status === 'ACTIVE' ? 'bg-success' : 'bg-muted'}`}></div>
               <span className="text-[10px] font-bold text-muted-foreground">{task.status}</span>

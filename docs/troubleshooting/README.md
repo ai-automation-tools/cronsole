@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 62 | Windows reads **DEGRADED — "Agent connected but not responding (task:list timed out)"** almost permanently, and the health strip names a failed verb, over an agent that answers everything instantly. Sync works, folders list, tasks run | **Every verb scheduled a 15-second timeout and never cancelled it**, so a request answered in 200ms still ran `markUnresponsive` fifteen seconds later. The stale `resolve`/`reject` was a harmless no-op — the promise had settled — so the *only* surviving effect was a stamp on the health record, which is why it was invisible for so long. Windows could not stay HEALTHY longer than 15s after its last request. **Fixed 2026-08-16**: one `agentRequest` helper owns the deadline and clears it when the request settles. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) with the sign flipped — a status field reporting a failure that never happened**, and the more expensive direction, because it teaches the reader to ignore the one line meant to mean something is wrong | [→](#62-windows-reports-not-responding-15-seconds-after-every-successful-request) |
 | 61 | **Every** E2E test fails (`18 of 18`) with `element(s) not found`, while backend/integration/frontend suites are all green and the app works fine in a browser | A **shared helper** referenced a label the UI no longer uses — `dashboardReady()` waited on the heading *"Unified Task Dashboard"*, which the 2026-08-15 redesign replaced with one naming the current scope. One string, every test. Four more assertions named things the redesign **removed** (the source bar, the System Status panel, `Cronsole (Scripts)`, native's unsupported `Edit action`). **Nothing caught it because `test:e2e` is not in CI**, and no other suite can substitute: jsdom does not evaluate media queries, so `hidden md:flex` is invisible to the unit tests. Anchor helpers on `data-testid`, not labels. **Two repair traps: a mask for a removed element masks nothing, and a test that fails only in a full run is unmasked live data, not flake** | [→](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) |
 | 60 | A schedule with a multi-value hour (`0 9-17 * * 1-5`) is stored **verbatim as UTC** and runs 7–8 hours off — while the hint under the field says *"this schedule has no fixed clock time, so it reads the same in PDT and UTC"* | `shiftCron` correctly declines to shift an hour field that isn't a single number, but returned no **`reason`** — and `ScheduleZoneHint` renders "no reason" as **"the zone is irrelevant"**, so a missing warning became a confident false statement. **Fixed 2026-08-15**: a refusal now asks whether the expression pins a clock time (`hour !== '*'`, or a partial-hour zone with a multi-value minute) and explains itself; genuinely invariant expressions still say nothing. **The general rule: if the empty case has its own message, declining to answer and answering "no problem" are the same code path** | [→](#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter) |
 | 59 | A Cronsole-native `CHECK` that **correctly finds a problem** comes back as HTTP **502** — `run_task` throws, so an agent reports *"I couldn't run the check"* over a message that says the check ran and the endpoint is broken. The dashboard raises a *Failed to run* toast rather than showing a failing result | `POST /api/tasks/:id/run` returned `502` for **every** unsuccessful run. That was right for Windows and Claude, where a failure IS a failure to dispatch — and wrong the moment a job type arrived whose failures are *findings*. `502` means *retry, the gateway had a problem*, so the one job type worth alerting on reported itself in the one way that says ignore this. **Fixed 2026-08-15**: `runTask` gained **`ran`** (orthogonal to `success`), so a job that executed and failed is a **200 carrying `success: false`** and only a genuine failure-to-start is a 502. **The tell: only Cronsole-native can hit it** — it is the one platform where dispatch and execution are the same act | [→](#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check) |
@@ -3988,6 +3989,90 @@ Ask of any suite outside CI: *what would tell me this had stopped working?*
 
 *First hit: 2026-08-16.* Found by starting the mobile-verification pass, not by a failing build.
 The mobile layout it was meant to check turned out to be fine.
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 62. Windows reports "not responding" 15 seconds after every successful request
+
+**Symptom.** The dashboard health strip reads:
+
+```
+Windows Task Scheduler degraded - Agent connected but not responding (task:list timed out)
+```
+
+— and it says so nearly all the time, over an agent that is demonstrably fine. Sync returns 362
+tasks, folders enumerate, tasks run. `cronsole.ps1 status` says ALL UP. Pressing **Sync** clears it
+for a few seconds and then it comes back on its own, with no request in between.
+
+**The tell.** It flips *without anything happening*. Drive `/api/tasks/health` around a successful
+sync and the transition is exact:
+
+```
+[03:42:30] sync HTTP 200
+[03:42:30] t+0s   HEALTHY
+[03:42:38] t+8s   HEALTHY
+[03:42:47] t+17s  DEGRADED - "Agent connected but not responding (task:list timed out)"
+```
+
+Nothing was asked of the agent between t+0 and t+17. The timeout being reported is the one belonging
+to the request that had already **succeeded**.
+
+**Cause.** Every verb in `WindowsAgentConnector` was shaped like this:
+
+```ts
+socket.on('task:full_list', handler);
+socket.emit('task:list');
+
+setTimeout(() => {                                // never cleared
+  socket.off('task:full_list', handler);
+  agentManager.markUnresponsive(userId, 'task:list');
+  reject(new Error('Agent sync timeout'));
+}, 15000);
+```
+
+The timer fired 15 seconds later **whether or not the request had already completed**. Two of its
+three effects were genuinely harmless — `socket.off` on an already-removed handler is a no-op, and
+`reject` on a settled promise is ignored — which is exactly why this survived: the *third* effect,
+`markUnresponsive`, writes to the liveness record, and nothing else in the request path could
+observe that it was wrong.
+
+So Windows could never stay HEALTHY for more than 15 seconds after its last agent request, and the
+45-second dashboard poll would almost always land in the poisoned window. All **ten** verbs had it.
+
+**Why it matters more than a wrong colour.** `getHealth` is deliberately built to report *evidence,
+never preconditions* ([#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)),
+and the evidence it was handed was fabricated. #40 was a status field claiming health it had not
+observed; this is the same dishonesty pointed the other way — **a failure that never happened** —
+and it is the more expensive direction. A dashboard that cries wolf on a working agent trains you to
+ignore the one line whose entire job is to mean something is wrong, which is precisely the state you
+are in when a *real* [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+wedge happens.
+
+**Fix.** One `agentRequest` helper (`backend/src/connectors/WindowsAgentConnector.ts`) owns the whole
+round trip — listener, send, deadline — and cancels the deadline the moment the request settles.
+`markUnresponsive` is now reachable from exactly one place, on the one path where the agent really
+did not answer.
+
+It is a helper rather than ten `clearTimeout` calls for the same reason `ran` is stamped once inside
+`executeJob`: **a rule every call site must remember is a rule the eleventh verb will forget**, and
+this failure mode is silent by construction — nothing throws, no suite goes red, and the only
+witness is a dashboard quietly slandering a working agent.
+
+Pinned by a table-driven test over all ten verbs (a successful round trip must never call
+`markUnresponsive`), which fails **10/10** against the old code. A new agent verb belongs in that
+table.
+
+**The general shape.** *A timer that outlives the thing it was guarding is still running, and
+whatever it writes is a claim about the present made from a stale intention.* Ask of any
+`setTimeout` used as a deadline: **what happens if it fires after success, and can anything see
+it?** Here two of three effects were self-cancelling and the third was a status write — the one an
+error path would never surface.
+
+*First hit: 2026-08-16.* Found while investigating a *different*, genuine failure the strip was
+reporting (a real `List folders` failure from an agent outage), which is the only reason anyone
+looked at the health record closely enough to notice the timestamps did not add up.
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

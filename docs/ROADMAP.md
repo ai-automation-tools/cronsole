@@ -788,6 +788,23 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       and a disabled suite is what produced this item. Until then, `workflows.md` states the
       obligation to run it after any dashboard change.
 
+- [x] **Every agent verb reported a timeout 15 seconds after succeeding** *(logged and fixed
+      2026-08-16, found while investigating a genuine `List folders` failure the health strip was
+      reporting)*. All ten verbs in `WindowsAgentConnector` scheduled a 15s deadline and never
+      cleared it, so a request answered in 200ms still called `markUnresponsive`. Two of the stale
+      timer's three effects were self-cancelling; the third wrote the health record — so Windows
+      sat at **DEGRADED — "not responding (task:list timed out)"** essentially permanently, and
+      could not stay HEALTHY for more than 15s after its last request. Measured live: sync 200 at
+      03:42:30 → HEALTHY at t+0 and t+8 → DEGRADED at t+17, nothing asked in between.
+      **This is [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+      with the sign flipped** — a status field reporting a failure that never happened rather than
+      health it never observed — and the worse direction, since it trains the reader to ignore the
+      one line that is supposed to mean something. Fixed with a single `agentRequest` helper owning
+      the deadline (the `ran`-stamped-once-in-`executeJob` argument: a rule ten call sites must
+      remember is one the eleventh forgets). Pinned by a table-driven test over all ten verbs that
+      fails 10/10 against the old code
+      ([#62](troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request)).
+
 - [x] **`get_task_health` summarized a different population than it listed** *(logged and fixed
       2026-08-13, found by hand-driving the tool against 358 real tasks)*: with `includeSystem: false` the
       response returns `counts.critical: 25` beside `matched: 13`, and the header a model reads

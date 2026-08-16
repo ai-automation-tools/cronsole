@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 63 | Through the tunnel the phone shows the dashboard **fully up to date** and then fails every request with *cannot reach backend*. Same URL works on the machine running the stack; proxy up, tunnel fine, origin allowed | `frontend/dist` was built with **`npm run build`** instead of **`npm run build:remote`**, so Vite inlined the `http://localhost:3000` fallback instead of `same-origin` — on the phone that address is the phone. **The tell is that it is the exact inverse of [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current): the proxied page is *current* and the requests fail.** Read the bundle, not the source — both literals appear in every build, so check the call `Ll=Rl(…)`. Fix: `cd frontend && npm run build:remote` | [→](#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
 | 62 | Windows reads **DEGRADED — "Agent connected but not responding (task:list timed out)"** almost permanently, and the health strip names a failed verb, over an agent that answers everything instantly. Sync works, folders list, tasks run | **Every verb scheduled a 15-second timeout and never cancelled it**, so a request answered in 200ms still ran `markUnresponsive` fifteen seconds later. The stale `resolve`/`reject` was a harmless no-op — the promise had settled — so the *only* surviving effect was a stamp on the health record, which is why it was invisible for so long. Windows could not stay HEALTHY longer than 15s after its last request. **Fixed 2026-08-16**: one `agentRequest` helper owns the deadline and clears it when the request settles. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) with the sign flipped — a status field reporting a failure that never happened**, and the more expensive direction, because it teaches the reader to ignore the one line meant to mean something is wrong | [→](#62-windows-reports-not-responding-15-seconds-after-every-successful-request) |
 | 61 | **Every** E2E test fails (`18 of 18`) with `element(s) not found`, while backend/integration/frontend suites are all green and the app works fine in a browser | A **shared helper** referenced a label the UI no longer uses — `dashboardReady()` waited on the heading *"Unified Task Dashboard"*, which the 2026-08-15 redesign replaced with one naming the current scope. One string, every test. Four more assertions named things the redesign **removed** (the source bar, the System Status panel, `Cronsole (Scripts)`, native's unsupported `Edit action`). **Nothing caught it because `test:e2e` is not in CI**, and no other suite can substitute: jsdom does not evaluate media queries, so `hidden md:flex` is invisible to the unit tests. Anchor helpers on `data-testid`, not labels. **Two repair traps: a mask for a removed element masks nothing, and a test that fails only in a full run is unmasked live data, not flake** | [→](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) |
 | 60 | A schedule with a multi-value hour (`0 9-17 * * 1-5`) is stored **verbatim as UTC** and runs 7–8 hours off — while the hint under the field says *"this schedule has no fixed clock time, so it reads the same in PDT and UTC"* | `shiftCron` correctly declines to shift an hour field that isn't a single number, but returned no **`reason`** — and `ScheduleZoneHint` renders "no reason" as **"the zone is irrelevant"**, so a missing warning became a confident false statement. **Fixed 2026-08-15**: a refusal now asks whether the expression pins a clock time (`hour !== '*'`, or a partial-hour zone with a multi-value minute) and explains itself; genuinely invariant expressions still say nothing. **The general rule: if the empty case has its own message, declining to answer and answering "no problem" are the same code path** | [→](#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter) |
@@ -3530,6 +3531,11 @@ rebuild is picked up on the next load rather than living in the phone's cache in
 `npm run build:remote` runs `check-bundle-secrets.mjs` after the build, so the rebuild you have to
 remember is also the thing that re-verifies the bundle (see [#55](#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in)).
 
+**Not this entry if the proxied page is *current*.** Rebuilding with the wrong command produces the
+opposite symptom — a fully up-to-date dashboard that cannot reach the API at all. See
+[#63](#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend); `npm run build`
+and `npm run build:remote` are one word apart and both build cleanly.
+
 *First hit: 2026-08-15, while building the single-origin reverse proxy.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
@@ -4073,6 +4079,73 @@ error path would never surface.
 *First hit: 2026-08-16.* Found while investigating a *different*, genuine failure the strip was
 reporting (a real `List folders` failure from an agent outage), which is the only reason anyone
 looked at the health record closely enough to notice the timestamps did not add up.
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 63. The proxied dashboard loads on the phone but cannot reach the backend
+
+**Symptom.** Through the tunnel — `http://desktop-xxxx.ts.net:8080` on Tailscale, or the Cloudflare
+hostname — the dashboard **renders correctly and is completely current**, including the feature you
+shipped ten minutes ago, and then fails every request with a *cannot reach backend* error. The same
+URL works from the machine running the stack. The proxy is up, `tailscale serve status` is right,
+and the tunnel origin is in `ALLOWED_ORIGINS`.
+
+**Cause.** `frontend/dist` was rebuilt with **`npm run build`** instead of **`npm run build:remote`**.
+Without the `remote` mode there is no `VITE_API_URL`, so `api.ts` falls back to its default and
+Vite inlines **`http://localhost:3000`** as a literal in the bundle. On the phone that address is
+the *phone*, which is running no backend.
+
+**The tell — and why it is the opposite of [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current).**
+Both are `frontend/dist` problems and they present as mirror images, so the wrong one is easy to
+reach for:
+
+| | #53 (stale) | #63 (wrong mode) |
+|---|---|---|
+| Proxied UI | **behind** the dev server | **current**, matches the dev server |
+| Requests | succeed | fail, every one |
+| Cause | forgot to rebuild | rebuilt with the wrong command |
+
+*If the proxied page shows your newest work and still cannot talk to the API, the build is fresh and
+the mode is wrong.*
+
+**Diagnosis — read the bundle, not the source.** The source is identical either way; the compiler is
+what differs, which is the same reason [#55](#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in)
+had to be checked against build output:
+
+```bash
+cd frontend/dist/assets && grep -o '.\{20\}`same-origin`.\{20\}' index-*.js
+```
+
+The API origin is the argument to the normalizer. `Ll=Rl(\`same-origin\`)` is a correct remote build;
+`Ll=Rl(\`http://localhost:3000\`)` is this bug. Grepping for either string alone proves nothing —
+**both literals are in every bundle** (one is the sentinel constant, the other the fallback and a
+placeholder in the Settings field), so you have to read the call, not the occurrence.
+
+**Fix.**
+
+```bash
+cd frontend && npm run build:remote
+```
+
+The proxy bind-mounts `./frontend/dist` read-only, so no container restart is needed; the entry
+document is served `no-cache`, so a reload on the phone picks it up.
+
+**The general rule.** *Two build commands one word apart, producing artifacts that differ only in an
+inlined string, where the wrong one still builds cleanly, passes `check:bundle`, and serves a page
+that looks perfect.* Nothing in the pipeline can tell them apart, because neither is wrong in
+itself — `npm run build` is exactly right for the un-proxied stack. The mode is a **property of
+where the artifact will be served**, and the artifact cannot carry that intent. This is the same
+asymmetry as the publish step in [§11b](../../CLAUDE.md): a green build over a copy that is wrong
+for its destination.
+
+It is also worth noting *why* the desktop keeps working and hides this: on the machine running the
+stack, `http://localhost:3000` **is** the backend, so the broken build is indistinguishable from the
+correct one there. The bug is only observable from the device that has no local backend — which is
+the device you are least able to open a console on.
+
+*First hit: 2026-08-16, after a routine `npm run build` following a dashboard change.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

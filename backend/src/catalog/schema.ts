@@ -72,6 +72,28 @@ export const registryActionSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('prompt'),
     text: z.string()
+  }),
+  // `script` and `check` -> the Cronsole-native SCRIPT and CHECK jobs added
+  // 2026-08-15 (ADR 0002). Added as new union members rather than by widening
+  // `exec`, because a discriminated union is how a consumer tells "a kind I do
+  // not implement" from "a malformed exec" — and only the first of those is
+  // safe to skip.
+  //
+  // Safe to publish because `RegistryCatalogSource` now skips a template it
+  // cannot parse instead of dropping the whole catalog. Before that fix, adding
+  // a kind here would have blanked the hosted registry for every older install.
+  z.object({
+    kind: z.literal('script'),
+    interpreter: z.enum(['powershell', 'pwsh', 'bash', 'sh', 'python', 'node']),
+    body: z.string()
+  }),
+  z.object({
+    kind: z.literal('check'),
+    // Held as a passthrough object and validated by the backend's own
+    // `validateJob` at apply time. The probe shape is the *executor's* contract,
+    // and a second Zod copy of it here would be a second definition that agrees
+    // until it doesn't — the same argument that keeps `buildNativeJob` single.
+    probe: z.record(z.string(), z.unknown())
   })
 ]);
 

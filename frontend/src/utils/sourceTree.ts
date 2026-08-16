@@ -92,7 +92,12 @@ const GROUPED_BY_SUBTYPE = new Set(['TASKHUB_NATIVE']);
  * prediction of what clicking does.
  */
 const STRUCTURAL_SUBTYPES: Record<string, string[]> = {
-  TASKHUB_NATIVE: ['TASKHUB_NATIVE:HTTP', 'TASKHUB_NATIVE:EXEC']
+  TASKHUB_NATIVE: [
+    'TASKHUB_NATIVE:HTTP',
+    'TASKHUB_NATIVE:EXEC',
+    'TASKHUB_NATIVE:SCRIPT',
+    'TASKHUB_NATIVE:CHECK'
+  ]
 };
 
 /**

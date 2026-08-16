@@ -291,6 +291,15 @@ model Template {
   category          TemplateCategory @default(OTHER)         // for UI grouping/filtering
   commandTemplate   String?          @db.Text                // command with {{placeholders}}
   parameters        Json?            // [{ key, label, type, default, required, help }]
+  // A full Cronsole-native job spec, for templates whose action cannot be
+  // expressed as a command line: SCRIPT (the body is the template) and CHECK
+  // (a probe with expectations). Null for every other template, which still
+  // resolves through `command` / `commandTemplate` exactly as before.
+  //
+  // Applied by CronsoleNativeConnector, which prefers this over deriving a job
+  // from the command string — so a template stores the spec the executor reads
+  // rather than one re-guessed at apply time.
+  nativeJob         Json?
   tags              String[]         @default([])            // free-form tags (e.g. git, build, ai) — distinct from the single `category`
   isStarter         Boolean          @default(false)         // true = Tier A curated starter
   icon              String?          // lucide icon name for the card

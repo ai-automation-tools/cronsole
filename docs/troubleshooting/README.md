@@ -22,6 +22,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 57 | A count beside a filter control disagrees with another count for the same set, and both look right | Two questions sharing one number: *what exists* vs *what clicking reveals*. Anything printed beside a control that changes the list must be **faceted** (every other lens applied); existence counts may only gate whether a control renders | [→](#57-two-counts-for-the-same-set-disagree-on-screen--and-both-are-right) |
+| 58 | A published template the running build cannot parse makes the **entire hosted catalog** vanish — the app silently serves its bundled snapshot, the gallery on the web shows templates the app does not have, and nothing errors | `RegistryCatalogSource.fetchAll` threw on the first unreadable template, and `listRaw`'s catch falls back to the **whole** bundled catalog. The realistic trigger is a **version gap**, not corruption: `action` is a Zod discriminated union, so a member added later (`script`/`check`, 2026-08-15) is an unknown discriminator to every older install. **Fixed 2026-08-15**: skip and log the one template, keep the rest. A **checksum mismatch still throws** — that is integrity on executable content, not a version gap | [→](#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog) |
 | 56 | `prisma migrate dev` says a migration **"was modified after it was applied"** and offers to **reset the schema** — on a database holding real tasks — while `prisma migrate status` insists everything is *"up to date"* | An applied migration file was **edited after the fact** (here: explanatory comments added). That changes its checksum without changing a line of SQL, and Prisma reads a checksum mismatch as history it cannot trust. `migrate status` does not compare checksums, which is why nothing surfaced it until the next migration. **Do not accept the reset.** Verify the live table against the file's DDL, then update the stored checksum in `_prisma_migrations` | [→](#56-prisma-wants-to-reset-your-database-over-a-migration-you-only-added-a-comment-to) |
 | 55 | The dashboard opens **already signed in** on a browser that has never logged in — including through the remote-access proxy, where "already signed in" means *anyone who loads the page* | `VITE_DEV_TOKEN` was compiled into `dist/`. Vite loads `.env.local` in **every** mode and inlines each `VITE_*` reference as a literal, so `npm run build` baked a real owner JWT (`exp` 2036) into the served JavaScript, and `getAuthToken()` sends it whenever nobody is logged in — the login screen was decorative. **The source was clean; the compiler added the secret.** **Fixed 2026-08-15**: the reference is gated on `import.meta.env.DEV` so it folds away in a build, and `scripts/check-bundle-secrets.mjs` fails the build if a credential-shaped literal reappears | [→](#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in) |
 | 54 | **Every** `docker compose` command fails with *"required variable CLOUDFLARE_TUNNEL_TOKEN is missing a value"* — including `docker compose up -d`, which only wants Postgres and Redis | Compose interpolates the **whole file before it selects a profile**, so a `${VAR:?message}` in a service you never start still fails commands that do not involve it. A tunnel credential became a precondition for starting the database. **Fixed 2026-08-15** by using `:-` (empty default); the unset token now surfaces in `docker compose logs tunnel` instead | [→](#54-a-compose-profile-you-never-start-breaks-every-compose-command) |
@@ -3752,6 +3753,55 @@ plausible meanings, give each meaning its own name — `hiddenBySystemFilter` ve
 
 *First hit: 2026-08-15, during the dashboard IA redesign. The bug predates it; the redesign is only
 what put the two numbers in the same viewport.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 58. One unreadable template silently empties the whole hosted catalog
+
+**Symptom.** Nothing errors. The Templates tab shows the bundled set and no imported ones, and
+the gallery on the web shows templates the app does not have. Nothing on screen says the registry
+was even consulted.
+
+**Cause.** `RegistryCatalogSource.fetchAll` parsed each template with
+`registryTemplateSchema.parse(...)`, which **throws**. That throw propagated to `listRaw`, whose
+`catch` falls back to the *entire* bundled snapshot. So a single template file this build cannot
+read discards every other template in the registry — including the dozens it could read perfectly
+well.
+
+The version gap is the realistic trigger, not corruption. The registry is a **published** artifact
+that installed copies of Cronsole fetch, and the schema's `action` is a Zod *discriminated union* —
+a member added later (`script` and `check`, 2026-08-15) is an unknown discriminator to every older
+install, which fails the parse. Adding one action kind would have blanked the catalog for every
+user who had not updated, with a green build, a clean push, and no symptom locally.
+
+This is the [§11b](../../CLAUDE.md) failure mode in its purest form: **the surface that breaks is
+not in this repo, and it breaks after everything here has passed.**
+
+**Fix.** Skip the template, keep the catalog:
+
+```ts
+try {
+  templates.push(registryTemplateSchema.parse(JSON.parse(text)));
+} catch (err) {
+  this.log(`registry template "${entry.id}" skipped (not readable by this version): ${reason}`);
+}
+```
+
+A **checksum mismatch still throws.** That distinction is the whole point of the fix: an unknown
+schema feature is a version gap and costs you one template, while a checksum mismatch is an
+integrity failure on executable content — serving the rest of a tampered catalog is not the lesser
+evil. Skipping is also what makes the schema additively extensible: a new `action.kind` now costs
+an older install the new templates and nothing else.
+
+**The general shape.** A loader that treats "one item I cannot read" as "the whole feed is bad"
+turns every forward-compatible change into an outage, and does it *quietly*, because the fallback
+path looks like a working app. Ask of any fetch-and-parse loop: **is the blast radius of one bad
+item the item, or the batch?**
+
+*First hit: 2026-08-15.* Found while scoping ADR 0002 — before publishing a new action kind rather
+than after, which is the only reason it is a note and not an incident.
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

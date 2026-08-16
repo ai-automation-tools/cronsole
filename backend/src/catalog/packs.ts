@@ -157,7 +157,17 @@ export const bundledPacks: BundledPack[] = [
       'native-python-script',
       'native-git-pull',
       'native-http-uptime-check',
-      'native-http-heartbeat'
+      'native-http-heartbeat',
+      // Scripts and checks (2026-08-15, ADR 0002). Same pack rather than two new
+      // ones: this is still "what Cronsole can run without an agent", and it is
+      // the set a fresh install reaches for before anything else is set up. A
+      // pack per job type would split that answer four ways.
+      'native-script-starter',
+      'native-script-powershell-disk-report',
+      'native-check-endpoint-healthy',
+      'native-check-backup-fresh',
+      'native-check-disk-space',
+      'native-check-port-open'
     ]
   },
   {

@@ -26,6 +26,41 @@ belongs in the CHANGELOG.
 ### 🔴🔴 Top priority — requested 2026-08-15
 
 Three items, requested directly after the dashboard IA redesign landed. Ordered as given.
+**Item 2 shipped the same day**; the work it left behind is item 0 below, ahead of the rest because
+it is the unfinished half of something already in users' hands rather than something not started.
+
+0. **Finish what the native job types left open** *(added 2026-08-15, after `SCRIPT` + `CHECK`
+   shipped — [ADR 0002](adr/0002-native-job-types.md))*. Four items, worst-first.
+
+   1. **Neither new job type has been driven end-to-end on a live stack.** The suite is strong on
+      the parts it covers — the `SCRIPT` tests spawn real `node` processes (including one proving a
+      scheduled script still cannot read `process.env`), and the `CHECK` tests hit a real
+      filesystem and a real socket — but **nothing has yet gone through `POST /api/tasks/native` →
+      `NativeScheduler` → `ExecutionLog` on the running backend.** The structural argument that it
+      works is good (both native routes take `job: z.unknown()` and delegate entirely to
+      `buildNativeJob` + `validateJob`, so no route change was needed) and *a structural argument is
+      exactly what the §9 honesty rule says not to accept in place of evidence* — this is
+      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+      one layer up. It was blocked only by an expired `CRONSOLE_TOKEN` (the old hand-signed
+      `cli_user_placeholder` kind, `exp` 2026-08-14); with an API token from Settings → Account it
+      is ten minutes. **Create one of each, run it, read the history back, then delete.**
+   2. **Per-job encrypted fields do not exist, and two deferred job types are blocked on it.**
+      `NOTIFY` needs it (a Discord webhook URL *is* its authentication) and `SQL` needs it (a
+      connection string is a `PlatformConnection`-grade secret). Today a `SCRIPT` job's `env` is
+      already a plausible home for a secret with nothing but column storage behind it — so this is
+      a **current** gap, not only a blocker for future work. Probably its own ADR; the two deferred
+      types should be sequenced together behind it rather than picked off separately.
+   3. **The gallery renders a script body as escaped JSON.** `registry-site/index.html` falls back
+      to `JSON.stringify(tpl.action)` when a template has no `commandTemplate`, which is honest and
+      not broken — but it means the one template family whose *content is the whole point* is the
+      one displayed as `"body": "// Runs on...\n// Anything printed..."`. A `script` action should
+      render its body as code, and a `check` action should render as a readable assertion. No
+      capability claim on that page is stale, which is why this is a polish item rather than a §11b
+      publish blocker — but it is the page strangers judge the catalog by.
+   4. **The four new job-type buttons have not been seen below `md`.** They are a
+      `grid-cols-2 sm:grid-cols-4`, written and read back as correct, and never rendered at 375px —
+      the same gap item 4 below describes for the rail and toolbar, now with more surface in it.
+      Fold into that Playwright pass rather than checking it by hand.
 
 1. **Custom views on the source rail.** Users can already save a named filter combination, but it
    becomes a chip in the horizontal views bar. Let them save one **into the rail**, alongside
@@ -47,21 +82,33 @@ Three items, requested directly after the dashboard IA redesign landed. Ordered 
    taken with every rail dimension neutralized** (see the 363-vs-6 bug below). A rail row also needs
    a delete affordance and an order — `savedViews` is currently an unordered array.
 
-2. **More Cronsole-native job types.** Native has exactly two — `HTTP` and `EXEC` — and they are the
-   `STRUCTURAL_SUBTYPES` the rail always lists. Widen that set so Cronsole is useful without an
-   agent on more than "call a URL" and "run a program".
+2. ~~**More Cronsole-native job types.**~~ — **shipped 2026-08-15.** Native went from two types to
+   four: **`SCRIPT`** (a body you write, run under a fixed-list interpreter) and **`CHECK`** (one
+   monitor type, four probes) joined `HTTP` and `EXEC`. Scoped and decided in
+   [ADR 0002](adr/0002-native-job-types.md); `NOTIFY` and `SEQUENCE` are deferred there with
+   reasons, and `SQL` / SSH / Docker / MCP-call / free-standing file-prune are rejected.
 
-   Candidates worth scoping: a **script** type that writes an inline body to a temp file and runs it
-   under a named interpreter (PowerShell / bash / python), so a user does not need the script on
-   disk first; a **database query**; an **MCP tool call**; a **compound/sequence** job. Each new type
-   touches the same five places, and missing one is how a job is accepted at create time and fails
-   at 3am: `buildNativeJob` + `validateJob` (`services/nativeJob.ts`, one definition shared by
-   create, edit and the connector), `NativeTaskExecutor`, `taskSource.ts` (the server derives the
-   subtype — the browser must not), `STRUCTURAL_SUBTYPES` + an icon in the rail, and at least one
-   template per type, since a source with nothing in the catalog is a source the product does not
-   really have. The `EXEC` rules carry over unchanged and are non-negotiable: **no shell** unless the
-   user names one, and **`childEnv()`, never `process.env`** — a scheduled job must not inherit the
-   key that encrypts every stored platform credential.
+   Delivered through all five places plus six templates (three core), the MCP surface
+   (`create_native_script_task` / `create_native_check_task`, with the old EXEC tool renamed to
+   `create_native_program_task`), per-source descriptions in the dashboard, help topics, and the
+   Sources Guide. Three things worth carrying forward:
+
+   - **Type count is navigation cost.** `STRUCTURAL_SUBTYPES` lists native's subtypes whether or not
+     a task uses one, so every job type is a permanent rail row for every user. That is what made
+     `CHECK` one type with four probes rather than four types, and what demoted `NOTIFY` to a
+     create-modal preset over an `HTTP` job.
+   - **The rail row labelled *Scripts* was `EXEC` all along**, and needed a file that already existed
+     on the backend host — so the script itself was the one part of the task Cronsole could not
+     show, export or archive. It is now *Programs*, and the MCP tool was renamed to match.
+   - **Publishing a new registry `action.kind` would have blanked the hosted catalog** for every
+     older install, because the fetch threw on the first unreadable template and fell back to the
+     whole bundled snapshot. Found while scoping, fixed before publishing
+     ([#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog)).
+
+   Still open from the ADR: `NOTIFY` and `SQL` both wait on **per-job encrypted fields**, which does
+   not exist and may deserve its own ADR; `SEQUENCE` is last and only if per-step verdicts are the
+   goal. The `EXEC` rules carried over unchanged and remain non-negotiable: **no implicit shell**,
+   and **`childEnv()`, never `process.env`**.
 
 3. **Fix the themes — light first.** The light theme clashes and is hard to read; the dark theme's
    palette is also open to reconsideration. This is `frontend/src/index.css` and nowhere else: every

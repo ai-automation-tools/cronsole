@@ -47,7 +47,9 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Run now | `run_task` | `POST /api/tasks/:id/run` |
 | Create from a command | `create_task` | `POST /api/tasks` |
 | Create an HTTP job | `create_native_task` | `POST /api/tasks/native` |
-| Schedule a **script / program** | `create_native_script_task` | `POST /api/tasks/native` with `job.jobType: 'EXEC'`. Runs on the machine the **Cronsole backend** is on — not necessarily the user's desktop. Prefer a Windows task for anything that must run as the user or survive Cronsole being down |
+| Schedule an **existing program** | `create_native_program_task` | `POST /api/tasks/native` with `job.jobType: 'EXEC'`. The program must already exist on the machine the **Cronsole backend** is on — not necessarily the user's desktop. Prefer a Windows task for anything that must run as the user or survive Cronsole being down |
+| Schedule a **script you write** | `create_native_script_task` | `POST /api/tasks/native` with `job.jobType: 'SCRIPT'`. The body is stored and run under a named interpreter (`powershell`, `pwsh`, `bash`, `sh`, `python`, `node`), so nothing has to exist on disk first. `node` is present wherever the backend runs |
+| Schedule a **check** | `create_native_check_task` | `POST /api/tasks/native` with `job.jobType: 'CHECK'`. Asserts on an endpoint, a TCP port, a file's age, or free disk space — a failure here is a fact about the system, unlike a failing script |
 | Create from a template | `create_task_from_template` | `POST /api/templates/:id/apply` |
 | Browse templates | `list_templates` | `GET /api/templates` |
 | Validate a schedule | `convert_schedule` | `POST /api/tasks/preview` |

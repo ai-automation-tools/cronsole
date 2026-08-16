@@ -17,6 +17,17 @@ export interface CreateTaskOptions {
    */
   action?: StructuredAction;
   /**
+   * A complete Cronsole-native job spec, for a template whose action cannot be
+   * expressed as a command line — SCRIPT (the body is the template) and CHECK
+   * (a probe with expectations). Cronsole-native only; every other connector
+   * ignores it.
+   *
+   * When present it **replaces** the command-derived job entirely, so a template
+   * stores the spec the executor will read rather than one re-guessed from a
+   * display string at apply time.
+   */
+  nativeJob?: unknown;
+  /**
    * Normalized native folder to create the task in — Windows Task Scheduler
    * only (e.g. `\Cronsole`, `\Work\Backups`). Defaults to `\Cronsole` when unset.
    * Must already have passed windowsTaskFolderError: it is part of the signed

@@ -181,3 +181,48 @@ export function substitutePlainCommand(
   }
   return result.trim();
 }
+
+/**
+ * Substitute `{{placeholders}}` throughout a native job spec.
+ *
+ * Walks the JSON and replaces inside **string values only** — never keys, so a
+ * parameter cannot rename `jobType` or invent a field. This is the safest
+ * substitution shape in the codebase and deliberately so: a JSON string field is
+ * exactly one value, so unlike a command line there is no tokenizer downstream
+ * to re-split it. `C:\Program Files\app.exe` stays one string; a body containing
+ * quotes, newlines or `&&` is inert data.
+ *
+ * Unfilled placeholders throw, matching the two command paths — a task that
+ * registers with a literal `{{url}}` in it fails at 3am rather than at apply.
+ */
+export function substituteNativeJob(
+  job: unknown,
+  values: Record<string, string>
+): unknown {
+  const unfilled = new Set<string>();
+
+  const walk = (node: unknown): unknown => {
+    if (typeof node === 'string') {
+      return node.replace(PLACEHOLDER_RE, (match, key) => {
+        if (key in values) return values[key];
+        unfilled.add(key);
+        return match;
+      });
+    }
+    if (Array.isArray(node)) return node.map(walk);
+    if (node && typeof node === 'object') {
+      return Object.fromEntries(
+        Object.entries(node as Record<string, unknown>).map(([k, v]) => [k, walk(v)])
+      );
+    }
+    return node;
+  };
+
+  const result = walk(job);
+  if (unfilled.size > 0) {
+    throw new TemplateParamError(
+      `Job spec still contains unfilled placeholders: ${[...unfilled].join(', ')}.`
+    );
+  }
+  return result;
+}

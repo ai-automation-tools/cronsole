@@ -1,4 +1,4 @@
-import { NativeJob } from './NativeTaskExecutor.js';
+import { NativeJob, ScriptJob, CheckProbe } from './NativeTaskExecutor.js';
 import { toStructuredAction } from '../utils/commandParser.js';
 
 /**
@@ -49,6 +49,29 @@ export function buildNativeJob(job: Record<string, unknown>): NativeJob {
       timeoutMs: job.timeoutMs !== undefined ? Number(job.timeoutMs) : undefined
     };
   }
+  if (job.jobType === 'SCRIPT') {
+    const env = job.env as Record<string, string> | undefined;
+    return {
+      jobType: 'SCRIPT',
+      // Not coerced or defaulted: an interpreter this file does not recognize is
+      // handed to `validateJob`, which rejects it **by name** and lists the legal
+      // set. Quietly falling back to `sh` would run a PowerShell body under a
+      // shell that cannot read it, at 3am, having reported success at create.
+      interpreter: job.interpreter as ScriptJob['interpreter'],
+      body: typeof job.body === 'string' ? job.body : '',
+      workingDirectory: job.workingDirectory ? String(job.workingDirectory).trim() : undefined,
+      env: env && Object.keys(env).length ? env : undefined,
+      timeoutMs: job.timeoutMs !== undefined ? Number(job.timeoutMs) : undefined
+    };
+  }
+
+  if (job.jobType === 'CHECK') {
+    // The probe is normalized by kind for the same reason the job is: a field
+    // the client invented must never reach `metadata.job`, or the stored spec
+    // contains something the executor does not read and a reader cannot explain.
+    return { jobType: 'CHECK', probe: buildProbe(job.probe) };
+  }
+
   if (job.jobType !== 'HTTP') {
     // Hand an unrecognized — or missing — discriminator straight through, so
     // `validateJob` rejects it **by name** rather than this function silently
@@ -64,6 +87,56 @@ export function buildNativeJob(job: Record<string, unknown>): NativeJob {
     headers: (job.headers as Record<string, string>) || undefined,
     body: job.body ? String(job.body) : undefined
   };
+}
+
+/**
+ * Normalize one check probe.
+ *
+ * An unrecognized `kind` is handed straight through, exactly as an unrecognized
+ * `jobType` is — so `validateProbe` names it in the refusal instead of this
+ * function coercing it into an `http` probe the caller never described.
+ */
+function buildProbe(probe: unknown): CheckProbe {
+  const p = (probe ?? {}) as Record<string, unknown>;
+
+  if (p.kind === 'http') {
+    const range = p.expectStatus as { min?: unknown; max?: unknown } | undefined;
+    const jsonPath = p.expectJsonPath as { path?: unknown; equals?: unknown } | undefined;
+    const headers = p.headers as Record<string, string> | undefined;
+    return {
+      kind: 'http',
+      url: String(p.url ?? '').trim(),
+      method: p.method ? String(p.method).toUpperCase() : undefined,
+      headers: headers && Object.keys(headers).length ? headers : undefined,
+      expectStatus: range ? { min: Number(range.min), max: Number(range.max) } : undefined,
+      expectBodyContains: p.expectBodyContains ? String(p.expectBodyContains) : undefined,
+      expectJsonPath: jsonPath
+        ? { path: String(jsonPath.path ?? '').trim(), equals: String(jsonPath.equals ?? '') }
+        : undefined
+    };
+  }
+
+  if (p.kind === 'tcp') {
+    return { kind: 'tcp', host: String(p.host ?? '').trim(), port: Number(p.port) };
+  }
+
+  if (p.kind === 'fileFresh') {
+    return {
+      kind: 'fileFresh',
+      path: String(p.path ?? '').trim(),
+      maxAgeMinutes: Number(p.maxAgeMinutes)
+    };
+  }
+
+  if (p.kind === 'diskFree') {
+    return {
+      kind: 'diskFree',
+      path: String(p.path ?? '').trim(),
+      minFreeBytes: Number(p.minFreeBytes)
+    };
+  }
+
+  return p as unknown as CheckProbe;
 }
 
 /**

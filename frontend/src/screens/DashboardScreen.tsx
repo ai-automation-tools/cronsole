@@ -27,8 +27,9 @@ import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
 import { SourceRail } from '../components/SourceRail';
 import { HelpButton } from '../components/HelpButton';
+import { sourceTopicId } from '../data/help';
 import { ViewBar } from '../components/ViewBar';
-import { platformLabel, platformBadgeClass, sourceLabel } from '../platform';
+import { platformLabel, platformBadgeClass, sourceLabel, sourceDescription } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
 import {
   applyTaskFilters,
@@ -216,6 +217,16 @@ export const DashboardScreen = ({
     : filters.source === 'All'
       ? 'All Tasks'
       : sourceLabel(filters.source);
+
+  /**
+   * The one-line explanation of the selected source.
+   *
+   * Only for a real source — "All Tasks" has no single thing to describe, and
+   * `sourceDescription` returns null for a source nobody has written up yet
+   * rather than inventing a sentence for it.
+   */
+  const scopeDescription =
+    filters.source === 'All' ? null : sourceDescription(filters.source);
 
   const scopeTrail =
     !starredOnly && filters.source === 'All' && filters.category === 'All'
@@ -627,6 +638,29 @@ export const DashboardScreen = ({
           <p className="text-muted-foreground" data-testid="task-count-line">
             {scopeTrail ?? `Manage ${tasks?.length || 0} tasks across your ecosystem.`}
           </p>
+          {/*
+            What the selected source *is*, in one line.
+
+            The heading and breadcrumb name the scope; neither says what it means.
+            That gap is widest exactly where it matters most: the rail lists every
+            native job type whether or not you have one, so a brand-new user's
+            first sight of "Checks" is a lit row over an empty list with nothing
+            explaining why they would put anything in it.
+
+            Shown only when a source is selected — on "All Tasks" there is no one
+            thing to describe, and a paragraph that is always present stops being
+            read. The `?` beside it opens the matching help topic, which is what
+            keeps this a summary rather than the documentation.
+          */}
+          {scopeDescription && (
+            <p
+              className="text-sm text-subtle-foreground mt-2 max-w-2xl flex items-start gap-1.5"
+              data-testid="source-description"
+            >
+              <span>{scopeDescription}</span>
+              <HelpButton topic={sourceTopicId(filters.source)} />
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2.5">
           {/*

@@ -57,6 +57,8 @@ export interface DbTemplateLike {
   command?: string | null;
   commandTemplate?: string | null;
   parameters?: unknown;
+  /** Set only for SCRIPT / CHECK templates; see `nativeJobAction`. */
+  nativeJob?: unknown;
   tags?: string[];
   scriptType: ScriptType;
   os: OsTarget;
@@ -114,14 +116,44 @@ function toRegistryParameters(raw: unknown): RegistryParameter[] | undefined {
  * that export a whole catalog should still validate, since the DB can in
  * principle hold hand-edited rows).
  */
+/**
+ * Rebuild the registry `action` from a stored native job spec.
+ *
+ * The inverse of `deriveNativeJob` in normalize.ts, and the two have to stay
+ * inverses or a template exported from a DB no longer imports as itself — which
+ * is exactly what the round-trip test pins.
+ */
+function nativeJobAction(nativeJob: unknown): RegistryTemplate['action'] | undefined {
+  if (!nativeJob || typeof nativeJob !== 'object') return undefined;
+  const job = nativeJob as Record<string, unknown>;
+
+  if (job.jobType === 'SCRIPT' && typeof job.body === 'string') {
+    return {
+      kind: 'script',
+      interpreter: job.interpreter as 'powershell' | 'pwsh' | 'bash' | 'sh' | 'python' | 'node',
+      body: job.body
+    };
+  }
+  if (job.jobType === 'CHECK' && job.probe && typeof job.probe === 'object') {
+    return { kind: 'check', probe: job.probe as Record<string, unknown> };
+  }
+  return undefined;
+}
+
 export function denormalizeTemplate(t: DbTemplateLike): RegistryTemplate {
   const commandTemplate = t.commandTemplate ?? t.command ?? '';
+  const action = nativeJobAction(t.nativeJob);
   const template: RegistryTemplate = {
     schemaVersion: '1.0',
     id: t.id,
     name: t.name,
     trigger: { kind: 'schedule', cron: t.scheduleExpression },
-    commandTemplate,
+    // A SCRIPT / CHECK template's `command` is a *description* that normalize
+    // generated for display; re-exporting it as the authoring shorthand would
+    // produce a template whose command line is `node script (9 lines)`. So those
+    // export as a structured `action` and carry no `commandTemplate` at all,
+    // which is also what makes the export → import round trip lossless.
+    ...(action ? { action } : { commandTemplate }),
     compatibleTargets: compatibleTargets(t)
   };
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ChevronRight, Layers, Monitor, Zap, Bot, Globe, Terminal, EyeOff, Star,
-  PanelLeftClose, PanelLeftOpen
+  PanelLeftClose, PanelLeftOpen, FileCode, Activity
 } from 'lucide-react';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { sourcePlatform } from '../platform';
@@ -57,6 +57,11 @@ const SOURCE_ICON: Record<string, typeof Monitor> = {
   WINDOWS_TASK_SCHEDULER: Monitor,
   'TASKHUB_NATIVE:HTTP': Globe,
   'TASKHUB_NATIVE:EXEC': Terminal,
+  // A stored script reads as a document; a check reads as a measurement. Both
+  // are deliberately unlike Terminal, since the three sit adjacent in the tree
+  // and a shared glyph would make the level-2 rows scan as one thing.
+  'TASKHUB_NATIVE:SCRIPT': FileCode,
+  'TASKHUB_NATIVE:CHECK': Activity,
   TASKHUB_NATIVE: Zap,
   CLAUDE_CODE: Bot
 };

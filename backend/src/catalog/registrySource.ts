@@ -106,7 +106,26 @@ export class RegistryCatalogSource implements TemplateCatalogSource {
           `checksum mismatch for ${entry.id} (${entry.path}): expected ${entry.sha256}, got ${actual}`
         );
       }
-      templates.push(registryTemplateSchema.parse(JSON.parse(text)));
+
+      // **Skip a template this build cannot read; do not lose the catalog over
+      // it.** A `parse` throw here used to propagate to `listRaw`, whose catch
+      // falls back to the *entire* bundled snapshot — so one template using a
+      // schema feature added after this copy of Cronsole shipped would silently
+      // blank the whole hosted catalog for that install. That is the §11b
+      // failure mode exactly: green build, clean push, wrong on someone else's
+      // machine, with nothing on screen to say the registry was even consulted.
+      //
+      // Skipping is what makes the schema *additively* extensible: a new
+      // `action.kind` (SCRIPT and CHECK, 2026-08-15) costs older installs the
+      // new templates and nothing else. A checksum mismatch still throws — that
+      // is an integrity failure on executable content, not a version gap, and
+      // serving the rest of a tampered catalog is not a lesser evil.
+      try {
+        templates.push(registryTemplateSchema.parse(JSON.parse(text)));
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        this.log(`registry template "${entry.id}" skipped (not readable by this version): ${reason}`);
+      }
     }
     return templates;
   }

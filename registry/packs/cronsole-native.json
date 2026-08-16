@@ -234,6 +234,265 @@
       "compatibleTargets": [
         "cronsole-native"
       ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-script-starter",
+      "name": "Write a Script (Cronsole)",
+      "description": "A starting point for a scheduled script you write in Cronsole itself. Nothing needs to exist on disk — the body is stored with the task and runs under the interpreter you pick.",
+      "runtime": "node",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "starter"
+      ],
+      "icon": "FileCode",
+      "isStarter": true,
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "action": {
+        "kind": "script",
+        "interpreter": "node",
+        "body": "// Runs on the machine hosting the Cronsole backend.\n// Anything printed here lands in the task's run history.\n// A non-zero exit is recorded as a failed run.\n\nconst startedAt = new Date();\nconsole.log(`Ran at ${startedAt.toISOString()}`);\n\n// Replace this with the work.\n// process.exit(1) to record a failure.\n"
+      },
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-script-powershell-disk-report",
+      "name": "PowerShell Disk Report (Cronsole)",
+      "description": "Print free space for every fixed drive on the Cronsole host, so the numbers land in the run history and you can read them back over time.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "powershell",
+        "monitoring",
+        "disk"
+      ],
+      "icon": "HardDrive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * *"
+      },
+      "action": {
+        "kind": "script",
+        "interpreter": "powershell",
+        "body": "# Needs PowerShell on the machine running the Cronsole backend.\n# That is your desktop for a normal install, and the CONTAINER on a\n# Dockerized stack — where these drives are the container’s, not yours.\n\nGet-CimInstance Win32_LogicalDisk -Filter \"DriveType=3\" |\n  ForEach-Object {\n    $freeGb  = [math]::Round($_.FreeSpace / 1GB, 1)\n    $totalGb = [math]::Round($_.Size / 1GB, 1)\n    \"{0} {1} GB free of {2} GB\" -f $_.DeviceID, $freeGb, $totalGb\n  }\n"
+      },
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-check-endpoint-healthy",
+      "name": "Endpoint Health Check (Cronsole)",
+      "description": "Call a URL and require the response to actually say it is healthy — not just return 200. A failure here is a fact about your system, so it is worth alerting on.",
+      "runtime": "http",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "uptime"
+      ],
+      "icon": "Activity",
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/5 * * * *"
+      },
+      "action": {
+        "kind": "check",
+        "probe": {
+          "kind": "http",
+          "url": "{{url}}",
+          "method": "GET",
+          "expectStatus": {
+            "min": 200,
+            "max": 299
+          },
+          "expectBodyContains": "{{expectText}}"
+        }
+      },
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The health endpoint to call, e.g. https://example.com/healthz."
+        },
+        {
+          "key": "expectText",
+          "label": "Response must contain",
+          "type": "string",
+          "default": "ok",
+          "required": true,
+          "help": "Text that must appear in the response body. This is what makes it a health check rather than a ping — a 200 without this fails."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-check-backup-fresh",
+      "name": "Backup Freshness Check (Cronsole)",
+      "description": "Fail if a backup file has not been written recently — the dead-man switch for a job that stopped silently. A missing file fails too.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "backup",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "backup",
+        "monitoring"
+      ],
+      "icon": "ShieldCheck",
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "action": {
+        "kind": "check",
+        "probe": {
+          "kind": "fileFresh",
+          "path": "{{filePath}}",
+          "maxAgeMinutes": "{{maxAgeMinutes}}"
+        }
+      },
+      "parameters": [
+        {
+          "key": "filePath",
+          "label": "File to watch",
+          "type": "string",
+          "required": true,
+          "help": "Path as seen by the machine running the Cronsole backend — the container on a Dockerized stack, not your desktop. A path that is only valid on your PC will report the file as missing."
+        },
+        {
+          "key": "maxAgeMinutes",
+          "label": "Fail if older than (minutes)",
+          "type": "number",
+          "default": "1440",
+          "required": true,
+          "help": "Default is 24 hours, which suits a nightly backup. Leave headroom for the job to finish."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-check-disk-space",
+      "name": "Disk Space Check (Cronsole)",
+      "description": "Fail when free space on a volume drops below your floor, so you hear about it before something else fails for a reason that looks unrelated.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "disk"
+      ],
+      "icon": "HardDrive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 */6 * * *"
+      },
+      "action": {
+        "kind": "check",
+        "probe": {
+          "kind": "diskFree",
+          "path": "{{volumePath}}",
+          "minFreeBytes": "{{minFreeBytes}}"
+        }
+      },
+      "parameters": [
+        {
+          "key": "volumePath",
+          "label": "Path on the volume",
+          "type": "string",
+          "default": "C:\\",
+          "required": true,
+          "help": "Any path on the volume to measure, as seen by the machine running the Cronsole backend."
+        },
+        {
+          "key": "minFreeBytes",
+          "label": "Minimum free space (bytes)",
+          "type": "number",
+          "default": "10737418240",
+          "required": true,
+          "help": "Default is 10 GB. In bytes, because that is what the check stores — 1 GB is 1073741824."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-check-port-open",
+      "name": "Port Reachable Check (Cronsole)",
+      "description": "Confirm something still accepts connections on a host and port — a database, a broker, an internal service with no HTTP endpoint to call.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "network"
+      ],
+      "icon": "PlugZap",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/10 * * * *"
+      },
+      "action": {
+        "kind": "check",
+        "probe": {
+          "kind": "tcp",
+          "host": "{{host}}",
+          "port": "{{port}}"
+        }
+      },
+      "parameters": [
+        {
+          "key": "host",
+          "label": "Host",
+          "type": "string",
+          "required": true,
+          "help": "Resolved from the machine running the Cronsole backend, so an internal name has to be reachable from there."
+        },
+        {
+          "key": "port",
+          "label": "Port",
+          "type": "number",
+          "default": "5432",
+          "required": true,
+          "help": "The check succeeds if a TCP connection is accepted within 15 seconds. It does not log in or send anything."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
     }
   ]
 }

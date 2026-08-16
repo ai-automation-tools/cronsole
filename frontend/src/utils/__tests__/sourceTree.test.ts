@@ -167,22 +167,23 @@ describe('buildSourceTree — level 2 grouping', () => {
 
     const native = find(tree, 'Cronsole (Native)')!;
     // Job type, and labelled by subtype alone — the parent already says Cronsole.
-    expect(labels(native.children)).toEqual(['HTTP jobs', 'Scripts']);
-    expect(find(tree, 'Scripts')!.count).toBe(2);
+    // Alphabetical, so the list order is not the order they happened to ship in.
+    expect(labels(native.children)).toEqual(['Checks', 'HTTP jobs', 'Programs', 'Scripts']);
+    expect(find(tree, 'Programs')!.count).toBe(2);
     // And it patches the source, not the category — the two groupings are
     // genuinely different dimensions.
-    expect(find(tree, 'Scripts')!.patch).toEqual({
+    expect(find(tree, 'Programs')!.patch).toEqual({
       source: 'TASKHUB_NATIVE:EXEC',
       category: 'All',
       favorites: 'any'
     });
   });
 
-  it('lists both native job types even when one has no tasks', () => {
-    // Structure, not data: native has exactly two job types, always. *Scripts*
-    // disappearing because you have written no script tasks yet reads as a
-    // missing feature rather than an empty bucket — and the rail is navigation,
-    // so an empty destination still needs a route to it.
+  it('lists every native job type even when none has tasks', () => {
+    // Structure, not data: native has exactly four job types, always. *Checks*
+    // disappearing because you have written no checks yet reads as a missing
+    // feature rather than an empty bucket — and the rail is navigation, so an
+    // empty destination still needs a route to it.
     const tree = buildSourceTree({
       population: [
         task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:HTTP' })
@@ -191,8 +192,29 @@ describe('buildSourceTree — level 2 grouping', () => {
     });
 
     const native = find(tree, 'Cronsole (Native)')!;
-    expect(labels(native.children)).toEqual(['HTTP jobs', 'Scripts']);
+    expect(labels(native.children)).toEqual(['Checks', 'HTTP jobs', 'Programs', 'Scripts']);
+    expect(find(tree, 'Checks')!.count).toBe(0);
     expect(find(tree, 'Scripts')!.count).toBe(0);
+    expect(find(tree, 'Programs')!.count).toBe(0);
+  });
+
+  it('routes the new job types to their own source keys', () => {
+    const tree = buildSourceTree({
+      population: [
+        task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:SCRIPT' }),
+        task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:CHECK' }),
+        task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:CHECK' })
+      ],
+      filters: filters()
+    });
+
+    expect(find(tree, 'Scripts')!.count).toBe(1);
+    expect(find(tree, 'Checks')!.count).toBe(2);
+    expect(find(tree, 'Checks')!.patch).toEqual({
+      source: 'TASKHUB_NATIVE:CHECK',
+      category: 'All',
+      favorites: 'any'
+    });
   });
 });
 

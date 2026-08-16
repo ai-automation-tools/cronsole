@@ -252,15 +252,104 @@ const sourceNativeExec: HelpTopic = {
   more: [{ label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') }]
 };
 
+const sourceNativeScript: HelpTopic = {
+  id: 'source:TASKHUB_NATIVE:SCRIPT',
+  title: 'Cronsole (Scripts)',
+  summary:
+    'Write the script here and Cronsole runs it on your schedule under an interpreter you pick. ' +
+    'Nothing has to exist on disk first.',
+  points: [
+    {
+      label: 'The script lives in Cronsole, not on a disk somewhere',
+      body:
+        'It is written to a temporary file at run time and deleted afterwards. That means you can ' +
+        'read and edit it here, it is included when you export or delete the task, and it works on ' +
+        'a fresh install — none of which is true of a program that just points at a path.'
+    },
+    {
+      label: 'This is the one place a shell is expected',
+      body:
+        'You picked the interpreter and wrote the body, so pipes, && and redirection all work ' +
+        'normally. The interpreter itself is a fixed list — it is never a path you type.'
+    },
+    {
+      label: 'The interpreter has to exist where the backend runs',
+      body:
+        'Node always does; Cronsole itself runs on it. PowerShell and Python may not, especially ' +
+        'inside a container — the run log says so by name rather than reporting a missing file.'
+    },
+    {
+      label: 'It does not inherit Cronsole\'s environment',
+      body:
+        'The script gets OS essentials plus whatever you set explicitly — not Cronsole\'s own ' +
+        'variables, which include the key encrypting your stored platform credentials.'
+    }
+  ],
+  doc: { label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') },
+  more: [{ label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') }]
+};
+
+const sourceNativeCheck: HelpTopic = {
+  id: 'source:TASKHUB_NATIVE:CHECK',
+  title: 'Cronsole (Checks)',
+  summary:
+    'Measure something on a schedule and compare it to what you expect — an endpoint, a port, a ' +
+    'file that should still be fresh, or free disk space.',
+  points: [
+    {
+      label: 'A failure here is a fact about your system',
+      body:
+        'That is what separates a check from every other job type. A failed script is usually a bug ' +
+        'in the script; a failed check is the thing you wanted to know about — which is why these ' +
+        'are the runs worth wiring failure notifications to.'
+    },
+    {
+      label: 'A 200 is not the same as healthy',
+      body:
+        'An endpoint check can require the body to contain something, or a JSON field to have a ' +
+        'given value. An HTTP *job* only asks whether the request was accepted — that is the right ' +
+        'test for firing a webhook and the wrong one for monitoring.'
+    },
+    {
+      label: 'File and disk checks measure the backend\'s machine',
+      body:
+        'Not the machine you are browsing from. On a Dockerized stack that is the container\'s ' +
+        'filesystem — a check that passes against the wrong disk is worse than no check, so the ' +
+        'form names the host before you save.'
+    },
+    {
+      label: 'A missing file fails the freshness check',
+      body:
+        'Deliberately. This check exists to notice that a backup stopped being written, and a ' +
+        'backup that was never written is the same problem in its worst form.'
+    }
+  ],
+  doc: { label: 'Sources Guide › Cronsole (Checks)', url: sourcesGuide('cronsole-checks') },
+  more: [{ label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') }]
+};
+
+const sourceNativeExecPrograms: HelpTopic = {
+  ...sourceNativeExec,
+  id: 'source:TASKHUB_NATIVE:EXEC',
+  title: 'Cronsole (Programs)',
+  summary:
+    'Run a program that already exists on the machine the backend runs on, with its exit code, ' +
+    'duration and output recorded. To write the script itself here instead, use Scripts.'
+};
+
 const sourceNative: HelpTopic = {
   ...sourceNativeHttp,
   id: 'source:TASKHUB_NATIVE',
   title: 'Cronsole-native',
   summary:
     'Scheduled and executed by Cronsole itself — nothing in Windows Task Scheduler, no agent ' +
-    'involved. Two kinds: an HTTP request, or a program to run.',
+    'involved. Four kinds: call a URL, run a program, run a script you write here, or check ' +
+    'that something is as it should be.',
   doc: { label: 'Sources Guide › Cronsole (HTTP)', url: sourcesGuide('cronsole-http') },
-  more: [{ label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') }]
+  more: [
+    { label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') },
+    { label: 'Sources Guide › Cronsole (Checks)', url: sourcesGuide('cronsole-checks') }
+  ]
 };
 
 const sourceClaude: HelpTopic = {
@@ -361,33 +450,51 @@ const schedule: HelpTopic = {
 
 const nativeJobType: HelpTopic = {
   id: 'native-job-type',
-  title: 'HTTP request or Run a program',
+  title: 'What a Cronsole task does',
   summary:
-    'What a Cronsole-native task does. Both are scheduled and executed by the Cronsole backend; ' +
-    'they differ in what happens when the schedule fires.',
+    'Four kinds, all scheduled and executed by the Cronsole backend. They differ in what happens ' +
+    'when the schedule fires — and in what counts as success.',
   points: [
     {
-      label: 'HTTP request',
+      label: 'Call a URL',
       body:
-        'Cronsole calls a URL — method, headers and body are yours to set. Good for webhooks, ' +
-        'health checks and anything with an endpoint.'
+        'Cronsole makes the request — method, headers and body are yours to set. Success means the ' +
+        'endpoint accepted it, which is the right test for firing a webhook.'
     },
     {
       label: 'Run a program',
       body:
-        'Cronsole starts an executable and records its exit code, duration and output. No shell: ' +
-        'the command is split into a program and arguments.'
+        'Starts an executable that already exists on the machine the backend runs on, and records ' +
+        'its exit code, duration and output. No shell: the command is split into a program and ' +
+        'arguments.'
+    },
+    {
+      label: 'Write a script',
+      body:
+        'You write the body here and pick an interpreter; Cronsole stores it, writes it to a ' +
+        'temporary file at run time and runs it. Nothing needs to exist on disk first, and the ' +
+        'script travels with the task.'
+    },
+    {
+      label: 'Check something',
+      body:
+        'Measures an endpoint, a port, a file\'s age or free disk space and compares it to what you ' +
+        'expect. Use this rather than "Call a URL" when you want a 200 that serves an error page ' +
+        'to fail.'
     },
     {
       label: 'You can switch later, but not merge',
       body:
-        'Editing a task can convert one into the other. The job is replaced — the old type\'s ' +
-        'fields are discarded, and the form names them before you click. Name, schedule, category ' +
-        'and run history all survive.'
+        'Editing a task converts it. The job is replaced — the old type\'s fields are discarded, ' +
+        'and the form names them before you click. Name, schedule, category and run history all ' +
+        'survive.'
     }
   ],
   doc: { label: 'UI User Guide › Creating a native task', url: uiGuide('creating-a-cronsole-native-task') },
-  more: [{ label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') }]
+  more: [
+    { label: 'Sources Guide › Cronsole (Scripts)', url: sourcesGuide('cronsole-scripts') },
+    { label: 'Sources Guide › Cronsole (Checks)', url: sourcesGuide('cronsole-checks') }
+  ]
 };
 
 const command: HelpTopic = {
@@ -748,7 +855,9 @@ const TOPIC_LIST: HelpTopic[] = [
   sourceWindows,
   sourceNative,
   sourceNativeHttp,
-  sourceNativeExec,
+  sourceNativeExecPrograms,
+  sourceNativeScript,
+  sourceNativeCheck,
   sourceClaude,
   schedule,
   nativeJobType,

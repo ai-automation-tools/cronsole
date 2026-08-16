@@ -3,7 +3,8 @@ import {
   PlatformType,
   ScriptType,
   OsTarget,
-  TemplateCategory
+  TemplateCategory,
+  Prisma
 } from '@prisma/client';
 import { bundledCatalog } from './bundled.js';
 import { registryTemplateSchema } from './schema.js';
@@ -12,8 +13,11 @@ import { BundledCatalogSource } from './source.js';
 import {
   resolveTemplateParams,
   substituteStructuredCommand,
+  substituteNativeJob,
   type TemplateParameterDef
 } from '../utils/templateCommand.js';
+import { buildNativeJob } from '../services/nativeJob.js';
+import { validateJob } from '../services/NativeTaskExecutor.js';
 
 const byId = <T extends { id: string }>(list: T[], id: string): T => {
   const found = list.find((t) => t.id === id);
@@ -30,12 +34,12 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 66 templates (4 patterns + 9 dev + 7 ai + 20 starters + 15 extended + 6 native + 5 claude routines)', () => {
-    expect(bundledCatalog).toHaveLength(66);
-    expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(23);
+  it('has the expected shape: 72 templates (4 patterns + 9 dev + 7 ai + 20 starters + 15 extended + 6 native + 6 native scripts&checks + 5 claude routines)', () => {
+    expect(bundledCatalog).toHaveLength(72);
+    expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(24);
     expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(9);
     expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(6);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(12);
     expect(bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'))).toHaveLength(5);
   });
 
@@ -47,10 +51,29 @@ describe('bundled catalog snapshot', () => {
     const native = bundledCatalog.filter((t) => t.compatibleTargets.includes('cronsole-native'));
     expect(native.length).toBeGreaterThanOrEqual(6);
     for (const t of native) {
-      // A native task runs wherever the backend runs, on any OS — claiming one
-      // platform would be a guess about someone else's install.
-      expect(t.os, `${t.id} should be cross-platform`).toBe('cross-platform');
       expect(t.tags, `${t.id} missing 'cronsole-native' tag`).toContain('cronsole-native');
+    }
+
+    // **`os` describes what the template NEEDS, not where the backend happens to
+    // run.** This was a blanket `cross-platform` assertion until 2026-08-15, on
+    // the reasoning that a native task runs wherever the backend runs so naming
+    // an OS would be a guess about someone else's install. That held while every
+    // native template just launched an arbitrary program — the template named no
+    // tool, so it made no demand.
+    //
+    // A `script` template names its **interpreter**, which makes the demand real
+    // and knowable: a Windows-PowerShell body cannot run on a Linux container
+    // whatever the backend is, so labelling it `cross-platform` would be the
+    // confident lie, not the humble answer. The rule that replaces the blanket
+    // one: only a template naming a Windows-only runtime may claim `windows`.
+    const WINDOWS_ONLY_RUNTIMES = ['powershell', 'batch', 'vbscript'];
+    for (const t of native) {
+      if (t.os === 'cross-platform') continue;
+      expect(
+        WINDOWS_ONLY_RUNTIMES,
+        `${t.id} claims os=${t.os} but its runtime (${t.runtime}) is not Windows-only`
+      ).toContain(t.runtime);
+      expect(t.os, `${t.id} may only narrow to windows`).toBe('windows');
     }
   });
 
@@ -76,8 +99,12 @@ describe('bundled catalog snapshot', () => {
     // 7 since 2026-08-13: the two Cronsole-native entries joined, because native
     // is the only source that works on a fresh install with no agent and no
     // credential — so it is the one family a default catalog can promise.
-    expect(core).toHaveLength(7);
-    expect(extended).toHaveLength(59);
+    // 10 since 2026-08-15: a script starter and two checks, for the same reason
+    // one step further — a SCRIPT template needs nothing on disk, so it is the
+    // first template in the catalog that is guaranteed to work on a fresh
+    // install rather than merely applicable to one.
+    expect(core).toHaveLength(10);
+    expect(extended).toHaveLength(62);
     expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
     // Extended Pack templates use the ext-namespace prefixes and are never core.
     for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {
@@ -131,6 +158,44 @@ describe('bundled catalog snapshot', () => {
         () => substituteStructuredCommand(t.commandTemplate!, resolveTemplateParams(defs, provided)),
         `${t.id} has an unresolvable commandTemplate`
       ).not.toThrow();
+    }
+  });
+
+  it('every native job spec resolves, and the result is a job the executor accepts', () => {
+    // The same guarantee the commandTemplate test gives, for the templates that
+    // have no commandTemplate — which is *all* of the SCRIPT and CHECK ones, so
+    // without this they were the only family in the catalog with no resolvability
+    // cover at all. That gap is the shape this suite exists to catch: a template
+    // that applies cleanly and stores a spec the executor refuses at 3am.
+    //
+    // It goes one step further than the command test and runs `validateJob` on
+    // the result, because a resolved job spec CAN be checked end to end —
+    // `buildNativeJob` + `validateJob` is exactly what the connector will do.
+    for (const t of bundledCatalog) {
+      const normalized = normalizeTemplate(t);
+      if (normalized.nativeJob === Prisma.DbNull) continue;
+
+      const defs = (t.parameters ?? []) as TemplateParameterDef[];
+      const provided: Record<string, string> = {};
+      for (const def of defs) {
+        provided[def.key] =
+          (def.default && def.default.trim() ? def.default : undefined) ??
+          def.options?.[0] ??
+          // A URL-shaped dummy: several probes require one, and 'x' would fail
+          // validation for a reason that says nothing about the template.
+          (/url/i.test(def.key) ? 'https://example.com/health' : 'x');
+      }
+
+      const resolved = substituteNativeJob(
+        normalized.nativeJob,
+        resolveTemplateParams(defs, provided)
+      ) as Record<string, unknown>;
+
+      expect(JSON.stringify(resolved), `${t.id} left an unfilled placeholder`).not.toContain('{{');
+      expect(
+        validateJob(buildNativeJob(resolved)),
+        `${t.id} builds a job the executor would refuse`
+      ).toBeNull();
     }
   });
 });
@@ -204,10 +269,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 66 normalized templates', async () => {
+  it('lists all 72 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(66);
+    expect(list).toHaveLength(72);
     expect(src.name).toBe('bundled');
   });
 });

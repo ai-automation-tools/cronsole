@@ -97,13 +97,20 @@ export class CronsoleNativeConnector implements PlatformConnector {
     // containing a space is **one argument** in the structured form and two
     // after a round trip through the command line. Same reason the Windows
     // connector takes `options.action`.
-    const job: NativeJob = options?.action && !isUrlCommand(command)
-      ? buildNativeJob({
-          jobType: 'EXEC',
-          executable: options.action.executable,
-          args: options.action.args
-        })
-      : nativeJobFromCommand(command);
+    // A full spec outranks both, and must: a SCRIPT body and a CHECK probe have
+    // no command-line form at all, so deriving a job from `command` for those
+    // would silently turn a template's description string into an EXEC job.
+    // Still through `buildNativeJob` + `validateJob` — a template is untrusted
+    // content, and this is the same boundary the API and the edit route use.
+    const job: NativeJob = options?.nativeJob
+      ? buildNativeJob(options.nativeJob as Record<string, unknown>)
+      : options?.action && !isUrlCommand(command)
+        ? buildNativeJob({
+            jobType: 'EXEC',
+            executable: options.action.executable,
+            args: options.action.args
+          })
+        : nativeJobFromCommand(command);
     const invalid = validateJob(job);
     if (invalid) {
       return { success: false, message: invalid };

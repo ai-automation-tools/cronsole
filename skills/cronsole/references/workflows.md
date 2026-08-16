@@ -23,8 +23,14 @@ cd backend
 node -r dotenv/config -e "console.log(require('jsonwebtoken').sign({id:'cli_user_placeholder',email:'mike@example.com'}, process.env.JWT_SECRET, {expiresIn:'3650d'}))"
 ```
 
-Or read `VITE_DEV_TOKEN` from `frontend/.env.local`. A `403` means it was signed with a
-different secret than the running backend uses — trap #2.
+A `403` means it was signed with a different secret than the running backend uses — trap #2.
+
+**Prefer the supported path now**: since 2026-08-15 Cronsole issues real API tokens — log in,
+then **Settings → Account**, name one, pick an expiry, copy it once. Those are **revocable**,
+which a hand-signed token is not. The command above is still fine for throwaway local work.
+*(`VITE_DEV_TOKEN` used to be suggested here and is gone: Vite inlines `VITE_*` as literals at
+build time, so it compiled a valid owner JWT into `dist/` —
+[#55](../../../docs/troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in).)*
 
 ## Add or change a template
 
@@ -40,7 +46,7 @@ npm test
 pwsh scripts/publish-registry.ps1
 ```
 
-Decisions to make: **tier** (`core: true` only if it earns a slot in the 5-template sampler),
+Decisions to make: **tier** (`core: true` only if it earns a slot in the small built-in set — **10** as of 2026-08-15; check `registry/index.json` rather than this line),
 **tags** (free-form, distinct from `category`), and **shell** (keep `exec` no-shell unless it
 genuinely needs one). Detail: [templates.md](templates.md).
 
@@ -124,7 +130,10 @@ route, which is what keeps owner scoping, no-shell `exec`, signed agent commands
 cron→trigger conversion in one tested place. **New behavior means a new backend route**, never
 cleverness in the wrapper.
 
-The 15 tools and their routes:
+The tools and their routes. **This table is a selection, not the full surface** — there are
+**29** tools; run `grep -c 'server.registerTool' mcp-server/src/tools.ts` for the count and
+`mcp-server/README.md` for the complete table. *(It said "the 15 tools" until 2026-08-16,
+which read as exhaustive and was wrong by fourteen.)*
 
 | Tool | Route | |
 |:---|:---|:---|
@@ -142,7 +151,7 @@ The 15 tools and their routes:
 | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` | reversible → ungated |
 | `update_task_action` | `PATCH /api/tasks/:id/actions` | replaces, doesn't patch |
 | `untrack_task` | `POST /api/tasks/:id/untrack` | drops Cronsole's row, **no platform call** → ungated |
-| `delete_task` | `DELETE /api/tasks/:id` | **gated** by `CRONSOLE_MCP_ALLOW_DESTRUCTIVE` |
+| `delete_task` | `DELETE /api/tasks/:id/**native**` | **gated** by `CRONSOLE_MCP_ALLOW_DESTRUCTIVE`; **native-only, 400s every other platform**, and archives the definition + last 20 runs before deleting. *(This row said `/api/tasks/:id` — the UI's route — until 2026-08-16, overstating the blast radius: no MCP verb can destroy a task on the machine.)* |
 
 **The gating rule, if you add more** (settled 2026-07-15): irreversible verbs are gated and
 **absent** from `tools/list` when off; reversible ones are not. The gate is an **env var, not a

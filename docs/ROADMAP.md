@@ -26,8 +26,12 @@ belongs in the CHANGELOG.
 ### 🔴🔴 Top priority — requested 2026-08-15
 
 Three items, requested directly after the dashboard IA redesign landed. Ordered as given.
-**Item 2 shipped the same day**; the work it left behind is item 0 below, ahead of the rest because
-it is the unfinished half of something already in users' hands rather than something not started.
+**Items 1 and 2 have shipped** (collections 2026-08-16; native job types 2026-08-15), and the work
+job types left behind is item 0 below — ahead of the rest because it is the unfinished half of
+something already in users' hands rather than something not started.
+
+**Open here: item 0's sub-items 2, 3, 4 and 6, plus items 3 (themes) and 4 (phone).** Items 0.4 and
+4 are the same Playwright pass and should be done once, not twice.
 
 0. **Finish what the native job types left open** *(added 2026-08-15, after `SCRIPT` + `CHECK`
    shipped — [ADR 0002](adr/0002-native-job-types.md))*. Six items, worst-first — items 5 and 6 were
@@ -278,15 +282,17 @@ delete)` in `\Cronsole` is left disabled and wants deleting.
 
 ---
 
-**🔴 [API tokens are the top priority](#-p0--security-hardening--reopened-2026-08-13)** *(2026-08-13)* —
-the only way to get a token for the MCP server is to run `jsonwebtoken.sign` by hand with the
-backend's `JWT_SECRET`. That is not a workaround someone invented; it is
-[what our own guide tells them to do](user-guides/guides/MCP_Server_Guide.md#getting-a-token). The
-product cannot issue a credential its own documented integration requires. Ahead of Sources
-because it gates every non-browser client and is the last thing anyone should discover on a
-30-day expiry.
+**✅ [API tokens](#-p0--security-hardening--reopened-2026-08-13) — largely closed 2026-08-15.**
+This was the top priority from 2026-08-13: the only way to get a token for the MCP server was to run
+`jsonwebtoken.sign` by hand with the backend's `JWT_SECRET`, which was not a workaround someone
+invented but [what our own guide told them to do](user-guides/guides/MCP_Server_Guide.md#getting-a-token)
+— the product could not issue a credential its own documented integration required.
+**(a) `JWT_EXPIRES_IN` and (b) the real token surface both shipped**: name a token in
+Settings → Account, pick 30/60/90 days or never, revoke it individually. The guide's hand-minting
+instructions are gone. **Only (c) remains** — resolve `req.user` from the DB rather than trusting
+the `email` claim — which is small, independent, and no longer gates anything.
 
-**[Sources](#-sources--where-a-task-comes-from) is the priority after that** *(scoped 2026-08-12)* — the
+**[Sources](#-sources--where-a-task-comes-from) is the priority once the block above is clear** *(scoped 2026-08-12)* — the
 dashboard's first-level axis is now where a task comes from, and the plan is to fill it in. In order:
 
 1. ~~**Native job types — scripts**~~ — **shipped 2026-08-12.**
@@ -321,7 +327,7 @@ Everything below the sources track, unchanged in priority relative to each other
 
 ## 🔷 Sources — where a task comes from
 
-> **The current top priority** *(scoped 2026-08-12)*. The dashboard's first-level axis is now the
+> **The priority once the *Next up* block is clear** *(scoped 2026-08-12; it read "the current top priority" until 2026-08-16, when the 2026-08-15 requests took precedence)*. The dashboard's first-level axis is now the
 > **source** a task comes from, and Cronsole ships with two: Windows Task Scheduler and
 > Cronsole-native. This section is the plan for the rest.
 >
@@ -643,12 +649,17 @@ Everything below the sources track, unchanged in priority relative to each other
 
 ---
 
-## 🔴 P0 — Security hardening — REOPENED (2026-08-13)
+## 🟡 P0 — Security hardening — reopened 2026-08-13, substantially closed 2026-08-15
 
 *Closed 2026-07-09; reopened for one item. The five below are still done — what reopened this is a
 gap none of them covered, because it is not a hole in a mechanism but the **absence** of one.*
 
-- [ ] **API tokens — the product cannot issue the credential its own docs require** ← **top priority**
+*As of 2026-08-15 that gap is filled: **(a) `JWT_EXPIRES_IN` and (b) a real, revocable token
+surface both shipped**. Only **(c)** is open — resolve `req.user` from the database instead of
+trusting the `email` claim — which is small and independent, so this section no longer gates
+anything. The header stays red-adjacent rather than green because one item is still open.*
+
+- [~] **API tokens — the product cannot issue the credential its own docs require** — **(a) and (b) shipped 2026-08-15; only (c) open**
       *(found 2026-08-13, while answering "where do we have `CRONSOLE_TOKEN`?")*
 
       **Symptom.** The working `CRONSOLE_TOKEN` on this machine is a JWT with a **30-day** life and
@@ -1183,9 +1194,12 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
       vs. template vs. diagnostic tools. The UX pass above lands squarely in `DashboardScreen.tsx`,
       so that is the one to split *while you are there*, not afterwards.
-- [ ] **Claude Code connector** — *promoted to top priority under
-      [Sources](#-sources--where-a-task-comes-from) (2026-08-12).* Promote from experimental
-      scaffold to production-ready.
+- [x] **Claude Code connector** — *shipped 2026-08-12, completed 2026-08-13.* No longer an
+      experimental scaffold: the connector lists, creates, reschedules, pauses and runs routines,
+      with a declared-registry fallback when no Claude Code session is readable. See
+      [Sources](#-sources--where-a-task-comes-from) › item 4 and
+      [#50](troubleshooting/README.md#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one).
+      Residual Claude items are in the 2026-08-13 follow-up list, not here.
 - [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
 - [~] **Template gallery site** — parts 1, 2, 4, 5 shipped; **part 3, the one-click "Add to my
       Cronsole" deep-link/protocol handoff, remains**. Download + Copy JSON use the shipped Import

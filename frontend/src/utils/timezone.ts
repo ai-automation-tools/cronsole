@@ -137,6 +137,12 @@ export interface CronShift {
    * could not. An expression with no fixed clock time (an every-N-minutes step)
    * reads the same in any whole-hour zone and is not a refusal — it is a no-op,
    * and reporting it as a problem would train the user to ignore the warning.
+   *
+   * **`shifted: false` with no reason is a positive claim, not an absence.**
+   * `ScheduleZoneHint` renders it as *"this schedule has no fixed clock time, so
+   * it reads the same in PDT and UTC"* — so omitting a reason on an expression
+   * that DOES pin a clock time does not merely fail to warn, it asserts the
+   * opposite of the truth. Every path that declines to shift must pick a side.
    */
   reason?: string;
 }
@@ -207,7 +213,44 @@ export function shiftCron(cron: string, offsetMinutes: number): CronShift {
     };
   }
 
-  if (!isNum(min) || !isNum(hour)) return { cron, shifted: false };
+  if (!isNum(min) || !isNum(hour)) {
+    // We cannot shift this. The question is whether that is a *no-op* or a
+    // *refusal*, and getting it wrong is not a missing warning — it is a wrong
+    // answer, because the caller renders "no fixed clock time, so it reads the
+    // same in PDT and UTC" whenever no reason comes back. For `0 9-17 * * 1-5`
+    // that sentence is false in both halves: it names seven clock times, and it
+    // reads seven hours earlier. The user is told the conversion was
+    // unnecessary while their working day is stored as 01:00–09:00 local.
+    //
+    //   hour !== '*'  → it pins hours (`9-17`, `*/2`, `1,13`), so a zone change
+    //                   moves them and we owe an explanation.
+    //   hour === '*'  → it recurs every hour, so a whole-hour offset really does
+    //                   leave it identical. Only a partial-hour zone (+05:30)
+    //                   moves a multi-value minute field.
+    const pinsHours = hour !== '*';
+    const minutesWouldMove = mod(offsetMinutes, 60) !== 0 && min !== '*';
+    if (pinsHours) {
+      return {
+        cron,
+        shifted: false,
+        reason:
+          'The hour field doesn’t name a single hour, so Cronsole can’t convert this ' +
+          'schedule between zones — it is shown and stored in UTC exactly as typed. ' +
+          'Write the hours you want in UTC, or use one hour to have it converted for you.'
+      };
+    }
+    if (minutesWouldMove) {
+      return {
+        cron,
+        shifted: false,
+        reason:
+          'This zone is offset by part of an hour and the minute field isn’t a single ' +
+          'value, so Cronsole can’t convert this schedule — it is shown and stored in ' +
+          'UTC exactly as typed.'
+      };
+    }
+    return { cron, shifted: false };
+  }
 
   const total = Number(hour) * 60 + Number(min) + offsetMinutes;
   const dayDelta = Math.floor(total / 1440);

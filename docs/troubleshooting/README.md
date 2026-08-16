@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 60 | A schedule with a multi-value hour (`0 9-17 * * 1-5`) is stored **verbatim as UTC** and runs 7–8 hours off — while the hint under the field says *"this schedule has no fixed clock time, so it reads the same in PDT and UTC"* | `shiftCron` correctly declines to shift an hour field that isn't a single number, but returned no **`reason`** — and `ScheduleZoneHint` renders "no reason" as **"the zone is irrelevant"**, so a missing warning became a confident false statement. **Fixed 2026-08-15**: a refusal now asks whether the expression pins a clock time (`hour !== '*'`, or a partial-hour zone with a multi-value minute) and explains itself; genuinely invariant expressions still say nothing. **The general rule: if the empty case has its own message, declining to answer and answering "no problem" are the same code path** | [→](#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter) |
 | 59 | A Cronsole-native `CHECK` that **correctly finds a problem** comes back as HTTP **502** — `run_task` throws, so an agent reports *"I couldn't run the check"* over a message that says the check ran and the endpoint is broken. The dashboard raises a *Failed to run* toast rather than showing a failing result | `POST /api/tasks/:id/run` returned `502` for **every** unsuccessful run. That was right for Windows and Claude, where a failure IS a failure to dispatch — and wrong the moment a job type arrived whose failures are *findings*. `502` means *retry, the gateway had a problem*, so the one job type worth alerting on reported itself in the one way that says ignore this. **Fixed 2026-08-15**: `runTask` gained **`ran`** (orthogonal to `success`), so a job that executed and failed is a **200 carrying `success: false`** and only a genuine failure-to-start is a 502. **The tell: only Cronsole-native can hit it** — it is the one platform where dispatch and execution are the same act | [→](#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check) |
 | 57 | A count beside a filter control disagrees with another count for the same set, and both look right | Two questions sharing one number: *what exists* vs *what clicking reveals*. Anything printed beside a control that changes the list must be **faceted** (every other lens applied); existence counts may only gate whether a control renders | [→](#57-two-counts-for-the-same-set-disagree-on-screen--and-both-are-right) |
 | 58 | A published template the running build cannot parse makes the **entire hosted catalog** vanish — the app silently serves its bundled snapshot, the gallery on the web shows templates the app does not have, and nothing errors | `RegistryCatalogSource.fetchAll` threw on the first unreadable template, and `listRaw`'s catch falls back to the **whole** bundled catalog. The realistic trigger is a **version gap**, not corruption: `action` is a Zod discriminated union, so a member added later (`script`/`check`, 2026-08-15) is an unknown discriminator to every older install. **Fixed 2026-08-15**: skip and log the one template, keep the rest. A **checksum mismatch still throws** — that is integrity on executable content, not a version gap | [→](#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog) |
@@ -3866,6 +3867,59 @@ new one — and nothing fails, because a status code has no test unless someone 
 
 *First hit: 2026-08-15.* Found by driving the new job types end-to-end on a live stack — the
 structural argument that they worked was sound, and this is exactly what it could not have told us.
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 60. A schedule is stored 7–8 hours off, and the UI says the timezone doesn't matter
+
+**Symptom.** With `Settings › Schedule timezone` on Pacific, you type a working-day schedule:
+
+```
+0 9-17 * * 1-5
+```
+
+It is stored **exactly as typed** and runs 01:00–09:00 Pacific. The hint under the field, where
+every other schedule prints *"Stored as … UTC"*, instead reads:
+
+> This schedule has no fixed clock time, so it reads the same in PDT and UTC.
+
+**Cause.** `shiftCron` only converts an expression whose minute **and** hour are single numbers
+(plus the hourly `M * * * *` case). `9-17` is not, so it correctly declined to shift — and returned
+`{ shifted: false }` with **no `reason`**.
+
+The trap is what `reason` being absent *means* downstream. `ScheduleZoneHint` has three branches:
+a reason (warning), a shift (shows the stored UTC), and otherwise **"no fixed clock time"**. So
+`shifted: false` with no reason is not silence — **it is a positive claim that the zone is
+irrelevant**, and here both halves of that claim were false. The user is told the conversion was
+unnecessary while their working day sits in the database seven hours out.
+
+This is the same family as [#51/#51a](#51a-the-same-bug-in-the-step-branch--and-this-one-never-errors-at-all):
+a multi-value cron field taking a path written for a single value. The difference is that this one
+never touches `parseInt`, so it produces no wrong number anywhere — just a wrong *sentence*.
+
+**Fix.** Every path that declines to shift must pick a side, so the refusal branch now asks whether
+the expression pins a clock time at all:
+
+- **`hour !== '*'`** — it names hours (`9-17`, `1,13`, `*/6`, or a fixed hour with several
+  minutes). A zone change moves them, so this is a **refusal** and gets a reason naming what to do.
+- **`hour === '*'`** — it recurs every hour, so a whole-hour offset really does leave it identical
+  and saying nothing is correct. The one exception is a partial-hour zone (+05:30) with a
+  multi-value minute field, which would have moved.
+
+`*/6` counts as pinning clock times, which is easy to argue past: it fires at 00/06/12/18, and those
+are four *different* wall-clock times in Pacific — the same reasoning that already makes "hourly at
+:20" shift for a half-hour zone.
+
+**The general shape.** Ask what a UI renders when your function returns *nothing*. If the empty case
+has its own message, then **declining to answer and answering "no problem here" are the same code
+path**, and a missing warning is upgraded into a confident false statement. A "nothing to report"
+branch is a claim and needs the same evidence as any other.
+
+*First hit: 2026-08-15.* Logged during the 2026-08-13 cron-parsing sweep as *"stores a zoned cron
+7–8 hours off, silently"*; the `ScheduleZoneHint` half — that it was not silent but actively wrong —
+turned up when fixing it.
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

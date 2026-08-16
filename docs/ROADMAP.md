@@ -198,12 +198,26 @@ out of it. Ordered worst-first. Items 1–2 are the **unfixed remainder of the d
 they are the same `parseInt`-on-a-multi-value-field shape on surfaces outside that commit's blast
 radius, and they are listed here rather than left in the completed item so they cannot read as done.
 
-1. **`shiftCron` stores a zoned cron 7–8 hours off, silently** — `frontend/src/utils/timezone.ts`.
-   The `isNum` guard correctly *refuses* to shift a multi-value hour, then returns `shifted: false`
-   with **no `reason`**, so a Pacific user typing `0 9-17 * * 1-5` has it stored verbatim as UTC with
-   nothing on screen. `reason` exists for exactly this case ("has a clock time we would have moved
-   but could not"); the two paths that set it only cover midnight-crossing. **The most user-facing
-   item on this list** — it is wrong output, not a confusing message.
+1. ~~**`shiftCron` stores a zoned cron 7–8 hours off, silently**~~ — **fixed 2026-08-15.** The
+   refusal branch now asks whether the expression pins a clock time — `hour !== '*'` (a range,
+   list, step, or a fixed hour with several minutes), plus the partial-hour-zone case where a
+   multi-value *minute* would have moved — and explains itself; genuinely invariant expressions
+   (`*/15 * * * *`, `20 * * * *`) still say nothing, because warning about those is what teaches
+   people to ignore warnings. Storage and conversion behaviour are unchanged: the same expressions
+   shift, the same ones don't.
+   **It was worse than "silently", which is why it is worth reading the entry.** `ScheduleZoneHint`
+   renders a missing `reason` as *"This schedule has no fixed clock time, so it reads the same in
+   PDT and UTC"* — so this was not an absent warning but a **confident false statement**, printed
+   under a working day being stored seven hours out. **If the empty case has its own message, then
+   declining to answer and answering "no problem here" are the same code path.**
+   [#60](troubleshooting/README.md#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter).
+   *(Checked while here: the frontend's `describeCron` has no day-of-month branch at all and guards
+   every other shape with `isNum`, so it returns `null` and the card falls back to the raw cron —
+   it does not carry the sibling of the gallery bug in item 2.)*
+   **Not done, and deliberately:** Cronsole still cannot *convert* a multi-value hour, only refuse
+   it honestly. `0 9-15 * * *` → `0 17-23 * * *` is expressible and would be a real improvement;
+   ranges that cross midnight (`9-17` in Pacific) are not, and per-element weekday rolls make the
+   general case sharp. Worth its own item rather than smuggling into a warning fix.
 2. ~~**The gallery's `describeCron` drops day-of-month values**~~ — **fixed 2026-08-13.**
    `registry-site/index.html` rendered `0 9 1,15 3 *` as *"March 1st"* (`parseInt('1,15')`). The
    month branch now returns **no reading at all** for a multi-value day rather than a confident

@@ -123,6 +123,28 @@ See [troubleshooting #8](../../docs/troubleshooting/README.md#8-every-mcp-tool-r
 cd backend && npm test   # the drift test fails if registry/ disagrees with bundled.ts
 ```
 
+### 7. Only if the proxy is running: is `frontend/dist` right?
+
+**Skip this check entirely unless `taskhub-proxy-1` is up** — on a normal stack nothing serves
+`frontend/dist`, which is why it is not on the standing stale list.
+
+```bash
+docker ps --filter "name=taskhub-proxy" --format "{{.Names}}"          # empty => skip
+cd frontend/dist/assets && grep -o '.\{4\}`same-origin`.\{4\}' index-*.js | tail -1
+```
+
+Two different failures, and they present as **opposites** — do not diagnose one as the other:
+
+| Proxied page | Requests | Cause | Entry |
+|:---|:---|:---|:---|
+| Older than `:7373` | fine | never rebuilt | [#53](../../docs/troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current) |
+| Current | all fail, *cannot reach backend* | built with `npm run build`, not `build:remote` | [#63](../../docs/troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
+
+The grep reads the **call**, not the occurrence: `Rl(\`same-origin\`)` is a correct remote build,
+`Rl(\`http://localhost:3000\`)` is the wrong mode. Searching for either string on its own proves
+nothing — both appear in every bundle. Fix for both: `cd frontend && npm run build:remote` (the
+mount is live; no container restart).
+
 ## Report format
 
 Give a verdict table, then the **single most likely cause** and its fix. Cite the
@@ -135,7 +157,8 @@ a failure to find something.
 - `--stale` — only the three stale-prone processes (checks 2–4)
 - `--agent` — only agent connectivity and build currency (check 3)
 - `--mcp` — only the MCP server and token (check 4)
-- `--fix` — apply the safe fixes (`docker restart`, `npm run build`). **Never** auto-run the
-  agent republish: it needs elevation and would kill a running agent.
+- `--fix` — apply the safe fixes (`docker restart`, `npm run build` in `mcp-server/`). **Never**
+  auto-run the agent republish: it needs elevation and would kill a running agent. In `frontend/`
+  the fix is **`npm run build:remote`**, never plain `build` — see check 7.
 
 $ARGUMENTS

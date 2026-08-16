@@ -23,6 +23,7 @@ import { TaskCard } from '../components/TaskCard';
 import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { ManageCollectionsModal } from '../components/ManageCollectionsModal';
+import { TaskCollectionMenu } from '../components/TaskCollectionMenu';
 import { useCollections } from '../hooks/useCollections';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
@@ -1055,6 +1056,7 @@ export const DashboardScreen = ({
                           <td className="py-4 px-4 font-bold text-foreground group-hover:text-foreground transition-colors">
                             <div className="flex items-start gap-2">
                               <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} className="mt-0.5" />
+                              <TaskCollectionMenu task={task} size={14} className="mt-0.5" />
                               <div>
                               <span className="block truncate max-w-[240px]">{task.name}</span>
                               <span className="block text-[10px] text-subtle-foreground font-mono font-normal truncate max-w-[240px] mt-0.5">{task.externalId}</span>
@@ -1142,6 +1144,7 @@ export const DashboardScreen = ({
                               <Folder size={10} /> {task.category || 'Uncategorized'}
                             </span>
                             <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={12} />
+                            <TaskCollectionMenu task={task} size={12} />
                           </span>
                         </div>
                         <h4 className="font-bold text-foreground text-sm truncate">{task.name}</h4>
@@ -1198,6 +1201,7 @@ export const DashboardScreen = ({
                               <Folder size={10} /> {task.category || 'Uncategorized'}
                             </span>
                             <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={12} />
+                            <TaskCollectionMenu task={task} size={12} />
                           </span>
                         </div>
                         <h4 className="font-bold text-muted-foreground text-sm truncate">{task.name}</h4>
@@ -1250,6 +1254,7 @@ export const DashboardScreen = ({
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={14} />
+                                <TaskCollectionMenu task={task} size={14} />
                                 <h4 className="font-bold text-foreground text-base">{task.name}</h4>
                                 <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded border ${platformBadgeClass(task.platform)}`}>
                                   {platformLabel(task.platform)}

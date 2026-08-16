@@ -399,9 +399,17 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
       labelledBy="task-modal-title"
       panelClassName="bg-surface border border-border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
     >
-        <header className="p-6 border-b border-border flex justify-between items-start">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
+        <header className="p-6 border-b border-border flex justify-between items-start gap-2">
+          <div className="min-w-0">
+            {/*
+              Wraps, because this row holds a badge, a task name of unbounded
+              length, and two controls — and the labeled collections button made
+              it 471px wide on a 375px phone (caught by the mobile E2E check,
+              which is what that check is for). `min-w-0` on the column is the
+              other half: without it the flex parent refuses to shrink below the
+              name's intrinsic width and wrapping never gets the chance to help.
+            */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
               <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-primary/20 text-foreground border border-primary/30">
                 {task.platform}
               </span>
@@ -410,7 +418,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
                 edit affordances on this screen; all four are now the single Edit
                 button in the footer.
               */}
-              <h2 id="task-modal-title" className="text-2xl font-bold">{task.name}</h2>
+              <h2 id="task-modal-title" className="text-2xl font-bold min-w-0 break-words">{task.name}</h2>
               {onToggleFavorite && (
                 <TaskFavoriteStar task={task} onToggle={onToggleFavorite} size={20} />
               )}
@@ -419,8 +427,15 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
                 Cronsole-side label on a task, touching no platform — and putting
                 them together is what makes "in a collection" read as a peer of
                 "starred" rather than as a filter that lives somewhere else.
+
+                Labeled here and an icon on the rows. A star needs no caption —
+                everyone already knows what one does — but a bookmark glyph next
+                to it read as decoration, so the one surface with room to say
+                "Add to collection" says it. That the same control is unlabeled
+                on the rows is fine once it has been met once here; it is being
+                unlabeled *and* nowhere else that hid the feature.
               */}
-              <TaskCollectionMenu task={task} size={19} />
+              <TaskCollectionMenu task={task} variant="labeled" />
             </div>
             <code className="text-xs text-subtle-foreground bg-background px-2 py-1 rounded">{task.externalId}</code>
             {/*

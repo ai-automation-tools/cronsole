@@ -130,6 +130,19 @@ item 4 — they were the same Playwright pass, done once.
    create; the rail gets one row per collection above the platforms, and *Manage collections* at the
    bottom.
 
+   *Follow-up, same day:* **"a bookmark button on every task" was true of one surface out of five.**
+   It shipped in the task detail modal only, because the panel was an absolutely positioned child
+   and every other task surface clips — the List view sits inside `overflow-hidden`, each Kanban
+   column inside `overflow-y-auto`. So the rail offered a place you could navigate to and, in
+   practice, barely fill: adding a task meant opening it first and finding an unlabelled 19px glyph,
+   while the star — the same per-user label on the same tasks — was already on all five. Fixed by
+   portalling the panel to `document.body` with fixed placement (anchored to the trigger, flipped
+   when there is no room below, re-anchored on scroll), which is what let the control go everywhere
+   the star is. The button now carries its membership count, and the modal spells the action out in
+   words. **Both the help topic and the UI guide already claimed "next to the star on any task"** —
+   the docs described the intended design and the code had reached one surface of it, which is the
+   §11a drift running in the unusual direction.
+
    The invariants the old item listed were all honoured, and one is new: `filtersEqual` and
    `activeFilterCount` exclude `collection` **by omission** (they list what they compare), which is
    correct and easy to "fix" wrongly, so both now say so. `viewFiltersFrom` strips it — sharper here

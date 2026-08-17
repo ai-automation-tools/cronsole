@@ -73,6 +73,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - **The New Task and Edit forms are one job form** (2026-08-15). The create modal held its own copy of the native fields, covering only HTTP and EXEC. With four job types that would have meant two field sets, two validations and two payload builders per type — the shape that lets a job be submittable in one form and refused by the other. Both now render `NativeJobFields` and serialize through `nativeJobPayload`.
 
 ### Fixed
+- **The README described a product two job types and seventeen templates out of date** (2026-08-17). Four claims on the repo's front page were false, all of them the same shape CLAUDE.md warns about — a first-ship description left standing in the present tense after the thing changed:
+
+  - **Cronsole-native was described as "HTTP jobs"**, in both the platform table and the feature list. It has had four job types since 2026-08-15 (HTTP, an existing program, a script you write here, and checks), and the two rows that would tell a stranger so were the two that still said otherwise.
+  - **"55 templates in 6 packs"** — the registry holds **72 in 8** (verified against `registry/index.json`, not against another doc, which is the only way that number is ever right).
+  - **"Star the tasks you watch, and the dashboard opens on them"** — it stopped opening on them on 2026-08-12, deliberately, and the sentence after it described a disclosure banner that was removed in the same change. So the front page documented a behaviour *and* apologised for it, months after both were gone.
+  - **Collections were missing entirely**, having shipped 2026-08-16.
+
+  Added a row for the diagnostics panel at the same time. None of this breaks a test — a README is the purest form of the surface that "never fails loudly when it drifts", and it is the one a stranger reads first.
+
+- **The Connect Pack now tells an assistant how to check whether Cronsole is working** (2026-08-17, pack **v1.8**). The pack's route tables are read as complete — its own version notes say an omission from them is a claim rather than a gap — so leaving out `GET /api/tools/diagnostics` left an assistant to diagnose "nothing is running" from `task-health`, which reports **every** Windows task as unhealthy whenever the agent is wedged. That is a confident list of wrong answers produced exactly when the real fault is somewhere else.
+
 - **A passing check now says which assertions it made** (2026-08-17). A check's run log ended `| all assertions passed`, which named none of them — so an endpoint check requiring the body to contain `ok` logged **character-for-character identically** to one that only looked at the status code. The failing path had always named the specific assertion; the passing path, which is the one you read most, did not.
 
   It now lists what each assertion observed: `GET https://… → 200 (expected 200–299) | body contains "ok" | status.db is "up"`. A check with no assertions beyond the status range prints just the status line, so **an assertion that went missing between the tool that created the task and the job that was stored is now visible in the log** rather than looking exactly like one that ran and held. This is the rule checks were built on — every probe's log states the *measurement*, not a verdict — finally met in the success case.

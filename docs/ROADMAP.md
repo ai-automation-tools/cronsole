@@ -1211,6 +1211,17 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Completed
 
+- [x] **Doc sweep behind the diagnostics ship — four false claims on the README** *(2026-08-17)*.
+      The public front page still described Cronsole-native as *"HTTP jobs"* (four job types since
+      2026-08-15), counted *"55 templates in 6 packs"* (**72 in 8**, verified against
+      `registry/index.json`), promised the dashboard *"opens on"* favorites (deliberately stopped on
+      2026-08-12, and the following sentence described the disclosure banner removed in that same
+      change), and omitted collections entirely. Every one is the pattern this file's header names
+      — a first-ship description left in the present tense. The **Connect Pack went to v1.8** in the
+      same pass: its route tables are read as complete, so omitting `GET /api/tools/diagnostics`
+      left an assistant diagnosing *"nothing is running"* from `task-health`, which calls every
+      Windows task unhealthy whenever the agent is wedged.
+
 - [x] **System diagnostics — a read-only report on Cronsole itself** *(2026-08-17)*.
       `GET /api/tools/diagnostics` + `services/diagnostics.ts`, surfaced as `DiagnosticsModal`
       from two entry points (**Diagnose** on the Dashboard health strip, **Run checks** on the

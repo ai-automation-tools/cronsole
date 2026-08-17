@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.7** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.8** · canonical copy: <https://cronsole.mikesailab.com>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -145,6 +145,7 @@ you:
 | Restore from a backup | — | `POST /api/tools/restore/tasks` |
 | Run history, all tasks | — | `GET /api/tools/history` (`?format=csv`) |
 | What needs attention | — | `GET /api/tools/task-health` |
+| **Is Cronsole itself working?** | `get_diagnostics` | `GET /api/tools/diagnostics` — read-only, with the evidence behind each verdict. Ask before `task-health`: a wedged agent makes every Windows task look unhealthy. `unknown` ≠ `pass` |
 | **Star / un-star** | — | `POST` / `DELETE /api/tasks/:id/favorite` |
 | **Untrack** (remove from Cronsole, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | **Delete** (Cronsole-native only) | `delete_task` — **only** when the human set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id/native` (archives first; refuses non-native) |

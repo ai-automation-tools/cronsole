@@ -71,7 +71,15 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   for deleting a *Windows* task that names no tool at all: an omission from
 //   these tables reads as "Cronsole cannot", so a capability that exists but is
 //   withheld from assistants has to say so, or a caller invents a workaround.
-export const CONNECT_PACK_VERSION = '1.7';
+// 1.8 (2026-08-17): adds `get_diagnostics` / `GET /api/tools/diagnostics` — the
+//   read-only report on whether CRONSOLE is working, as opposed to whether the
+//   user's tasks are. An addition rather than a correction, but it earns a
+//   version by the rule above: these tables are read as complete, so omitting
+//   the one route that answers "why is nothing running" leaves an assistant to
+//   diagnose from `task-health` — which reports every Windows task as unhealthy
+//   whenever the agent is wedged, i.e. it produces a confident list of wrong
+//   answers exactly when the real fault is elsewhere.
+export const CONNECT_PACK_VERSION = '1.8';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

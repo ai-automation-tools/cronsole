@@ -31,8 +31,10 @@ and the phone verification (2026-08-16). What the job types left behind is item 
 the rest because it is the unfinished half of something already in users' hands rather than
 something not started.
 
-**Still open here: item 0's sub-items 2, 3 and 6, plus item 3 (themes).** Item 0.4 closed with
-item 4 — they were the same Playwright pass, done once.
+**Still open here: item 0's sub-item 2, plus item 3 (themes).** Item 0.4 closed with item 4 — they
+were the same Playwright pass, done once. Items 0.3 and 0.6 closed 2026-08-17, which leaves **0.2
+(per-job encrypted fields) as the only unfinished half of the native job types** — and it is the one
+that was always the real work, since two deferred job types are sequenced behind it.
 
 0. **Finish what the native job types left open** *(added 2026-08-15, after `SCRIPT` + `CHECK`
    shipped — [ADR 0002](adr/0002-native-job-types.md))*. Six items, worst-first — items 5 and 6 were
@@ -58,13 +60,32 @@ item 4 — they were the same Playwright pass, done once.
       already a plausible home for a secret with nothing but column storage behind it — so this is
       a **current** gap, not only a blocker for future work. Probably its own ADR; the two deferred
       types should be sequenced together behind it rather than picked off separately.
-   3. **The gallery renders a script body as escaped JSON.** `registry-site/index.html` falls back
-      to `JSON.stringify(tpl.action)` when a template has no `commandTemplate`, which is honest and
-      not broken — but it means the one template family whose *content is the whole point* is the
-      one displayed as `"body": "// Runs on...\n// Anything printed..."`. A `script` action should
-      render its body as code, and a `check` action should render as a readable assertion. No
-      capability claim on that page is stale, which is why this is a polish item rather than a §11b
-      publish blocker — but it is the page strangers judge the catalog by.
+   3. ~~**The gallery renders a script body as escaped JSON.**~~ — **fixed 2026-08-17.**
+      `actionView()` in `registry-site/index.html` now returns a label + text per action shape: a
+      `script` renders its body as code under the interpreter that runs it, a `check` renders as the
+      assertion it makes (`GET {{url}}` / `status must be 200–299` / `body must contain "{{…}}"`),
+      and the Copy toast names what it took. Verified against all six non-`commandTemplate`
+      templates and rendered in a browser. **The JSON fallback stays for an unrecognized kind, and
+      that is the design, not laziness**: this page is static and cannot ask anything what a new
+      shape means, so guessing a reading for one it does not know is the wrong failure — the same
+      argument that makes the catalog *loader* skip an unparseable template rather than substitute
+      for it ([#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog)).
+      **Published to both hosts** (§11b) and verified live.
+      **The reusable lesson came from review, and it sharpens the fallback rule: a *partial*
+      reading is worse than the JSON it replaced.** Three shapes produced one. `headers` was
+      dropped, so an authenticated probe read as a bare `GET {{url}}` — a complete-looking sentence
+      omitting both the header and the parameter the reader must fill. A malformed `expectStatus`
+      printed `undefined–undefined` (reachable: the registry schema holds `probe` as a
+      **passthrough**, so only the backend's `validateProbe` refuses it, at apply time) — it now
+      declines the whole reading rather than quietly substituting the documented default, because
+      **absent and malformed are different facts and only the first has a default**. A `script`
+      missing `interpreter` titled itself *SCRIPT — UNDEFINED*. The rule the function now states:
+      *if you cannot render a field the backend honours, do not render the probe.*
+      Also fixed, and only visible once a body was rendered as code: the Copy button overlapped the
+      first line in a phone-width column (measured — 19px at a 340px column, clear on desktop).
+      Reserved with a floated corner rather than `padding-right`, which would have cost ~a quarter
+      of the line width on a phone to fix a collision that only exists in the top corner. Latent for
+      long single-line commands too; the old JSON fallback hid it by opening with a lone `{`.
    4. ~~**The four new job-type buttons have not been seen below `md`.**~~ — **verified and fixed
       2026-08-16**, in the Playwright pass of item 4. The `grid-cols-2 sm:grid-cols-4` is right:
       two rows of two at 375px, nothing overflowing. But they rendered **34px** tall against the
@@ -102,13 +123,19 @@ item 4 — they were the same Playwright pass, done once.
       keeping `502` for a run that could not be started at all; `ExecutionLog` and
       `queueFailureNotification` already record it as `FAILURE` either way and want no change. Note
       this reaches the UI too, which will currently show a failing check as a request error.
-   6. **A passing check does not say which assertions it made.** `NativeTaskExecutor` returns
-      `` `${head} | all assertions passed` `` on success, where `head` carries only the status
-      measurement — so a check with an `expectBodyContains` logs *byte-identically* to one with no
-      body assertion at all. The failing path names the specific assertion; the passing path does
-      not. Small, but it is the ADR's own rule (*every probe's log states the **measurement**, not
-      just a verdict*) unmet in the success case, and it means a body assertion silently dropped
-      between the tool and the stored job would look exactly like one that ran and passed.
+   6. ~~**A passing check does not say which assertions it made.**~~ — **fixed 2026-08-17.**
+      `probeHttp` collects what each optional assertion *observed* as it passes and joins them onto
+      the head, so a body assertion reads `body contains "ok"` and a JSON path reads
+      `status.db is "up"` — **the value, not "matched"**, which is the same vocabulary the failure
+      already used, so the two logs differ by outcome rather than by wording. A probe with no
+      optional assertions prints the head alone; that is the honest report *and* it is what makes a
+      dropped assertion visible, since the clause simply stops appearing. It cannot be confused with
+      a failing status-only check — those differ in the status number itself. Mutation-tested
+      (restoring `| all assertions passed` fails the new test).
+      *Original reasoning, kept:* the failing path named the specific assertion and the passing path
+      did not, so a check with an `expectBodyContains` logged byte-identically to one with no body
+      assertion at all — the ADR's own rule (*every probe's log states the **measurement**, not just
+      a verdict*) unmet in the half that runs most often.
 
 1. ~~**Custom views on the source rail.**~~ — **shipped 2026-08-16 as Collections**, and the item
    as written described the wrong feature.

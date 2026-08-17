@@ -381,6 +381,21 @@
       word-break: break-word; line-height: 1.65; position: relative;
     }
     .code .ph { color: var(--phosphor); font-weight: 600; }
+    /*
+      Reserve the top-right corner the Copy button floats over, so the first
+      line of code cannot run underneath it.
+
+      A float rather than `padding-right`, deliberately: padding would narrow
+      *every* line by ~80px, which on a phone-width column is a quarter of the
+      usable width — a real cost to code readability to solve a problem that
+      only exists on the first line or two. The float pushes those aside and
+      lets the rest of the block use the full width.
+
+      It only showed up once a script body was rendered as code: the old JSON
+      fallback opened with a lone `{`, so nothing was ever long enough up there
+      to collide. Long single-line commands had the same latent bug.
+    */
+    .code::before { content: ""; float: right; width: 84px; height: 26px; }
     .code-wrap { position: relative; }
     .code-copy { position: absolute; top: 10px; right: 10px; }
     .sched { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 15px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); }
@@ -547,6 +562,10 @@
     var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };
     var OS = { windows: "Windows", macos: "macOS", linux: "Linux", "cross-platform": "Cross-platform" };
     var RT = { powershell: "PowerShell", batch: "Batch", bash: "Bash", zsh: "Zsh", python: "Python", node: "Node.js", executable: "Executable", http: "HTTP", "ai-prompt": "AI Prompt", applescript: "AppleScript", vbscript: "VBScript" };
+    // A `script` action's interpreter. Separate from RT because it is a *fixed
+    // enum owned by the backend* (SCRIPT_INTERPRETERS), not the free-ish runtime
+    // tag — `pwsh` and `sh` exist here and nowhere in RT.
+    var INTERP = { powershell: "PowerShell", pwsh: "PowerShell 7", bash: "Bash", sh: "sh", python: "Python", node: "Node.js" };
     // What Cronsole can do with each target — **three answers, not two.**
     //
     //   direct  — Cronsole creates the task outright.
@@ -1097,6 +1116,92 @@
     }
     function refreshBrowse() { renderRail(); renderPills(); renderBrowseGrid(); }
 
+    // ---------- action rendering ----------
+    /**
+     * How a template's action is shown on the detail page: a label and the text
+     * under it.
+     *
+     * Most templates carry a `commandTemplate` and this is a one-liner. The
+     * fallback was `JSON.stringify(action)` — honest for any shape, and it made
+     * the one family whose **content is the whole point** the one displayed as
+     * `"body": "// Runs on...\n// Anything printed..."`. A `script` *is* its
+     * body, so it renders as code; a `check` is an assertion, so it renders as
+     * one.
+     *
+     * An unrecognized kind still falls back to JSON, deliberately. This page is
+     * static and cannot ask anything what a new shape means, so guessing a
+     * reading for one it does not know is the wrong failure — the same reason
+     * the catalog *loader* skips a template it cannot parse rather than
+     * inventing a substitute (#58).
+     */
+    function actionView(tpl) {
+      if (tpl.commandTemplate) return { label: "Command", noun: "Command", text: tpl.commandTemplate };
+      var a = tpl.action;
+      if (!a) return { label: "Action", noun: "Action", text: "" };
+      if (a.kind === "script" && typeof a.body === "string") {
+        // Name the interpreter only when it is one we know. `lab()` falls back to
+        // the raw value, which for a missing field renders the heading as
+        // "SCRIPT — UNDEFINED" — a malformed field printed as though it were a
+        // reading, which is the thing this whole function exists to stop.
+        var interp = INTERP[a.interpreter];
+        return { label: interp ? "Script — " + interp : "Script", noun: "Script", text: a.body };
+      }
+      if (a.kind === "check") {
+        var read = describeProbe(a.probe);
+        if (read) return { label: "Check", noun: "Check", text: read };
+      }
+      return { label: "Action", noun: "Action", text: JSON.stringify(a, null, 2) };
+    }
+
+    /**
+     * A check probe, read as the assertion it makes.
+     *
+     * Each line names the **measurement and the expectation together**, which is
+     * the rule the executor's own run logs follow — a check should read the same
+     * way in the gallery as it will in the run history, or the catalog is
+     * teaching a vocabulary the product does not use.
+     *
+     * Returns null for a kind this page does not know, so the caller falls back
+     * to JSON rather than describing a probe it cannot actually read. Values are
+     * printed verbatim: most are `{{placeholders}}` here, and the caller
+     * highlights those.
+     */
+    function describeProbe(p) {
+      if (!p) return null;
+      if (p.kind === "http") {
+        var lines = [(p.method || "GET") + " " + p.url];
+        // Headers are part of what the check *sends*, and `buildProbe` supports
+        // them fully. Omitting them turned an authenticated probe into a bare
+        // `GET {{url}}` — a partial reading presented as a complete one, which
+        // is worse than the JSON fallback, and it hid the parameter the reader
+        // has to fill in. Keys and values both: in a template a value is a
+        // {{placeholder}}, and that is exactly the link worth showing.
+        var h = p.headers;
+        if (h) Object.keys(h).forEach(function (k) { lines.push("  with header " + k + ": " + h[k]); });
+        // Guard the members, not just the object: the registry schema holds a
+        // probe as a **passthrough**, so `expectStatus: {}` can be published and
+        // would otherwise print "status must be undefined–undefined".
+        //
+        // A malformed range gives up on the whole reading rather than quietly
+        // substituting the default. Printing "200–299" there would be a
+        // confident claim about a template the backend will refuse at apply —
+        // absent and malformed are different facts, and only the first has a
+        // default. Falling back shows the reader the actual shape.
+        var st = p.expectStatus;
+        if (st && (st.min == null || st.max == null)) return null;
+        lines.push("  status must be " + (st ? st.min + "–" + st.max : "200–299"));
+        if (p.expectBodyContains) lines.push('  body must contain "' + p.expectBodyContains + '"');
+        if (p.expectJsonPath) lines.push("  " + p.expectJsonPath.path + ' must equal "' + p.expectJsonPath.equals + '"');
+        return lines.join("\n");
+      }
+      if (p.kind === "tcp") return p.host + ":" + p.port + "\n  must accept a TCP connection";
+      if (p.kind === "fileFresh") return p.path + "\n  must have been modified in the last " + p.maxAgeMinutes + " minutes";
+      // Bytes, not a friendly unit: it is what the check stores and what the
+      // parameter asks for, and rounding it here would disagree with both.
+      if (p.kind === "diskFree") return p.path + "\n  must have at least " + p.minFreeBytes + " bytes free";
+      return null;
+    }
+
     // ---------- template detail ----------
     function viewDetailShell() {
       return '<div class="wrap"><div class="detail" id="detail"><div class="state"><div class="spinner"></div><p>Loading template…</p></div></div></div>';
@@ -1111,9 +1216,9 @@
       } else if (tpl.trigger) {
         schedHtml = '<div class="sec"><p class="sec-label">Trigger</p><div class="sched"><div class="clock">' + I.clock + '</div><span class="human">' + esc(tpl.trigger.kind || "custom") + '</span></div></div>';
       }
-      var cmd = tpl.commandTemplate || (tpl.action ? JSON.stringify(tpl.action, null, 2) : "");
+      var av = actionView(tpl), cmd = av.text;
       var cmdHi = esc(cmd).replace(/\{\{(\w+)\}\}/g, '<span class="ph">{{$1}}</span>');
-      var cmdHtml = '<div class="sec"><p class="sec-label">' + (tpl.commandTemplate ? "Command" : "Action") + '</p><div class="code-wrap"><div class="code">' + cmdHi + '</div>' +
+      var cmdHtml = '<div class="sec"><p class="sec-label">' + esc(av.label) + '</p><div class="code-wrap"><div class="code">' + cmdHi + '</div>' +
         '<button class="btn btn-sm code-copy" data-copycmd>' + I.copy + ' Copy</button></div></div>';
 
       var paramsHtml = "";
@@ -1178,7 +1283,9 @@
       // wire actions
       d.querySelector("[data-dl]").addEventListener("click", function () { download(entry); });
       d.querySelector("[data-copy]").addEventListener("click", function () { copyTpl(entry); });
-      var cc = d.querySelector("[data-copycmd]"); if (cc) cc.addEventListener("click", function () { copyText(cmd).then(function () { toast("Command copied"); }).catch(function (e) { toast("Copy failed: " + e.message, "err"); }); });
+      // The toast names what was copied, because it is no longer always a
+      // command — a script copies its body, a check its assertion.
+      var cc = d.querySelector("[data-copycmd]"); if (cc) cc.addEventListener("click", function () { copyText(cmd).then(function () { toast(av.noun + " copied"); }).catch(function (e) { toast("Copy failed: " + e.message, "err"); }); });
       $("detail-import").addEventListener("click", importModal);
     }
     function metaRow(l, v) { return '<div class="meta-row"><span class="ml">' + l + '</span><span class="mv">' + v + '</span></div>'; }

@@ -546,6 +546,20 @@ must state the **condition** ("needs sign-in") where the app states the answer. 
 promises a one-click apply which fails is the confident lie aimed at someone who has no way to
 check it.
 
+**And a *partial* reading is worse than the raw JSON it replaced** *(2026-08-17)*. The gallery
+renders a template's action in its own shape — a `script` as code, a `check` as the assertion it
+makes — falling back to `JSON.stringify` for a kind it does not know, which is right: a static page
+cannot ask anything what a new shape means, so guessing is the wrong failure (the same argument that
+makes the catalog *loader* skip an unparseable template, [#58](docs/troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog)).
+The trap is the middle case. `describeProbe` silently dropped `headers`, so an authenticated check
+rendered as a bare `GET {{url}}` — **a complete-looking sentence omitting a field the backend
+honours**, which the JSON at least made visible. So it now returns *nothing* rather than an
+incomplete reading, and a malformed `expectStatus` declines too instead of substituting the
+documented default: **absent and malformed are different facts, and only absent has a default.**
+The obligation this creates: **adding a field to a probe or action shape obliges a line in the
+gallery's renderer**, or the page starts describing these templates less than fully while looking
+like it describes them completely.
+
 **Both publish scripts `git reset --hard origin/main` their working clone first.** So never keep
 manual work in `Repos/Tools/cronsole-registry` or `Repos/Tools/cronsole-site` — including an edit
 to those repos' own `README.md`, which the mirror deliberately excludes. Edit those *after* a

@@ -257,6 +257,39 @@ describe('executeJob — CHECK http', () => {
     expect(absent.log).toMatch(/not present/);
   });
 
+  it('names each assertion it passed, so a dropped one is visible', async () => {
+    // The whole point: a check that asserts something must not log identically
+    // to one that asserts nothing. Before this, both ended `| all assertions
+    // passed`, so an assertion lost between the MCP tool and the stored job
+    // read exactly like one that ran and held.
+    vi.mocked(axios.request).mockResolvedValue({ status: 200, data: '{"status":{"db":"up"}}' });
+
+    const asserted = await executeJob({
+      jobType: 'CHECK',
+      probe: {
+        kind: 'http',
+        url: 'https://x.com',
+        expectBodyContains: 'up',
+        expectJsonPath: { path: 'status.db', equals: 'up' }
+      }
+    });
+    expect(asserted.success).toBe(true);
+    expect(asserted.log).toMatch(/body contains "up"/);
+    // The observed value, not a bare "matched" — same vocabulary the failure uses.
+    expect(asserted.log).toMatch(/status\.db is "up"/);
+
+    const bare = await executeJob({
+      jobType: 'CHECK',
+      probe: { kind: 'http', url: 'https://x.com' }
+    });
+    expect(bare.success).toBe(true);
+    expect(bare.log).not.toMatch(/body contains/);
+    expect(bare.log).not.toMatch(/status\.db/);
+    // Same status, same URL, different assertions ⇒ different logs. That
+    // difference is the property; asserting the strings differ pins it directly.
+    expect(bare.log).not.toBe(asserted.log);
+  });
+
   it('reports a non-JSON body as unreadable rather than as a mismatch', async () => {
     vi.mocked(axios.request).mockResolvedValue({ status: 200, data: '<html>' });
     const result = await executeJob({

@@ -78,7 +78,7 @@ Three things worth knowing about *Run a program*:
 when Cronsole is down.
 
 Both kinds can be changed afterwards — including an HTTP job's URL — from the task modal's
-Action panel. See [Editing what a task runs](#editing-what-a-task-runs).
+Action panel. See [Editing a task](#editing-a-task).
 
 ### Source — where a task comes from
 

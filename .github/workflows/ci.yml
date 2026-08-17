@@ -38,6 +38,15 @@ jobs:
       - name: Check PowerShell scripts are pure ASCII
         run: node scripts/check-ps1-ascii.mjs
 
+      # A broken doc link does not 404 — GitHub serves the page scrolled to the
+      # top — so a renamed heading silently starts delivering the wrong section
+      # and nothing anywhere reddens. The TaskHub rename left 13 such links dead
+      # across CHANGELOG and troubleshooting, undetected through every green CI
+      # run from 2026-07-31 to 2026-08-17. This checks doc -> doc; the app's own
+      # links are covered separately by frontend docsLinks.test.ts.
+      - name: Check documentation links resolve
+        run: node scripts/check-doc-links.mjs
+
   backend:
     name: Backend tests and build
     runs-on: ubuntu-latest

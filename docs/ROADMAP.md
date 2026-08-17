@@ -340,13 +340,13 @@ radius, and they are listed here rather than left in the completed item so they 
 rebuilt `mcp-server/dist/`, and the Windows task `Cronsole conversion-response probe (safe to
 delete)` in `\Cronsole` is left disabled and wants deleting.
 
-> The [API-token P0](#-p0--security-hardening--reopened-2026-08-13) below is unchanged and is still
+> The [API-token P0](#p0-security) below is unchanged and is still
 > the largest open item — nothing here demotes it. These sit first because they are small, known,
 > and were found by hand rather than reported.
 
 ---
 
-**✅ [API tokens](#-p0--security-hardening--reopened-2026-08-13) — largely closed 2026-08-15.**
+**✅ [API tokens](#p0-security) — largely closed 2026-08-15.**
 This was the top priority from 2026-08-13: the only way to get a token for the MCP server was to run
 `jsonwebtoken.sign` by hand with the backend's `JWT_SECRET`, which was not a workaround someone
 invented but [what our own guide told them to do](user-guides/guides/MCP_Server_Guide.md#getting-a-token)
@@ -383,6 +383,22 @@ Everything below the sources track, unchanged in priority relative to each other
 9. **Bulk export's directory-picker branch is still undriven** — the one part of the Tools tab no
    click-through has reached, because it opens a native dialog. Low priority; noted so its absence
    stays visible rather than being mistaken for coverage.
+
+10. ~~**Nothing checked that the docs link to each other correctly.**~~ — **closed 2026-08-17.**
+    `scripts/check-doc-links.mjs` resolves every relative markdown link in the repo (**1298 across
+    147 files**) to a real file and a real heading, in the CI `repo-hygiene` job. Found by noticing
+    that **13 links went dead in the TaskHub rename and survived 17 days of green CI** — a broken
+    doc link does not 404, so a renamed heading silently serves the top of the page instead of the
+    section promised. The app's own links were already checked (`docsLinks.test.ts`), which is
+    exactly why doc → doc was easy to miss: the surface that *looked* covered was.
+    Three real breaks on its first clean run, one of them instructive: the P0 heading carries dates,
+    has been edited twice, and each edit broke every link to it — so it now has a stable
+    `#p0-security` anchor. **A heading whose text is expected to change wants an explicit anchor.**
+    The checker's own two false-positive bugs are worth remembering, because both made it *louder*
+    rather than quieter: blanking inline code before slugging a heading (GitHub keeps it —
+    147 false failures) and stripping `_` as an emphasis marker (it is a word character —
+    21 more). **A checker whose bug is indistinguishable from the drift it hunts is how a check gets
+    switched off**, so it was mutation-tested against all three broken-link shapes before wiring in.
 
 > **The UX & UI refinement pass is complete** *(2026-08-12)* — all six items, plus two defects it
 > uncovered. Details in [`CHANGELOG.md`](CHANGELOG.md) and P2 below.
@@ -713,7 +729,18 @@ Everything below the sources track, unchanged in priority relative to each other
 
 ---
 
+<a id="p0-security"></a>
+
 ## 🟡 P0 — Security hardening — reopened 2026-08-13, substantially closed 2026-08-15
+
+<!--
+  Linked as `#p0-security`, not by heading slug. This heading carries dates and
+  has been edited twice; each edit silently broke every link to it (both were
+  still pointing at `…reopened-2026-08-13` after ", substantially closed
+  2026-08-15" was appended, found 2026-08-17 by scripts/check-doc-links.mjs).
+  A heading whose text is expected to change wants a stable anchor.
+-->
+
 
 *Closed 2026-07-09; reopened for one item. The five below are still done — what reopened this is a
 gap none of them covered, because it is not a hole in a mechanism but the **absence** of one.*

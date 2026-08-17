@@ -49,6 +49,45 @@ describe('buildTemplateFromTask', () => {
     expect(t.category).toBe('monitoring');
   });
 
+  /**
+   * The two-format export's documented headline is that `template` works where
+   * `native` cannot — with the agent offline, and **for a Claude routine, whose
+   * definition lives at claude.ai**. That was false on a live install until
+   * `deriveAction` learned this branch: every Claude routine was refused with
+   * "no command Cronsole can capture yet", because a routine has no exec action,
+   * no native job and no `metadata.command` — its command is its prompt.
+   */
+  it('templates a Claude routine from its saved prompt', () => {
+    const t = buildTemplateFromTask({
+      name: 'Weekly planner',
+      category: 'Claude',
+      platform: PlatformType.CLAUDE_CODE,
+      schedule: '0 15 * * 1',
+      metadata: { declared: false, prompt: 'Review the backlog and write next week\'s plan.' }
+    });
+    expect(registryTemplateSchema.safeParse(t).success).toBe(true);
+    expect(t.commandTemplate).toBe('Review the backlog and write next week\'s plan.');
+    expect(t.runtime).toBe('ai-prompt');
+    expect(t.os).toBe('cross-platform');
+    expect(t.compatibleTargets).toEqual(['claude-code']);
+  });
+
+  it('refuses a declared Claude routine by naming why the prompt is missing', () => {
+    // Cronsole holds an id and a token for a declared routine and never saw its
+    // prompt, so "sync and try again" would be advice that cannot work. The
+    // refusal has to say that instead.
+    const build = () =>
+      buildTemplateFromTask({
+        name: 'Declared routine',
+        category: 'Claude',
+        platform: PlatformType.CLAUDE_CODE,
+        schedule: '0 15 * * 1',
+        metadata: { declared: true }
+      });
+    expect(build).toThrow(SaveAsTemplateError);
+    expect(build).toThrow(/lives at claude\.ai/);
+  });
+
   it('falls back to a plain stored command string', () => {
     const t = buildTemplateFromTask(baseWindows({ command: 'cmd.exe /c echo hi' }));
     expect(t.commandTemplate).toBe('cmd.exe /c echo hi');

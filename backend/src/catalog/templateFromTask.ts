@@ -89,6 +89,42 @@ function deriveAction(task: TaskLike): {
     }
   }
 
+  // A Claude routine's command IS its saved prompt, and `ClaudeConnector`
+  // already stores it (`metadata.prompt`, from `promptOf`) when the routine was
+  // read through a Claude Code session. Without this branch a routine fell
+  // through to the `meta.command` fallback, found nothing, and was refused with
+  // "no command Cronsole can capture yet" — which made the documented headline
+  // of the two-format export ("template works where native cannot, including a
+  // Claude routine whose definition lives at claude.ai") false for every Claude
+  // routine on the install. The v1 vocabulary already had the words for it:
+  // `ai-prompt` is the runtime the bundled AI templates use, and `claude-code`
+  // is a compat target.
+  if (task.platform === PlatformType.CLAUDE_CODE) {
+    // `prompt` is what OAuth-mode sync writes; `command` is accepted too, since a
+    // routine whose prompt was captured under the generic field is the same fact
+    // under a different key, and refusing it would be a regression for anything
+    // already stored that way.
+    const prompt = asText(meta.prompt) ?? asText(meta.command);
+    if (prompt) {
+      return {
+        command: prompt,
+        runtime: 'ai-prompt',
+        compatibleTargets: ['claude-code'],
+        os: 'cross-platform'
+      };
+    }
+
+    // The honest refusal, naming the reason rather than the symptom. A routine
+    // connected by *declaration* is an id and a token — Cronsole never had its
+    // prompt, so there is genuinely nothing here to template, and "sync it and
+    // try again" would be advice that cannot work.
+    throw new SaveAsTemplateError(
+      'Cronsole has this routine\'s id but not its prompt, so there is nothing to put in a template. ' +
+        'A routine read through a Claude Code session on this machine carries its prompt; one connected by ' +
+        'declaration does not, because its definition lives at claude.ai. Sign in to Claude Code and sync to capture it.'
+    );
+  }
+
   const isWindows = task.platform === PlatformType.WINDOWS_TASK_SCHEDULER;
 
   // Windows exec action(s): use the single exec action's exe + args.

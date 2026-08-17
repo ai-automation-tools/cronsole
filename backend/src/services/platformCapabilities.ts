@@ -1,7 +1,8 @@
-import { PlatformType } from '@prisma/client';
+import { PlatformType, HealthState } from '@prisma/client';
 import { prisma } from '../db.js';
 import { connectorRegistry } from '../connectors/registry.js';
-import type { PlatformConnector } from '../connectors/platform.interface.js';
+import type { ConnectorHealth, PlatformConnector } from '../connectors/platform.interface.js';
+import { deserializeConfig } from '../auth/connectionConfig.js';
 import { executionHost, type ExecutionHost } from './runtimeContext.js';
 
 /**
@@ -318,8 +319,57 @@ export interface PlatformMatrixRow {
 }
 
 /**
+ * Health for one connection, asked of the connector rather than read back from
+ * the column.
+ *
+ * **Why this cannot be `conn.healthState`.** That column is written by exactly
+ * one place — the loop in `GET /api/tasks/health`, which is the *dashboard's*
+ * 45-second poll. Nothing on the MCP surface writes it (`get_task_health` wraps
+ * `GET /tools/task-health`, a different route), so an agent-driven session with
+ * no browser tab open reads whatever verdict the last poll happened to leave.
+ * Measured on a live install: the matrix reported `OFFLINE / "Agent not
+ * connected"` while `get_diagnostics` reported the agent connected **in the same
+ * second**, and while this row's own `listFolders` cell carried a success from a
+ * minute earlier. One call to the dashboard route flipped it to `HEALTHY` with
+ * nothing changing on the agent.
+ *
+ * That is troubleshooting #40's shape moved down a layer: a verdict derived from
+ * something that cannot change when the subject recovers. It is worse on this
+ * surface than on the tab, because `list_platforms` is documented as the thing to
+ * call *before* planning work — so a stale `OFFLINE` does not just look wrong, it
+ * talks an agent out of work that would have succeeded.
+ *
+ * Asking the connector is still a **pure read**: `getHealth` may not have a side
+ * effect and deliberately does not probe (Windows reads the in-memory socket and
+ * liveness record; Claude reads run evidence already in `PlatformCapability`),
+ * which is the same reason the diagnostics panel can call it on every render.
+ *
+ * A connector that throws yields `UNKNOWN`, never a healthy-looking gap: this is
+ * a readout, and one platform failing to describe itself must not fail the matrix
+ * for the rest — `runCheck`'s rule in `services/diagnostics.ts`.
+ */
+async function liveHealth(
+  userId: string,
+  conn: { platform: PlatformType; config: unknown }
+): Promise<ConnectorHealth | null> {
+  const connector = connectorRegistry.getConnector(conn.platform);
+  if (!connector) return null;
+
+  try {
+    return await connector.getHealth({
+      ...deserializeConfig(conn.config as Parameters<typeof deserializeConfig>[0]),
+      userId
+    });
+  } catch {
+    return { state: HealthState.UNKNOWN, reason: 'Health could not be determined' };
+  }
+}
+
+/**
  * Assemble the matrix for one user. Pure read: it asks no platform anything, so
- * opening the tab cannot itself change what the tab reports.
+ * opening the tab cannot itself change what the tab reports. Health is derived
+ * live per connection (see {@link liveHealth}) rather than read from the stored
+ * column, which only the dashboard's poll refreshes.
  */
 export async function buildPlatformMatrix(userId: string): Promise<PlatformMatrixRow[]> {
   const [connections, evidence, taskCounts] = await Promise.all([
@@ -327,6 +377,16 @@ export async function buildPlatformMatrix(userId: string): Promise<PlatformMatri
     prisma.platformCapability.findMany({ where: { userId } }),
     prisma.task.groupBy({ by: ['platform'], where: { userId }, _count: { _all: true } })
   ]);
+
+  // Concurrent: these are in-memory/DB reads, and a connector that is slow to
+  // describe itself must not add its latency to every other platform's row.
+  const healthByPlatform = new Map<PlatformType, ConnectorHealth>();
+  await Promise.all(
+    connections.map(async conn => {
+      const health = await liveHealth(userId, conn);
+      if (health) healthByPlatform.set(conn.platform, health);
+    })
+  );
 
   const connByPlatform = new Map(connections.map(c => [c.platform, c]));
   const countByPlatform = new Map(taskCounts.map(t => [t.platform, t._count._all]));
@@ -357,6 +417,14 @@ export async function buildPlatformMatrix(userId: string): Promise<PlatformMatri
       return !newest || cell.lastSuccessAt > newest ? cell.lastSuccessAt : newest;
     }, null);
 
+    // State and reason are taken from ONE source together, never mixed: a live
+    // verdict carrying the stored explanation is the "stale reason under a fresh
+    // state" bug `GET /api/tasks/health` already guards against one layer up. The
+    // stored pair survives only where there is no connector to ask.
+    const live = healthByPlatform.get(platform);
+    const healthState = live ? live.state : (conn?.healthState ?? null);
+    const healthReason = live ? (live.reason ?? null) : (conn?.healthReason ?? null);
+
     return {
       platform,
       label: descriptor.label,
@@ -364,8 +432,8 @@ export async function buildPlatformMatrix(userId: string): Promise<PlatformMatri
       maturity: descriptor.maturity,
       configured: Boolean(conn),
       isActive: conn?.isActive ?? false,
-      healthState: conn?.healthState ?? null,
-      healthReason: conn?.healthReason ?? null,
+      healthState,
+      healthReason,
       lastSync: conn?.lastSync ?? null,
       taskCount: countByPlatform.get(platform) ?? 0,
       capabilities,

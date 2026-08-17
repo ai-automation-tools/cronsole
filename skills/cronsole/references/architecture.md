@@ -285,9 +285,12 @@ app.use ('/api/tools',     authenticateToken, toolsRoutes)   // cross-task: expo
 | `POST` | `/api/tasks/sync` | Kick the scan chain above |
 | `POST` | `/api/tasks/:id/run` · `/api/tasks/native` | Run Now; create a native task |
 | `PATCH` | `/api/tasks/:id` · `/:id/status` · `/:id/schedule` · `/:id/actions` | Edit |
-| `GET` | `/api/tasks/:id/export` · `/:id/executions` | Windows → XML (UTF-16 LE + BOM), native → JSON |
-| `DELETE` | `/api/tasks/:id` | DB row only goes **after** platform confirms |
-| `POST` | `/api/tasks/:id/save-as-template` | → a real `Template` (`managed: false`) |
+| `GET` | `/api/tasks/:id/export[?format=]` · `/:id/executions` | **Two formats.** `native` (default): Windows → XML (UTF-16 LE + BOM), native → JSON. `format=template` → a Registry v1 template from `buildTemplateFromTask`, built from the DB row, so it works with the **agent offline** and for a **Claude routine** (from `metadata.prompt`, since a routine's command is its prompt). Writes nothing — unlike save-as-template. |
+| `DELETE` | `/api/tasks/:id` · `/:id/native` | DB row only goes **after** platform confirms. Both archive the definition first (`archiveTaskBeforeDelete`) and **refuse the delete if the archive write fails**; `/native` is the MCP path and 400s every platform but `TASKHUB_NATIVE`. |
+| `POST` | `/api/tasks/import` | A `cronsoleTaskVersion` bundle → a **new** native task. Refuses other platforms by name. |
+| `GET`/`POST` | `/api/tools/task-archives[/:id]` · `/:id/restore` | Read a deleted task's archived definition; rebuild it as a **new** task (history not reattached, archive kept) |
+| `GET` | `/api/tools/platforms` | The capability matrix. Health is derived per request from `connector.getHealth` — **never read back from `PlatformConnection.healthState`**, whose only writer is the poll in `GET /api/tasks/health` ([#66](../../../docs/troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second)) |
+| `POST` | `/api/tasks/:id/save-as-template` | → a real `Template` (`managed: false`). Same `buildTemplateFromTask` as `export?format=template`; the difference is only the side effect. |
 | `GET` | `/api/templates` · `/templates/discover` | Catalog |
 | `POST` | `/api/templates/:id/preview` · `/:id/apply` | See shapes below |
 | `POST`/`DELETE` | `/api/templates/:id/favorite` | Per-user |

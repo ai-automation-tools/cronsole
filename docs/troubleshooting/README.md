@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 66 | `get_diagnostics` says the Windows agent is *"Connected and answering"* while `list_platforms` / the **Platforms** tab says `OFFLINE — Agent not connected`, **in the same second**. The agent is fine and `list_folders` answers on demand. The row contradicts itself: its own **List folders** cell carries a success from a minute ago | **The matrix served a cached verdict nothing on that path refreshes.** `buildPlatformMatrix` read `PlatformConnection.healthState` from the DB, and that column has exactly one writer — the loop inside `GET /api/tasks/health`, the *dashboard's* 45s poll. Nothing on the MCP surface writes it (`get_task_health` wraps `/tools/task-health`), so with no browser tab open the matrix reported whatever the last poll left behind. **Fixed 2026-08-17**: health is derived from `connector.getHealth` at request time, as the diagnostics panel and the health route already did. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one layer down — a verdict from a cache instead of a precondition. The question: which code path writes this field, and is it running in the session doing the reading?** | [→](#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second) |
 | 65 | You export a task and there is nowhere to import it back. Tools → **Restore** offers `.json` in its file picker and then answers *"No task XML files found"*. Same dead end after a delete: the API returns `archived: true` with an `archiveId` and no verb turns it back into a task | **The export format had no reader.** `cronsoleTaskVersion` appeared in three places repo-wide — the bundle builder, the archive writer, and a test fixture — all writers. So Export produced something shaped like a backup that nothing could restore, and the pre-delete archive was a promise with no way to collect. Restore's `.json` is for the export *manifest*, not a task definition. **Fixed 2026-08-17**: Tools → **Import a task** (native `.json` + deleted-task restore), Restore keeps `.xml`/`.zip` (Windows), and `import_task` / `list_task_archives` / `restore_task_archive` over MCP. **The tell: grep your format constant — if every hit is a writer, the feature is half-built** | [→](#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it) |
 | 64 | You edit `registry-site/index.html`, reload the local preview, and the change **is not there** — a new CSS rule reads back as `none`, or new JS behaves like the old code. Nothing errors | **Two independent staleness traps, and they stack.** (1) The preview serves a *copy*: the documented recipe copies `index.html` into a scratch dir, so editing the repo file changes nothing until you re-copy. (2) The gallery is a **hash-router SPA** — navigating to the same `#/...` URL is a hash change, not a load, so neither the CSS nor the JS is re-fetched, and any earlier inline style you injected survives. Fix: re-copy, then **`location.reload(true)`** — not a `navigate` to the same route. Verify the rule is really present (`[...document.styleSheets[0].cssRules].some(r => r.selectorText === '…')`) before concluding a fix failed | [→](#64-a-gallery-change-doesnt-show-up-in-the-local-preview) |
 | 63 | Through the tunnel the phone shows the dashboard **fully up to date** and then fails every request with *cannot reach backend*. Same URL works on the machine running the stack; proxy up, tunnel fine, origin allowed | `frontend/dist` was built with **`npm run build`** instead of **`npm run build:remote`**, so Vite inlined the `http://localhost:3000` fallback instead of `same-origin` — on the phone that address is the phone. **The tell is that it is the exact inverse of [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current): the proxied page is *current* and the requests fail.** Read the bundle, not the source — both literals appear in every build, so check the call `Ll=Rl(…)`. **Fixed at the root 2026-08-17**: every production build now defaults to same-origin (`FALLBACK_API_ORIGIN` folds on `import.meta.env.DEV`), so `build` and `build:remote` are equivalent and there is no longer a wrong command to run. On an older checkout: `npm run build:remote` | [→](#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
@@ -4362,6 +4363,71 @@ therefore a property of *which door you deleted through*, which is not something
 or a user could guess. Both archive now.
 
 *First hit: 2026-08-17, noticed while looking for the import path a user expected to exist.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 66. Two Cronsole surfaces disagree about the agent in the same second
+
+**Symptom.** `get_diagnostics` (Tools → *Diagnose*, or the MCP tool) reports the Windows agent
+`pass` — *"Connected and answering"*, socket connected, machine named, *"Last request timeout: none
+this connection"*. At the same moment `list_platforms` / the **Platforms** tab reports:
+
+```
+WINDOWS_TASK_SCHEDULER   healthState=OFFLINE   healthReason=Agent not connected
+```
+
+The agent is fine. `list_folders` returns a real folder tree on demand. The giveaway is *inside the
+Platforms row itself*: its **List folders** capability cell carries a `lastSuccessAt` from a minute
+ago, sitting beside a verdict that says nothing is connected.
+
+**Cause — the matrix served a cached verdict nothing on that path refreshes.**
+`buildPlatformMatrix` read `PlatformConnection.healthState` straight out of the database. That
+column has exactly one writer: the loop inside **`GET /api/tasks/health`**, which is the
+*dashboard's* 45-second poll. Nothing on the MCP surface writes it — `get_task_health` wraps
+`GET /tools/task-health`, a different route — so with no browser tab open the column simply stopped
+being updated, and the matrix reported whatever the last poll had left behind. Here that was an
+`OFFLINE` from before the backend restarted; the agent reconnected 37 minutes earlier and nothing
+had written the column since.
+
+Proof takes two commands and no restart:
+
+```powershell
+$h = @{ Authorization = "Bearer $env:CRONSOLE_TOKEN" }
+(Invoke-RestMethod localhost:3000/api/tools/platforms -Headers $h).platforms[0].healthState  # OFFLINE
+$null = Invoke-RestMethod localhost:3000/api/tasks/health -Headers $h                        # the dashboard's poll
+(Invoke-RestMethod localhost:3000/api/tools/platforms -Headers $h).platforms[0].healthState  # HEALTHY
+```
+
+**Fix — shipped 2026-08-17.** `buildPlatformMatrix` derives health per connection from
+`connector.getHealth` at request time, the way `GET /api/tasks/health` and the diagnostics panel
+already did, so the three surfaces cannot disagree. The stored column is still written by the
+dashboard poll and is still read as a last resort where no connector exists. A connector that throws
+yields `UNKNOWN`, never a healthy-looking gap — a readout may not fail the thing it reports on.
+
+State and reason are taken from **one source together**: a live verdict never carries the stored
+explanation, which would be the "stale reason under a fresh state" bug the health route already
+guards against one layer up.
+
+**This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+moved down a layer.** #40 was a verdict derived from a *precondition*; #48 was a verdict from an
+*expired observation*; this is a verdict from a *cache with one writer on another code path*. All
+three share the tell: **a value that cannot change when its subject recovers.**
+
+**Why it hid.** In a browser everything is correct — the poll that refreshes the column is running
+the whole time you are looking at the tab. The failure needs a session where *nothing polls*, which
+is exactly an AI assistant driving Cronsole over MCP. And it is worse there than on screen: a person
+seeing a stale strip presses Sync, while an assistant told the agent is offline reports that back
+and declines Windows work that would have succeeded — `list_platforms` is documented as the thing to
+check *before* planning.
+
+**The reusable question:** for any status field, ask *which code path writes it, and is that path
+running in the session doing the reading?* A column refreshed only by the UI's poll is not a fact
+about the system; it is a fact about whether anyone had a tab open.
+
+*First hit: 2026-08-17, found by driving the MCP tools after the diagnostics tool shipped — the
+second opinion is what made it visible.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

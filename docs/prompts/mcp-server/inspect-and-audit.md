@@ -46,6 +46,19 @@ exact command and trigger it's registered with — I want the real definition, n
 the summary.
 ```
 
+**Ask for the *portable* format when the point is to move the task, not inspect it.** Export has
+two, and they answer different questions:
+
+```text
+Using Cronsole, export "Daily Portfolio Analysis" as a portable template so I can
+set it up on my laptop. Tell me what the template leaves out.
+```
+
+The answer should name the loss — the account it runs as, run level, extra actions — because a
+template is a recipe, not a backup. It is also the only export that works with the **Windows agent
+offline**, or for a **Claude routine**, whose definition lives at claude.ai and cannot be fetched at
+all. Ask for the native format when you want *this exact task back on this platform*.
+
 ## 🩺 What's broken?
 
 ```text

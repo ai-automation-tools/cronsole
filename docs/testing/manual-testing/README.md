@@ -37,6 +37,7 @@ Each one names the IDs it covers.
 | [**📄 Template Apply**](runbooks/Template_Apply.md) | Params, preview, the 409 duplicate guard, and a real applied task | ~20 min | Stack + Windows |
 | [**🔌 Agent Resilience**](runbooks/Agent_Resilience.md) | Offline detection, reconnect/backoff, the transient-agent trap | ~20 min | Stack |
 | [**🔐 Security Checks**](runbooks/Security_Checks.md) | Encryption at rest, tenant isolation, no-shell — verified **in the database** | ~20 min | Stack + psql |
+| [**🔌 MCP Tools**](runbooks/MCP_Tools.md) | Every tool driven through a host against a **real backend** — the wrapper's own suite stubs the client, so this is the only thing that proves the two still agree | ~25 min | Stack + built `mcp-server/dist/` + an MCP host |
 
 ## 🚦 Preflight — do this once per session
 

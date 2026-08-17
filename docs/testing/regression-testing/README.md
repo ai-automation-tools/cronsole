@@ -37,7 +37,7 @@ Everything that runs on every PR. This *is* the safety net — the whole list is
 | R1.5 | **Type check / build** | `tsc` strict mode passing — no `any` creep | ✅ `backend` + `frontend` jobs |
 | R1.6 | **Agent unit sweep** | Trigger building/reading, quoting, config, auth | ✅ `windows-agent` job |
 | R1.7 | **MCP build** | The wrapper still compiles against the SDK | ✅ `mcp-server` job |
-| R1.8 | **E2E sweep** | Full-stack flows: sync, run, apply, offline — **plus layout + visual regression at 1280px and 375px** (`layout.spec.ts`, 32 tests). **It is the only layer that renders CSS**: jsdom does not evaluate media queries, so no unit test can see a responsive layout | ⬜ **Not in CI** — run locally, and it **silently rotted for a day** on 2026-08-16 because of exactly that ([#61](../../troubleshooting/README.md#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green)) |
+| R1.8 | **E2E sweep** | Full-stack flows: sync, run, apply, offline — **plus layout + visual regression at 1280px and 375px** (`layout.spec.ts`, 23 of the suite's 32 tests). **It is the only layer that renders CSS**: jsdom does not evaluate media queries, so no unit test can see a responsive layout | ⬜ **Not in CI** — run locally, and it **silently rotted for a day** on 2026-08-16 because of exactly that ([#61](../../troubleshooting/README.md#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green)) |
 
 ## 🧬 Invariant guards
 
@@ -101,6 +101,7 @@ one), **#6** (non-ASCII in PowerShell scripts), **#7** (agent command with no ha
 | R5.3 | **Resilience / soak** | Reconnect behavior + stale-pruning guard hold under network blips | 🟡 See [`artifacts/taskhub_resilience_2026-07-10.md`](../../../artifacts/taskhub_resilience_2026-07-10.md) |
 | R5.4 | **Visual regression** | Layout and spacing on the dense surfaces don't break silently. **Chrome only** — Platforms, Import and the task-detail modal are asserted structurally, since masking hides colour but not geometry. **Theme pairs are still uncovered** | 🟡 `layout.spec.ts`, local (E2E is not in CI) |
 | R5.5 | **Mobile layout** | Stays usable at 375px: no horizontal overflow, one-row views bar, sticky toolbar survives a long scroll, 44px FAB — **and, since the 2026-08-15 IA redesign**, the rail's drawer opening/closing, five toolbar sections on one row, the native job types as two rows of two, and collections reachable | ✅ `layout.spec.ts` — the resize finally *applies* (`page.setViewportSize`); a real device check (touch, iOS Safari) is still open |
+| R5.8 | **A build cannot silently break remote access** | Every production build resolves the API against `window.location`; only the dev server defaults to `localhost:3000`. This is a regression row rather than a functional one because the bug it guards **shipped twice** and is invisible from the machine running the stack — there `localhost:3000` really is the backend, so the broken bundle is indistinguishable from the correct one ([#63](../../troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend)) | ✅ `apiSameOrigin.test.ts` — asserts **both** halves of the fold, build half **mutation-tested** |
 | R5.6 | **Migration safety** | A migration applies cleanly to a **populated** DB, not just an empty one | ⬜ |
 | R5.7 | **Dependency upgrade** | Full sweep after any dep bump — the suite is the upgrade gate | 🟡 |
 

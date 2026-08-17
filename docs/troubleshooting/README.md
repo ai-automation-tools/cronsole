@@ -33,7 +33,6 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
-| 66 | Windows reads **Offline** and diagnostics says *"Agent not connected"* right after an E2E run — but the agent **process is alive**, the `\Cronsole-Stack\` tasks are `Ready`, nothing crashed, and waiting past the 5-minute reconnect cap does not help | **The E2E mock agent took the real agent's slot and then left.** `test:e2e` drives the real dev stack, and `mockAgent.ts` authenticates with the same pairing secret — so it registers as the same user, and `AgentManager` holds **one socket per user**. The mock evicts the real agent; on exit it unregisters, leaving none. The real agent cannot observe that it was displaced, so it never reconnects. **Tell:** `grep "Agent connected" logs/backend.out.log \| tail -1` names `e2e-agent-<ts>` instead of your machine. Fix: restart the CronsoleAgent scheduled task, then Sync. Note this directly bites the advice in [#61](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) to run E2E after any dashboard change | [→](#66-windows-goes-offline-right-after-you-run-the-e2e-suite) |
 | 65 | You export a task and there is nowhere to import it back. Tools → **Restore** offers `.json` in its file picker and then answers *"No task XML files found"*. Same dead end after a delete: the API returns `archived: true` with an `archiveId` and no verb turns it back into a task | **The export format had no reader.** `cronsoleTaskVersion` appeared in three places repo-wide — the bundle builder, the archive writer, and a test fixture — all writers. So Export produced something shaped like a backup that nothing could restore, and the pre-delete archive was a promise with no way to collect. Restore's `.json` is for the export *manifest*, not a task definition. **Fixed 2026-08-17**: Tools → **Import a task** (native `.json` + deleted-task restore), Restore keeps `.xml`/`.zip` (Windows), and `import_task` / `list_task_archives` / `restore_task_archive` over MCP. **The tell: grep your format constant — if every hit is a writer, the feature is half-built** | [→](#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it) |
 | 64 | You edit `registry-site/index.html`, reload the local preview, and the change **is not there** — a new CSS rule reads back as `none`, or new JS behaves like the old code. Nothing errors | **Two independent staleness traps, and they stack.** (1) The preview serves a *copy*: the documented recipe copies `index.html` into a scratch dir, so editing the repo file changes nothing until you re-copy. (2) The gallery is a **hash-router SPA** — navigating to the same `#/...` URL is a hash change, not a load, so neither the CSS nor the JS is re-fetched, and any earlier inline style you injected survives. Fix: re-copy, then **`location.reload(true)`** — not a `navigate` to the same route. Verify the rule is really present (`[...document.styleSheets[0].cssRules].some(r => r.selectorText === '…')`) before concluding a fix failed | [→](#64-a-gallery-change-doesnt-show-up-in-the-local-preview) |
 | 63 | Through the tunnel the phone shows the dashboard **fully up to date** and then fails every request with *cannot reach backend*. Same URL works on the machine running the stack; proxy up, tunnel fine, origin allowed | `frontend/dist` was built with **`npm run build`** instead of **`npm run build:remote`**, so Vite inlined the `http://localhost:3000` fallback instead of `same-origin` — on the phone that address is the phone. **The tell is that it is the exact inverse of [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current): the proxied page is *current* and the requests fail.** Read the bundle, not the source — both literals appear in every build, so check the call `Ll=Rl(…)`. **Fixed at the root 2026-08-17**: every production build now defaults to same-origin (`FALLBACK_API_ORIGIN` folds on `import.meta.env.DEV`), so `build` and `build:remote` are equivalent and there is no longer a wrong command to run. On an older checkout: `npm run build:remote` | [→](#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
@@ -68,6 +67,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | 3 | Port 3000 shows as `LISTENING` but every request returns `HTTP 000` / `EADDRINUSE` on restart | Docker's port proxy holds the port even though the app process died | [→](#3-port-listening-but-http-000--eaddrinuse) |
 | 4 | Edited backend source, but the running Docker stack still 404s the new route / serves old behavior | `tsx watch` inside the container never sees the file change (Windows→Linux bind-mount inotify) | [→](#4-backend-source-edits-not-picked-up-in-docker) |
 | 5 | After running a second/transient agent for testing, Windows shows `OFFLINE` and won't recover even though the real agent process is still running | The transient agent displaced the real agent's socket registration; the idle real agent won't re-register until its socket drops | [→](#5-windows-offline-after-running-a-transient-test-agent) |
+| 5a | …and you did not start a test agent — you ran **`npm run test:e2e`**. Windows Offline, agent process alive, `\Cronsole-Stack\` tasks `Ready`, no self-heal | Same single-socket eviction as #5, reached through the suite: it drives the **live** stack and `mockAgent.ts` uses the same pairing secret, so it registers as the same user and unregisters on exit. **Tell:** `grep "Agent connected" logs/backend.out.log \| tail -1` names `e2e-agent-<ts>`, not your machine. Fix: `pwsh scripts/cronsole.ps1 restart` (or restart the agent task), then **Sync**. Note the collision with [#61](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green)'s advice to run E2E after any dashboard change | [→](#5a-and-the-transient-agent-is-the-e2e-suite) |
 | 6 | A `.ps1` fails to parse under `powershell` (5.1) with `Unexpected token '}'` / `The string is missing the terminator` — but runs fine under `pwsh` (7) | A non-ASCII char (e.g. an em-dash `—`) in a BOM-less UTF-8 script; Windows PowerShell 5.1 reads it as ANSI and decodes it into a curly quote it treats as a string delimiter | [→](#6-ps1-parse-errors-under-windows-powershell-51-only) |
 | 7 | A newly added agent command (e.g. a new `task:*` socket op) returns `502` with `... timeout` after ~15s, even though the backend route exists | The **.NET agent is a host process running the old published exe** — it doesn't hot-reload, so it has no handler for the new command and never answers; the backend times out | [→](#7-new-agent-command-502-times-out-until-the-agent-is-republished) |
 | 8 | **Every** MCP tool returns `403 Invalid or expired token` — or the `cronsole` tools are **missing entirely** — while the dashboard and `curl` with a real token work fine | `CRONSOLE_TOKEN` is unset, so Claude Code passed the **literal** `${CRONSOLE_TOKEN}` through to the API — nothing is actually expired. Since the server now refuses to start on a literal, the tools go *missing* rather than 403 | [→](#8-every-mcp-tool-returns-403-invalid-or-expired-token) |
@@ -284,6 +284,69 @@ Windows returns to `HEALTHY` within ~15s of the restart.
 > to hand the connection back.
 
 *First hit: 2026-07-11.*
+
+---
+
+### 5a. …and the transient agent is the E2E suite
+
+**Symptom.** Same as #5 — Windows reads **Offline**, `GET /api/tools/diagnostics` says *"Agent not
+connected — Socket: not connected"*, the agent **process is alive**, the three `\Cronsole-Stack\`
+tasks are `Ready`, and waiting past the agent's 5-minute reconnect cap changes nothing. What is
+different is that you did not start a test agent: **you ran `npm run test:e2e`.**
+
+**Cause — the same single-socket eviction, reached through the test suite.** The Playwright suite
+drives the **live** stack by design (`pwsh scripts/cronsole.ps1 up`, then Playwright against it),
+and `frontend/tests/e2e/helpers/mockAgent.ts` connects with the same pairing secret — so it
+authenticates as the same user and becomes *the* Windows agent for the duration of the run. On exit
+it disconnects, the backend clears the mapping, and there is now no agent registered at all. #5's
+mechanism exactly; only the trigger is different, and this one fires on a command you are
+*supposed* to run.
+
+**The tell** is in `logs/backend.out.log` — the last agent to connect is a mock:
+
+```sh
+grep -n "Agent connected" logs/backend.out.log | tail -1
+# Agent connected: fx3fvh2… (agent e2e-agent-1786996144627, user cli_user_placeholder)
+#                                      ^^^^^^^^^ not your machine name
+```
+
+A healthy line names the machine (`agent DESKTOP-…`).
+
+**Fix.** #5's remedy — drop the agent sockets so the real agent reconnects and re-registers:
+
+```powershell
+pwsh scripts/cronsole.ps1 restart
+```
+
+Restarting the agent directly works too, and is the lighter option on a host-run stack where the
+backend is a `tsx watch` process you may not want to bounce:
+
+```powershell
+Stop-ScheduledTask -TaskPath '\Cronsole-Stack' -TaskName 'CronsoleAgent'
+Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-ScheduledTask -TaskPath '\Cronsole-Stack' -TaskName 'CronsoleAgent'
+```
+
+Either way, confirm with diagnostics (`Socket: connected`, `Connected since` seconds old) **and run
+a Sync** — a socket existing is not the same fact as the agent doing work
+([#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
+
+**Why this deserves its own entry rather than a line in #5.** #5 reads as something you did to
+yourself by hand-starting a dogfood agent — avoidable, and rare. This fires on **`npm run test:e2e`**,
+which [#61](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) ends by telling you to run
+after any dashboard change. So the advice and the trap are pointed at the same command: follow the
+guidance, get a green run, and minutes later your agent is down on a screen that has nothing to do
+with what you were testing. **Treat "restart the agent" as the last step of the E2E run, not as a
+follow-up you might not need** — that is why it is also in the testing README's E2E preflight.
+
+The durable fixes are a separate pairing identity for the mock (so it registers as its own user) or
+a second backend for E2E. Both are design decisions, not one-line repairs.
+
+*First hit: 2026-08-17, minutes after an E2E run verifying the Import chooser — the mechanism was
+already known as #5 since 2026-07-11, and had already been called out in the testing README's E2E
+preflight; what was missing was an entry findable from the symptom when the trigger was the suite.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
 ---
 
@@ -4299,63 +4362,6 @@ therefore a property of *which door you deleted through*, which is not something
 or a user could guess. Both archive now.
 
 *First hit: 2026-08-17, noticed while looking for the import path a user expected to exist.*
-
-<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
-
----
-
-## 66. Windows goes offline right after you run the E2E suite
-
-**Symptom.** The dashboard reads **Windows — Offline**, `GET /api/tools/diagnostics` says
-*"Agent not connected — Socket: not connected"*, and every Windows task is unreachable. But the
-agent **process is still running** (`Get-Process Cronsole.Agent` finds it, started hours ago), the
-three `\Cronsole-Stack\` tasks are all `Ready`, and nothing crashed. Waiting does not fix it —
-the agent's reconnect backoff caps at 5 minutes, and this is still broken half an hour later.
-
-**Cause — the E2E mock agent took the real agent's slot and then left.** `npm run test:e2e` drives
-**the real dev stack** (that is the documented setup: `pwsh scripts/cronsole.ps1 up`, then
-Playwright against it), and `tests/e2e/helpers/mockAgent.ts` connects to the same backend with the
-same pairing secret — so it authenticates as the same user. `AgentManager` holds **one socket per
-user**, so the mock displaces the real agent's registration. When the run ends the mock
-disconnects, the server logs `Agent unregistered for user …`, and now there is **no** agent
-registered at all.
-
-The real agent never finds out. Its own socket was replaced server-side, not closed by anything it
-can observe as a reason to reconnect, so it sits there believing it is connected. **Nothing will
-recover this on its own.**
-
-**The tell** is in `logs/backend.out.log` — the last agent to connect is a mock:
-
-```sh
-grep -n "Agent connected" logs/backend.out.log | tail -1
-# Agent connected: fx3fvh2… (agent e2e-agent-1786996144627, user cli_user_placeholder)
-#                                      ^^^^^^^^^ not your machine name
-```
-
-A healthy line names the machine (`agent DESKTOP-…`). An `e2e-agent-<timestamp>` there means the
-suite, not your agent, was the last thing holding the slot.
-
-**Fix — restart the agent.** It is the only thing that re-registers.
-
-```powershell
-Stop-ScheduledTask -TaskPath '\Cronsole-Stack' -TaskName 'CronsoleAgent'
-Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-ScheduledTask -TaskPath '\Cronsole-Stack' -TaskName 'CronsoleAgent'
-```
-
-Then confirm with diagnostics (`Socket: connected`, and a `Connected since` seconds old) and run a
-**Sync** — the socket existing is not the same fact as the agent doing work ([#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
-
-**Why this is worth knowing rather than just fixing.** [#61](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green)
-ends with *"run E2E after any dashboard change"* — correct advice, and following it on a live stack
-takes your agent offline every time, minutes after a green test run, with the failure appearing on
-a screen that has nothing to do with the change you were testing. **A test harness that
-authenticates as the real user competes with the real user for a single-holder resource.** The
-durable fixes are a separate pairing identity for the mock (so it registers as its own user), or a
-second backend for E2E; both are design decisions, not one-line repairs. Until then, treat "restart
-the agent" as part of running the suite.
-
-*First hit: 2026-08-17, minutes after an E2E run verifying the Import chooser.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

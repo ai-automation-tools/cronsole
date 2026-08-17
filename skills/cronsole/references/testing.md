@@ -91,7 +91,12 @@ baseline on first run and *fails that run by design*; re-run to confirm.
 `.github/workflows/ci.yml`, **5 jobs** on push to `main`/`mike_desktop` and every PR:
 `backend` (vitest + tsc), `backend-integration` (real `postgres:16-alpine` service),
 `frontend` (eslint + vitest + build), `windows-agent` (`dotnet build`/`test` on
-`windows-latest`), `mcp-server` (vitest 75 + typecheck + tsc build).
+`windows-latest`), `mcp-server` (vitest + typecheck + tsc build).
+
+**Counts are deliberately not written here.** This line said `vitest 75` while the suite was at
+**190** — a number nobody re-reads, presented as if it were a check. Get the real one by running
+the suite; the count that *does* obligate something is the MCP tool census, and it is mechanical:
+`grep -c 'server.registerTool' mcp-server/src/tools.ts` against the two tool tables.
 
 > **The E2E suite is NOT in CI.** It needs a live stack CI doesn't stand up. It's a **local
 > gate you must run by hand** — which makes it the suite most likely to rot unnoticed. Run it
@@ -104,7 +109,7 @@ baseline on first run and *fails that run by design*; re-run to confirm.
 > that it was displaced, so it never reconnects. **Restart `\Cronsole-Stack\CronsoleAgent` after
 > every E2E run**, then Sync. The tell is `grep "Agent connected" logs/backend.out.log | tail -1`
 > naming `e2e-agent-<ts>` instead of your machine.
-> ([#66](../../../docs/troubleshooting/README.md#66-windows-goes-offline-right-after-you-run-the-e2e-suite))
+> ([#5a](../../../docs/troubleshooting/README.md#5a-and-the-transient-agent-is-the-e2e-suite))
 
 ## Known gaps
 
@@ -114,8 +119,9 @@ Honest list — real holes, not polish:
 |:---|:---|
 | **Login rate limit (`429`) not implemented** | The archived Test Plan's brute-force mitigation has no code behind it. Tracked in the Go-public checklist. **Don't "fix the test" — the feature is missing.** |
 | **E2E not in CI** | Full-stack regressions only surface locally |
-| **The E2E mock agent shares the real agent's identity** | Running the suite knocks your Windows agent offline until you restart it — same pairing secret, same user, one socket per user. A separate pairing identity for the mock (or a second backend for E2E) is the durable fix; neither is a one-liner. [#66](../../../docs/troubleshooting/README.md#66-windows-goes-offline-right-after-you-run-the-e2e-suite) |
-| **MCP tools never run against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does*, not that the wrapper and the API still **agree**. A route whose response shape moves keeps the stub green while the real tool breaks — [#9](../../../docs/troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) one layer up: *both sides green while disagreeing about the wire.* Drive the tools by hand after touching a wrapped route. |
+| **The E2E mock agent shares the real agent's identity** | Running the suite knocks your Windows agent offline until you restart it — same pairing secret, same user, one socket per user. A separate pairing identity for the mock (or a second backend for E2E) is the durable fix; neither is a one-liner. [#5a](../../../docs/troubleshooting/README.md#5a-and-the-transient-agent-is-the-e2e-suite) |
+| **MCP tools never run against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does*, not that the wrapper and the API still **agree**. A route whose response shape moves keeps the stub green while the real tool breaks — [#9](../../../docs/troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) one layer up: *both sides green while disagreeing about the wire.* Drive the tools by hand after touching a wrapped route — there is now a procedure for it: [MCP Tools runbook](../../../docs/testing/manual-testing/runbooks/MCP_Tools.md). |
+| **The recovery paths rest on one live pass** | `POST /api/tasks/import`, `POST /api/tools/task-archives/:id/restore`, and `DELETE /api/tasks/:id` now archiving like the MCP route. The **parser** is well covered (`taskImport.test.ts`, refusals mutation-tested) and the components are too — but the routes themselves, and *the two delete doors behaving alike*, were proven end to end on 2026-08-17 and by nothing since. Bites late by construction: nobody exercises undo until they need it. |
 | **No visual regression** | Theme/layout breaks caught by eye only |
 | **No performance gate** | A baseline exists in `artifacts/`; nothing fails on drift |
 

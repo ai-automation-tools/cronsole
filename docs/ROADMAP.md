@@ -328,13 +328,22 @@ radius, and they are listed here rather than left in the completed item so they 
 7. **The sync response's `missing` is a delta, not a state** — it counts rows *newly* marked
    `MISSING` by that pass, so it reads `0` beside `count: 5` while two rows sit `MISSING`. Defensible,
    but it is presented next to a state field and invites the wrong reading.
-8. **The native-executor tests are flaky under parallel load** — a test times out in a full run and
-   passes in isolation and on re-run. Both files that spawn real processes are affected:
-   `NativeTaskExecutor.test.ts` (first seen 2026-08-13) and `NativeJobTypes.test.ts` — the latter
-   measured 2026-08-15 at **1 failure in 3 full-suite runs**, always
-   `executeJob — SCRIPT > reports a non-zero exit as a failure`. So it is process spawning under
-   contention, not one bad test, and the fix is a per-test timeout or serialising those two files
-   rather than chasing an assertion. Worth doing before it trains anyone to re-run a red suite.
+8. ~~**The native-executor tests are flaky under parallel load**~~ — **fixed 2026-08-17**, on the
+   run that proved the diagnosis. Both files that spawn real processes now set
+   `vi.setConfig({ testTimeout: 30_000 })`: their wall clock belongs to the OS scheduler, not to
+   anything the code controls, so the 5s default was measuring the runner rather than the job.
+   File-level rather than per-test, deliberately — **the flake had already moved between tests**, so
+   a constant each test must remember is one the next spawning test forgets (the `ran` argument).
+   30s still catches a genuine hang. Verified live: a temporary 6s probe passes under the new
+   setting and would fail the 5s default, which is what proves the config is applied rather than
+   silently ignored.
+   *Original entry, and the one correction it needed:* it said the failure was **always**
+   `executeJob — SCRIPT > reports a non-zero exit as a failure`. On CI 2026-08-17 that test **passed
+   in 24ms** and `blames the host, not the script, when the interpreter is missing` timed out
+   instead — which confirms the "process spawning under contention, not one bad test" reading and
+   retires the "always". A flake that moves is the evidence that chasing the assertion was never the
+   fix. It reddened the branch on a commit touching **only docs and CI config**, which is exactly
+   the "trains anyone to re-run a red suite" cost the original entry warned about.
 
 **Chores, not roadmap items** (dev machine, 2026-08-13): the MCP host needs a restart to load the
 rebuilt `mcp-server/dist/`, and the Windows task `Cronsole conversion-response probe (safe to

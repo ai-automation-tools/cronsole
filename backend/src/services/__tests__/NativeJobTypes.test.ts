@@ -15,6 +15,26 @@ import { buildNativeJob } from '../nativeJob.js';
 vi.mock('axios', () => ({ default: { request: vi.fn() } }));
 
 /**
+ * **This file spawns real child processes, so its wall clock is the machine's
+ * scheduler rather than anything this code controls.**
+ *
+ * Under a full parallel run — every suite at once on a 2-core CI runner — a
+ * `spawn` has exceeded the 5s default and reddened the suite roughly 1 run in 3
+ * since 2026-08-15. It has now done so on **two different tests** (`reports a
+ * non-zero exit as a failure`, then `blames the host…` in CI on 2026-08-17,
+ * where the first passed in 24ms), which is what establishes it as contention
+ * rather than one slow assertion.
+ *
+ * File-level rather than a per-test argument, deliberately: the flake has
+ * already moved between tests, so a constant each test must remember is one the
+ * next spawning test forgets. 30s still catches a genuine hang — a script that
+ * never exits — it just stops reporting a busy runner as a defect. **A suite
+ * that reddens at random teaches people to re-run instead of read**, which
+ * costs far more than the seconds this gives back.
+ */
+vi.setConfig({ testTimeout: 30_000 });
+
+/**
  * `SCRIPT` and `CHECK` — the two job types added 2026-08-15 (ADR 0002).
  *
  * The `SCRIPT` cases run **real** interpreters (`node`, which is by definition

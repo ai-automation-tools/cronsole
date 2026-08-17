@@ -13,6 +13,14 @@ vi.mock('axios', () => ({
   default: { request: vi.fn() }
 }));
 
+/**
+ * Spawns real child processes — see the same note in `NativeJobTypes.test.ts`.
+ * These are the two files whose wall clock belongs to the OS scheduler, and
+ * both have timed out under full-suite contention while passing in isolation.
+ * 30s still catches a genuine hang.
+ */
+vi.setConfig({ testTimeout: 30_000 });
+
 describe('validateJob', () => {
   it('accepts a valid HTTP job', () => {
     expect(validateJob({ jobType: 'HTTP', url: 'https://example.com' })).toBeNull();

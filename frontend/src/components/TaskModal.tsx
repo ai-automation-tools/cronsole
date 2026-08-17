@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, Download, EyeOff } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { api } from '../api';
@@ -11,6 +11,7 @@ import { useSettings, type TimezoneMode } from '../hooks/useSettings';
 import { describeCron, taskCron } from '../utils/schedule';
 import { hhmmInZone, resolveZone, zoneAbbrev, zoneLabel } from '../utils/timezone';
 import { isRunnable, runButtonTitle } from '../utils/taskActions';
+import { TaskExportMenu } from './TaskExportMenu';
 import { useRemoveClaudeRoutine } from '../hooks/useClaudeRoutines';
 import { TaskFavoriteStar } from './TaskFavoriteStar';
 import { TaskCollectionMenu } from './TaskCollectionMenu';
@@ -333,13 +334,19 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
   // Export the task's native definition: Windows → Task Scheduler XML (via the
   // agent), Cronsole-native → Cronsole JSON. Downloads through the api client so
   // the auth header rides along, using the server's Content-Disposition filename.
-  const handleExport = async () => {
+  const handleExport = async (format: 'native' | 'template' = 'native') => {
     setExporting(true);
     try {
-      const res = await api.get(`/tasks/${task!.id}/export`, { responseType: 'blob' });
+      const res = await api.get(`/tasks/${task!.id}/export`, {
+        responseType: 'blob',
+        params: format === 'native' ? undefined : { format }
+      });
       const cd = res.headers['content-disposition'] as string | undefined;
+      // The server names the file, and it is the only thing that knows whether
+      // this is XML, a task bundle or a template. The fallback only has to be
+      // survivable, not clever.
       const filename = cd?.match(/filename="?([^"]+)"?/)?.[1]
-        ?? `${task!.name}.${task!.platform === 'WINDOWS_TASK_SCHEDULER' ? 'xml' : 'json'}`;
+        ?? `${task!.name}.${format === 'native' && task!.platform === 'WINDOWS_TASK_SCHEDULER' ? 'xml' : 'json'}`;
       const url = URL.createObjectURL(res.data as Blob);
       const a = document.createElement('a');
       a.href = url;
@@ -752,18 +759,14 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               </button>
             );
           })()}
-          {(task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && (
-            <button
-              onClick={handleExport}
-              disabled={exporting}
-              title={task.platform === 'WINDOWS_TASK_SCHEDULER'
-                ? 'Export this task as Windows Task Scheduler XML (via the agent)'
-                : 'Export this Cronsole-native task as JSON'}
-              className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export
-            </button>
-          )}
+          {/*
+            No longer gated on the two platforms with a native definition: the
+            portable template is built from the DB row and reaches no platform,
+            so it works for a Claude routine too — where the native half is the
+            one that cannot. The menu says which is which rather than the button
+            vanishing and leaving no way to ask.
+          */}
+          <TaskExportMenu task={task} onExport={handleExport} exporting={exporting} />
           {/*
             The one edit control. Never disabled: name and category are editable
             on every platform, so there is no task for which "nothing can be

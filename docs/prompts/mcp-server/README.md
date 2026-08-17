@@ -74,7 +74,7 @@ conversion first, put it in \Cronsole, and confirm the registered action.
 
 | Tier | Tools |
 |:---|:---|
-| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `get_diagnostics` · `export_task` · `list_task_archives` · `convert_schedule` |
+| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `get_diagnostics` · `export_task` (`format: native \| template`) · `list_task_archives` · `convert_schedule` |
 | **Create** | `create_task` · `create_native_task` · `create_native_program_task` · `create_native_script_task` · `create_native_check_task` · `create_task_from_template` · `create_claude_routine` · `import_task` · `restore_task_archive` |
 | **Act** | `run_task` · `sync_tasks` |
 | **Modify** (reversible) | `set_task_status` · `update_task_schedule` · `update_task_action` · `update_native_job` · `rename_task` · `untrack_task` |

@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.9** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.10** · canonical copy: <https://cronsole.mikesailab.com>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -152,7 +152,8 @@ you:
 | **Re-schedule** | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | **Edit the command** | `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
-| Export one task | `export_task` | `GET /api/tasks/:id/export` |
+| Export one task | `export_task` | `GET /api/tasks/:id/export` — the platform's own definition: Task Scheduler **XML** for Windows (UTF-16 LE + BOM; write it as raw bytes), Cronsole **JSON** for a native task. Restores that exact task onto that platform |
+| Export a task so it can be recreated **elsewhere** | `export_task` with `format: 'template'` | `GET /api/tasks/:id/export?format=template` — a portable Registry v1 template, importable with `POST /api/templates/import` and then applied to any compatible target. **Not a backup**: it drops platform-specific settings (the account the task runs as, run level, extra actions), so say so if you offer it as one. It is the only export that works with the **agent offline**, or for a **Claude routine**, whose definition lives at claude.ai. Writes nothing — unlike save-as-template |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` |
 | Run history, all tasks | — | `GET /api/tools/history` (`?format=csv`) |

@@ -1224,6 +1224,20 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       the same fold that keeps a dev-only token out of a production bundle. Pinned by
       `apiSameOrigin.test.ts`, asserting both halves, build half mutation-tested.
 
+- [x] **Per-task export gained a portable format** *(2026-08-17)*. `GET /api/tasks/:id/export?format=template`
+      returns a Registry v1 template built by the **same `buildTemplateFromTask`** that
+      `POST /:id/save-as-template` uses — the difference is only the side effect: this route writes
+      nothing, where wanting a portable file previously cost a row in the user's catalog.
+      **Answers the "why not one universal format" question properly**: fidelity and portability are
+      different jobs, and a format that could faithfully restore a Windows task would have to carry
+      its principal, logon type and every action — i.e. *be* Task Scheduler XML. Merging them
+      produces the dangerous artifact: a file that looks like a faithful backup and restores a task
+      running as the wrong account, succeeding. So the modal offers both, **labelled by what each is
+      for**. Portable works where native cannot — agent offline, and `CLAUDE_CODE`, which had no
+      export at all. `useAnchoredPanel` was extracted from `TaskCollectionMenu` for the menu, since
+      the task modal's panel is `overflow-hidden` and a second copy of portal-placement-flip-and-scroll
+      is four subtle things to get right twice.
+
 - [x] **Task import & deleted-task restore — the export format finally has a reader** *(2026-08-17)*.
       `POST /api/tasks/import` (a `cronsoleTaskVersion` bundle → a real task) and
       `POST /api/tools/task-archives/:id/restore`, behind one **Import a task** card on the Tools tab

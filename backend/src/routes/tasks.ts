@@ -1473,17 +1473,83 @@ router.post('/:id/save-as-template', validateBody(saveAsTemplateSchema), async (
 // Only allow safe chars in a downloaded filename (avoid header issues / odd chars).
 const safeFilePart = (s: string) => s.replace(/[^\w.-]+/g, '_').slice(0, 80) || 'task';
 
-// Export a user's *actual* tracked task (distinct from template export). A
-// Windows task exports as native Task Scheduler XML (retrieved through the
-// agent — round-trips into any Windows machine); a Cronsole-native task has no
-// Windows XML equivalent, so it exports as Cronsole JSON built from the DB row.
+/**
+ * Export a user's *actual* tracked task, in one of two formats — and the two
+ * answer different questions, which is why neither can be dropped.
+ *
+ * **`native` (default) — "put this exact task back on this platform."** Windows
+ * exports as Task Scheduler XML retrieved through the agent (round-trips into
+ * any Windows machine); a Cronsole-native task's DB row *is* the task, so it
+ * exports as the `cronsoleTaskVersion` JSON `POST /api/tasks/import` reads back.
+ *
+ * **`template` — "recreate what this task does, anywhere."** A Registry v1
+ * template: target-agnostic (Trigger → Action → Execution Target), compiled to a
+ * platform's native config at apply time, and accepted verbatim by
+ * `POST /api/templates/import`.
+ *
+ * **A single universal format cannot serve both**, and trying is the dangerous
+ * option rather than the elegant one. Faithfully restoring a Windows task means
+ * carrying its principal, logon type, run level and every action — at which
+ * point the format *is* Task Scheduler XML with extra steps. Portability means
+ * deliberately dropping exactly those fields, because no other platform can
+ * honour them. Merge the two and you get a file that **looks** like a faithful
+ * backup and silently is not: restore it and the task runs as the wrong account,
+ * succeeding, so nothing warns you. That is the same failure family as an
+ * archive that cannot restore.
+ *
+ * `template` reuses `buildTemplateFromTask` — the same builder
+ * `POST /:id/save-as-template` uses — so the portable file and the saved
+ * template can never become two different shapes. The difference is only the
+ * side effect: **this route writes nothing**, which is the whole point. Wanting
+ * a portable file used to cost a row in your catalog.
+ */
 router.get('/:id/export', async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const userId = (req as AuthRequest).user!.id;
 
+  const format = typeof req.query.format === 'string'
+    ? req.query.format.trim().toLowerCase()
+    : 'native';
+  if (format !== 'native' && format !== 'template') {
+    throw new HttpError(
+      400,
+      `Unknown export format "${format}". Use "native" (this platform's own definition, which ` +
+        'restores onto it) or "template" (a portable Registry v1 template, which recreates the ' +
+        'task anywhere but drops platform-specific settings).'
+    );
+  }
+
   const task = await prisma.task.findFirst({ where: { id, userId } });
   if (!task) {
     throw new HttpError(404, 'Task not found');
+  }
+
+  if (format === 'template') {
+    // Before the platform branches on purpose: a template is built from the DB
+    // row and reaches no platform at all, so it works where a native export
+    // cannot — a Claude routine has no native definition Cronsole can fetch,
+    // and this still describes what it runs.
+    let template;
+    try {
+      template = buildTemplateFromTask(task);
+    } catch (err) {
+      // The honest refusals: no 5-field cron (a boot/logon trigger is not
+      // expressible as one), multiple actions, or no capturable command. Each
+      // names itself rather than producing a template that quietly means
+      // something else.
+      if (err instanceof SaveAsTemplateError) throw new HttpError(400, err.message);
+      throw err;
+    }
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="cronsole-template-${safeFilePart(task.name)}.json"`
+    );
+    // Deliberately NO recordCapability: nothing was asked of the platform, so
+    // recording `export` here would mark the verb `verified` on evidence that
+    // never touched it — and on Windows the native export needs an online agent
+    // this path never uses. A verdict comes from what happened.
+    return res.json(template);
   }
 
   if (task.platform === PlatformType.WINDOWS_TASK_SCHEDULER) {

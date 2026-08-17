@@ -994,6 +994,51 @@ const taskImport: HelpTopic = {
   ]
 };
 
+const taskExport: HelpTopic = {
+  id: 'task-export',
+  title: 'Exporting a task',
+  summary:
+    'Download this task\'s definition — either the platform\'s own, which restores it exactly, or a ' +
+    'portable template, which recreates it anywhere.',
+  points: [
+    {
+      label: 'Two formats because there are two questions',
+      body:
+        'Native puts this exact task back on this platform. Portable recreates what it does on any ' +
+        'install. No single file does both — one carries platform settings, the other must drop them.'
+    },
+    {
+      label: 'Portable is lossy on purpose',
+      body:
+        'It leaves out the account the task runs as, its run level and any extra actions, because ' +
+        'no other platform can honour them. Treat it as a recipe, not a backup.'
+    },
+    {
+      label: 'Portable works where native cannot',
+      body:
+        'With the Windows agent offline there is nothing to read the real definition from, and a ' +
+        'Claude routine has none Cronsole can fetch. The template still describes what runs.'
+    },
+    {
+      label: 'Neither touches your template library',
+      body:
+        'Getting a portable file used to mean Save as template first, which left a template behind. ' +
+        'Export writes nothing.'
+    },
+    {
+      label: 'Some tasks cannot be templated',
+      body:
+        'A boot or logon trigger is not a cron expression, and a task with several actions has no ' +
+        'single command. The refusal names which of the two stopped it.'
+    }
+  ],
+  doc: { label: 'UI User Guide › Exporting one task', url: uiGuide('exporting-one-task') },
+  more: [
+    { label: 'UI User Guide › Import a task', url: uiGuide('import-a-task') },
+    { label: 'UI User Guide › Restore tasks from a backup', url: uiGuide('restore-tasks-from-a-backup') }
+  ]
+};
+
 /* ── The catalog ─────────────────────────────────────────────────────────── */
 
 const TOPIC_LIST: HelpTopic[] = [
@@ -1018,6 +1063,7 @@ const TOPIC_LIST: HelpTopic[] = [
   platforms,
   massActions,
   taskImport,
+  taskExport,
   diagnostics,
   taskHealth
 ];

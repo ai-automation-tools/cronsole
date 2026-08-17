@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.9** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.10** · canonical copy: <https://cronsole.mikesailab.com>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -60,7 +60,8 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Re-schedule | `update_task_schedule` | `PATCH /api/tasks/:id/schedule` |
 | Edit the command | `update_task_action` | `PATCH /api/tasks/:id/actions` |
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
-| Export one task | `export_task` | `GET /api/tasks/:id/export` |
+| Export one task | `export_task` | `GET /api/tasks/:id/export` — the platform's own definition: Task Scheduler **XML** for Windows (UTF-16 LE + BOM; write it as raw bytes), Cronsole **JSON** for a native task. Restores that exact task onto that platform |
+| Export a task so it can be recreated **elsewhere** | `export_task` with `format: 'template'` | `GET /api/tasks/:id/export?format=template` — a portable Registry v1 template, importable with `POST /api/templates/import` and then applied to any compatible target. **Not a backup**: it drops platform-specific settings (the account the task runs as, run level, extra actions), so say so if you offer it as one. It is the only export that works with the **agent offline**, or for a **Claude routine**, whose definition lives at claude.ai. Writes nothing — unlike save-as-template |
 | Remove from Cronsole, keep it running | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | Import an exported task file | `import_task` | `POST /api/tasks/import` — the body **is** the file (the whole `cronsoleTaskVersion` object). Cronsole-native only: a native task's row *is* the task, so it round-trips, while a Windows definition is Task Scheduler XML on the machine and goes through Restore below. Creates a **new** task each time, `ACTIVE`, on the file's UTC schedule — report the returned `nextRunTime` |
 | What was deleted, and can it come back | `list_task_archives` | `GET /api/tools/task-archives` — each row carries `restorable` **with its reason** |

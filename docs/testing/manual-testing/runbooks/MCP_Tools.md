@@ -77,7 +77,7 @@ machine.
 | `get_task_health` | Signals name the field they came from; a task with no evidence is `unknown`, not `ok` |
 | `list_run_history` | Every row carries a `runKind`, and an empty result says *why* rather than implying nothing ran |
 | `get_task_history` | On a **Windows** task: the empty-history caveat is stated, not implied |
-| `export_task` | On a Windows task: real XML, and the UTF-16 warning is present. On a native task: a `cronsoleTaskVersion` bundle |
+| `export_task` | On a Windows task: real XML, and the UTF-16 warning is present. On a native task: a `cronsoleTaskVersion` bundle. Then **`format: 'template'` on the same task** — a Registry v1 template, and the result must say it is **not** a faithful backup. Drive it once with the **agent stopped**: native 502s there and template must still succeed, which is the difference that justifies the second format |
 | `list_task_archives` | Each row carries `restorable` **with its reason** when it is false |
 | `convert_schedule` | Feed it `0 9 * * 1-5` and read the **trigger**, not the score — the Monday-only bug scored 1.0 |
 | `list_claude_routines` | Reports `session.mode`. Note which it is; §5 depends on it |

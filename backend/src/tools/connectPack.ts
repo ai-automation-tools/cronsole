@@ -88,7 +88,15 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   spent the backup. It also has to name the split — a task `.json`, a template
 //   `.json` and a Task Scheduler `.xml` each have exactly one route that reads
 //   them, and guessing wrong is the failure these tables exist to prevent.
-export const CONNECT_PACK_VERSION = '1.9';
+// 1.10 (2026-08-17): adds `export_task`'s `format: 'template'` /
+//   `GET /api/tasks/:id/export?format=template`. A correction as much as an
+//   addition: the single export row read as *the* way to export a task, so an
+//   assistant asked to move a task to another machine would hand over Windows
+//   XML — correct for a backup, useless on a Mac or another platform — and had
+//   nothing to offer at all for a Claude routine, whose native export is a 400.
+//   The row also has to carry the LOSS, because a template offered as a backup
+//   is the one mistake this format makes possible.
+export const CONNECT_PACK_VERSION = '1.10';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

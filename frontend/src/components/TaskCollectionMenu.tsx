@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bookmark, Check, Plus, Loader2 } from 'lucide-react';
 import type { Task } from '../types';
+import { useAnchoredPanel } from '../hooks/useAnchoredPanel';
 import {
   useCollections,
   useCreateCollection,
@@ -21,7 +22,6 @@ interface TaskCollectionMenuProps {
 
 /** Panel width, kept in sync with the `w-60` below because placement needs a number. */
 const PANEL_WIDTH = 240;
-const GAP = 6;
 
 /**
  * "Which collections is this task in?" — a checklist, and the only place a task
@@ -63,7 +63,6 @@ export const TaskCollectionMenu = ({
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,63 +75,22 @@ export const TaskCollectionMenu = ({
   const count = memberOf.size;
 
   /**
-   * Anchor the panel to the trigger in viewport coordinates.
-   *
-   * Right-aligned to the button and clamped to the viewport, then flipped above
-   * when there is no room below — a menu that opens off the bottom of a phone is
-   * the same defect as one that gets clipped, arrived at differently.
+   * Placement, flipping, outside-click and Escape all live in
+   * `useAnchoredPanel` — extracted when the export menu needed the same
+   * behaviour. Not a Modal: this is a menu attached to a control, and the task
+   * modal it can live inside already owns the focus trap, so nesting a second
+   * one would fight it for the Escape key.
    */
-  const place = useCallback(() => {
-    const trigger = buttonRef.current?.getBoundingClientRect();
-    if (!trigger) return;
-    const height = panelRef.current?.offsetHeight ?? 0;
-    const left = Math.min(
-      Math.max(GAP, trigger.right - PANEL_WIDTH),
-      window.innerWidth - PANEL_WIDTH - GAP
-    );
-    const below = trigger.bottom + GAP;
-    const flip = height > 0 && below + height > window.innerHeight && trigger.top - height - GAP > 0;
-    setPos({ top: flip ? trigger.top - height - GAP : below, left });
-  }, []);
-
-  // Measured after the panel exists, so the flip decision uses its real height
-  // rather than a guess that would be wrong for every collection count.
-  useLayoutEffect(() => {
-    if (open) place();
-  }, [open, place, collections?.length, creating, error]);
-
-  // Close on an outside click or Escape, and re-anchor while the page moves.
-  // Not a Modal: this is a menu attached to a control, and the task modal it can
-  // live inside already owns the focus trap — nesting a second one would fight
-  // it for the Escape key.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      // Both nodes, because the panel is no longer a descendant of the trigger.
-      if (buttonRef.current?.contains(target) || panelRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        setOpen(false);
-      }
-    };
-    // Capture, so a scroll inside the list or a kanban column is seen too — a
-    // fixed panel does not travel with the element it points at.
-    const onScroll = () => place();
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey, true);
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey, true);
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
-    };
-  }, [open, place]);
+  const pos = useAnchoredPanel({
+    open,
+    onClose: () => setOpen(false),
+    triggerRef: buttonRef,
+    panelRef,
+    width: PANEL_WIDTH,
+    // The panel's height moves with these, and a stale measurement is what puts
+    // a grown panel off the bottom of the screen.
+    remeasure: [collections?.length, creating, error]
+  });
 
   useEffect(() => {
     if (creating) inputRef.current?.focus();

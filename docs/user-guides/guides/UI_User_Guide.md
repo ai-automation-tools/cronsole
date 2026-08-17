@@ -246,6 +246,38 @@ Instead of raw data, the Overview parses the task's synced configuration into re
 ### Run History
 The second tab lists recorded runs with their status, timestamp, duration, and a log snippet — so you can answer "did it actually run, and did it work?"
 
+### Exporting one task
+
+The **Export** button in the task's footer downloads its definition, and it asks which of two you
+want — because "export this task" is really two different requests.
+
+- **Native** puts *this exact task* back on *this platform*. A Windows task gives you Task
+  Scheduler XML — the real definition, read off your machine, which restores onto any Windows PC
+  through [Restore tasks from a backup](#restore-tasks-from-a-backup). A Cronsole-native task gives
+  you Cronsole JSON, which comes back through [Import a task](#import-a-task).
+- **Portable template** recreates the task on *any install*. It is the same shape as the templates
+  in the catalog, so it imports on the Templates tab and can then be applied to whichever platform
+  suits — which is what you want for moving a task to a different machine, or to a colleague.
+
+**The portable one is deliberately lossy, and the menu says so before you click.** It drops
+platform-specific settings — the account the task runs as, its run level, any extra actions —
+because no other platform can honour them. That is the price of it working anywhere, and it is why
+both options exist rather than one universal file: a format that could faithfully restore a Windows
+task would have to carry all of that, at which point it *is* Task Scheduler XML. A merged version
+would be the worst outcome — a file that looks like a faithful backup, restores a task running as
+the wrong account, and succeeds, so nothing warns you.
+
+Two smaller things worth knowing:
+
+- **Portable works where native can't.** With the Windows agent offline there is nothing to read the
+  XML from, and a **Claude routine** has no definition Cronsole can fetch at all — its routine lives
+  at claude.ai. The portable template still describes what the task runs in both cases.
+- **Neither adds anything to your template library.** Getting a portable file used to mean **Save as
+  template** first, which left a template behind that you then had to live with.
+
+Some tasks can't be templated, and the refusal says which fact stopped it: a task with no
+cron-expressible schedule (a boot or logon trigger isn't one), or with more than one action.
+
 ## Changing many tasks at once
 
 Bulk changes live in one place: **Mass actions**, on the [Tools tab](#mass-actions). There are no

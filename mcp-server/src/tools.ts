@@ -1326,15 +1326,29 @@ Next run: ${task.nextRunTime}` : '')
         'UTF-8 (the default almost everywhere) produces a file Windows refuses with "unable to switch the ' +
         'encoding" — the text below is correct, but the encoding you save it in is on you.',
       inputSchema: {
-        taskId: z.string().describe('The Cronsole task id (from list_tasks).')
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
+        format: z
+          .enum(['native', 'template'])
+          .optional()
+          .describe(
+            'Which question you are answering. "native" (the default) is the platform\'s own ' +
+            'definition — Task Scheduler XML for Windows, Cronsole JSON for a native task — and it ' +
+            'restores that exact task onto that platform. "template" is a portable Registry v1 ' +
+            'template that recreates the task on ANY install, and is what you want for moving a ' +
+            'task between machines or platforms. The template DROPS platform-specific settings ' +
+            '(the account it runs as, run level, extra actions), so it is not a faithful backup — ' +
+            'say so if you offer it as one. It also works where "native" cannot: with the Windows ' +
+            'agent offline, and for a Claude routine, whose definition lives at claude.ai.'
+          )
       }
     },
-    async ({ taskId }) => {
+    async ({ taskId, format }) => {
       try {
         // Must go through getBuffer: a Windows export is UTF-16 LE + BOM bytes,
         // and letting axios decode them as UTF-8 yields mojibake.
         const { data, contentType } = await client.getBuffer(
-          `/tasks/${encodeURIComponent(taskId)}/export`
+          `/tasks/${encodeURIComponent(taskId)}/export` +
+            (format === 'template' ? '?format=template' : '')
         );
         const isXml = contentType.includes('xml');
 
@@ -1353,8 +1367,19 @@ Next run: ${task.nextRunTime}` : '')
           );
         }
 
-        // Cronsole-native: JSON straight from the DB row.
+        // JSON — either the native task bundle or a portable template. They are
+        // named apart because what a caller may DO with them differs: one
+        // restores a task, the other has to be applied and cannot carry
+        // platform settings.
         const json = JSON.parse(data.toString('utf8'));
+        if (format === 'template') {
+          return ok(
+            `Portable template for task ${taskId} (Registry v1 — import with POST /api/templates/import, ` +
+              'then apply it to a target). Platform-specific settings such as the account the task ' +
+              `runs as are NOT included:\n\n${JSON.stringify(json, null, 2)}`,
+            { taskId, format: 'cronsole-template', definition: json }
+          );
+        }
         return ok(
           `Cronsole-native task definition for ${taskId}:\n\n${JSON.stringify(json, null, 2)}`,
           { taskId, format: 'cronsole-json', definition: json }

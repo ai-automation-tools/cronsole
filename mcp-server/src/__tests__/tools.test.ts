@@ -2453,3 +2453,60 @@ describe('restore_task_archive', () => {
     expect(names).not.toContain('delete_task');
   });
 });
+
+/**
+ * export_task's second format — the portable half.
+ *
+ * Both formats come back as JSON, so the only thing distinguishing them for a
+ * caller is what the tool SAYS about them. That is the whole test: a template
+ * reported as a task definition would be offered as a backup it cannot be.
+ */
+describe('export_task — format', () => {
+  const template = {
+    schemaVersion: '1.0',
+    id: 'tpl_saved_abc',
+    name: 'Nightly digest',
+    trigger: { kind: 'schedule', cron: '0 4 * * *' },
+    commandTemplate: 'node digest.js'
+  };
+  const asJson = (body: unknown) => ({
+    data: Buffer.from(JSON.stringify(body), 'utf8'),
+    contentType: 'application/json; charset=utf-8'
+  });
+
+  it('asks the route for the template format, and says it is not a backup', async () => {
+    const { client, calls } = stubClient({
+      'GET /tasks/id1/export?format=template': asJson(template)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'export_task', { taskId: 'id1', format: 'template' });
+
+    expect(calls[0].path).toBe('/tasks/id1/export?format=template');
+    expect(r.structuredContent?.format).toBe('cronsole-template');
+    // The lossiness is the thing a caller must not discover after restoring.
+    expect(text(r)).toMatch(/NOT included/);
+    expect(text(r)).toMatch(/Registry v1/);
+  });
+
+  it('defaults to native, so an existing caller is unaffected', async () => {
+    const { client, calls } = stubClient({
+      'GET /tasks/id1/export': asJson({ cronsoleTaskVersion: '1.0', task: { name: 'x' } })
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'export_task', { taskId: 'id1' });
+
+    expect(calls[0].path).toBe('/tasks/id1/export');
+    expect(r.structuredContent?.format).toBe('cronsole-json');
+  });
+
+  it('tells the model where template beats native, and what it costs', async () => {
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'export_task');
+    const schema = JSON.stringify(tool!.inputSchema);
+
+    expect(schema).toMatch(/agent offline/);
+    expect(schema).toMatch(/DROPS platform-specific settings/);
+    expect(schema).toMatch(/not a faithful backup/);
+  });
+});

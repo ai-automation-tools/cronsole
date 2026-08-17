@@ -53,6 +53,7 @@ New to Cronsole? Follow this path in order:
 | Doc | What's inside |
 |:---|:---|
 | [**🗺️ ROADMAP.md**](ROADMAP.md) | The living plan — what's shipped and what's next (P0 → P3), plus open decisions. |
+| [**🧠 DESIGN_NOTES.md**](DESIGN_NOTES.md) | The reasoning archive — the long-form arguments, failures and wrong turns behind every invariant listed in [`CLAUDE.md`](../CLAUDE.md) § 5. Read it before arguing with a rule, or removing one. |
 
 > [!NOTE]
 > Two folders here are **local-only and not tracked in git**, so they will be absent from a fresh

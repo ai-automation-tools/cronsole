@@ -13,6 +13,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Export one task in two formats — and one of them is portable** (2026-08-17). The per-task **Export** button in the task modal is now a small menu, because "export this task" turns out to be two different requests.
+
+  **Native** (what Export always did) puts *this exact task* back on *this platform*: Task Scheduler XML for a Windows task, Cronsole JSON for a native one. **Portable template** is new — a target-agnostic template that recreates the task on any install, on any platform Cronsole can compile it for.
+
+  **You could already get the portable form, but it cost you a catalog row.** Save as template writes a template into your library, and only then could you download it. If you just wanted a file for another machine, you were left tidying up afterwards. This writes nothing.
+
+  **The menu names each option by what it is for, not by its file extension** — "restores onto any Windows PC" against "recreate this task on any install" — because the extension is the half you can't act on. And it says what the portable one gives up **before** you click: it drops platform-specific settings like the account the task runs as. That matters, since a file that looks like a faithful backup and silently isn't would restore a task running as the wrong user, succeeding, with nothing to warn you.
+
+  Portable also works where native can't: with the Windows agent offline, and for a **Claude routine**, whose definition lives at claude.ai and was previously not exportable at all. Available to AI tools as `export_task`'s new `format` parameter.
+
 - **The Dashboard's Import button now asks which kind of import you mean** (2026-08-17). It opens on two options — **Tasks already on this machine** and **A task file (.json)** — instead of going straight to folder discovery.
 
   **They were never variants of one action.** Discovering *adopts* tasks that already exist: Cronsole creates nothing, and those tasks would run tomorrow whether or not you ever pressed the button. A task file *creates* a task that did not exist a moment ago and starts it running. So the chooser leads with that consequence rather than with the source — "nothing is created" against "this creates a task" is the part you can act on, and the file extension is the footnote.

@@ -24,6 +24,16 @@ a scheduled task is durable, runs unattended, and runs **elevated** on Windows.
 | **An exported *task* file** (`cronsoleTaskVersion`) | **`import_task`** (MCP) / `POST /api/tasks/import` | Not a template — a specific task, exported from a Cronsole install. Pass the file **whole**. **Cronsole-native only**; a Windows bundle is refused and points at Tools → Restore. |
 | **A task the user deleted** | **`restore_task_archive`** (MCP) / `POST /api/tools/task-archives/:id/restore` | Rebuilds it from the definition Cronsole archived before deleting. Find the id with `list_task_archives`. |
 
+**Exporting has two formats, and the same distinction runs the other way.**
+`GET /api/tasks/:id/export` defaults to `native` — the platform's own definition, which restores
+*this* task onto *this* platform — and takes **`?format=template`** for a portable Registry v1
+template that recreates it anywhere. Over MCP that is `export_task`'s `format` param. The template
+**drops platform-specific settings** (run-as account, run level, extra actions), so never offer it
+as a faithful backup; it is the right answer to *"set this task up on my other machine"* and the
+wrong one to *"back this up before I change it"*. It reaches no platform, so it is also the only
+export that works with the agent offline or on a Claude routine — and it writes nothing, unlike
+`save-as-template`, which leaves a catalog row behind.
+
 **Three JSON files, three destinations — do not confuse them.** A *template* is a parameterized
 recipe with `{{placeholders}}`, and importing one puts it in the catalog (Apply is what then makes
 a task). A *task bundle* (`cronsoleTaskVersion`) is one concrete task and importing it **creates

@@ -50,6 +50,7 @@ import {
   scoreTask,
   summarizeHealth
 } from '../services/taskHealth.js';
+import { buildDiagnosticsReport } from '../services/diagnostics.js';
 import {
   analyzeDurations,
   bucketByDay,
@@ -1360,6 +1361,29 @@ router.get('/analytics', async (req: Request, res: Response) => {
       idle: "Windows tasks are judged from Windows' own last-run time in the sync snapshot; Cronsole-native tasks from Cronsole's execution records."
     }
   });
+});
+
+/**
+ * **Why is Cronsole not working?** — the read-only system report.
+ *
+ * Owner-scoped like every other cross-task read: the agent liveness, sync times
+ * and API tokens it reports all belong to one user, and the checks that describe
+ * shared process state (the scheduler loop, the catalog, the origin list) still
+ * count only that user's rows.
+ *
+ * `GET` and read-only on purpose, and the constraint runs deeper than the verb:
+ * **no check here repairs anything.** Three of the four agent-health entries in
+ * the troubleshooting log were the readout lying rather than the agent failing,
+ * so a repair button shipped before this panel existed would have been acting on
+ * a diagnosis nobody could yet check. See the header of `services/diagnostics.ts`.
+ *
+ * It answers 200 whatever it finds. A report that a check failed is a successful
+ * report — the failure is the payload, not the transport, which is the same
+ * distinction `ran` draws for a run result (troubleshooting #59).
+ */
+router.get('/diagnostics', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  res.json(await buildDiagnosticsReport(userId));
 });
 
 /**

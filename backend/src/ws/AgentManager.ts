@@ -1,6 +1,29 @@
 import { Socket } from 'socket.io';
 
 /**
+ * What the agent said about itself in `agent:hello`.
+ *
+ * The agent has emitted this since it was written and **nothing listened** — so
+ * the backend could not name the machine its own agent was running on, which is
+ * the first question anyone asks when a task fires somewhere unexpected.
+ *
+ * `agentVersion` is captured because the agent sends it, and is deliberately
+ * **not rendered** by the diagnostics report: the agent hardcodes the string
+ * `"1.0.0"`, so it is identical on a build from today and one published in June.
+ * Showing it beside "Agent" would read as a freshness claim while carrying no
+ * information at all — the confident lie in miniature. Render it the day the
+ * agent stamps a real build id; until then `connectedAt` is the honest fact
+ * about how old the running process is (troubleshooting #7).
+ */
+export interface AgentIdentity {
+  machineName?: string;
+  agentVersion?: string;
+  osVersion?: string;
+  /** When the hello arrived — distinct from `connectedAt` only in odd cases. */
+  at: Date;
+}
+
+/**
  * What we actually know about an agent, as opposed to what we assume.
  *
  * A registered socket proves the agent authenticated and completed the HMAC
@@ -22,6 +45,8 @@ export interface AgentLiveness {
   lastFailureAt?: Date;
   /** The verb that timed out, so the reason can name it rather than generalize. */
   lastFailureVerb?: string;
+  /** Self-reported identity from `agent:hello`, if it has arrived. */
+  identity?: AgentIdentity;
 }
 
 class AgentManager {
@@ -54,6 +79,31 @@ class AgentManager {
   markResponsive(userId: string): void {
     const record = this.liveness.get(userId);
     if (record) record.lastResponseAt = new Date();
+  }
+
+  /**
+   * Record what the agent said it is. Everything here is **self-reported by the
+   * agent**, so it identifies a machine — it never proves one.
+   *
+   * Tolerant of a malformed payload by design: this is an observer of a socket
+   * event, and an observer may not fail the connection it observes (the same
+   * rule `recordCapability` follows). A bad hello costs the identity fields, not
+   * the agent.
+   */
+  recordHello(userId: string, payload: unknown): void {
+    const record = this.liveness.get(userId);
+    if (!record) return;
+
+    const raw = (Array.isArray(payload) ? payload[0] : payload) as Record<string, unknown> | null;
+    if (!raw || typeof raw !== 'object') return;
+
+    const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : undefined);
+    record.identity = {
+      machineName: str(raw.machineName),
+      agentVersion: str(raw.agentVersion),
+      osVersion: str(raw.osVersion),
+      at: new Date()
+    };
   }
 
   /** A request to this agent timed out. `verb` names it for the health reason. */

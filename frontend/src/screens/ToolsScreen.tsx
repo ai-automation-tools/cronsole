@@ -1,5 +1,6 @@
 import { BulkExportTool } from '../components/tools/BulkExportTool';
 import { ConnectPackTool } from '../components/tools/ConnectPackTool';
+import { DiagnosticsTool } from '../components/tools/DiagnosticsTool';
 import { ExecutionAnalyticsTool } from '../components/tools/ExecutionAnalyticsTool';
 import { MassActionsTool } from '../components/tools/MassActionsTool';
 import { RestoreTool } from '../components/tools/RestoreTool';
@@ -28,7 +29,7 @@ export const ToolsScreen = () => (
   <div className="space-y-5 animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto">
     <div>
       <h2 className="text-2xl font-bold mb-1">Tools</h2>
-      <p className="text-muted-foreground">Act on many tasks at once, check task health, see what failed or stalled, try a schedule, back up and restore tasks, and connect AI tools.</p>
+      <p className="text-muted-foreground">Act on many tasks at once, check task health, diagnose the system itself, see what failed or stalled, try a schedule, back up and restore tasks, and connect AI tools.</p>
     </div>
 
     {/* One card per row. A two-column grid put every card in a forced
@@ -39,6 +40,11 @@ export const ToolsScreen = () => (
     <div className="space-y-4">
       {/* First: it is the only card here that *acts*. Everything below reports. */}
       <MassActionsTool />
+      {/* Second, and above task health, because the questions nest: "is Cronsole
+          working?" has to be answerable before "which of my tasks are failing?"
+          means anything — a red health list over a wedged agent is describing the
+          agent, not the tasks. */}
+      <DiagnosticsTool />
       <TaskHealthTool />
       <ExecutionAnalyticsTool />
       <ScheduleTesterTool />

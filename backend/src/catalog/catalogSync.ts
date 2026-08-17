@@ -102,6 +102,35 @@ export async function syncCatalogToDb(
 
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 
+/**
+ * The outcome of the most recent catalog sync attempt, kept for the diagnostics
+ * report.
+ *
+ * A sync failure is deliberately **non-fatal and logged** — the source falls
+ * back to the bundled snapshot, so the app keeps working. That is the right
+ * behaviour and it is also why the failure is invisible: the console line
+ * scrolls past inside a container, the Templates tab still lists templates, and
+ * the only symptom is that the catalog silently stopped updating (troubleshooting
+ * #21, #58). Keeping the last result in memory is what lets something ask.
+ *
+ * `null` means no attempt has completed yet — absence of evidence, which the
+ * check reports as `unknown` rather than as a pass.
+ */
+export interface CatalogSyncAttempt {
+  at: Date;
+  ok: boolean;
+  count?: number;
+  pruned?: number;
+  source?: string;
+  error?: string;
+}
+
+let lastAttempt: CatalogSyncAttempt | null = null;
+
+export function getLastCatalogSync(): CatalogSyncAttempt | null {
+  return lastAttempt;
+}
+
 function defaultIntervalMs(): number {
   const explicit = Number(process.env.TEMPLATE_REGISTRY_SYNC_INTERVAL_MS);
   if (Number.isFinite(explicit) && explicit > 0) return explicit;
@@ -120,11 +149,17 @@ export async function startCatalogRefresh(): Promise<void> {
   const run = async () => {
     try {
       const r = await syncCatalogToDb();
+      lastAttempt = { at: new Date(), ok: true, count: r.count, pruned: r.pruned, source: r.source };
       console.log(
         `[catalog] synced ${r.count} core templates from "${r.source}"` +
           (r.pruned > 0 ? `, pruned ${r.pruned} stale managed template(s).` : '.')
       );
     } catch (err) {
+      lastAttempt = {
+        at: new Date(),
+        ok: false,
+        error: err instanceof Error ? err.message : String(err)
+      };
       console.error('[catalog] sync failed:', err);
     }
   };

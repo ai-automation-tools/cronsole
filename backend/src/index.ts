@@ -56,6 +56,12 @@ io.on('connection', (socket: Socket) => {
   // make an active agent look wedged. `onAny` cannot miss one.
   socket.onAny(() => agentManager.markResponsive(userId));
 
+  // The agent has announced itself since it was written; until now nothing was
+  // listening, so the backend could not say which machine its agent was on.
+  // Identity only — never a capability or a trust decision, since every field is
+  // whatever the agent chose to send.
+  socket.on('agent:hello', (payload: unknown) => agentManager.recordHello(userId, payload));
+
   // We no longer emit 'task:list' here to prevent auto-sync on startup/connection.
   // Sync is now explicitly triggered by the user via the frontend.
 

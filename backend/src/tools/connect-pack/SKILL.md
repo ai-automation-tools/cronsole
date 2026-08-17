@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.7** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.8** · canonical copy: <https://cronsole.mikesailab.com>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -67,6 +67,7 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |
 | Run history across all tasks | — | `GET /api/tools/history` (`?format=csv`) |
 | What needs attention | — | `GET /api/tools/task-health` |
+| **Is Cronsole itself working?** | `get_diagnostics` | `GET /api/tools/diagnostics` — the agent connection, database, native scheduler, template catalog, API-token expiry and allowed origins, **each with the evidence behind it**. Ask this **before** `get_task_health` when something is wrong: health asks *"are the user's tasks failing"*, which is meaningless while the agent is wedged — then **every** Windows task reads unhealthy and the fix is in none of them. `unknown` is **not** `pass` (the check could not be measured). `measuredOn` says which machine the facts describe. Read-only; it repairs nothing, and it cannot report on a backend that is down because that backend serves it |
 | **What Cronsole can actually do with a platform** | — | `GET /api/tools/platforms` — each verb reads **`verified`** (has worked on this machine), **`declared`** (Cronsole will try; never observed to work here) or **`unsupported`** (would be refused). **Check this before promising the user a capability.** `declared` is not a yes |
 | Star / un-star a task | — | `POST` / `DELETE /api/tasks/:id/favorite` (`isFavorite` comes back on `GET /api/tasks`) |
 | Template import/export, sync, pairing | — | REST / dashboard only |

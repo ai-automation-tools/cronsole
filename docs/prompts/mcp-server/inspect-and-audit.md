@@ -135,6 +135,28 @@ Using Cronsole, is my Windows agent healthy? If the status is anything other tha
 online, tell me what evidence that's based on and when it was last observed.
 ```
 
+```text
+Using Cronsole, run the diagnostics and tell me whether Cronsole itself is
+working. For anything that isn't passing, quote the evidence rather than the
+verdict, and say which of it describes my machine versus the backend container.
+```
+
+```text
+Using Cronsole, nothing seems to be running. Check the diagnostics first, then
+task health — and tell me explicitly if the task-level picture is unreliable
+because of something the diagnostics found.
+```
+
+**Ask `get_diagnostics` before `get_task_health` when something is wrong.** They answer different
+questions: diagnostics asks *"is Cronsole working"*, health asks *"are my tasks working"* — and the
+second is meaningless while the first is failing, because a wedged agent makes **every** Windows
+task read unhealthy and the fix is in none of those tasks. Two readings to carry over: `unknown` is
+not `pass` (it means the check could not be measured, and it ranks above pass for that reason), and
+`measuredOn` says which machine the facts describe — on a Dockerized stack a filesystem or clock
+fact is about the **container**, so telling a user to free disk space could point at the wrong
+machine entirely. It is read-only: it diagnoses, it never repairs, and it cannot report on a
+backend that is down because that backend serves it.
+
 The capability matrix has three states and the middle one carries the weight: **verified** (it
 has actually succeeded here, with a timestamp), **declared** (the route would accept it, nothing
 has been observed), **unsupported** (the route would refuse). Health has four, and the fourth is

@@ -1,6 +1,6 @@
 # Cronsole — operating rules for an AI assistant
 
-> Cronsole Connect Pack **v1.7** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.8** · canonical copy: <https://cronsole.mikesailab.com>
 
 Paste this into your tool's system prompt, `AGENTS.md`, `CLAUDE.md`, custom instructions, or
 whatever single-file convention it uses. It is the condensed form of the full skill in this
@@ -68,6 +68,24 @@ Get-ScheduledTaskInfo -TaskPath '\Cronsole\' -TaskName '<name>' |
 Best evidence is a real side effect — a log line, a file, an HTTP hit.
 
 **Delete your test tasks.** A test task is a real scheduled task and will fire forever.
+
+## When something is not working
+
+`GET /api/tools/diagnostics` answers *"is **Cronsole** working"* — the agent connection, the
+database, the scheduler, the template catalog, API-token expiry, allowed origins — with the
+evidence behind each verdict rather than just a colour.
+
+**Ask it before `GET /api/tools/task-health`.** Health asks *"are the user's **tasks** failing"*,
+which is meaningless while the agent is wedged: then **every** Windows task reads unhealthy and the
+fix is in none of them, so diagnosing from health alone produces a confident list of wrong answers.
+
+Two readings that decide what you tell the user. `unknown` is **not** `pass` — it means the check
+could not be measured, so never report it as healthy. And `measuredOn` says which machine the facts
+describe: on a Dockerized stack the backend measures the **container**, so a disk or clock fact is
+about the container and not the user's PC.
+
+It is read-only — it diagnoses and repairs nothing — and it cannot tell you anything about a
+backend that is down, because that backend is what serves it.
 
 ## Backing up
 

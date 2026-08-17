@@ -17,6 +17,18 @@ Hit something weird? **Scan the symptom table**, jump to the entry, apply the fi
 solve a *new* problem — especially one that took more than a few minutes or that we're likely
 to hit again — **add it here** while it's fresh (template at the bottom).
 
+> [!TIP]
+> **If the dashboard loads, ask Cronsole first.** *Tools › System diagnostics*, or **Diagnose**
+> at the end of the Dashboard health strip, reports the agent connection, the database, the
+> native scheduler, the catalog, token expiry and the allowed origins — each with the evidence
+> behind it. It is read-only and repairs nothing. It is most useful on the entries below that
+> present as *"the agent is offline"*, because it says **which** of several very different
+> situations that is: a socket that never arrived, one that went away, or a request that timed
+> out — with the time and the verb. Over MCP the same report is `get_diagnostics`.
+>
+> It is served **by the backend**, so it cannot help when the backend, Postgres or Docker is
+> what is down — that is the case the entries below are for.
+
 ## 🔎 Quick lookup
 
 | # | Symptom | Likely cause | Jump |

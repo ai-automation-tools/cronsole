@@ -131,6 +131,23 @@ missing evidence, not as a pass.
 ```
 
 ```text
+Using the Cronsole REST API, GET /api/tools/diagnostics and tell me whether
+Cronsole itself is working. For anything not passing, quote the facts rather
+than the verdict, and say which of them describe my machine versus the backend
+container.
+```
+
+**`GET /api/tools/diagnostics` before `GET /api/tools/task-health` when something is wrong.**
+They answer different questions — diagnostics asks *"is Cronsole working"*, health asks *"are my
+tasks working"* — and the second is meaningless while the first is failing, because a wedged agent
+makes **every** Windows task read unhealthy and the fix is in none of those tasks. Same two
+readings as the health scan, one level up: `unknown` is not `pass` (the check could not be
+measured, and it ranks above pass for that reason), and `measuredOn` names the machine the facts
+describe — on a Dockerized stack a clock or filesystem fact is about the **container**. It is
+read-only, repairs nothing, and cannot report on a backend that is down, because that backend
+serves it.
+
+```text
 Using the Cronsole REST API, list my deleted-task archives
 (GET /api/tools/task-archives) and show me the full definition of the one I
 removed this morning.

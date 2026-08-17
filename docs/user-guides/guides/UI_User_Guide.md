@@ -31,6 +31,11 @@ so deciding what to do next doesn't mean hunting for it. Three facts:
   including when it **failed**, in red with the platform's reason. Before anything has been run
   it says *"No commands run yet"* rather than showing a tick it hasn't earned.
 
+At the right-hand end sits **Diagnose**, which opens the same panel as *Run checks* on the Tools
+tab — see [System diagnostics](#system-diagnostics). The strip gives you the verdict; the panel
+gives you the evidence behind it, which is what says whether *"Windows offline"* means the agent
+never connected or that one request timed out overnight.
+
 ### Task Cards
 Each task is represented by a card showing:
 - **Platform Badge:** Identifies where the task lives (e.g., Windows, Claude, or Cronsole-native).
@@ -497,6 +502,54 @@ The one place Cronsole changes many tasks at once. It works in two steps, in tha
 
 Exporting in bulk stays in **Back up scheduled tasks** below, and importing stays on the Dashboard,
 where task discovery lives.
+
+### System diagnostics
+
+Answers *"is **Cronsole** working?"*, which is a different question from *"are my tasks working?"*
+and has to be answered first — a wedged agent makes every Windows task look unhealthy, and the fix
+is not in any of those tasks.
+
+Open it from **Run checks** here, or from **Diagnose** at the right-hand end of the Dashboard's
+health strip. Both open the same panel.
+
+Each check gives you a verdict **and the evidence behind it**, because the evidence is the part
+that tells you what to do. *"Windows offline"* is one sentence covering four different situations;
+the panel shows which:
+
+- **Backend process** — uptime, and the server's own clock in UTC. A backend whose clock has
+  drifted fires everything at the wrong time while every stored schedule still looks correct.
+- **Database** — that a real query round-trips, and how long it took.
+- **Windows agent** — whether a socket exists, which machine the agent is on, when it connected,
+  when it last said anything, and **when a request last timed out, naming the verb**. That last
+  line is usually the answer: a timeout two minutes ago and one from nine hours ago produce the
+  same status colour and mean entirely different things.
+- **Task list freshness** — the last real sync per platform.
+- **Cronsole-native scheduler** — whether the loop is running, when it last completed a tick, and
+  how many native tasks are overdue past the grace window. A loop that exists but has stopped
+  ticking reports as a problem, because "running" alone is not evidence that anything ran.
+- **Template catalog** — where templates are being loaded from and whether the last sync worked. A
+  failed catalog sync is deliberately non-fatal, which is exactly why it is otherwise invisible.
+- **API tokens** — any that have expired or expire within a week. An expired token does not fail
+  loudly at the tool using it: an MCP client reports its tools as *missing*.
+- **Browser origins** — which origins may reach the API. Harmless when unset locally; it matters
+  the moment you put Cronsole behind a tunnel.
+
+Three things worth knowing about how to read it:
+
+- **"Not measured" is not "OK".** A check that could not run says so, and the overall verdict ranks
+  it *above* passing — a panel reporting "all clear" over something it never measured would be
+  worse than one admitting the gap.
+- **The panel names the machine it measured**, at the top. On a Dockerized stack the backend
+  measures the *container* — its clock, its filesystem — not yours.
+- **Nothing here changes anything.** Every check is a read; there are no repair buttons. That is
+  deliberate rather than cautious: several past "the agent is down" alarms turned out to be the
+  status readout itself being wrong, and a repair button would have been restarting a healthy agent
+  and looking like it worked.
+
+**What it cannot cover:** these checks run *inside* the Cronsole backend, so they can say nothing
+about a backend, database or Docker engine that is not running. If the dashboard will not load at
+all, nothing here can answer — that is what the `Cronsole-Stack` startup tasks are for. They run
+from Windows Task Scheduler, outside the stack, and restart it without needing any of it to work.
 
 ### Task health
 

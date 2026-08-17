@@ -13,6 +13,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Import a task from a file, and bring back one you deleted** (2026-08-17). Cronsole has offered **Export** on a Cronsole-native task since it shipped, and there was nowhere to put the file back. There is now: **Tools → Import a task**, and an *Import a .json file* link in the New Task modal for people who are already trying to create the thing the file describes.
+
+  **The same card restores deleted tasks.** Cronsole archives a Cronsole-native task's definition — and its last 20 runs — *before* deleting it, and refuses the delete if that archive cannot be written. Until today nothing could read one back, so the guarantee on offer was "we kept a copy" with no way to use it. Deleted tasks now appear in the card with a **Restore** button.
+
+  **What a restore gives you is a new task**, and the app says so rather than implying the old one came back: new id, running on the schedule it had, and the archived run history is *not* reattached — those runs happened to a task that no longer exists. The archive is kept, so the record of the deletion survives.
+
+  **Which file goes where is decided by the platform, not by preference.** A Cronsole-native task's database row *is* the task, so it round-trips through JSON. A Windows task's definition lives on the machine as Task Scheduler XML, so it goes through **Tools → Restore** as it always has. Hand Import a Windows bundle and it refuses by name and points at the other card — which is also why Restore's description now says which formats it actually reads.
+
+  Also available to AI tools: `import_task`, `list_task_archives` and `restore_task_archive`. None of them is gated behind `CRONSOLE_MCP_ALLOW_DESTRUCTIVE`, and that asymmetry is deliberate — deleting is gated, undoing a delete is a create.
+
 - **System diagnostics — "why isn't this working?", answered with evidence** (2026-08-17). A new panel that checks **Cronsole itself**: the backend, the database, the Windows agent, task-list freshness, the Cronsole-native scheduler, the template catalog, API-token expiry and the allowed browser origins. Open it from **Diagnose** at the end of the Dashboard health strip, or **Run checks** on the Tools tab. Also available to AI tools as the `get_diagnostics` MCP tool.
 
   **The gap it closes is that a status line throws its reasons away.** *"Windows offline — agent not connected"* is one sentence covering four different situations: a socket that never arrived, one that arrived and went, a request that timed out ninety seconds ago, and a request that timed out at 9pm yesterday and has been colouring the strip ever since. Those call for different actions, and Cronsole has had the facts to tell them apart all along — it just never showed them to anyone. Every check now renders the evidence behind its verdict, including the line that usually settles it: *when a request last timed out, and which one*.
@@ -73,6 +83,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - **The New Task and Edit forms are one job form** (2026-08-15). The create modal held its own copy of the native fields, covering only HTTP and EXEC. With four job types that would have meant two field sets, two validations and two payload builders per type — the shape that lets a job be submittable in one form and refused by the other. Both now render `NativeJobFields` and serialize through `nativeJobPayload`.
 
 ### Fixed
+- **Deleting a task from the UI now archives it, the way deleting one through an AI tool always did** (2026-08-17). Whether a deleted Cronsole-native task could be recovered depended on *which door you deleted through*: the MCP route archived the definition first and refused the delete if it could not, while the Delete button in the app did not. Neither screen said so, and nobody would have guessed it. Both archive now — and with the restore verb shipping in the same change, the archive is finally worth something. (Windows tasks are unchanged: their definition lives on the machine as XML, and reaching it needs the agent online, which cannot be a precondition of a delete. Back those up with **Tools → Back up tasks**.)
+
 - **The README described a product two job types and seventeen templates out of date** (2026-08-17). Four claims on the repo's front page were false, all of them the same shape CLAUDE.md warns about — a first-ship description left standing in the present tense after the thing changed:
 
   - **Cronsole-native was described as "HTTP jobs"**, in both the platform table and the feature list. It has had four job types since 2026-08-15 (HTTP, an existing program, a script you write here, and checks), and the two rows that would tell a stranger so were the two that still said otherwise.

@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import { Prisma, PlatformType, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
@@ -35,6 +34,8 @@ import {
   buildNativeTaskBundle,
   ArchiveWriteError
 } from '../services/taskArchive.js';
+import { createNativeTask, NativeTaskCreateError } from '../services/nativeTaskCreate.js';
+import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
 
 const router = Router();
 
@@ -680,36 +681,59 @@ router.post('/native', validateBody(createNativeSchema), async (req: Request, re
   const { name, category, schedule, job } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
-  const nextRunTime = computeNextRun(schedule);
-  if (!nextRunTime) {
-    throw new HttpError(400, 'Schedule must be a valid 5-field cron expression (UTC).');
-  }
-  // Normalize first, then validate **what will actually be stored** rather than
-  // what arrived. The two differ for an EXEC job sent as a `command` line, and
-  // validating the input would check a shape the executor never sees.
-  const nativeJob: NativeJob = buildNativeJob(job as Record<string, unknown>);
-  const jobError = validateJob(nativeJob);
-  if (jobError) {
-    throw new HttpError(400, jobError);
-  }
-
-  const task = await prisma.task.create({
-    data: {
-      userId,
-      platform: PlatformType.TASKHUB_NATIVE,
-      externalId: `native_${randomBytes(8).toString('hex')}`,
-      name,
-      category: category ?? 'Cronsole',
-      schedule,
-      nextRunTime,
-      status: TaskStatus.ACTIVE,
-      metadata: { job: nativeJob } as unknown as Prisma.InputJsonValue
-    }
-  });
-
-  await recordCapability(userId, PlatformType.TASKHUB_NATIVE, 'create', true);
-  notifyTasksChanged(userId);
+  // Normalization, cron validation, the row, the capability evidence and the UI
+  // notification all live in `createNativeTask`, shared with the import and
+  // archive-restore paths — see the note there for why the split is at this line.
+  const task = await createNativeTask(userId, { name, category, schedule, job }).catch(rethrowNativeCreate);
   res.json({ message: 'Native task created', task });
+});
+
+/** A create refusal is bad input, not a bug — 400, with the reason it gave. */
+function rethrowNativeCreate(err: unknown): never {
+  if (err instanceof NativeTaskCreateError) throw new HttpError(400, err.message);
+  throw err;
+}
+
+/**
+ * Import a Cronsole task file — the read half of `GET /api/tasks/:id/export`.
+ *
+ * The body **is** the file: no wrapper, no options, so "import this" is one POST
+ * of exactly what Export downloaded, the same way `POST /api/templates/import`
+ * takes a template file verbatim.
+ *
+ * **One file, one task, deliberately.** Nothing in Cronsole produces a
+ * multi-task JSON — per-task export is per task, and the bulk export is Windows
+ * XML — so a batch form would be a shape with no producer, and it would owe the
+ * five-outcome `bulkOutcome` contract that every real bulk verb here carries.
+ *
+ * **Cronsole-native only**, and that is a property of the format rather than a
+ * limitation of this route: a native task's row *is* the task, so it round-trips;
+ * a Windows task's definition lives on the machine and comes back as Task
+ * Scheduler XML through `POST /api/tools/restore/tasks`. `parseTaskBundle`
+ * refuses the others by name and points at that route.
+ *
+ * The imported task is **ACTIVE**, like every other create path — the bundle
+ * records no status, so pausing it would be inventing a state the file does not
+ * contain. `nextRunTime` comes back in the response so the caller can say when
+ * it will first fire rather than leaving that to be discovered.
+ *
+ * Declared here rather than on `/api/tools` because it creates one task — it is
+ * a sibling of `/native`, not a cross-task report. It is a single path segment,
+ * so it competes with no `/:id` route (there is no `POST /:id`).
+ */
+router.post('/import', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+
+  let parsed;
+  try {
+    parsed = parseTaskBundle(req.body);
+  } catch (err) {
+    if (err instanceof TaskImportError) throw new HttpError(400, err.message);
+    throw err;
+  }
+
+  const task = await createNativeTask(userId, parsed).catch(rethrowNativeCreate);
+  res.status(201).json({ message: 'Task imported', task, nextRunTime: task.nextRunTime });
 });
 
 const patchNativeJobSchema = z.object({
@@ -1273,13 +1297,42 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await recordCapability(userId, task.platform, 'delete', true);
   }
 
+  /**
+   * Archive a native task before destroying it — the same precondition the MCP
+   * delete route has always had.
+   *
+   * This path did not archive until 2026-08-17, which made the archive a
+   * property of *which door you deleted through*: an agent's delete was
+   * recoverable and the user's own Delete button was not. Nobody would have
+   * predicted that from either screen, and the difference only shows up at the
+   * moment someone goes looking for the task they just deleted.
+   *
+   * Native only, and that is the format's boundary rather than a shortcut: a
+   * Windows task's definition lives on the machine and reaching it needs an
+   * online agent, which cannot be a precondition of a delete. Archiving one
+   * anyway would store a bundle whose `job` is null — a record that looks like a
+   * backup and cannot restore anything, which is the failure mode the throwing
+   * archive was built to avoid.
+   */
+  let archiveId: string | null = null;
+  if (task.platform === PlatformType.TASKHUB_NATIVE) {
+    try {
+      ({ archiveId } = await archiveTaskBeforeDelete(task, { deletedVia: 'ui' }));
+    } catch (err) {
+      if (err instanceof ArchiveWriteError) throw new HttpError(500, err.message);
+      throw err;
+    }
+  }
+
   await prisma.$transaction([
     prisma.executionLog.deleteMany({ where: { taskId: id } }),
     prisma.task.delete({ where: { id } })
   ]);
 
   notifyTasksChanged(userId);
-  res.json({ message: 'Task deleted' });
+  // `archived` is always present, never conditional — a caller must be able to
+  // read whether this is recoverable rather than infer it from a missing key.
+  res.json({ message: 'Task deleted', archived: archiveId !== null, archiveId });
 });
 
 /**

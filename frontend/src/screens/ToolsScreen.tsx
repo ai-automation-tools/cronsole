@@ -2,6 +2,7 @@ import { BulkExportTool } from '../components/tools/BulkExportTool';
 import { ConnectPackTool } from '../components/tools/ConnectPackTool';
 import { DiagnosticsTool } from '../components/tools/DiagnosticsTool';
 import { ExecutionAnalyticsTool } from '../components/tools/ExecutionAnalyticsTool';
+import { ImportTaskTool } from '../components/tools/ImportTaskTool';
 import { MassActionsTool } from '../components/tools/MassActionsTool';
 import { RestoreTool } from '../components/tools/RestoreTool';
 import { RunHistoryTool } from '../components/tools/RunHistoryTool';
@@ -29,7 +30,7 @@ export const ToolsScreen = () => (
   <div className="space-y-5 animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto">
     <div>
       <h2 className="text-2xl font-bold mb-1">Tools</h2>
-      <p className="text-muted-foreground">Act on many tasks at once, check task health, diagnose the system itself, see what failed or stalled, try a schedule, back up and restore tasks, and connect AI tools.</p>
+      <p className="text-muted-foreground">Act on many tasks at once, check task health, diagnose the system itself, see what failed or stalled, try a schedule, back up, import and restore tasks, and connect AI tools.</p>
     </div>
 
     {/* One card per row. A two-column grid put every card in a forced
@@ -49,6 +50,11 @@ export const ToolsScreen = () => (
       <ExecutionAnalyticsTool />
       <ScheduleTesterTool />
       <BulkExportTool />
+      {/* Directly above Restore, and in that order on purpose: the two cards are
+          the same gesture on the two halves of the export format — Cronsole JSON
+          for a native task, Task Scheduler XML for a Windows one — and each names
+          the other, so picking the wrong file lands you next to the right card. */}
+      <ImportTaskTool />
       <RestoreTool />
       <RunHistoryTool />
       <ConnectPackTool />

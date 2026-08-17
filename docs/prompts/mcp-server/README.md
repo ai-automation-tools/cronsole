@@ -70,12 +70,12 @@ conversion first, put it in \Cronsole, and confirm the registered action.
 
 ## 🧰 The toolbox
 
-29 tools are always present; `delete_task` appears only when the operator enabled it.
+32 tools are always present; `delete_task` appears only when the operator enabled it.
 
 | Tier | Tools |
 |:---|:---|
-| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `get_diagnostics` · `export_task` · `convert_schedule` |
-| **Create** | `create_task` · `create_native_task` · `create_native_program_task` · `create_native_script_task` · `create_native_check_task` · `create_task_from_template` · `create_claude_routine` |
+| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `get_diagnostics` · `export_task` · `list_task_archives` · `convert_schedule` |
+| **Create** | `create_task` · `create_native_task` · `create_native_program_task` · `create_native_script_task` · `create_native_check_task` · `create_task_from_template` · `create_claude_routine` · `import_task` · `restore_task_archive` |
 | **Act** | `run_task` · `sync_tasks` |
 | **Modify** (reversible) | `set_task_status` · `update_task_schedule` · `update_task_action` · `update_native_job` · `rename_task` · `untrack_task` |
 | **Connect** | `connect_claude_routine` · `edit_claude_routine` · `disconnect_claude_routine` |
@@ -84,7 +84,8 @@ conversion first, put it in \Cronsole, and confirm the registered action.
 Gating is tiered rather than blanket. Reversible verbs are ungated, including `set_task_status`
 — parking a task is the recommended safe move, and putting a gate on the safe path pushes people
 toward the unsafe one. Only the irreversible verb is gated, and it can't reach a Windows task at
-all.
+all. `restore_task_archive` is ungated for the mirror of that reason: undoing a delete is a
+create, and the flag that protects someone from a bad delete must not also block the fix.
 
 ## 💡 Getting good results
 

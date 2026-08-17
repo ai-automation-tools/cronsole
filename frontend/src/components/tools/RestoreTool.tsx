@@ -180,8 +180,9 @@ export const RestoreTool = () => {
       icon={History}
       title="Restore tasks from a backup"
       description={<>
-        Register Windows tasks back onto <strong>this machine</strong> from an export. Cronsole shows you
-        exactly what it would do before anything is written.
+        Register Windows tasks back onto <strong>this machine</strong> from an export — Task Scheduler{' '}
+        <strong>.xml</strong>, or the .zip one produced. Cronsole shows you exactly what it would do before
+        anything is written. For a Cronsole-native task's .json, use <strong>Import a task</strong> above.
       </>}
     >
 

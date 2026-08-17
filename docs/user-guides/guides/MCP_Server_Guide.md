@@ -48,6 +48,9 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |
 | **`get_task_history`** | "Did last night's backup work?", "why did the report task fail?" | `GET /api/tasks/:id/executions` |
 | **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" | `GET /api/tasks/:id/export` |
+| **`import_task`** | "Set that task up on this machine too" — recreates a **Cronsole-native** task from a `.json` you exported. Windows tasks are `.xml` and go through Tools → Restore in the app | `POST /api/tasks/import` |
+| **`list_task_archives`** | "What have I deleted recently?" — the definitions Cronsole kept when tasks were deleted, and whether each can be rebuilt | `GET /api/tools/task-archives` |
+| **`restore_task_archive`** | "Bring back the nightly digest I deleted" — rebuilds it as a **new** task on its old schedule. The old run history does not come back | `POST /api/tools/task-archives/:id/restore` |
 | **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
 | **`update_task_schedule`** | "Move the digest to 7am on weekdays" | `PATCH /api/tasks/:id/schedule` |
 | **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
@@ -134,6 +137,11 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 > [!IMPORTANT]
 > **What's safe, what's real, and what's off by default.**
 > - **Read-only, call freely:** `list_*`, `get_task_history`, `export_task`, `convert_schedule`.
+> - **`import_task` and `restore_task_archive` create a task, and both are on by default.** That is
+>   the mirror of the rule below: deleting is behind a flag, undoing a delete is not — a switch that
+>   protects you from a bad delete should not also stop you fixing one. Each makes a **new** task
+>   rather than reviving the old one, so nothing is overwritten and importing the same file twice
+>   leaves you with two tasks.
 > - **Real effects on your machine:** `run_task`, `create_task`, `create_native_task`, `create_native_program_task`, `create_native_script_task`, `create_native_check_task`,
 >   `create_task_from_template` (running / registering tasks) and `set_task_status`,
 >   `update_task_schedule`, `update_task_action` (changing them). Same guardrails as clicking

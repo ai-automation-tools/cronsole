@@ -21,6 +21,20 @@ a scheduled task is durable, runs unattended, and runs **elevated** on Windows.
 | **A richer native job** (non-GET, headers, body) | **`create_native_task`** (MCP) / `POST /api/tasks/native` | Takes a full `job` spec. Separate from `create_task` because the connector's command-string path only builds HTTP GET. |
 | **A task that already exists and is good** | `POST /api/tasks/:id/save-as-template` | Turns a real task into a catalog template. One of two non-reseed ways the catalog grows. |
 | **A template JSON from the gallery** | `POST /api/templates/import` | The other one. Same schema + `{{placeholder}}` validation as any catalog content. |
+| **An exported *task* file** (`cronsoleTaskVersion`) | **`import_task`** (MCP) / `POST /api/tasks/import` | Not a template — a specific task, exported from a Cronsole install. Pass the file **whole**. **Cronsole-native only**; a Windows bundle is refused and points at Tools → Restore. |
+| **A task the user deleted** | **`restore_task_archive`** (MCP) / `POST /api/tools/task-archives/:id/restore` | Rebuilds it from the definition Cronsole archived before deleting. Find the id with `list_task_archives`. |
+
+**Three JSON files, three destinations — do not confuse them.** A *template* is a parameterized
+recipe with `{{placeholders}}`, and importing one puts it in the catalog (Apply is what then makes
+a task). A *task bundle* (`cronsoleTaskVersion`) is one concrete task and importing it **creates
+that task immediately**. Task Scheduler *XML* is a Windows task's real definition and only
+`POST /api/tools/restore/tasks` reads it. Each route refuses the other two by name — read the
+refusal, it names the right one.
+
+**What `import_task` and `restore_task_archive` give you is a NEW task.** New id, `ACTIVE`, running
+on the schedule in the file — which is **UTC**, so say when it will actually first fire (the
+response carries `nextRunTime`). Nothing is overwritten and no archived run history comes back:
+importing the same file twice leaves two tasks, and restoring twice leaves two.
 
 **Default to `create_task`.** Reach for a template when the user names a use case, not a
 command. Do **not** bend a request to fit a template — that's what made the catalog a gate on

@@ -1211,6 +1211,19 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Completed
 
+- [x] **Remote access stopped depending on which build command you typed** *(2026-08-17)*.
+      `FALLBACK_API_ORIGIN` (`frontend/src/api.ts`) folds on `import.meta.env.DEV`: the dev server
+      keeps `http://localhost:3000` (the API really is on another port there) and **every build
+      defaults to same-origin**, so `npm run build` and `npm run build:remote` produce the same
+      correct bundle. **The deciding argument: `dist` has exactly one consumer** — the reverse
+      proxy; `npm run dev` never reads it — so a built bundle is by definition one being served
+      through something, and the old default was right for a hypothetical and wrong for the only
+      thing that happens. It failed twice ([#63](troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend)),
+      the second time invisible from the desktop, where the baked-in `localhost:3000` really is the
+      backend. **A convention under a command that reports success is a countdown, not a fix** —
+      the same fold that keeps a dev-only token out of a production bundle. Pinned by
+      `apiSameOrigin.test.ts`, asserting both halves, build half mutation-tested.
+
 - [x] **Task import & deleted-task restore — the export format finally has a reader** *(2026-08-17)*.
       `POST /api/tasks/import` (a `cronsoleTaskVersion` bundle → a real task) and
       `POST /api/tools/task-archives/:id/restore`, behind one **Import a task** card on the Tools tab

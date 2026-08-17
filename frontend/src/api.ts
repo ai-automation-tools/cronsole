@@ -25,7 +25,38 @@ const API_ORIGIN_STORAGE_KEY = 'cronsole.apiOrigin';
  */
 const SAME_ORIGIN = 'same-origin';
 
-export const DEFAULT_API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_URL ?? 'http://localhost:3000');
+/**
+ * What the API origin defaults to when `VITE_API_URL` is unset — and the answer
+ * is different for a dev server than for a build, because the two are served
+ * from genuinely different places.
+ *
+ * **A build defaults to same-origin**, because `frontend/dist` has exactly one
+ * consumer: the reverse proxy, which serves it at `/` and forwards `/api` to the
+ * backend. `npm run dev` never reads `dist`, so a built bundle is by definition
+ * one being served through something.
+ *
+ * **This is a fold, not a convention** *(2026-08-17)*. Until now the default was
+ * the literal `http://localhost:3000`, and correctness depended on remembering
+ * to type `build:remote` instead of `build`. Both write the same `dist/`, both
+ * report success, and `npm run build` is the obvious command — so the wrong one
+ * won twice, each time producing a page that loads perfectly on a phone and
+ * cannot reach the API, because on that phone `localhost:3000` is the phone
+ * ([#63](../../docs/troubleshooting/README.md)). There is no longer a wrong
+ * command to run: both scripts now produce the same correct bundle.
+ *
+ * `import.meta.env.DEV` is statically `true` for `vite dev` and `false` for
+ * `vite build`, so each branch and its string is folded away at build time —
+ * the same mechanism that keeps a dev-only token out of a production bundle. A
+ * `.env.development` file would have been the other way to do this, and it
+ * cannot be: `.env.*` is gitignored, so a fresh clone would silently get the
+ * wrong default for `npm run dev`.
+ *
+ * Setting `VITE_API_URL` still overrides both, which is what `.env.remote` and
+ * any deployment pointing at a different host rely on.
+ */
+const FALLBACK_API_ORIGIN = import.meta.env.DEV ? 'http://localhost:3000' : SAME_ORIGIN;
+
+export const DEFAULT_API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_URL ?? FALLBACK_API_ORIGIN);
 
 function normalizeApiOrigin(origin: string): string {
   const trimmed = origin.trim().replace(/\/+$/, '');

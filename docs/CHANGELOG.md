@@ -13,6 +13,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **The Dashboard's Import button now asks which kind of import you mean** (2026-08-17). It opens on two options — **Tasks already on this machine** and **A task file (.json)** — instead of going straight to folder discovery.
+
+  **They were never variants of one action.** Discovering *adopts* tasks that already exist: Cronsole creates nothing, and those tasks would run tomorrow whether or not you ever pressed the button. A task file *creates* a task that did not exist a moment ago and starts it running. So the chooser leads with that consequence rather than with the source — "nothing is created" against "this creates a task" is the part you can act on, and the file extension is the footnote.
+
+  It also names where the third format goes: a Windows task's `.xml` is Tools → Restore, said up front rather than discovered as a refusal after you pick the file.
+
+  **Discovery is not run until you choose it.** It is an agent round trip that can take its full timeout and fails outright when the agent is offline — so it is no longer spent while you are still reading two buttons, and someone importing a file never sees an agent error that has nothing to do with them. Either option can be backed out of without reopening the modal.
+
 - **Import a task from a file, and bring back one you deleted** (2026-08-17). Cronsole has offered **Export** on a Cronsole-native task since it shipped, and there was nowhere to put the file back. There is now: **Tools → Import a task**, and an *Import a .json file* link in the New Task modal for people who are already trying to create the thing the file describes.
 
   **The same card restores deleted tasks.** Cronsole archives a Cronsole-native task's definition — and its last 20 runs — *before* deleting it, and refuses the delete if that archive cannot be written. Until today nothing could read one back, so the guarantee on offer was "we kept a copy" with no way to use it. Deleted tasks now appear in the card with a **Restore** button.
@@ -83,6 +91,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - **The New Task and Edit forms are one job form** (2026-08-15). The create modal held its own copy of the native fields, covering only HTTP and EXEC. With four job types that would have meant two field sets, two validations and two payload builders per type — the shape that lets a job be submittable in one form and refused by the other. Both now render `NativeJobFields` and serialize through `nativeJobPayload`.
 
 ### Fixed
+- **A plain `npm run build` no longer breaks remote access** (2026-08-17). If you reach Cronsole from your phone through the reverse proxy, the dashboard used to depend on which of two near-identical build commands was run last: `npm run build:remote` produced a working bundle, and `npm run build` produced one that renders perfectly and cannot reach the backend from any device but the one running the stack.
+
+  **The reason it was so easy to get wrong is the reason it is now fixed in code rather than documented.** Both commands write the same `dist/`, both report success, both pass every check, and `npm run build` is the obvious one — so nothing anywhere could tell you which bundle you had. And it is invisible from the desktop, where the baked-in `http://localhost:3000` genuinely is the backend; the failure only appears on the phone, where that address is the phone. It caught people twice.
+
+  Every production build now resolves the API against whatever address it is served from. The dev server is unchanged — it still points at `localhost:3000`, because there the API really is on another port. `npm run build` and `npm run build:remote` now produce the same correct bundle, and setting `VITE_API_URL` still overrides both for a deployment on a different host.
+
 - **Deleting a task from the UI now archives it, the way deleting one through an AI tool always did** (2026-08-17). Whether a deleted Cronsole-native task could be recovered depended on *which door you deleted through*: the MCP route archived the definition first and refused the delete if it could not, while the Delete button in the app did not. Neither screen said so, and nobody would have guessed it. Both archive now — and with the restore verb shipping in the same change, the archive is finally worth something. (Windows tasks are unchanged: their definition lives on the machine as XML, and reaching it needs the agent online, which cannot be a precondition of a delete. Back those up with **Tools → Back up tasks**.)
 
 - **The README described a product two job types and seventeen templates out of date** (2026-08-17). Four claims on the repo's front page were false, all of them the same shape CLAUDE.md warns about — a first-ship description left standing in the present tense after the thing changed:

@@ -33,9 +33,10 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 66 | Windows reads **Offline** and diagnostics says *"Agent not connected"* right after an E2E run — but the agent **process is alive**, the `\Cronsole-Stack\` tasks are `Ready`, nothing crashed, and waiting past the 5-minute reconnect cap does not help | **The E2E mock agent took the real agent's slot and then left.** `test:e2e` drives the real dev stack, and `mockAgent.ts` authenticates with the same pairing secret — so it registers as the same user, and `AgentManager` holds **one socket per user**. The mock evicts the real agent; on exit it unregisters, leaving none. The real agent cannot observe that it was displaced, so it never reconnects. **Tell:** `grep "Agent connected" logs/backend.out.log \| tail -1` names `e2e-agent-<ts>` instead of your machine. Fix: restart the CronsoleAgent scheduled task, then Sync. Note this directly bites the advice in [#61](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) to run E2E after any dashboard change | [→](#66-windows-goes-offline-right-after-you-run-the-e2e-suite) |
 | 65 | You export a task and there is nowhere to import it back. Tools → **Restore** offers `.json` in its file picker and then answers *"No task XML files found"*. Same dead end after a delete: the API returns `archived: true` with an `archiveId` and no verb turns it back into a task | **The export format had no reader.** `cronsoleTaskVersion` appeared in three places repo-wide — the bundle builder, the archive writer, and a test fixture — all writers. So Export produced something shaped like a backup that nothing could restore, and the pre-delete archive was a promise with no way to collect. Restore's `.json` is for the export *manifest*, not a task definition. **Fixed 2026-08-17**: Tools → **Import a task** (native `.json` + deleted-task restore), Restore keeps `.xml`/`.zip` (Windows), and `import_task` / `list_task_archives` / `restore_task_archive` over MCP. **The tell: grep your format constant — if every hit is a writer, the feature is half-built** | [→](#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it) |
 | 64 | You edit `registry-site/index.html`, reload the local preview, and the change **is not there** — a new CSS rule reads back as `none`, or new JS behaves like the old code. Nothing errors | **Two independent staleness traps, and they stack.** (1) The preview serves a *copy*: the documented recipe copies `index.html` into a scratch dir, so editing the repo file changes nothing until you re-copy. (2) The gallery is a **hash-router SPA** — navigating to the same `#/...` URL is a hash change, not a load, so neither the CSS nor the JS is re-fetched, and any earlier inline style you injected survives. Fix: re-copy, then **`location.reload(true)`** — not a `navigate` to the same route. Verify the rule is really present (`[...document.styleSheets[0].cssRules].some(r => r.selectorText === '…')`) before concluding a fix failed | [→](#64-a-gallery-change-doesnt-show-up-in-the-local-preview) |
-| 63 | Through the tunnel the phone shows the dashboard **fully up to date** and then fails every request with *cannot reach backend*. Same URL works on the machine running the stack; proxy up, tunnel fine, origin allowed | `frontend/dist` was built with **`npm run build`** instead of **`npm run build:remote`**, so Vite inlined the `http://localhost:3000` fallback instead of `same-origin` — on the phone that address is the phone. **The tell is that it is the exact inverse of [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current): the proxied page is *current* and the requests fail.** Read the bundle, not the source — both literals appear in every build, so check the call `Ll=Rl(…)`. Fix: `cd frontend && npm run build:remote` | [→](#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
+| 63 | Through the tunnel the phone shows the dashboard **fully up to date** and then fails every request with *cannot reach backend*. Same URL works on the machine running the stack; proxy up, tunnel fine, origin allowed | `frontend/dist` was built with **`npm run build`** instead of **`npm run build:remote`**, so Vite inlined the `http://localhost:3000` fallback instead of `same-origin` — on the phone that address is the phone. **The tell is that it is the exact inverse of [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current): the proxied page is *current* and the requests fail.** Read the bundle, not the source — both literals appear in every build, so check the call `Ll=Rl(…)`. **Fixed at the root 2026-08-17**: every production build now defaults to same-origin (`FALLBACK_API_ORIGIN` folds on `import.meta.env.DEV`), so `build` and `build:remote` are equivalent and there is no longer a wrong command to run. On an older checkout: `npm run build:remote` | [→](#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
 | 62 | Windows reads **DEGRADED — "Agent connected but not responding (task:list timed out)"** almost permanently, and the health strip names a failed verb, over an agent that answers everything instantly. Sync works, folders list, tasks run | **Every verb scheduled a 15-second timeout and never cancelled it**, so a request answered in 200ms still ran `markUnresponsive` fifteen seconds later. The stale `resolve`/`reject` was a harmless no-op — the promise had settled — so the *only* surviving effect was a stamp on the health record, which is why it was invisible for so long. Windows could not stay HEALTHY longer than 15s after its last request. **Fixed 2026-08-16**: one `agentRequest` helper owns the deadline and clears it when the request settles. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) with the sign flipped — a status field reporting a failure that never happened**, and the more expensive direction, because it teaches the reader to ignore the one line meant to mean something is wrong | [→](#62-windows-reports-not-responding-15-seconds-after-every-successful-request) |
 | 61 | **Every** E2E test fails (`18 of 18`) with `element(s) not found`, while backend/integration/frontend suites are all green and the app works fine in a browser | A **shared helper** referenced a label the UI no longer uses — `dashboardReady()` waited on the heading *"Unified Task Dashboard"*, which the 2026-08-15 redesign replaced with one naming the current scope. One string, every test. Four more assertions named things the redesign **removed** (the source bar, the System Status panel, `Cronsole (Scripts)`, native's unsupported `Edit action`). **Nothing caught it because `test:e2e` is not in CI**, and no other suite can substitute: jsdom does not evaluate media queries, so `hidden md:flex` is invisible to the unit tests. Anchor helpers on `data-testid`, not labels. **Two repair traps: a mask for a removed element masks nothing, and a test that fails only in a full run is unmasked live data, not flake** | [→](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) |
 | 60 | A schedule with a multi-value hour (`0 9-17 * * 1-5`) is stored **verbatim as UTC** and runs 7–8 hours off — while the hint under the field says *"this schedule has no fixed clock time, so it reads the same in PDT and UTC"* | `shiftCron` correctly declines to shift an hour field that isn't a single number, but returned no **`reason`** — and `ScheduleZoneHint` renders "no reason" as **"the zone is irrelevant"**, so a missing warning became a confident false statement. **Fixed 2026-08-15**: a refusal now asks whether the expression pins a clock time (`hour !== '*'`, or a partial-hour zone with a multi-value minute) and explains itself; genuinely invariant expressions still say nothing. **The general rule: if the empty case has its own message, declining to answer and answering "no problem" are the same code path** | [→](#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter) |
@@ -4137,14 +4138,34 @@ The API origin is the argument to the normalizer. `Ll=Rl(\`same-origin\`)` is a 
 **both literals are in every bundle** (one is the sentinel constant, the other the fallback and a
 placeholder in the Settings field), so you have to read the call, not the occurrence.
 
-**Fix.**
+**Fix — and as of 2026-08-17 this cannot happen again on a current checkout.**
 
 ```bash
-cd frontend && npm run build:remote
+cd frontend && npm run build      # either command is now correct
 ```
+
+**Every production build defaults to same-origin.** `FALLBACK_API_ORIGIN` in `src/api.ts` folds on
+`import.meta.env.DEV`, which is statically `true` for `vite dev` and `false` for `vite build` — so
+the dev server keeps its `http://localhost:3000` default (the API really is on another port there)
+and a build resolves against `window.location`. `npm run build` and `npm run build:remote` now
+produce the same correct bundle. `--mode remote` is kept because runbooks and muscle memory name
+it, and setting `VITE_API_URL` still overrides both for a deployment on another host.
+
+**Why a fold rather than a rule.** The old default was the literal `http://localhost:3000` and
+correctness depended on remembering the longer command. That is a convention someone must
+remember, and it failed twice — the second time silently breaking phone access for hours, found
+only because someone happened to pick up the phone. `dist` has exactly one consumer, the reverse
+proxy; `npm run dev` never reads it. So a built bundle is by definition one being served through
+something, and the default now says so. Pinned by
+`frontend/src/__tests__/apiSameOrigin.test.ts` (mutation-tested: restoring the old literal fails
+it). A `.env.development` file was the other way to do this and cannot be — `.env.*` is
+gitignored, so a fresh clone would silently get the wrong default for `npm run dev`.
 
 The proxy bind-mounts `./frontend/dist` read-only, so no container restart is needed; the entry
 document is served `no-cache`, so a reload on the phone picks it up.
+
+**On an older checkout**, or any build where `VITE_API_URL` is set to an absolute origin, the
+original fix still applies: `npm run build:remote`.
 
 **The general rule.** *Two build commands one word apart, producing artifacts that differ only in an
 inlined string, where the wrong one still builds cleanly, passes `check:bundle`, and serves a page
@@ -4159,7 +4180,10 @@ stack, `http://localhost:3000` **is** the backend, so the broken build is indist
 correct one there. The bug is only observable from the device that has no local backend — which is
 the device you are least able to open a console on.
 
-*First hit: 2026-08-16, after a routine `npm run build` following a dashboard change.*
+*First hit: 2026-08-16, after a routine `npm run build` following a dashboard change. **Hit again
+2026-08-17** — same cause, and that recurrence is what turned the fix from a documented command
+into the fold above: a rule that has to be remembered under a command that reports success is not a
+fix, it is a countdown.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
@@ -4275,6 +4299,63 @@ therefore a property of *which door you deleted through*, which is not something
 or a user could guess. Both archive now.
 
 *First hit: 2026-08-17, noticed while looking for the import path a user expected to exist.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 66. Windows goes offline right after you run the E2E suite
+
+**Symptom.** The dashboard reads **Windows — Offline**, `GET /api/tools/diagnostics` says
+*"Agent not connected — Socket: not connected"*, and every Windows task is unreachable. But the
+agent **process is still running** (`Get-Process Cronsole.Agent` finds it, started hours ago), the
+three `\Cronsole-Stack\` tasks are all `Ready`, and nothing crashed. Waiting does not fix it —
+the agent's reconnect backoff caps at 5 minutes, and this is still broken half an hour later.
+
+**Cause — the E2E mock agent took the real agent's slot and then left.** `npm run test:e2e` drives
+**the real dev stack** (that is the documented setup: `pwsh scripts/cronsole.ps1 up`, then
+Playwright against it), and `tests/e2e/helpers/mockAgent.ts` connects to the same backend with the
+same pairing secret — so it authenticates as the same user. `AgentManager` holds **one socket per
+user**, so the mock displaces the real agent's registration. When the run ends the mock
+disconnects, the server logs `Agent unregistered for user …`, and now there is **no** agent
+registered at all.
+
+The real agent never finds out. Its own socket was replaced server-side, not closed by anything it
+can observe as a reason to reconnect, so it sits there believing it is connected. **Nothing will
+recover this on its own.**
+
+**The tell** is in `logs/backend.out.log` — the last agent to connect is a mock:
+
+```sh
+grep -n "Agent connected" logs/backend.out.log | tail -1
+# Agent connected: fx3fvh2… (agent e2e-agent-1786996144627, user cli_user_placeholder)
+#                                      ^^^^^^^^^ not your machine name
+```
+
+A healthy line names the machine (`agent DESKTOP-…`). An `e2e-agent-<timestamp>` there means the
+suite, not your agent, was the last thing holding the slot.
+
+**Fix — restart the agent.** It is the only thing that re-registers.
+
+```powershell
+Stop-ScheduledTask -TaskPath '\Cronsole-Stack' -TaskName 'CronsoleAgent'
+Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-ScheduledTask -TaskPath '\Cronsole-Stack' -TaskName 'CronsoleAgent'
+```
+
+Then confirm with diagnostics (`Socket: connected`, and a `Connected since` seconds old) and run a
+**Sync** — the socket existing is not the same fact as the agent doing work ([#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
+
+**Why this is worth knowing rather than just fixing.** [#61](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green)
+ends with *"run E2E after any dashboard change"* — correct advice, and following it on a live stack
+takes your agent offline every time, minutes after a green test run, with the failure appearing on
+a screen that has nothing to do with the change you were testing. **A test harness that
+authenticates as the real user competes with the real user for a single-holder resource.** The
+durable fixes are a separate pairing identity for the mock (so it registers as its own user), or a
+second backend for E2E; both are design decisions, not one-line repairs. Until then, treat "restart
+the agent" as part of running the suite.
+
+*First hit: 2026-08-17, minutes after an E2E run verifying the Import chooser.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

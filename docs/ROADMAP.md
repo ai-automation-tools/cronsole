@@ -1211,6 +1211,19 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Completed
 
+- [x] **Remote access stopped depending on which build command you typed** *(2026-08-17)*.
+      `FALLBACK_API_ORIGIN` (`frontend/src/api.ts`) folds on `import.meta.env.DEV`: the dev server
+      keeps `http://localhost:3000` (the API really is on another port there) and **every build
+      defaults to same-origin**, so `npm run build` and `npm run build:remote` produce the same
+      correct bundle. **The deciding argument: `dist` has exactly one consumer** — the reverse
+      proxy; `npm run dev` never reads it — so a built bundle is by definition one being served
+      through something, and the old default was right for a hypothetical and wrong for the only
+      thing that happens. It failed twice ([#63](troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend)),
+      the second time invisible from the desktop, where the baked-in `localhost:3000` really is the
+      backend. **A convention under a command that reports success is a countdown, not a fix** —
+      the same fold that keeps a dev-only token out of a production bundle. Pinned by
+      `apiSameOrigin.test.ts`, asserting both halves, build half mutation-tested.
+
 - [x] **Task import & deleted-task restore — the export format finally has a reader** *(2026-08-17)*.
       `POST /api/tasks/import` (a `cronsoleTaskVersion` bundle → a real task) and
       `POST /api/tools/task-archives/:id/restore`, behind one **Import a task** card on the Tools tab
@@ -1228,6 +1241,13 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       screen said so; and `createNativeTask` (`services/nativeTaskCreate.ts`) is now the one
       definition of writing a native row, shared by create, import and restore — the same argument
       that put `buildNativeJob` in one place, one layer out.
+      **The Dashboard's Import button became a chooser in the same pass.** "Import" covered two
+      unrelated actions — *adopting* tasks that already exist on the machine, and *creating* one
+      from a file — and nothing on the button said which. The chooser leads with that consequence
+      rather than with the source ("nothing is created" vs "this creates a task"), names where a
+      Windows `.xml` goes so it is not discovered as a refusal, and **gates the discovery query on
+      the choice**: it is an agent round trip that fails outright when the agent is offline, and
+      spending it while someone reads two buttons puts an irrelevant error over the file path.
 
 - [x] **Doc sweep behind the diagnostics ship — four false claims on the README** *(2026-08-17)*.
       The public front page still described Cronsole-native as *"HTTP jobs"* (four job types since

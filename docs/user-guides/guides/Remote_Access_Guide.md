@@ -241,29 +241,34 @@ ports), but for a public tunnel it is much cleaner to collapse them behind **one
 container that serves the built dashboard at `/` and forwards `/api/*` and `/socket.io/*` to the
 backend. Set it up once:
 
-**1. Build the dashboard in `remote` mode.**
+**1. Build the dashboard.**
 
 ```bash
 cd frontend
-npm run build:remote
+npm run build
 ```
 
-The `remote` mode sets `VITE_API_URL=same-origin`, which tells the dashboard to resolve the API
-against `window.location` instead of a baked-in address. That is what removes the per-device
-**Settings → About → API origin** override: one build is correct at every address it is served
-from — `https://cronsole.example.com` through the tunnel *and* `http://localhost:8080` locally.
+Every production build resolves the API against `window.location` rather than a baked-in address,
+so **one build is correct at every address it is served from** — `https://cronsole.example.com`
+through the tunnel *and* `http://localhost:8080` locally. That is what removes the per-device
+**Settings → About → API origin** override. `npm run build:remote` does the same thing and sets
+`VITE_API_URL=same-origin` explicitly; either is fine.
 
 > [!IMPORTANT]
 > The proxy serves `frontend/dist`, a **build artifact**. It does not track the dev server, so a
-> frontend change is invisible remotely until you re-run `npm run build:remote`. This is a fourth
-> thing that runs stale alongside the Dockerized backend, `agent/publish/` and `mcp-server/dist/`
+> frontend change is invisible remotely until you rebuild. This is a fourth thing that runs stale
+> alongside the Dockerized backend, `agent/publish/` and `mcp-server/dist/`
 > — see [troubleshooting #53](../../troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current).
->
-> **And it must be `build:remote`, not `build`.** Once the proxy is in front, plain `npm run build`
-> is no longer the harmless default — it bakes `http://localhost:3000` into the bundle as the API
-> address, which is the *phone* when the phone loads it. Both commands build cleanly and both pass
-> `check:bundle`, so nothing warns you; the page simply renders perfectly and fails every request.
-> See [troubleshooting #63](../../troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend).
+
+> [!NOTE]
+> **This used to require `build:remote` specifically, and no longer does** *(changed 2026-08-17)*.
+> Plain `npm run build` baked `http://localhost:3000` in as the API address — which is the *phone*
+> when the phone loads it — while building cleanly and passing every check, so the page rendered
+> perfectly and failed every request. It caught people twice, so the default moved into the code
+> instead: the dev server keeps its `localhost:3000` default because the API really is on another
+> port there, and a build defaults to same-origin because the only thing that reads `dist` is a
+> proxy. If you are on an older checkout, keep using `build:remote`.
+> ([#63](../../troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend))
 
 **2. Start the proxy and check it locally.**
 
@@ -323,8 +328,8 @@ the host-run stack that `scripts/cronsole.ps1` starts.
 | Tasks list is empty / CORS errors in console | The remote frontend origin isn't in `ALLOWED_ORIGINS` — add it and restart the backend. |
 | Live updates don't arrive | Same as above — the `/ui` Socket.IO connection needs the origin allowed and the backend reachable on `:3000`. |
 | Works on PC, not on phone | Confirm both devices are on the tailnet (Tailscale) or that the tunnel hostname resolves on the phone. |
-| Dashboard loads but is an **older version** than `:7373` | The proxy serves `frontend/dist`. Re-run `npm run build:remote`. ([#53](../../troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current)) |
-| Dashboard loads, is **up to date**, and cannot reach the backend | The opposite of the row above: `dist` was rebuilt with `npm run build` instead of `build:remote`, so the API address is the baked-in `http://localhost:3000`. Re-run `npm run build:remote`. ([#63](../../troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend)) |
+| Dashboard loads but is an **older version** than `:7373` | The proxy serves `frontend/dist`. Rebuild it (`npm run build`). ([#53](../../troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current)) |
+| Dashboard loads, is **up to date**, and cannot reach the backend | The opposite of the row above: the bundle has an absolute API address baked in rather than resolving same-origin. On a current checkout this only happens if `VITE_API_URL` is set to an absolute origin somewhere; on an older one it means `dist` was built with `npm run build` back when that baked in `http://localhost:3000`. Rebuild (`npm run build:remote` on an older checkout). ([#63](../../troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend)) |
 | Every `docker compose` command fails on a missing `CLOUDFLARE_TUNNEL_TOKEN` | A `${VAR:?}` is interpolated for the whole file regardless of profile. Fixed in-repo; if you added your own, use `${VAR:-}`. ([#54](../../troubleshooting/README.md#54-a-compose-profile-you-never-start-breaks-every-compose-command)) |
 | Dashboard opens **already signed in** with no login | A credential was compiled into the bundle. Run `npm run check:bundle` and rebuild. ([#55](../../troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in)) |
 | `502` from `/api/*` through the proxy | `CRONSOLE_BACKEND_UPSTREAM` points at the wrong place — `host.docker.internal:3000` for the host-run stack, `backend:3000` for the Dockerized one. |

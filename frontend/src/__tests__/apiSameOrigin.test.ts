@@ -59,10 +59,41 @@ describe('same-origin API mode', () => {
     expect(DEFAULT_API_ORIGIN).toBe(PAGE_ORIGIN);
   });
 
-  it('still defaults to localhost:3000 when VITE_API_URL is unset', async () => {
+  /**
+   * The unset default is different in a dev server and in a build, and both
+   * halves are asserted — the pair IS the feature.
+   *
+   * Vitest runs with `import.meta.env.DEV` true, so the first case is the dev
+   * branch taken for real rather than simulated. The second stubs DEV false,
+   * which is what `vite build` folds in.
+   */
+  it('defaults to localhost:3000 under the dev server, where the API is on another port', async () => {
     const { DEFAULT_API_ORIGIN } = await import('../api');
 
+    expect(import.meta.env.DEV).toBe(true); // guards the premise
     expect(DEFAULT_API_ORIGIN).toBe(FALLBACK_ORIGIN);
+  });
+
+  it('defaults to SAME-ORIGIN in a build, so `npm run build` cannot break remote access', async () => {
+    // The regression this exists for: a build carrying the literal
+    // `http://localhost:3000` loads fine on a phone and reaches nothing, because
+    // there localhost is the phone. It happened twice while the default was that
+    // literal and correctness depended on typing `build:remote`.
+    vi.stubEnv('DEV', false);
+    const { DEFAULT_API_ORIGIN, API_ORIGIN, api } = await import('../api');
+
+    expect(DEFAULT_API_ORIGIN).toBe(PAGE_ORIGIN);
+    expect(DEFAULT_API_ORIGIN).not.toBe(FALLBACK_ORIGIN);
+    expect(API_ORIGIN).toBe(PAGE_ORIGIN);
+    expect(api.defaults.baseURL).toBe(`${PAGE_ORIGIN}/api`);
+  });
+
+  it('lets VITE_API_URL override the build default, for a deployment on another host', async () => {
+    vi.stubEnv('DEV', false);
+    vi.stubEnv('VITE_API_URL', 'https://cronsole.internal.example:8443');
+    const { DEFAULT_API_ORIGIN } = await import('../api');
+
+    expect(DEFAULT_API_ORIGIN).toBe('https://cronsole.internal.example:8443');
   });
 
   // Storing a value that resolves against window.location would freeze the address

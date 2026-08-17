@@ -97,6 +97,15 @@ baseline on first run and *fails that run by design*; re-run to confirm.
 > gate you must run by hand** — which makes it the suite most likely to rot unnoticed. Run it
 > before any release.
 
+> **Running it takes your real Windows agent offline, and it does not come back.** The suite drives
+> the **live** stack, and `tests/e2e/helpers/mockAgent.ts` authenticates with the same pairing
+> secret — so it registers as the same user, and `AgentManager` holds **one socket per user**. The
+> mock evicts the real agent, then unregisters on exit, leaving none; the real agent cannot observe
+> that it was displaced, so it never reconnects. **Restart `\Cronsole-Stack\CronsoleAgent` after
+> every E2E run**, then Sync. The tell is `grep "Agent connected" logs/backend.out.log | tail -1`
+> naming `e2e-agent-<ts>` instead of your machine.
+> ([#66](../../../docs/troubleshooting/README.md#66-windows-goes-offline-right-after-you-run-the-e2e-suite))
+
 ## Known gaps
 
 Honest list — real holes, not polish:
@@ -105,6 +114,7 @@ Honest list — real holes, not polish:
 |:---|:---|
 | **Login rate limit (`429`) not implemented** | The archived Test Plan's brute-force mitigation has no code behind it. Tracked in the Go-public checklist. **Don't "fix the test" — the feature is missing.** |
 | **E2E not in CI** | Full-stack regressions only surface locally |
+| **The E2E mock agent shares the real agent's identity** | Running the suite knocks your Windows agent offline until you restart it — same pairing secret, same user, one socket per user. A separate pairing identity for the mock (or a second backend for E2E) is the durable fix; neither is a one-liner. [#66](../../../docs/troubleshooting/README.md#66-windows-goes-offline-right-after-you-run-the-e2e-suite) |
 | **MCP tools never run against a real backend** | The suite stubs the HTTP client, so it pins what the wrapper *does*, not that the wrapper and the API still **agree**. A route whose response shape moves keeps the stub green while the real tool breaks — [#9](../../../docs/troubleshooting/README.md#9-agent-payload-arrives-with-every-field-empty) one layer up: *both sides green while disagreeing about the wire.* Drive the tools by hand after touching a wrapped route. |
 | **No visual regression** | Theme/layout breaks caught by eye only |
 | **No performance gate** | A baseline exists in `artifacts/`; nothing fails on drift |

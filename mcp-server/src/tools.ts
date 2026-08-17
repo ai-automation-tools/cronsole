@@ -6,13 +6,24 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  * Tool surface for the Cronsole MCP server (docs/ROADMAP.md › P3):
  *
  *   read      list_tasks · list_templates · list_folders · get_task_history ·
- *             export_task · convert_schedule
-' *   create    create_task · create_native_task · create_native_program_task ·
- *             create_task_from_template
+ *             export_task · convert_schedule · list_platforms · get_task_health ·
+ *             get_diagnostics · list_run_history · list_task_archives ·
+ *             list_claude_routines
+ *   create    create_task · create_native_task · create_native_program_task ·
+ *             create_native_script_task · create_native_check_task ·
+ *             create_task_from_template · import_task · restore_task_archive ·
+ *             create_claude_routine
  *   act       run_task
  *   modify    set_task_status · update_task_schedule · update_task_action ·
- *             rename_task            untrack_task           update_native_job
+ *             update_native_job · rename_task · untrack_task · sync_tasks ·
+ *             connect_claude_routine · edit_claude_routine · disconnect_claude_routine
  *   destroy   delete_task            (native-only, and only when allowDestructive)
+ *
+ * That is 33 tools, and this list is a mirror surface like any other: it drifts
+ * silently, because nothing imports it. It was last found describing 17 tools —
+ * the set as of the first expansion — while the file registered 33. Regenerate it
+ * from the file rather than appending to it by hand:
+ *   grep -n "server.registerTool(" -A1 src/tools.ts
  *
  * Each tool is a thin call through CronsoleClient into the REST API. Business
  * rules (owner scoping, no-shell command structuring, agent signing, cron→trigger
@@ -1318,10 +1329,16 @@ Next run: ${task.nextRunTime}` : '')
     {
       title: 'Export a task\'s definition',
       description:
-        'Export a task\'s full definition. A Windows task exports as native Task Scheduler XML (the same thing ' +
-        'Export-ScheduledTask and the Task Scheduler UI produce, so it re-imports into any Windows machine); ' +
-        'a Cronsole-native task exports as Cronsole JSON. Useful for inspecting exactly what is registered, ' +
-        'backing a task up before changing it, or moving it to another machine. ' +
+        'Export a task\'s full definition, in one of TWO formats — pick with `format`, because they answer ' +
+        'different questions and one of them is not a backup. ' +
+        '`native` (the default) is the platform\'s own definition: a Windows task exports as Task Scheduler XML ' +
+        '(the same thing Export-ScheduledTask and the Task Scheduler UI produce, so it re-imports into any ' +
+        'Windows machine), a Cronsole-native task as Cronsole JSON. That is the faithful one — use it to inspect ' +
+        'exactly what is registered, or to back a task up before changing it. ' +
+        '`template` is a portable Registry v1 template that recreates the task on ANY install, which is what ' +
+        '"set this up on my other machine" actually asks for — but it DROPS platform-specific settings, so never ' +
+        'offer it as a backup. It is also the only format that works with the Windows agent offline, or on a ' +
+        'Claude routine (whose definition lives at claude.ai). ' +
         'IMPORTANT if you save the XML to a file: Windows requires it as UTF-16 LE with a BOM. Writing it as ' +
         'UTF-8 (the default almost everywhere) produces a file Windows refuses with "unable to switch the ' +
         'encoding" — the text below is correct, but the encoding you save it in is on you.',

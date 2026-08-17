@@ -162,6 +162,27 @@ describe('export existing tasks', () => {
       expect(res.body.name).toBe('Export Fixture');
     });
 
+    it('templates a Claude routine stored the way sync actually stores one', async () => {
+      // The case above passes `{ command }`, which is a shape Claude sync never
+      // produces: `ClaudeConnector` writes the routine's prompt to
+      // `metadata.prompt`. So this suite reported the Claude template path
+      // working while every real routine on the install was refused with "no
+      // command Cronsole can capture yet" — a fixture agreeing with itself
+      // rather than with the connector (the #38 family). This pins the real one.
+      const task = await createTask(owner.user.id, PlatformType.CLAUDE_CODE, {
+        declared: false,
+        prompt: 'Review yesterday\'s PRs and summarize them.'
+      });
+      const res = await request(app)
+        .get(`/api/tasks/${task.id}/export?format=template`)
+        .set('Authorization', owner.auth);
+
+      expect(res.status).toBe(200);
+      expect(res.body.runtime).toBe('ai-prompt');
+      expect(res.body.compatibleTargets).toEqual(['claude-code']);
+      expect(res.body.commandTemplate).toBe('Review yesterday\'s PRs and summarize them.');
+    });
+
     it('refuses a task with no cron-expressible schedule, by name', async () => {
       // A boot/logon trigger is not expressible as a 5-field cron, so there is
       // no honest template for it — and the refusal says which fact stopped it.

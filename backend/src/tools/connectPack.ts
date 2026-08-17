@@ -96,7 +96,16 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   nothing to offer at all for a Claude routine, whose native export is a 400.
 //   The row also has to carry the LOSS, because a template offered as a backup
 //   is the one mistake this format makes possible.
-export const CONNECT_PACK_VERSION = '1.10';
+// 1.11 (2026-08-17): drops the hardcoded "15 tools" from the surface table. It
+//   had been wrong since 1.2 and was understating the surface by more than half
+//   (33 registered) — a reader taking it literally would conclude a verb they
+//   need is not there and reach for the REST fallback, or for nothing. Removed
+//   rather than corrected: a count in prose is only ever right until the next
+//   tool ships, and this one proved it across nine versions of otherwise
+//   accurate content. Text-only, but the stamp still moves — two copies must
+//   never carry the same version and different words, which is the one thing the
+//   stamp exists to make impossible.
+export const CONNECT_PACK_VERSION = '1.11';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

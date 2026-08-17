@@ -182,10 +182,14 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **Health reports evidence, never preconditions**, and never has a side effect (Claude's documented
   routines endpoint *fires* the routine). `UNKNOWN` is the absence of a verdict and must rank above
   healthy in any summary; failure evidence ages out (15 min), connection evidence renews itself.
-  `lastSync` has exactly one writer ([#40](docs/troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out),
+  `lastSync` has exactly one writer. **A surface derives health from `connector.getHealth` when
+  asked; it never reads back a cached column** — `PlatformConnection.healthState` is written only by
+  the dashboard's poll, so the matrix served a stale `OFFLINE` to every MCP session
+  ([#40](docs/troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out),
   [#42](docs/troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday),
   [#48](docs/troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy),
-  [#62](docs/troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request)).
+  [#62](docs/troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request),
+  [#66](docs/troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second)).
 - **Claude has two doors and keeps both**: the documented per-routine fire token (declared registry
   mode) and the undocumented OAuth `/v1/code/triggers` API (full read/write). `unsupportedVerbs` is
   therefore a **getter** — any test asserting Claude's capabilities must mock the credential. Delete

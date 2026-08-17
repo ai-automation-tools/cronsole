@@ -1211,6 +1211,28 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Completed
 
+- [x] **Platform health is derived when asked, not read back from a cache** *(2026-08-17)*.
+      `buildPlatformMatrix` served `PlatformConnection.healthState` straight from the DB, and that
+      column has exactly **one writer**: the loop inside `GET /api/tasks/health`, which is the
+      *dashboard's* 45-second poll. Nothing on the MCP surface writes it (`get_task_health` wraps
+      `/tools/task-health`), so an agent-driven session with no browser tab open read whatever
+      verdict the last poll left behind. Measured: `list_platforms` said `OFFLINE — Agent not
+      connected` while `get_diagnostics` said *"connected and answering"* **in the same second**,
+      over a row whose own `listFolders` cell carried a success from a minute earlier; one call to
+      the dashboard route flipped it to `HEALTHY` with nothing changing on the machine. Now derived
+      per request from `connector.getHealth` — the call the health route and the diagnostics panel
+      already made — so the three surfaces cannot disagree. A throwing connector yields `UNKNOWN`,
+      never a healthy-looking gap, and state and reason are always taken from one source together
+      (a live verdict must not inherit the stored explanation). **This is
+      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
+      one layer down**: #40 was a verdict from a precondition,
+      [#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy)
+      from an expired observation, this from a cache whose only writer runs on another code path.
+      The reusable question is now in CLAUDE.md §9: **which path writes this status field, and is it
+      running in the session doing the reading?**
+      ([#66](troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second),
+      `platformMatrixHealth.test.ts`.)
+
 - [x] **Remote access stopped depending on which build command you typed** *(2026-08-17)*.
       `FALLBACK_API_ORIGIN` (`frontend/src/api.ts`) folds on `import.meta.env.DEV`: the dev server
       keeps `http://localhost:3000` (the API really is on another port there) and **every build
@@ -1237,6 +1259,23 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       export at all. `useAnchoredPanel` was extracted from `TaskCollectionMenu` for the menu, since
       the task modal's panel is `overflow-hidden` and a second copy of portal-placement-flip-and-scroll
       is four subtle things to get right twice.
+
+      **Amended 2026-08-17: the `CLAUDE_CODE` half of that claim did not work when it shipped.**
+      Every Claude routine was refused with *"this task has no command Cronsole can capture yet"* —
+      `deriveAction` handled a native HTTP job, Windows exec actions and a plain `metadata.command`,
+      and a routine has none of those: **its command is its prompt**, which `ClaudeConnector` stores
+      at `metadata.prompt`. Fixed by giving it that branch (`ai-prompt` runtime, `claude-code`
+      target); a routine connected *by declaration* is still refused, but now names why — Cronsole
+      never had its prompt, so "sync and try again" was advice that could not work.
+      **Why the suite missed it, and the lesson:** the integration case seeded a Claude task with
+      `{ command: … }`, **a shape Claude sync never produces**, so the test exercised the generic
+      fallback and passed while every real routine failed — a fixture agreeing with itself rather
+      than with the connector, the
+      [#38](troubleshooting/README.md#38-a-row-of-summary-numbers-doesnt-add-up--one-of-them-counts-a-different-population)
+      family. There is now a case using the shape the connector actually writes. Found by
+      hand-driving `export_task` against a real install rather than by any suite, which is
+      [#44](troubleshooting/README.md#44-an-mcp-tool-400s-on-every-call-and-the-whole-suite-is-green)'s
+      standing rule paying off again.
 
 - [x] **Task import & deleted-task restore — the export format finally has a reader** *(2026-08-17)*.
       `POST /api/tasks/import` (a `cronsoleTaskVersion` bundle → a real task) and

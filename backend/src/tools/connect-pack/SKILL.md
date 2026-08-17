@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.10** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.11** · canonical copy: <https://cronsole.mikesailab.com>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -26,7 +26,7 @@ Two surfaces, same backend:
 
 | Surface | Use when |
 |:---|:---|
-| **MCP server** (`cronsole`) | Your host supports MCP. 15 tools, 1:1 with API routes. Preferred. |
+| **MCP server** (`cronsole`) | Your host supports MCP. Every tool maps 1:1 onto an API route. Preferred. |
 | **REST API** (`http://localhost:3000/api`) | No MCP support, or you need something MCP doesn't expose (template import/export, save-as-template, sync, agent pairing). Bearer token in `Authorization`. |
 
 Both need the backend running and a token. See `README.md` in this pack for wiring.

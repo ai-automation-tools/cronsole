@@ -21,6 +21,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 64 | You edit `registry-site/index.html`, reload the local preview, and the change **is not there** — a new CSS rule reads back as `none`, or new JS behaves like the old code. Nothing errors | **Two independent staleness traps, and they stack.** (1) The preview serves a *copy*: the documented recipe copies `index.html` into a scratch dir, so editing the repo file changes nothing until you re-copy. (2) The gallery is a **hash-router SPA** — navigating to the same `#/...` URL is a hash change, not a load, so neither the CSS nor the JS is re-fetched, and any earlier inline style you injected survives. Fix: re-copy, then **`location.reload(true)`** — not a `navigate` to the same route. Verify the rule is really present (`[...document.styleSheets[0].cssRules].some(r => r.selectorText === '…')`) before concluding a fix failed | [→](#64-a-gallery-change-doesnt-show-up-in-the-local-preview) |
 | 63 | Through the tunnel the phone shows the dashboard **fully up to date** and then fails every request with *cannot reach backend*. Same URL works on the machine running the stack; proxy up, tunnel fine, origin allowed | `frontend/dist` was built with **`npm run build`** instead of **`npm run build:remote`**, so Vite inlined the `http://localhost:3000` fallback instead of `same-origin` — on the phone that address is the phone. **The tell is that it is the exact inverse of [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current): the proxied page is *current* and the requests fail.** Read the bundle, not the source — both literals appear in every build, so check the call `Ll=Rl(…)`. Fix: `cd frontend && npm run build:remote` | [→](#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
 | 62 | Windows reads **DEGRADED — "Agent connected but not responding (task:list timed out)"** almost permanently, and the health strip names a failed verb, over an agent that answers everything instantly. Sync works, folders list, tasks run | **Every verb scheduled a 15-second timeout and never cancelled it**, so a request answered in 200ms still ran `markUnresponsive` fifteen seconds later. The stale `resolve`/`reject` was a harmless no-op — the promise had settled — so the *only* surviving effect was a stamp on the health record, which is why it was invisible for so long. Windows could not stay HEALTHY longer than 15s after its last request. **Fixed 2026-08-16**: one `agentRequest` helper owns the deadline and clears it when the request settles. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) with the sign flipped — a status field reporting a failure that never happened**, and the more expensive direction, because it teaches the reader to ignore the one line meant to mean something is wrong | [→](#62-windows-reports-not-responding-15-seconds-after-every-successful-request) |
 | 61 | **Every** E2E test fails (`18 of 18`) with `element(s) not found`, while backend/integration/frontend suites are all green and the app works fine in a browser | A **shared helper** referenced a label the UI no longer uses — `dashboardReady()` waited on the heading *"Unified Task Dashboard"*, which the 2026-08-15 redesign replaced with one naming the current scope. One string, every test. Four more assertions named things the redesign **removed** (the source bar, the System Status panel, `Cronsole (Scripts)`, native's unsupported `Edit action`). **Nothing caught it because `test:e2e` is not in CI**, and no other suite can substitute: jsdom does not evaluate media queries, so `hidden md:flex` is invisible to the unit tests. Anchor helpers on `data-testid`, not labels. **Two repair traps: a mask for a removed element masks nothing, and a test that fails only in a full run is unmasked live data, not flake** | [→](#61-the-whole-e2e-suite-fails-and-every-other-suite-is-green) |
@@ -2564,7 +2565,7 @@ the healthy ones by incrementing `counts.ok` — but the route returns **every s
 suite modelled a payload the server never sends, and the one tile reading the unscoped field was the
 only thing that could tell the difference. **A fixture that disagrees with the server is a suite
 that agrees with itself** — the same family as the stubbed Prisma client in
-[#22](#22-deleted-a-windows-task-synced-and-taskhub-still-shows-it--while-reporting-missing-n)
+[#22](#22-deleted-a-windows-task-synced-and-cronsole-still-shows-it--while-reporting-missing-n)
 and the stubbed serializer in [#9](#9-agent-payload-arrives-with-every-field-empty).
 
 **And the regression test didn't work on the first attempt.** `expect(tile).toHaveTextContent('0')`
@@ -2610,7 +2611,7 @@ moving a file whose mtime predates the build.
 > **The generalizable bit:** a mutation test's *restore* step is a test too, and it is the one you
 > are least likely to check, because you already believe the answer. Any restore that preserves an
 > old timestamp can be silently skipped by an incremental build — so a mutation cycle should end
-> with a **forced** rebuild, not a fast one. Same family as [#18](#18-code-changes-dont-take-effect-in-the-docker-backend)
+> with a **forced** rebuild, not a fast one. Same family as [#18](#18-new-npm-dependency-module_not_found-in-the-container-after-a-restart)
 > and the three-things-that-run-stale rule: the artifact that runs is not the source you edited.
 
 *First hit: 2026-08-04, mutation-checking the signed `createFolder` flag on `task:create`.*
@@ -4146,6 +4147,60 @@ correct one there. The bug is only observable from the device that has no local 
 the device you are least able to open a console on.
 
 *First hit: 2026-08-16, after a routine `npm run build` following a dashboard change.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 64. A gallery change doesn't show up in the local preview
+
+**Symptom.** You edit `registry-site/index.html`, reload the local preview, and the change simply
+is not there. A newly added CSS rule reads back as absent
+(`getComputedStyle(el, '::before').float` → `"none"`), or new JS behaves exactly like the old code.
+Nothing throws, the server is serving, and the page looks fine — just *old*. The natural conclusion
+is that the fix is wrong, which sends you rewriting code that was already correct.
+
+**Cause — two independent staleness traps, and they stack.** Either one alone produces the same
+symptom, so fixing one and re-testing still shows the old page, which is what makes this expensive:
+
+1. **The preview serves a copy.** The documented recipe (`registry-site/README.md` › Local preview)
+   copies `index.html` into a scratch directory so it can sit beside a copy of the registry
+   artifact. Editing the file in the repo therefore changes nothing until you copy it again —
+   and the copy step is the one you did once, at the start, before the edits you are now testing.
+2. **The gallery is a hash-router SPA.** Navigating to the same `#/t/<id>` URL is a *hash change*,
+   not a page load: no HTML, CSS or JS is re-fetched, the router may not even re-render, and any
+   inline style you injected from the console to simulate a narrow viewport is still applied.
+
+**Fix.**
+
+```sh
+cp registry-site/index.html "$SCRATCH/"     # 1 — re-copy after every edit
+```
+
+then in the page, a real reload rather than a route change:
+
+```js
+location.reload(true)
+```
+
+**Prove the rule is loaded before judging the fix.** The measurement that misled here was
+`getComputedStyle(el, '::before').float` returning `"none"` — which is what an *unloaded* stylesheet
+and a *broken* rule both look like. Ask whether the rule exists at all:
+
+```js
+[...document.styleSheets[0].cssRules].some(r => r.selectorText === '.code::before')
+```
+
+`false` means you are testing the old file; only once it is `true` does a failed assertion say
+anything about your CSS.
+
+**The general rule.** *When a change appears not to apply, confirm the artifact under test is the
+one you edited before concluding anything about the edit.* This is the same shape as
+[#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current) and the publish step in
+[§11b](../../CLAUDE.md) — a correct source and a stale copy — with the twist that here the copy is
+one **you** made, minutes ago, which is exactly why it is not the first thing you suspect.
+
+*First hit: 2026-08-17, verifying the script/check rendering added to the gallery the same day.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

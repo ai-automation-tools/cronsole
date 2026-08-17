@@ -740,8 +740,25 @@ async function probeHttp(probe: HttpProbe): Promise<ProbeResult> {
 
   const body = typeof response.data === 'string' ? response.data : String(response.data ?? '');
 
-  if (probe.expectBodyContains && !body.includes(probe.expectBodyContains)) {
-    return [false, `${head} | body does not contain "${probe.expectBodyContains}"`];
+  /**
+   * What each optional assertion *observed*, collected as they pass.
+   *
+   * The success line used to end `| all assertions passed`, which named none of
+   * them — so a check with an `expectBodyContains` logged **byte-identically**
+   * to one with no body assertion at all. That breaks this type's own rule in
+   * the half that runs most often: the failing path states the specific
+   * assertion, the passing path did not, and an assertion silently lost between
+   * the tool and the stored job was indistinguishable from one that ran and
+   * passed. Naming them makes the loss visible — the clause simply stops
+   * appearing.
+   */
+  const observed: string[] = [];
+
+  if (probe.expectBodyContains) {
+    if (!body.includes(probe.expectBodyContains)) {
+      return [false, `${head} | body does not contain "${probe.expectBodyContains}"`];
+    }
+    observed.push(`body contains "${probe.expectBodyContains}"`);
   }
 
   if (probe.expectJsonPath) {
@@ -761,9 +778,18 @@ async function probeHttp(probe: HttpProbe): Promise<ProbeResult> {
         `${head} | ${probe.expectJsonPath.path} is "${String(actual)}", expected "${probe.expectJsonPath.equals}"`
       ];
     }
+    // The *value*, not "matched" — same reading the failure gives, so the two
+    // logs differ by the outcome rather than by their vocabulary.
+    observed.push(`${probe.expectJsonPath.path} is "${String(actual)}"`);
   }
 
-  return [true, `${head} | all assertions passed`];
+  // With no optional assertions the head is already the whole measurement, and
+  // a bare head is the honest report of that. It cannot be confused with a
+  // failing status-only check: those differ in the status number itself.
+  // With no optional assertions the head is already the whole measurement, and
+  // a bare head is the honest report of that. It cannot be confused with a
+  // failing status-only check: those differ in the status number itself.
+  return [true, [head, ...observed].join(' | ')];
 }
 
 /**

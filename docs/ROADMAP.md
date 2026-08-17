@@ -1204,11 +1204,53 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 - [ ] **Native task follow-ups**: `CLAUDE_PROMPT` job type, and a Redis lock before multi-instance.
 - [ ] **Tools tab — further candidate tools** *(candidates only, none scheduled)*: scheduled
       automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
-      since your last backup") · a user-facing diagnostics panel. *(Bulk enable/disable by folder
-      was absorbed into the Mass Actions console above on 2026-08-12.)*
+      since your last backup"). *(Bulk enable/disable by folder was absorbed into the Mass Actions
+      console above on 2026-08-12; the **user-facing diagnostics panel shipped 2026-08-17** — see
+      Completed below.)*
       Rule for the tab: everything on it must be genuinely cross-cutting, or it is a junk drawer.
 
 ### Completed
+
+- [x] **System diagnostics — a read-only report on Cronsole itself** *(2026-08-17)*.
+      `GET /api/tools/diagnostics` + `services/diagnostics.ts`, surfaced as `DiagnosticsModal`
+      from two entry points (**Diagnose** on the Dashboard health strip, **Run checks** on the
+      Tools tab) and as the `get_diagnostics` MCP tool. Eight checks — backend, database, Windows
+      agent, sync freshness, native scheduler, template catalog, API-token expiry, allowed origins
+      — each carrying **the evidence behind its verdict**.
+
+      **The problem it solves is that a status line discards its reasons.** *"Windows offline"* is
+      one sentence covering a socket that never arrived, one that arrived and went, a timeout
+      ninety seconds ago and a timeout at 9pm yesterday. `AgentLiveness` has held those facts since
+      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out);
+      nothing displayed them.
+
+      **Read-only, deliberately, and the sequencing is the finding.** Three of the four
+      agent-health entries in the log
+      ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out),
+      [#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy),
+      [#62](troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request))
+      were the **readout** lying rather than the agent failing — #62 recorded a timeout fifteen
+      seconds after every *successful* request. A repair verb shipped against that would have
+      restarted a healthy agent forever **and looked like it worked**, converting a visible bug
+      into an invisible one. *You cannot automate a repair you cannot yet diagnose.* Repair verbs
+      are a **separate, later** item (see P3 › Open) and are gated on this having earned trust.
+
+      Rules encoded: a check carries its facts, never a bare verdict; **`unknown` outranks `pass`**
+      and a check with nothing to measure is **omitted** rather than shown as a pass; a verdict
+      another module owns is forwarded (`connector.getHealth`), never re-derived, so the panel can
+      only *explain* the strip; `measuredOn` names the machine once at the top, because a
+      containerised backend measures the container; and `runCheck` degrades a throwing check to
+      `unknown` so one cannot fail its siblings. The panel **states its own limit** — it is served
+      by the backend, so it says nothing about a backend that is down; that case belongs to
+      `\Cronsole-Stack\`, outside the stack.
+
+      Two things fell out of it. The backend now handles **`agent:hello`**, which the agent has
+      emitted since it was written with nothing listening, so the report can name the machine and
+      OS (`agentVersion` is captured and deliberately **not rendered** — it is a hardcoded
+      `"1.0.0"`, so beside "Agent" it would read as a freshness claim carrying no information).
+      And `scripts/check-doc-links.mjs` was extended to **repo-doc paths written as string
+      literals in tracked source** — the panel's "Read more" links were a mirror surface nothing
+      checked.
 
 <details>
 <summary>Windows task management</summary>
@@ -1305,6 +1347,29 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Open
 
+- [ ] **Guided repair verbs, on top of System diagnostics** *(logged 2026-08-17; deliberately
+      sequenced after the read-only panel, which shipped)*. The diagnostics panel answers *what is
+      wrong*; this is the *fix it* half, and it stayed out of that change on purpose — three of the
+      four agent-health entries in the troubleshooting log were the readout lying, so a repair
+      button would have been acting on a diagnosis nothing could yet check. Design constraints,
+      all of which the panel already establishes:
+      - **A repair reports what it *observed afterwards*, never what it *did*.** "Spawned a
+        process → Fixed!" is `success` without `ran` ([#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check))
+        in the one place a false green is most expensive. Every verb must re-run the check that
+        prompted it and report the **new** state.
+      - **A fixed, named list — never a parameterized one.** The moment a repair takes a command,
+        Cronsole has an elevated arbitrary-action primitive reachable from a browser, which is
+        exactly what "the agent gets no file-write verb" refuses. Candidates: republish the agent,
+        restart the agent, re-register the `\Cronsole-Stack\` tasks.
+      - **Not in the template registry.** Repairs are about Cronsole itself and must be
+        version-locked to it; a managed template row can be pruned by `catalogSync` — i.e. the
+        catalog could delete the thing that fixes the catalog.
+      - **The genuinely useful half is outside the stack and already exists**: `\Cronsole-Stack\`
+        survives the backend, Postgres and Docker all being down because Windows Task Scheduler
+        runs it. Productising *that* — installing it, rather than hand-registering it once per
+        machine — belongs with **Installer packages** below, not here. Note the standing decision
+        that those tasks are **not tracked** in the dashboard: disabling `CronsoleAgent` from the
+        dashboard is also what breaks the dashboard's ability to re-enable it.
 - [ ] **macOS agent (launchd)** — *folded into the **POSIX agent** item under
       [Sources](#-sources--where-a-task-comes-from) (2026-08-12), because launchd, cron and systemd
       timers are one build, not three.* 7 catalog templates still wait on it; the `ITaskScheduler`

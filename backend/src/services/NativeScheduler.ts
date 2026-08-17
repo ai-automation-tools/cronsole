@@ -14,9 +14,26 @@ export const MISSED_RUN_GRACE_MS = 5 * 60_000;
  * to ExecutionLog, and advances nextRunTime. Single-instance only for MVP
  * (docs/resources/Native_Tasks.md).
  */
+/**
+ * What the scheduler can say about itself, for the diagnostics report.
+ *
+ * `lastTickAt` is stamped when a tick **finishes**, not when one is scheduled —
+ * a timer that fires into a wedged tick would otherwise keep writing a fresh
+ * timestamp while nothing was actually being evaluated, which is the shape of
+ * troubleshooting #40 (a verdict from a precondition) applied to a clock.
+ */
+export interface SchedulerStatus {
+  running: boolean;
+  lastTickAt: Date | null;
+  lastTickError: string | null;
+  tickIntervalMs: number;
+}
+
 export class NativeScheduler {
   private timer: NodeJS.Timeout | null = null;
   private ticking = false;
+  private lastTickAt: Date | null = null;
+  private lastTickError: string | null = null;
 
   async start() {
     await this.backfillNextRunTimes();
@@ -27,6 +44,21 @@ export class NativeScheduler {
   stop() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  }
+
+  /**
+   * Read-only self-report. `running` is the timer's existence, which is a real
+   * fact about this process — but on its own it is exactly the "socket object
+   * exists" evidence #40 rejected, so `lastTickAt` travels with it and the
+   * diagnostics check reads both.
+   */
+  status(): SchedulerStatus {
+    return {
+      running: this.timer !== null,
+      lastTickAt: this.lastTickAt,
+      lastTickError: this.lastTickError,
+      tickIntervalMs: TICK_INTERVAL_MS
+    };
   }
 
   /** Ensure every active native task has a nextRunTime (new deploys, crashed writes). */
@@ -101,9 +133,19 @@ export class NativeScheduler {
 
       // Push one live update per affected user's open dashboards.
       for (const userId of changedUsers) notifyTasksChanged(userId);
+      this.lastTickError = null;
     } catch (error) {
       console.error('[NativeScheduler] tick error:', error);
+      // Kept rather than only logged: a scheduler that is running and failing
+      // every tick is indistinguishable from a healthy one in the console of a
+      // container nobody is watching, and it is the exact state in which native
+      // tasks silently stop firing.
+      this.lastTickError = error instanceof Error ? error.message : String(error);
     } finally {
+      // Stamped in `finally` so a failed tick still counts as a tick. The
+      // question this answers is "is the loop alive", and a tick that threw is
+      // evidence that it is — the error is reported separately, beside it.
+      this.lastTickAt = new Date();
       this.ticking = false;
     }
   }

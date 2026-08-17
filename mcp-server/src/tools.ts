@@ -227,6 +227,27 @@ interface TaskHealthResponse {
   }>;
 }
 
+// Index signature so the whole report can be handed to `ok()` as structured
+// content verbatim. Deliberately verbatim: the caller is usually an agent trying
+// to work out what is wrong, and a wrapper that forwarded a summary would drop
+// the per-check facts — which are the only part that distinguishes "the agent is
+// gone" from "one request timed out last night".
+interface DiagnosticsResponse extends Record<string, unknown> {
+  generatedAt: string;
+  measuredOn: { kind: 'host' | 'container'; hostname: string; os: string; summary: string };
+  counts: { pass: number; warn: number; fail: number; unknown: number };
+  worst: 'pass' | 'warn' | 'fail' | 'unknown';
+  checks: Array<{
+    id: string;
+    title: string;
+    status: 'pass' | 'warn' | 'fail' | 'unknown';
+    summary: string;
+    facts: Array<{ label: string; value: string }>;
+    remedy?: string;
+    doc?: string;
+  }>;
+}
+
 interface RunHistoryResponse {
   range: { from: string; to: string };
   matched: { runs: number; succeeded: number; failed: number; pending: number };
@@ -2241,6 +2262,67 @@ Next run: ${task.nextRunTime}` : '')
           returned: rows.length,
           tasks: rows
         });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // get_diagnostics — is CRONSOLE working, as opposed to the user's tasks
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'get_diagnostics',
+    {
+      title: 'Check whether Cronsole itself is working',
+      description:
+        'The system report: the agent connection, the database, the native scheduler, the template catalog, ' +
+        'API token expiry and the allowed browser origins — each with the evidence behind it. ' +
+        'Ask this FIRST when something is not working, before get_task_health: that tool asks "which of my ' +
+        'tasks are failing?", which is only meaningful once Cronsole can see them at all. A wedged agent makes ' +
+        'every Windows task look unhealthy, and the fix is not in any of those tasks. ' +
+        'Read `status` per check, not just `worst`. `unknown` is NOT `pass` — it means the check could not be ' +
+        'measured, so it ranks above pass and must never be reported as healthy. ' +
+        '`measuredOn` says WHICH MACHINE these facts describe: on a Dockerized stack the backend measures the ' +
+        'container, so a filesystem or clock fact is about the container and not the user\'s machine. ' +
+        'This is read-only and repairs nothing — it also cannot say anything about a backend that is down, ' +
+        'because it is served by that backend.',
+      // No inputs. Every check is cheap, and a `checks: [...]` filter would let a
+      // caller ask for a subset and then reason about `worst` as if it described
+      // the system — the mixed-population error of troubleshooting #49, in the
+      // one tool whose job is to be trusted about scope.
+      inputSchema: {}
+    },
+    async () => {
+      try {
+        const r = await client.get<DiagnosticsResponse>('/tools/diagnostics');
+        const c = r.counts;
+
+        const where =
+          r.measuredOn.kind === 'container'
+            ? `inside the backend container on ${r.measuredOn.hostname} (NOT the user's machine)`
+            : `on ${r.measuredOn.hostname}`;
+
+        const header =
+          `Checked at ${r.generatedAt}, measured ${where}.\n` +
+          `Overall: ${r.worst}. ${c.fail} problem(s), ${c.warn} worth checking, ` +
+          `${c.unknown} not measured, ${c.pass} ok.`;
+
+        // Facts are printed for anything that is not plainly fine, and omitted
+        // for what is — the same call the UI makes. A passing check's evidence
+        // is real but it buries the row that matters, and an agent reading this
+        // pays for every line.
+        const body = r.checks
+          .map(check => {
+            const head = `• ${check.title} — ${check.status}: ${check.summary}`;
+            if (check.status === 'pass') return head;
+            const facts = check.facts.map(f => `      ${f.label}: ${f.value}`).join('\n');
+            const remedy = check.remedy ? `\n    → ${check.remedy}` : '';
+            return `${head}\n${facts}${remedy}`;
+          })
+          .join('\n');
+
+        return ok(`${header}\n${body}`, r);
       } catch (err) {
         return toolError(err);
       }

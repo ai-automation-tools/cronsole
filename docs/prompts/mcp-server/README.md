@@ -70,11 +70,11 @@ conversion first, put it in \Cronsole, and confirm the registered action.
 
 ## 🧰 The toolbox
 
-26 tools are always present; `delete_task` appears only when the operator enabled it.
+29 tools are always present; `delete_task` appears only when the operator enabled it.
 
 | Tier | Tools |
 |:---|:---|
-| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `export_task` · `convert_schedule` |
+| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `get_diagnostics` · `export_task` · `convert_schedule` |
 | **Create** | `create_task` · `create_native_task` · `create_native_program_task` · `create_native_script_task` · `create_native_check_task` · `create_task_from_template` · `create_claude_routine` |
 | **Act** | `run_task` · `sync_tasks` |
 | **Modify** (reversible) | `set_task_status` · `update_task_schedule` · `update_task_action` · `update_native_job` · `rename_task` · `untrack_task` |

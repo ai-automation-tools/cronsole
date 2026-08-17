@@ -27,6 +27,20 @@
  *   - `[x](#frag)`                → this file has that anchor
  *   - `<a href="...">`            → same rules
  *
+ * **And, for every tracked source file, repo-doc paths written as string
+ * literals** — a quoted docs/… path, with or without an anchor. (Written
+ * unquoted here on purpose: this scanner reads its own source, and the first run
+ * duly reported the illustrative example in this comment as a dead link.) These
+ * are the same mirror
+ * surface with none of the same cover: `docsLinks.test.ts` only sees `help.ts`
+ * and `onboarding.ts`, and the markdown sweep above cannot see source at all, so
+ * a doc path in a `.ts` file was checked by nothing. The backend's diagnostics
+ * report is the first thing to ship a set of them (`DIAGNOSTIC_DOCS`), and the
+ * failure would be the worst-placed one yet: a panel a user opens *because
+ * something is broken*, offering a link that silently lands on a table of
+ * contents. Repo-relative from the root, since that is the convention a literal
+ * follows — nothing resolves them against the file they sit in.
+ *
  * Not checked: external URLs (`http(s)://`, `mailto:`) — reachability is a
  * network fact, not a repo fact, and a link checker that needs the internet is
  * one that gets disabled the first time a site rate-limits CI.
@@ -220,9 +234,59 @@ for (const file of markdown) {
   }
 }
 
+// --- Repo-doc paths written as string literals in tracked source -------------
+//
+// Anchored on a quote so a path inside a longer sentence in a comment is not
+// mistaken for a link, and restricted to top-level repo directories so an
+// arbitrary `*.md` mentioned in prose does not become a finding. The point is
+// to catch the deliberate, machine-consumed ones — the sets a UI turns into
+// links — not to grade every comment.
+const DOC_LITERAL =
+  /['"`]((?:docs|registry-site|scripts|skills|backend|frontend|agent|mcp-server|proxy)\/[^'"`\s)]*\.md(?:#[^'"`\s)]*)?)['"`]/g;
+
+const sources = files.filter(
+  (f) => /\.(ts|tsx|mjs|cjs|js|jsx)$/.test(f) && !f.includes('node_modules') && !f.includes('/dist/')
+);
+
+let sourceChecked = 0;
+for (const file of sources) {
+  let source;
+  try {
+    source = readFileSync(file, 'utf8');
+  } catch {
+    continue;
+  }
+  if (!source.includes('.md')) continue;
+
+  const lines = source.split(/\r?\n/);
+  lines.forEach((line, i) => {
+    for (const m of line.matchAll(DOC_LITERAL)) {
+      const target = m[1];
+      const hash = target.indexOf('#');
+      const path = hash < 0 ? target : target.slice(0, hash);
+      const anchor = hash < 0 ? '' : decodeURIComponent(target.slice(hash + 1));
+
+      if (ABSENT_BY_DESIGN.some((p) => path === p.replace(/\/$/, '') || path.startsWith(p))) continue;
+
+      sourceChecked++;
+      if (!known.has(path)) {
+        findings.push({ file, line: i + 1, target, why: `${path} does not exist` });
+        continue;
+      }
+      if (anchor) {
+        const anchors = anchorsFor(path);
+        if (anchors && !anchors.has(anchor)) {
+          findings.push({ file, line: i + 1, target, why: `${path} has no anchor #${anchor}` });
+        }
+      }
+    }
+  });
+}
+
 if (findings.length === 0) {
   console.log(
-    `check-doc-links: OK — ${checked} relative link(s) across ${markdown.length} markdown files resolve.`
+    `check-doc-links: OK — ${checked} relative link(s) across ${markdown.length} markdown files ` +
+      `and ${sourceChecked} doc path(s) in ${sources.length} source files resolve.`
   );
   process.exit(0);
 }

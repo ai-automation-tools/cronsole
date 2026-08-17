@@ -61,6 +61,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`edit_claude_routine`** | "I pasted the wrong routine id" — fixes it **without asking for the token again** | `PATCH /api/tools/platforms/claude/routines/:id` |
 | **`disconnect_claude_routine`** | "Forget that routine" — removes it and its task from Cronsole; **it keeps running at claude.ai**. The only way to take a Claude task off the dashboard | `DELETE /api/tools/platforms/claude/routines/:id` |
 | **`sync_tasks`** | "Import my Backups folder", "refresh everything" — importing needs the category named; a bare refresh adds nothing new | `POST /api/tasks/sync` |
+| **`get_diagnostics`** | "Why isn't this working?" — checks Cronsole itself: the agent, the database, the scheduler, the catalog, token expiry. Ask before `get_task_health`, which assumes Cronsole can see your tasks at all | `GET /api/tools/diagnostics` |
 | **`get_task_health`** | "What's broken?" — every task scored and ranked worst-first, with the evidence for each verdict | `GET /api/tools/task-health` |
 | **`list_run_history`** | "What failed this month?" — across all tasks, unlike the per-task history | `GET /api/tools/history` |
 | **`delete_task`** ⚠️ | "Delete the old test task" — **Cronsole-native tasks only**, backed up first, and **off by default**; see below | `DELETE /api/tasks/:id/native` |

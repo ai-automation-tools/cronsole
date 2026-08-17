@@ -886,6 +886,56 @@ const taskHealth: HelpTopic = {
   doc: { label: 'UI User Guide › Task health', url: uiGuide('task-health') }
 };
 
+const diagnostics: HelpTopic = {
+  id: 'diagnostics',
+  title: 'System diagnostics',
+  summary:
+    'Is Cronsole itself working? A different question from "are my tasks working", and the one ' +
+    'that has to be answered first — a wedged agent makes every Windows task look unhealthy.',
+  points: [
+    {
+      label: 'Every check shows its evidence',
+      body:
+        '"Windows offline" is one sentence covering four different situations. The panel shows ' +
+        'which: whether a socket exists, when the agent last said anything, and when a request ' +
+        'last timed out — naming the verb. A timeout two minutes ago and one from last night ' +
+        'look identical on the status line and mean opposite things.'
+    },
+    {
+      label: '"Not measured" is not "OK"',
+      body:
+        'A check that could not run says so, and the overall verdict ranks it above passing. A ' +
+        'panel reporting "all clear" over something it never measured is worse than one that ' +
+        'admits the gap.'
+    },
+    {
+      label: 'It names the machine it measured',
+      body:
+        'On a Dockerized stack the backend measures the container — its clock, its filesystem — ' +
+        'not yours. That qualifies every line, so it is stated once at the top.'
+    },
+    {
+      label: 'Nothing here repairs anything',
+      body:
+        'Every check is a read. That is deliberate: past "the agent is down" alarms turned out ' +
+        'to be the status readout being wrong, and a repair button would have restarted a ' +
+        'healthy agent while looking like it worked.'
+    },
+    {
+      label: 'It cannot help if the backend is down',
+      body:
+        'These checks are served by the backend, so they say nothing about a backend, database ' +
+        'or Docker engine that is not running. That case is what the Cronsole-Stack startup ' +
+        'tasks are for — they run from Windows Task Scheduler, outside the stack.'
+    }
+  ],
+  doc: { label: 'UI User Guide › System diagnostics', url: uiGuide('system-diagnostics') },
+  more: [
+    { label: 'UI User Guide › The health strip', url: uiGuide('the-health-strip') },
+    { label: 'Troubleshooting', url: docLink('docs/troubleshooting/README.md') }
+  ]
+};
+
 /* ── The catalog ─────────────────────────────────────────────────────────── */
 
 const TOPIC_LIST: HelpTopic[] = [
@@ -909,6 +959,7 @@ const TOPIC_LIST: HelpTopic[] = [
   templates,
   platforms,
   massActions,
+  diagnostics,
   taskHealth
 ];
 

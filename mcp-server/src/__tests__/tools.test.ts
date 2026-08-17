@@ -134,6 +134,7 @@ describe('the tool surface', () => {
       'disconnect_claude_routine',
       'edit_claude_routine',
       'export_task',
+      'get_diagnostics',
       'get_task_health',
       'get_task_history',
       'list_claude_routines',
@@ -1746,6 +1747,7 @@ describe('error handling across the surface', () => {
       'DELETE /tools/platforms/claude/routines/x': boom,
       'PATCH /tools/platforms/claude/routines/x': boom,
       'POST /tasks/sync': boom,
+      'GET /tools/diagnostics': boom,
       'GET /tools/task-health': boom,
       'GET /tools/history': boom
     });
@@ -1776,6 +1778,7 @@ describe('error handling across the surface', () => {
       ['disconnect_claude_routine', { routineId: 'x' }],
       ['edit_claude_routine', { routineId: 'x', newId: 'trig_2' }],
       ['sync_tasks', {}],
+      ['get_diagnostics', {}],
       ['get_task_health', {}],
       ['list_run_history', {}],
       ['rename_task', { taskId: 'x', name: 'New name' }],
@@ -2043,6 +2046,112 @@ describe('sync_tasks', () => {
     const r = await call(mcp, 'sync_tasks', { categories: ['Claude'] });
     expect(calls[0].body).toEqual({ categories: ['Claude'] });
     expect(text(r)).toMatch(/Imported categories: Claude/);
+  });
+});
+
+describe('get_diagnostics', () => {
+  // The two states an agent must be able to tell apart, plus the one that is
+  // neither: a real failure, a check that could not be measured, and a pass.
+  const report = {
+    generatedAt: '2026-08-17T16:57:22Z',
+    measuredOn: {
+      kind: 'container',
+      hostname: 'box',
+      os: 'linux',
+      summary: 'Cronsole-native tasks run inside the backend container, not on your machine.'
+    },
+    counts: { pass: 1, warn: 0, fail: 1, unknown: 1 },
+    worst: 'fail',
+    checks: [
+      {
+        id: 'backend', title: 'Backend process', status: 'pass',
+        summary: 'Running and answering requests.',
+        facts: [{ label: 'Uptime', value: '9m' }]
+      },
+      {
+        id: 'windows-agent', title: 'Windows agent', status: 'fail',
+        summary: 'Agent not connected',
+        facts: [
+          { label: 'Socket', value: 'not connected' },
+          { label: 'Last request timeout', value: '2026-08-17T09:03:00Z (8h ago) — task:list' }
+        ],
+        remedy: 'Check that the agent is running on your machine.'
+      },
+      {
+        id: 'template-catalog', title: 'Template catalog', status: 'unknown',
+        summary: 'No catalog sync has completed since this backend started.',
+        facts: [{ label: 'Last sync attempt', value: 'none yet' }]
+      }
+    ]
+  };
+
+  it('prints the evidence for anything that is not passing', async () => {
+    // The whole reason the tool exists: "Windows offline" is a verdict, and the
+    // liveness facts under it are what separate "the agent never connected"
+    // from "one request timed out this morning". A wrapper that printed only
+    // summaries would be the status chip again, over stdio.
+    const { client } = stubClient({ 'GET /tools/diagnostics': report });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_diagnostics', {});
+
+    expect(text(r)).toMatch(/Socket: not connected/);
+    expect(text(r)).toMatch(/task:list/);
+    expect(text(r)).toMatch(/Check that the agent is running/);
+  });
+
+  it('omits the evidence for a passing check, so the failing rows are readable', async () => {
+    const { client } = stubClient({ 'GET /tools/diagnostics': report });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_diagnostics', {});
+
+    expect(text(r)).toMatch(/Backend process — pass/);
+    expect(text(r)).not.toMatch(/Uptime: 9m/);
+  });
+
+  it('never reports an unmeasured check as ok', async () => {
+    // `unknown` outranks `pass` for the reason troubleshooting #48 gives: an
+    // absence of evidence rendered as health tells the reader to stop looking.
+    const { client } = stubClient({ 'GET /tools/diagnostics': report });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_diagnostics', {});
+
+    expect(text(r)).toMatch(/Template catalog — unknown/);
+    expect(text(r)).toMatch(/1 not measured/);
+    expect(text(r)).not.toMatch(/Template catalog — pass/);
+  });
+
+  it('says when the facts describe a container rather than the user\'s machine', async () => {
+    // A disk or clock fact measured inside the container is about the container.
+    // An agent that missed this would tell the user to free space on the wrong
+    // filesystem — the `runtimeContext` trap, one layer out.
+    const { client } = stubClient({ 'GET /tools/diagnostics': report });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_diagnostics', {});
+
+    expect(text(r)).toMatch(/inside the backend container/);
+    expect(text(r)).toMatch(/NOT the user's machine/);
+  });
+
+  it('forwards the whole report as structured content', async () => {
+    // Verbatim, because the caller is usually working out what is wrong and a
+    // summarized copy drops exactly the per-check facts that decide the answer.
+    const { client } = stubClient({ 'GET /tools/diagnostics': report });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_diagnostics', {});
+
+    expect(r.structuredContent).toMatchObject({ worst: 'fail', counts: { fail: 1, unknown: 1 } });
+  });
+
+  it('takes no arguments, so `worst` always describes the whole system', async () => {
+    // A `checks` filter would let a caller narrow the report and then read
+    // `worst` as a verdict on everything — the mixed-population error of #49 in
+    // the one tool whose job is to be trusted about scope.
+    const { client } = stubClient({ 'GET /tools/diagnostics': report });
+    const mcp = await connect(client);
+    const tools = await mcp.listTools();
+    const schema = tools.tools.find(t => t.name === 'get_diagnostics')!.inputSchema;
+
+    expect(Object.keys(schema.properties ?? {})).toEqual([]);
   });
 });
 

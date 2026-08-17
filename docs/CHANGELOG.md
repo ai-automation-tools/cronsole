@@ -13,6 +13,22 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **System diagnostics — "why isn't this working?", answered with evidence** (2026-08-17). A new panel that checks **Cronsole itself**: the backend, the database, the Windows agent, task-list freshness, the Cronsole-native scheduler, the template catalog, API-token expiry and the allowed browser origins. Open it from **Diagnose** at the end of the Dashboard health strip, or **Run checks** on the Tools tab. Also available to AI tools as the `get_diagnostics` MCP tool.
+
+  **The gap it closes is that a status line throws its reasons away.** *"Windows offline — agent not connected"* is one sentence covering four different situations: a socket that never arrived, one that arrived and went, a request that timed out ninety seconds ago, and a request that timed out at 9pm yesterday and has been colouring the strip ever since. Those call for different actions, and Cronsole has had the facts to tell them apart all along — it just never showed them to anyone. Every check now renders the evidence behind its verdict, including the line that usually settles it: *when a request last timed out, and which one*.
+
+  **It is a different question from Task health**, and it has to be answered first. Task health asks *"which of my tasks are failing?"*; that is only meaningful once Cronsole can see them at all, because a wedged agent makes every Windows task look unhealthy and the fix is in none of those tasks.
+
+  **"Not measured" is not "OK".** A check that could not run says so, and the overall verdict ranks it *above* passing — a panel reporting "all clear" over something it never measured would be worse than one that admits the gap. A check with nothing to measure at all (no agent paired, no API tokens issued) is left out rather than shown as a pass.
+
+  **The panel names the machine it measured.** On a Dockerized stack the backend measures the *container's* clock and filesystem, not yours.
+
+  **Nothing here repairs anything, and that is a finding rather than caution.** Of the four agent-health problems in the troubleshooting log, three turned out to be the *readout* being wrong rather than the agent failing — one of them recorded a timeout fifteen seconds after every **successful** request. A "restart the agent" button shipped against any of those would have been restarting a perfectly healthy agent, on a schedule, forever, and looking like it worked. Diagnosis first.
+
+  **What it cannot do is stated in the panel**: these checks are served *by* the backend, so they say nothing about a backend, database or Docker engine that is not running — which is exactly the case someone will open it for. That case belongs to the `Cronsole-Stack` startup tasks, which run from Windows Task Scheduler, outside the stack.
+
+  Along the way, the backend now listens to the agent's `agent:hello` — which the agent has been sending since it was written, to nobody — so diagnostics can name the machine and OS your agent is running on. Its version string is deliberately **not** shown: the agent hardcodes `1.0.0`, so displaying it beside "Agent" would read as a freshness claim while carrying no information at all.
+
 - **Collections — name a set of tasks you picked by hand** (2026-08-16). Put two Claude routines and two Windows tasks in one place, call it whatever you want, and click it in the sidebar. A collection appears in the source rail above your platforms, with its own count.
 
   **This is not a saved filter, and that is the point.** A view stores *conditions* — active, failing, due today — so its contents are whatever matches when you look. A collection stores *the tasks*. That is the only way to group four things that have nothing in common except that you care about them together: different platforms, different schedules, one of them disabled. No filter can describe that set, because there is nothing to filter on.
@@ -40,7 +56,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
   Both files now allow 30 seconds, set once per file rather than per test: the flake had already moved between tests, so a constant each test must remember is one the next spawning test forgets. 30s still catches a genuine hang — it just stops reporting a busy runner as a defect. A suite that reddens at random teaches people to re-run instead of read, which costs far more than the seconds it gives back.
 
-- **Documentation links are checked by CI** (2026-08-17). `scripts/check-doc-links.mjs` resolves every relative markdown link in the repo — **1298 across 147 files** — to a real file and a real heading, and fails the `repo-hygiene` job on any that does not. It found three dead links on its first clean run, on top of the 13 fixed by hand the same day.
+- **Documentation links are checked by CI** (2026-08-17). `scripts/check-doc-links.mjs` resolves every relative markdown link in the repo — **1307 across 147 files** — to a real file and a real heading, and fails the `repo-hygiene` job on any that does not. It found three dead links on its first clean run, on top of the 13 fixed by hand the same day.
+
+  **Extended the same day to repo-doc paths written as string literals in source** — the set the diagnostics panel turns into "Read more" links. Those were checked by nothing: the app's own link test only sees `help.ts` and `onboarding.ts`, and a markdown sweep cannot see a `.ts` file. It is the worst place for a dead link, too — a panel someone opens *because something is broken*, offering a link that silently lands on a table of contents. (On its first run it duly reported the illustrative example inside its own doc comment, which is at least a working demonstration.)
 
   This exists because a broken doc link **does not 404**. GitHub serves the page scrolled to the top, so a renamed heading quietly starts delivering the table of contents instead of the section that was promised, and nothing anywhere goes red. The TaskHub → Cronsole rename renamed three troubleshooting headings on 2026-07-31 and left 13 links pointing at the old slugs; they survived every green CI run until 2026-08-17, because nothing checked links *between* docs. The app's own links have been checked since they existed (`docsLinks.test.ts`), which is precisely why the gap was easy to miss.
 

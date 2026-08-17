@@ -1,4 +1,6 @@
-import { AlertTriangle, CheckCircle2, RefreshCw, Terminal } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, CheckCircle2, RefreshCw, Stethoscope, Terminal } from 'lucide-react';
+import { DiagnosticsModal } from './DiagnosticsModal';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { usePlatformMatrix, newestOutcome } from '../hooks/usePlatformMatrix';
 import { platformLabel } from '../platform';
@@ -33,6 +35,7 @@ import { timeAgo } from '../utils/datetime';
 export const HealthStrip = () => {
   const { data: connections } = useConnections();
   const { data: matrix } = usePlatformMatrix();
+  const [diagnosing, setDiagnosing] = useState(false);
 
   const rows = matrix?.platforms ?? [];
   const outcome = newestOutcome(rows);
@@ -86,6 +89,7 @@ export const HealthStrip = () => {
   if (connected.length === 0 && !lastSync && !outcome) return null;
 
   return (
+    <>
     <div
       // Every value here is a relative time, so the visual-regression suite
       // masks the whole strip rather than chasing each one.
@@ -153,6 +157,32 @@ export const HealthStrip = () => {
           No commands run yet
         </span>
       )}
+
+      {/*
+        The way from a verdict to its reasons, put where the verdict is.
+
+        A diagnostics panel reachable only from the Tools tab is found by someone
+        who already knows to look for it; this line is where the reader is
+        standing when the question occurs to them. It is rendered **always**, not
+        only when something is ailing, because the strip's fixed geometry is
+        load-bearing — a control that appears on a bad poll would shift the
+        dashboard under the cursor, which is the layout shift this element was
+        rebuilt to stop.
+
+        `ml-auto` rather than a gap so it stays at the end of a strip that
+        scrolls rather than wraps.
+      */}
+      <button
+        onClick={() => setDiagnosing(true)}
+        className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border
+                   hover:bg-surface px-2 py-0.5 font-medium text-muted-foreground hover:text-foreground transition"
+      >
+        <Stethoscope size={11} />
+        Diagnose
+      </button>
     </div>
+
+    {diagnosing && <DiagnosticsModal onClose={() => setDiagnosing(false)} />}
+    </>
   );
 };

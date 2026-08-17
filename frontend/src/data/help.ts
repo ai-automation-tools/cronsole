@@ -701,6 +701,13 @@ const importSync: HelpTopic = {
     'not interchangeable, and mistaking one for the other is the most expensive confusion here.',
   points: [
     {
+      label: 'Import asks which kind you mean',
+      body:
+        'Two unrelated things share the word. Adopting tasks already on this machine creates ' +
+        'nothing — they exist and run either way. Importing a task file creates a task that did ' +
+        'not exist and starts it running.'
+    },
+    {
       label: 'Sync cannot discover anything',
       body:
         'It re-pulls status and schedules for folders you already track. A folder you have never ' +
@@ -725,7 +732,10 @@ const importSync: HelpTopic = {
         'why re-importing is how you undo a removal.'
     }
   ],
-  doc: { label: 'UI User Guide › System Status & Connections', url: uiGuide('7-system-status--connections') }
+  doc: { label: 'UI User Guide › System Status & Connections', url: uiGuide('7-system-status--connections') },
+  more: [
+    { label: 'UI User Guide › Import a task', url: uiGuide('import-a-task') }
+  ]
 };
 
 /* ── Tabs ────────────────────────────────────────────────────────────────── */

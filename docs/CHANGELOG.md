@@ -13,6 +13,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **The Dashboard's Import button now asks which kind of import you mean** (2026-08-17). It opens on two options — **Tasks already on this machine** and **A task file (.json)** — instead of going straight to folder discovery.
+
+  **They were never variants of one action.** Discovering *adopts* tasks that already exist: Cronsole creates nothing, and those tasks would run tomorrow whether or not you ever pressed the button. A task file *creates* a task that did not exist a moment ago and starts it running. So the chooser leads with that consequence rather than with the source — "nothing is created" against "this creates a task" is the part you can act on, and the file extension is the footnote.
+
+  It also names where the third format goes: a Windows task's `.xml` is Tools → Restore, said up front rather than discovered as a refusal after you pick the file.
+
+  **Discovery is not run until you choose it.** It is an agent round trip that can take its full timeout and fails outright when the agent is offline — so it is no longer spent while you are still reading two buttons, and someone importing a file never sees an agent error that has nothing to do with them. Either option can be backed out of without reopening the modal.
+
 - **Import a task from a file, and bring back one you deleted** (2026-08-17). Cronsole has offered **Export** on a Cronsole-native task since it shipped, and there was nowhere to put the file back. There is now: **Tools → Import a task**, and an *Import a .json file* link in the New Task modal for people who are already trying to create the thing the file describes.
 
   **The same card restores deleted tasks.** Cronsole archives a Cronsole-native task's definition — and its last 20 runs — *before* deleting it, and refuses the delete if that archive cannot be written. Until today nothing could read one back, so the guarantee on offer was "we kept a copy" with no way to use it. Deleted tasks now appear in the card with a **Restore** button.

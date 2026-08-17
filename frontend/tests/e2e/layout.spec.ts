@@ -455,15 +455,27 @@ test.describe('desktop layout — 1280px', () => {
    * how many the agent found — 706px in one run and 388px in the next, with the
    * list masked in both. Structure is what can be asserted here.
    */
-  test('import modal opens with its controls', async ({ page }) => {
+  test('import modal opens on the choice, then into discovery', async ({ page }) => {
     await page.goto('/');
     await dashboardReady(page);
     await page.getByRole('button', { name: 'Import tasks' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
+
+    // "Import" covers two unrelated actions, so the modal asks which before it
+    // does anything — including before it spends the agent round trip that
+    // discovery costs.
+    await expect(dialog.getByRole('button', { name: /Tasks already on this machine/ })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /A task file/ })).toBeVisible();
+
+    await dialog.getByRole('button', { name: /Tasks already on this machine/ }).click();
     await expect(page.getByRole('heading', { name: 'Import & Sync' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Close import' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Discard' })).toBeVisible();
+
+    // The choice is not a one-way door.
+    await dialog.getByRole('button', { name: 'Back to import options' }).click();
+    await expect(dialog.getByRole('button', { name: /A task file/ })).toBeVisible();
   });
 });
 

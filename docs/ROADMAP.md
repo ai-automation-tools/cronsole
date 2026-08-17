@@ -1228,6 +1228,13 @@ New correctness work lands here as it is found. Everything logged before 2026-08
       screen said so; and `createNativeTask` (`services/nativeTaskCreate.ts`) is now the one
       definition of writing a native row, shared by create, import and restore — the same argument
       that put `buildNativeJob` in one place, one layer out.
+      **The Dashboard's Import button became a chooser in the same pass.** "Import" covered two
+      unrelated actions — *adopting* tasks that already exist on the machine, and *creating* one
+      from a file — and nothing on the button said which. The chooser leads with that consequence
+      rather than with the source ("nothing is created" vs "this creates a task"), names where a
+      Windows `.xml` goes so it is not discovered as a refusal, and **gates the discovery query on
+      the choice**: it is an agent round trip that fails outright when the agent is offline, and
+      spending it while someone reads two buttons puts an irrelevant error over the file path.
 
 - [x] **Doc sweep behind the diagnostics ship — four false claims on the README** *(2026-08-17)*.
       The public front page still described Cronsole-native as *"HTTP jobs"* (four job types since

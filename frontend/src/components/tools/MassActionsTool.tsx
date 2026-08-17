@@ -636,8 +636,8 @@ export const MassActionsTool = () => {
         count. Enable and disable can be undone; removing from Cronsole is undone by re-importing,
         and recategorizing is not undoable — so those say so rather than offering a button that
         would not work. <strong>Exporting</strong> in bulk is the Bulk export card below, which
-        already takes all / folder / selection; <strong>importing</strong> is on the Dashboard,
-        where discovery lives.
+        already takes all / folder / selection; <strong>importing</strong> is the Dashboard's Import
+        button, which asks whether you mean the tasks already on this machine or a task file.
       </p>
     </ToolCard>
   );

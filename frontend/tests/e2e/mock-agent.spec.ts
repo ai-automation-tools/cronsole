@@ -34,6 +34,9 @@ test.describe.serial('mock Windows agent flows', () => {
     await expect(rail.getByTitle('Windows Task Scheduler — Online')).toBeVisible();
 
     await page.getByRole('button', { name: 'Import tasks' }).click();
+    // The modal opens on a choice — adopting the machine's tasks, or creating
+    // one from a file. Discovery is the first.
+    await page.getByRole('button', { name: /Tasks already on this machine/ }).click();
     await expect(page.getByRole('heading', { name: 'Import & Sync' })).toBeVisible();
     const importModal = page.locator('.fixed.inset-0').filter({ hasText: 'Import & Sync' });
     await expect(importModal.getByText('E2E', { exact: true })).toBeVisible();

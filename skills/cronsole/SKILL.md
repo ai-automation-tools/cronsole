@@ -259,7 +259,8 @@ Canonical, with full symptom/cause/fix: [`docs/troubleshooting/README.md`](../..
 | Question | Canonical source |
 |:---|:---|
 | What's shipped / what's next / open decisions | [`docs/ROADMAP.md`](../../docs/ROADMAP.md) — **the spec of record** |
-| Project conventions, domain rules | [`CLAUDE.md`](../../CLAUDE.md) |
+| Project conventions, domain rules | [`CLAUDE.md`](../../CLAUDE.md) — §9 is the invariant list |
+| **Why** an invariant exists — the argument, the failure that produced it | [`docs/DESIGN_NOTES.md`](../../docs/DESIGN_NOTES.md) — read before arguing with a rule or removing one |
 | Something's broken at setup/runtime | [`docs/troubleshooting/README.md`](../../docs/troubleshooting/README.md) — **check first** |
 | What to test, what covers it today | [`docs/testing/`](../../docs/testing/README.md) |
 | How to hand-verify real Windows/agent/security | [`docs/testing/manual-testing/`](../../docs/testing/manual-testing/README.md) |

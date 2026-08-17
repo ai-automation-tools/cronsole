@@ -100,10 +100,27 @@ task is left untouched. A backup that quietly no-ops is worse than none, because
 believing the task was recoverable.
 
 ```text
-Using the Cronsole REST API, list my deleted-task archives
-(GET /api/tools/task-archives) and show me the full definition of the one I
-removed this morning.
+Using Cronsole, list my deleted-task archives and show me the full definition of
+the one I removed this morning.
 ```
+
+**And the archive can now be spent.** Until 2026-08-17 the archive was write-only — the guarantee
+on offer was "we kept a copy", with no verb that turned one back into a task. `restore_task_archive`
+is that verb.
+
+```text
+Using Cronsole, I deleted a task called "Nightly digest" by mistake. Find it in
+my deleted-task archives and bring it back.
+```
+
+What comes back is a **new** task: new id, the schedule it had, running. The archived run history
+is *not* reattached — those runs belong to a task that no longer exists — and the archive itself is
+kept, so asking twice would give you two tasks. Ask the assistant to say the new id back to you.
+
+Only Cronsole-native archives can be restored. A Windows archive records the task's identity but
+never held its definition (that lives on the machine as Task Scheduler XML, and reaching it needs
+the agent online, which can't be a precondition of a delete), so each row says whether it is
+restorable **and why not** when it isn't.
 
 > [!NOTE]
 > If `delete_task` isn't enabled, the assistant won't see the tool at all — it's absent from the

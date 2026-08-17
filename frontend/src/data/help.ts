@@ -936,6 +936,54 @@ const diagnostics: HelpTopic = {
   ]
 };
 
+const taskImport: HelpTopic = {
+  id: 'task-import',
+  title: 'Import a task',
+  summary:
+    'Turn a saved definition back into a running task — a .json file you exported, or one of the ' +
+    'tasks Cronsole archived when you deleted it.',
+  points: [
+    {
+      label: 'It always creates a NEW task',
+      body:
+        'Nothing is matched up or overwritten, so importing the same file twice leaves you with ' +
+        'two tasks. Matching on name would silently replace one you had edited since.'
+    },
+    {
+      label: 'A restored task does not bring its history',
+      body:
+        'It runs the same job on the same schedule, with a new id — but the old run records stay ' +
+        'in the archive. They happened to a task that no longer exists, so attaching them would ' +
+        'make the history claim a continuity Cronsole cannot vouch for.'
+    },
+    {
+      label: 'The archive survives the restore',
+      body:
+        'It is the record that the deletion happened, so restoring does not clear it. Clicking ' +
+        'Restore twice therefore gives you two tasks.'
+    },
+    {
+      label: 'Cronsole-native only, and that is about where a definition lives',
+      body:
+        'A native task exists entirely inside Cronsole, so its file holds everything needed to ' +
+        'rebuild it. A Windows task\'s real definition is in Task Scheduler on your machine and ' +
+        'comes back as .xml through Restore. Files from other platforms are refused by name.'
+    },
+    {
+      label: 'A deleted Windows task is not here',
+      body:
+        'Cronsole cannot archive one: its definition lives on the machine, and reading it needs ' +
+        'the agent online — which cannot be a condition of deleting. Back those up ahead of time ' +
+        'with Back up scheduled tasks.'
+    }
+  ],
+  doc: { label: 'UI User Guide › Import a task', url: uiGuide('import-a-task') },
+  more: [
+    { label: 'UI User Guide › Restore tasks from a backup', url: uiGuide('restore-tasks-from-a-backup') },
+    { label: 'UI User Guide › Removing a task', url: uiGuide('removing-a-task--two-very-different-buttons') }
+  ]
+};
+
 /* ── The catalog ─────────────────────────────────────────────────────────── */
 
 const TOPIC_LIST: HelpTopic[] = [
@@ -959,6 +1007,7 @@ const TOPIC_LIST: HelpTopic[] = [
   templates,
   platforms,
   massActions,
+  taskImport,
   diagnostics,
   taskHealth
 ];

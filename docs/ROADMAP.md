@@ -1211,6 +1211,24 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 ### Completed
 
+- [x] **Task import & deleted-task restore — the export format finally has a reader** *(2026-08-17)*.
+      `POST /api/tasks/import` (a `cronsoleTaskVersion` bundle → a real task) and
+      `POST /api/tools/task-archives/:id/restore`, behind one **Import a task** card on the Tools tab
+      and an *Import a .json file* link in the New Task modal. Three MCP tools with them —
+      `import_task`, `list_task_archives`, `restore_task_archive` — none gated, since undoing a
+      delete is a create.
+      **The gap it closes was structural, not cosmetic:** `cronsoleTaskVersion` had exactly three
+      mentions repo-wide — the bundle builder, the archive writer, and a test fixture — every one a
+      *writer*. So Export produced a file shaped like a backup that nothing could restore, and the
+      pre-delete archive (a precondition strong enough to abort a delete) was a promise with no way
+      to collect. **Grep your own format constant; if every hit writes it, the feature is half-built
+      however green the suite is.** Logged as [troubleshooting #65](troubleshooting/README.md#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it).
+      Two consequences worth keeping: **the UI's `DELETE /api/tasks/:id` now archives native tasks
+      too**, because recoverability had been a property of which door you deleted through and no
+      screen said so; and `createNativeTask` (`services/nativeTaskCreate.ts`) is now the one
+      definition of writing a native row, shared by create, import and restore — the same argument
+      that put `buildNativeJob` in one place, one layer out.
+
 - [x] **Doc sweep behind the diagnostics ship — four false claims on the README** *(2026-08-17)*.
       The public front page still described Cronsole-native as *"HTTP jobs"* (four job types since
       2026-08-15), counted *"55 templates in 6 packs"* (**72 in 8**, verified against

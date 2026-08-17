@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 65 | You export a task and there is nowhere to import it back. Tools → **Restore** offers `.json` in its file picker and then answers *"No task XML files found"*. Same dead end after a delete: the API returns `archived: true` with an `archiveId` and no verb turns it back into a task | **The export format had no reader.** `cronsoleTaskVersion` appeared in three places repo-wide — the bundle builder, the archive writer, and a test fixture — all writers. So Export produced something shaped like a backup that nothing could restore, and the pre-delete archive was a promise with no way to collect. Restore's `.json` is for the export *manifest*, not a task definition. **Fixed 2026-08-17**: Tools → **Import a task** (native `.json` + deleted-task restore), Restore keeps `.xml`/`.zip` (Windows), and `import_task` / `list_task_archives` / `restore_task_archive` over MCP. **The tell: grep your format constant — if every hit is a writer, the feature is half-built** | [→](#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it) |
 | 64 | You edit `registry-site/index.html`, reload the local preview, and the change **is not there** — a new CSS rule reads back as `none`, or new JS behaves like the old code. Nothing errors | **Two independent staleness traps, and they stack.** (1) The preview serves a *copy*: the documented recipe copies `index.html` into a scratch dir, so editing the repo file changes nothing until you re-copy. (2) The gallery is a **hash-router SPA** — navigating to the same `#/...` URL is a hash change, not a load, so neither the CSS nor the JS is re-fetched, and any earlier inline style you injected survives. Fix: re-copy, then **`location.reload(true)`** — not a `navigate` to the same route. Verify the rule is really present (`[...document.styleSheets[0].cssRules].some(r => r.selectorText === '…')`) before concluding a fix failed | [→](#64-a-gallery-change-doesnt-show-up-in-the-local-preview) |
 | 63 | Through the tunnel the phone shows the dashboard **fully up to date** and then fails every request with *cannot reach backend*. Same URL works on the machine running the stack; proxy up, tunnel fine, origin allowed | `frontend/dist` was built with **`npm run build`** instead of **`npm run build:remote`**, so Vite inlined the `http://localhost:3000` fallback instead of `same-origin` — on the phone that address is the phone. **The tell is that it is the exact inverse of [#53](#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current): the proxied page is *current* and the requests fail.** Read the bundle, not the source — both literals appear in every build, so check the call `Ll=Rl(…)`. Fix: `cd frontend && npm run build:remote` | [→](#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
 | 62 | Windows reads **DEGRADED — "Agent connected but not responding (task:list timed out)"** almost permanently, and the health strip names a failed verb, over an agent that answers everything instantly. Sync works, folders list, tasks run | **Every verb scheduled a 15-second timeout and never cancelled it**, so a request answered in 200ms still ran `markUnresponsive` fifteen seconds later. The stale `resolve`/`reject` was a harmless no-op — the promise had settled — so the *only* surviving effect was a stamp on the health record, which is why it was invisible for so long. Windows could not stay HEALTHY longer than 15s after its last request. **Fixed 2026-08-16**: one `agentRequest` helper owns the deadline and clears it when the request settles. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) with the sign flipped — a status field reporting a failure that never happened**, and the more expensive direction, because it teaches the reader to ignore the one line meant to mean something is wrong | [→](#62-windows-reports-not-responding-15-seconds-after-every-successful-request) |
@@ -4213,6 +4214,67 @@ one you edited before concluding anything about the edit.* This is the same shap
 one **you** made, minutes ago, which is exactly why it is not the first thing you suspect.
 
 *First hit: 2026-08-17, verifying the script/check rendering added to the gallery the same day.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 65. An exported task file has nowhere to go — and Restore refuses it
+
+**Symptom.** You export a task (task modal → **Export**), get a `.json` file, and then cannot find
+anywhere to put it back. Tools → **Restore** looks right — its file picker even offers `.json` — but
+it answers:
+
+```
+No task XML files found. Pick the folder or .zip an export produced —
+restore reads .xml task definitions.
+```
+
+The same dead end appears from the other direction: you delete a Cronsole-native task, the API
+cheerfully reports `archived: true` with an `archiveId`, and there is no verb anywhere that turns
+that archive back into a task.
+
+**Cause — the export format had no reader.** `GET /api/tasks/:id/export` produced a
+`cronsoleTaskVersion` bundle for native tasks, and `archiveTaskBeforeDelete` wrote the *same* shape
+into `DeletedTaskArchive` before every MCP delete. Grepping the repo, `cronsoleTaskVersion` appeared
+in three places: the builder, the archive writer, and a test fixture. **Nothing read it.** So the
+Export button produced something that looked like a backup and was not one, and the pre-delete
+archive was a promise of recoverability with no way to collect.
+
+Restore's `.json` in its `accept` list was a second, smaller trap: it is there for the export
+*manifest*, not for a task definition, so the picker accepted exactly the file the route then
+refused.
+
+**Fix — shipped 2026-08-17.** There are now two readers, and which one you want is decided by the
+platform, not by preference:
+
+| The file you have | Where it goes |
+|:---|:---|
+| `*.json` from a **Cronsole-native** task's Export | Tools → **Import a task**, or the *Import a .json file* link in the New Task modal |
+| `*.xml` / `*.zip` from a **Windows** task's Export | Tools → **Restore tasks from a backup** |
+| A task you **deleted** (native only) | Tools → **Import a task** → *Deleted tasks* → Restore |
+
+Over MCP: `import_task`, `list_task_archives`, `restore_task_archive`.
+
+**Why the split is real and not an oversight.** A Cronsole-native task's database row *is* the task,
+so it round-trips through JSON. A Windows task's definition lives on the machine as Task Scheduler
+XML, and reaching it needs an online, elevated agent — which is why the archive cannot capture it
+(an archive write is a *precondition* of a delete, and a precondition that needs the agent would
+make deleting impossible while it is offline). So a Windows archive records the task's identity and
+`job: null`, and the restore route refuses it **by name**, pointing at the XML path.
+
+**The tell that this class of bug is present:** an output format whose only mentions in the codebase
+are the code that *writes* it. That is the same shape as a status field only a mistake can fill
+([#42](#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)) — the artifact exists,
+looks correct, and is never read, so nothing can ever contradict it. Grep for your own format
+constant; if every hit is a writer, the feature is half-built no matter how green the suite is.
+
+**One asymmetry fixed at the same time.** `DELETE /api/tasks/:id` — the button in the UI — did
+**not** archive, while `DELETE /api/tasks/:id/native` (the MCP path) always did. Recoverability was
+therefore a property of *which door you deleted through*, which is not something either screen said
+or a user could guess. Both archive now.
+
+*First hit: 2026-08-17, noticed while looking for the import path a user expected to exist.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -28,6 +28,8 @@ import {
   routineEditSchema
 } from '../services/claudeRoutines.js';
 import { getClaudeCredential } from '../services/claudeOAuth.js';
+import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
+import { createNativeTask, NativeTaskCreateError } from '../services/nativeTaskCreate.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
@@ -1081,7 +1083,11 @@ router.get('/task-archives', async (req: Request, res: Response) => {
       deletedVia: a.deletedVia,
       deletedAt: a.createdAt,
       // The count, not the rows — the full run history is on the detail route.
-      executionsArchived: Array.isArray(a.executions) ? a.executions.length : 0
+      executionsArchived: Array.isArray(a.executions) ? a.executions.length : 0,
+      // Carried on the list, not just the detail, so a list of deletions can show
+      // which ones are actually recoverable without a request per row — and so a
+      // Restore button never appears on an archive the route would refuse.
+      restorable: archiveRestorability(a.bundle)
     }))
   });
 });
@@ -1107,7 +1113,87 @@ router.get('/task-archives/:id', async (req: Request, res: Response) => {
     deletedVia: archive.deletedVia,
     deletedAt: archive.createdAt,
     bundle: archive.bundle,
-    executions: archive.executions
+    executions: archive.executions,
+    // Whether the definition is actually complete enough to rebuild, decided by
+    // the same parser the restore route uses — so a Restore button is never
+    // offered on an archive that would refuse it.
+    restorable: archiveRestorability(archive.bundle)
+  });
+});
+
+/**
+ * Can this archive be turned back into a task, and if not, why not.
+ *
+ * Derived from `parseTaskBundle` rather than from `platform === TASKHUB_NATIVE`,
+ * so the list, the button and the route cannot disagree — a second rule here
+ * would be a client-side judgement the restore route still ignores, which is the
+ * shape that put a browser-side copy of `isSystem` into the dashboard.
+ */
+function archiveRestorability(bundle: unknown): { ok: boolean; reason?: string } {
+  try {
+    parseTaskBundle(bundle);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof TaskImportError) return { ok: false, reason: err.message };
+    throw err;
+  }
+}
+
+/**
+ * Rebuild a deleted task from its archive.
+ *
+ * The archive has been written before every native delete since it shipped, and
+ * until now nothing could read one back — so the guarantee on offer was "we kept
+ * a copy", with no way to use it. This is the verb that makes the precondition
+ * worth having.
+ *
+ * **The restored task is a new task, and the response says so.** It gets a new
+ * id and a fresh `externalId`; nothing reattaches the archived run history,
+ * because those runs happened to a task that no longer exists and stapling them
+ * to a new row would make the history claim continuity Cronsole cannot vouch for.
+ *
+ * **The archive is not consumed.** It is the record that the deletion happened,
+ * so restoring from it must not erase it — and restoring twice is therefore
+ * possible, which is honest: it produces two tasks and the response names the
+ * one it just made.
+ *
+ * Cronsole-native only, refused by `parseTaskBundle` for everything else. That
+ * is the format's boundary (a Windows definition is XML on the machine), not a
+ * policy — which is why the refusal names the route that *can* do it.
+ */
+router.post('/task-archives/:id/restore', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const id = req.params.id as string;
+
+  const archive = await prisma.deletedTaskArchive.findFirst({ where: { id, userId } });
+  if (!archive) {
+    throw new HttpError(404, 'Archive not found');
+  }
+
+  let parsed;
+  try {
+    parsed = parseTaskBundle(archive.bundle);
+  } catch (err) {
+    if (err instanceof TaskImportError) throw new HttpError(400, err.message);
+    throw err;
+  }
+
+  let task;
+  try {
+    task = await createNativeTask(userId, parsed);
+  } catch (err) {
+    if (err instanceof NativeTaskCreateError) throw new HttpError(400, err.message);
+    throw err;
+  }
+
+  res.status(201).json({
+    message: 'Task restored',
+    task,
+    nextRunTime: task.nextRunTime,
+    archiveId: archive.id,
+    // Stated rather than implied: the caller is looking at a list of deletions
+    // and needs to know this one is still in it.
+    archiveKept: true
   });
 });
 

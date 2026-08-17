@@ -137,13 +137,16 @@ describe('the tool surface', () => {
       'get_diagnostics',
       'get_task_health',
       'get_task_history',
+      'import_task',
       'list_claude_routines',
       'list_folders',
       'list_platforms',
       'list_run_history',
+      'list_task_archives',
       'list_tasks',
       'list_templates',
       'rename_task',
+      'restore_task_archive',
       'run_task',
       'set_task_status',
       'sync_tasks',
@@ -1665,7 +1668,8 @@ describe('delete_task', () => {
     const t = text(await call(mcp, 'delete_task', { taskId: 'id1' }));
     expect(t).toMatch(/arc_42/);
     expect(t).toMatch(/7 run record/);
-    expect(t).toMatch(/task-archives/);
+    // Names the verb that undoes it, not a REST path the model cannot call.
+    expect(t).toMatch(/restore_task_archive/);
   });
 
   it('states the native-only boundary as a boundary, not a missing feature', async () => {
@@ -1749,7 +1753,10 @@ describe('error handling across the surface', () => {
       'POST /tasks/sync': boom,
       'GET /tools/diagnostics': boom,
       'GET /tools/task-health': boom,
-      'GET /tools/history': boom
+      'GET /tools/history': boom,
+      'POST /tasks/import': boom,
+      'GET /tools/task-archives': boom,
+      'POST /tools/task-archives/arc_1/restore': boom
     });
     const mcp = await connect(client, true);
     const cases: [string, Record<string, unknown>][] = [
@@ -1782,7 +1789,10 @@ describe('error handling across the surface', () => {
       ['get_task_health', {}],
       ['list_run_history', {}],
       ['rename_task', { taskId: 'x', name: 'New name' }],
-      ['update_native_job', { taskId: 'x', jobType: 'HTTP', url: 'https://e.com' }]
+      ['update_native_job', { taskId: 'x', jobType: 'HTTP', url: 'https://e.com' }],
+      ['import_task', { bundle: { cronsoleTaskVersion: '1.0' } }],
+      ['list_task_archives', {}],
+      ['restore_task_archive', { archiveId: 'arc_1' }]
     ];
     // Every registered tool must appear above — a new tool that skips this guard
     // would be free to throw a stack trace at the model.
@@ -2277,5 +2287,169 @@ describe('list_run_history', () => {
     const mcp = await connect(client);
     const r = await call(mcp, 'list_run_history', {});
     expect(text(r)).toMatch(/Windows task running on schedule records nothing here/);
+  });
+});
+
+/**
+ * import_task / list_task_archives / restore_task_archive — the read half of
+ * export_task, and the verb that makes the pre-delete archive worth having.
+ *
+ * All three are thin: every decision about whether a file may become a task
+ * lives in the backend (`services/taskImport.ts`), and these tests deliberately
+ * assert the wrapper does not add one — a client-side check here would be a
+ * check the REST API still ignores.
+ */
+const IMPORTED = {
+  id: 'new1',
+  name: 'Nightly digest',
+  platform: 'TASKHUB_NATIVE',
+  category: 'Reports',
+  schedule: '0 4 * * *',
+  status: 'ACTIVE',
+  externalId: 'native_zz',
+  nextRunTime: '2026-08-18T04:00:00.000Z',
+  lastRunStatus: null,
+  lastRunAt: null,
+  lastRunDurationMs: null
+};
+
+const BUNDLE = {
+  cronsoleTaskVersion: '1.0',
+  exportedAt: '2026-08-17T00:00:00.000Z',
+  task: {
+    name: 'Nightly digest',
+    platform: 'TASKHUB_NATIVE',
+    category: 'Reports',
+    schedule: '0 4 * * *',
+    job: { jobType: 'HTTP', url: 'https://example.com/hook', method: 'POST' }
+  }
+};
+
+describe('import_task', () => {
+  it('posts the file verbatim, adding nothing', async () => {
+    // The body IS the file. Reshaping it here — unwrapping `task`, defaulting a
+    // category — would mean an import through MCP and an import through the UI
+    // accept different files.
+    const { client, calls } = stubClient({
+      'POST /tasks/import': { message: 'Task imported', task: IMPORTED }
+    });
+    const mcp = await connect(client);
+    await call(mcp, 'import_task', { bundle: BUNDLE });
+    expect(calls[0].body).toEqual(BUNDLE);
+  });
+
+  it('reports when the imported task will first run', async () => {
+    // It is created ACTIVE, so "imported" without a time leaves the caller
+    // unable to tell the user what they just scheduled.
+    const { client } = stubClient({
+      'POST /tasks/import': { message: 'Task imported', task: IMPORTED }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'import_task', { bundle: BUNDLE });
+    expect(text(r)).toMatch(/Next run: 2026-08-18T04:00:00/);
+    expect(r.structuredContent?.task).toMatchObject({ id: 'new1' });
+  });
+
+  it('passes the backend refusal through in the backend words', async () => {
+    // A Windows bundle is refused by `parseTaskBundle`, which names the route
+    // that CAN restore it. Softening that here would lose the only actionable
+    // half of the message.
+    const { client } = stubClient({
+      'POST /tasks/import': () =>
+        new CronsoleApiError(
+          'That bundle is from a Windows Task Scheduler task... restore it with Tools → Restore',
+          400
+        )
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'import_task', { bundle: BUNDLE });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/Tools → Restore/);
+  });
+
+  it('says the file must be passed whole, and that a second import is a second task', async () => {
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'import_task');
+    expect(tool!.description).toMatch(/cronsoleTaskVersion/);
+    expect(tool!.description).toMatch(/two tasks/);
+    expect(tool!.description).toMatch(/UTC/);
+  });
+});
+
+describe('list_task_archives', () => {
+  const archives = {
+    total: 2,
+    archives: [
+      {
+        id: 'arc_1',
+        name: 'Nightly digest',
+        platform: 'TASKHUB_NATIVE',
+        deletedVia: 'ui',
+        deletedAt: '2026-08-16T10:00:00Z',
+        executionsArchived: 12,
+        restorable: { ok: true }
+      },
+      {
+        id: 'arc_2',
+        name: 'Backup drive',
+        platform: 'WINDOWS_TASK_SCHEDULER',
+        deletedVia: 'ui',
+        deletedAt: '2026-08-15T10:00:00Z',
+        executionsArchived: 0,
+        restorable: { ok: false, reason: 'That bundle is from a Windows Task Scheduler task' }
+      }
+    ]
+  };
+
+  it('carries the reason an archive cannot be restored, not just the verdict', async () => {
+    // A bare "NOT restorable" is the bare-verdict failure: one line covering
+    // several situations, none of which it lets the reader act on.
+    const { client } = stubClient({ 'GET /tools/task-archives': archives });
+    const mcp = await connect(client);
+    const t = text(await call(mcp, 'list_task_archives', {}));
+    expect(t).toMatch(/Nightly digest.*restorable/);
+    expect(t).toMatch(/NOT restorable — That bundle is from a Windows Task Scheduler task/);
+    expect(t).toMatch(/arc_1/);
+  });
+
+  it('says why an empty list is empty, rather than implying nothing was deleted', async () => {
+    const { client } = stubClient({ 'GET /tools/task-archives': { total: 0, archives: [] } });
+    const mcp = await connect(client);
+    expect(text(await call(mcp, 'list_task_archives', {}))).toMatch(
+      /deletions on other platforms are not recoverable/
+    );
+  });
+});
+
+describe('restore_task_archive', () => {
+  it('states that the result is a new task and the archive is kept', async () => {
+    // Both are things a caller will otherwise assume wrongly: that the old id
+    // came back, and that restoring consumed the archive.
+    const { client } = stubClient({
+      'POST /tools/task-archives/arc_1/restore': { message: 'Task restored', task: IMPORTED }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'restore_task_archive', { archiveId: 'arc_1' });
+    expect(text(r)).toMatch(/new task/);
+    expect(text(r)).toMatch(/arc_1.*is kept/);
+    expect(r.structuredContent?.task).toMatchObject({ id: 'new1' });
+  });
+
+  it('warns that the archived run history does not come back', async () => {
+    const { client } = stubClient({});
+    const mcp = await connect(client);
+    const tool = (await mcp.listTools()).tools.find(t => t.name === 'restore_task_archive');
+    expect(tool!.description).toMatch(/RUN HISTORY is not reattached/);
+    expect(tool!.description).toMatch(/list_task_archives/);
+  });
+
+  it('is available without the destructive gate — undoing a delete is a create', async () => {
+    // The asymmetry is the point: delete_task is gated, this is not.
+    const { client } = stubClient({});
+    const mcp = await connect(client, false);
+    const names = (await mcp.listTools()).tools.map(t => t.name);
+    expect(names).toContain('restore_task_archive');
+    expect(names).not.toContain('delete_task');
   });
 });

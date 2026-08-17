@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Bot } from 'lucide-react';
+import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Bot, Upload } from 'lucide-react';
+import { importTaskFile, TaskFileImportError } from '../utils/importTaskFile';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useScheduleZone } from '../hooks/useScheduleZone';
@@ -76,6 +77,36 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   // Cronsole cannot send anywhere.
   const [routineId, setRoutineId] = useState('');
   const [routineToken, setRoutineToken] = useState('');
+
+  // Importing an exported task file — the same POST the Tools card makes.
+  const importInput = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const onImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const task = await importTaskFile(file);
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast(
+        task.nextRunTime
+          ? `Imported "${task.name}" — first run ${new Date(task.nextRunTime).toLocaleString()}.`
+          : `Imported "${task.name}".`,
+        'success'
+      );
+      // The modal's job is done: the task exists. Leaving it open would sit a
+      // half-filled create form over a task that has already been created.
+      onClose();
+    } catch (err) {
+      // Shown in the form rather than only toasted — a refusal here is a
+      // sentence naming another screen, which is too long-lived for a toast.
+      setImportError(err instanceof TaskFileImportError ? err.message : String(err));
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const isClaude = platform === 'CLAUDE_CODE';
@@ -279,6 +310,51 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               {platformButton('CLAUDE_CODE', 'Claude', Bot, 'bg-claude/10 border-claude/40 text-claude-text')}
             </div>
           </div>
+
+          {/*
+            The file path to the same outcome, offered where someone is already
+            trying to reach it. It shows only for Cronsole-native because that is
+            the only platform whose definition round-trips through a file — a
+            Windows task's is Task Scheduler XML and restores through Tools, and
+            offering the button under a Windows selection would promise an import
+            that every such file is refused by.
+
+            The gesture itself lives in `utils/importTaskFile.ts`, shared with the
+            Tools card, so the two entry points cannot start reporting a bad file
+            differently.
+          */}
+          {isNative && (
+            <div className="flex items-center gap-2 text-[11px] text-subtle-foreground">
+              <input
+                ref={importInput}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                aria-hidden="true"
+                tabIndex={-1}
+                onChange={e => {
+                  void onImportFile(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
+              <span>Already have an exported task?</span>
+              <button
+                type="button"
+                onClick={() => importInput.current?.click()}
+                disabled={importing}
+                className="inline-flex items-center gap-1.5 font-bold text-native-text hover:underline disabled:opacity-50"
+              >
+                {importing ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
+                Import a .json file
+              </button>
+            </div>
+          )}
+
+          {importError && (
+            <p className="text-[11px] text-danger-text bg-danger/10 border border-danger/30 rounded-xl px-3 py-2 leading-relaxed">
+              {importError}
+            </p>
+          )}
 
           {isClaude && (
             <div className="space-y-4">

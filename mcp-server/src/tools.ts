@@ -2394,6 +2394,157 @@ Next run: ${task.nextRunTime}` : '')
   );
 
   // -------------------------------------------------------------------------
+  // import_task
+  //
+  // The read half of export_task. Ungated: it creates a task, which every other
+  // create tool here does ungated, and it can destroy nothing.
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'import_task',
+    {
+      title: 'Create a task from an exported Cronsole task file',
+      description:
+        'Recreate a Cronsole-native task from the JSON that export_task (or the Export button) produced. Use ' +
+        'this to move a task between installs, or to rebuild one from a file the user has. Pass the file\'s ' +
+        'contents verbatim — the whole {"cronsoleTaskVersion": ..., "task": {...}} object, not just its "task" ' +
+        'field. ' +
+        'CRONSOLE-NATIVE ONLY, and that is a property of the format: a native task\'s database row IS the ' +
+        'task, so it round-trips, while a Windows task\'s definition lives on the machine as Task Scheduler ' +
+        'XML and is restored through the Cronsole UI (Tools → Restore) instead. A bundle from any other ' +
+        'platform is refused by name. ' +
+        'The result is a NEW task with a new id — this does not overwrite or reattach anything, so importing ' +
+        'the same file twice gives you two tasks. It is created ACTIVE and will run on the schedule in the ' +
+        'file, which is in UTC; tell the user when that first fire is (it comes back as nextRunTime).',
+      inputSchema: {
+        bundle: z
+          .record(z.string(), z.unknown())
+          .describe(
+            'The parsed contents of the exported .json file. Passing the object export_task returned under ' +
+            '"definition" works, as does an archive record from list_task_archives.'
+          )
+      }
+    },
+    async ({ bundle }) => {
+      try {
+        // The body IS the file — no wrapper. Every check (version, platform,
+        // job spec) is the backend's, so an import through this tool and an
+        // import through the UI cannot accept different files.
+        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/import', bundle);
+        const task = result.task;
+        const created = task
+          ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
+            (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
+          : '';
+        const msg = typeof result.message === 'string' ? result.message : 'Task imported';
+        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // list_task_archives
+  //
+  // Ships with restore_task_archive rather than after it: a restore verb keyed
+  // on an id the caller has no way to look up is a verb only usable in the same
+  // session as the delete that produced it.
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'list_task_archives',
+    {
+      title: 'List deleted tasks that were archived',
+      description:
+        'List the tasks Cronsole archived before deleting them, newest first — what was deleted, when, and ' +
+        'through which door. Each row says whether it is actually restorable and, when it is not, why: a ' +
+        'Windows task\'s archive records its identity but not its definition, so only Cronsole-native ' +
+        'archives can be rebuilt. Use this to find the archiveId for restore_task_archive.',
+      inputSchema: {
+        limit: z.number().int().positive().optional().describe('How many to return. Defaults to 50, max 200.')
+      }
+    },
+    async ({ limit }) => {
+      try {
+        const result = await client.get<{
+          total: number;
+          archives: Array<{
+            id: string;
+            name: string;
+            platform: string;
+            deletedVia: string;
+            deletedAt: string;
+            executionsArchived: number;
+            restorable?: { ok: boolean; reason?: string };
+          }>;
+        }>('/tools/task-archives', limit ? { limit } : undefined);
+
+        const lines = result.archives.map(a => {
+          // The reason travels with the verdict — a bare "not restorable" is the
+          // bare-verdict failure the diagnostics panel exists to avoid.
+          const state = a.restorable?.ok === false
+            ? `NOT restorable — ${a.restorable.reason ?? 'no reason given'}`
+            : 'restorable';
+          return `${a.name} [${a.platform}] — deleted ${a.deletedAt} via ${a.deletedVia} — ` +
+            `${a.executionsArchived} run record(s) — ${state} (archiveId: ${a.id})`;
+        });
+
+        return ok(
+          result.total === 0
+            ? 'No archived deletions. Cronsole archives a Cronsole-native task before deleting it; ' +
+              'deletions on other platforms are not recoverable from here.'
+            : `${result.total} archived deletion(s):\n${lines.join('\n')}`,
+          { total: result.total, archives: result.archives }
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // restore_task_archive
+  //
+  // Ungated for the same reason every create tool is: it makes a task. The
+  // asymmetry is deliberate — deleting is gated, undoing a delete is not.
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    'restore_task_archive',
+    {
+      title: 'Rebuild a deleted task from its archive',
+      description:
+        'Recreate a Cronsole-native task that was deleted, from the definition Cronsole archived before ' +
+        'deleting it. Get the archiveId from list_task_archives (delete_task also returns it). ' +
+        'What comes back is a NEW task with a new id, running on the schedule it had when it was deleted. ' +
+        'The archived RUN HISTORY is not reattached — those runs happened to a task that no longer exists — ' +
+        'and the archive itself is kept, so the record of the deletion survives and a second call would ' +
+        'produce a second task. Only Cronsole-native archives can be restored; check the restorable field ' +
+        'on list_task_archives first.',
+      inputSchema: {
+        archiveId: z.string().describe('The archive id (from list_task_archives or a delete_task result).')
+      }
+    },
+    async ({ archiveId }) => {
+      try {
+        const result = await client.post<{ message?: string; task?: TaskRow }>(
+          `/tools/task-archives/${encodeURIComponent(archiveId)}/restore`
+        );
+        const task = result.task;
+        const created = task
+          ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
+            (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
+          : '';
+        const msg = typeof result.message === 'string' ? result.message : 'Task restored';
+        return ok(
+          `${msg}${created}\nThis is a new task; the archive (${archiveId}) is kept.`,
+          { task: task ? compactTask(task) : null, archiveId }
+        );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // delete_task — registered ONLY when explicitly allowed.
   // -------------------------------------------------------------------------
   //
@@ -2410,7 +2561,7 @@ Next run: ${task.nextRunTime}` : '')
           'Delete a **Cronsole-native** task (platform TASKHUB_NATIVE — an HTTP job or a script job run by ' +
           'the Cronsole backend). The backend archives the task definition and its last 20 run records ' +
           'BEFORE deleting, and refuses the delete if that archive cannot be written, so a deleted task can ' +
-          'be rebuilt from `GET /api/tools/task-archives`. The live task is still gone: the schedule stops, ' +
+          'be rebuilt with restore_task_archive. The live task is still gone: the schedule stops, ' +
           'and the row that WAS the task is removed. ' +
           'This tool REFUSES every other platform with a 400, Windows Task Scheduler included. That is a ' +
           'boundary, not a missing feature and not something a retry or a different argument will get past: ' +
@@ -2440,7 +2591,7 @@ Next run: ${task.nextRunTime}` : '')
               (typeof result.executionsArchived === 'number'
                 ? ` with ${result.executionsArchived} run record(s)`
                 : '') +
-              ' — recoverable from GET /api/tools/task-archives.'
+              ' — restore it with restore_task_archive.'
             : '';
           return ok(`${msg} (id: ${taskId}).${archived}`, {
             taskId,

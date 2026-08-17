@@ -625,6 +625,44 @@ rather than dropped:
 
 ---
 
+### Import a task
+
+Turns a saved definition back into a running task. Two sources, one card: a `.json` file you
+exported, and the tasks Cronsole archived when you deleted them.
+
+**Importing a file.** Click **Choose a task .json** and pick the file the task modal's **Export**
+button produced. The task is created immediately and starts running on the schedule in the file —
+Cronsole tells you when it will first fire, because that schedule is stored in UTC and may not be
+the time you remember setting.
+
+- **It creates a new task every time.** Nothing is matched up or overwritten, so importing the same
+  file twice leaves you with two tasks. That is deliberate: matching on name would silently replace
+  a task you had edited since.
+- **Cronsole-native tasks only.** This is about where a definition lives, not about favouritism: a
+  Cronsole-native task exists entirely inside Cronsole, so its file contains everything needed to
+  rebuild it. A Windows task's real definition lives in Task Scheduler on your machine, and comes
+  back as `.xml` through **Restore tasks from a backup** below. Hand this card a Windows file and it
+  says so, and points you there.
+- The same import is offered in the **New Task** modal, under the platform buttons — same file,
+  same result, just closer to hand when you were already about to create something.
+
+**Bringing back a deleted task.** Under **Deleted tasks** you'll find Cronsole-native tasks you
+removed, newest first, each with the number of run records kept alongside it. **Restore** rebuilds
+one.
+
+- **What you get back is a new task, not the old one resurrected.** It runs the same job on the same
+  schedule, but it has a new id and **its old run history does not come back** — those runs happened
+  to a task that no longer exists, and pretending otherwise would make the history claim something
+  Cronsole can't stand behind.
+- **The archive stays in the list after you restore from it.** It is the record that the deletion
+  happened, so restoring doesn't erase it — which also means clicking Restore twice gives you two
+  tasks.
+- **Only Cronsole-native deletions are here.** Cronsole archives one of those before deleting it,
+  and refuses to delete at all if it can't. A deleted Windows task can't be archived this way,
+  because its definition is on the machine and Cronsole would need the agent online just to read it
+  — so back those up ahead of time with **Back up scheduled tasks**. Any row that can't be restored
+  says why, in the row.
+
 ### Back up scheduled tasks
 
 Saves Windows Task Scheduler tasks as native XML — either every folder on the machine, or one
@@ -643,7 +681,10 @@ folder you pick.
 
 ### Restore tasks from a backup
 
-Puts them back. Feed it the `.zip`, the folder you exported to, or individual `.xml` files.
+Puts **Windows** tasks back. Feed it the `.zip`, the folder you exported to, or individual
+`.xml` files. A Cronsole-native task's `.json` goes to **Import a task** above — the file picker
+here accepts `.json` because an export folder contains a manifest, not because it can read a task
+definition from one.
 
 - **You always see a plan before anything is written.** Picking files runs a dry run: Cronsole works
   out what would happen to every file — *restore* / *replace* / *skip* / *refuse* — by checking what

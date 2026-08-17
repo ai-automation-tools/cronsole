@@ -153,6 +153,26 @@ Using the Cronsole REST API, list my deleted-task archives
 removed this morning.
 ```
 
+Each row carries `restorable` **with its reason**, and a Cronsole-native one can be spent:
+
+```text
+Using the Cronsole REST API, POST /api/tools/task-archives/<id>/restore to bring
+back the task I deleted, then tell me its new id and when it next runs.
+```
+
+That builds a **new** task — new id, same schedule. The archived run history is not reattached and
+the archive is kept, so calling it twice makes two tasks. The same reader takes a file you
+exported:
+
+```text
+Using the Cronsole REST API, POST the contents of this exported task file to
+/api/tasks/import and tell me when the task will first run.
+```
+
+The body **is** the file — the whole `cronsoleTaskVersion` object, not just its `task` field.
+Cronsole-native only: a Windows task's definition is Task Scheduler XML and goes through
+`POST /api/tools/restore/tasks` instead, and a bundle from any other platform is refused by name.
+
 ## 🧯 Bulk operations & backup
 
 These have no MCP tool at all — friction is meant to scale with blast radius, and the dashboard's

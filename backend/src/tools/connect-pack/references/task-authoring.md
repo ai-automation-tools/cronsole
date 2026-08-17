@@ -1,6 +1,6 @@
 # Task authoring & management
 
-> Cronsole Connect Pack **v1.8** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.9** · canonical copy: <https://cronsole.mikesailab.com>
 
 Every way to **create** a scheduled task through Cronsole, and how to **manage** it afterwards.
 Read this before creating a task on a user's real machine — a scheduled task is durable, runs
@@ -18,6 +18,18 @@ unattended, and on Windows runs **elevated**.
 | **A richer HTTP job** (non-GET, headers, body) | `create_native_task` / `POST /api/tasks/native` | Takes a full job spec. Separate from `create_task` because the command-string path only builds a GET. |
 | **A task that already exists and is good** | `POST /api/tasks/:id/save-as-template` | Turns a real task into a reusable template. |
 | **A template JSON from the gallery** | `POST /api/templates/import` | Same schema and placeholder validation as any catalog content. |
+| **An exported *task* file** (`cronsoleTaskVersion`) | `import_task` / `POST /api/tasks/import` | Not a template — one concrete task, exported from a Cronsole install. Send the file **whole**. **Cronsole-native only**: a Windows task's definition is Task Scheduler XML and goes through restore instead. |
+| **A task the user deleted** | `restore_task_archive` / `POST /api/tools/task-archives/:id/restore` | Rebuilds it from the definition Cronsole archived before the delete. Find the id with `list_task_archives`. |
+
+**Three kinds of JSON, three destinations.** A *template* is a parameterized recipe with
+`{{placeholders}}`; importing one fills the catalog, and Apply is what makes a task. A *task
+bundle* is one concrete task, and importing it **creates that task immediately**. Task Scheduler
+*XML* is a Windows task's real definition and only the restore route reads it. Each route refuses
+the other two **by name** — read the refusal, it points at the right one.
+
+**Both import paths make a NEW task**, `ACTIVE`, on the file's **UTC** schedule — report the
+returned `nextRunTime`. Nothing is overwritten and no archived run history is reattached, so
+importing the same file twice leaves two tasks.
 
 ---
 
@@ -150,7 +162,9 @@ you:
 | **Untrack** (remove from Cronsole, keep it running) | `untrack_task` | `POST /api/tasks/:id/untrack` |
 | **Delete** (Cronsole-native only) | `delete_task` — **only** when the human set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true`, else absent | `DELETE /api/tasks/:id/native` (archives first; refuses non-native) |
 | **Delete a Windows task** | — *(deliberately not available to an assistant)* | `DELETE /api/tasks/:id`, or the Cronsole dashboard |
-| List / read deleted-task backups | — | `GET /api/tools/task-archives[/:id]` |
+| List / read deleted-task backups | `list_task_archives` | `GET /api/tools/task-archives[/:id]` — each row's `restorable` carries **its reason** |
+| **Rebuild a deleted task** | `restore_task_archive` | `POST /api/tools/task-archives/:id/restore` — a **new** task; the archived runs are not reattached and the archive is kept |
+| **Import an exported task file** | `import_task` | `POST /api/tasks/import` — the body **is** the file. Cronsole-native only |
 
 **Disable is how you park a task** — not a weird cron (§3 explains why that backfires). It is
 reversible and ungated precisely so the safe move is the easy one.
@@ -179,8 +193,9 @@ feature — no retry or different argument gets past it, so report it rather tha
 **What it can delete, Cronsole backs up first.** The task definition and its last 20 run records
 are archived *before* the delete, and the delete is **refused outright if that backup fails**,
 leaving the task untouched. Archives are readable at `GET /api/tools/task-archives` (and
-`/:id` for the full definition), so a native task deleted by mistake can be rebuilt. The live task
-is still gone — its schedule stops.
+`/:id` for the full definition) and **rebuilt with `restore_task_archive`**, which gives back a
+**new** task on the same schedule — not the old one revived, so its id changes and the archived
+run history stays in the archive. The live task is still gone in the meantime — its schedule stops.
 
 **If `delete_task` isn't in your tool list, that is the answer.** Say so and offer
 `set_task_status: DISABLED`, the dashboard, or the REST call. Don't route around it.

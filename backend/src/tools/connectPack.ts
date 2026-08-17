@@ -79,7 +79,16 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 //   diagnose from `task-health` — which reports every Windows task as unhealthy
 //   whenever the agent is wedged, i.e. it produces a confident list of wrong
 //   answers exactly when the real fault is elsewhere.
-export const CONNECT_PACK_VERSION = '1.8';
+// 1.9 (2026-08-17): adds `import_task` / `POST /api/tasks/import`,
+//   `list_task_archives` and `restore_task_archive` — the readers for the
+//   `cronsoleTaskVersion` bundle, which until now nothing could read back. This
+//   is a correction as much as an addition: the previous table listed the
+//   archive as something to *read*, which an assistant can only report from,
+//   and the "back it up first" promise beside `delete_task` had no verb that
+//   spent the backup. It also has to name the split — a task `.json`, a template
+//   `.json` and a Task Scheduler `.xml` each have exactly one route that reads
+//   them, and guessing wrong is the failure these tables exist to prevent.
+export const CONNECT_PACK_VERSION = '1.9';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
 export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';

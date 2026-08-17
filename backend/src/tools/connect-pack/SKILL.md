@@ -5,7 +5,7 @@ description: Create, run, and manage scheduled tasks through a running Cronsole 
 
 # Cronsole
 
-> Cronsole Connect Pack **v1.8** · canonical copy: <https://cronsole.mikesailab.com>
+> Cronsole Connect Pack **v1.9** · canonical copy: <https://cronsole.mikesailab.com>
 > If this file is older than your Cronsole install, the install wins — re-download the pack.
 
 Cronsole is a single pane of glass for scheduled tasks. It runs **locally** on the user's own
@@ -62,6 +62,9 @@ leaves it running), or the dashboard. Do not route around a gate.
 | Run history | `get_task_history` | `GET /api/tasks/:id/executions` |
 | Export one task | `export_task` | `GET /api/tasks/:id/export` |
 | Remove from Cronsole, keep it running | `untrack_task` | `POST /api/tasks/:id/untrack` |
+| Import an exported task file | `import_task` | `POST /api/tasks/import` — the body **is** the file (the whole `cronsoleTaskVersion` object). Cronsole-native only: a native task's row *is* the task, so it round-trips, while a Windows definition is Task Scheduler XML on the machine and goes through Restore below. Creates a **new** task each time, `ACTIVE`, on the file's UTC schedule — report the returned `nextRunTime` |
+| What was deleted, and can it come back | `list_task_archives` | `GET /api/tools/task-archives` — each row carries `restorable` **with its reason** |
+| Bring back a deleted task | `restore_task_archive` | `POST /api/tools/task-archives/:id/restore` — rebuilds a deleted Cronsole-native task as a **new** task. The archived run history is **not** reattached, and the archive is kept, so calling twice makes two tasks |
 | Delete | `delete_task` (gated) | `DELETE /api/tasks/:id` |
 | Bulk export / backup | — | `POST /api/tools/export/tasks` (`scope: 'all' \| 'folder' \| 'selection'`; `selection` takes `taskIds`) |
 | Restore from a backup | — | `POST /api/tools/restore/tasks` (send `dryRun: true` first) |

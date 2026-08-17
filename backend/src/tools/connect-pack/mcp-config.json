@@ -1,6 +1,6 @@
 {
   "//": [
-    "Cronsole Connect Pack v1.8 - MCP server wiring.",
+    "Cronsole Connect Pack v1.9 - MCP server wiring.",
     "Newer copy: https://cronsole.mikesailab.com",
     "",
     "Merge the `cronsole` entry below into your host's MCP config:",
@@ -31,7 +31,7 @@
     "CRONSOLE-NATIVE tasks only and refuses every other platform with a 400, Windows",
     "included - so no MCP tool can destroy a scheduled task on your machine. Cronsole",
     "also archives the definition and last 20 runs BEFORE deleting, and refuses the",
-    "delete if that backup fails. See GET /api/tools/task-archives."
+    "delete if that backup fails. Deleting is gated; UNDOING one is not - list_task_archives and restore_task_archive are always available."
   ],
   "mcpServers": {
     "cronsole": {

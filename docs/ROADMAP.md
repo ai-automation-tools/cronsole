@@ -1,467 +1,279 @@
 # Cronsole Roadmap
 
-> The living plan for Cronsole — what's shipped and what's still open, in priority order.
+> The living plan for Cronsole — **what is still open, then what is done**, in priority order.
 
-**How to read this file:** it is a **checklist**, not a narrative. Every line is one item with a
-state and a date. The reasoning, design records, verification notes and dated addenda that used
-to live here were moved to [`CHANGELOG.md`](CHANGELOG.md) on **2026-08-04** — shipped work is
-described there under its date, and the full pre-2026-08-04 roadmap narrative is preserved
-verbatim in that file's *Roadmap narrative archive* appendix.
+**How to read this file.** It is a **checklist**, not a narrative, and it is in two parts:
 
-**Update rule:** when a task ships, tick it here with a date and write what changed in
-[`CHANGELOG.md`](CHANGELOG.md). When a material decision changes scope, edit the item here
-first, then implement. Keep the lines short — if an item needs a paragraph, the paragraph
-belongs in the CHANGELOG.
+- **[Part I — Open work](#part-i--open-work)** is everything still to do. Nothing in it has shipped.
+- **[Part II — Completed](#part-ii--completed)** is everything that has. Every line is ticked, with its date.
 
-**Legend:** `[ ]` open · `[~]` partially shipped · `[x]` complete
+An item appears in exactly one part. **Reasoning does not live here** — a shipped item's design
+record, verification notes and post-mortem are in [`CHANGELOG.md`](CHANGELOG.md) under its date,
+the rationale behind an invariant is in [`DESIGN_NOTES.md`](DESIGN_NOTES.md), and a symptom→fix
+write-up is in [`troubleshooting/README.md`](troubleshooting/README.md).
+
+**Update rule.** When a task ships, **move its line from Part I to Part II** with a date, and write
+what changed in [`CHANGELOG.md`](CHANGELOG.md). When a material decision changes scope, edit the
+item here *first*, then implement. Keep the lines short — **if an item needs a paragraph, the
+paragraph belongs in the CHANGELOG.** (This file was reorganized twice, on 2026-08-04 and
+2026-08-18, because that rule stopped being followed. Both prior versions are preserved verbatim in
+the CHANGELOG's *Roadmap narrative archive* appendices.)
+
+**Legend:** `[ ]` open · `[~]` partially shipped, remainder named · `[x]` complete
 
 > **Note on names.** The product was called **TaskHub** until 2026-07-31. This file is
-> current-tense description, so it says Cronsole throughout; the historical entries in
-> `CHANGELOG.md` keep the old name on purpose.
+> current-tense, so it says Cronsole throughout; historical CHANGELOG entries keep the old name on
+> purpose.
 
 ---
+
+## Status at a glance
+
+| Area | State | What is left |
+|---|---|---|
+| **P0 — Security** | 🟢 substantially closed | one item: resolve `req.user` from the DB |
+| **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
+| **P2 — Product value** | 🟡 rolling | IA redesign pass 2 · themes · trust indicators · polish |
+| **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
+| **Sources** | 🟡 3 of ~8 built | POSIX agent (the big one), then read-only observers |
+| **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
+| **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
+
+**The three largest open items, in order:** per-job encrypted fields (two job types are blocked on
+it) · the light theme · the POSIX agent.
+
+---
+
+<a id="part-i--open-work"></a>
+
+# Part I — Open work
 
 ## ▶ Next up
 
+The short list. Everything here is small, known, and was found by hand rather than reported —
+which is why it sits first, not because it outranks the larger work below.
+
+<a id="native-job-types"></a>
+
 ### 🔴🔴 Top priority — requested 2026-08-15
 
-Three items, requested directly after the dashboard IA redesign landed. Ordered as given.
-**Items 1, 2 and 4 have shipped** — collections (2026-08-16), the native job types (2026-08-15),
-and the phone verification (2026-08-16). What the job types left behind is item 0 below, ahead of
-the rest because it is the unfinished half of something already in users' hands rather than
-something not started.
+Four items were requested directly after the dashboard IA redesign landed. **Three shipped** —
+collections, the native job types, and the phone verification (see
+[Part II](#shipped-2026-08-15--2026-08-17)). Two things remain.
 
-**Still open here: item 0's sub-item 2, plus item 3 (themes).** Item 0.4 closed with item 4 — they
-were the same Playwright pass, done once. Items 0.3 and 0.6 closed 2026-08-17, which leaves **0.2
-(per-job encrypted fields) as the only unfinished half of the native job types** — and it is the one
-that was always the real work, since two deferred job types are sequenced behind it.
+- [ ] **Per-job encrypted fields — the unfinished half of the native job types**
+      *(from [ADR 0002](adr/0002-native-job-types.md); every other follow-up from that ADR closed
+      2026-08-15 → 2026-08-17)*. `NOTIFY` needs it (a Discord webhook URL *is* its authentication)
+      and `SQL` needs it (a connection string is a `PlatformConnection`-grade secret), so **two
+      deferred job types are sequenced behind it**. It is also a **current** gap, not only a future
+      blocker: a `SCRIPT` job's `env` is already a plausible home for a secret with nothing but
+      column storage behind it. Probably deserves its own ADR; sequence the two deferred types
+      behind it together rather than picking them off separately.
 
-0. **Finish what the native job types left open** *(added 2026-08-15, after `SCRIPT` + `CHECK`
-   shipped — [ADR 0002](adr/0002-native-job-types.md))*. Six items, worst-first — items 5 and 6 were
-   found by item 1's live drive, which is what it was for.
+- [ ] **Fix the themes — light first.** The light theme clashes and is hard to read; the dark
+      palette is also open to reconsideration. This is `frontend/src/index.css` and nowhere else —
+      every colour is already a semantic role token, which is what makes this an edit *there*
+      rather than a 263-site sweep.
+      **What to check rather than guess at:** the roles were tokenised on 2026-08-12 because every
+      light-theme status role failed WCAG AA on white (1.67–2.77 against a 4.5 bar). That fix
+      corrected the `-text` variants and **did not audit the whole light ramp**. The surface steps
+      are the likely culprit — light runs `background 100% → surface 95% → raised 98%`, which
+      inverts the dark ramp's direction and gives a *raised* panel less contrast than a *surface*
+      one. Measure every role pair in both themes before changing values, and keep the two rules
+      the token system exists to enforce: `--x` and `--x-text` are separate because the text form
+      must invert between themes and the accent must not, and a shared hue is not a shared role.
+      Visible on every screen, so regenerate the visual baselines — masking hides colour, not
+      geometry ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
 
-   1. ~~**Neither new job type has been driven end-to-end on a live stack.**~~ — **verified
-      2026-08-15**, unblocked by the API token surface that shipped the same day. Both types went
-      `POST /api/tasks/native` → `NativeScheduler` → `ExecutionLog` on the running backend, driven
-      through the MCP tools: a `SCRIPT` (node) and an `http` `CHECK`, each on `* * * * *`, each run
-      manually **and** left to be fired by the scheduler — the stored run carries a `[scheduled]`
-      prefix, which is what distinguishes the two paths in `ExecutionLog`. Then the negative case,
-      because a check that cannot fail proves nothing: a `CHECK` whose `expectBodyContains` does not
-      match **failed a 200** (`body does not contain "…"`) and a `SCRIPT` exiting 3 was recorded
-      `FAILURE` with stdout *and* stderr captured. Deletes archived first — `executionsArchived: 3`,
-      and the script **body** is in the archive bundle, which is the ADR's whole argument for
-      `SCRIPT` over `EXEC`. Two things the unit suite could not have told us: `childEnv()` holds on a
-      real stack (**20** env keys visible to the child, none of `DATABASE_URL` / `JWT_SECRET` /
-      `ENCRYPTION_KEY`), and the defect in item 5 below, which only exists once a job type's failure
-      is a *finding* rather than a fault.
-   2. **Per-job encrypted fields do not exist, and two deferred job types are blocked on it.**
-      `NOTIFY` needs it (a Discord webhook URL *is* its authentication) and `SQL` needs it (a
-      connection string is a `PlatformConnection`-grade secret). Today a `SCRIPT` job's `env` is
-      already a plausible home for a secret with nothing but column storage behind it — so this is
-      a **current** gap, not only a blocker for future work. Probably its own ADR; the two deferred
-      types should be sequenced together behind it rather than picked off separately.
-   3. ~~**The gallery renders a script body as escaped JSON.**~~ — **fixed 2026-08-17.**
-      `actionView()` in `registry-site/index.html` now returns a label + text per action shape: a
-      `script` renders its body as code under the interpreter that runs it, a `check` renders as the
-      assertion it makes (`GET {{url}}` / `status must be 200–299` / `body must contain "{{…}}"`),
-      and the Copy toast names what it took. Verified against all six non-`commandTemplate`
-      templates and rendered in a browser. **The JSON fallback stays for an unrecognized kind, and
-      that is the design, not laziness**: this page is static and cannot ask anything what a new
-      shape means, so guessing a reading for one it does not know is the wrong failure — the same
-      argument that makes the catalog *loader* skip an unparseable template rather than substitute
-      for it ([#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog)).
-      **Published to both hosts** (§11b) and verified live.
-      **The reusable lesson came from review, and it sharpens the fallback rule: a *partial*
-      reading is worse than the JSON it replaced.** Three shapes produced one. `headers` was
-      dropped, so an authenticated probe read as a bare `GET {{url}}` — a complete-looking sentence
-      omitting both the header and the parameter the reader must fill. A malformed `expectStatus`
-      printed `undefined–undefined` (reachable: the registry schema holds `probe` as a
-      **passthrough**, so only the backend's `validateProbe` refuses it, at apply time) — it now
-      declines the whole reading rather than quietly substituting the documented default, because
-      **absent and malformed are different facts and only the first has a default**. A `script`
-      missing `interpreter` titled itself *SCRIPT — UNDEFINED*. The rule the function now states:
-      *if you cannot render a field the backend honours, do not render the probe.*
-      Also fixed, and only visible once a body was rendered as code: the Copy button overlapped the
-      first line in a phone-width column (measured — 19px at a 340px column, clear on desktop).
-      Reserved with a floated corner rather than `padding-right`, which would have cost ~a quarter
-      of the line width on a phone to fix a collision that only exists in the top corner. Latent for
-      long single-line commands too; the old JSON fallback hid it by opening with a lone `{`.
-   4. ~~**The four new job-type buttons have not been seen below `md`.**~~ — **verified and fixed
-      2026-08-16**, in the Playwright pass of item 4. The `grid-cols-2 sm:grid-cols-4` is right:
-      two rows of two at 375px, nothing overflowing. But they rendered **34px** tall against the
-      **42px** platform picker one field up — the same "pick one of N" control, 8px shorter for no
-      reason anyone chose. `py-2` → `py-3`, and the test asserts ≥ 40 against that sibling rather
-      than against an abstract guideline.
-   5. ~~**A `CHECK` that correctly reports a problem is returned as a `502`**~~ — **fixed
-      2026-08-15**, same day it was found. `runTask` gained **`ran`**, orthogonal to `success`, so a
-      job that executed and failed is a **200 carrying `success: false`** and only a real
-      failure-to-start is a `502`; `ran` is stamped once in `executeJob`, so a fifth job type cannot
-      ship having forgotten it, and a spec rejected by `validateJob` never executed and keeps the
-      502. Both consumers moved with it — the dashboard would otherwise have toasted *"triggered
-      successfully"* over a failing check, and `run_task` now returns `Task ran and FAILED: …` as a
-      **result** rather than throwing. Pinned by three integration tests (the discrimination one
-      mutation-tested), three executor tests and two MCP tests, and confirmed on the live stack.
-      [#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check).
-      *Original finding, kept because the reasoning is the reusable part:* `POST /api/tasks/:id/run` ended
-      `res.status(502)` on any unsuccessful run, and the comment above it argues the case well **for
-      the platforms that existed when it was written**: a Windows or Claude run that fails, fails
-      *upstream* — an offline agent, an ACL denial, a paused routine — so `500` would send someone to
-      debug Cronsole. **`CHECK` breaks that premise.** A failing check is not the platform refusing
-      to start it; it is the check **running perfectly and reporting a fact about the system**, which
-      is the one thing the type was added for. `502` means *the gateway had a problem, retry* — the
-      exact reading the `setStatus` route already refuses to give a structural refusal, four hundred
-      lines up in the same file. The same applies to a `SCRIPT` exiting non-zero: the run happened,
-      and its outcome is the answer, not a dispatch failure.
-      **It is not cosmetic, and the MCP surface is where it bites.** `run_task` on a failing check
-      *throws* — the agent receives `Cronsole API error (HTTP 502): … body does not contain "…"` and
-      has no way to tell **"your disk is full"** from **"monitoring is broken."** Those demand
-      opposite actions, and today they are the same error. Native is also the one platform where
-      dispatch and execution are the same act, so the dispatch-vs-outcome distinction the code is
-      built on has no meaning there.
-      **The fix is a discrimination, not a status swap** — Windows must keep its `502`. Most likely a
-      `200` carrying `success: false` for a native run that *completed* with a failing verdict,
-      keeping `502` for a run that could not be started at all; `ExecutionLog` and
-      `queueFailureNotification` already record it as `FAILURE` either way and want no change. Note
-      this reaches the UI too, which will currently show a failing check as a request error.
-   6. ~~**A passing check does not say which assertions it made.**~~ — **fixed 2026-08-17.**
-      `probeHttp` collects what each optional assertion *observed* as it passes and joins them onto
-      the head, so a body assertion reads `body contains "ok"` and a JSON path reads
-      `status.db is "up"` — **the value, not "matched"**, which is the same vocabulary the failure
-      already used, so the two logs differ by outcome rather than by wording. A probe with no
-      optional assertions prints the head alone; that is the honest report *and* it is what makes a
-      dropped assertion visible, since the clause simply stops appearing. It cannot be confused with
-      a failing status-only check — those differ in the status number itself. Mutation-tested
-      (restoring `| all assertions passed` fails the new test).
-      *Original reasoning, kept:* the failing path named the specific assertion and the passing path
-      did not, so a check with an `expectBodyContains` logged byte-identically to one with no body
-      assertion at all — the ADR's own rule (*every probe's log states the **measurement**, not just
-      a verdict*) unmet in the half that runs most often.
+<a id="follow-ups-2026-08-13"></a>
 
-1. ~~**Custom views on the source rail.**~~ — **shipped 2026-08-16 as Collections**, and the item
-   as written described the wrong feature.
+### 🔴 2026-08-13 follow-ups — the unfixed remainder
 
-   **What it said** was: let users save a named *filter combination* into the rail, and it agonised
-   over scopes-vs-pinned-views. **What was actually wanted** — confirmed with the requester before
-   any code was written — is to pick *specific tasks* ("two from Claude, two from Windows Task
-   Scheduler") and name the set. Those are different in kind, and no amount of filter-saving reaches
-   the second: **a view's membership is derived, a collection's is declared.** The four tasks in a
-   collection can share no property a filter could name, which is exactly why someone wants one.
-   *(Lesson worth keeping: the design question the item spent three paragraphs on was unanswerable
-   because it was the wrong question. Asking what the feature is **for** dissolved it.)*
+Left open at the end of the 2026-08-13 MCP/Claude test pass. Ordered worst-first; the three items
+of that list which have since shipped are in Part II.
 
-   Shipped as `TaskCollection` + `TaskCollectionMember` — **`TaskFavorite` made plural and named**,
-   inheriting that model's decisions for its reasons: a per-user join (never a column), and keyed on
-   the Task row **with a cascade**, because a membership is a preference about a task Cronsole is
-   *tracking* and must not outlive it. `POST/GET/PATCH/DELETE /api/collections` plus a single
-   add-and-remove members route; a bookmark button on every task opens a checklist that can also
-   create; the rail gets one row per collection above the platforms, and *Manage collections* at the
-   bottom.
+- [ ] **A `MISSING` Claude row cannot be removed by anything.** Delete a routine at claude.ai and
+      its Cronsole row is correctly detected as `MISSING`, but `untrack_task` 400s for
+      `CLAUDE_CODE` and `disconnect_claude_routine` only reaches *declared* routines. OAuth mode
+      now produces tracked Claude rows that nothing in `PlatformConnection.config` declares, so the
+      documented escape hatch does not cover them. **Two such rows are stranded on the dev machine
+      today.**
+- [ ] **Two refusal messages point at each other.** `delete_task` on a Claude task says *"untrack
+      it instead"*; `untrack_task` 400s for `CLAUDE_CODE`; neither names
+      `disconnect_claude_routine`. Same pass: untrack's message promises that removing the routine
+      *"also forgets its API token"*, which an OAuth-created routine never had.
+- [ ] **`list_platforms`' MCP tool description is stale** — it still teaches that Claude Code
+      reports `create` and `setStatus` as unsupported. The matrix itself now reports both as
+      `verified`. A §11a mirror surface, and the description is what an agent reads *before*
+      deciding what is possible.
+- [ ] **`update_task_schedule` echoes a next-run time it computed** — the immediate response
+      carries `computeNextRun(cron)` while the platform's real value (Anthropic's jitter, Windows'
+      trigger) only lands on the next sync. Storage converges, so this is the response shape only —
+      but it is the [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)
+      shape: a timestamp whose label does not name the event that produced it.
+- [ ] **The sync response's `missing` is a delta, not a state** — it counts rows *newly* marked
+      `MISSING` by that pass, so it reads `0` beside `count: 5` while two rows sit `MISSING`.
+      Defensible, but it is presented next to a state field and invites the wrong reading.
+- [ ] **Cronsole can refuse a multi-value hour honestly, but still cannot convert one**
+      *(carved out of the `shiftCron` fix, 2026-08-15)*. `0 9-15 * * *` → `0 17-23 * * *` is
+      expressible and would be a real improvement; ranges that cross midnight (`9-17` in Pacific)
+      are not, and per-element weekday rolls make the general case sharp. Its own item deliberately
+      — smuggling it into a warning fix is how the warning stops being trustworthy.
 
-   *Follow-up, same day:* **"a bookmark button on every task" was true of one surface out of five.**
-   It shipped in the task detail modal only, because the panel was an absolutely positioned child
-   and every other task surface clips — the List view sits inside `overflow-hidden`, each Kanban
-   column inside `overflow-y-auto`. So the rail offered a place you could navigate to and, in
-   practice, barely fill: adding a task meant opening it first and finding an unlabelled 19px glyph,
-   while the star — the same per-user label on the same tasks — was already on all five. Fixed by
-   portalling the panel to `document.body` with fixed placement (anchored to the trigger, flipped
-   when there is no room below, re-anchored on scroll), which is what let the control go everywhere
-   the star is. The button now carries its membership count, and the modal spells the action out in
-   words. **Both the help topic and the UI guide already claimed "next to the star on any task"** —
-   the docs described the intended design and the code had reached one surface of it, which is the
-   §11a drift running in the unusual direction.
-
-   The invariants the old item listed were all honoured, and one is new: `filtersEqual` and
-   `activeFilterCount` exclude `collection` **by omission** (they list what they compare), which is
-   correct and easy to "fix" wrongly, so both now say so. `viewFiltersFrom` strips it — sharper here
-   than for the other rail dimensions, since **a collection id is a foreign key**: a view storing one
-   would not degrade when the collection is deleted, it would break, and sharing it would hand
-   someone an id that means nothing in their account. Every rail node resets the whole rail scope
-   through one `RAIL_SCOPE_RESET` constant rather than per-node literals, so a fifth dimension cannot
-   be added to some nodes and forgotten on others. Ordering shipped with it (`position`), so the
-   `savedViews`-is-unordered gap is not inherited.
-
-   **Not done:** no MCP surface (deliberate — the same call as favorites, which are also REST-only),
-   no bulk "add selection to collection" (row selection was removed from the dashboard in 2026-08-12
-   and is not coming back), and drag-to-reorder in the manager (the column exists; the UI writes it
-   only on create).
-
-2. ~~**More Cronsole-native job types.**~~ — **shipped 2026-08-15.** Native went from two types to
-   four: **`SCRIPT`** (a body you write, run under a fixed-list interpreter) and **`CHECK`** (one
-   monitor type, four probes) joined `HTTP` and `EXEC`. Scoped and decided in
-   [ADR 0002](adr/0002-native-job-types.md); `NOTIFY` and `SEQUENCE` are deferred there with
-   reasons, and `SQL` / SSH / Docker / MCP-call / free-standing file-prune are rejected.
-
-   Delivered through all five places plus six templates (three core), the MCP surface
-   (`create_native_script_task` / `create_native_check_task`, with the old EXEC tool renamed to
-   `create_native_program_task`), per-source descriptions in the dashboard, help topics, and the
-   Sources Guide. Three things worth carrying forward:
-
-   - **Type count is navigation cost.** `STRUCTURAL_SUBTYPES` lists native's subtypes whether or not
-     a task uses one, so every job type is a permanent rail row for every user. That is what made
-     `CHECK` one type with four probes rather than four types, and what demoted `NOTIFY` to a
-     create-modal preset over an `HTTP` job.
-   - **The rail row labelled *Scripts* was `EXEC` all along**, and needed a file that already existed
-     on the backend host — so the script itself was the one part of the task Cronsole could not
-     show, export or archive. It is now *Programs*, and the MCP tool was renamed to match.
-   - **Publishing a new registry `action.kind` would have blanked the hosted catalog** for every
-     older install, because the fetch threw on the first unreadable template and fell back to the
-     whole bundled snapshot. Found while scoping, fixed before publishing
-     ([#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog)).
-
-   Still open from the ADR: `NOTIFY` and `SQL` both wait on **per-job encrypted fields**, which does
-   not exist and may deserve its own ADR; `SEQUENCE` is last and only if per-step verdicts are the
-   goal. The `EXEC` rules carried over unchanged and remain non-negotiable: **no implicit shell**,
-   and **`childEnv()`, never `process.env`**.
-
-3. **Fix the themes — light first.** The light theme clashes and is hard to read; the dark theme's
-   palette is also open to reconsideration. This is `frontend/src/index.css` and nowhere else: every
-   colour is already a semantic role token, which is what makes a theme pass an edit *there* rather
-   than a 263-site sweep.
-
-   What to check rather than guess at: the roles were tokenised on 2026-08-12 specifically because
-   the light theme was wearing dark mode's status colours and **every status role failed WCAG AA on
-   white (1.67–2.77 against a 4.5 bar)**. That fix corrected the `-text` variants; it did not audit
-   the whole light ramp, and the surface steps are the likely culprit now — light runs
-   `background 100% → surface 95% → raised 98%`, which inverts the dark ramp's direction and gives a
-   *raised* panel less contrast than a *surface* one. Measure contrast for every role pair in both
-   themes before changing values, and keep the two rules the token system exists to enforce: the
-   accent (`--x`) and its text form (`--x-text`) are separate because the text version must invert
-   between themes and the accent must not; and a shared hue is not a shared role (`--system` vs
-   `--claude`, `--danger` vs `--isolate`). Any change here is visible on every screen, so it wants
-   the visual-regression baselines regenerated — note that masking hides colour, not geometry
-   ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
-
-4. ~~**Verify the redesigned dashboard on a phone.**~~ — **done 2026-08-16, and it found the suite
-   itself was dead.** The redesigned mobile layout is **correct**: the rail hides below `md` and its
-   drawer opens from beside the heading, picking a source closes it, Escape closes it, all five
-   toolbar sections fit on one row at 375px with their accessible names intact, nothing overflows
-   horizontally, and the FAB is a 56px target. Ten mobile tests now assert that at a viewport
-   Playwright sets directly, so it is a standing check rather than a thing re-reasoned about.
-
-   **The finding that mattered was not in the layout.** `npm run test:e2e` was **100% broken — 18 of
-   18 failing** — and had been since this very redesign: `dashboardReady()` waited for a heading
-   reading *"Unified Task Dashboard"*, which the redesign replaced with one that names the current
-   scope, and every test calls that helper. Three more drove the horizontal source *bar* the rail
-   replaced, one asserted a "System Status" sidebar panel the redesign deleted, and one demanded
-   `Edit action: Unsupported` for Cronsole-native after `PATCH /:id/job` made it supported. **Every
-   other suite was green throughout**, which is the point: nothing else in this repo renders CSS.
-
-   **`test:e2e` is not in CI, which is why nobody knew.** Wiring it in is a real item and not a
-   small one — several assertions lean on this machine's 363 real tasks and a live agent, and the
-   visual baselines are Windows-rasterized — so it needs a deterministic fixture story first. Doing
-   it hastily would produce a flaky job that gets disabled, which is the failure this suite's own
-   header warns about. Logged under P1 rather than bolted on here.
-
-   *(Original item, kept because the diagnosis was right:)* The
-   top toolbar, the source rail and its drawer all shipped on 2026-08-15 with their responsive
-   classes written and read back as correct, and **not once rendered below `md`**. The browser
-   automation used to check everything else reported `resize_window` as succeeding while
-   `window.innerWidth` stayed at 2124 and `matchMedia('(min-width: 768px)')` stayed `true`, so the
-   breakpoints never fired.
-
-   **The unit suite cannot cover this**: jsdom does not evaluate CSS media queries, so `hidden
-   md:flex` is invisible to it — every test passes whether the class is right or wrong. What needs
-   eyes (or a viewport-setting test) at 375px: the rail `<aside>` disappearing, the *Sources* button
-   beside the page heading opening the drawer, picking a source closing it, the toolbar dropping its
-   labels to icons below `sm`, the breadcrumb being the only thing naming the current folder, and
-   the FAB not colliding with the sticky filter zone. Also worth a look: page padding moved off
-   `<main>` onto each screen in the same change, so a screen that forgot its wrapper is flush to the
-   edge only at small widths.
-
-   **Playwright is the fix, not a manual pass** — the e2e suite already exists (`npm run test:e2e`)
-   and Playwright sets the viewport directly rather than resizing a real window, so this can become
-   a standing check instead of something re-verified by hand every time. The `<375px` requirement is
-   a first-class target (CLAUDE.md §9) and is currently unenforced by anything.
-
-### 🔴 Start here next session — 2026-08-13 follow-ups
-
-Left open at the end of the 2026-08-13 MCP/Claude test pass and the cron-parsing sweep that came
-out of it. Ordered worst-first. Items 1–2 are the **unfixed remainder of the defect class** fixed in
-[troubleshooting #51/#51a](troubleshooting/README.md#51a-the-same-bug-in-the-step-branch--and-this-one-never-errors-at-all) —
-they are the same `parseInt`-on-a-multi-value-field shape on surfaces outside that commit's blast
-radius, and they are listed here rather than left in the completed item so they cannot read as done.
-
-1. ~~**`shiftCron` stores a zoned cron 7–8 hours off, silently**~~ — **fixed 2026-08-15.** The
-   refusal branch now asks whether the expression pins a clock time — `hour !== '*'` (a range,
-   list, step, or a fixed hour with several minutes), plus the partial-hour-zone case where a
-   multi-value *minute* would have moved — and explains itself; genuinely invariant expressions
-   (`*/15 * * * *`, `20 * * * *`) still say nothing, because warning about those is what teaches
-   people to ignore warnings. Storage and conversion behaviour are unchanged: the same expressions
-   shift, the same ones don't.
-   **It was worse than "silently", which is why it is worth reading the entry.** `ScheduleZoneHint`
-   renders a missing `reason` as *"This schedule has no fixed clock time, so it reads the same in
-   PDT and UTC"* — so this was not an absent warning but a **confident false statement**, printed
-   under a working day being stored seven hours out. **If the empty case has its own message, then
-   declining to answer and answering "no problem here" are the same code path.**
-   [#60](troubleshooting/README.md#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter).
-   *(Checked while here: the frontend's `describeCron` has no day-of-month branch at all and guards
-   every other shape with `isNum`, so it returns `null` and the card falls back to the raw cron —
-   it does not carry the sibling of the gallery bug in item 2.)*
-   **Not done, and deliberately:** Cronsole still cannot *convert* a multi-value hour, only refuse
-   it honestly. `0 9-15 * * *` → `0 17-23 * * *` is expressible and would be a real improvement;
-   ranges that cross midnight (`9-17` in Pacific) are not, and per-element weekday rolls make the
-   general case sharp. Worth its own item rather than smuggling into a warning fix.
-2. ~~**The gallery's `describeCron` drops day-of-month values**~~ — **fixed 2026-08-13.**
-   `registry-site/index.html` rendered `0 9 1,15 3 *` as *"March 1st"* (`parseInt('1,15')`). The
-   month branch now returns **no reading at all** for a multi-value day rather than a confident
-   wrong date; the raw cron is printed beside it and stays true. Ships with the template-catalog
-   publish (`publish-registry.ps1` + `publish-frontdoor.ps1`), which is what it was waiting on.
-3. **A `MISSING` Claude row cannot be removed by anything** — delete a routine at claude.ai and its
-   Cronsole row is correctly detected as `MISSING`, but `untrack_task` 400s for `CLAUDE_CODE` and
-   `disconnect_claude_routine` only reaches *declared* routines. OAuth mode can now produce tracked
-   Claude rows that nothing in `PlatformConnection.config` declares, so the documented escape hatch
-   does not cover them. Two such rows are stranded on the dev machine today.
-4. **Two refusal messages point at each other** — `delete_task` on a Claude task says *"untrack it
-   instead"*, and `untrack_task` 400s for `CLAUDE_CODE`; neither names `disconnect_claude_routine`.
-   The delete copy predates Claude being added to untrack's refusal list. Same pass: untrack's
-   message promises removing the routine *"also forgets its API token"*, which an OAuth-created
-   routine never had.
-5. **`list_platforms`' MCP tool description is stale** — it still teaches that *"Claude Code reports
-   `create` and `setStatus` as unsupported, because Anthropic exposes exactly one routines
-   endpoint"*. The matrix itself now correctly reports both as `verified`. A §11a mirror surface, and
-   the description is what an agent reads *before* deciding what is possible.
-6. **`update_task_schedule` echoes a next-run time it computed** — the immediate response carries
-   `computeNextRun(cron)` while the platform's real value (Anthropic's jitter; Windows' trigger)
-   only lands on the next sync. Storage converges, so this is the response shape only — but it is
-   the [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)
-   shape: a timestamp whose label does not name the event that produced it.
-7. **The sync response's `missing` is a delta, not a state** — it counts rows *newly* marked
-   `MISSING` by that pass, so it reads `0` beside `count: 5` while two rows sit `MISSING`. Defensible,
-   but it is presented next to a state field and invites the wrong reading.
-8. ~~**The native-executor tests are flaky under parallel load**~~ — **fixed 2026-08-17**, on the
-   run that proved the diagnosis. Both files that spawn real processes now set
-   `vi.setConfig({ testTimeout: 30_000 })`: their wall clock belongs to the OS scheduler, not to
-   anything the code controls, so the 5s default was measuring the runner rather than the job.
-   File-level rather than per-test, deliberately — **the flake had already moved between tests**, so
-   a constant each test must remember is one the next spawning test forgets (the `ran` argument).
-   30s still catches a genuine hang. Verified live: a temporary 6s probe passes under the new
-   setting and would fail the 5s default, which is what proves the config is applied rather than
-   silently ignored.
-   *Original entry, and the one correction it needed:* it said the failure was **always**
-   `executeJob — SCRIPT > reports a non-zero exit as a failure`. On CI 2026-08-17 that test **passed
-   in 24ms** and `blames the host, not the script, when the interpreter is missing` timed out
-   instead — which confirms the "process spawning under contention, not one bad test" reading and
-   retires the "always". A flake that moves is the evidence that chasing the assertion was never the
-   fix. It reddened the branch on a commit touching **only docs and CI config**, which is exactly
-   the "trains anyone to re-run a red suite" cost the original entry warned about.
-
-**Chores, not roadmap items** (dev machine, 2026-08-13): the MCP host needs a restart to load the
-rebuilt `mcp-server/dist/`, and the Windows task `Cronsole conversion-response probe (safe to
-delete)` in `\Cronsole` is left disabled and wants deleting.
-
-> The [API-token P0](#p0-security) below is unchanged and is still
-> the largest open item — nothing here demotes it. These sit first because they are small, known,
-> and were found by hand rather than reported.
+**Chores, not roadmap items** *(dev machine)*: the MCP host needs a restart to load a rebuilt
+`mcp-server/dist/`; the Windows task `Cronsole conversion-response probe (safe to delete)` in
+`\Cronsole` is disabled and wants deleting.
 
 ---
 
-**✅ [API tokens](#p0-security) — largely closed 2026-08-15.**
-This was the top priority from 2026-08-13: the only way to get a token for the MCP server was to run
-`jsonwebtoken.sign` by hand with the backend's `JWT_SECRET`, which was not a workaround someone
-invented but [what our own guide told them to do](user-guides/guides/MCP_Server_Guide.md#getting-a-token)
-— the product could not issue a credential its own documented integration required.
-**(a) `JWT_EXPIRES_IN` and (b) the real token surface both shipped**: name a token in
-Settings → Account, pick 30/60/90 days or never, revoke it individually. The guide's hand-minting
-instructions are gone. **Only (c) remains** — resolve `req.user` from the DB rather than trusting
-the `email` claim — which is small, independent, and no longer gates anything.
+<a id="p0-security"></a>
 
-**[Sources](#-sources--where-a-task-comes-from) is the priority once the block above is clear** *(scoped 2026-08-12)* — the
-dashboard's first-level axis is now where a task comes from, and the plan is to fill it in. In order:
+## 🟡 P0 — Security hardening
 
-1. ~~**Native job types — scripts**~~ — **shipped 2026-08-12.**
-2. ~~**API / Web Services source**~~ — **resolved and shipped 2026-08-12** as a subtype split of
-   Cronsole-native (HTTP / Scripts), not a new platform.
-3. **POSIX agent** — launchd · cron · systemd timers in one build. The one that actually broadens
-   the product.
-4. ~~**Claude Code routines**~~ — **shipped 2026-08-12, and completed 2026-08-13** with the full
-   read/write connector: list, create, reschedule, pause and token-free run. *(This line said the
-   platform exposed "one write-only endpoint, so sync / create / enable-disable are boundaries
-   rather than gaps" — true of the documented API, false of the product. See
-   [#50](troubleshooting/README.md#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one).)*
-5. **GitHub Actions** — read-only observer, ~a day. Note it is the **mirror image of Claude**:
-   reads everything, changes nothing. Between them they bracket the observer pattern.
+<!--
+  Linked as `#p0-security`, not by heading slug. This heading has carried dates and been edited
+  twice; each edit silently broke every link to it (found 2026-08-17 by
+  scripts/check-doc-links.mjs). A heading whose text is expected to change wants a stable anchor.
+-->
 
-Everything below the sources track, unchanged in priority relative to each other:
+*Closed 2026-07-09, reopened 2026-08-13 for one gap, **substantially closed again 2026-08-15**.
+The five original items and the two shipped halves of the API-token work are in
+[Part II](#completed--p0-security). One item remains, and it gates nothing.*
 
-6. **Versioning & releases** — semver, tagged releases, changelog discipline. Also unblocks the
-   deliberately-skipped `version` fields in the package manifests.
-7. **Restore's plan doesn't check that a task's action points at anything that exists** — the
-   advisory resolvability column, logged 2026-07-31 (see P2 Open).
-8. **Task-detail trust indicators** — say how old the truth is, per task (see P2 Open). The
-   dashboard health strip now answers this at the *platform* level; the per-task half is open.
-9. **Bulk export's directory-picker branch is still undriven** — the one part of the Tools tab no
-   click-through has reached, because it opens a native dialog. Low priority; noted so its absence
-   stays visible rather than being mistaken for coverage.
-
-10. ~~**Nothing checked that the docs link to each other correctly.**~~ — **closed 2026-08-17.**
-    `scripts/check-doc-links.mjs` resolves every relative markdown link in the repo (**1298 across
-    147 files**) to a real file and a real heading, in the CI `repo-hygiene` job. Found by noticing
-    that **13 links went dead in the TaskHub rename and survived 17 days of green CI** — a broken
-    doc link does not 404, so a renamed heading silently serves the top of the page instead of the
-    section promised. The app's own links were already checked (`docsLinks.test.ts`), which is
-    exactly why doc → doc was easy to miss: the surface that *looked* covered was.
-    Three real breaks on its first clean run, one of them instructive: the P0 heading carries dates,
-    has been edited twice, and each edit broke every link to it — so it now has a stable
-    `#p0-security` anchor. **A heading whose text is expected to change wants an explicit anchor.**
-    The checker's own two false-positive bugs are worth remembering, because both made it *louder*
-    rather than quieter: blanking inline code before slugging a heading (GitHub keeps it —
-    147 false failures) and stripping `_` as an emphasis marker (it is a word character —
-    21 more). **A checker whose bug is indistinguishable from the drift it hunts is how a check gets
-    switched off**, so it was mutation-tested against all three broken-link shapes before wiring in.
-
-> **The UX & UI refinement pass is complete** *(2026-08-12)* — all six items, plus two defects it
-> uncovered. Details in [`CHANGELOG.md`](CHANGELOG.md) and P2 below.
+- [ ] **Resolve `req.user` from the database instead of trusting the `email` claim.**
+      `authenticateToken` verifies the signature and assigns `req.user` straight from the payload;
+      it never checks the `id` against the DB. A correctly-signed token for a deleted user stays
+      valid for its full life, and the `email` claim is whatever the signer typed. Harmless today
+      because only `id` is used for scoping — and exactly the kind of thing that stays harmless
+      until something reads `req.user.email`. Small, and independent of everything else.
 
 ---
+
+## 🟠 P1 — Correctness & honesty
+
+New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
+see [Part II](#completed--p1-correctness--honesty).
+
+- [ ] **Run the E2E suite in CI — it is the only thing that renders CSS, and nothing runs it**
+      *(logged 2026-08-16)*. `npm run test:e2e` sat **100% broken for a day** (18 of 18) after the
+      IA redesign moved a heading every test waited on, while backend 715, integration 223 and
+      frontend 541 stayed green. **jsdom does not evaluate media queries**, so the unit suite passes
+      whether `hidden md:flex` is right or wrong; Playwright is the only layer that can see a
+      responsive layout, a real stylesheet, or a drawer that does not open.
+      **The blocker is fixtures, not the runner.** Several assertions lean on this machine's live
+      data — native job-type rows, a connected agent's health dot, source counts — and the visual
+      baselines are Windows-rasterized while CI is Linux. It needs (a) a seeded deterministic
+      dataset the assertions can name, (b) the mock agent from `mock-agent.spec.ts` promoted to the
+      shared harness, and (c) a Linux baseline set, which the per-platform snapshot suffix already
+      supports. **Doing it hastily is worse than not doing it** — a flaky visual job gets disabled,
+      and a disabled suite is what produced this item. Until then, `workflows.md` states the
+      obligation to run it after any dashboard change.
+
+- [ ] **System-status honesty — the standing review** *(the mechanisms shipped 2026-07-08; this
+      item is deliberately never closed)*. Periodically check that no status surface has drifted
+      back to asserting something it cannot evidence. **The class has returned four times and each
+      return sharpened the tell**, so the item is the review, not a fix:
+      - a verdict derived from a **precondition** that cannot change when the subject fails
+        ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out));
+      - a real timestamp of the **wrong event**
+        ([#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday));
+      - an **expired** observation reported in the present tense
+        ([#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy));
+      - a **cache whose only writer runs on another code path**
+        ([#66](troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second)).
+
+      The questions to ask of any status field: *what writes it, is that what the label names, and
+      is that path running in the session doing the reading?*
+
+---
+
+## 🟡 P2 — Product value
+
+Shipped P2 work is in [Part II](#completed--p2-product-value).
+
+### Dashboard IA redesign — pass 2 *(requested 2026-08-15; pass 1 shipped)*
+
+- [ ] **Scoping.** Views filtered to the source they make sense for (*System* is Windows-only and
+      reads `0` everywhere else); source-scoped header actions, so **Sync** and **Import** state
+      which platform they mean; per-source empty states, so a connected platform with nothing
+      imported says how to import from it.
+
+### Open — UI & product
+
+- [~] **Thin the first viewport** *(desktop and mobile both shipped 2026-08-12; the 375px
+      verification is automated in `tests/e2e/layout.spec.ts`)*. **Left:** `--raised` exists and is
+      applied to exactly one panel, the filter zone. Spending it across the app to build real
+      hierarchy is the half of this item that has not been done.
+- [ ] **Two Settings toggles are now vestigial** *(logged 2026-08-12, created by the same change)*.
+      The dashboard opens on **All**, which hard-sets `status: any` and `system: include` — exactly
+      what *Show disabled tasks* and the persisted system lens control, so neither affects the
+      opening view any more (`defaultCategory` and `defaultPlatform` still do). **Not silently
+      removed**, because the system lens is still written when you change it from the dashboard,
+      and both may want to become "what the All view means for you" instead. Decide between making
+      them apply again, repurposing them, or deleting them — but do not leave two settings that
+      look like they do something and don't.
+- [ ] **Restore's plan doesn't check that a task's action points at anything that exists**
+      *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
+      executable and file-looking arguments resolve on this machine. Not a refusal — an executable
+      missing here may exist on the machine being restored to.
+- [ ] **Task-detail trust indicators — say how old the truth is, per task**: last
+      platform-confirmed sync, last agent result, and Windows' own `lastTaskResult` in the modal.
+      *(The 2026-08-12 review adds a fourth: whether the displayed action was reported by the
+      **current** agent version — an un-republished agent omits fields rather than erroring, so a
+      stale panel and a correct one look identical.)* The dashboard health strip answers this at the
+      *platform* level; the per-task half is open.
+- [ ] **Optional periodic Windows sync**: opt-in interval sync, interval stated, last run shown,
+      the `untracked` remainder surfaced. Must stay `scope: 'tracked'`.
+- [ ] **UI polish pass**: full-path tooltip/copy on truncated task paths · Apply-modal footer
+      crowding · Help Center reachability at ~720px · the two dev-mode Socket.IO console warnings
+      (worth clearing before any demo capture — they bury real console errors).
+- [ ] **Onboarding becomes contextual instead of global** *(sharpened 2026-08-12)*: the banner
+      lives in `Dashboard.tsx` **above the tab switch**, so it rides along on Templates, Tools and
+      Platforms too, and clears only on an explicit click. Auto-retire it once the user has
+      imported, created or starred; replace it with per-tab first-use cards, which is where the
+      advice is actually actionable.
+- [ ] **Console noise in user-facing flows**: **37 backend + 3 frontend** `console.*` calls
+      *(counted 2026-08-12)*, the worst carrying task names, native paths and full command lines —
+      `routes/tasks.ts`, `WindowsAgentConnector.ts`, `NativeScheduler.ts`, `TaskService.ts`,
+      `AgentManager.ts`, `Dashboard.tsx`. Do it with the structured-logging work under *Production
+      operations*: levels + redaction, with full command lines behind an explicit diagnostics
+      export rather than on by default.
+- [ ] **Native task follow-ups**: a `CLAUDE_PROMPT` job type, and a Redis lock before
+      multi-instance.
+- [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
+- [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
+      launchd plist, Claude routine payload). Lands as connectors and the POSIX agent do.
+- [ ] **Settings agent-pairing panel** *(deferred)*: waits on the per-user pairing-code flow.
+- [ ] **Tools tab — further candidate tools** *(candidates only, none scheduled)*: scheduled
+      automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
+      since your last backup"). Rule for the tab: everything on it must be genuinely cross-cutting,
+      or it is a junk drawer.
+
+---
+
+<a id="-sources--where-a-task-comes-from"></a>
 
 ## 🔷 Sources — where a task comes from
 
-> **The priority once the *Next up* block is clear** *(scoped 2026-08-12; it read "the current top priority" until 2026-08-16, when the 2026-08-15 requests took precedence)*. The dashboard's first-level axis is now the
-> **source** a task comes from, and Cronsole ships with two: Windows Task Scheduler and
-> Cronsole-native. This section is the plan for the rest.
+> **The priority once *Next up* is clear** *(scoped 2026-08-12)*. The dashboard's first-level axis
+> is the **source** a task comes from. Cronsole ships with three — Windows Task Scheduler,
+> Cronsole-native (split into HTTP · Programs · Scripts · Checks) and Claude Code routines. This
+> section is the plan for the rest; the built ones are in [Part II](#completed--sources).
 >
-> **Read the guardrail change first** ([Strategy guardrails](#strategy-guardrails)): the capability
-> matrix makes a **read-only observer** an honest, complete product state, so a source no longer has
-> to be fully controllable to be worth shipping. Controllers stay gated on reliability; observers
-> do not. That is what makes this list affordable rather than a return to breadth-over-depth.
+> **Read the [guardrail change](#strategy-guardrails) first**: the capability matrix makes a
+> **read-only observer** an honest, complete product state, so a source no longer has to be fully
+> controllable to be worth shipping. Controllers stay gated on reliability; observers do not.
 >
 > **Ordering principle: prefer the build that unlocks several sources over the one that unlocks
 > one.** A POSIX agent covers launchd, cron *and* systemd timers with one protocol and no new auth
-> story. Each cloud scheduler costs its own OAuth surface, rate limit and mental model, and unlocks
-> exactly one.
-
-- [x] **Native job types — scripts** *(shipped 2026-08-12)*: Cronsole-native runs
-      HTTP and nothing else, so the source you already own cannot run a script. Add an `EXEC` job
-      type reusing **`StructuredAction {executable, args[]}`** — the tested no-shell primitive that
-      already backs Windows task creation, so this is the existing P0 injection guarantee applied to
-      a second executor, not a new attack surface.
-      **The honesty problem that must be solved with it:** a native job runs *where the backend
-      runs*. On a host-run backend that is your machine; in the Dockerized backend the same task
-      silently runs **inside the container**, against a filesystem that is not yours — one task, one
-      UI, two meanings. So containerization is **detected at boot** (`/.dockerenv` / cgroup) and the
-      New Task modal states which one it is. A task that cannot say where it executes is the same
-      class of lie as a timestamp that cannot say what it measured.
-      Real `ExecutionLog` rows (exit code, duration, output snippet) — native's genuine advantage
-      over Windows, where `SUCCESS` only means the agent accepted a start.
-
-- [x] **API / Web Services source — resolved as a subtype split** *(decided and shipped
-      2026-08-12)*: Cronsole-native divides in the source bar into **Cronsole (HTTP)** and
-      **Cronsole (Scripts)** rather than becoming a new platform. A source key is `PLATFORM` or
-      `PLATFORM:SUBTYPE`, derived server-side in `services/taskSource.ts`.
-      **Platform and source are deliberately different things:** the Platforms tab does not split,
-      because native HTTP and native scripts are the same connector with identical capabilities.
-      Matching is prefix-aware, which is what let this ship without emptying every stored
-      `defaultPlatform`; and the selected source stays listed even when no task derives it, or a
-      pre-split link filters the list with the whole bar unlit.
-      **The umbrella-grouping reading (c) is still open** for when three hosted observers exist to
-      group — it is a presentation question about the bar, not a data-model one, so it no longer
-      blocks anything.
+> story. Each cloud scheduler costs its own OAuth surface, rate limit and mental model, for exactly
+> one source.
 
 - [ ] **POSIX agent — launchd · cron · systemd timers** *(the big one, and the one that actually
       broadens the product)*: all three are **local OS schedulers**, structurally identical to
       Windows Task Scheduler — read the machine, run a thing, enable/disable. One build reuses the
-      whole existing protocol: outbound WebSocket, HMAC-signed commands, the sync model, folder/path
-      handling, the capability matrix. **Three of the most universal developer schedulers, one
+      whole existing protocol: outbound WebSocket, HMAC-signed commands, the sync model, folder and
+      path handling, the capability matrix. **Three of the most universal developer schedulers, one
       auth story, zero new server surface.** Absorbs the former standalone *macOS agent (launchd)*
       P3 item and the 7 catalog templates waiting on it.
       Open sub-questions: whether the agent is a .NET port (the `ITaskScheduler` abstraction ports
@@ -469,259 +281,13 @@ Everything below the sources track, unchanged in priority relative to each other
       `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
       honest-warning treatment the Windows trigger conversion already has.
 
-- [x] **Cron→trigger conversion: multi-value hour and minute fields** *(2026-08-13)*. `0 9-17 * * 1-5`
-      ("every hour, 9–5, weekdays") converted at **confidence 1.0 with no warnings** into a malformed
-      `startBoundary` of `"9-17:00"`, because `parseInt('9-17')` is `9`. Same defect as the Monday-only
-      `1-5` day-of-week bug fixed 2026-07-14 — **one field over, and missed when that one was fixed**;
-      lists (`9,17`), ranges (`9-17`), minute-side equivalents (`0,30 9 * * *`) and out-of-range values
-      (`0 25 * * *`) were all affected.
-
-      Nothing wrong ever reached Task Scheduler — the agent rejected the malformed boundary — so it
-      surfaced as a `500`/`502` ("the platform failed, retry") for a schedule Cronsole cannot express,
-      and pointed debugging at the one layer that was behaving. These now land on the documented
-      replaced-with-hourly fallback with a warning naming the workaround (several start times means
-      several tasks).
-
-      **Carried a second fix that was previously unreachable:** a lossy conversion now rides the
-      **success** of `PATCH /api/tasks/:id/schedule` (and MCP `update_task_schedule`), not just the
-      refusal — otherwise fixing the converter would have traded a noisy `502` for a silent `200` over
-      a task quietly rescheduled to ~24 runs a day. See [troubleshooting #51](troubleshooting/README.md#51-a-schedule-edit-returns-502-for-a-cron-that-is-simply-not-expressible).
-
-      **Grepping for the pattern instead of fixing the one instance (#21's rule) found two more, and
-      the worse one.** `*/10,45 * * * *` and `0 */6,13 * * *` passed `startsWith('*/')` and were read
-      as clean `PT10M`/`PT6H` steps at confidence 1.0 — and because a mis-parsed *step* yields a
-      **well-formed** trigger, the agent accepted it and the task ran on the wrong schedule
-      indefinitely, with nothing anywhere to notice. The malformed-boundary bug at least failed loudly.
-      The reverse direction (`convertWindowsTriggerToCron`, which reads triggers off real machines) was
-      hardened for the same reason: it read `"9-17:00"` as `0 9 * * *` at confidence 1.0.
-
-      **Found by the same sweep and deliberately not bundled here** — two other surfaces carried this
-      defect class. `registry-site` `describeCron` was fixed 2026-08-13 with the catalog publish;
-      `timezone.ts` `shiftCron` is still open. Both are items 1–2 of
-      [Start here next session](#-start-here-next-session--2026-08-13-follow-ups); that block is the
-      live list, so do not track them from here.
-
-- [x] **Claude Code routines — full read/write connector** *(2026-08-13)*. Cronsole lists the real
-      routines on the account (name, 5-field UTC cron, enabled state, next run), **creates** them,
-      reschedules them, pauses and resumes them, and fires them **without a per-routine token**.
-
-      **This item existed because the 2026-08-12 entry below was wrong, and the way it was wrong is
-      the reusable part.** That entry recorded, as a finding, that Anthropic exposes exactly one
-      routines endpoint and that sync / create / enable-disable were therefore *boundaries, not
-      gaps*. The finding was sound about the **documented** API and false about the product: Claude
-      Code has always created and listed routines through `/v1/code/triggers`, authenticated with
-      the account's OAuth session rather than a per-routine token — the API `/schedule` uses. The
-      previous check asked *"what does the vendor document?"* and recorded the answer as *"what can
-      the platform do?"*. **A capability claim needs evidence about the platform**; a doc search is
-      evidence about the docs. Verified this time by driving every verb against the live API
-      (create, partial update, reschedule, pause) before any of it was built on.
-
-      - **Two modes, both kept.** `services/claudeOAuth.ts` decides per call. With a readable
-        Claude Code session: real sync, create, setStatus, updateSchedule, token-free run. Without
-        one: the previous declared-registry + fire-token behaviour, unchanged. **The fallback is
-        load-bearing** — door 2 is undocumented and beta-gated, and a connector that deleted the
-        documented path would take every user's routines down the day the beta header expires.
-      - **`unsupportedVerbs` became a getter**, because the matrix's claim is about *this install*.
-        Corollary that bit during the work: any test asserting Claude's capabilities must mock the
-        credential, or it passes or fails according to whether the developer is signed in.
-      - **The credential is read, never stored, never refreshed.** Refreshing would rotate the CLI's
-        own token and could sign the user out of Claude Code from a background poll. Expiry is
-        reported (`/login`), never repaired.
-      - **Delete is still impossible — and this time verified**, by enumerating the surface rather
-        than reading docs. Neither API family has a DELETE. Cronsole disables; claude.ai removes.
-      - **MCP**: `create_claude_routine` added (26 tools); `list_claude_routines` reports
-        `session.mode`. Routines are created with **no MCP connectors attached** — the server would
-        otherwise attach every connector on the account.
-      - **Also fixed on the way:** `updateSchedule` took a `WindowsTrigger` and the route rejected
-        any cron it could not convert — so a reschedule Anthropic would have accepted was refused
-        over a Windows trigger nothing in that path would use. It now takes the cron, with the
-        native trigger as an option, and connectors flag `clientError` so a bad request answers
-        400 rather than a retry-implying 502.
-
-- [x] **Claude Code routines — promoted as far as the platform allows** *(requested and shipped
-      2026-08-12; **its central finding was superseded 2026-08-13**, see above — kept as written
-      because the reasoning is the record of how a documentation search got mistaken for an API
-      audit)*: the connector is production-ready for the one verb that has an API behind it,
-      and everything else is now declared impossible rather than left looking unfinished.
-
-      **The API check the item asked for changed the item.** Anthropic exposes exactly one routines
-      endpoint — `POST /v1/claude_code/routines/{trig_id}/fire` — and the reference states its
-      token's scope as *"One routine only; **no read access**."* There is no list, get, create,
-      enable/disable, or token-management endpoint. So of the four things this item asked for, three
-      are **not gaps but boundaries**: real sync and enable/disable cannot be built at all.
-      Shipped instead:
-      - **`run` — real.** Correct beta header, and the documented statuses mapped to causes a user
-        can act on. Two matter: a **400 is usually a paused routine** (the *only* signal Cronsole
-        ever gets about a routine's enabled state), and a 429 is a quota boundary, not a bad config.
-      - **Health from evidence** — read back from the `PlatformCapability` rows the run route
-        already writes. It previously returned `HEALTHY` whenever config was non-empty: a verdict
-        from a precondition, troubleshooting #40's exact shape. **It cannot probe**: the only
-        endpoint has a side effect, so "check this works" and "run the user's routine" are the same
-        request — a probing health check would fire someone's nightly job on every poll.
-      - **`create` and `setStatus` are `unsupported`, not `declared`** — a new `unsupportedVerbs`
-        declaration on `PlatformConnector`, because both methods are interface-mandated refusals
-        that no evidence can ever promote. `declared` reads as *"reachable, just unproven"* and
-        invites waiting for something that cannot arrive.
-      - **Two fixes worth naming**: the fire body no longer carries filler text (it arrived as the
-        routine's `<routine-fire-payload>`, so for a routine whose prompt reads that block it
-        *displaced* the real context), and the token is destructured out of task metadata rather
-        than set to `undefined`, which left the key present and relied on `JSON.stringify` dropping it.
-
-      Left as-is deliberately: `syncTasks` returns the routines the user **declares** in the
-      connection config. That is not a sync and is documented as not being one — it earns its place
-      only because a declared routine gets a dashboard row, a working Run button and real run
-      history, which is strictly more than the bookmark the quick-links-only platforms get.
-
-- [x] **A Claude task is its declaration** *(2026-08-12)* — closes the reported loop where a routine's
-      task came back after every *"Remove from Cronsole"*, with `TaskExclusion` empty as if untrack
-      had never run.
-
-      Untrack ran; its exclusion was then legitimately cleared. `TaskExclusion` assumes the Windows
-      shape — the task is on the machine, sync enumerates the machine, Cronsole remembers *"don't
-      re-import this"*. Claude inverts it: with no list API, `syncTasks` returns the routines declared
-      in `PlatformConnection.config`, so **the registry is the platform** and the exclusion fenced the
-      user's own config off from itself while the declaration stayed. Importing the Claude category
-      clears exclusions *by design*, which un-hid a routine that was never gone. The mirror half:
-      removing the routine left its task row behind as an un-runnable orphan.
-
-      Fixed as one mechanism — untrack **400s** for `CLAUDE_CODE` (bulk refuses per item without
-      halting), disconnecting the routine **removes its tasks and history** and writes **no**
-      exclusion, and the modal offers *Disconnect routine*. **Refused rather than widened**: making
-      untrack drop the routine too would silently spend a token claude.ai shows once, under a label
-      that mentions no credential. Pinned by an integration suite that reproduces the loop against
-      real Postgres. See [troubleshooting #47](troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole).
-
-- [x] **Renaming a task** *(2026-08-12)* — pencil in the task modal, `name` on `PATCH /api/tasks/:id`,
-      `rename_task` over MCP. Works on every platform; a rename is a **Cronsole label**, DB-only, and
-      the modal keeps the real `externalId` on screen and says so once the two diverge.
-
-      **This was logged as a three-way design fork and turned out not to be one**, which is worth
-      keeping as a record of how the wrong recommendation got made. The fork was read off the code —
-      `upsertTasks` does `update: { name: t.name }`, therefore a rename reverts, therefore you need
-      either a `displayName` column (recommended at the time) or an agent-side rename. Nobody had
-      asked whether that line *can fire*. It cannot: a Windows task's name is the last segment of its
-      path and the path **is** `externalId`, the key the row is matched on — so renaming on the
-      machine yields a **different task** (old path MISSING, new path imported), never a new name on
-      this one. Checked against the live DB: **354 Windows tasks, zero** whose stored name differed
-      from their path leaf. Claude's name is the user's own declaration; a native row *is* the task.
-
-      So option (a) — stop overwriting `name` — costs nothing, needs no migration, and `displayName`
-      would have been a second column maintained against an event that cannot happen. **Lesson: a
-      line of code is evidence that something was intended, not that it is reachable.**
-
-- [x] **Editing a Cronsole-native job spec** *(2026-08-12)* — `PATCH /api/tasks/:id/job`, an Edit
-      pencil on the task modal's Action section, and an `update_native_job` MCP tool. A native HTTP
-      task's URL previously could not be changed at all; the only route to a different URL was delete
-      and recreate, losing the run history.
-
-      Kept as its own route rather than folded into `/actions`: that one asks the elevated agent to
-      rewrite a task on the machine and records nothing until the platform confirms, while this one
-      rewrites a row the backend owns — the write *is* the change, and it works with the agent
-      offline. It **replaces** the job (the two job types share no fields, so a merge strands one
-      type's fields inside the other) and reuses the create route's `buildNativeJob` + `validateJob`,
-      so an edit can never produce a spec creation would have refused.
-
-- [ ] **The last unedited attribute** *(reported 2026-08-12)*: **category** (inline), **schedule**
-      (Windows + native), **action/command** (Windows), **job spec** (native) and **name** (all
-      platforms) are now editable. A task's **`externalId`** is not, and probably should not be —
-      it is the identity the row is keyed on and the address every signed agent command uses. For
-      Windows it is the Task Scheduler path, so "editing" it means moving the task on the machine;
-      for Claude it is the routine id, which `edit_claude_routine` already re-points properly. Left
-      open as a question rather than a task: is there a case for it that is not one of those two?
-
-- [ ] **`NativeTaskExecutor` has one intermittently failing test** *(logged 2026-08-12)*:
-      `reports a non-zero exit as failure, and keeps stderr` failed roughly 1 run in 3 under full-suite
-      load and passes in isolation and across 6 consecutive clean runs. **Not the obvious cause** —
-      `executeJob` resolves on `'close'`, not `'exit'`, so stderr is flushed before it settles; the
-      code is right and this is a test-level timing issue, not truncated logs. Logged rather than
-      chased: a flaky test quietly erodes trust in the suite, so it should be pinned down, but it is
-      not evidence of a product defect.
-
-- [x] **`HealthState` has no `UNKNOWN`, so "never checked" has to borrow a verdict**
-      *(logged 2026-08-12, shipped 2026-08-13)*: the enum was `HEALTHY | DEGRADED |
-      OFFLINE`. A configured-but-never-exercised platform is none of those, so the Claude connector
-      reported `DEGRADED` with a reason naming why — pessimistic-with-an-explanation, chosen because
-      the failure it prevents is trusting a config nothing has checked.
-
-      **A fourth instance found it in the field, and it is the one that made the item urgent.**
-      Windows sat at *"Agent connected but not responding (task:folders timed out)"* for **ten and
-      a half hours** over an agent that answered a sync immediately when finally asked. Health is
-      the newest of `lastResponseAt` against `lastFailureAt` — correct, and with no notion of an
-      observation getting old. One timeout at 21:05, nobody using Cronsole overnight, and the
-      strip reported it in the present tense until morning ([troubleshooting #48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy)).
-
-      That sharpened what the missing state was actually for. It is not only *"never checked"* —
-      it is **"no current evidence"**, which covers a verdict that has expired as well as one that
-      never existed. And it named the rule the other three instances were groping at:
-      **evidence of a connection renews itself and evidence of a failure does not**, so a socket
-      may stand indefinitely while a timeout must age out. Fifteen minutes
-      (`UNRESPONSIVE_EVIDENCE_TTL_MS`), which is long enough that an agent someone is actually
-      trying to use stays `DEGRADED` — each attempt renews the evidence.
-
-      **Shipped:** `UNKNOWN` on the enum (two migrations — Postgres refuses to *use* a new enum
-      value in the transaction that adds it), rendered as **"Not checked"** in neutral colours in
-      `healthMeta` / `HEALTH_STYLE`; the aging rule in `WindowsAgentConnector.getHealth`; all four
-      no-evidence branches in `ClaudeConnector` moved off `DEGRADED`; the schema default and both
-      hardcoded `healthState: 'HEALTHY'` creates removed, so a connection is no longer born
-      Online. `HealthStrip` ranks `UNKNOWN` below the two observed problems but **above healthy**,
-      or the green *"All 3 platforms online"* would have replaced the amber lie with a worse one.
-      The `list_platforms` MCP description now says `UNKNOWN` means "no current evidence", not a
-      problem to route around.
-
-      **Four instances of the same shape, none of them Claude-specific — all now closed:**
-      1. `getHealth` deriving a verdict from a precondition — fixed in `ClaudeConnector` 2026-08-12;
-         its four no-evidence branches now return `UNKNOWN` rather than borrowing `DEGRADED`.
-      2. `POST /api/tasks/health` auto-creating the Windows connection with a hardcoded
-         `healthState: 'HEALTHY'` before the agent had ever said anything — the literal removed, so
-         the row takes the default and the same request derives the real verdict a few lines later.
-      3. **The schema itself**: `PlatformConnection.healthState` was `@default(HEALTHY)`, so *every*
-         connection was born Online. Found when the routines route created one and the Platforms
-         card immediately read *Online* having contacted Anthropic never. Worked around there by
-         recomputing health on write (`refreshClaudeHealth`) — safe only because Claude's
-         `getHealth` does not probe, and **not** a pattern to copy to a platform whose health check
-         talks to the platform. Now `@default(UNKNOWN)`, which makes the workaround belt-and-braces
-         instead of load-bearing. **No backfill**: every stored value was written by a real poll, so
-         overwriting it would discard a true verdict to make the column uniform.
-      4. **A verdict that expired** — the Windows case above. The one that had to be *observed*,
-         because the other three are visible by reading the code and this one only shows up as a
-         status that is quietly hours out of date.
-
-      **Testing note worth keeping.** The connector's existing DEGRADED test used hardcoded
-      absolute dates, which were fine while the rule was "newest evidence wins" and silently became
-      *two days stale* the moment freshness entered the verdict — it kept passing, for the wrong
-      reason. The cases now fix the clock relative to the failure. And the first mutation used to
-      check them was itself worthless: setting the TTL to `MAX_SAFE_INTEGER` also moved the tests,
-      since they derive their clock from the same constant. Deleting the branch is the mutation that
-      proves anything.
-
-- [x] **Claude connection config — the panel that makes the connector reachable**
-      *(shipped 2026-08-12)*: the connector above was correct and **unreachable** — the only
-      `platformConnection.create` in the codebase was the Windows auto-init, so nothing could write
-      a routine id or token. Now `GET`/`POST`/`DELETE /api/tools/platforms/claude/routines` plus a
-      **Routines** panel on the Claude card in the Platforms tab.
-
-      Claude-specific rather than a generic `PUT /platforms/:platform/connection` on purpose: a
-      generic route would imply the other platforms are configurable this way (they are not) and
-      would have to accept an arbitrary JSON blob into a field every connector trusts. Each
-      platform gets its own validated shape when it needs one.
-
-      Decisions worth keeping: **the token is write-only** across all three routes (`hasToken`, never
-      the value; no reveal endpoint, because claude.ai cannot re-display it either and a second copy
-      would be a secret with a longer life than it needs); **re-adding an id rotates rather than
-      409s**, since generating a token at Anthropic revokes its predecessor, so the stored one is
-      already dead by the time the user gets here; **a pasted fire URL is normalized to its `trig_`
-      id**, because the modal shows the URL beside the token and storing it would 404 much later
-      with nothing pointing back at the paste; **shape mismatches warn rather than refuse**, since
-      `/fire` is experimental behind a dated beta header; and **removing the last routine removes
-      the connection**, so the card reads "Not connected" instead of sitting at amber
-      *"No routines configured"* forever for someone who never finished setup.
-
 - [ ] **GitHub Actions — read-only observer** *(~a day)*: near-universal for developers, and
       scheduled workflows are invisible until they break. `on: schedule` cron is **already UTC**, so
-      it matches the storage contract exactly — no conversion layer and none of the DST asymmetry
-      Windows carries. The API gives **real run outcomes**, which would make the health scoring
-      genuinely good here rather than the "agent accepted a start" approximation Windows forces.
-      Ships as an observer: sync + health verified, every mutating verb `unsupported`.
+      it matches the storage contract exactly — no conversion layer, none of the DST asymmetry
+      Windows carries. The API gives **real run outcomes**, which makes health scoring genuinely
+      good here rather than the "agent accepted a start" approximation Windows forces. Ships as an
+      observer: sync + health verified, every mutating verb `unsupported`. It is the **mirror image
+      of Claude** — reads everything, changes nothing; between them they bracket the pattern.
 
 - [ ] **Vercel Cron · Supabase `pg_cron` — read-only observers**: increasingly the default for web
       and indie developers, and both have trivial APIs. Same observer shape as GitHub Actions.
@@ -736,238 +302,301 @@ Everything below the sources track, unchanged in priority relative to each other
       A connector would render a row of `unsupported` that says strictly less than the link already
       does. Revisit if an API appears.
 
+- [ ] **Umbrella grouping for the hosted observers** *(reading (c) of the 2026-08-12 source
+      decision, left open when (b) was chosen)*: group GitHub Actions / Vercel / Supabase under one
+      two-level source node. A presentation question about the rail, not a data-model one — worth
+      doing once three hosted observers exist, and it blocks nothing until then.
+
+- [ ] **The last unedited attribute — a question, not a task** *(reported 2026-08-12)*. Category,
+      schedule, action/command, job spec and name are all editable now. A task's **`externalId`**
+      is not, and probably should not be: it is the identity the row is keyed on and the address
+      every signed agent command uses. For Windows it is the Task Scheduler path, so "editing" it
+      means moving the task on the machine; for Claude it is the routine id, which
+      `edit_claude_routine` already re-points properly. **Is there a case for it that is not one of
+      those two?**
+
 ---
 
-<a id="p0-security"></a>
+## 🟢 P3 — Expansion
 
-## 🟡 P0 — Security hardening — reopened 2026-08-13, substantially closed 2026-08-15
+> **Launch posture (decided 2026-07-13): Cronsole ships and stays local-first.** Cloud/SaaS hosting
+> is not a launch requirement. Remote access to your own instance is the final, optional
+> enhancement; go-live does not depend on it.
 
-<!--
-  Linked as `#p0-security`, not by heading slug. This heading carries dates and
-  has been edited twice; each edit silently broke every link to it (both were
-  still pointing at `…reopened-2026-08-13` after ", substantially closed
-  2026-08-15" was appended, found 2026-08-17 by scripts/check-doc-links.mjs).
-  A heading whose text is expected to change wants a stable anchor.
--->
+Shipped P3 work is in [Part II](#completed--p3-expansion).
 
+- [ ] **Guided repair verbs, on top of System diagnostics** *(logged 2026-08-17; deliberately
+      sequenced after the read-only panel, which shipped)*. The diagnostics panel answers *what is
+      wrong*; this is the *fix it* half. It stayed out of that change on purpose — three of the four
+      agent-health entries in the troubleshooting log were the readout lying, so a repair button
+      would have acted on a diagnosis nothing could yet check. Constraints, all established by the
+      panel:
+      - **A repair reports what it *observed afterwards*, never what it *did*.** "Spawned a
+        process → Fixed!" is `success` without `ran`
+        ([#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check))
+        in the one place a false green is most expensive. Every verb re-runs the check that prompted
+        it and reports the **new** state.
+      - **A fixed, named list — never a parameterized one.** The moment a repair takes a command,
+        Cronsole has an elevated arbitrary-action primitive reachable from a browser, which is what
+        "the agent gets no file-write verb" refuses. Candidates: republish the agent, restart the
+        agent, re-register the `\Cronsole-Stack\` tasks.
+      - **Not in the template registry.** Repairs are about Cronsole itself and must be
+        version-locked to it; a managed template row can be pruned by `catalogSync` — the catalog
+        could delete the thing that fixes the catalog.
+      - **The genuinely useful half is outside the stack and already exists**: `\Cronsole-Stack\`
+        survives the backend, Postgres and Docker all being down, because Windows Task Scheduler
+        runs it. Productising *that* belongs with **Installer packages** below. Note the standing
+        decision that those tasks are **not tracked** in the dashboard — disabling `CronsoleAgent`
+        from the dashboard is also what breaks the dashboard's ability to re-enable it.
 
-*Closed 2026-07-09; reopened for one item. The five below are still done — what reopened this is a
-gap none of them covered, because it is not a hole in a mechanism but the **absence** of one.*
+- [ ] **Installer packages (agent only)** — signed WiX MSI replacing the PowerShell setup script;
+      macOS `.pkg`/Homebrew once the launchd agent exists.
 
-*As of 2026-08-15 that gap is filled: **(a) `JWT_EXPIRES_IN` and (b) a real, revocable token
-surface both shipped**. Only **(c)** is open — resolve `req.user` from the database instead of
-trusting the `email` claim — which is small and independent, so this section no longer gates
-anything. The header stays red-adjacent rather than green because one item is still open.*
+- [ ] **Ship the whole application as a Windows installer (`.exe`)** — four jobs, not a packaging
+      step: (1) Postgres bundled vs. SQLite *(open decision below; lean bundle)*, (2) drop Redis,
+      (3) `vite build` served same-origin by Express, (4) bundle the Node + .NET runtimes. Secrets
+      must be generated **per machine at install time**, and uninstall must sweep Task Scheduler.
+      Signing is a hard prerequisite (SmartScreen), not polish. ~1 week to installable, ~1 more to
+      trustworthy.
 
-- [~] **API tokens — the product cannot issue the credential its own docs require** — **(a) and (b) shipped 2026-08-15; only (c) open**
-      *(found 2026-08-13, while answering "where do we have `CRONSOLE_TOKEN`?")*
+- [ ] **Split the files that have become fault lines** *(re-counted 2026-08-12; every one grew, and
+      one was missing from the list)*: `DashboardScreen.tsx` (1,251), `routes/tasks.ts` (1,182),
+      `mcp-server/src/tools.ts` (1,140), **`routes/tools.ts` (1,130 — newly listed)**,
+      `TemplatesScreen.tsx` (794), `AgentService.cs` (782), `TaskModal.tsx` (757).
+      **Still not a refactor sprint** — split along the named seams only when next touching that
+      area. Seams: dashboard filters/saved views · dashboard bulk actions · dashboard view
+      renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
+      vs. template vs. diagnostic tools.
 
-      **Symptom.** The working `CRONSOLE_TOKEN` on this machine is a JWT with a **30-day** life and
-      an `email` claim (`mike@example.com`) that does not match the user row it points at
-      (`mikeschecht@gmail.com`). Neither is something Cronsole can produce: `generateToken`
-      hardcodes `expiresIn: '24h'` and signs the user's real email.
+- [ ] **Route-level code-splitting** *(optional follow-up to the frontend refactor)*: the single
+      bundle trips Vite's 500 kB hint; cheap now that the router and screen modules exist.
 
-      **It was not improvised.** [`MCP_Server_Guide.md` › Getting a token](user-guides/guides/MCP_Server_Guide.md#getting-a-token)
-      instructs the user to run `jsonwebtoken.sign(..., {expiresIn:'30d'})` in a shell with
-      `JWT_SECRET` in scope. **That is the documented integration path**, and it is the only one.
-      So the finding is not "someone hand-minted a token" — it is that **hand-minting is the
-      product's answer**, and it requires the signing secret, a `userId` read out of the database,
-      Node, and a shell. A stranger following the MCP guide has to forge a credential to use a
-      feature we ship.
+- [~] **Template gallery site** — parts 1, 2, 4 and 5 shipped *(2026-07-14 → 2026-07-28)*.
+      **Left: part 3**, the one-click "Add to my Cronsole" deep-link / protocol handoff. Download
+      and Copy JSON use the shipped Import path today.
 
-      **Four specifics, in the order they bite:**
-      1. **No issuing surface.** The auth surface is exactly `GET /status`, `POST /setup`,
-         `POST /login`. `/login` returns the same 24h session JWT the browser uses — fine for a tab,
-         useless for a long-lived stdio client that cannot re-authenticate.
-      2. **Silent daily expiry.** Because a login token lasts 24h, the honest path costs a daily
-         re-export. And an unset or expired var does not error usefully — the MCP server refuses to
-         start and the tools go *missing* ([#8](troubleshooting/README.md#8-every-mcp-tool-returns-403-invalid-or-expired-token)),
-         which reads as "the integration is broken", not "your credential lapsed".
-      3. **No revocation.** Nothing tracks issued tokens, so a leaked one can only be killed by
-         rotating `JWT_SECRET`, which signs everyone out at once. Defensible for a single-user
-         local app — but it is a choice nobody wrote down, and it stops being defensible the moment
-         the multi-user item below lands.
-      4. **Claims are trusted without a lookup.** `authenticateToken` verifies the signature and
-         assigns `req.user` from the payload; it never checks the `id` against the database. A
-         correctly-signed token for a deleted user stays valid for its full life, and the `email`
-         claim is whatever the signer typed. Harmless today because only `id` is used for scoping —
-         and exactly the kind of thing that stays harmless until something reads `req.user.email`.
+- [~] **Remote access (self-hosted) — the final, optional enhancement.** Reach your **own** local
+      instance from other devices (the code-server model) via Tailscale or Cloudflare Tunnel +
+      Access. **The tooling shipped 2026-08-15 → 2026-08-17**; what remains is polish, not plumbing.
+  - [ ] **PWA manifest + icons** so the dashboard installs to a phone home screen — the last piece
+        of the "trigger from your phone in under 30 seconds" goal.
+  - [ ] **Auth hardening for an internet-facing gate** *(deliberately deferred 2026-08-15 — the
+        network gate does this job today)*: there is no password reset, so forgetting the one
+        password while travelling is only fixable at the keyboard; and the 24h JWT lives in
+        `localStorage` on a phone that can be lost, with no refresh flow. Both are acceptable behind
+        Tailscale or Access, and are the first things to revisit if the gate is ever relaxed.
 
-      **Shape of the fix, smallest first.** (a) `JWT_EXPIRES_IN`, defaulting to `24h` so nothing
-      changes for the browser — this alone makes the long-lived local token a *supported* thing
-      rather than a forged one. (b) A real token surface: issue named tokens from Settings, list
-      them, revoke them, store a hash rather than the token. (c) Resolve `req.user` from the DB on
-      each request, or at minimum stop trusting the `email` claim. **(a) is worth doing on its own
-      and immediately**; (b) is the honest destination and overlaps the account-system item under
-      Go-public; (c) is small and independent of both.
+- [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
 
-      - [x] **(a) `JWT_EXPIRES_IN`** — *shipped 2026-08-15.* Defaults to `24h`, so a browser session
-            is unchanged unless someone sets it. Validated by **probe-signing at boot** rather than
-            by pattern-matching (`ms` accepts a wide, undocumented range of spellings, so a regex
-            would reject valid values or admit invalid ones), and the probe also rejects values that
-            parse but mint an already-expired token. An all-digits value is converted to a **number**
-            so it reads as *seconds*: `jsonwebtoken` hands a string to `ms`, which treats a unitless
-            string as **milliseconds**, so `JWT_EXPIRES_IN=3600` would otherwise have issued
-            **3.6-second** tokens — every login succeeding and every request after it 403ing. Login
-            and setup now also return **`expiresIn`**, because the failure this item exists to fix is
-            a credential lapsing *silently*. **The guide's hand-minting instructions are gone**,
-            replaced by log-in-and-read-the-token; the old command survives only in a collapsed block
-            so anyone still holding such a token knows what it was.
-      - [x] **(b) A real token surface** — *shipped 2026-08-15.* `ApiToken` + three routes
-            (`POST`/`GET`/`DELETE /api/auth/tokens`) and a manager in **Settings → Account**: name a
-            token, pick **30 / 60 / 90 days or never**, confirm with your password, copy it once.
-            The list shows last-used dates and revokes individually.
-        - **`never` is only offered because these are revocable.** A permanent credential you can
-              withdraw is a convenience; one you cannot is a liability — and revocation is the thing
-              that was missing, since a leaked token could previously only be killed by rotating
-              `JWT_SECRET`, signing out every client at once.
-        - **The database stores the `jti` and nothing else.** The signature already proves
-              authenticity, so the only question a row has to answer is *"has this been withdrawn?"*.
-              Storing the token, or a hash of it, would be a second copy of a credential with no use
-              for it.
-        - **Revocation covers every door.** `checkToken` is one definition shared by the REST
-              middleware and the Socket.IO handshake — a revoked token the API refuses but the
-              live-update channel accepts would keep streaming task updates, and that is the half
-              nobody would think to test. It also **fails closed**: if the database cannot be asked,
-              the answer is `503`, not "assume valid".
-        - **It cost the hot path nothing.** Only tokens *with* a `jti` are looked up; a browser
-              session carries none, so the dashboard poll still verifies a signature and stops.
-              `lastUsedAt` is throttled to ~60s so an active client does not turn every read into a
-              write.
-        - **Browser sessions deliberately stay at 24h**, decoupled from API tokens — which is the
-              coupling (a) knowingly left open. `JWT_EXPIRES_IN` still governs logins only.
-      - [ ] **(c) Resolve `req.user` from the DB** (or stop trusting the `email` claim). Small,
-            independent of both.
+- [ ] **Product bets — from "a better Task Scheduler UI" to "a local automation control plane"**
+      *(directions, not scheduled work — each needs its own design pass first)*. ★ = recommended
+      first. The shared constraint: this project's guardrail is reliability first, and every bet
+      below is a feature that can be confidently wrong.
+  - ★ Runbooks attached to tasks
+  - ★ Task collections / playlists *(the first slice shipped 2026-08-16 as Collections)*
+  - Task dependency graph *(manual edges only for v1; inference is a suggestion, never a fact)*
+  - Watchdog tasks
+  - Task definition versioning
+  - Schedule conflict & load map
+  - Intent labels & purpose-driven views
+  - Failure triage assistant *(explain/assist only — autonomous repair is out)*
+  - Approval gates *(the gate must be out-of-band, or an agent approves itself)*
+  - Environment profile manager *(reports present/missing, never stores values)*
+  - Calendar & quiet hours *(not cheap — deferral means rewriting triggers on the machine)*
+  - Restore & migrate wizard
+  - Automation inventory report
 
-- [x] Agent WebSocket authentication — pairing-secret HMAC handshake, per-session command signing *(2026-07-09)*
-- [x] Encrypt `PlatformConnection.config` at rest (AES-256-GCM, migration-free legacy read) *(2026-07-09)*
+---
+
+## 🚀 Go-public checklist
+
+Everything required before the repo flips public and Cronsole is promoted beyond personal use.
+**Cronsole launches local-first** — each user runs the whole stack on their own machine, so these
+cover the repo and product going public, not standing up a multi-tenant cloud service.
+
+### Repo goes public
+
+- [~] **Secret & history audit** — audit clean *(2026-07-13)*. **Left:** squash to a fresh public
+      root at publish time, and scrub personal machine paths from internal docs.
+- [~] **Repo hygiene for outsiders** — done *(2026-07-13)*. **Left:** branch protection on `main`
+      (a GitHub setting; do it at publish).
+- [~] **Community scaffolding** — `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates and the
+      CI badge shipped *(2026-07-13)*. **Left:** enable Discussions at publish.
+- [~] **Final README/docs pass for a stranger audience** — the CLAUDE.md cloud-hosting row is fixed
+      *(2026-07-31)* and four false README claims were corrected *(2026-08-17)*. **Left:** a
+      quick-start that works on a machine that isn't Mike's, screenshots/GIF, an honest
+      feature-status table, and the wider stale-claims sweep.
+
+### Application goes public
+
+- [ ] **Versioning & releases** ← *next*: semver across the four independently-versioned
+      components, tagged releases, changelog discipline, so advertised versions are reproducible.
+      Also unblocks the deliberately-skipped `version` fields in the package manifests.
+- [ ] **Production operations**: error tracking, structured logs, uptime monitoring + status page,
+      automated Postgres backups with a **tested restore**, broader API rate limiting, staging +
+      deploy pipeline. *(Auth rate limiting shipped 2026-07-16.)*
+- [ ] **Agent distribution & trust**: signed installer, a code-signing certificate to clear
+      SmartScreen, versioned releases with an update channel, and a documented "what the agent can
+      do / how to remove it" trust page. **The certificate is a hard prerequisite for the
+      whole-stack installer.**
+- [ ] **Legal minimum**: privacy policy, terms of service, account deletion + data export that
+      actually purges tasks and logs, cookie handling on the public site.
+- [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
+      password reset (needs email infra), open registration as a *designed* invite/approval flow,
+      JWT refresh tokens, per-user agent pairing, account management and roles.
+- [~] **Launch surface** — one public page shipped *(2026-07-28, consolidated from two)*. **Left:**
+      real install/download links once the app repo is public, and richer marketing content.
+
+---
+
+## Open decisions
+
+- [ ] **Installed-app database: bundled Postgres vs. SQLite** *(opened 2026-07-28)* — blocks the
+      whole-stack installer and only that. Bundled Postgres costs ~250 MB and a service lifecycle
+      but needs **no schema or test changes**; SQLite gives a single-file install but
+      `Template.tags String[]` is Postgres-only, forcing a migration and forking the integration
+      suite. **Lean: bundle Postgres for v1.**
+- [ ] **Agent transport** — WebSocket only, or hybrid with long-polling for restricted networks?
+- [ ] **Template registry — static vs. dynamic at launch** — a static JSON registry is leading;
+      earn a DB-backed API + admin/submission UI later. *(Format is already decided: target-agnostic
+      JSON, compiled per target.)*
+
+Resolved decisions are in [Part II](#completed--resolved-decisions).
+
+---
+
+<a id="part-ii--completed"></a>
+
+# Part II — Completed
+
+Everything below has shipped. One line per item with its date; the write-up for anything from
+2026-08 onward is in [`CHANGELOG.md`](CHANGELOG.md) under that date, and the full narrative these
+lines replaced is in that file's *Roadmap narrative archive* appendices.
+
+<a id="shipped-2026-08-15--2026-08-17"></a>
+
+## Shipped 2026-08-15 → 2026-08-17 — the current sprint
+
+### The 2026-08-15 requests
+
+- [x] **Cronsole-native job types `SCRIPT` + `CHECK`** — native went from two types to four, with
+      six templates (three core), MCP tools (`create_native_script_task` /
+      `create_native_check_task`, old EXEC tool renamed `create_native_program_task`), per-source
+      descriptions, help topics and the Sources Guide *(2026-08-15,
+      [ADR 0002](adr/0002-native-job-types.md))*. `NOTIFY` and `SQL` remain deferred behind
+      per-job encrypted fields (Part I); `SEQUENCE` is last and only if per-step verdicts are the
+      goal.
+- [x] **Both new job types driven end-to-end on a live stack** — including the negative cases and a
+      check of `childEnv()` on a real child process *(2026-08-15)*.
+- [x] **`runTask` returns `ran` alongside `success`** — a job that ran and failed is a `200` with
+      `success: false`; only "could not start" is a `502`. `ran` is stamped once in `executeJob`
+      *(2026-08-15,
+      [#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check))*.
+- [x] **Collections — a named set of tasks you picked by hand** (`TaskCollection` +
+      `TaskCollectionMember`, rail rows, manager, ordering) *(2026-08-16)*. Follow-up the same day:
+      the bookmark button was portalled to `document.body` so it reaches all five task surfaces, not
+      only the detail modal.
+- [x] **The redesigned dashboard verified on a phone** — ten mobile Playwright tests at a viewport
+      Playwright sets directly *(2026-08-16)*. It found the E2E suite itself was 18-of-18 broken and
+      repaired it; wiring that suite into CI is the open P1 item.
+- [x] **The four job-type buttons sized against their sibling below `md`** — `py-2` → `py-3`, with
+      the test asserting ≥40px against the platform picker rather than an abstract guideline
+      *(2026-08-16)*.
+- [x] **The gallery renders a script body as code and a check as its assertion**, instead of escaped
+      JSON — with the deliberate rule that a *partial* reading is worse than raw JSON, so an
+      unrecognized or malformed shape declines the whole reading *(2026-08-17)*.
+- [x] **A passing check now states the assertions it made** — the observed value, not "matched", so
+      the passing and failing logs differ by outcome rather than by wording *(2026-08-17)*.
+
+### Correctness, honesty and infrastructure
+
+- [x] **`shiftCron`'s refusal states its reason** — declining to answer and answering "no problem
+      here" are no longer the same code path *(2026-08-15,
+      [#60](troubleshooting/README.md#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter))*.
+- [x] **Every agent verb reported a timeout 15 seconds after succeeding** — one `agentRequest`
+      helper now owns the deadline for all ten verbs *(2026-08-16,
+      [#62](troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request))*.
+- [x] **Platform health is derived when asked, not read back from a cache** — `buildPlatformMatrix`
+      calls `connector.getHealth`, so the matrix, the dashboard and diagnostics cannot disagree
+      *(2026-08-17,
+      [#66](troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second))*.
+- [x] **Remote access stopped depending on which build command you typed** — `FALLBACK_API_ORIGIN`
+      folds on `import.meta.env.DEV`, so every build defaults to same-origin *(2026-08-17,
+      [#63](troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend))*.
+- [x] **The native-executor tests are no longer flaky under parallel load** — both files that spawn
+      real processes set a 30s file-level timeout *(2026-08-17)*. This closes the intermittent
+      `NativeTaskExecutor` failure logged 2026-08-12.
+- [x] **Doc links are checked by CI** — `scripts/check-doc-links.mjs` resolves every relative
+      markdown link (1,307 across 147 files) to a real file *and* heading, plus repo-doc paths
+      written as string literals in tracked source *(2026-08-17)*.
+- [x] **Doc sweep behind the diagnostics ship** — four false README claims corrected; Connect Pack
+      to v1.8, then v1.11 with the tool inventory regenerated *(2026-08-17)*.
+
+### Features
+
+- [x] **System diagnostics — a read-only report on Cronsole itself.** `GET /api/tools/diagnostics`
+      + `services/diagnostics.ts`, the `DiagnosticsModal` from two entry points, and the
+      `get_diagnostics` MCP tool. Eight checks, each carrying the evidence behind its verdict
+      *(2026-08-17)*. Read-only deliberately — repair verbs are the separate P3 item.
+- [x] **Per-task export gained a portable `template` format** — `?format=template`, built by the
+      same `buildTemplateFromTask` as save-as-template but writing nothing *(2026-08-17)*. Amended
+      the same day: the `CLAUDE_CODE` half did not work at ship time, because a routine's command is
+      its **prompt**; fixed with an `ai-prompt` branch.
+- [x] **Task import and deleted-task restore — the export format finally has a reader.**
+      `POST /api/tasks/import`, `POST /api/tools/task-archives/:id/restore`, a Tools card, a New
+      Task link, and three MCP tools (`import_task`, `list_task_archives`, `restore_task_archive`)
+      *(2026-08-17,
+      [#65](troubleshooting/README.md#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it))*.
+      With it: the UI's `DELETE /api/tasks/:id` archives native tasks too, and `createNativeTask`
+      became the one definition of writing a native row.
+- [x] **The Dashboard's Import button became a chooser** — adopting tasks that already exist vs.
+      creating one from a file, named by consequence, with discovery gated on the choice
+      *(2026-08-17)*.
+- [x] **Dashboard IA redesign, pass 1 — the shell**: section links to a top toolbar, the left column
+      to a two-level source rail, category out of the Filters popover, per-platform health as a dot
+      on the rail row *(2026-08-15)*. Pass 2 is open.
+
+<a id="completed--p0-security"></a>
+
+## Completed — P0 Security
+
+- [x] **API tokens (a) `JWT_EXPIRES_IN`** — defaults to `24h`, validated by probe-signing at boot
+      rather than by pattern-matching; login and setup return `expiresIn`; the guide's hand-minting
+      instructions are gone *(2026-08-15)*.
+- [x] **API tokens (b) a real token surface** — `ApiToken` + `POST`/`GET`/`DELETE
+      /api/auth/tokens`, a manager in Settings → Account, 30/60/90 days or never, individually
+      revocable. The DB stores the `jti` and nothing else; `checkToken` is one definition shared by
+      REST and the Socket.IO handshake and fails closed *(2026-08-15)*.
+- [x] Agent WebSocket authentication — pairing-secret HMAC handshake, per-session command signing
+      *(2026-07-09)*
+- [x] Encrypt `PlatformConnection.config` at rest — AES-256-GCM, migration-free legacy read
+      *(2026-07-09)*
 - [x] Multi-tenancy route scoping + JWT fail-fast + dev-JWT rotation (IDOR closed) *(2026-07-09)*
 - [x] Structured command handling — no `cmd.exe /c` shell wrap *(2026-07-09)*
 - [x] Agent config file/env for server URL + WSS support *(2026-07-09)*
 
-## 🟠 P1 — Correctness & honesty
+<a id="completed--p1-correctness--honesty"></a>
 
-New correctness work lands here as it is found. Everything logged before 2026-08-12 is closed.
+## Completed — P1 Correctness & honesty
 
-- [ ] **Run the E2E suite in CI — it is the only thing that renders CSS, and nothing runs it**
-      *(logged 2026-08-16)*. `npm run test:e2e` sat **100% broken for a day** (18 of 18) after the
-      IA redesign moved a heading every test waited on, while backend 715, integration 223 and
-      frontend 541 stayed green. **jsdom does not evaluate media queries**, so the unit suite passes
-      whether `hidden md:flex` is right or wrong; Playwright is the only layer that can see a
-      responsive layout, a real stylesheet, or a drawer that does not open.
-      **The blocker is fixtures, not the runner.** Several assertions lean on this machine's live
-      data — native job-type rows, a connected agent's health dot, source counts — and the visual
-      baselines are Windows-rasterized while CI is Linux. So it needs (a) a seeded, deterministic
-      dataset the assertions can name, (b) the mock agent from `mock-agent.spec.ts` promoted to the
-      shared harness, and (c) a Linux baseline set, which the per-platform snapshot suffix already
-      supports. **Doing it hastily is worse than not doing it**: a flaky visual job gets disabled,
-      and a disabled suite is what produced this item. Until then, `workflows.md` states the
-      obligation to run it after any dashboard change.
-
-- [x] **Every agent verb reported a timeout 15 seconds after succeeding** *(logged and fixed
-      2026-08-16, found while investigating a genuine `List folders` failure the health strip was
-      reporting)*. All ten verbs in `WindowsAgentConnector` scheduled a 15s deadline and never
-      cleared it, so a request answered in 200ms still called `markUnresponsive`. Two of the stale
-      timer's three effects were self-cancelling; the third wrote the health record — so Windows
-      sat at **DEGRADED — "not responding (task:list timed out)"** essentially permanently, and
-      could not stay HEALTHY for more than 15s after its last request. Measured live: sync 200 at
-      03:42:30 → HEALTHY at t+0 and t+8 → DEGRADED at t+17, nothing asked in between.
-      **This is [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
-      with the sign flipped** — a status field reporting a failure that never happened rather than
-      health it never observed — and the worse direction, since it trains the reader to ignore the
-      one line that is supposed to mean something. Fixed with a single `agentRequest` helper owning
-      the deadline (the `ran`-stamped-once-in-`executeJob` argument: a rule ten call sites must
-      remember is one the eleventh forgets). Pinned by a table-driven test over all ten verbs that
-      fails 10/10 against the old code
-      ([#62](troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request)).
-
-- [x] **`get_task_health` summarized a different population than it listed** *(logged and fixed
-      2026-08-13, found by hand-driving the tool against 358 real tasks)*: with `includeSystem: false` the
-      response returns `counts.critical: 25` beside `matched: 13`, and the header a model reads
-      aloud says *"Across 358 task(s): 25 critical"* directly above thirteen rows. Flipping
-      `includeSystem` does not move `counts` at all
-      ([#49](troubleshooting/README.md#49-get_task_healths-counts-describe-a-different-population-than-its-list)).
-      **This is the filter-chip defect above, one layer out** — the same mixed-population failure,
-      fixed in the dashboard card on 2026-07-31 and never carried to the API's other consumers,
-      because the card fixed it by counting where it filtered rather than by moving the rule
-      somewhere both could reach.
-      **The cause is `mcp-server/` owning logic.** `GET /api/tools/task-health` accepts no `tier`,
-      no `includeSystem` and no `limit`; it scores every task and summarizes that same array, which
-      is self-consistent and honest. All three parameters are implemented client-side in
-      `mcp-server/src/tools.ts`, which then forwards the server's unfiltered `counts` beside its own
-      filtered `matched`. Per §11a the wrapper owns no logic, and *which tasks the answer is about*
-      is logic — so **the fix is to move `tier` / `includeSystem` / `limit` into the route**, apply
-      them before `summarizeHealth`, and reduce the wrapper to a pass-through; the UI and every
-      future consumer get the corrected summary at once. Recomputing `counts` inside the wrapper is
-      the cheap alternative and leaves the next consumer to rediscover this.
-      **Shipped the route version.** `GET /api/tools/task-health` now takes `tier`, `includeSystem`
-      and `limit` (`taskHealthQuerySchema`) and applies them beside the counting; the wrapper is a
-      pass-through that filters nothing. Three details carry the design. **`counts` is taken after
-      the system lens but before the `tier` filter** — the `applyTaskFiltersExcept` rule one layer
-      out, since a breakdown counted after `tier` reports that tier and four zeros. **Every route
-      default is "everything"** (`includeSystem` defaults `true`, `limit` unbounded) because
-      `useTaskHealthTiers` passes no parameters and needs a verdict for every task, so the
-      unparameterized response is byte-identical to before; the MCP tool keeps its own `false`
-      default and states it explicitly. And the response carries **`scope: {includeSystem, tier,
-      systemExcluded}`**, so the summary names its population and the 257 hidden tasks are counted
-      out loud rather than silently fenced off. A malformed lens is a `400`, not a guess.
-      Verified live: `?includeSystem=false` now returns `counts.critical: 13` beside `matched: 13`
-      where it read `25`, and the bare call is unchanged at 358/358. Five integration tests, the
-      #49 one mutation-tested by reinstating `summarizeHealth(results)`.
-
-- [x] **`missed-runs` was charged against disabled tasks** *(logged and fixed 2026-08-13, same
-      exercise)*: the worst-ranked task on a real machine was `DISABLED`, scoring 35 on
-      `last-run-failed` (50) **plus `missed-runs` (15)** — so a parked task led the worst-first
-      list, above every task still running and failing. The `disabled` signal itself was correctly
-      `weight: 0`; the fault was scoring a task for doing exactly what disabling it means.
-      **Decided: do not track missed runs for a disabled task.** Windows keeps incrementing
-      `numberOfMissedRuns` while a task is parked, and parking is the action §9 calls the
-      recommended safe one — the same reasoning that ships `set_task_status` ungated. **A health
-      model that penalizes the safe fix pushes people toward the unsafe ones.**
-      Notably this was an *inconsistency*, not a new rule: `overdue` and `never-run` already
-      skipped disabled tasks, and `missed-runs` sat in the same function without the guard. The
-      count is suppressed, not forgotten — re-enable the task and the signal returns.
-      Fixed alongside: the evidence read *"reported 1 missed runs"* under a summary that correctly
-      said *"1 scheduled start"*, and the evidence line is the half meant to be quotable.
-
-- [x] **The filter chips counted every task, while the list showed the filtered ones**
-      *(logged and fixed 2026-08-12, from the UX review)*: `Showing All 269` above two rows on the
-      Favorites view — exactly the failure §9 predicts (*"the fifth filter applied to the list but
-      not to the counts beside it"*), arriving with the sixth. Both counts now come from
-      `applyTaskFiltersExcept`, the population the control governs; the chip names its dimension
-      (`All statuses` / `Active only`); the facet chips share the same helper. Verified in the
-      browser against rendered rows.
-
-- [x] **The dashboard reported a folder listing as a sync** *(logged and fixed 2026-08-12, while
-      building the health strip)*: `getHealth` returned the agent's last inbound event of any kind
-      under the name `lastSync`, so *"Synced 7m ago"* sat above a task list from the previous day
-      ([#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday)).
-      **This survived the fix for #40** — a *real* timestamp of the wrong event passes every
-      honesty check an invented one fails, which is the residual item below happening again in a
-      harder-to-see form. Fixed structurally: `ConnectorHealth.lastSync` is deleted, connectors
-      report `lastContactAt`, and `lastSync` has exactly one writer.
-
-- [x] **The health strip changed its own height and shoved the page down** *(2026-08-12)*: a
-      `flex-wrap` status line went one row to two whenever a segment appeared, moving everything
-      below it by ~22px on a 45-second poll. Now one scrolling line. Caught by the new screenshot
-      suite.
-
-- [ ] **System-status honesty — residual** *(mostly shipped 2026-07-08)*: live per-platform health,
-      the "synced N ago" chip and the honest Sync/Import split all ship; what remains is periodic
-      review that no status surface has drifted back to asserting something it can't evidence.
-      **The review found one on 2026-08-11 and it is fixed** — `getHealth` reported `HEALTHY` from a
-      socket object existing and stamped `lastSync: new Date()`, so a wedged agent read as online and
-      "synced just now" while every request against it timed out
-      ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
-      Keep the item open: the lesson is that this class returns, and the tell is a status field
-      derived from a precondition that cannot change when the subject fails.
-      **It returned the next day** ([#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday),
-      fixed above) — through the *replacement value*, not the old one, which sharpens the tell:
-      a status field can be first-hand, correctly absent, and correctly stale, and still be
-      **the wrong event**. Ask what writes it, and whether that is what the label names.
+- [x] **`get_task_health` summarized a different population than it listed** — `tier`,
+      `includeSystem` and `limit` moved into the route, `counts` taken after the system lens but
+      before the tier filter, and the response carries its `scope` *(2026-08-13,
+      [#49](troubleshooting/README.md#49-get_task_healths-counts-describe-a-different-population-than-its-list))*.
+- [x] **`missed-runs` was charged against disabled tasks** — suppressed, not forgotten; a health
+      model that penalizes the safe fix pushes people toward the unsafe ones *(2026-08-13)*.
+- [x] **The filter chips counted every task while the list showed the filtered ones** — both counts
+      now come from `applyTaskFiltersExcept` *(2026-08-12)*.
+- [x] **The dashboard reported a folder listing as a sync** — `ConnectorHealth.lastSync` deleted,
+      connectors report `lastContactAt`, and `lastSync` has exactly one writer *(2026-08-12,
+      [#42](troubleshooting/README.md#42-the-dashboard-says-synced-7m-ago-over-a-task-list-from-yesterday))*.
+- [x] **The health strip changed its own height and shoved the page down** — now one scrolling line
+      *(2026-08-12)*.
+- [x] **`getHealth` asserted HEALTHY from a socket object existing** *(2026-08-11,
+      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out))*.
 
 <details>
-<summary>Completed P1 items</summary>
+<summary>Earlier completed P1 items</summary>
 
 - [x] Multi-day weekly schedules no longer collapse to one day (`0 9 * * 1-5`) *(2026-07-14)*
 - [x] Live-agent smoke test for schedule normalization + midnight-cross day-of-week fix *(2026-07-09)*
@@ -984,375 +613,87 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 </details>
 
-## 🟡 P2 — Product value
+<a id="completed--sources"></a>
 
-### Dashboard IA redesign *(requested 2026-08-15 — pass 1 shipped, pass 2 open)*
+## Completed — Sources & connectors
 
-> **Why.** The dashboard was hard to navigate: five full-width things stacked above the first
-> task, three of them horizontal chip rows doing different jobs at the same visual weight, and
-> the axis you actually navigate a real machine by — *which Task Scheduler folder is this in?* —
-> was a facet buried inside the Filters popover. Requested as "put the sections on top, put the
-> sources in a left sidebar, and let each source show its own groupings".
+- [x] **Native job types — scripts (`EXEC`)** *(2026-08-12)*: `StructuredAction {executable,
+      args[]}` reused, containerization detected at boot so a task states where it executes, and
+      real `ExecutionLog` rows.
+- [x] **API / Web Services — resolved as a subtype split** *(2026-08-12)*: a source key is
+      `PLATFORM` or `PLATFORM:SUBTYPE`, derived server-side in `services/taskSource.ts`. Platform
+      and source are deliberately different things, so the Platforms tab does not split.
+- [x] **Claude Code routines — full read/write connector** *(2026-08-13,
+      [#50](troubleshooting/README.md#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one))*:
+      list, create, reschedule, pause and token-free run over the OAuth `/v1/code/triggers` API,
+      with the documented per-routine fire token kept as a load-bearing fallback.
+      `unsupportedVerbs` became a getter; the credential is read at call time, never stored, never
+      refreshed; delete is impossible on both doors, verified by enumeration.
+- [x] **Claude Code routines — promoted as far as the documented API allows** *(2026-08-12)*.
+      Superseded 2026-08-13 by the above; kept as the record of a documentation search mistaken for
+      an API audit.
+- [x] **Claude connection config — the Routines panel that makes the connector reachable**
+      *(2026-08-12)*: write-only token, re-adding an id rotates rather than 409s, a pasted fire URL
+      normalizes to its `trig_` id, removing the last routine removes the connection.
+- [x] **A Claude task is its declaration** *(2026-08-12,
+      [#47](troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole))*:
+      untrack 400s for `CLAUDE_CODE`, disconnecting the routine removes its tasks and history and
+      writes no exclusion.
+- [x] **Cron→trigger conversion: multi-value hour and minute fields** *(2026-08-13,
+      [#51](troubleshooting/README.md#51-a-schedule-edit-returns-502-for-a-cron-that-is-simply-not-expressible)
+      / [#51a](troubleshooting/README.md#51a-the-same-bug-in-the-step-branch--and-this-one-never-errors-at-all))*:
+      lists, ranges, step-with-list and the reverse direction all hardened; a lossy conversion now
+      rides the **success** of a schedule edit, not only the refusal.
+- [x] **The gallery's `describeCron` drops day-of-month values** — returns no reading rather than a
+      confident wrong date *(2026-08-13)*.
+- [x] **`HealthState` gained `UNKNOWN`** *(2026-08-13,
+      [#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy))*:
+      "no current evidence" covers both never-checked and expired. Failure evidence ages out at 15
+      minutes; connection evidence renews itself; `UNKNOWN` ranks above healthy in any summary.
+      Closed all four instances of the shape, including the schema's `@default(HEALTHY)`.
+- [x] **Renaming a task** *(2026-08-12)*: DB-only, every platform, `rename_task` over MCP. The
+      three-way design fork turned out not to be one — a line of code is evidence that something was
+      intended, not that it is reachable.
+- [x] **Editing a Cronsole-native job spec** *(2026-08-12)*: `PATCH /api/tasks/:id/job`, an
+      `update_native_job` MCP tool, sharing the create route's `buildNativeJob` + `validateJob`.
 
-- [x] **Pass 1 — the shell** *(2026-08-15)*: section links moved to a **top toolbar**
-      (`components/TopBar.tsx`); the left column became a two-level **source rail**
-      (`components/SourceRail.tsx` + pure `utils/sourceTree.ts`) — the system at level 1, that
-      system's own grouping at level 2 (Windows → Task Scheduler folders, Cronsole-native → job
-      type, which stopped being two *top-level* sources). The category facet left the Filters
-      popover; the sidebar's "System Status" panel was deleted and per-platform health became a dot
-      on the rail row. `\Microsoft\` is one collapsed, counted disclosure group with **no filter
-      patch**, so the rail never becomes a third controller of the system lens.
-      **The behaviour change worth remembering:** `filtersEqual` now ignores `category` as well as
-      `source`, so navigating the rail no longer drops the view bar to *Custom*. A folder click
-      used to and a source click did not — two halves of one control behaving oppositely. The rule
-      was always about **hidden** constraints, and a rail selection is not hidden.
-      23 new tests (16 tree + 7 component); 508 green; verified in-browser against 363 real tasks.
-- [ ] **Pass 2 — scoping** *(open)*: views filtered to the source they make sense for (*System* is
-      Windows-only and reads `0` everywhere else); source-scoped header actions, so **Sync** and
-      **Import** state which platform they mean; per-source empty states, so a connected platform
-      with nothing imported says how to import from it. Mobile layout still needs a real device
-      check — the automation session could not resize the browser window.
+<a id="completed--p2-product-value"></a>
 
-### Open — UX & UI refinement pass *(logged 2026-08-12)*
+## Completed — P2 Product value
 
-> A full-app review on 2026-08-12 (`.claude/temp/cronsole-review-8_12_26/`, live app + repo) found
-> the product powerful but reading as a dense internal admin panel rather than a control plane.
-> Every item below was re-verified against the source and is stated as what the code actually
-> does, not as the review phrased it. **Ordered.** The counts bug the same review found is P1
-> above and should ship first — it is the one that makes the dashboard say something untrue.
-
-- [x] **Status colour isn't themeable — 263 hard-coded Tailwind utilities across 8 hues**
-      *(shipped 2026-08-12)*. Roles now live in `index.css` as `--x` / `--x-text` pairs
-      (`success` · `warning` · `danger` · `isolate` · `info` · `system` · `neutral-text`, plus
-      `native` / `claude` / `chatgpt` identity and a `danger-surface` alarm pair). Zero raw palette
-      utilities remain. **The real defect was worse than untidiness: all five status roles failed
-      WCAG AA in the light theme** (1.67–2.77 against white, AA is 4.5) and *could not be fixed
-      where they were written*, since one literal cannot serve both themes — now 5.05–8.65, with
-      dark unchanged at 7.15–11.70. Also caught: `bg-violet-600` and `bg-primary` are the same
-      colour, so the native-vs-Windows chip drew no distinction.
-      **Correction to this item as originally written:** it claimed three synonym pairs from a
-      hue-frequency count. Checked before merging, only **green/emerald** was real — and even that
-      excludes `platform.ts`, where emerald is ChatGPT's brand, so a blind merge would have
-      recoloured a live badge. violet/purple (system lens vs Claude identity) and red/rose
-      (failure vs isolating lens) are distinct roles that happen to share a hue.
-      `--raised` is added and applied to one panel; **spending it across the app to build real
-      hierarchy is the *thin the first viewport* item below**, not done here.
-- [~] **Thin the first viewport** *(desktop shipped 2026-08-12)*. Status, ownership, platform and
-      category moved into one **Filters** popover (`components/TaskFilterMenu.tsx`) carrying an
-      active-filter count; two full rows of category chips and the platform toggle are gone. The
-      constraint held: **what a lens withholds did not move inside.** Category and platform became
-      dismissible pills (they name themselves), while system and status — defaults nobody chose
-      today — print `189 system hidden` / `10 inactive hidden` beside the trigger, each also being
-      the control that undoes it. `withheldBy` + `activeFilterCount` are pure and pinned by tests
-      so the rule survives edits. The filter zone is now a `bg-raised` panel, which is where the
-      neutral step earns its keep. `TaskCard` is memoised (a search keystroke re-rendered all 269).
-      **Mobile half shipped 2026-08-12**: saved views became one horizontally-scrolling row bled to
-      the screen edge, Help Center and Import dropped to icons (names kept as `aria-label`),
-      `New Task` became a FAB — the *same* control, with the header button hidden at that width —
-      and the filter toolbar became one scrolling row that **sticks to the top**, since on a phone
-      it is the only way back out of a filtered list. **The 375px verification is now done and
-      automated** (`tests/e2e/layout.spec.ts`): the browser-resize route never reached the tab, so
-      it moved into Playwright, where `setViewportSize` does. It asserts no horizontal overflow, a
-      one-row views bar, the toolbar surviving a 2000px scroll, and a 44px FAB.
-- [x] **Grow the Platforms tab into a capability matrix** *(shipped 2026-08-12; the open decision
-      resolved **grow**)*. Three platform rows — Windows, Cronsole-native, Claude (experimental) —
-      each with connection, tracked count, last real sync, last verified, and ten capability chips
-      over an expandable per-verb evidence table. The bookmarks stay as *Quick links*.
-      **Verified / Declared / Unsupported**, and the middle one is the point: reachable but never
-      observed to work is not *yes*.
-      **What the item's own wording would have got wrong:** deriving a cell from
-      `typeof connector.deleteTask === 'function'` is false for Cronsole-native, whose delete,
-      reschedule and export are handled by `routes/tasks.ts` directly (the DB row *is* the task) —
-      so a connector-derived matrix reports that platform as unable to do three things it does
-      daily. Reachability is therefore a property of the **route**
-      (`services/platformCapabilities.ts`, pinned against both the connector objects and the route
-      source), and evidence is a new `PlatformCapability` table the routes write as they run.
-- [x] **Dashboard health strip** *(shipped 2026-08-12)*: connection state, last real sync, and the
-      newest recorded command outcome — **success or failure**, since a status line that hid
-      failures would go quiet exactly when something is wrong. Nothing recorded reads *"No commands
-      run yet"*, not a tick. It found the `lastSync` defect (P1 above) and its own layout shift.
-- [x] **Icon-only controls need accessible names** *(shipped 2026-08-12)*: all 8 modal close
-      buttons named; the card's category control became a real button. **The card itself was the
-      bigger defect** — a clickable `<div>`, so the dashboard's primary action was mouse-only. The
-      title is now the control (*"Open details for &lt;task&gt;"*), which is where it had to go: the
-      card contains the row-action buttons, and a button may not nest in a button. A hover/focus
-      *"Open details ›"* hint names the card's default click.
-- [x] **Screenshot regression coverage** *(shipped 2026-08-12, `tests/e2e/layout.spec.ts`)*:
-      dashboard at 1280px and 375px, Templates, Tools, Platforms, New Task and Import.
-      **Split by what each surface can honestly assert** — pixels for chrome that does not move
-      (live regions masked, `maxDiffPixels: 40` for antialiasing noise), structure for everything
-      else. Platforms and the Import modal get **no** pixel baseline: both are almost entirely live
-      evidence, and masking hides colour but not geometry, so the baseline would be an empty frame
-      that still breaks whenever a row's height moves
-      ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
-      Green on 6 consecutive runs.
-      **Not covered:** the task-detail modal (its body is one live task) and the Tools tab's
-      individual tool panels — named here so the gap stays visible rather than reading as coverage.
-- [x] **In-app help, per control** *(requested and shipped 2026-08-12)*: a **?** beside fourteen
-      controls, each opening one topic — what it is, the two or three non-obvious facts, and a
-      link to the doc section that covers it. The Help Center and the `?` are **one modal**: the
-      hub indexes every topic and every topic ends in *Browse all help*, because the two entry
-      points fail in opposite directions (a `?` is only findable once you are looking at the
-      control it explains; a hub is only useful if it can reach what those buttons say).
-      Source help **follows the source you are on** — the Source bar, each Platforms row and the
-      New Task platform selector all resolve to that source's topic, degrading to the platform
-      and then to the overview so a connector landing before its help copy still opens something
-      true. New [`Sources_Guide.md`](user-guides/guides/Sources_Guide.md) is the deep-link target.
-      **`HelpTopic.doc` is required**: a topic with nowhere to point is one explaining something
-      undocumented, and the fix is a doc, not a popover that becomes the only place a rule is
-      written down.
-      **The links are checked** (`frontend/src/data/__tests__/docsLinks.test.ts`, 43 assertions) —
-      a stale anchor does not fail on its own, since GitHub serves the page scrolled to the top
-      with no error anywhere. Mutation-tested.
-- [x] **One Edit button per task, instead of four** *(requested and shipped 2026-08-13)*. The task
-      modal carried four edit affordances in four places with three different shapes — a rename
-      pencil in the title, a *Change* link on the category card, an *Edit* in the Action panel
-      (opening one of two modals by platform), and *Edit Schedule* in the footer. Now one **Edit**
-      opening `EditTaskModal`; `EditScheduleModal` / `EditActionModal` / `EditNativeJobModal` are
-      deleted, their fields extracted to `components/edit/`, and the prefill + gating rules moved
-      to `utils/taskEditing.ts` so one rule decides both what a field holds and whether its section
-      renders.
-      **The design constraint: one gesture, still three routes.** Labels are a DB row this process
-      owns; a Windows schedule or command change is an elevated agent round trip Windows can
-      refuse. So Save sends only changed sections, sequentially, and **reports each separately** —
-      a section that lands is re-baselined and goes clean, one that fails keeps its values and its
-      error, and a second press retries only what is outstanding. The same per-item rule the bulk
-      verbs follow, and for the same reason. **All-or-nothing was rejected**: the rollback runs
-      through the same offline agent that just failed.
-      A part this platform cannot change is now a **sentence in the form**, not a disabled button
-      with the reason in a tooltip — which is unreadable on the phone this app must work on. The
-      Edit button itself is never disabled, since name and category are editable on every source.
-      Also fixed under it: [#52](troubleshooting/README.md#52-an-open-edit-modal-closes-by-itself-discarding-what-you-typed),
-      an open editor closing itself on every background refetch (reset effect keyed on the task
-      **object**, which `tasks.find(...)` makes new each time, rather than on its id). Pre-existing;
-      merging four short-lived modals into one long form is what made it costly.
-
-### Open
-
-- [x] **Source-first dashboard** *(requested and shipped 2026-08-12)*: a source bar above the
-      saved views — *All sources* / *Windows Task Scheduler* / *Cronsole (Native)* / … — as the
-      first-level axis, ahead of views and categories. Platform left the Filters popover in the
-      same change (two controls for one dimension). **Source is an outer lens**: it survives
-      clicking a view (`filtersEqual` ignores it, so both chips stay lit), rides alongside the view
-      id in the URL, is stripped from saved views by `viewFiltersFrom`, is not counted by the
-      Filters badge, and **scopes every view count** — `My jobs 88` above a list of one is the same
-      broken promise as `Showing All 269` above two rows.
-      **The bug worth remembering:** the button list was first derived from the *faceted*
-      population, so on a view whose matches were all one source the bar vanished — taking the only
-      control that could switch away. Existence now comes from the whole task list; only the counts
-      stay faceted, which is why a source may legitimately read `0`.
-      Groundwork for adding AI systems and other operating systems as further sources.
-
-- [x] **Mass Actions console on the Tools tab — now the only bulk surface**
-      *(requested and shipped 2026-08-12)*. **Action-first**: a vertical list of verbs, each opening
-      its own scope step (category — the default — / all / platform / status / health tier). Plan
-      visible before anything is asked of a platform, typed confirmation at
-      **≥25 tasks**, chunked at the server's 100-task ceiling with halt propagation, per-task
-      five-outcome report, and undo for enable/disable only. No backend added — every verb is an
-      existing `/api/tools/tasks/*` route. **Dashboard row selection was removed entirely
-      *(2026-08-12)*** — checkboxes, select-all, the bulk bar, the bulk-category modal and
-      `taskSelection.ts` are gone, and bulk work is only this console. The safe-path objection to
-      that did not survive checking: *Remove from Cronsole* sits beside *Delete from Windows* in the
-      **task modal**, per task, which is where that pairing always lived. The scope opens on
-      **By category**, not *All tasks* — defaulting to everything would make the widest possible
-      operation the path of least resistance; its starting value comes from `defaultScopeValue`,
-      because a category scope with an empty value resolves to nothing. Absorbed *bulk
-      enable/disable by folder*. Export and import stay in their own tools rather than being
-      duplicated here. Verified live at zero mutation — see CHANGELOG.
-      **Deferred:** running a real agent-backed enable/disable end to end (it mutates real
-      scheduled tasks), and the mid-flight progress indicator, which a DB-only run completes too
-      fast to observe.
-
-- [ ] **Two Settings toggles are now vestigial** *(logged 2026-08-12, created by the same change)*:
-      the dashboard opens on **All**, which hard-sets `status: any` and `system: include` — exactly
-      what *Show disabled tasks* and the persisted system lens control. So neither affects the
-      opening view any more. `defaultCategory` and `defaultPlatform` still do.
-      **Not silently removed**, because the system lens is still written when you change it from the
-      dashboard and both may want to become "what the All view means for you" instead. Decide
-      between making them apply again, repurposing them, or deleting them — but do not leave two
-      settings that look like they do something and don't.
-
-- [ ] **Restore's plan doesn't check that a task's action points at anything that exists**
-      *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
-      executable and file-looking arguments resolve on this machine. Not a refusal — an executable
-      missing here may exist on the machine being restored to.
-- [ ] **Task-detail trust indicators — say how old the truth is**: per-task last platform-confirmed
-      sync, last agent result, and Windows' own `lastTaskResult` in the modal. *(Re-raised by the
-      2026-08-12 review, which adds a fourth: whether the displayed action was reported by the
-      **current** agent version — an un-republished agent omits fields rather than erroring, so a
-      stale panel and a correct one look identical.)*
-- [ ] **Optional periodic Windows sync**: opt-in interval sync, interval stated, last run shown,
-      the `untracked` remainder surfaced. Must stay `scope: 'tracked'`.
-- [ ] **UI polish pass**: full-path tooltip/copy on truncated task paths · Apply-modal footer
-      crowding · Help Center reachability at ~720px · the two dev-mode Socket.IO console warnings
-      (worth clearing before any demo capture — they bury real console errors).
-- [ ] **Onboarding becomes contextual instead of global** *(absorbs the banner half of the polish
-      pass; sharpened 2026-08-12)*: the banner lives in `Dashboard.tsx` **above the tab switch**, so
-      it rides along on Templates, Tools and Platforms too, and clears only on an explicit click.
-      Auto-retire it once the user has imported, created or starred; replace it with per-tab
-      first-use cards, which is where the advice is actually actionable.
-- [ ] **Console noise in user-facing flows**: **37 backend + 3 frontend** `console.*` calls
-      *(counted 2026-08-12)*, the worst carrying task names, native paths and full command lines —
-      in `routes/tasks.ts`, `WindowsAgentConnector.ts`, `NativeScheduler.ts`, `TaskService.ts`,
-      `AgentManager.ts` and `Dashboard.tsx`. Do it with the structured-logging work under
-      *Production operations*: levels + redaction, with full command lines gated behind an explicit
-      diagnostics export rather than on by default.
-- [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
-- [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
-      launchd plist, Claude routine payload). Lands as connectors and the macOS agent do.
-- [ ] **Settings agent-pairing panel** *(deferred)*: waits on the per-user pairing-code flow.
-- [ ] **Native task follow-ups**: `CLAUDE_PROMPT` job type, and a Redis lock before multi-instance.
-- [ ] **Tools tab — further candidate tools** *(candidates only, none scheduled)*: scheduled
-      automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
-      since your last backup"). *(Bulk enable/disable by folder was absorbed into the Mass Actions
-      console above on 2026-08-12; the **user-facing diagnostics panel shipped 2026-08-17** — see
-      Completed below.)*
-      Rule for the tab: everything on it must be genuinely cross-cutting, or it is a junk drawer.
-
-### Completed
-
-- [x] **Platform health is derived when asked, not read back from a cache** *(2026-08-17)*.
-      `buildPlatformMatrix` served `PlatformConnection.healthState` straight from the DB, and that
-      column has exactly **one writer**: the loop inside `GET /api/tasks/health`, which is the
-      *dashboard's* 45-second poll. Nothing on the MCP surface writes it (`get_task_health` wraps
-      `/tools/task-health`), so an agent-driven session with no browser tab open read whatever
-      verdict the last poll left behind. Measured: `list_platforms` said `OFFLINE — Agent not
-      connected` while `get_diagnostics` said *"connected and answering"* **in the same second**,
-      over a row whose own `listFolders` cell carried a success from a minute earlier; one call to
-      the dashboard route flipped it to `HEALTHY` with nothing changing on the machine. Now derived
-      per request from `connector.getHealth` — the call the health route and the diagnostics panel
-      already made — so the three surfaces cannot disagree. A throwing connector yields `UNKNOWN`,
-      never a healthy-looking gap, and state and reason are always taken from one source together
-      (a live verdict must not inherit the stored explanation). **This is
-      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)
-      one layer down**: #40 was a verdict from a precondition,
-      [#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy)
-      from an expired observation, this from a cache whose only writer runs on another code path.
-      The reusable question is now in CLAUDE.md §9: **which path writes this status field, and is it
-      running in the session doing the reading?**
-      ([#66](troubleshooting/README.md#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second),
-      `platformMatrixHealth.test.ts`.)
-
-- [x] **Remote access stopped depending on which build command you typed** *(2026-08-17)*.
-      `FALLBACK_API_ORIGIN` (`frontend/src/api.ts`) folds on `import.meta.env.DEV`: the dev server
-      keeps `http://localhost:3000` (the API really is on another port there) and **every build
-      defaults to same-origin**, so `npm run build` and `npm run build:remote` produce the same
-      correct bundle. **The deciding argument: `dist` has exactly one consumer** — the reverse
-      proxy; `npm run dev` never reads it — so a built bundle is by definition one being served
-      through something, and the old default was right for a hypothetical and wrong for the only
-      thing that happens. It failed twice ([#63](troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend)),
-      the second time invisible from the desktop, where the baked-in `localhost:3000` really is the
-      backend. **A convention under a command that reports success is a countdown, not a fix** —
-      the same fold that keeps a dev-only token out of a production bundle. Pinned by
-      `apiSameOrigin.test.ts`, asserting both halves, build half mutation-tested.
-
-- [x] **Per-task export gained a portable format** *(2026-08-17)*. `GET /api/tasks/:id/export?format=template`
-      returns a Registry v1 template built by the **same `buildTemplateFromTask`** that
-      `POST /:id/save-as-template` uses — the difference is only the side effect: this route writes
-      nothing, where wanting a portable file previously cost a row in the user's catalog.
-      **Answers the "why not one universal format" question properly**: fidelity and portability are
-      different jobs, and a format that could faithfully restore a Windows task would have to carry
-      its principal, logon type and every action — i.e. *be* Task Scheduler XML. Merging them
-      produces the dangerous artifact: a file that looks like a faithful backup and restores a task
-      running as the wrong account, succeeding. So the modal offers both, **labelled by what each is
-      for**. Portable works where native cannot — agent offline, and `CLAUDE_CODE`, which had no
-      export at all. `useAnchoredPanel` was extracted from `TaskCollectionMenu` for the menu, since
-      the task modal's panel is `overflow-hidden` and a second copy of portal-placement-flip-and-scroll
-      is four subtle things to get right twice.
-
-      **Amended 2026-08-17: the `CLAUDE_CODE` half of that claim did not work when it shipped.**
-      Every Claude routine was refused with *"this task has no command Cronsole can capture yet"* —
-      `deriveAction` handled a native HTTP job, Windows exec actions and a plain `metadata.command`,
-      and a routine has none of those: **its command is its prompt**, which `ClaudeConnector` stores
-      at `metadata.prompt`. Fixed by giving it that branch (`ai-prompt` runtime, `claude-code`
-      target); a routine connected *by declaration* is still refused, but now names why — Cronsole
-      never had its prompt, so "sync and try again" was advice that could not work.
-      **Why the suite missed it, and the lesson:** the integration case seeded a Claude task with
-      `{ command: … }`, **a shape Claude sync never produces**, so the test exercised the generic
-      fallback and passed while every real routine failed — a fixture agreeing with itself rather
-      than with the connector, the
-      [#38](troubleshooting/README.md#38-a-row-of-summary-numbers-doesnt-add-up--one-of-them-counts-a-different-population)
-      family. There is now a case using the shape the connector actually writes. Found by
-      hand-driving `export_task` against a real install rather than by any suite, which is
-      [#44](troubleshooting/README.md#44-an-mcp-tool-400s-on-every-call-and-the-whole-suite-is-green)'s
-      standing rule paying off again.
-
-- [x] **Task import & deleted-task restore — the export format finally has a reader** *(2026-08-17)*.
-      `POST /api/tasks/import` (a `cronsoleTaskVersion` bundle → a real task) and
-      `POST /api/tools/task-archives/:id/restore`, behind one **Import a task** card on the Tools tab
-      and an *Import a .json file* link in the New Task modal. Three MCP tools with them —
-      `import_task`, `list_task_archives`, `restore_task_archive` — none gated, since undoing a
-      delete is a create.
-      **The gap it closes was structural, not cosmetic:** `cronsoleTaskVersion` had exactly three
-      mentions repo-wide — the bundle builder, the archive writer, and a test fixture — every one a
-      *writer*. So Export produced a file shaped like a backup that nothing could restore, and the
-      pre-delete archive (a precondition strong enough to abort a delete) was a promise with no way
-      to collect. **Grep your own format constant; if every hit writes it, the feature is half-built
-      however green the suite is.** Logged as [troubleshooting #65](troubleshooting/README.md#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it).
-      Two consequences worth keeping: **the UI's `DELETE /api/tasks/:id` now archives native tasks
-      too**, because recoverability had been a property of which door you deleted through and no
-      screen said so; and `createNativeTask` (`services/nativeTaskCreate.ts`) is now the one
-      definition of writing a native row, shared by create, import and restore — the same argument
-      that put `buildNativeJob` in one place, one layer out.
-      **The Dashboard's Import button became a chooser in the same pass.** "Import" covered two
-      unrelated actions — *adopting* tasks that already exist on the machine, and *creating* one
-      from a file — and nothing on the button said which. The chooser leads with that consequence
-      rather than with the source ("nothing is created" vs "this creates a task"), names where a
-      Windows `.xml` goes so it is not discovered as a refusal, and **gates the discovery query on
-      the choice**: it is an agent round trip that fails outright when the agent is offline, and
-      spending it while someone reads two buttons puts an irrelevant error over the file path.
-
-- [x] **Doc sweep behind the diagnostics ship — four false claims on the README** *(2026-08-17)*.
-      The public front page still described Cronsole-native as *"HTTP jobs"* (four job types since
-      2026-08-15), counted *"55 templates in 6 packs"* (**72 in 8**, verified against
-      `registry/index.json`), promised the dashboard *"opens on"* favorites (deliberately stopped on
-      2026-08-12, and the following sentence described the disclosure banner removed in that same
-      change), and omitted collections entirely. Every one is the pattern this file's header names
-      — a first-ship description left in the present tense. The **Connect Pack went to v1.8** in the
-      same pass: its route tables are read as complete, so omitting `GET /api/tools/diagnostics`
-      left an assistant diagnosing *"nothing is running"* from `task-health`, which calls every
-      Windows task unhealthy whenever the agent is wedged.
-
-- [x] **System diagnostics — a read-only report on Cronsole itself** *(2026-08-17)*.
-      `GET /api/tools/diagnostics` + `services/diagnostics.ts`, surfaced as `DiagnosticsModal`
-      from two entry points (**Diagnose** on the Dashboard health strip, **Run checks** on the
-      Tools tab) and as the `get_diagnostics` MCP tool. Eight checks — backend, database, Windows
-      agent, sync freshness, native scheduler, template catalog, API-token expiry, allowed origins
-      — each carrying **the evidence behind its verdict**.
-
-      **The problem it solves is that a status line discards its reasons.** *"Windows offline"* is
-      one sentence covering a socket that never arrived, one that arrived and went, a timeout
-      ninety seconds ago and a timeout at 9pm yesterday. `AgentLiveness` has held those facts since
-      [#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out);
-      nothing displayed them.
-
-      **Read-only, deliberately, and the sequencing is the finding.** Three of the four
-      agent-health entries in the log
-      ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out),
-      [#48](troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy),
-      [#62](troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request))
-      were the **readout** lying rather than the agent failing — #62 recorded a timeout fifteen
-      seconds after every *successful* request. A repair verb shipped against that would have
-      restarted a healthy agent forever **and looked like it worked**, converting a visible bug
-      into an invisible one. *You cannot automate a repair you cannot yet diagnose.* Repair verbs
-      are a **separate, later** item (see P3 › Open) and are gated on this having earned trust.
-
-      Rules encoded: a check carries its facts, never a bare verdict; **`unknown` outranks `pass`**
-      and a check with nothing to measure is **omitted** rather than shown as a pass; a verdict
-      another module owns is forwarded (`connector.getHealth`), never re-derived, so the panel can
-      only *explain* the strip; `measuredOn` names the machine once at the top, because a
-      containerised backend measures the container; and `runCheck` degrades a throwing check to
-      `unknown` so one cannot fail its siblings. The panel **states its own limit** — it is served
-      by the backend, so it says nothing about a backend that is down; that case belongs to
-      `\Cronsole-Stack\`, outside the stack.
-
-      Two things fell out of it. The backend now handles **`agent:hello`**, which the agent has
-      emitted since it was written with nothing listening, so the report can name the machine and
-      OS (`agentVersion` is captured and deliberately **not rendered** — it is a hardcoded
-      `"1.0.0"`, so beside "Agent" it would read as a freshness claim carrying no information).
-      And `scripts/check-doc-links.mjs` was extended to **repo-doc paths written as string
-      literals in tracked source** — the panel's "Read more" links were a mirror surface nothing
-      checked.
+- [x] **Status colour is themeable** — 263 hard-coded Tailwind utilities replaced by `--x` /
+      `--x-text` role pairs in `index.css`; light-theme status roles went from 1.67–2.77 to
+      5.05–8.65 against a 4.5 AA bar *(2026-08-12)*.
+- [x] **Thin the first viewport (desktop + mobile)** — one Filters popover with an active count,
+      withheld constraints printed outside it, a scrolling sticky mobile toolbar, a FAB
+      *(2026-08-12)*. See Part I for the `--raised` remainder.
+- [x] **The Platforms tab grew into a capability matrix** — per-verb Verified / Declared /
+      Unsupported over an evidence table, with reachability a property of the **route**
+      (`services/platformCapabilities.ts`) rather than of the connector object *(2026-08-12)*.
+- [x] **Dashboard health strip** — connection state, last real sync, newest recorded command
+      outcome including failures *(2026-08-12)*.
+- [x] **Icon-only controls have accessible names** — and the task card stopped being a clickable
+      `<div>` *(2026-08-12)*.
+- [x] **Screenshot regression coverage** (`tests/e2e/layout.spec.ts`) — split by what each surface
+      can honestly assert; Platforms and the Import modal deliberately get no pixel baseline
+      *(2026-08-12,
+      [#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself))*.
+- [x] **In-app help, per control** — a `?` beside fourteen controls, one modal shared with the Help
+      Center, `HelpTopic.doc` required, links pinned by `docsLinks.test.ts`, and the new
+      [`Sources_Guide.md`](user-guides/guides/Sources_Guide.md) *(2026-08-12)*.
+- [x] **Source-first dashboard** — the source bar as the first-level axis, an outer lens that
+      survives clicking a view and scopes every view count *(2026-08-12)*.
+- [x] **Mass Actions console on the Tools tab — now the only bulk surface** — action-first, plan
+      before ask, typed confirmation at ≥25 tasks, chunked at 100 with halt propagation, per-task
+      five-outcome report. Dashboard row selection removed entirely *(2026-08-12)*.
+- [x] **One Edit button per task, instead of four** — `EditTaskModal`, fields extracted to
+      `components/edit/`, prefill and gating in `utils/taskEditing.ts`; one gesture, still three
+      routes, reporting per route *(2026-08-13,
+      [#52](troubleshooting/README.md#52-an-open-edit-modal-closes-by-itself-discarding-what-you-typed))*.
+- [x] **Cronsole Native pack (6) + Claude Routines pack (5)** — 55 → 66 templates, 7 core, 8 packs,
+      shipped with the connector fix that makes them applicable *(2026-08-13)*.
+- [x] **The Templates tab reads creatability from the capability matrix** — `CREATABLE_PLATFORMS` is
+      gone; `unknown` asserts nothing while it loads *(2026-08-13)*.
 
 <details>
 <summary>Windows task management</summary>
@@ -1368,17 +709,12 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 - [x] System/personal split — server-owned `isSystem` + persisted Personal toggle *(2026-07-28)*
 - [x] Import defaults — None/Non-system/All presets, remembered selection, count before the click *(2026-07-31)*
 - [x] Saved views — five built-ins + user-named views, URL-backed *(2026-07-31)*
-- [x] Task schedule on every card — "Daily at 8:00 AM PDT", read in the Settings zone; raw cron
-      for shapes it won't guess at, "No cron schedule" for triggers cron can't express *(2026-08-11)*
-- [x] Favorites — star any task (`TaskFavorite`, per-user, cascades with the row); the dashboard
-      opens on your stars and falls back to your saved defaults when there are none. A sixth
-      built-in view that ignores every other lens, plus a banner naming what a self-applied
-      filter is hiding *(2026-08-11)*
+- [x] Task schedule on every card — "Daily at 8:00 AM PDT", raw cron for shapes it won't guess at *(2026-08-11)*
+- [x] Favorites — star any task (`TaskFavorite`, per-user, cascades with the row) + a sixth built-in view *(2026-08-11)*
 - [x] Bulk enable/disable across all four views *(2026-07-31)*
-- [x] Bulk task actions complete — recategorize, untrack, export-selected; the five-outcome
-      convention extracted to one shared definition; verified live in the browser *(2026-08-04)*
+- [x] Bulk task actions complete — recategorize, untrack, export-selected; the five-outcome convention extracted to one definition *(2026-08-04)*
 - [x] Schedule timezone — author and display in your own zone, storage stays UTC *(2026-07-31)*
-- [x] `createFolder` on `POST /api/tasks` + MCP `create_task` — opt-in, signed, reports what it created; second and last carve-out to "Cronsole creates only `\Cronsole`" *(2026-08-04)*
+- [x] `createFolder` on `POST /api/tasks` + MCP `create_task` — opt-in, signed, reports what it created *(2026-08-04)*
 
 </details>
 
@@ -1396,19 +732,8 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 - [x] Developer Pack — 9 templates *(2026-07-13)*
 - [x] AI Pack — Claude Code (4) + Codex (3) *(2026-07-13)*
 - [x] Export existing tasks — Windows → XML (UTF-16 LE + BOM), native → JSON *(2026-07-13)*
-- [x] **Cronsole Native pack (6) + Claude Routines pack (5)** — 55 → **66 templates, 7 core, 8 packs**
-      *(2026-08-13)*. Closes the gap where Cronsole-native was a source everywhere **except** the
-      catalog. Shipped with the connector fix that makes them applicable (`buildNativeJob` shared
-      by the create route, the edit route and the connector) — a template family without its
-      apply path is a promise the button breaks.
-- [x] **Templates tab reads creatability from the capability matrix** *(2026-08-13)* — the
-      hardcoded `CREATABLE_PLATFORMS` set is gone; badges, the Apply platform buttons and the new
-      **Target** facet all take the server's per-install verdict, with `unknown` asserting nothing
-      while it loads. Same change in the public gallery, where a static page states the *condition*
-      ("needs sign-in") because it cannot know the visitor's install.
-- [~] Template registry — decouple the catalog from the repo: schema + ADR, catalog behind an
-      interface, static registry + remote source, hosted, runtime refresh, prune-on-sync — all
-      shipped *(2026-07-13 → 2026-07-14)*. Only **index signing** remains, and it is optional.
+- [x] One unreadable template no longer empties the whole hosted catalog *(2026-08-15, [#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog))*
+- [x] Template registry — schema + ADR, catalog behind an interface, static registry + remote source, hosted, runtime refresh, prune-on-sync *(2026-07-13 → 2026-07-14)*. The optional **index signing** follow-up is its own open item in Part I.
 
 </details>
 
@@ -1420,11 +745,7 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 - [x] Run history export (CSV) + automation health score *(2026-07-28)*
 - [x] Schedule tester — shows what you asked for **and** what will actually run *(2026-07-31)*
 - [x] Richer execution analytics — failure trend, duration trend, idle-task list *(2026-07-31)*
-- [x] Live browser click-through of Execution analytics + the Import-defaults modal — every rendered
-      number checked against the API; found four defects, all fixed: platform health asserting
-      HEALTHY/"synced just now" from socket presence ([#40](troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)),
-      the idle all-clear rendering beside its own contradiction, an empty platform heading in the
-      Import modal, and `1 tasks` *(2026-08-11)*
+- [x] Live browser click-through of Execution analytics + the Import-defaults modal — four defects found and fixed *(2026-08-11)*
 
 </details>
 
@@ -1441,156 +762,31 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 </details>
 
-## 🟢 P3 — Expansion
+<a id="completed--p3-expansion"></a>
 
-> **Launch posture (decided 2026-07-13): Cronsole ships and stays local-first.** Cloud/SaaS
-> hosting is not a launch requirement. Remote access to your own instance is the final, optional
-> enhancement at the bottom of this list; go-live does not depend on it.
+## Completed — P3 Expansion
 
-### Open
-
-- [ ] **Guided repair verbs, on top of System diagnostics** *(logged 2026-08-17; deliberately
-      sequenced after the read-only panel, which shipped)*. The diagnostics panel answers *what is
-      wrong*; this is the *fix it* half, and it stayed out of that change on purpose — three of the
-      four agent-health entries in the troubleshooting log were the readout lying, so a repair
-      button would have been acting on a diagnosis nothing could yet check. Design constraints,
-      all of which the panel already establishes:
-      - **A repair reports what it *observed afterwards*, never what it *did*.** "Spawned a
-        process → Fixed!" is `success` without `ran` ([#59](troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check))
-        in the one place a false green is most expensive. Every verb must re-run the check that
-        prompted it and report the **new** state.
-      - **A fixed, named list — never a parameterized one.** The moment a repair takes a command,
-        Cronsole has an elevated arbitrary-action primitive reachable from a browser, which is
-        exactly what "the agent gets no file-write verb" refuses. Candidates: republish the agent,
-        restart the agent, re-register the `\Cronsole-Stack\` tasks.
-      - **Not in the template registry.** Repairs are about Cronsole itself and must be
-        version-locked to it; a managed template row can be pruned by `catalogSync` — i.e. the
-        catalog could delete the thing that fixes the catalog.
-      - **The genuinely useful half is outside the stack and already exists**: `\Cronsole-Stack\`
-        survives the backend, Postgres and Docker all being down because Windows Task Scheduler
-        runs it. Productising *that* — installing it, rather than hand-registering it once per
-        machine — belongs with **Installer packages** below, not here. Note the standing decision
-        that those tasks are **not tracked** in the dashboard: disabling `CronsoleAgent` from the
-        dashboard is also what breaks the dashboard's ability to re-enable it.
-- [ ] **macOS agent (launchd)** — *folded into the **POSIX agent** item under
-      [Sources](#-sources--where-a-task-comes-from) (2026-08-12), because launchd, cron and systemd
-      timers are one build, not three.* 7 catalog templates still wait on it; the `ITaskScheduler`
-      abstraction ports cleanly.
-- [ ] **Installer packages (agent only)** — signed WiX MSI replacing the PowerShell setup script;
-      macOS `.pkg`/Homebrew once the launchd agent exists.
-- [ ] **Ship the whole application as a Windows installer (`.exe`)** — four jobs, not a packaging
-      step: (1) Postgres bundled vs. SQLite *(open decision below; lean bundle)*, (2) drop Redis,
-      (3) `vite build` served same-origin by Express, (4) bundle the Node + .NET runtimes.
-      Secrets must be generated **per machine at install time**, and uninstall must sweep Task
-      Scheduler. Signing is a hard prerequisite (SmartScreen), not polish. ~1 week to installable,
-      ~1 more to trustworthy.
-- [ ] **Split the files that have become fault lines** — *(re-counted 2026-08-12; every one grew,
-      and one was missing from the list)*: `DashboardScreen.tsx` (1,251), `routes/tasks.ts` (1,182),
-      `mcp-server/src/tools.ts` (1,140), **`routes/tools.ts` (1,130 — not previously listed)**,
-      `TemplatesScreen.tsx` (794), `AgentService.cs` (782), `TaskModal.tsx` (757).
-      **Still not a refactor sprint** — split along the named seams only when next touching that
-      area. Named seams: dashboard filters/saved views · dashboard bulk actions · dashboard view
-      renderers · task mutation vs. sync/discovery routes · tools backup/restore routes · MCP task
-      vs. template vs. diagnostic tools. The UX pass above lands squarely in `DashboardScreen.tsx`,
-      so that is the one to split *while you are there*, not afterwards.
-- [x] **Claude Code connector** — *shipped 2026-08-12, completed 2026-08-13.* No longer an
-      experimental scaffold: the connector lists, creates, reschedules, pauses and runs routines,
-      with a declared-registry fallback when no Claude Code session is readable. See
-      [Sources](#-sources--where-a-task-comes-from) › item 4 and
-      [#50](troubleshooting/README.md#50-two-claude-routines-apis-and-the-documented-one-is-the-smaller-one).
-      Residual Claude items are in the 2026-08-13 follow-up list, not here.
-- [ ] **ChatGPT** — stays quick-links-only unless a public automations API appears.
-- [~] **Template gallery site** — parts 1, 2, 4, 5 shipped; **part 3, the one-click "Add to my
-      Cronsole" deep-link/protocol handoff, remains**. Download + Copy JSON use the shipped Import
-      path today.
-- [ ] **Route-level code-splitting** *(optional follow-up to the frontend refactor)*: the single
-      bundle trips Vite's 500 kB hint; cheap now that the router and screen modules exist.
-- [~] **Remote access (self-hosted) — the final, optional enhancement**: reach your **own** local
-      instance from other devices (the code-server model) via Tailscale or Cloudflare Tunnel +
-      Access. Not part of the local-first launch. **The tooling shipped 2026-08-15**; what remains
-      is polish, not plumbing.
-  - [x] **Bundled single-origin reverse proxy** — `proxy/Caddyfile` + two opt-in Compose profiles
-        (`proxy`, `remote`). Serves the built dashboard at `/`, forwards `/api/*` and
-        `/socket.io/*` to the backend, SPA fallback for router deep links. Bound to
-        `127.0.0.1:8080`; cloudflared reaches it over the compose network.
-  - [x] **Same-origin frontend builds** — `npm run build:remote` (`VITE_API_URL=same-origin`)
-        resolves the API against `window.location`, so **one build is correct at every address**
-        and the per-device API-origin override is no longer needed.
-  - [x] **Cloudflare Tunnel profile + Access instructions**, and `TRUST_PROXY` so the login
-        rate-limiter stays per-client behind the proxy.
-  - [x] **Pre-req found and fixed while verifying it**: a real owner JWT was compiled into the
-        production bundle via `VITE_DEV_TOKEN`, making the login screen decorative on any built
-        copy. Gated on `import.meta.env.DEV` + guarded by `check-bundle-secrets.mjs` on every
-        build. See the CHANGELOG and [troubleshooting #55](troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in).
-  - [ ] **PWA manifest + icons** so the dashboard installs to a phone home screen — the last
-        piece of the "trigger from your phone in under 30 seconds" goal.
-  - [ ] **Auth hardening for an internet-facing gate** *(deliberately deferred 2026-08-15 — the
-        network gate is doing this job today)*: there is no password reset, so forgetting the one
-        password while travelling is only fixable at the keyboard; and the 24h JWT lives in
-        `localStorage` on a phone that can be lost, with no refresh flow and no revocation. Both
-        are acceptable behind Tailscale or Access and are the first things to revisit if the gate
-        is ever relaxed.
-
-- [x] **MCP delete is native-only, and archives before it destroys** *(decided and shipped
-      2026-08-13)*. `delete_task` was gated all-or-nothing by `CRONSOLE_MCP_ALLOW_DESTRUCTIVE`, and
-      when open it wrapped the same `DELETE /api/tasks/:id` the UI uses — so the one MCP verb that
-      cannot be undone had the **widest** blast radius on the surface, reaching a real Task
-      Scheduler entry through the elevated agent. Two changes, both in the backend, because
-      `mcp-server/` owns no logic and a platform check written into the wrapper would be a
-      *client-side* check the raw REST route still ignores.
-  - **A narrower route carries the narrower capability.** MCP wraps
-        `DELETE /api/tasks/:id/native`, which refuses anything but `TASKHUB_NATIVE` with a `400`
-        (the `verbDeclaredUnsupported` convention — a boundary, not a retry). The UI keeps the
-        existing full-power route, where a human is at a confirm dialog. This is *a capability is
-        a property of the route* applied literally: caller identity would be the alternative, and
-        auth today is a single 24h JWT with no claims to scope on.
-  - **The boundary is coherent, not just restrictive.** MCP can `untrack_task` a Windows task
-        (row dropped, the real task keeps running) and `delete_task` a native one (where the row
-        **is** the task, and it is archived first). So **no MCP verb can destroy an artifact on the
-        machine** — the half of the surface that needed a human keeps one.
-  - **The archive is written before the delete, and the delete refuses if it fails.** A backup
-        that only succeeds when you did not need it is worse than none. It lands in
-        `DeletedTaskArchive` — a DB row, deliberately **not** cascaded from `Task`, for the same
-        reason `TaskExclusion` is keyed on `(platform, externalId)`: it has to outlive the row it
-        describes. Not a file, because on a Dockerized stack a file lands inside the container —
-        a backup the user cannot reach, the same execution-host defect as a native `EXEC` path.
-        And not merely returned to the caller, because an agent may discard the response.
-  - **It captures the last 20 `ExecutionLog` rows with the definition.** For a native task those
-        are real outcome evidence (exit code, duration, captured output), unlike a Windows task
-        where a `SUCCESS` records the agent accepting a start — so without them the archive cannot
-        answer "was this working before I deleted it?". The delete transaction drops them.
-  - **The env gate stays shut by default.** The blast radius is now bounded and reversible, which
-        weakens the case for it — but loosening two safety dimensions in one change means a later
-        failure cannot be attributed to either. Same friction, smaller radius, recoverable.
-
-- [ ] **Product bets — from "a better Task Scheduler UI" to "a local automation control plane"**
-      *(directions, not scheduled work — each needs its own design pass first)*. ★ = recommended
-      first. The shared constraint: this project's guardrail is reliability first, and every bet
-      below is a feature that can be confidently wrong.
-  - ★ Automation health score *(shipped 2026-07-28 — see P2 Tools)*
-  - ★ Runbooks attached to tasks
-  - ★ Dry run & validation lab *(cheapest slice — the Schedule tester — shipped 2026-07-31)*
-  - ★ Task collections / playlists
-  - Task dependency graph *(manual edges only for v1; inference is a suggestion, never a fact)*
-  - Watchdog tasks
-  - Task definition versioning
-  - Schedule conflict & load map
-  - Intent labels & purpose-driven views
-  - Failure triage assistant *(explain/assist only — autonomous repair is out)*
-  - Approval gates *(the gate must be out-of-band, or an agent approves itself)*
-  - Environment profile manager *(reports present/missing, never stores values)*
-  - Calendar & quiet hours *(not cheap — deferral means rewriting triggers on the machine)*
-  - Restore & migrate wizard
-  - Automation inventory report
-
-### Completed
+- [x] **MCP delete is native-only, and archives before it destroys** *(2026-08-13)*: `delete_task`
+      wraps `DELETE /api/tasks/:id/native`, which 400s every other platform — so **no MCP verb can
+      destroy an artifact on the machine**. The archive is written first and the delete refuses if
+      it fails; it lands in `DeletedTaskArchive` with the last 20 `ExecutionLog` rows and no cascade
+      from `Task`. The env gate stays shut by default.
+- [x] **Claude Code connector** — no longer an experimental scaffold *(2026-08-12, completed
+      2026-08-13)*. See Sources above.
+- [x] **Remote access tooling** *(2026-08-15 → 2026-08-17)*: `proxy/Caddyfile` + the `proxy` and
+      `remote` Compose profiles bound to `127.0.0.1:8080`; same-origin frontend builds; a Cloudflare
+      Tunnel profile plus Access instructions and `TRUST_PROXY`; and the `VITE_DEV_TOKEN` leak found
+      while verifying it, gated on `import.meta.env.DEV` and guarded by `check-bundle-secrets.mjs`
+      *([#55](troubleshooting/README.md#55-the-dashboard-is-already-signed-in-on-a-browser-that-never-logged-in))*.
+- [x] **Automation health score** *(2026-07-28)* and **the Schedule tester**, the cheapest slice of
+      the dry-run lab *(2026-07-31)* — two of the ★ product bets.
 
 <details>
-<summary>Completed P3 items</summary>
+<summary>Earlier completed P3 items</summary>
 
 - [x] MCP server — thin stdio wrapper over the REST API, 5 tools at first ship *(2026-07-13)*
-- [x] MCP surface expansion — `create_task`, `list_folders`, 7 management verbs, tiered destructive gating; surface 14 tools *(2026-07-15)*
-- [x] `untrack_task` on MCP, ungated — surface 15 tools *(2026-07-28)*
+- [x] MCP surface expansion — `create_task`, `list_folders`, 7 management verbs, tiered destructive gating *(2026-07-15)*
+- [x] `untrack_task` on MCP, ungated *(2026-07-28)*
 - [x] MCP test suite + CI enforcement *(2026-07-15)*
 - [x] Frontend refactor — five slices, `Dashboard.tsx` 1,830 → 248 lines *(2026-07-13)*
 - [x] Template gallery site — gallery frontend, core/extended split, whole-pack download, search + filters *(2026-07-14 → 2026-07-28)*
@@ -1605,23 +801,8 @@ New correctness work lands here as it is found. Everything logged before 2026-08
 
 </details>
 
-## 🚀 Go-public checklist
+## Completed — Go-public
 
-Everything required before the repo flips public and Cronsole is promoted beyond personal use.
-**Cronsole launches local-first** — each user runs the whole stack on their own machine, so these
-items cover the repo and product going public, not standing up a multi-tenant cloud service.
-
-### Repo goes public
-
-- [~] **Secret & history audit** — audit clean *(2026-07-13)*; **remaining:** squash to a fresh
-      public root at publish time, and scrub personal machine paths from internal docs.
-- [~] **Repo hygiene for outsiders** — done *(2026-07-13)*; **remaining:** branch protection on
-      `main` (a GitHub setting, do at publish).
-- [~] **Community scaffolding** — `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates, CI badge
-      shipped *(2026-07-13)*; **remaining:** enable Discussions at publish.
-- [~] **Final README/docs pass for a stranger audience** — the CLAUDE.md cloud-hosting row is fixed
-      *(2026-07-31)*; **remaining:** a quick-start that works on a machine that isn't Mike's,
-      screenshots/GIF, an honest feature-status table, and the wider stale-claims sweep.
 - [x] License decision — **Apache-2.0** *(2026-07-13)*
 - [x] Package manifests say Apache-2.0, not the `npm init` ISC default *(2026-07-31)*
 - [x] `check_db` pokes replaced by `npm run db:check` *(2026-07-31)*
@@ -1631,63 +812,16 @@ items cover the repo and product going public, not standing up a multi-tenant cl
       the public surface (repos + registry URL + front door), and the local checkout folder.
       Deliberately **not** renamed: `PlatformType.TASKHUB_NATIVE` (a stored Postgres enum) and the
       historical CHANGELOG/ROADMAP entries.
-
-### Application goes public
-
-- [ ] **Versioning & releases** ← *next*: semver, tagged releases, changelog discipline, so
-      advertised versions are reproducible. Also unblocks the package manifests' `version` fields.
-- [ ] **Production operations**: error tracking, structured logs, uptime monitoring + status page,
-      automated Postgres backups with a **tested restore**, broader API rate limiting, staging +
-      deploy pipeline. *(Auth rate limiting shipped 2026-07-16.)*
-- [ ] **Agent distribution & trust**: signed installer, code-signing certificate to clear
-      SmartScreen, versioned releases with an update channel, and a documented "what the agent can
-      do / how to remove it" trust page. **The certificate is a hard prerequisite for the
-      whole-stack installer.**
-- [ ] **Legal minimum**: privacy policy, terms of service, account deletion + data export that
-      actually purges tasks and logs, cookie handling on the public site.
-- [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
-      password reset (needs email infra), open registration as a *designed* invite/approval flow,
-      JWT refresh tokens, per-user agent pairing, account management and roles.
-- [~] **Launch surface** — one public page shipped *(2026-07-28, consolidated from two)*;
-      **remaining:** real install/download links once the app repo is public, and richer marketing
-      content.
 - [x] Account/login system — single-user local login *(2026-07-16)*
 
----
+<a id="completed--resolved-decisions"></a>
 
-## Open decisions
+## Completed — Resolved decisions
 
-- [ ] **Installed-app database: bundled Postgres vs. SQLite** *(opened 2026-07-28)* — blocks the
-      whole-stack installer and only that. Bundled Postgres costs ~250 MB and a service lifecycle
-      but needs **no schema or test changes**; SQLite gives a single-file install but
-      `Template.tags String[]` is Postgres-only, forcing a migration and forking the integration
-      suite. **Lean: bundle Postgres for v1.**
-- [x] **What shape is the "API / Web Services" source?** *(opened and resolved 2026-08-12)* —
-      **resolved (b): a subtype split inside Cronsole-native**, surfaced in the source bar as
-      *Cronsole (HTTP)* and *Cronsole (Scripts)*. Reading (a) was rejected for the reason predicted
-      below; (c) remains open as a presentation question once there are three hosted observers to
-      group, and blocks nothing. The original framing follows. Three readings,
-      producing three different data models, and they are not refinements of one another:
-      **(a) a new `PlatformType`** for schedules that live in an external service Cronsole observes
-      rather than executes — coherent, but it must be distinguishable from Cronsole-native, which
-      already *is* "call an HTTP endpoint on a schedule";
-      **(b) a job-type split inside Cronsole-native** — once native gains `EXEC`, one source
-      contains two very different kinds of thing, and the dashboard arguably should say which. But
-      that is a *kind*, not a source, so it belongs on the card and in filters, not in the source
-      bar;
-      **(c) an umbrella grouping** over the hosted schedulers (GitHub Actions, Vercel Cron,
-      Supabase) — which makes the source bar two-level and is the largest change of the three.
-      **Lean: (b) for the near term, (c) once there are three hosted observers to group.** (a) risks
-      a source that is indistinguishable from native at the point of creation, which is the
-      duplication the source bar exists to prevent.
-- [ ] **Agent transport** — WebSocket only, or hybrid with long-polling for restricted networks?
-- [ ] **Template registry — static vs. dynamic at launch** — static JSON registry is leading; earn
-      a DB-backed API + admin/submission UI later. *(Format is already decided: target-agnostic
-      JSON, compiled per target.)*
-
-<details>
-<summary>Resolved decisions</summary>
-
+- [x] **What shape is the "API / Web Services" source?** — **(b) a subtype split inside
+      Cronsole-native** *(opened and resolved 2026-08-12)*. (a) a new `PlatformType` was rejected as
+      indistinguishable from native at the point of creation; (c) the umbrella grouping stays open
+      as a presentation question (Part I).
 - [x] Cloud hosting choice — **moot; Cronsole launches local-first** *(2026-07-13)*
 - [x] License model — **Apache-2.0** *(2026-07-13)*
 - [x] Template distribution — **curated core locally + gallery with selective import** *(2026-07-13)*
@@ -1695,27 +829,53 @@ items cover the repo and product going public, not standing up a multi-tenant cl
 - [x] Does untrack need an exclusion memory — **yes, subtractive-only `TaskExclusion`** *(2026-07-28)*
 - [x] Keep the "TaskHub" name or rebrand — **rebrand to `Cronsole`** *(2026-07-31)*
 - [x] Rename the Platforms tab, or grow it — **grow it** into a per-platform capability/status
-      matrix *(opened 2026-07-28, decided 2026-08-12)*. The review settled it: the tab currently
-      omits the only two platforms that work, so renaming it to `Links` would make that permanent.
+      matrix *(opened 2026-07-28, decided 2026-08-12)*
+
+## Foundation — completed before the July 2026 sprints
+
+<details>
+<summary>MVP build-out (Phases 0–3, Jan–Jun 2026, archived)</summary>
+
+- Discovery, requirements, architecture, competitive research *(archived locally under `docs/archive/`)*
+- **Windows Task Scheduler end-to-end**: .NET agent ↔ Socket.io backend ↔ Prisma/Postgres ↔ React dashboard
+- **Dashboard UX**: dark theme, 4 view modes, category chips with counts, selective import, task cloning, Help Center
+- **Template library**: two-tier catalog, Apply modal with `{{placeholder}}` parameters
+- Auth scaffold (JWT), Docker Compose dev stack, GitHub Actions CI, unit suites across backend / frontend / agent
+- Settings page, non-blocking toasts, live connection health *(2026-07-08)*
+- Toast migration, honest Sync/Import split, last-synced chip *(2026-07-08)*
+- Synced Windows schedules normalized to cron *(2026-07-08)*
+- Template library filters, search & grouping *(2026-07-08)*
+- Task search on the dashboard *(2026-07-07)*
+- Standard dark/light/system theme system *(2026-07-07)*
+- Real cron→Windows-trigger conversion wired end-to-end *(2026-07-07)*
+- Cronsole-native tasks — backend scheduler, HTTP job executor, connector *(2026-07-07)*
+- Run history & failure surfacing *(2026-07-07)*
+- Stale-task pruning on sync *(2026-07-07)*
+- Agent reconnect resilience *(2026-07-07)*
+- Platform selector in the New Task modal *(2026-07-07)*
+- Docs restructure + README visual overhaul *(2026-07-08)*
+- Post-rename full test sweep — every automated suite green *(2026-07-31)*
 
 </details>
+
+---
 
 ## Strategy guardrails
 
 - **Reliability control plane, not universal scheduler** — two excellent connectors beat six half
   connectors. **Sharpened 2026-08-12, because the capability matrix changed what "half" means.**
-  A partial connector used to *lie*: the UI implied verbs it could not perform, so shipping one was
-  a promise you had not kept. Every verb now reads **verified / declared / unsupported** against
-  this machine, which makes a **read-only observer** a complete and honest product state rather
-  than an unfinished controller. So the gate splits by what a connector can *do*, not by how much
-  of the interface it fills:
+  A partial connector used to *lie*: the UI implied verbs it could not perform. Every verb now reads
+  **verified / declared / unsupported** against this machine, which makes a **read-only observer** a
+  complete and honest product state rather than an unfinished controller. So the gate splits by what
+  a connector can *do*, not by how much of the interface it fills:
   - **Controllers** (read *and* write — sync, run, enable/disable, create) still unlock only when
     sync reliability >95% and crash rate <2% hold. These can break someone's machine.
   - **Observers** (read-only; every mutating verb `unsupported`) are **not** gated. They cannot
     damage anything and cannot overclaim, and refusing to show a scheduled job because Cronsole
     cannot yet *control* it is the invisible-fence failure at product scale.
-  The guardrail's real content was never "few connectors" — it was "never imply a capability you
-  do not have." That is now enforced by the matrix instead of by scarcity.
+
+  The guardrail's real content was never "few connectors" — it was "never imply a capability you do
+  not have." That is now enforced by the matrix instead of by scarcity.
 - **No fake data in the UI** — an automation tool earns trust by telling the truth.
 - **Dogfood** — migrate real Task Scheduler jobs onto Cronsole-created tasks; every friction point
   is roadmap input.
@@ -1724,10 +884,10 @@ items cover the repo and product going public, not standing up a multi-tenant cl
 
 ## Appendix — Template & scheduler catalog (backlog reference)
 
-> The **content backlog** the template registry will hold. The abstract catalog can grow freely
-> via the registry, but **execution targets unlock only when reliable** (the guardrail above).
-> The concrete near-term commitment is the MVP starter set + the Windows compiler; everything
-> below that is a prioritized reference, not committed scope.
+> The **content backlog** the template registry will hold. The abstract catalog can grow freely via
+> the registry, but **execution targets unlock only when reliable** (the guardrail above). The
+> concrete near-term commitment is the MVP starter set + the Windows compiler; everything below that
+> is a prioritized reference, not committed scope.
 
 ### Core model
 
@@ -1781,32 +941,3 @@ Claude Code Routines.
 - **Business automation**: Zapier · Make · Workato · Tray.io · IFTTT · MuleSoft · Boomi · ServiceNow Flow.
 - **Database**: SQL Server Agent · pg_cron · pgAgent · Oracle DBMS Scheduler · MySQL Event Scheduler · Snowflake Tasks · MongoDB Atlas Triggers.
 - **AI platforms**: ChatGPT Tasks · Claude Code Routines · Claude Scheduled Tasks · Claude Hooks · LangGraph · CrewAI · AutoGen · Semantic Kernel · GitHub Copilot Agents · Azure AI Foundry · Vertex AI Agents · Amazon Bedrock Agents · Custom MCP Agents.
-
----
-
-## Foundation — completed before the July 2026 sprints
-
-<details>
-<summary>MVP build-out (Phases 0–3, Jan–Jun 2026, archived)</summary>
-
-- Discovery, requirements, architecture, competitive research *(archived locally under `docs/archive/`)*
-- **Windows Task Scheduler end-to-end**: .NET agent ↔ Socket.io backend ↔ Prisma/Postgres ↔ React dashboard
-- **Dashboard UX**: dark theme, 4 view modes, category chips with counts, selective import, task cloning, Help Center
-- **Template library**: two-tier catalog, Apply modal with `{{placeholder}}` parameters
-- Auth scaffold (JWT), Docker Compose dev stack, GitHub Actions CI, unit suites across backend / frontend / agent
-- Settings page, non-blocking toasts, live connection health *(2026-07-08)*
-- Toast migration, honest Sync/Import split, last-synced chip *(2026-07-08)*
-- Synced Windows schedules normalized to cron *(2026-07-08)*
-- Template library filters, search & grouping *(2026-07-08)*
-- Task search on the dashboard *(2026-07-07)*
-- Standard dark/light/system theme system *(2026-07-07)*
-- Real cron→Windows-trigger conversion wired end-to-end *(2026-07-07)*
-- Cronsole-native tasks — backend scheduler, HTTP job executor, connector *(2026-07-07)*
-- Run history & failure surfacing *(2026-07-07)*
-- Stale-task pruning on sync *(2026-07-07)*
-- Agent reconnect resilience *(2026-07-07)*
-- Platform selector in the New Task modal *(2026-07-07)*
-- Docs restructure + README visual overhaul *(2026-07-08)*
-- Post-rename full test sweep — every automated suite green *(2026-07-31)*
-
-</details>

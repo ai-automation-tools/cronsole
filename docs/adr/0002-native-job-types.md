@@ -4,7 +4,7 @@
   `NOTIFY` and `SEQUENCE` remain deferred as written below; `SQL` remains rejected.
   Open questions 1 and 3 were settled before implementation — see *Decisions taken* at the end.
 - **Deciders:** Mike
-- **Related:** [ROADMAP › Top priority item 2](../ROADMAP.md#-top-priority--requested-2026-08-15) · [CLAUDE.md §9 › Connector pattern](../../CLAUDE.md) · frozen spec [`archive/specs/Native_Tasks.md`](../archive/specs/Native_Tasks.md) (local-only)
+- **Related:** [ROADMAP › Native job types](../ROADMAP.md#native-job-types) · [CLAUDE.md §9 › Connector pattern](../../CLAUDE.md) · frozen spec [`archive/specs/Native_Tasks.md`](../archive/specs/Native_Tasks.md) (local-only)
 
 ## Context
 

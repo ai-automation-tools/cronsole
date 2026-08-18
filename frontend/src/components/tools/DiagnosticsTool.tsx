@@ -29,8 +29,10 @@ export const DiagnosticsTool = () => {
   return (
     <>
       <ToolCard
+        id="diagnostics"
         icon={Stethoscope}
-        title={<>System diagnostics <HelpButton topic="diagnostics" /></>}
+        title="System diagnostics"
+        titleAdornment={<HelpButton topic="diagnostics" />}
         description="Check what Cronsole can see about itself — the agent, the database, the scheduler, the catalog — with the evidence behind each answer."
       >
         <div className="flex items-center gap-3 flex-wrap">

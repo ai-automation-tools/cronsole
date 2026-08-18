@@ -104,8 +104,10 @@ export const TaskHealthTool = () => {
 
   return (
     <ToolCard
+      id="task-health"
       icon={Activity}
-      title={<>Task health <HelpButton topic="task-health" /></>}
+      title="Task health"
+      titleAdornment={<HelpButton topic="task-health" />}
       description={<>
         Which tasks need attention, and the evidence behind each verdict — read from
         Windows' own run results, not just Cronsole's records.

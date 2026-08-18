@@ -177,6 +177,7 @@ export const RestoreTool = () => {
 
   return (
     <ToolCard
+      id="restore"
       icon={History}
       title="Restore tasks from a backup"
       description={<>

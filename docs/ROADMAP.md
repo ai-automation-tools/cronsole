@@ -475,7 +475,7 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 <a id="shipped-2026-08-15--2026-08-17"></a>
 
-## Shipped 2026-08-15 → 2026-08-17 — the current sprint
+## Shipped 2026-08-15 → 2026-08-18 — the current sprint
 
 ### The 2026-08-15 requests
 
@@ -534,6 +534,9 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ### Features
 
+- [x] **The Tools tab collapsed to a menu** — each card shows icon, name and description with a
+      **Show** strip at the bottom; open/closed persists (`Settings.openTools`) and a closed card's
+      body has never mounted, so the tab no longer fires eight queries on arrival *(2026-08-18)*.
 - [x] **System diagnostics — a read-only report on Cronsole itself.** `GET /api/tools/diagnostics`
       + `services/diagnostics.ts`, the `DiagnosticsModal` from two entry points, and the
       `get_diagnostics` MCP tool. Eight checks, each carrying the evidence behind its verdict

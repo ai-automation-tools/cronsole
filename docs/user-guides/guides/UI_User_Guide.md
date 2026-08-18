@@ -497,6 +497,12 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 The **Tools** tab holds the things that act across *all* your tasks rather than one of them.
 
+Every tool is a card that stays closed until you ask for it: the tab lists each one by name and by
+what it is for, and **Show** along the foot of a card opens the tool itself. Cronsole remembers
+which cards you left open, so a tool you are working in is still open when you come back. Closing
+one hides it — it does not reset it, so a half-built mass action or a loaded restore plan is still
+there when you open it again. A card you have never opened has asked your machine for nothing.
+
 ### Mass actions
 
 The one place Cronsole changes many tasks at once. It works in two steps, in that order:

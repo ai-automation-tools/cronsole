@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ImportTaskTool } from '../tools/ImportTaskTool';
+import { openToolCard } from './helpers/toolCard';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({
@@ -33,11 +34,13 @@ const pickFile = (contents: string, name = 'task.json') => {
 
 const renderTool = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const result = render(
     <QueryClientProvider client={client}>
       <ImportTaskTool />
     </QueryClientProvider>
   );
+  openToolCard('import-task');
+  return result;
 };
 
 const BUNDLE = JSON.stringify({

@@ -382,8 +382,10 @@ test.describe('desktop layout — 1280px', () => {
   test('tools tab', async ({ page }) => {
     await page.goto('/');
     await page.getByText('Tools', { exact: true }).first().click();
-    // The tool list is chrome, but not entirely static: the Task health card
-    // carries four live counts, which `volatile` masks.
+    // Static chrome again, and this time for a structural reason rather than by
+    // luck: every tool card is closed on a fresh profile, so the one piece of
+    // live data on this tab — Task health's four counts — has not been fetched.
+    // `volatile` still masks it, for the run where someone opens a card first.
     await expect(page.locator('main')).toHaveScreenshot('tools-desktop.png', {
       mask: volatile(page),
       clip: { x: 0, y: 0, width: DESKTOP.width, height: 420 }

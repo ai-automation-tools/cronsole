@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { RestoreTool } from '../tools/RestoreTool';
 import { openToolCard } from './helpers/toolCard';
+import { stageRestore } from '../../utils/restoreHandoff';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({
@@ -179,6 +180,45 @@ describe('RestoreTool', () => {
     );
     expect(await screen.findByText(/Restored 1 of 2 files/i)).toBeInTheDocument();
     // Restoring puts a task on the machine; it does not make Cronsole track it.
-    expect(screen.getByText(/Import them from the Dashboard/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add tasks from this machine/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * The file Import handed over.
+ *
+ * Import takes any file an export produced, but a Windows backup has to be
+ * *restored* rather than imported — so it is staged and this card picks it up.
+ * The two things worth pinning: it plans (never writes), and it is consumed
+ * once, so a second visit to the Tools tab does not re-plan a file the user has
+ * moved on from.
+ */
+describe('RestoreTool — a file handed over by Import', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.post).mockResolvedValue(planResponse() as never);
+  });
+
+  it('plans the staged file on mount, without writing anything', async () => {
+    stageRestore([xmlFile('Nightly.xml')]);
+    renderTool();
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(vi.mocked(api.post).mock.calls.every(call => (call[1] as { dryRun: boolean }).dryRun === true)).toBe(true);
+    expect(await screen.findByText(/Nightly.xml/)).toBeInTheDocument();
+  });
+
+  it('takes the handoff exactly once', async () => {
+    stageRestore([xmlFile('Nightly.xml')]);
+    const first = render(<RestoreTool />);
+    openToolCard('restore');
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    first.unmount();
+
+    vi.clearAllMocks();
+    renderTool();
+    // Nothing staged any more, so nothing is planned — the card is just a card.
+    await waitFor(() => expect(screen.getByText(/Choose a .zip or files/i)).toBeInTheDocument());
+    expect(api.post).not.toHaveBeenCalled();
   });
 });

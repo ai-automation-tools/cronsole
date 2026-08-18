@@ -378,8 +378,8 @@ Cronsole run history. **The scheduled task itself is not touched:** it stays on 
 keeps running on its own schedule. Use this when you imported a folder you didn't mean to, or
 when you simply don't want to look at a task any more.
 - Future syncs **won't** pull it back — Cronsole remembers that you removed it, so a routine
-  **Sync Now** can't silently undo your choice.
-- To get it back, run **Import → Tasks already on this machine** and re-select its category. The picker shows an amber
+  a plain **Sync** can't silently undo your choice.
+- To get it back, run **Sync › Add tasks from this machine** and re-select its category. The picker shows an amber
   **+N removed** badge on any category that would bring removed tasks back, so you see the
   number before you commit, and the toast afterwards tells you how many returned.
 - Not offered for Cronsole-native tasks — those exist only inside Cronsole, so there's nothing
@@ -680,11 +680,12 @@ the time you remember setting.
   Cronsole-native task exists entirely inside Cronsole, so its file contains everything needed to
   rebuild it. A Windows task's real definition lives in Task Scheduler on your machine, and comes
   back as `.xml` through **Restore tasks from a backup** below. Hand this card a Windows file and it
-  says so, and points you there.
+  says so, and points you there — the Dashboard's **Import** button goes one better and opens Restore
+  with the file already loaded.
 - The same import is offered in two other places, all three sharing one code path so they accept
   the same files and explain a bad one the same way: the **New Task** modal, under the platform
-  buttons, and the Dashboard's **Import** button, which opens on a choice between this and
-  adopting the tasks already on your machine.
+  buttons, and the Dashboard's **Import** button, which additionally accepts a Windows backup and
+  hands it to Restore.
 
 **Bringing back a deleted task.** Under **Deleted tasks** you'll find Cronsole-native tasks you
 removed, newest first, each with the number of run records kept alongside it. **Restore** rebuilds
@@ -742,7 +743,7 @@ definition from one.
   `\Microsoft\` (Windows' own — a name collision there would silently destroy a real system task),
   a file that isn't a task definition, or two files that would land on the same task path.
 - **Restoring a task does not add it to Cronsole.** It puts the task back on the machine; use
-  **Import → Tasks already on this machine** on the Dashboard if you want Cronsole to track it too.
+  **Sync › Add tasks from this machine** on the Dashboard if you want Cronsole to track it too.
 
 ### Export run history
 
@@ -805,16 +806,21 @@ a specification, and you already have one of those.
     That second case is the common one, and it is worth understanding. Cronsole does not poll your agent in the background — deciding it is healthy costs a real request, and doing that on a timer would mean a synthetic request per open browser tab. So if a request timed out last night and you did not use Cronsole afterwards, *nothing has happened since* to tell Cronsole either way. It reports **Degraded** for the first 15 minutes, while that failure still describes the present, and **Not checked** after that.
 
     **To get a current answer, press Sync.** It is a read-only round trip and it replaces the stale verdict with a real one. Reach for restarting the stack only if Sync actually fails — a restart clears this state whether or not anything was wrong, which makes it look like a fix ([troubleshooting #48](../../troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy)).
-- **"synced N ago" is about syncing, not about being connected.** It appears only once a sync has actually happened, so a freshly connected agent shows **no** indicator rather than "just now". If it is missing, nothing has been pulled from that platform yet — run **Sync Now**. Cronsole-native never shows one at all: its tasks live in Cronsole's own database, so there is nothing for it to sync *from*, and Settings shows its last sync as **Never** on purpose.
+- **"synced N ago" is about syncing, not about being connected.** It appears only once a sync has actually happened, so a freshly connected agent shows **no** indicator rather than "just now". If it is missing, nothing has been pulled from that platform yet — press **Sync**. Cronsole-native never shows one at all: its tasks live in Cronsole's own database, so there is nothing for it to sync *from*, and Settings shows its last sync as **Never** on purpose.
 - **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand. **Check now** re-reads status; it does not sync, so it will not change "synced N ago".
 - **Settings → About → API origin:** Shows the backend URL the dashboard is using. You can override it in the browser when testing a different backend; **Reset** returns to the configured `VITE_API_URL` default.
-- **Import asks which kind you mean first.** The button covers two unrelated actions, so it opens on a
-  choice: **Tasks already on this machine** (pick folders Cronsole can see and start tracking them —
-  nothing is created, they exist and run either way) or **a task file** (`.json`, which *creates* a
-  Cronsole-native task and starts it running). Only the first one talks to the agent, and it is only
-  asked once you pick it. A Windows task's `.xml` belongs to Tools → Restore, and the chooser says so.
-- **Sync vs. Import:** **Sync Now** re-pulls status and schedules for categories you already track; **Import → Tasks already on this machine** opens the discovery picker to add new ones. **Sync Now cannot discover a folder you don't already track** — that's what Import is for.
-- **"N tasks aren't imported":** because of the above, tasks can exist on your machine that Cronsole is deliberately ignoring. Sync Now now tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. If you don't want them, Import is not required — the message is informational, and it disappears once nothing is outstanding.
+- **Import takes a file; Sync reads this machine.** That is the whole distinction, and it is now the
+  difference between two buttons rather than a question one of them asks. **Import** creates a task
+  from a file an export produced — a Cronsole task `.json` is rebuilt on the spot, and a Windows
+  backup (`.xml`, or the `.zip` an export produced) opens in **Tools → Restore**, which shows you
+  what it would do to your machine before writing. **Sync** talks to the machine.
+- **Sync has two gestures.** Pressing **Sync** re-pulls status and schedules for the categories you
+  already track and adds nothing new. The caret beside it opens **Add tasks from this machine**, the
+  discovery picker — the only thing that can start tracking a folder you have never picked.
+  **A plain refresh cannot discover a folder**, deliberately: adding a folder forgets the untracks
+  inside it, and a routine refresh must never undo a removal you made on purpose. Only the picker
+  talks to the agent, and only once you open it.
+- **"N tasks aren't imported":** because of the above, tasks can exist on your machine that Cronsole is deliberately ignoring. Sync tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — add them from Sync › Add tasks from this machine."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. The message carries the button that adds them. If you don't want them, nothing is required — the message is informational, and it disappears once nothing is outstanding.
 
 ---
 

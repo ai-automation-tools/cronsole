@@ -937,7 +937,7 @@ const syncSchema = z
     categories: z.array(z.string()).optional(),
     // 'tracked' = refresh the folders this user already tracks, resolved
     // server-side from the stored tasks' native paths (TaskService
-    // .trackedCategories). This is what "Sync Now" sends: the caller must NOT
+    // .trackedCategories). This is what a plain "Sync" sends: the caller must NOT
     // echo back stored `category` values, because those are user-renameable and
     // would silently drop a whole folder from the filter.
     scope: z.literal('tracked').optional()
@@ -992,7 +992,7 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
         // would clear the fence and still skip the tasks this one time, which
         // reads as "import didn't work" one sync later.
         //
-        // `scope: 'tracked'` (Sync Now) deliberately does NOT clear: it is a
+        // `scope: 'tracked'` (the plain Sync) deliberately does NOT clear: it is a
         // refresh, not a request for anything new, and having a routine refresh
         // undo a deliberate removal is the invisible-fence failure exactly.
         let exclusionsCleared = 0;
@@ -1007,7 +1007,7 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
 
         // What this sync deliberately left out. Selective import is the design,
         // but its invisibility cost a full debugging session (troubleshooting
-        // #20): Sync Now cannot discover a new folder, so tasks can sit one
+        // #20): a plain Sync cannot discover a new folder, so tasks can sit one
         // fence away indefinitely while every sync reports success. Computed
         // from the enumeration we already have — no extra agent round-trip.
         const untracked = TaskService.summarizeUntracked(allExternalIds, include, conn.platform, excluded);

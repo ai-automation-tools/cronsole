@@ -33,12 +33,11 @@ test.describe.serial('mock Windows agent flows', () => {
     // cannot use colour to tell a green circle from an amber one.
     await expect(rail.getByTitle('Windows Task Scheduler — Online')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Import tasks' }).click();
-    // The modal opens on a choice — adopting the machine's tasks, or creating
-    // one from a file. Discovery is the first.
-    await page.getByRole('button', { name: /Tasks already on this machine/ }).click();
-    await expect(page.getByRole('heading', { name: 'Import & Sync' })).toBeVisible();
-    const importModal = page.locator('.fixed.inset-0').filter({ hasText: 'Import & Sync' });
+    // Adopting the machine's tasks lives under Sync now — Import takes a file.
+    await page.getByRole('button', { name: 'Sync options' }).click();
+    await page.getByRole('menuitem', { name: /Add tasks from this machine/ }).click();
+    await expect(page.getByRole('heading', { name: 'Add tasks from this machine' })).toBeVisible();
+    const importModal = page.locator('.fixed.inset-0').filter({ hasText: 'Add tasks from this machine' });
     await expect(importModal.getByText('E2E', { exact: true })).toBeVisible();
 
     await apiPost('/tasks/sync', { categories: ['E2E'] });
@@ -191,6 +190,9 @@ test.describe.serial('mock Windows agent flows', () => {
     // button that opens it is the other thing that must survive this width.
     await expect(page.getByTestId('task-count-line')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Open sources' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Import tasks' })).toBeVisible();
+    // Both header actions, since they are now two different things: a file
+    // importer and the machine's sync. Neither may be the one that wraps off.
+    await expect(page.getByRole('button', { name: 'Import a task file' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sync options' })).toBeVisible();
   });
 });

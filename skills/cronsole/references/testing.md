@@ -56,7 +56,7 @@ the split is the lesson:
 - **Pixels, only for chrome that does not move** — headers, the filter zone, the New Task modal.
   Live regions are masked (`data-testid="health-strip"`, `task-count-line`,
   `default-view-banner`, the saved-views bar, the Sync button).
-- **Structure, for everything else** — the **Platforms matrix** and the **Import modal** get no
+- **Structure, for everything else** — the **Platforms matrix** and the **folder picker** get no
   baseline at all. Both are almost entirely live evidence, so a masked baseline is a picture of
   an empty frame that *still* breaks whenever a row's height changes.
 
@@ -83,7 +83,7 @@ separate sets — font rasterization differs too much to share one. A new surfac
 baseline on first run and *fails that run by design*; re-run to confirm.
 
 > **Renaming an accessible name breaks E2E locators.** `getByRole('button', { name })` matches the
-> **accessible** name, so adding `aria-label="Import tasks"` to a button labelled *Import* silently
+> **accessible** name, so adding `aria-label="Import a task file"` to a button labelled *Import* silently
 > broke `mock-agent.spec.ts`. Grep `tests/e2e` when you name an icon-only control.
 
 ## What CI enforces — and doesn't

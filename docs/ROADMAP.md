@@ -33,7 +33,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 |---|---|---|
 | **P0 — Security** | 🟢 substantially closed | one item: resolve `req.user` from the DB |
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
-| **P2 — Product value** | 🟡 rolling | the Import/Sync split · IA redesign pass 2 · themes · trust indicators · polish |
+| **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · themes · trust indicators · polish |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
 | **Sources** | 🟡 3 of ~8 built | POSIX agent (the big one), then read-only observers |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
@@ -88,36 +88,6 @@ collections, the native job types, and the phone verification (see
 <a id="import-sync-split"></a>
 
 ### 🔴 Requested 2026-08-18
-
-- [ ] **Import means a file; Sync means a source.** Today the two header buttons split on
-      *mechanism* — Import opens a chooser (adopt what is already on this machine / read a `.json`),
-      Sync refreshes only the folders already tracked. The proposal splits them on **where the task
-      comes from**: **Import** takes a file and only a file (Cronsole `.json`, Task Scheduler
-      `.xml`); **Sync** owns everything that reads a source — refreshing what is tracked *and*
-      adopting folders that are not.
-      **This supersedes the 2026-08-17 chooser rather than contradicting it.** That change answered
-      *"which import do you mean?"* inside one button; this answers it one level up, where there is
-      nothing left to ask because "a file" and "this machine" are different controls. Keep its
-      naming rule — each option named by consequence ("nothing is created" against "this creates a
-      task"), never by file extension.
-      **Sync then has two gestures and they must stay two in the code, not only in the UI.** The
-      primary click stays a silent refresh (`scope: 'tracked'`); the second opens the folder picker
-      (`GET /tasks/discover` → `POST /tasks/sync {categories}`). An explicit `categories` import
-      clears untrack exclusions inside those folders — a refresh must never do so, or a routine
-      sync quietly undoes a deliberate removal. Collapsing both into one button is the one way to
-      get that wrong.
-      **The bridge already exists:** every sync returns an `untracked` summary and toasts *"N still
-      untracked"*. That toast becomes the route into the picker instead of a dead end.
-      **Decide before building: what Import does with an `.xml`.** Restore plans before it writes
-      (dry run, `createFolders`, overwrite, a signed sha256), so Import cannot register an XML
-      itself — it either hands the file to that planner inline or keeps pointing at
-      **Tools → Restore**. "Import takes JSON/XML" promises the first. Worth settling in the same
-      breath whether Restore is still a separate control once Import owns files at all, and it
-      pulls on [Dashboard IA pass 2](#dashboard-ia-pass-2)'s *source-scoped header actions*, which
-      wants Sync and Import to name the platform they mean.
-      Mirror surfaces when it lands: `help.ts` (`task-import`), the UI guide's Dashboard and Tools
-      sections, and the `sync_tasks` / `import_task` MCP descriptions — those teach an assistant
-      the same distinction in the same words.
 
 - [ ] **Periodic sync — promoted from P2** *(asked 2026-08-18; the P2 line is now a pointer here)*.
       Nothing in the stack schedules a sync today: `POST /tasks/sync` has three callers — the two
@@ -587,6 +557,13 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ### Features
 
+- [x] **Import means a file; Sync means a source** — the header buttons split on where a task comes
+      from rather than on mechanism. Import takes a `.json` (rebuilt here), an `.xml` or a `.zip`
+      (staged and opened in Tools › Restore with the plan already running); Sync is a split button
+      whose primary click refreshes what is tracked and whose menu opens the folder picker. The two
+      requests stay two — `{categories}` clears untrack exclusions, `scope: 'tracked'` must not
+      — and the "N tasks aren't imported" toast now carries the control that adds them
+      *(2026-08-18)*. Supersedes the 2026-08-17 chooser.
 - [x] **The Tools tab collapsed to a menu** — each card shows icon, name and description with a
       **Show** strip at the bottom; open/closed persists (`Settings.openTools`) and a closed card's
       body has never mounted, so the tab no longer fires eight queries on arrival *(2026-08-18)*.

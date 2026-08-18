@@ -11,7 +11,7 @@ describe('describeUntracked', () => {
     // The #20 scenario: real tasks the connector reported on every sync while
     // the dashboard said only "Tasks synced."
     expect(describeUntracked({ results: [win(26, ['IAM', 'Edge-Radar-MikesAILab'])] })).toBe(
-      "Synced. 26 tasks in 2 folders aren't imported — use Import to add them."
+      "Synced. 26 tasks in 2 folders aren't imported — add them from Sync › Add tasks from this machine."
     );
   });
 
@@ -23,7 +23,7 @@ describe('describeUntracked', () => {
 
   it('reads correctly for a single task in a single folder', () => {
     expect(describeUntracked({ results: [win(1, ['IAM'])] })).toBe(
-      "Synced. 1 task in 1 folder isn't imported — use Import to add it."
+      "Synced. 1 task in 1 folder isn't imported — add it from Sync › Add tasks from this machine."
     );
   });
 
@@ -33,7 +33,7 @@ describe('describeUntracked', () => {
     const message = describeUntracked({
       results: [win(2, ['Shared']), { platform: 'TASKHUB_NATIVE', untracked: { count: 1, folders: ['Shared'], systemCount: 0 } }]
     });
-    expect(message).toBe("Synced. 3 tasks in 1 folder aren't imported — use Import to add them.");
+    expect(message).toBe("Synced. 3 tasks in 1 folder aren't imported — add them from Sync › Add tasks from this machine.");
   });
 
   it('ignores OS-owned tasks, which the backend counts separately', () => {
@@ -48,7 +48,7 @@ describe('describeUntracked', () => {
     const message = describeUntracked({
       results: [{ platform: 'WINDOWS_TASK_SCHEDULER', error: 'Agent offline' }, win(4, ['IAM'])]
     });
-    expect(message).toBe("Synced. 4 tasks in 1 folder aren't imported — use Import to add them.");
+    expect(message).toBe("Synced. 4 tasks in 1 folder aren't imported — add them from Sync › Add tasks from this machine.");
   });
 
   it('returns null for a malformed or empty response rather than throwing', () => {
@@ -78,12 +78,12 @@ describe('describeUntracked', () => {
         results: [{ ...win(4, ['IAM']), exclusionsCleared: 2 }]
       })).toBe(
         'Re-imported 2 tasks you had removed from Cronsole. ' +
-        "Synced. 4 tasks in 1 folder aren't imported — use Import to add them."
+        "Synced. 4 tasks in 1 folder aren't imported — add them from Sync › Add tasks from this machine."
       );
     });
 
-    it('stays silent when a plain Sync Now restored nothing', () => {
-      // Sync Now must never clear exclusions, so this is the common case and it
+    it('stays silent when a plain Sync restored nothing', () => {
+      // A plain Sync must never clear exclusions, so this is the common case and it
       // must not gain a sentence about something that didn't happen.
       expect(describeUntracked({
         results: [{ ...win(0, []), exclusionsCleared: 0 }]

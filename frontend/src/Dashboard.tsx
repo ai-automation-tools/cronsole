@@ -7,7 +7,8 @@ import { api } from './api';
 import type { Task } from './types';
 import { TopBar } from './components/TopBar';
 import { TaskModal } from './components/TaskModal';
-import { ImportModal } from './components/ImportModal';
+import { ImportFileModal } from './components/ImportFileModal';
+import { SyncSourcesModal } from './components/SyncSourcesModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { SettingsScreen } from './components/SettingsScreen';
 import { PlatformsScreen } from './screens/PlatformsScreen';
@@ -20,6 +21,7 @@ import { useConfirm } from './hooks/useConfirm';
 import { useNavigate, useLocation } from 'react-router';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { describeUntracked, type SyncResponse } from './utils/syncSummary';
+import { stageRestore } from './utils/restoreHandoff';
 
 
 
@@ -39,7 +41,10 @@ const Dashboard = () => {
 
   const [cloningTask, setCloningTask] = useState<Task | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  const [showImport, setShowImport] = useState(false);
+  // Two controls, two states. Import takes a file; adopting what is already on
+  // the machine is the second gesture under Sync.
+  const [showImportFile, setShowImportFile] = useState(false);
+  const [showSyncSources, setShowSyncSources] = useState(false);
   const [showCreateNative, setShowCreateNative] = useState(false);
   const queryClient = useQueryClient();
   const { settings, update } = useSettings();
@@ -202,8 +207,32 @@ const Dashboard = () => {
    * second caller of one API, not a second capability.
    */
 
+  /**
+   * A Windows backup picked in the Import modal.
+   *
+   * It is handed to **Tools → Restore** rather than imported here, because
+   * putting a Windows task back is a restore: the definition lives on the
+   * machine, so it needs a dry run, a plan on screen, and the folder/overwrite
+   * decisions that ride inside the agent's signature. That flow has one
+   * definition and this must not become a second one.
+   *
+   * The card is opened on the way, so the user lands on their file with a plan
+   * running — not on a Tools tab where they have to find the right card and pick
+   * the file again. The toast says where they went; a screen that changes under
+   * you without a reason is the same defect as a refusal with no explanation.
+   */
+  const handleWindowsBackup = (file: File) => {
+    stageRestore([file]);
+    if (!settings.openTools.includes('restore')) {
+      update('openTools', [...settings.openTools, 'restore']);
+    }
+    setShowImportFile(false);
+    navigate('/tools');
+    toast(`${file.name} is a Windows backup — opened in Tools › Restore.`, 'info');
+  };
+
   // Two callers, two shapes. Import sends the categories the user ticked in the
-  // modal (path-derived names, straight from /discover). Sync Now sends
+  // picker (path-derived names, straight from /discover). The plain Sync sends
   // `scope: 'tracked'` and lets the server work out which folders that means —
   // it must NOT send `task.category`, which is a renameable label and would no
   // longer match any folder, silently dropping it from the sync.
@@ -219,9 +248,9 @@ const Dashboard = () => {
     onSuccess: data => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['connections'] });
-      setShowImport(false);
+      setShowSyncSources(false);
 
-      // Say what the sync left behind. Sync Now can only refresh folders you
+      // Say what the sync left behind. A plain Sync can only refresh folders you
       // already track — it cannot discover a new one — so tasks can sit one
       // fence away indefinitely while every sync cheerfully reports success.
       // That silence cost a full debugging session (troubleshooting #20).
@@ -230,7 +259,14 @@ const Dashboard = () => {
         // Deliberately NOT gated behind `toastOnSuccess`: that setting suppresses
         // routine "it worked" noise, and this is the opposite — the one thing the
         // sync did NOT do, and the only prompt the user gets that Import exists.
-        toast(untracked, 'info');
+        // The message names a control, so it carries that control. This toast is
+        // the only prompt that adopting new folders is possible at all, and
+        // making the reader go and find the menu it names is how a prompt
+        // becomes a dead end.
+        toast(untracked, 'info', {
+          label: 'Add tasks from this machine',
+          onClick: () => setShowSyncSources(true)
+        });
       } else if (settings.toastOnSuccess) {
         toast('Tasks synced.', 'success');
       }
@@ -321,7 +357,8 @@ const Dashboard = () => {
           <DashboardScreen
             tasks={tasks}
             isLoading={isLoading}
-            onImport={() => setShowImport(true)}
+            onImportFile={() => setShowImportFile(true)}
+            onAddSources={() => setShowSyncSources(true)}
             onSyncNow={() => syncMutation.mutate({ scope: 'tracked' })}
             onClearMissing={(count) => clearMissingMutation.mutate(count)}
             isClearingMissing={clearMissingMutation.isPending}
@@ -364,10 +401,16 @@ const Dashboard = () => {
           onClose={() => setShowHelp(false)} 
         />
       )}
-      {showImport && (
-        <ImportModal
-          onClose={() => setShowImport(false)}
-          onImport={(categories) => syncMutation.mutate({ categories })}
+      {showImportFile && (
+        <ImportFileModal
+          onClose={() => setShowImportFile(false)}
+          onWindowsBackup={handleWindowsBackup}
+        />
+      )}
+      {showSyncSources && (
+        <SyncSourcesModal
+          onClose={() => setShowSyncSources(false)}
+          onAdd={(categories) => syncMutation.mutate({ categories })}
         />
       )}
       {showCreateNative && (

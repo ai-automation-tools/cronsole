@@ -59,3 +59,32 @@ export async function importTaskFile(file: File): Promise<ImportedTask> {
     );
   }
 }
+
+/**
+ * What kind of file was picked — a Cronsole task, or a Windows backup.
+ *
+ * `windows-backup` covers both halves of what **Back up scheduled tasks** writes:
+ * a single Task Scheduler `.xml` and the `.zip` of many. Neither can become a
+ * task through `POST /tasks/import` — a Windows task's definition lives on the
+ * machine, so putting one back is a restore — and this is what routes it to the
+ * screen that can, instead of letting `JSON.parse` refuse it as "not valid
+ * JSON". That message described the file correctly and told the reader nothing:
+ * their file is fine, it just belongs somewhere else.
+ *
+ * The extension decides, and the **bytes** decide when it cannot: Task Scheduler
+ * XML is UTF-16 with a BOM, and a zip is `PK\x03\x04`, so a file renamed on the
+ * way out of an email is still recognisable. Sniffing only 4 bytes, and only
+ * when the name is unhelpful.
+ */
+export type TaskFileKind = 'cronsole-json' | 'windows-backup';
+
+export async function classifyTaskFile(file: File): Promise<TaskFileKind> {
+  if (/\.(xml|zip)$/i.test(file.name)) return 'windows-backup';
+  if (/\.json$/i.test(file.name)) return 'cronsole-json';
+
+  const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+  const utf16Bom = (head[0] === 0xff && head[1] === 0xfe) || (head[0] === 0xfe && head[1] === 0xff);
+  const zip = head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04;
+  const angle = head[0] === 0x3c; // '<' — XML written as UTF-8
+  return utf16Bom || zip || angle ? 'windows-backup' : 'cronsole-json';
+}

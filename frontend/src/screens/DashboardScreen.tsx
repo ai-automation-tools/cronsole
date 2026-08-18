@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Activity,
-  RefreshCw,
   Loader2,
   Info,
   Folder,
@@ -28,6 +27,7 @@ import { useCollections } from '../hooks/useCollections';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
+import { SyncMenu } from '../components/SyncMenu';
 import { SourceRail } from '../components/SourceRail';
 import { HelpButton } from '../components/HelpButton';
 import { sourceTopicId } from '../data/help';
@@ -69,7 +69,8 @@ export const DashboardScreen = ({
   onRun,
   tasks: allTasks,
   isLoading,
-  onImport,
+  onImportFile,
+  onAddSources,
   onSyncNow,
   isSyncing,
   onClearMissing,
@@ -87,7 +88,10 @@ export const DashboardScreen = ({
   onRun: (task: Task) => void;
   tasks: Task[] | undefined;
   isLoading: boolean;
-  onImport: () => void;
+  /** Open the file importer. Import means a file now; adopting a machine's tasks is under Sync. */
+  onImportFile: () => void;
+  /** Open the folder picker that adopts tasks already on the machine. */
+  onAddSources: () => void;
   onSyncNow: () => void;
   isSyncing: boolean;
   onClearMissing: (count: number) => void;
@@ -777,23 +781,20 @@ export const DashboardScreen = ({
             <Zap size={16} /> New Task
           </button>
 
+          {/* Import takes a FILE; Sync reads a SOURCE. The two used to split on
+              mechanism — Import opened a chooser, Sync could not discover
+              anything — which put "adopt what is already on this machine"
+              behind the word that also meant "create a task from a file". */}
           <button
-            onClick={onImport}
-            aria-label="Import tasks"
+            onClick={onImportFile}
+            aria-label="Import a task file"
             className="px-3 sm:px-4 py-2 rounded-lg text-sm font-bold bg-surface border border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all flex items-center gap-2 active:scale-95 shadow-md"
-            title="Discover and import tasks from your connected platforms"
+            title="Create a task from a file an export produced (.json), or restore a Windows backup (.xml, .zip)"
           >
             <Download size={16} /> <span className="hidden sm:inline">Import</span>
           </button>
 
-          <button
-            onClick={onSyncNow}
-            disabled={isSyncing}
-            className="bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-            title="Re-pull status and schedules for the tasks you already track"
-          >
-            <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} /> {isSyncing ? 'Syncing…' : 'Sync Now'}
-          </button>
+          <SyncMenu onRefresh={onSyncNow} onAddSources={onAddSources} isSyncing={isSyncing} />
         </div>
       </div>
 
@@ -821,11 +822,13 @@ export const DashboardScreen = ({
            <p className="text-subtle-foreground max-w-sm mt-2 mb-6">
               Connect systems and perform your first sync to discover and monitor scheduled tasks.
            </p>
+           {/* The machine, not a file: an empty dashboard is someone who has
+               never adopted anything, and the tasks are already there. */}
            <button
-             onClick={onImport}
+             onClick={onAddSources}
              className="bg-primary hover:bg-primary-hover px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2"
            >
-             <Download size={16} /> Import Tasks
+             <Download size={16} /> Add tasks from this machine
            </button>
         </div>
       ) : (

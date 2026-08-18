@@ -88,9 +88,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
   **They stay two requests on purpose.** Naming a folder forgets the tasks you untracked inside it, which is right: asking for the folder is asking for what is in it. A plain refresh must never do that, or a routine sync silently undoes a removal you made deliberately.
 
+  **The getting-started tour now names the control that exists.** Its second step told a brand-new user to "click Import to discover your existing Windows Task Scheduler tasks", which is the one thing Import no longer does.
+
   **The message that says what a sync left behind now carries the button.** *"26 tasks in 2 folders aren't imported"* was the only prompt that adopting new folders was possible at all, and it named a control you then had to go and find.
 
-, not a stack of ten open panels** (2026-08-18). Each card now shows its icon, its name and the sentence that says what it is for, with a **Show** strip along the bottom that opens the tool itself. Your choice is remembered, so a tool you are working in is still open when you come back from the dashboard.
+- **The Tools tab opens as a list of tools, not a stack of ten open panels** (2026-08-18). Each card now shows its icon, its name and the sentence that says what it is for, with a **Show** strip along the bottom that opens the tool itself. Your choice is remembered, so a tool you are working in is still open when you come back from the dashboard.
 
   **The tab had become a page you scroll past rather than one you pick from.** Ten tools open at once put the last three below the fold on any screen, and finding one meant recognising its body rather than reading its name. Closed, every tool is visible at once and the description — which had been the least-read line on the tab — is the thing you choose from.
 

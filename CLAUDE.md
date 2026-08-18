@@ -179,6 +179,11 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **"Cannot" and "has not yet" are different cells.** `unsupportedVerbs` (a boundary) outranks every
   reachability rule and makes refusals a `400`, not a `502`. `declared` is a promise, `verified` is
   evidence, `unsupported` is a boundary.
+- **A refresh and an import are two requests, and must stay two.** `POST /tasks/sync`
+  `{ categories }` **clears the untrack exclusions** inside those folders — naming a folder is the
+  gesture that started tracking it — while `{ scope: 'tracked' }` must never clear one, or a
+  routine refresh silently undoes a deliberate removal. A refresh still *creates rows* for new
+  tasks inside folders already tracked; what it cannot do is adopt a new folder.
 - **Health reports evidence, never preconditions**, and never has a side effect (Claude's documented
   routines endpoint *fires* the routine). `UNKNOWN` is the absence of a verdict and must rank above
   healthy in any summary; failure evidence ages out (15 min), connection evidence renews itself.
@@ -256,8 +261,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   [#43](docs/troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
 - **In-app help summarises a doc and links to it**; `HelpTopic.doc` is required and every link is
   resolved to a real file *and* heading by `docsLinks.test.ts`.
-- **When one word covers two actions, the control asks**, and the options are named by consequence,
-  not by file extension.
+- **When one word covers two actions, split the controls; ask only if they cannot split.** Either
+  way the options are named by consequence, not by file extension. **Import** takes a *file*,
+  **Sync** reads a *source* — the chooser that used to ask which you meant was the weaker form of
+  the same rule.
 
 ### Tools tab, bulk & reporting
 - **Cross-task routes live on `/api/tools`**, not `/api/tasks` (everything there competes with `/:id`).

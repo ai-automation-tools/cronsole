@@ -1341,9 +1341,11 @@ task created natively is invisible until *you* sync. That's deliberate (selectiv
 a bug — but it means "I made it an hour ago and it's still not there" is expected, not a fault.
 
 > [!NOTE]
-> **Since 2026-07-27 the dashboard tells you this itself.** Sync Now no longer just says
+> **Since 2026-07-27 the dashboard tells you this itself.** A plain Sync no longer just says
 > `Tasks synced.` — when the platform reports tasks outside the folders you track, the toast
-> names them: *"Synced. 26 tasks in 2 folders aren't imported — use Import to add them."*
+> names them: *"Synced. 26 tasks in 2 folders aren't imported — add them from Sync › Add tasks
+> from this machine."* Since 2026-08-18 that toast also **carries the button**, so the prompt no
+> longer names a control the reader has to go and find.
 > `POST /api/tasks/sync` carries the numbers per platform:
 >
 > ```jsonc

@@ -161,7 +161,12 @@ describe('TaskModal Component', () => {
     expect(screen.getByRole('heading', { name: 'Edit task' })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Name/)).toHaveValue('Test Modal Task');
     expect(screen.getByLabelText(/^Category/)).toHaveValue('Automation');
-    expect(screen.getByDisplayValue('0 3 * * *')).toBeInTheDocument();
+    // The schedule arrives on the picker — `0 3 * * *` is Daily at 03:00 — so
+    // "every part of the task is in the editor" is asserted through the
+    // controls that now hold it. (The raw expression is on screen too, but it
+    // is also printed by the detail view behind the editor.)
+    expect(screen.getByLabelText('Repeat')).toHaveValue('daily');
+    expect(screen.getByLabelText('Time of day')).toHaveValue('03:00');
     expect(screen.getByDisplayValue('powershell.exe -File C:\\x.ps1')).toBeInTheDocument();
   });
 

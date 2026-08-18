@@ -106,6 +106,16 @@ collections, the native job types, and the phone verification (see
       lives in the host's environment) but needs Claude routines. Neither is a thing to document as
       the answer.
 
+- [ ] **A Monthly trigger for the Windows agent** *(surfaced 2026-08-18 by the schedule picker)*.
+      `scheduler-conversion.ts` has no monthly pattern, so `0 9 1 * *` falls to the replaced-with-
+      hourly fallback: ~8,760 runs a year for a schedule that asked for 12. That was tolerable
+      while a monthly cron was something you had to know to type; the picker makes it a one-click
+      choice, and the only thing standing between it and a wrong task is a warning. The work is a
+      `Monthly` arm end to end — `WindowsTrigger` already declares the type, but `TriggerSpec`,
+      `TriggerBuilder`, `canonicalizeTrigger`/`CanonicalizeTrigger` (both sides, byte-for-byte)
+      and `convertWindowsTriggerToCron` do not have it. Until then the picker offers the shape and
+      the server's warning is what tells the truth about it.
+
 <a id="follow-ups-2026-08-13"></a>
 
 ### 🔴 2026-08-13 follow-ups — the unfixed remainder
@@ -561,6 +571,14 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ### Features
 
+- [x] **A schedule can be picked, not only typed** — one `ScheduleBuilder` on all four cron
+      surfaces (Edit task, New task, Apply template, Schedule tester): five shapes, a clock
+      control and weekday toggles, with the cron it compiles to on screen and the Cron tab beside
+      it. It compiles to the same 5-field-UTC contract and stops there — nothing downstream can
+      tell a built expression from a typed one. Emits only on interaction (the round trip is not
+      byte-identical), goes unavailable rather than approximate, and leaves the Windows-fidelity
+      verdict to `/tasks/preview`. `describeCron` learned the monthly reading with it
+      *(2026-08-18)*.
 - [x] **Import means a file; Sync means a source** — the header buttons split on where a task comes
       from rather than on mechanism. Import takes a `.json` (rebuilt here), an `.xml` or a `.zip`
       (staged and opened in Tools › Restore with the plan already running); Sync is a split button

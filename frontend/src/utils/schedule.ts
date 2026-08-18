@@ -1,5 +1,6 @@
 import type { TimezoneMode } from '../hooks/useSettings';
 import { resolveZone, utcCronToZone, zoneAbbrev } from './timezone';
+import { ordinalDay } from './scheduleBuilder';
 
 /**
  * Best-effort, honest human description of a 5-field cron expression
@@ -35,8 +36,12 @@ export function describeCron(
   if (cron.trim().split(/\s+/).length !== 5) return null;
 
   const zone = resolveZone(tz);
-  const marker = zoneAbbrev(zone, now);
   const shifted = utcCronToZone(cron, tz, now);
+  // A shift that *declined* leaves the expression in UTC (a date-pinned cron
+  // whose conversion crosses midnight has no cron form). Labelling those hours
+  // with the reader's zone would be the same lie the shift refused to tell, so
+  // the marker follows what the numbers actually are.
+  const marker = shifted.reason ? 'UTC' : zoneAbbrev(zone, now);
   const parts = shifted.cron.trim().split(/\s+/);
   const [min, hour, dom, month, dow] = parts;
   const isNum = (s: string) => /^\d+$/.test(s);
@@ -77,6 +82,17 @@ export function describeCron(
   if (isNum(min) && isNum(hour) && wildDate && dow === '*') {
     const time = clock12h(Number(hour), Number(min));
     return time ? `Daily at ${time} ${marker}` : null;
+  }
+
+  // Monthly on a day of the month at H:M. Added with the schedule picker, which
+  // made this shape a one-click choice rather than something only a cron author
+  // reached — an offered schedule that reads back as a raw expression looks
+  // like the app failed to understand what it just built.
+  if (isNum(min) && isNum(hour) && month === '*' && dow === '*' && isNum(dom)) {
+    const day = Number(dom);
+    const time = clock12h(Number(hour), Number(min));
+    if (!time || day < 1 || day > 31) return null;
+    return `Monthly on the ${ordinalDay(day)} at ${time} ${marker}`;
   }
 
   return null;

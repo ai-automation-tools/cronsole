@@ -64,8 +64,11 @@ describe('TaskCard Component', () => {
   });
 
   it('shows the raw cron when the shape is one describeCron will not guess at', () => {
-    renderCard({ ...mockTask, schedule: '0 4 1 * *' });
-    expect(screen.getByText('0 4 1 * *')).toBeInTheDocument();
+    // A range in the hour field. (`0 4 1 * *` used to be the example here; a
+    // day-of-month schedule became describable when the picker made it a
+    // one-click choice.)
+    renderCard({ ...mockTask, schedule: '0 9-17 * * 1-5' });
+    expect(screen.getByText('0 9-17 * * 1-5')).toBeInTheDocument();
   });
 
   it('says there is no cron schedule rather than rendering nothing', () => {

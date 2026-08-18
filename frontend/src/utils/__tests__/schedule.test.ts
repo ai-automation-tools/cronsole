@@ -37,9 +37,17 @@ describe('describeCron — UTC', () => {
     expect(describeCron('0 9 * * 1,3,5')).toBe('Weekly on Monday, Wednesday, Friday at 9:00 AM UTC');
   });
 
+  // Added with the schedule picker: monthly became a one-click choice, and an
+  // offered schedule that reads back as a raw expression looks like the app
+  // failed to understand what it just built.
+  it('describes a day-of-month schedule', () => {
+    expect(describeCron('0 3 1 * *')).toBe('Monthly on the 1st at 3:00 AM UTC');
+    expect(describeCron('30 14 22 * *')).toBe('Monthly on the 22nd at 2:30 PM UTC');
+  });
+
   it('returns null for expressions it cannot describe confidently', () => {
-    expect(describeCron('0 3 1 * *')).toBeNull(); // day-of-month
     expect(describeCron('0 3 * 6 *')).toBeNull(); // specific month
+    expect(describeCron('0 3 1 * 1')).toBeNull(); // day-of-month AND weekday
     expect(describeCron('not a cron')).toBeNull();
     expect(describeCron('0 3 * *')).toBeNull(); // 4 fields
     expect(describeCron('')).toBeNull();
@@ -114,9 +122,25 @@ describe('taskSchedulePreview — the card line', () => {
   });
 
   it('falls back to the raw expression rather than guessing at an odd shape', () => {
-    // Day-of-month schedules are the shape describeCron refuses.
-    const p = taskSchedulePreview({ schedule: '0 4 1 * *' }, PACIFIC, JUL);
-    expect(p).toEqual({ kind: 'cron', text: '0 4 1 * *', cron: '0 4 1 * *' });
+    // A range in the hour field has no shape describeCron will name.
+    const p = taskSchedulePreview({ schedule: '0 9-17 * * 1-5' }, PACIFIC, JUL);
+    expect(p).toEqual({ kind: 'cron', text: '0 9-17 * * 1-5', cron: '0 9-17 * * 1-5' });
+  });
+
+  /**
+   * A monthly schedule keeps the zone marker honest in both directions.
+   * `0 20 15 * *` shifts cleanly into Pacific, so it is described there.
+   * `0 4 1 * *` would cross midnight, and cron cannot express the resulting
+   * date — `utcCronToZone` therefore *declines*, and the reading must then say
+   * UTC rather than putting a Pacific label on numbers that never moved.
+   */
+  it('names the zone it actually described a monthly schedule in', () => {
+    expect(taskSchedulePreview({ schedule: '0 20 15 * *' }, PACIFIC, JUL).text).toBe(
+      'Monthly on the 15th at 1:00 PM PDT'
+    );
+    expect(taskSchedulePreview({ schedule: '0 4 1 * *' }, PACIFIC, JUL).text).toBe(
+      'Monthly on the 1st at 4:00 AM UTC'
+    );
   });
 
   it('says so when there is no cron at all, instead of rendering blank', () => {

@@ -111,6 +111,20 @@ beforeEach(() => {
   vi.mocked(api.post).mockResolvedValue({ data: { score: 1, warnings: [] } });
 });
 
+/**
+ * Type a literal cron.
+ *
+ * The schedule control opens on the *picker* for any expression it can hold
+ * (`0 3 * * *` is Daily at 03:00), so a raw expression is entered behind the
+ * Cron tab. Switching registers writes nothing by itself — that is the property
+ * these tests would catch if it broke, since a rewritten schedule would show up
+ * as an extra PATCH below.
+ */
+const typeCron = (from: string, to: string) => {
+  fireEvent.click(screen.getByRole('button', { name: 'Cron' }));
+  fireEvent.change(screen.getByDisplayValue(from), { target: { value: to } });
+};
+
 describe('one gesture, three routes', () => {
   it('sends nothing until something changes', () => {
     renderModal(nativeTask);
@@ -135,7 +149,7 @@ describe('one gesture, three routes', () => {
   it('routes each part to its own endpoint in one save', async () => {
     renderModal(nativeTask);
     fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Renamed' } });
-    fireEvent.change(screen.getByDisplayValue('0 3 * * *'), { target: { value: '0 8 * * *' } });
+    typeCron('0 3 * * *', '0 8 * * *');
     fireEvent.change(screen.getByLabelText(/^URL/), { target: { value: 'https://example.com/v2' } });
     fireEvent.click(saveButton());
 
@@ -146,7 +160,7 @@ describe('one gesture, three routes', () => {
 
   it('stores the schedule as UTC cron, never the zone it was typed in', async () => {
     renderModal(nativeTask);
-    fireEvent.change(screen.getByDisplayValue('0 3 * * *'), { target: { value: '0 8 * * *' } });
+    typeCron('0 3 * * *', '0 8 * * *');
     fireEvent.click(saveButton());
 
     await waitFor(() =>
@@ -175,7 +189,7 @@ describe('partial failure — the reason this is per section', () => {
     failSchedule();
     const { onClose } = renderModal(windowsTask);
     fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Renamed' } });
-    fireEvent.change(screen.getByDisplayValue('0 3 * * *'), { target: { value: '0 8 * * *' } });
+    typeCron('0 3 * * *', '0 8 * * *');
     fireEvent.click(saveButton());
 
     await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument());
@@ -193,7 +207,7 @@ describe('partial failure — the reason this is per section', () => {
     failSchedule();
     renderModal(windowsTask);
     fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Renamed' } });
-    fireEvent.change(screen.getByDisplayValue('0 3 * * *'), { target: { value: '0 8 * * *' } });
+    typeCron('0 3 * * *', '0 8 * * *');
     fireEvent.click(saveButton());
 
     await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument());

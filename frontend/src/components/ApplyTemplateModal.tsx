@@ -9,9 +9,9 @@ import { useToast } from '../hooks/useToast';
 import { useSettings } from '../hooks/useSettings';
 import { useScheduleZone } from '../hooks/useScheduleZone';
 import { describeCron } from '../utils/schedule';
-import { CRON_PRESETS, presetLabel } from '../utils/cronPresets';
 import { Modal } from './ui/Modal';
 import { ScheduleZoneHint } from './ScheduleZoneHint';
+import { ScheduleBuilder } from './ScheduleBuilder';
 
 // Substitute {{key}} placeholders — preview only. The apply request sends the
 // raw parameter values; the backend owns the real substitution per-token, so a
@@ -349,29 +349,12 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
           )}
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Clock size={11} /> Schedule (cron · {zone.label})
-            </label>
-            <input
+            <ScheduleBuilder
+              inputId="apply-schedule-cron"
               value={schedule}
-              onChange={e => setSchedule(e.target.value)}
-              className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-primary transition-colors"
+              onChange={setSchedule}
+              zoneLabel={zone.label}
             />
-            <div className="flex flex-wrap gap-1.5">
-              {CRON_PRESETS.map(p => (
-                <button
-                  key={p.cron}
-                  onClick={() => setSchedule(p.cron)}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                    schedule === p.cron
-                      ? 'bg-primary border-primary text-primary-foreground'
-                      : 'bg-background border-border text-muted-foreground hover:border-foreground/30'
-                  }`}
-                >
-                  {presetLabel(p, zone.label)}
-                </button>
-              ))}
-            </div>
             {humanSchedule && (
               <p className="text-[10px] text-subtle-foreground flex items-center gap-1.5">
                 <Clock size={10} className="shrink-0" /> Runs {humanSchedule.charAt(0).toLowerCase() + humanSchedule.slice(1)}

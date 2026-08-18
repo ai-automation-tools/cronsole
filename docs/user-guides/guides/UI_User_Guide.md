@@ -335,6 +335,28 @@ Both are **Cronsole labels. Neither touches your machine.**
 
 #### Schedule
 
+**Two registers, one field: a picker and the cron it compiles to.** Every place Cronsole takes a
+schedule — Edit task, New task, Apply template, and the Schedule tester — opens on **Simple**:
+pick *Daily*, *Weekly*, *Monthly*, *Hourly / every N hours* or *Every N minutes*, pick a time from
+a clock control, tick the weekdays you want. The **Cron** tab holds the same schedule as a
+five-field expression, and switching between the two writes nothing by itself.
+
+- **The expression is always on screen.** Simple prints the cron it has built underneath the
+  controls, and — as everywhere else — the stored UTC form sits below that. The picker is a way
+  to *write* cron, not a replacement for it: cron is still what Cronsole stores, what the API and
+  the MCP tools speak, and what is signed in the command sent to the agent.
+- **Simple is unavailable rather than approximate.** An expression the five shapes cannot hold —
+  a range or a list (`0 9-17 * * 1-5`), a specific month, an `L` or a `#` — leaves the Simple tab
+  disabled and says why. It is never snapped to the nearest shape, because that would silently
+  rewrite a schedule you opened to read.
+- **A monthly schedule is not clamped.** Cron does not shorten February: a task set to the 31st
+  simply does not run in a month that has no 31st. The picker says so where you choose the day.
+- **Monthly has no Windows trigger today.** Windows Task Scheduler is driven by triggers, not by
+  cron, and Cronsole's converter has no monthly form — so a monthly cron on a Windows task is
+  *replaced* by an hourly trigger, which is what the warning under the field tells you before you
+  save. Use it for Cronsole-native tasks, or say so out loud on Windows. (Cronsole-native runs the
+  expression itself, so every shape above is exact there.)
+
 Editable for Cronsole-native tasks and for Windows tasks whose trigger can be represented as a
 cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits
 need the local agent, because Cronsole changes the real Task Scheduler trigger first. Boot,

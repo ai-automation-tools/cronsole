@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { api } from '../../api';
 import { useSettings } from '../../hooks/useSettings';
 import { useScheduleZone } from '../../hooks/useScheduleZone';
-import { CRON_PRESETS, presetLabel } from '../../utils/cronPresets';
 import { describeCron } from '../../utils/schedule';
 import { ScheduleZoneHint } from '../ScheduleZoneHint';
+import { ScheduleBuilder } from '../ScheduleBuilder';
 import { HelpButton } from '../HelpButton';
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
 }
 
 /**
- * The cron field, its presets, the zone hint and the live conversion preview.
+ * The schedule control, its presets, the zone hint and the live conversion preview.
  *
  * State is lifted to `EditTaskModal` so one Save can decide whether this section
  * changed at all — the preview fetch stays here because it is a property of the
@@ -49,35 +49,15 @@ export const ScheduleFields = ({ value, onChange, platform, disabled }: Props) =
 
   return (
     <div className="space-y-2">
-      <label htmlFor="edit-schedule-cron" className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
-        <Clock size={11} /> Schedule (cron · {zone.label}) <span className="text-danger-text">*</span>
-        <HelpButton topic="schedule" />
-      </label>
-      <input
-        id="edit-schedule-cron"
+      <ScheduleBuilder
+        inputId="edit-schedule-cron"
         value={value}
+        onChange={onChange}
+        zoneLabel={zone.label}
         disabled={disabled}
-        onChange={e => onChange(e.target.value)}
-        spellCheck={false}
-        className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm font-mono text-foreground outline-none focus:border-primary transition-colors disabled:opacity-50"
+        required
+        help={<HelpButton topic="schedule" />}
       />
-      <div className="flex flex-wrap gap-1.5">
-        {CRON_PRESETS.map(p => (
-          <button
-            key={p.cron}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(p.cron)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all disabled:opacity-50 ${
-              value === p.cron
-                ? 'bg-primary border-primary text-primary-foreground'
-                : 'bg-background border-border text-muted-foreground hover:border-foreground/30'
-            }`}
-          >
-            {presetLabel(p, zone.label)}
-          </button>
-        ))}
-      </div>
       {human && <p className="text-[11px] text-subtle-foreground">{human}</p>}
       <ScheduleZoneHint
         typed={value}

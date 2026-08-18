@@ -13,6 +13,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Pick a schedule instead of writing cron** (2026-08-18). Every place Cronsole takes a schedule — **Edit task**, **New task**, **Apply template** and the **Schedule tester** — now opens on a picker: choose *Daily*, *Weekly*, *Monthly*, *Hourly / every N hours* or *Every N minutes*, set the time on a clock control, tick the weekdays you want. A **Cron** tab holds the same schedule as the five-field expression, for the shapes a picker cannot make.
+
+  **Cron was the only register for eleven months**, which put the app's most common request — "weekdays at 9" — behind remembering that the fields go minute-first and that Sunday is `0`. The picker is a way to *write* cron, not a replacement for it: it compiles to an expression and stops there, so storage, the API, the MCP tools and the signed command sent to the agent are exactly what they were, and the timezone still converts once on save.
+
+  **The expression is always on screen**, under the controls, with the stored UTC form under that. **Switching between the two tabs changes nothing by itself** — opening a task cannot rewrite its schedule, which matters because `0 9 * * 1-5` and `0 9 * * 1,2,3,4,5` are the same schedule spelled differently and only one of them is what you stored.
+
+  **The picker goes unavailable rather than approximate.** An expression it cannot hold — a range or a list like `0 9-17 * * 1-5`, a specific month, an `L` — leaves the Simple tab disabled with the reason, instead of snapping to the nearest shape it can. Guessing there would silently narrow a schedule you opened only to read.
+
+  Two honest notes it carries: a **monthly** schedule is not clamped (a task set to the 31st does not run in February — cron skips, it does not shorten), and **monthly has no Windows trigger today**, so on a Windows task it is replaced by an hourly one — the warning under the field says so before you save. Cronsole-native runs the expression itself, so every shape is exact there.
+
+  A day-of-month schedule also **reads in words** now — *"Monthly on the 15th at 1:00 PM PDT"* — on task cards and in the editor, where it used to show the raw expression.
+
 - **Export one task in two formats — and one of them is portable** (2026-08-17). The per-task **Export** button in the task modal is now a small menu, because "export this task" turns out to be two different requests.
 
   **Native** (what Export always did) puts *this exact task* back on *this platform*: Task Scheduler XML for a Windows task, Cronsole JSON for a native one. **Portable template** is new — a target-agnostic template that recreates the task on any install, on any platform Cronsole can compile it for.

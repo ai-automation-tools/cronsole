@@ -416,9 +416,18 @@ const schedule: HelpTopic = {
   id: 'schedule',
   title: 'Schedules and timezones',
   summary:
-    'Five-field cron — minute, hour, day, month, weekday — typed in your schedule timezone and ' +
-    'stored in UTC. The stored form is printed under the field so the two can never disagree.',
+    'A picker, or five-field cron — minute, hour, day, month, weekday. Either way you author in ' +
+    'your schedule timezone and Cronsole stores UTC, printed under the field so the two can ' +
+    'never disagree.',
   points: [
+    {
+      label: 'Simple builds the cron; Cron is the same schedule, spelled out',
+      body:
+        'Pick a frequency, a time and the weekdays; the expression it compiles to is printed ' +
+        'underneath. Switching tabs changes nothing on its own. An expression the picker cannot ' +
+        'hold — a range, a list, a specific month — leaves Simple disabled rather than being ' +
+        'snapped to the nearest shape it can.'
+    },
     {
       label: 'You type in your zone, not UTC',
       body:

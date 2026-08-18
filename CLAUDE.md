@@ -145,6 +145,11 @@ Non-negotiable rules. **Every one has a reason recorded in
   MCP contract. Conversion happens at the browser's edge only (`utils/timezone.ts` +
   `useScheduleZone`), once on submit. A zone must never reach storage or an MCP tool; every shifted
   field prints the stored UTC beside it.
+- **A schedule picker compiles to cron; it is never a second representation.** `ScheduleBuilder`
+  + `utils/scheduleBuilder.ts` hold five shapes (minutes · hours · daily · weekly · monthly),
+  emit only on interaction — the round trip is not byte-identical, so writing on mount would
+  rewrite every task merely opened — and go **unavailable rather than approximate** for an
+  expression they cannot hold. They judge no platform's fidelity; that is the server's.
 - **A refusal to convert must state its reason.** Declining to answer and answering "no problem here"
   must never be the same code path ([#60](docs/troubleshooting/README.md#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter)).
 - `(platform, externalId)` is unique. `PlatformConnection.config` is AES-256-GCM encrypted at the

@@ -340,9 +340,11 @@ describe('ApplyTemplateModal Component', () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByDisplayValue('0 0 * * *')).toBeInTheDocument();
+    // Read off the picker, which is the register the modal opens on. The chip
+    // sets the schedule whichever one is showing.
+    expect(screen.getByText('0 0 * * *')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Hourly' }));
-    expect(screen.getByDisplayValue('0 * * * *')).toBeInTheDocument();
+    expect(screen.getByText('0 * * * *')).toBeInTheDocument();
   });
 
   /**
@@ -373,10 +375,13 @@ describe('ApplyTemplateModal Component', () => {
         </QueryClientProvider>
       );
 
-      expect(screen.getByDisplayValue('0 16 * * *')).toBeInTheDocument();
+      expect(screen.getByText('0 16 * * *')).toBeInTheDocument();
+      // The UTC form is printed beside the field as the "stored as" hint (§9
+      // requires it) — what must never happen is it being the *value* of the
+      // field, which is the defect this block exists for.
       expect(screen.queryByDisplayValue('0 0 * * *')).not.toBeInTheDocument();
       // The field must name the zone it is read in, or the number is a guess.
-      expect(screen.getByText(/Schedule \(cron · PST\)/)).toBeInTheDocument();
+      expect(screen.getByText(/Schedule · PST/)).toBeInTheDocument();
     });
 
     it('applies the UTC form of what was typed', async () => {
@@ -388,6 +393,7 @@ describe('ApplyTemplateModal Component', () => {
       );
 
       // 8 AM Pacific.
+      fireEvent.click(screen.getByRole('button', { name: 'Cron' }));
       fireEvent.change(screen.getByDisplayValue('0 16 * * *'), { target: { value: '0 8 * * *' } });
       // Two path params share a placeholder; srcDir has a default, destDir is
       // the required empty one.

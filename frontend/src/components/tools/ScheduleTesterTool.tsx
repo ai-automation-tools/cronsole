@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CalendarClock, Check, Info } from 'lucide-react';
 import { api } from '../../api';
-import { CRON_PRESETS, presetLabel } from '../../utils/cronPresets';
 import { useScheduleZone } from '../../hooks/useScheduleZone';
+import { ScheduleBuilder } from '../ScheduleBuilder';
 import { ToolCard } from './ToolCard';
 
 interface SchedulePreview {
@@ -91,41 +91,31 @@ export const ScheduleTesterTool = () => {
       </>}
     >
       <div className="space-y-2.5">
-        <label className="block">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">
-            Cron (5 fields, {zone.label})
+        {/*
+          The same control every authoring surface uses, so what you test here
+          is assembled the way the thing you ship is. The Cron tab stays the
+          default register of this card: the expressions worth testing are
+          mostly the ones the picker cannot make.
+        */}
+        <ScheduleBuilder
+          inputId="schedule-tester-cron"
+          label="Cron (5 fields)"
+          value={cron}
+          onChange={setCron}
+          zoneLabel={zone.label}
+        />
+        {stored.reason ? (
+          <span className="block text-[10px] text-warning-text">{stored.reason}</span>
+        ) : stored.shifted ? (
+          <span className="block text-[10px] text-subtle-foreground">
+            Stored and tested as <span className="font-mono text-foreground">{stored.cron}</span> UTC.
           </span>
-          <input
-            value={cron}
-            onChange={e => setCron(e.target.value)}
-            spellCheck={false}
-            aria-label="Cron expression to test"
-            // Capped: a full-width card makes a 5-field cron a 1,100px input,
-            // where the value occupies the first inch and the caret is a long
-            // way from the label. The field should look like what it holds.
-            className="mt-1.5 block w-full max-w-md bg-background border border-border rounded-xl px-4 py-2 text-sm font-mono outline-none focus:border-primary"
-          />
-          {stored.reason ? (
-            <span className="mt-1 block text-[10px] text-warning-text">{stored.reason}</span>
-          ) : stored.shifted ? (
-            <span className="mt-1 block text-[10px] text-subtle-foreground">
-              Stored and tested as <span className="font-mono text-foreground">{stored.cron}</span> UTC.
-            </span>
-          ) : null}
-        </label>
+        ) : null}
 
         <div className="flex flex-wrap gap-1.5">
-          {CRON_PRESETS.map(p => (
-            <button
-              key={p.cron}
-              onClick={() => setCron(p.cron)}
-              className="text-[11px] px-2 py-1 rounded-lg border border-border hover:border-primary hover:text-primary transition-colors"
-            >
-              {presetLabel(p, zone.label)}
-            </button>
-          ))}
           {/* The trap itself, one click away — a schedule tester that can't show
-              you the failure it exists for is a worse demo than no demo. */}
+              you the failure it exists for is a worse demo than no demo. It sits
+              apart from the presets because it is not a schedule to copy. */}
           <button
             onClick={() => setCron('0 4 1 1 *')}
             className="text-[11px] px-2 py-1 rounded-lg border border-warning/40 text-warning-text hover:bg-warning/10 transition-colors"

@@ -391,6 +391,33 @@ These are project-specific overrides on top of the parent workspace's general st
 ### Frontend
 - Dark theme is the **default**, not an opt-in. The light variant is the toggle.
 - **Colour is a semantic role in `index.css`, never a raw Tailwind palette utility.** `bg-amber-500` / `text-red-400` and friends are banned in `frontend/src`; use the role tokens — `success` · `warning` · `danger` · `isolate` · `info` · `system` · `neutral-text`, plus `native` / `claude` / `chatgpt` identity. Each role is a **pair**: `--x` is the accent for fills and borders (used at low opacity, `bg-warning/10`), and `--x-text` is that role rendered as text on the page background. They are separate because **the text version must invert between themes and the accent must not** — which is exactly why a raw utility cannot work: one literal cannot be light-on-black and dark-on-white, so before this every status role failed WCAG AA in the light theme (1.67–2.77 against white, AA is 4.5), and no tuning at the call site could have fixed it without breaking dark. Two traps. **`-text` is not `-foreground`**: `--x-foreground` is text placed *on* a solid fill of that role. And **a shared hue is not a shared role** — merging by appearance would have folded ChatGPT's brand emerald into `success`, Claude's purple into the system lens, and the isolating-lens rose into failure red; check what a colour *means* before merging it. Platform identity is a role too, and its home is `platform.ts`.
+- **A picker is a way to write cron, not a second way to hold a schedule** *(2026-08-18)*. The
+  schedule field was a bare monospace box on all four authoring surfaces for eleven months, which
+  made the app's most common request — "weekdays at 9" — an exercise in remembering field order.
+  `ScheduleBuilder` puts a picker in front of it: five shapes (every N minutes · hourly / every N
+  hours · daily · weekly · monthly), a real clock control, weekday toggles. What makes it safe to
+  add to Edit, New task, Apply template and the Schedule tester at once is that **it compiles to a
+  cron string and stops there** — nothing downstream can tell whether an expression was typed or
+  assembled, so storage, the API, the signed agent command and the MCP contract are untouched, and
+  the zone still converts once on submit. Three rules, each of them a bug avoided:
+  - **The round trip is not byte-identical, so nothing is emitted until something is clicked.**
+    `0 9 * * 1-5` reads back as `0 9 * * 1,2,3,4,5` — the same schedule, a different string. A
+    component that normalized on mount would dirty every form nobody edited and rewrite the stored
+    expression of any task merely *opened*, which is a write with no gesture behind it.
+  - **Simple is unavailable, never approximate.** An expression with no picker form (`0 9-17 * * 1-5`,
+    a pinned month, an `L`) disables the tab and says so. Snapping to the nearest shape would
+    silently narrow a schedule the user came to read, and the narrowing would look like their doing
+    — the same family as a refusal that answers "no problem here".
+  - **The picker holds no opinion about Windows fidelity.** How a shape converts to a trigger is
+    the server's judgement (`/api/tasks/preview` → `scheduler-conversion.ts`); a browser copy is the
+    #20a shape and would be the copy that goes stale the day the agent learns a Monthly trigger.
+    Which matters immediately: **monthly has no Windows trigger today** and is replaced by an
+    hourly one, so the picker offers the shape and the server's warning is what tells you the
+    truth about it. `describeCron` gained the monthly reading in the same change — an offered
+    schedule that reads back as a raw expression looks like the app not understanding what it just
+    built — and with it a marker fix: when `utcCronToZone` *declines* (a date-pinned cron whose
+    conversion crosses midnight), the reading now says UTC instead of labelling unmoved numbers
+    with the reader's zone.
 - **Schedules are read and written in `settings.timezone`** (default Pacific), never raw UTC. A new cron input must hold its value in that zone and call `useScheduleZone().toUtc()` exactly once, on submit — converting per keystroke fights the cursor, and converting twice double-applies the offset. `describeCron` and the `/tasks/preview` route both take the **UTC** form.
 - Tailwind `darkMode: 'class'`. Theme persists via `localStorage` keyed **`cronsole.theme`** (`frontend/src/hooks/useTheme.ts`). The pre-rename `taskhub.theme` is **read** as a legacy fallback — in `index.html`'s inline no-flash script and in `utils/storageMigration.ts`, which copies `taskhub.*` forward — so the rename doesn't reset anyone's theme. That legacy prefix is **assembled from parts on purpose** so a future rename pass cannot rewrite it into `cronsole` and turn the fallback into a no-op that still reads correctly.
 - Use TanStack Query for all server state. Invalidate on WebSocket `task:updated` events.

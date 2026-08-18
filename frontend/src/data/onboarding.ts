@@ -34,9 +34,10 @@ export const GETTING_STARTED_STEPS: OnboardingStep[] = [
   },
   {
     icon: '📥',
-    title: 'Import & categorize your tasks',
+    title: 'Add & categorize your tasks',
     body:
-      "Click Import to discover your existing Windows Task Scheduler tasks and pick which to bring in. " +
+      "Open Sync › Add tasks from this machine to see your existing Windows Task Scheduler folders and " +
+      "pick which to bring in — nothing is created, those tasks already run. " +
       "Cronsole infers a category from each task's folder path (a task under \\Monitoring\\ becomes \"Monitoring\"); " +
       "rename a category anytime by clicking its label on a card."
   },

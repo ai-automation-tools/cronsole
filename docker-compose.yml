@@ -23,7 +23,11 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: taskhub
     ports:
-      - "5432:5432"
+      # Loopback-only, like the proxy below. `"5432:5432"` publishes Postgres on every
+      # interface — which on this machine means the Tailscale and VPN tunnel addresses
+      # too — and the password three lines up is literally `password`. Host tooling
+      # (the backend, psql, migrations) all connect over localhost and are unaffected.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # The backend's boot seed runs a query immediately and dies if the DB refuses it
@@ -47,7 +51,10 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # Loopback-only. This Redis has no password set at all, so publishing it on every
+      # interface is the sharpest edge in the stack — unauthenticated Redis reachable
+      # over the network is a well-known RCE path, not just a data-exposure one.
+      - "127.0.0.1:6379:6379"
 
   # NOTE: backend and frontend are OPT-IN (`profiles: [docker]`), so a plain
   # `docker compose up -d` starts db + redis ONLY. That matches the stack's actual
@@ -67,7 +74,7 @@ services:
       - ./backend:/app
       - /app/node_modules
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       # Database is `taskhub` (POSTGRES_DB above), not `cronsole`. A rename pass moved
       # this half and left the service definition alone; commit 2b195c4 fixed the same
@@ -101,7 +108,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "7373:7373"
+      - "127.0.0.1:7373:7373"
     environment:
       VITE_API_URL: http://localhost:3000
     depends_on:

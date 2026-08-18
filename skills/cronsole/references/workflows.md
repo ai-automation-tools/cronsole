@@ -253,4 +253,6 @@ Before a release, also work the [manual runbooks](../../../docs/testing/manual-t
 6. Large diff → invoke the **`code-reviewer`** skill before declaring done.
 7. Commit: conventional prefix, imperative subject.
 8. **End of session:** if a deliverable shipped or scope shifted, update `docs/ROADMAP.md`
-   (dated). New setup/runtime trap → add to `docs/troubleshooting/README.md`.
+   (dated). It is in two parts — **move the shipped line from Part I (open) to Part II
+   (completed)**; do not tick it in place, and keep the line short, because the write-up belongs
+   in `docs/CHANGELOG.md`. New setup/runtime trap → add to `docs/troubleshooting/README.md`.

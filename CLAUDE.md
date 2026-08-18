@@ -243,7 +243,10 @@ Non-negotiable rules. **Every one has a reason recorded in
   page passes a `<375px` viewport check.
 - **Filter state is one `TaskFilters` object and lives in the URL** (`utils/taskFilters.ts`,
   `savedViews.ts`). A new drawer filter is a field on it, never a seventh `useState`. Built-in views
-  are code, not `localStorage`. Tweaking a filter drops the UI to "Custom".
+  are code, not `localStorage`. Tweaking a filter drops the UI to "Custom". **Because the slice *is* the
+  URL, a route away from the dashboard must carry it and a route back must know where it came
+  from** — `utils/taskRoute.ts` is the one definition of that round trip (query on the detail URL so
+  it survives a reload; origin path in history state, validated as an in-app path).
 - **The source rail is navigation, and navigation must not invalidate the slice.** Its dimensions
   (source, category, favorites, collection) are excluded from `filtersEqual` and `activeFilterCount`
   *by omission* — legal only because a rail selection is never hidden. Every node applies

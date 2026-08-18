@@ -22,6 +22,7 @@ import { useNavigate, useLocation } from 'react-router';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { describeUntracked, type SyncResponse } from './utils/syncSummary';
 import { stageRestore } from './utils/restoreHandoff';
+import { taskDetailRoute, taskDetailReturn } from './utils/taskRoute';
 
 
 
@@ -31,6 +32,11 @@ const Dashboard = () => {
   //   /platforms       → platforms      /settings  → settings
   //   /tools           → tools
   //   /tasks/:id       → dashboard with the task detail modal open
+  //
+  // `/tasks/:id` keeps the query it was opened with, because the dashboard's
+  // slice — filters, saved view, and every source-rail dimension — is the URL.
+  // Dropping it would reset the list *behind* the modal and land the close on
+  // All sources. See `utils/taskRoute.ts`; open and close are one contract.
   const navigate = useNavigate();
   const location = useLocation();
   const segments = location.pathname.split('/').filter(Boolean);
@@ -363,7 +369,7 @@ const Dashboard = () => {
             onClearMissing={(count) => clearMissingMutation.mutate(count)}
             isClearingMissing={clearMissingMutation.isPending}
             isSyncing={syncMutation.isPending}
-            onTaskSelect={(t) => navigate(`/tasks/${t.id}`)}
+            onTaskSelect={(t) => { const r = taskDetailRoute(t.id, location); navigate(r.to, r.options); }}
             onRun={runMutation.mutate}
             onCategoryUpdate={handleCategoryUpdate}
             onClone={setCloningTask}
@@ -384,9 +390,14 @@ const Dashboard = () => {
           </div>
         )}
       </main>
+      {/*
+        Closing puts you back where you opened from — the collection or folder
+        you were reading, or the Tools card that linked here — never on a bare
+        dashboard you never chose.
+      */}
       <TaskModal
         task={routeTaskId ? (tasks || []).find(t => t.id === routeTaskId) ?? null : null}
-        onClose={() => navigate('/')}
+        onClose={() => navigate(taskDetailReturn(location))}
         onRun={runMutation.mutate}
         onToggleFavorite={favoriteMutation.mutate}
       />

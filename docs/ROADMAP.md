@@ -33,7 +33,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 |---|---|---|
 | **P0 — Security** | 🟢 substantially closed | one item: resolve `req.user` from the DB |
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
-| **P2 — Product value** | 🟡 rolling | IA redesign pass 2 · themes · trust indicators · polish |
+| **P2 — Product value** | 🟡 rolling | the Import/Sync split · IA redesign pass 2 · themes · trust indicators · polish |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
 | **Sources** | 🟡 3 of ~8 built | POSIX agent (the big one), then read-only observers |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
@@ -84,6 +84,57 @@ collections, the native job types, and the phone verification (see
       must invert between themes and the accent must not, and a shared hue is not a shared role.
       Visible on every screen, so regenerate the visual baselines — masking hides colour, not
       geometry ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
+
+<a id="import-sync-split"></a>
+
+### 🔴 Requested 2026-08-18
+
+- [ ] **Import means a file; Sync means a source.** Today the two header buttons split on
+      *mechanism* — Import opens a chooser (adopt what is already on this machine / read a `.json`),
+      Sync refreshes only the folders already tracked. The proposal splits them on **where the task
+      comes from**: **Import** takes a file and only a file (Cronsole `.json`, Task Scheduler
+      `.xml`); **Sync** owns everything that reads a source — refreshing what is tracked *and*
+      adopting folders that are not.
+      **This supersedes the 2026-08-17 chooser rather than contradicting it.** That change answered
+      *"which import do you mean?"* inside one button; this answers it one level up, where there is
+      nothing left to ask because "a file" and "this machine" are different controls. Keep its
+      naming rule — each option named by consequence ("nothing is created" against "this creates a
+      task"), never by file extension.
+      **Sync then has two gestures and they must stay two in the code, not only in the UI.** The
+      primary click stays a silent refresh (`scope: 'tracked'`); the second opens the folder picker
+      (`GET /tasks/discover` → `POST /tasks/sync {categories}`). An explicit `categories` import
+      clears untrack exclusions inside those folders — a refresh must never do so, or a routine
+      sync quietly undoes a deliberate removal. Collapsing both into one button is the one way to
+      get that wrong.
+      **The bridge already exists:** every sync returns an `untracked` summary and toasts *"N still
+      untracked"*. That toast becomes the route into the picker instead of a dead end.
+      **Decide before building: what Import does with an `.xml`.** Restore plans before it writes
+      (dry run, `createFolders`, overwrite, a signed sha256), so Import cannot register an XML
+      itself — it either hands the file to that planner inline or keeps pointing at
+      **Tools → Restore**. "Import takes JSON/XML" promises the first. Worth settling in the same
+      breath whether Restore is still a separate control once Import owns files at all, and it
+      pulls on [Dashboard IA pass 2](#dashboard-ia-pass-2)'s *source-scoped header actions*, which
+      wants Sync and Import to name the platform they mean.
+      Mirror surfaces when it lands: `help.ts` (`task-import`), the UI guide's Dashboard and Tools
+      sections, and the `sync_tasks` / `import_task` MCP descriptions — those teach an assistant
+      the same distinction in the same words.
+
+- [ ] **Periodic sync — promoted from P2** *(asked 2026-08-18; the P2 line is now a pointer here)*.
+      Nothing in the stack schedules a sync today: `POST /tasks/sync` has three callers — the two
+      dashboard buttons, the Claude-routine create path, and the `sync_tasks` MCP tool. The only
+      timers are the 45s connection-**health** poll (health is evidence, never a sync), the catalog
+      refresh and `NativeScheduler`. The agent has no watcher either.
+      **Refresh-only, opt-in, per connection**, interval stated and last run shown — for the reason
+      above: an automated `categories` import would clear exclusions. A newly appeared *folder* is
+      surfaced from the `untracked` count as a prompt, **never auto-adopted**: on this machine that
+      would mean 257 of Microsoft's tasks arriving unasked. New tasks *inside* an already-tracked
+      folder need nothing new — `upsertTasks` creates them on any refresh.
+      **What people would otherwise do, and why it is worth building instead:** a native `HTTP` job
+      posting to `/tasks/sync` works today but stores its API token in `Task.metadata` as plaintext
+      — the same gap [per-job encrypted fields](#native-job-types) exists to close, and it would
+      travel in exports. A scheduled Claude routine calling `sync_tasks` avoids that (the token
+      lives in the host's environment) but needs Claude routines. Neither is a thing to document as
+      the answer.
 
 <a id="follow-ups-2026-08-13"></a>
 
@@ -191,6 +242,8 @@ see [Part II](#completed--p1-correctness--honesty).
 
 Shipped P2 work is in [Part II](#completed--p2-product-value).
 
+<a id="dashboard-ia-pass-2"></a>
+
 ### Dashboard IA redesign — pass 2 *(requested 2026-08-15; pass 1 shipped)*
 
 - [ ] **Scoping.** Views filtered to the source they make sense for (*System* is Windows-only and
@@ -222,8 +275,8 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       **current** agent version — an un-republished agent omits fields rather than erroring, so a
       stale panel and a correct one look identical.)* The dashboard health strip answers this at the
       *platform* level; the per-task half is open.
-- [ ] **Optional periodic Windows sync**: opt-in interval sync, interval stated, last run shown,
-      the `untracked` remainder surfaced. Must stay `scope: 'tracked'`.
+- [>] **Optional periodic Windows sync** — moved to
+      [Next up](#import-sync-split) on 2026-08-18, alongside the Import/Sync split it belongs with.
 - [ ] **UI polish pass**: full-path tooltip/copy on truncated task paths · Apply-modal footer
       crowding · Help Center reachability at ~720px · the two dev-mode Socket.IO console warnings
       (worth clearing before any demo capture — they bury real console errors).

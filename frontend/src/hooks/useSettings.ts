@@ -82,6 +82,15 @@ export interface Settings {
    * the same thing. Same reasoning as the rail's per-branch expansion state.
    */
   railCollapsed: boolean;
+  /**
+   * Which Tools-tab cards are open, by `ToolCard` id.
+   *
+   * Empty by default: the tab opens as a menu of ten named tools rather than ten
+   * stacked panels, and a card that has never been opened has never run its
+   * queries. Persisted for the same reason `railCollapsed` is — a tool you were
+   * working in should still be open when you come back from the dashboard.
+   */
+  openTools: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -100,6 +109,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lastImportCategories: null,
   savedViews: [],
   railCollapsed: false,
+  openTools: [],
 };
 
 const STORAGE_KEY = 'cronsole.settings';

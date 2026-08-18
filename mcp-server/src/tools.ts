@@ -2189,7 +2189,7 @@ Next run: ${task.nextRunTime}` : '')
         'omit `categories` for a REFRESH of what you already track (statuses, schedules, last-run info) — this ' +
         'adds nothing new; ' +
         'pass `categories` to IMPORT those categories, which is how untracked tasks first appear. ' +
-        'Call list_untracked_categories… (or the Import screen) to see what is available — on a real machine ' +
+        'Call list_untracked_categories… (or, in the UI, Sync › Add tasks from this machine) to see what is available — on a real machine ' +
         'there can be hundreds of Windows folders, most of them Windows\' own. ' +
         'An explicit `categories` import also forgets any prior untracks inside those categories, because naming ' +
         'a category is the same gesture that started tracking it; a plain refresh deliberately does not, so a ' +

@@ -697,39 +697,49 @@ const importSync: HelpTopic = {
   id: 'import',
   title: 'Import vs. Sync',
   summary:
-    'Import discovers tasks and adds them. Sync refreshes the ones you already track. They are ' +
-    'not interchangeable, and mistaking one for the other is the most expensive confusion here.',
+    'Import takes a file. Sync reads this machine — both refreshing what you track and adding ' +
+    'folders you do not. The two used to share one word, and mistaking either for the other is ' +
+    'the most expensive confusion here.',
   points: [
     {
-      label: 'Import asks which kind you mean',
+      label: 'Import means a file',
       body:
-        'Two unrelated things share the word. Adopting tasks already on this machine creates ' +
-        'nothing — they exist and run either way. Importing a task file creates a task that did ' +
-        'not exist and starts it running.'
+        'A Cronsole task .json is rebuilt as a new task. A Windows backup — .xml, or the .zip an ' +
+        'export produced — opens in Tools › Restore instead, because putting a Windows task back ' +
+        'writes to your machine and has to show you the plan first.'
     },
     {
-      label: 'Sync cannot discover anything',
+      label: 'Sync means this machine, and it has two gestures',
       body:
-        'It re-pulls status and schedules for folders you already track. A folder you have never ' +
-        'imported stays invisible however many times you sync — and every sync still reports success.'
+        'The button refreshes status and schedules for the folders you already track, and adds ' +
+        'nothing new. The menu beside it opens Add tasks from this machine, which is the only ' +
+        'thing that can start tracking a folder you have never picked.'
+    },
+    {
+      label: 'A plain refresh cannot discover anything',
+      body:
+        'A folder you have never added stays invisible however many times you sync — and every ' +
+        'sync still reports success. That is deliberate: a refresh must never widen what Cronsole ' +
+        'tracks without being asked.'
     },
     {
       label: 'Sync says what it left behind',
       body:
         '"26 tasks in 2 folders aren\'t imported" — Windows\' own tasks excluded, so the number ' +
-        'means yours. That message is the only prompt that Import exists.'
+        'means yours. That message carries the button that adds them.'
     },
     {
-      label: 'Import brings removed tasks back',
+      label: 'Adding a folder brings removed tasks back',
       body:
         'A category holding tasks you removed shows an amber +N badge, so you see the number ' +
-        'before committing.'
+        'before committing. Asking for the folder is asking for what is in it — which is also why ' +
+        'a plain refresh deliberately does not do it.'
     },
     {
       label: 'A category is a folder',
       body:
-        'For Windows, importing a category imports a real Task Scheduler folder. That is also ' +
-        'why re-importing is how you undo a removal.'
+        'For Windows, adding a category adds a real Task Scheduler folder. That is also why ' +
+        'adding it again is how you undo a removal.'
     }
   ],
   doc: { label: 'UI User Guide › System Status & Connections', url: uiGuide('7-system-status--connections') },
@@ -977,7 +987,8 @@ const taskImport: HelpTopic = {
       body:
         'A native task exists entirely inside Cronsole, so its file holds everything needed to ' +
         'rebuild it. A Windows task\'s real definition is in Task Scheduler on your machine and ' +
-        'comes back as .xml through Restore. Files from other platforms are refused by name.'
+        'comes back as .xml — pick one in Import and it opens in Tools › Restore, which plans ' +
+        'the write before making it. Files from other platforms are refused by name.'
     },
     {
       label: 'A deleted Windows task is not here',

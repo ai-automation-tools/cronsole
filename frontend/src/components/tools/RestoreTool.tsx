@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, FileWarning, FolderPlus, History, Loader2, Upload } from 'lucide-react';
 import { api } from '../../api';
 import { useToast } from '../../hooks/useToast';
 import { readRestoreSelection, type RestoreUpload } from '../../utils/readRestore';
+import { takeStagedRestore } from '../../utils/restoreHandoff';
 import { ToolCard } from './ToolCard';
 
 type RestoreAction = 'create' | 'overwrite' | 'skip' | 'refuse';
@@ -111,7 +112,7 @@ export const RestoreTool = () => {
     }
   };
 
-  const onFilesChosen = async (fileList: FileList | null, label: string) => {
+  const onFilesChosen = async (fileList: FileList | File[] | null, label: string) => {
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList);
     setResults(null);
@@ -131,6 +132,32 @@ export const RestoreTool = () => {
       setError(`Could not read the files you picked: ${errorMessage(err)}`);
     }
   };
+
+  /**
+   * A file picked in the Import modal, handed over rather than re-implemented.
+   *
+   * Import takes any file an export produced, but a Windows backup cannot become
+   * a task — it has to be *restored*, and restoring plans first. So Import stages
+   * the file (`utils/restoreHandoff.ts`), opens this card and leaves the planning
+   * to the one component that owns it. From here it is indistinguishable from
+   * having picked the file on this screen, which is the point.
+   *
+   * Taken exactly once: `takeStagedRestore` clears as it reads, so a later
+   * re-render, or a second visit to the Tools tab, never re-plans a file the
+   * user has moved on from.
+   */
+  useEffect(() => {
+    const staged = takeStagedRestore();
+    // Setting state from an effect, deliberately: the handoff is an external
+    // store, and reading an external store on mount is exactly the case the
+    // rule carves out. Nothing here cascades — it runs once, and only when
+    // another screen actually staged a file.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (staged) void onFilesChosen(staged, `${staged.length} files`);
+    // Mount only: the handoff is a one-shot, and re-running this on every render
+    // would be a second read of something already consumed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Re-planning on every toggle keeps the numbers honest: both checkboxes change
   // what would happen to real tasks, so a stale plan next to a changed checkbox
@@ -177,6 +204,7 @@ export const RestoreTool = () => {
 
   return (
     <ToolCard
+      id="restore"
       icon={History}
       title="Restore tasks from a backup"
       description={<>
@@ -359,7 +387,8 @@ export const RestoreTool = () => {
           </ul>
           <ResultTable items={results.items} />
           <p className="text-xs text-muted-foreground">
-            Restored tasks are on the machine now. Import them from the Dashboard to track them in Cronsole.
+            Restored tasks are on the machine now. Track them in Cronsole from the Dashboard’s
+            Sync › Add tasks from this machine.
           </p>
         </div>
       )}

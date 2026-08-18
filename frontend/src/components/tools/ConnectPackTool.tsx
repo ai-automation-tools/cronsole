@@ -68,11 +68,10 @@ export const ConnectPackTool = () => {
 
   return (
     <ToolCard
+      id="connect-pack"
       icon={Bot}
-      title={<>
-        Connect another AI tool
-        {data && <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">v{data.version}</span>}
-      </>}
+      title="Connect another AI tool"
+      titleAdornment={data && <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">v{data.version}</span>}
       description={<>
         Instructions that teach Claude Code, Cursor, Codex, or your own agent to create and manage
         tasks through this Cronsole. Works over MCP, or plain REST if your tool has no MCP support.

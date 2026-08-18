@@ -59,7 +59,7 @@ const volatile = (page: Page) => [
   page.getByTestId('source-rail'),
   // "Manage 269 tasks across your ecosystem."
   page.locator('[data-testid="task-count-line"]'),
-  // Swaps between "Sync Now" and "Syncing…" with a spinning icon, so its pixels
+  // Swaps between "Sync" and "Syncing…" with a spinning icon, so its pixels
   // depend on whether a sync happened to be in flight when the shot was taken.
   page.getByRole('button', { name: /^Sync/ }),
   // "Clear 2 Missing" carries a live count, and the button only exists at all
@@ -382,8 +382,10 @@ test.describe('desktop layout — 1280px', () => {
   test('tools tab', async ({ page }) => {
     await page.goto('/');
     await page.getByText('Tools', { exact: true }).first().click();
-    // The tool list is chrome, but not entirely static: the Task health card
-    // carries four live counts, which `volatile` masks.
+    // Static chrome again, and this time for a structural reason rather than by
+    // luck: every tool card is closed on a fresh profile, so the one piece of
+    // live data on this tab — Task health's four counts — has not been fetched.
+    // `volatile` still masks it, for the run where someone opens a card first.
     await expect(page.locator('main')).toHaveScreenshot('tools-desktop.png', {
       mask: volatile(page),
       clip: { x: 0, y: 0, width: DESKTOP.width, height: 420 }
@@ -449,33 +451,35 @@ test.describe('desktop layout — 1280px', () => {
   });
 
   /**
-   * No pixel baseline for the Import modal either, and for the reason the
+   * No pixel baseline for the folder picker either, and for the reason the
    * Platforms one was dropped: **masking hides colour, not geometry.** This
    * dialog's body *is* the machine's discovered folders, so its height tracks
    * how many the agent found — 706px in one run and 388px in the next, with the
    * list masked in both. Structure is what can be asserted here.
    */
-  test('import modal opens on the choice, then into discovery', async ({ page }) => {
+  test('Import takes a file; Sync opens the folder picker', async ({ page }) => {
     await page.goto('/');
     await dashboardReady(page);
-    await page.getByRole('button', { name: 'Import tasks' }).click();
+
+    // Import is the file button now. It creates a task — and it says so before
+    // anything is picked, which is the half of the old chooser worth keeping.
+    await page.getByRole('button', { name: 'Import a task file' }).click();
+    const importDialog = page.getByRole('dialog');
+    await expect(importDialog.getByRole('heading', { name: 'Import a task file' })).toBeVisible();
+    await expect(importDialog.getByText(/This creates a task/)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(importDialog).toBeHidden();
+
+    // Adopting what is already on the machine is the second gesture under Sync,
+    // and the only one that can start tracking a folder.
+    await page.getByRole('button', { name: 'Sync options' }).click();
+    await page.getByRole('menuitem', { name: /Add tasks from this machine/ }).click();
+
     const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-
-    // "Import" covers two unrelated actions, so the modal asks which before it
-    // does anything — including before it spends the agent round trip that
-    // discovery costs.
-    await expect(dialog.getByRole('button', { name: /Tasks already on this machine/ })).toBeVisible();
-    await expect(dialog.getByRole('button', { name: /A task file/ })).toBeVisible();
-
-    await dialog.getByRole('button', { name: /Tasks already on this machine/ }).click();
-    await expect(page.getByRole('heading', { name: 'Import & Sync' })).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Close import' })).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: 'Add tasks from this machine' })).toBeVisible();
+    await expect(dialog.getByText(/Nothing is created/)).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Close' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Discard' })).toBeVisible();
-
-    // The choice is not a one-way door.
-    await dialog.getByRole('button', { name: 'Back to import options' }).click();
-    await expect(dialog.getByRole('button', { name: /A task file/ })).toBeVisible();
   });
 });
 
@@ -572,7 +576,7 @@ test.describe('accessible names on icon-only controls', () => {
 
     for (const [opener, close] of [
       ['New Task', 'Close new task'],
-      ['Import tasks', 'Close import'],
+      ['Import a task file', 'Close import'],
       ['Help Center', 'Close help center']
     ] as const) {
       await page.getByRole('button', { name: opener, exact: true }).click();

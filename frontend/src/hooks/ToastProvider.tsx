@@ -1,11 +1,12 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { CheckCircle2, XCircle, Info, X } from 'lucide-react';
-import { ToastContext, type ToastVariant } from './useToast';
+import { ToastContext, type ToastAction, type ToastVariant } from './useToast';
 
 interface Toast {
   id: number;
   message: string;
   variant: ToastVariant;
+  action?: ToastAction;
 }
 
 const VARIANT_STYLES: Record<ToastVariant, { ring: string; Icon: typeof Info; icon: string }> = {
@@ -28,10 +29,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const toast = useCallback((message: string, variant: ToastVariant = 'info') => {
+  const toast = useCallback((message: string, variant: ToastVariant = 'info', action?: ToastAction) => {
     const id = nextId++;
-    setToasts(prev => [...prev, { id, message, variant }]);
-    window.setTimeout(() => remove(id), 4000);
+    setToasts(prev => [...prev, { id, message, variant, action }]);
+    // An actionable toast gets longer than four seconds: the reader has to
+    // decide, not just read, and a button that leaves before it can be pressed
+    // is worse than no button.
+    window.setTimeout(() => remove(id), action ? 10000 : 4000);
   }, [remove]);
 
   return (
@@ -49,7 +53,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                           shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-300`}
             >
               <Icon size={18} className={`mt-0.5 shrink-0 ${icon}`} />
-              <p className="flex-1 leading-snug">{t.message}</p>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <p className="leading-snug">{t.message}</p>
+                {t.action && (
+                  <button
+                    onClick={() => { t.action?.onClick(); remove(t.id); }}
+                    className="text-xs font-bold text-primary hover:underline"
+                  >
+                    {t.action.label}
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => remove(t.id)}
                 className="shrink-0 text-subtle-foreground hover:text-foreground transition-colors"

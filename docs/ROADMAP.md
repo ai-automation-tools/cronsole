@@ -33,7 +33,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 |---|---|---|
 | **P0 — Security** | 🟢 substantially closed | one item: resolve `req.user` from the DB |
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
-| **P2 — Product value** | 🟡 rolling | IA redesign pass 2 · themes · trust indicators · polish |
+| **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · themes · trust indicators · polish |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
 | **Sources** | 🟡 3 of ~8 built | POSIX agent (the big one), then read-only observers |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
@@ -84,6 +84,27 @@ collections, the native job types, and the phone verification (see
       must invert between themes and the accent must not, and a shared hue is not a shared role.
       Visible on every screen, so regenerate the visual baselines — masking hides colour, not
       geometry ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
+
+<a id="import-sync-split"></a>
+
+### 🔴 Requested 2026-08-18
+
+- [ ] **Periodic sync — promoted from P2** *(asked 2026-08-18; the P2 line is now a pointer here)*.
+      Nothing in the stack schedules a sync today: `POST /tasks/sync` has three callers — the two
+      dashboard buttons, the Claude-routine create path, and the `sync_tasks` MCP tool. The only
+      timers are the 45s connection-**health** poll (health is evidence, never a sync), the catalog
+      refresh and `NativeScheduler`. The agent has no watcher either.
+      **Refresh-only, opt-in, per connection**, interval stated and last run shown — for the reason
+      above: an automated `categories` import would clear exclusions. A newly appeared *folder* is
+      surfaced from the `untracked` count as a prompt, **never auto-adopted**: on this machine that
+      would mean 257 of Microsoft's tasks arriving unasked. New tasks *inside* an already-tracked
+      folder need nothing new — `upsertTasks` creates them on any refresh.
+      **What people would otherwise do, and why it is worth building instead:** a native `HTTP` job
+      posting to `/tasks/sync` works today but stores its API token in `Task.metadata` as plaintext
+      — the same gap [per-job encrypted fields](#native-job-types) exists to close, and it would
+      travel in exports. A scheduled Claude routine calling `sync_tasks` avoids that (the token
+      lives in the host's environment) but needs Claude routines. Neither is a thing to document as
+      the answer.
 
 <a id="follow-ups-2026-08-13"></a>
 
@@ -191,6 +212,8 @@ see [Part II](#completed--p1-correctness--honesty).
 
 Shipped P2 work is in [Part II](#completed--p2-product-value).
 
+<a id="dashboard-ia-pass-2"></a>
+
 ### Dashboard IA redesign — pass 2 *(requested 2026-08-15; pass 1 shipped)*
 
 - [ ] **Scoping.** Views filtered to the source they make sense for (*System* is Windows-only and
@@ -222,8 +245,8 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       **current** agent version — an un-republished agent omits fields rather than erroring, so a
       stale panel and a correct one look identical.)* The dashboard health strip answers this at the
       *platform* level; the per-task half is open.
-- [ ] **Optional periodic Windows sync**: opt-in interval sync, interval stated, last run shown,
-      the `untracked` remainder surfaced. Must stay `scope: 'tracked'`.
+- [>] **Optional periodic Windows sync** — moved to
+      [Next up](#import-sync-split) on 2026-08-18, alongside the Import/Sync split it belongs with.
 - [ ] **UI polish pass**: full-path tooltip/copy on truncated task paths · Apply-modal footer
       crowding · Help Center reachability at ~720px · the two dev-mode Socket.IO console warnings
       (worth clearing before any demo capture — they bury real console errors).
@@ -475,7 +498,7 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 <a id="shipped-2026-08-15--2026-08-17"></a>
 
-## Shipped 2026-08-15 → 2026-08-17 — the current sprint
+## Shipped 2026-08-15 → 2026-08-18 — the current sprint
 
 ### The 2026-08-15 requests
 
@@ -534,6 +557,16 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ### Features
 
+- [x] **Import means a file; Sync means a source** — the header buttons split on where a task comes
+      from rather than on mechanism. Import takes a `.json` (rebuilt here), an `.xml` or a `.zip`
+      (staged and opened in Tools › Restore with the plan already running); Sync is a split button
+      whose primary click refreshes what is tracked and whose menu opens the folder picker. The two
+      requests stay two — `{categories}` clears untrack exclusions, `scope: 'tracked'` must not
+      — and the "N tasks aren't imported" toast now carries the control that adds them
+      *(2026-08-18)*. Supersedes the 2026-08-17 chooser.
+- [x] **The Tools tab collapsed to a menu** — each card shows icon, name and description with a
+      **Show** strip at the bottom; open/closed persists (`Settings.openTools`) and a closed card's
+      body has never mounted, so the tab no longer fires eight queries on arrival *(2026-08-18)*.
 - [x] **System diagnostics — a read-only report on Cronsole itself.** `GET /api/tools/diagnostics`
       + `services/diagnostics.ts`, the `DiagnosticsModal` from two entry points, and the
       `get_diagnostics` MCP tool. Eight checks, each carrying the evidence behind its verdict

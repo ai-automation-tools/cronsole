@@ -108,8 +108,10 @@ export const ImportTaskTool = () => {
 
   return (
     <ToolCard
+      id="import-task"
       icon={FileJson}
-      title={<>Import a task <HelpButton topic="task-import" /></>}
+      title="Import a task"
+      titleAdornment={<HelpButton topic="task-import" />}
       description={<>
         Recreate a <strong>Cronsole-native</strong> task from a file you exported, or bring back one you
         deleted. Windows tasks are Task Scheduler XML and restore from the card below.

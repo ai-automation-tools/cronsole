@@ -370,8 +370,10 @@ export const MassActionsTool = () => {
 
   return (
     <ToolCard
+      id="mass-actions"
       icon={Layers}
-      title={<>Mass actions <HelpButton topic="mass-actions" /></>}
+      title="Mass actions"
+      titleAdornment={<HelpButton topic="mass-actions" />}
       description={<>
         Change many tasks at once. Pick what you want to do, then choose which tasks it applies
         to. Nothing is asked of a platform until you confirm.

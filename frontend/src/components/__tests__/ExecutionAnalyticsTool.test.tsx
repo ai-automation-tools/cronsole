@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ExecutionAnalyticsTool } from '../tools/ExecutionAnalyticsTool';
+import { openToolCard } from './helpers/toolCard';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({ api: { get: vi.fn() } }));
@@ -61,6 +62,7 @@ const renderTool = () => {
       </MemoryRouter>
     </QueryClientProvider>
   );
+  openToolCard('analytics');
 };
 
 const switchTo = (label: RegExp) => fireEvent.click(screen.getByRole('tab', { name: label }));

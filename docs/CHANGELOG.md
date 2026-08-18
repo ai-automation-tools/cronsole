@@ -80,6 +80,24 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   **Six new templates**, so the types are usable the day they ship rather than being an empty form: a script starter, a PowerShell disk report, and checks for endpoint health, backup freshness, disk space and port reachability. Three are **core** (auto-synced into every install) — and a script template is the first in the catalog *guaranteed* to work on a fresh machine, since it needs nothing on disk. Catalog is now **72 templates, 10 core**.
 
 ### Changed
+- **Import takes a file. Sync reads this machine.** (2026-08-18) The two dashboard buttons used to split on *mechanism*: Import opened a chooser — adopt the tasks already on your machine, or read a task file — and Sync could only refresh folders you already tracked. They split on **where the task comes from** now, which is the difference you can act on.
+
+  **Import is the file button.** A Cronsole task `.json` is rebuilt as before. A **Windows backup** — an `.xml`, or the `.zip` a backup produced — no longer bounces off it: Import takes the file and opens **Tools › Restore** with it loaded and the plan already running. It is still Restore that does the work, because putting a Windows task back writes to your machine and has to show you what it would do first — you just no longer have to carry the file to another screen to find that out. A file whose extension was lost on the way through an email is recognised by its bytes.
+
+  **Sync is the machine button, and it has two gestures.** Pressing it refreshes what you already track, exactly as before. The caret beside it opens **Add tasks from this machine** — the folder picker, which is the only thing that can start tracking a folder you have never picked.
+
+  **They stay two requests on purpose.** Naming a folder forgets the tasks you untracked inside it, which is right: asking for the folder is asking for what is in it. A plain refresh must never do that, or a routine sync silently undoes a removal you made deliberately.
+
+  **The message that says what a sync left behind now carries the button.** *"26 tasks in 2 folders aren't imported"* was the only prompt that adopting new folders was possible at all, and it named a control you then had to go and find.
+
+, not a stack of ten open panels** (2026-08-18). Each card now shows its icon, its name and the sentence that says what it is for, with a **Show** strip along the bottom that opens the tool itself. Your choice is remembered, so a tool you are working in is still open when you come back from the dashboard.
+
+  **The tab had become a page you scroll past rather than one you pick from.** Ten tools open at once put the last three below the fold on any screen, and finding one meant recognising its body rather than reading its name. Closed, every tool is visible at once and the description — which had been the least-read line on the tab — is the thing you choose from.
+
+  **A closed tool asks the backend for nothing.** Nine of the ten cards fetched on mount, so opening the tab spent eight requests — your task list, task health twice, analytics, folders, downloads, archives, run history, a schedule preview — all of it work for tools you had not asked for. A card that has never been opened has never run its queries.
+
+  **Closing a card does not reset it.** The tool is hidden, not rebuilt: a half-built mass action, a loaded restore plan or a typed cron is still there when you open it again.
+
 - **`export_task` now tells an AI assistant that it has two formats** (2026-08-17). The tool's own description — the text an assistant actually reads before choosing — described only the native export, and mentioned the portable template solely in the `format` parameter's fine print. So the likeliest outcome of "set this task up on my other machine" was the format that cannot do it. The description now leads with both, says which one is not a backup, and names where portable is the only option that works: agent offline, or a Claude routine.
 
   The file's own tool inventory was stale in the same way, listing 17 tools while the server registered 33 — regenerated, with a note to rebuild it from the file rather than append to it by hand. Neither is a behavior change; both are the kind of drift that surfaces later as an assistant confidently picking the wrong thing.

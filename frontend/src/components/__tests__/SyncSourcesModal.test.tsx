@@ -1,5 +1,5 @@
 import { render, renderHook, act, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ImportModal } from '../ImportModal';
+import { SyncSourcesModal } from '../SyncSourcesModal';
 import { api } from '../../api';
 import { getSettings, useSettings, type Settings } from '../../hooks/useSettings';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -45,30 +45,24 @@ const mockDiscovery = [
 
 const preview = () => screen.getByTestId('import-preview').textContent ?? '';
 
-describe('ImportModal Component', () => {
+/**
+ * The folder picker that adopts tasks already on the machine.
+ *
+ * This was the discovery half of the old Import modal. It is reached from
+ * **Sync** now — Import takes a file — so there is no chooser in front of it and
+ * discovery fires on mount: the modal exists only because someone asked for
+ * exactly this.
+ */
+describe('SyncSourcesModal', () => {
   let queryClient: QueryClient;
 
-  /**
-   * Render, then take the discovery branch of the chooser.
-   *
-   * The modal now opens on a two-way choice — adopt the machine's existing
-   * tasks, or create one from a file — so every test below that is about
-   * discovery has to say so first. Kept in the helper rather than repeated:
-   * the click is setup for those tests, not their subject, and the chooser has
-   * its own describe block that exercises it directly.
-   *
-   * It also means the discovery query does not fire until this click, which is
-   * the component's deliberate behaviour (an agent round trip is not spent
-   * while the user is still choosing).
-   */
-  const renderModal = (onImport = vi.fn(), onClose = vi.fn()) => {
+  const renderModal = (onAdd = vi.fn(), onClose = vi.fn()) => {
     render(
       <QueryClientProvider client={queryClient}>
-        <ImportModal onClose={onClose} onImport={onImport} />
+        <SyncSourcesModal onClose={onClose} onAdd={onAdd} />
       </QueryClientProvider>
     );
-    fireEvent.click(screen.getByRole('button', { name: /Tasks already on this machine/ }));
-    return { onImport, onClose };
+    return { onAdd, onClose };
   };
 
   beforeEach(() => {
@@ -78,7 +72,7 @@ describe('ImportModal Component', () => {
     seedSettings(); // back to defaults — lastImportCategories: null
   });
 
-  it('renders the loading screen once discovery is chosen', async () => {
+  it('renders the loading screen while discovery runs', async () => {
     vi.mocked(api.get).mockReturnValue(new Promise(() => {}));
     renderModal();
     expect(screen.getByText('Scanning platforms for tasks...')).toBeInTheDocument();
@@ -92,14 +86,20 @@ describe('ImportModal Component', () => {
       expect(screen.queryByText('Scanning platforms for tasks...')).not.toBeInTheDocument();
     });
 
-    expect(screen.getByText('Import & Sync')).toBeInTheDocument();
+    expect(screen.getByText('Add tasks from this machine')).toBeInTheDocument();
     for (const name of ['Backup', 'Maintenance', 'Automation', 'Microsoft', 'Uncategorized']) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
 
     // Backup 3 + Maintenance 2 + Automation 5; Microsoft's 10 and
     // Uncategorized's 1 excluded on a first run.
-    expect(await screen.findByRole('button', { name: /import 10 tasks/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /track 10 tasks/i })).toBeInTheDocument();
+  });
+
+  it('says nothing is created, because that is what separates it from Import', async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockDiscovery });
+    renderModal();
+    expect(await screen.findByText(/Nothing is created/)).toBeInTheDocument();
   });
 
   it('states the task count before the click, not just the category count', async () => {
@@ -111,7 +111,7 @@ describe('ImportModal Component', () => {
     await waitFor(() => expect(preview()).toMatch(/10 tasks across 3 folders/));
   });
 
-  it("restores the last import's selection instead of re-selecting everything", async () => {
+  it("restores the last selection instead of re-selecting everything", async () => {
     // The bug: every run after the first inherited the first run's answer, which
     // is how a 352-row dashboard happens.
     seedSettings({ lastImportCategories: ['Backup'] });
@@ -119,7 +119,7 @@ describe('ImportModal Component', () => {
     renderModal();
 
     await waitFor(() => expect(preview()).toMatch(/3 tasks across 1 folder\b/));
-    expect(screen.getByText(/from last import/i)).toBeInTheDocument();
+    expect(screen.getByText(/from last time/i)).toBeInTheDocument();
   });
 
   it('drops a remembered category whose folder no longer exists', async () => {
@@ -152,9 +152,9 @@ describe('ImportModal Component', () => {
     await waitFor(() => expect(preview()).toMatch(/Includes 2 you had removed/));
   });
 
-  it('allows toggling selected categories and fires onImport', async () => {
+  it('allows toggling selected categories and fires onAdd', async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockDiscovery });
-    const { onImport } = renderModal();
+    const { onAdd } = renderModal();
 
     await waitFor(() => {
       expect(screen.queryByText('Scanning platforms for tasks...')).not.toBeInTheDocument();
@@ -163,20 +163,20 @@ describe('ImportModal Component', () => {
     fireEvent.click(screen.getByText('Backup'));      // off
     fireEvent.click(screen.getByText('Microsoft'));   // on
 
-    fireEvent.click(screen.getByRole('button', { name: /import 17 tasks/i }));
-    expect(onImport).toHaveBeenCalledWith(['Maintenance', 'Automation', 'Microsoft']);
+    fireEvent.click(screen.getByRole('button', { name: /track 17 tasks/i }));
+    expect(onAdd).toHaveBeenCalledWith(['Maintenance', 'Automation', 'Microsoft']);
   });
 
-  it('remembers the selection only when the import is actually committed', async () => {
+  it('remembers the selection only when it is actually committed', async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockDiscovery });
     renderModal();
     await waitFor(() => screen.getByRole('button', { name: 'All' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
-    // Ticking alone must not persist — closing without importing changes nothing.
+    // Ticking alone must not persist — closing without committing changes nothing.
     expect(getSettings().lastImportCategories).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /import 21 tasks/i }));
+    fireEvent.click(screen.getByRole('button', { name: /track 21 tasks/i }));
     expect(getSettings().lastImportCategories).toHaveLength(5);
   });
 
@@ -262,144 +262,10 @@ describe('ImportModal Component', () => {
     // By accessible name, not `header button`. That positional selector was
     // silently retargeted when a `?` was added ahead of Close in the header —
     // it kept finding *a* button and the test failed somewhere else entirely.
-    fireEvent.click(screen.getByRole('button', { name: 'Close import' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByText('Discard'));
     expect(onClose).toHaveBeenCalledTimes(2);
-  });
-});
-
-/**
- * The chooser, and the file path behind it.
- *
- * "Import" covers two unrelated actions — adopting tasks that already exist on
- * the machine, and creating one from a file — so the tests that matter here are
- * the ones about telling them apart and about not paying one path's costs on
- * the other.
- */
-describe('ImportModal — choosing a kind of import', () => {
-  let queryClient: QueryClient;
-
-  const renderChooser = () => {
-    const onImport = vi.fn();
-    const onClose = vi.fn();
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ImportModal onClose={onClose} onImport={onImport} />
-      </QueryClientProvider>
-    );
-    return { onImport, onClose };
-  };
-
-  const chooseFile = () => {
-    fireEvent.click(screen.getByRole('button', { name: /A task file/ }));
-  };
-
-  const pickFile = (contents: string, name = 'task.json') => {
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = new File([contents], name, { type: 'application/json' });
-    Object.defineProperty(input, 'files', { value: [file], configurable: true });
-    fireEvent.change(input);
-  };
-
-  const BUNDLE = JSON.stringify({
-    cronsoleTaskVersion: '1.0',
-    task: { name: 'Nightly digest', platform: 'TASKHUB_NATIVE', schedule: '0 4 * * *', job: {} }
-  });
-
-  beforeEach(() => {
-    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    vi.clearAllMocks();
-    localStorage.clear();
-    seedSettings();
-  });
-
-  it('opens on the choice and spends nothing until one is made', async () => {
-    // Discovery is an agent round trip that can take its full timeout and fails
-    // outright when the agent is offline. Firing it while someone is still
-    // reading two buttons would put an irrelevant error over the file path.
-    renderChooser();
-
-    expect(screen.getByRole('button', { name: /Tasks already on this machine/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /A task file/ })).toBeInTheDocument();
-    expect(api.get).not.toHaveBeenCalled();
-  });
-
-  it('leads with the consequence, because that is the difference', async () => {
-    // Not "sources vs JSON": the file extension is a footnote, and what a
-    // reader can act on is that one adopts and the other creates.
-    renderChooser();
-    expect(screen.getByText(/Nothing is created/)).toBeInTheDocument();
-    expect(screen.getByText(/This creates a task/)).toBeInTheDocument();
-  });
-
-  it('names where a Windows .xml goes, rather than letting it be discovered as a refusal', () => {
-    renderChooser();
-    expect(screen.getByText(/goes to Tools . Restore instead/)).toBeInTheDocument();
-  });
-
-  it('only fetches discovery once that path is chosen', async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: mockDiscovery });
-    renderChooser();
-
-    fireEvent.click(screen.getByRole('button', { name: /Tasks already on this machine/ }));
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/tasks/discover'));
-  });
-
-  it('lets you go back, so the choice is not a one-way door', async () => {
-    renderChooser();
-    chooseFile();
-    expect(screen.getByText('Import a task file')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Back to import options' }));
-    expect(screen.getByRole('button', { name: /Tasks already on this machine/ })).toBeInTheDocument();
-  });
-
-  it('imports a file and keeps the first-run time on screen', async () => {
-    vi.mocked(api.post).mockResolvedValue({
-      data: { task: { id: 'n1', name: 'Nightly digest', nextRunTime: '2026-08-18T04:00:00.000Z' } }
-    });
-    renderChooser();
-    chooseFile();
-    pickFile(BUNDLE);
-
-    // The body IS the file — the route sees exactly what was downloaded.
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/tasks/import', JSON.parse(BUNDLE)));
-    // Shown, not toasted: the first run is the fact worth reading, and it is
-    // what a message that fades takes with it.
-    expect(await screen.findByText(/Imported/)).toBeInTheDocument();
-    expect(screen.getByText(/will first run/)).toBeInTheDocument();
-  });
-
-  it('does not run a platform sync after a file import', async () => {
-    // onImport triggers a sync — an agent round trip this path never touched.
-    vi.mocked(api.post).mockResolvedValue({ data: { task: { id: 'n1', name: 'X', nextRunTime: null } } });
-    const { onImport } = renderChooser();
-    chooseFile();
-    pickFile(BUNDLE);
-
-    await screen.findByText(/Imported/);
-    expect(onImport).not.toHaveBeenCalled();
-  });
-
-  it('keeps a refusal on screen, since it names another screen', async () => {
-    vi.mocked(api.post).mockRejectedValue({
-      response: { data: { error: 'That bundle is from a Windows Task Scheduler task... use Tools → Restore' } }
-    });
-    renderChooser();
-    chooseFile();
-    pickFile(BUNDLE);
-
-    expect(await screen.findByText(/Tools → Restore/)).toBeInTheDocument();
-  });
-
-  it('blames the file, not the import, when the JSON will not parse', async () => {
-    renderChooser();
-    chooseFile();
-    pickFile('{ not json');
-
-    expect(await screen.findByText(/not valid JSON/i)).toBeInTheDocument();
-    expect(api.post).not.toHaveBeenCalled();
   });
 });

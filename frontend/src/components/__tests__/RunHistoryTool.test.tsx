@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { RunHistoryTool } from '../tools/RunHistoryTool';
+import { openToolCard } from './helpers/toolCard';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({ api: { get: vi.fn() } }));
@@ -16,6 +17,7 @@ const renderTool = () => {
       <RunHistoryTool />
     </QueryClientProvider>
   );
+  openToolCard('run-history');
 };
 
 const lastCallParams = () => {

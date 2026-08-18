@@ -1,10 +1,10 @@
 /**
  * Turning a sync response into the one sentence the dashboard owed the user.
  *
- * Sync Now can only refresh folders you already track — it **cannot discover a
+ * A plain Sync can only refresh folders you already track — it **cannot discover a
  * new one**. So tasks can sit one fence away indefinitely while every sync
  * reports a cheerful "Tasks synced." That silence is the defect (troubleshooting
- * #20): a user created tasks in two new folders, pressed Sync Now repeatedly,
+ * #20): a user created tasks in two new folders, pressed Sync repeatedly,
  * and spent a full debugging session establishing that nothing was broken.
  *
  * Kept as a pure function so the copy — including its plural forms — is pinned
@@ -53,8 +53,11 @@ export function describeUntracked(data: SyncResponse | undefined): string | null
   const verb = count === 1 ? "isn't" : "aren't";
   const object = count === 1 ? 'it' : 'them';
 
+  // Names the control as it is labelled on screen. It used to say "use Import",
+  // which stopped being true the day Import became the file importer and
+  // adopting a machine's folders moved under Sync.
   return (
     `${restoredNote}Synced. ${count} ${tasksWord} in ${folders} ${foldersWord} ${verb} imported — ` +
-    `use Import to add ${object}.`
+    `add ${object} from Sync › Add tasks from this machine.`
   );
 }

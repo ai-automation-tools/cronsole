@@ -216,6 +216,7 @@ export const ExecutionAnalyticsTool = () => {
 
   return (
     <ToolCard
+      id="analytics"
       icon={TrendingUp}
       title="Execution analytics"
       description={<>

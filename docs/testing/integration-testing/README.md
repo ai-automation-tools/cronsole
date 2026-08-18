@@ -81,7 +81,7 @@ The agent **always dials out** — the server never connects in. Envelope is
 |:--|:---|:---|:--|
 | I3.1 | **Pairing handshake** | `agent:hello` with a valid pairing-derived token registers; a bad one is rejected | ✅ `agentAuth.test.ts` |
 | I3.2 | **HMAC command signing** | Signed run commands accepted; **unsigned, expired, or replayed** signatures rejected `401` | ✅ `agentAuth.test.ts` |
-| I3.3 | **Sync state machine** | Sync Now → server `task:scan` → agent `agent:tasks:list` → DB update → `tasks:updated` pushed to the frontend. The **whole chain**, in order | ✅ E2E `mock-agent.spec.ts` |
+| I3.3 | **Sync state machine** | Sync → server `task:scan` → agent `agent:tasks:list` → DB update → `tasks:updated` pushed to the frontend. The **whole chain**, in order | ✅ E2E `mock-agent.spec.ts` |
 | I3.4 | **Socket registry** | `AgentManager` maps sockets correctly; a transient second agent doesn't strand the real one ([troubleshooting #5](../../troubleshooting/README.md#5-windows-offline-after-running-a-transient-test-agent)) | 🟡 `AgentManager.test.ts` |
 | I3.5 | **Heartbeat & reconnect** | 30s ping; exponential backoff 1s → 5min cap on drop | 🟡 |
 | I3.6 | **Command timeout** | An agent with no handler for a command times out to a clean **502**, not a hang ([troubleshooting #7](../../troubleshooting/README.md#7-new-agent-command-502-times-out-until-the-agent-is-republished)) | ⬜ |

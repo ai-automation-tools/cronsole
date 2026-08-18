@@ -188,7 +188,7 @@ export class TaskService {
    * outside the include-set.
    *
    * Why this exists: selective import is the design, but it was **invisible**.
-   * A user created tasks in two new folders, pressed Sync Now repeatedly, and got
+   * A user created tasks in two new folders, pressed Sync repeatedly, and got
    * a cheerful "Tasks synced." every time while 26 tasks sat one fence away — the
    * connector had been reporting them the whole time. The fence is correct; saying
    * nothing about it is the defect (troubleshooting #20). A dashboard that omits

@@ -1,6 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { RestoreTool } from '../tools/RestoreTool';
+import { openToolCard } from './helpers/toolCard';
+import { stageRestore } from '../../utils/restoreHandoff';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({
@@ -31,6 +33,15 @@ const planResponse = (overrides: Partial<{
   }
 });
 
+/**
+ * Render the card and open it. The body is closed by default and does not mount
+ * until the disclosure is clicked, so nothing below exists before this runs.
+ */
+const renderTool = () => {
+  render(<RestoreTool />);
+  openToolCard('restore');
+};
+
 /** Drop files onto the hidden "choose files" input, the way a picker would. */
 const chooseFiles = (files: File[]) => {
   const input = document.querySelector('input[type="file"]:not([webkitdirectory])') as HTMLInputElement;
@@ -51,7 +62,7 @@ describe('RestoreTool', () => {
     // The load-bearing behavior: picking files must never be a write. Every
     // checkbox on this card widens what a click can destroy or create, so the
     // plan has to come first.
-    render(<RestoreTool />);
+    renderTool();
     chooseFiles([xmlFile('Nightly.xml')]);
 
     await waitFor(() => expect(api.post).toHaveBeenCalled());
@@ -59,7 +70,7 @@ describe('RestoreTool', () => {
   });
 
   it('shows what would change before offering the button that changes it', async () => {
-    render(<RestoreTool />);
+    renderTool();
     chooseFiles([xmlFile('Nightly.xml')]);
 
     expect(await screen.findByText(/will change 1 task on this machine/i)).toBeInTheDocument();
@@ -67,7 +78,7 @@ describe('RestoreTool', () => {
   });
 
   it('names every folder it would create, because that is a standing invariant being waived', async () => {
-    render(<RestoreTool />);
+    renderTool();
     chooseFiles([xmlFile('Nightly.xml')]);
 
     expect(await screen.findByText(/1 folder will be created/i)).toBeInTheDocument();
@@ -75,7 +86,7 @@ describe('RestoreTool', () => {
   });
 
   it('defaults to not overwriting, and re-plans when that changes', async () => {
-    render(<RestoreTool />);
+    renderTool();
     chooseFiles([xmlFile('Nightly.xml')]);
     await screen.findByText(/will change 1 task/i);
 
@@ -106,7 +117,7 @@ describe('RestoreTool', () => {
       }) as never
     );
 
-    render(<RestoreTool />);
+    renderTool();
     chooseFiles([xmlFile('Nightly.xml')]);
 
     // Twice on purpose — once as a banner over the whole plan, once on the row
@@ -134,7 +145,7 @@ describe('RestoreTool', () => {
       }) as never
     );
 
-    render(<RestoreTool />);
+    renderTool();
     chooseFiles([xmlFile('Defender.xml')]);
 
     expect(await screen.findByText(/would change nothing on this machine/i)).toBeInTheDocument();
@@ -143,7 +154,7 @@ describe('RestoreTool', () => {
   });
 
   it('commits with the chosen options and reports the outcome per task', async () => {
-    render(<RestoreTool />);
+    renderTool();
     chooseFiles([xmlFile('Nightly.xml')]);
     await screen.findByText(/will change 1 task/i);
 
@@ -169,6 +180,45 @@ describe('RestoreTool', () => {
     );
     expect(await screen.findByText(/Restored 1 of 2 files/i)).toBeInTheDocument();
     // Restoring puts a task on the machine; it does not make Cronsole track it.
-    expect(screen.getByText(/Import them from the Dashboard/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add tasks from this machine/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * The file Import handed over.
+ *
+ * Import takes any file an export produced, but a Windows backup has to be
+ * *restored* rather than imported — so it is staged and this card picks it up.
+ * The two things worth pinning: it plans (never writes), and it is consumed
+ * once, so a second visit to the Tools tab does not re-plan a file the user has
+ * moved on from.
+ */
+describe('RestoreTool — a file handed over by Import', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.post).mockResolvedValue(planResponse() as never);
+  });
+
+  it('plans the staged file on mount, without writing anything', async () => {
+    stageRestore([xmlFile('Nightly.xml')]);
+    renderTool();
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(vi.mocked(api.post).mock.calls.every(call => (call[1] as { dryRun: boolean }).dryRun === true)).toBe(true);
+    expect(await screen.findByText(/Nightly.xml/)).toBeInTheDocument();
+  });
+
+  it('takes the handoff exactly once', async () => {
+    stageRestore([xmlFile('Nightly.xml')]);
+    const first = render(<RestoreTool />);
+    openToolCard('restore');
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    first.unmount();
+
+    vi.clearAllMocks();
+    renderTool();
+    // Nothing staged any more, so nothing is planned — the card is just a card.
+    await waitFor(() => expect(screen.getByText(/Choose a .zip or files/i)).toBeInTheDocument());
+    expect(api.post).not.toHaveBeenCalled();
   });
 });

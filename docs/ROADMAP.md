@@ -552,6 +552,10 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 - [x] **Doc links are checked by CI** — `scripts/check-doc-links.mjs` resolves every relative
       markdown link (1,307 across 147 files) to a real file *and* heading, plus repo-doc paths
       written as string literals in tracked source *(2026-08-17)*.
+- [x] **A task detail is a round trip, not a one-way door** — opening a task carries the dashboard's
+      query and closing returns to the screen it was opened from, so a collection or folder survives
+      an edit or an export instead of dropping you on *All sources*; `utils/taskRoute.ts` owns both
+      halves *(2026-08-18)*.
 - [x] **Doc sweep behind the diagnostics ship** — four false README claims corrected; Connect Pack
       to v1.8, then v1.11 with the tool inventory regenerated *(2026-08-17)*.
 

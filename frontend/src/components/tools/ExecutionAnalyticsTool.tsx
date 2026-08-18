@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
+import { taskDetailRoute } from '../../utils/taskRoute';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, BarChart3, Clock, Info, Loader2, Timer, TrendingUp } from 'lucide-react';
 import { api } from '../../api';
@@ -196,6 +197,13 @@ const TrendChart = ({ days, onHover }: { days: TrendDay[]; onHover: (day: TrendD
  */
 export const ExecutionAnalyticsTool = () => {
   const navigate = useNavigate();
+  // Opening a task from here remembers Tools, so closing it comes back to this
+  // card rather than dumping you on the dashboard (`utils/taskRoute.ts`).
+  const location = useLocation();
+  const openTask = (taskId: string) => {
+    const r = taskDetailRoute(taskId, location);
+    navigate(r.to, r.options);
+  };
   const [view, setView] = useState<View>('failures');
   const [days, setDays] = useState(30);
   const [hovered, setHovered] = useState<TrendDay | null>(null);
@@ -369,7 +377,7 @@ export const ExecutionAnalyticsTool = () => {
                     <li key={task.taskId} className="px-4 py-3 flex items-center gap-3">
                       <span className="min-w-0 flex-1">
                         <button
-                          onClick={() => navigate(`/tasks/${task.taskId}`)}
+                          onClick={() => openTask(task.taskId)}
                           className="block text-sm font-semibold truncate hover:text-primary transition-colors text-left"
                         >
                           {task.name}
@@ -455,7 +463,7 @@ export const ExecutionAnalyticsTool = () => {
                   <AlertTriangle size={13} className="shrink-0 text-warning-text" />
                   <span className="min-w-0 flex-1">
                     <button
-                      onClick={() => navigate(`/tasks/${task.taskId}`)}
+                      onClick={() => openTask(task.taskId)}
                       className="block text-sm font-semibold truncate hover:text-primary transition-colors text-left"
                     >
                       {task.name}

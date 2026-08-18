@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
+import { taskDetailRoute } from '../../utils/taskRoute';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { api } from '../../api';
@@ -60,6 +61,12 @@ const TIER_STYLE: Record<Exclude<HealthTier, 'ok'>, { label: string; dot: string
  */
 export const TaskHealthTool = () => {
   const navigate = useNavigate();
+  // Same round trip as every other task-detail opener: closing returns here.
+  const location = useLocation();
+  const openTask = (taskId: string) => {
+    const r = taskDetailRoute(taskId, location);
+    navigate(r.to, r.options);
+  };
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   // Collapsed by default — the summary answers the question; the list is opt-in.
@@ -245,7 +252,7 @@ export const TaskHealthTool = () => {
                             Ranking score {health.score ?? '—'}{health.score !== null && '/100'} · orders this list, doesn't grade the task
                           </span>
                           <button
-                            onClick={() => navigate(`/tasks/${health.taskId}`)}
+                            onClick={() => openTask(health.taskId)}
                             className="text-xs font-semibold text-primary hover:underline shrink-0"
                           >
                             Open task

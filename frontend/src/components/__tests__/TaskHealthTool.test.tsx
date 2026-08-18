@@ -66,7 +66,7 @@ const renderTool = () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/tools']}>
         <TaskHealthTool />
       </MemoryRouter>
     </QueryClientProvider>
@@ -222,7 +222,10 @@ describe('TaskHealthTool', () => {
     expect(screen.getByText('AikCertEnrollTask')).toBeInTheDocument();
   });
 
-  it('deep-links to the task, so the card needs no dashboard state', async () => {
+  // Deep-links, so the card needs no dashboard state — and records that Tools
+  // is where this started, so closing the detail comes back to this card
+  // instead of the dashboard the user never asked for.
+  it('deep-links to the task and remembers where it was opened from', async () => {
     respond([health()]);
     renderTool();
     await openList();
@@ -230,7 +233,12 @@ describe('TaskHealthTool', () => {
     fireEvent.click(screen.getByRole('button', { name: /nightly backup/i }));
     fireEvent.click(screen.getByRole('button', { name: /open task/i }));
 
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/tasks/t1'));
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        { pathname: '/tasks/t1', search: '' },
+        { state: { from: '/tools' } }
+      )
+    );
   });
 
   describe('when the list is long', () => {

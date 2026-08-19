@@ -632,6 +632,23 @@ const collections: HelpTopic = {
       body:
         'It removes the grouping only; the tasks stay in Cronsole and keep running. Removing a ' +
         'task from Cronsole does take it out of any collection — the same rule as the star.'
+    },
+    {
+      label: 'Pinned is a separate section',
+      body:
+        'Hover a folder in the source rail and click + to park it in Pinned, the band just below ' +
+        'this one. A pin is not a collection: it keeps tracking the folder, so a task added there ' +
+        'tomorrow is counted the same day. It always prints the same number as the folder in the ' +
+        'tree, and it stays — reading 0 — if the folder empties, so you can still click it to ' +
+        'remove it. Pinned appears only once you have pinned something.'
+    },
+    {
+      label: 'Fold any section',
+      body:
+        'Collections, Pinned and Sources each have a heading with a chevron, and each folds ' +
+        'independently. A folded section keeps its count, so folding never hides how much is in ' +
+        'there. Manage collections sits at the foot of the Collections section itself. The button ' +
+        'at the top of the sidebar is different — it narrows the whole rail to icons.'
     }
   ],
   doc: { label: 'UI User Guide › Collections', url: uiGuide('collections') }

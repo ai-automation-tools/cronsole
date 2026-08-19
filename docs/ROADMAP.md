@@ -571,6 +571,19 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ### Features
 
+- [x] **Collections and Pinned are two bands of their own** — the rail is four sections now
+      (scopes · collections · pinned · sources) rather than one list with a rule computed under
+      whichever row happened to be last. **Sources became a section like them**: its heading and
+      help `?` moved down from the top of the rail, where the word named only the bottom quarter of
+      what sat beneath it, leaving the panel's collapse button (now *Collapse sidebar*) alone up
+      there. One `BandHeader` serves all three, since Sources' expandable rows keep it off `Band`
+      itself. Each section folds independently and keeps its count while closed; *Manage collections* moved from the foot of the whole rail into the foot of the band
+      it creates into. **Pinning** lifts a folder or job type out of the tree via a `+` on its row.
+      A pin is deliberately **not** a collection — membership there is declared, a folder's is
+      derived — so it is a `RailPin` preference in its own section that keeps tracking the folder,
+      reads that node's own count rather than a second tally, stores no foreign key, and survives
+      its target at `0`. One `Band` component renders both, so "these are the same kind of place"
+      cannot drift into a lie *(2026-08-19, [DESIGN_NOTES](DESIGN_NOTES.md))*.
 - [x] **A schedule can be picked, not only typed** — one `ScheduleBuilder` on all four cron
       surfaces (Edit task, New task, Apply template, Schedule tester): five shapes, a clock
       control and weekday toggles, with the cron it compiles to on screen and the Cron tab beside

@@ -1,6 +1,7 @@
 import type { Task } from '../types';
 import type { TaskFilters } from './taskFilters';
 import { sourceLabel, sourceSubtypeLabel, sourcePlatform, platformSourceLabel } from '../platform';
+import { pinKey, pinIdFromKey, type RailPin } from './railPins';
 
 /**
  * The dashboard's navigation tree: **source → that source's own grouping**.
@@ -182,6 +183,16 @@ export interface SourceTreeInput {
    * last task, which is precisely when you want to see it and add another.
    */
   collections?: CollectionSummary[];
+  /**
+   * Pinned rail locations, in rail order.
+   *
+   * Sits beside `collections` and is emitted into the same band of the rail, but
+   * it is the **opposite kind of thing** and the tree treats it that way: a
+   * collection is declared and so is counted from membership, while a pin is
+   * derived and is counted by *reusing the node it mirrors*. See the pin rows in
+   * `buildSourceTree` — nothing here tallies a folder twice.
+   */
+  pins?: RailPin[];
 }
 
 /** The minimum the rail needs to render a collection row. */
@@ -201,7 +212,8 @@ export function buildSourceTree({
   population,
   filters,
   connectedPlatforms = [],
-  collections = []
+  collections = [],
+  pins = []
 }: SourceTreeInput): RailNode[] {
   // The lens the *list* is currently under. When it already includes system
   // tasks, a source row must count them too — otherwise the row promises 254
@@ -261,6 +273,43 @@ export function buildSourceTree({
     })
   );
 
+  /**
+   * One row per pinned location — the mirrored node, relocated.
+   *
+   * **The count and the patch are the node's own, not a second derivation of
+   * them.** A pin promises to keep agreeing with the folder it points at, and
+   * the only way to guarantee that is to not compute it twice: two tallies over
+   * the same population, written months apart, is exactly how `All sources 6`
+   * once appeared over 363 rows. So the tree is indexed by key and the pin reads
+   * its target's numbers straight off.
+   *
+   * A pin whose target has gone — folder renamed, last task removed, platform
+   * disconnected — keeps its row and reads `0`, falling back to the patch it
+   * stored. That is the same rule the rail already follows for a connected
+   * platform with nothing imported: a declared place stays reachable so you can
+   * see it is empty, and so you can still click it to take it away.
+   */
+  const nodeByKey = new Map<string, RailNode>();
+  for (const row of sourceRows) {
+    for (const child of row.children ?? []) {
+      nodeByKey.set(child.key, child);
+      for (const leaf of child.children ?? []) nodeByKey.set(leaf.key, leaf);
+    }
+  }
+
+  const pinRows = pins.map((p): RailNode => {
+    const target = nodeByKey.get(p.nodeKey);
+    return {
+      key: pinKey(p.id),
+      // The node's current label, falling back to the stored one. A folder that
+      // is still there but has been renamed should read as it reads today —
+      // the pin follows the place, not the name it had when you pinned it.
+      label: target?.label ?? p.label,
+      count: target?.count ?? 0,
+      patch: { ...RAIL_SCOPE_RESET, ...(target?.patch ?? p.patch) }
+    };
+  });
+
   return [
     {
       key: ALL_SOURCES,
@@ -277,8 +326,34 @@ export function buildSourceTree({
       patch: { ...RAIL_SCOPE_RESET, favorites: 'only' }
     },
     ...collectionRows,
+    ...pinRows,
     ...sourceRows
   ];
+}
+
+/**
+ * Which band of the rail a row belongs to.
+ *
+ * Four sections — *scopes* (everything, starred), *collections* (sets you
+ * declared), *pinned* (places that keep changing), then the *source* tree — and
+ * this is the one place that decides which is which. It is derived from the key
+ * rather than carried on the node because the keys are already namespaced and
+ * already load-bearing (`collection:`, `pin:`); adding a `section` field would
+ * be a second statement of the same fact, free to disagree with the first.
+ *
+ * **Collections and pins started in one band and were split apart**, which is
+ * the honest end of the distinction that made pins a separate type in the first
+ * place. Two icons in one list asked the reader to hold "some of these rows hold
+ * what I put in them and some track a folder" in their head; two headed,
+ * separately foldable sections say it without being read.
+ */
+export type RailSection = 'scope' | 'collection' | 'pinned' | 'source';
+
+export function railSectionOf(key: string): RailSection {
+  if (key === ALL_SOURCES || key === FAVORITES_KEY) return 'scope';
+  if (collectionIdFromKey(key) !== null) return 'collection';
+  if (pinIdFromKey(key) !== null) return 'pinned';
+  return 'source';
 }
 
 /**

@@ -6,8 +6,10 @@ import {
   ALL_SOURCES,
   FAVORITES_KEY,
   UNCATEGORIZED,
+  railSectionOf,
   type RailNode
 } from '../sourceTree';
+import type { RailPin } from '../railPins';
 import { DEFAULT_FILTERS, type TaskFilters } from '../taskFilters';
 import type { Task } from '../../types';
 
@@ -427,5 +429,109 @@ describe('buildSourceTree — collections', () => {
     expect(isRailNodeSelected(find(tree, 'Two')!, filters({ collection: 'c1' }))).toBe(false);
     // And "All sources" must NOT light up while a collection is selected.
     expect(isRailNodeSelected(tree[0], filters({ collection: 'c1' }))).toBe(false);
+  });
+});
+
+describe('pinned rail locations', () => {
+  const pin = (over: Partial<RailPin> = {}): RailPin => ({
+    id: 'pin-1',
+    nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+    label: 'AI-Maintenance',
+    patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' },
+    ...over
+  });
+
+  /**
+   * The whole reason a pin is not a snapshot: it has to keep agreeing with the
+   * folder. Asserted as *one* number read twice rather than two numbers compared,
+   * because the failure this guards against is a second tally drifting from the
+   * first.
+   */
+  it('reads the same count as the folder it mirrors, and follows it as it grows', () => {
+    const before = buildSourceTree({
+      population: [
+        task({ category: 'AI-Maintenance' }),
+        task({ category: 'AI-Maintenance' }),
+        task({ category: 'AI-Tools' })
+      ],
+      filters: filters(),
+      pins: [pin()]
+    });
+    expect(find(before, 'AI-Maintenance')!.count).toBe(2);
+
+    const after = buildSourceTree({
+      population: [
+        task({ category: 'AI-Maintenance' }),
+        task({ category: 'AI-Maintenance' }),
+        task({ category: 'AI-Maintenance' }),
+        task({ category: 'AI-Tools' })
+      ],
+      filters: filters(),
+      pins: [pin()]
+    });
+    // The pin row, not the folder row — both exist and both must say 3.
+    expect(after.find(n => n.key === 'pin:pin-1')!.count).toBe(3);
+    expect(find(after, 'AI-Maintenance')!.count).toBe(3);
+  });
+
+  it('survives its folder vanishing — reads 0 and keeps a patch you can still click', () => {
+    const tree = buildSourceTree({
+      population: [task({ category: 'AI-Tools' })],
+      filters: filters(),
+      pins: [pin()]
+    });
+
+    const row = tree.find(n => n.key === 'pin:pin-1')!;
+    expect(row.count).toBe(0);
+    expect(row.label).toBe('AI-Maintenance');
+    expect(row.patch).toMatchObject({
+      source: 'WINDOWS_TASK_SCHEDULER',
+      category: 'AI-Maintenance'
+    });
+  });
+
+  it('resets the whole rail scope like every other node', () => {
+    const tree = buildSourceTree({
+      population: [task({ category: 'AI-Maintenance' })],
+      filters: filters({ collection: 'c1', favorites: 'only' }),
+      pins: [pin()]
+    });
+
+    // Picking a pin must not leave you inside a collection the heading no
+    // longer mentions — RAIL_SCOPE_RESET, same as a folder row.
+    expect(tree.find(n => n.key === 'pin:pin-1')!.patch).toMatchObject({
+      collection: 'All',
+      favorites: 'any'
+    });
+  });
+
+  it('sits in its own band, between the collections and the sources', () => {
+    const tree = buildSourceTree({
+      population: [task({ category: 'AI-Maintenance' })],
+      filters: filters(),
+      collections: [{ id: 'c1', name: 'Morning checks' }],
+      pins: [pin()]
+    });
+
+    // A pin is NOT classified as a collection — that split is what gives the
+    // two their own headed, separately foldable sections.
+    expect(tree.map(n => railSectionOf(n.key))).toEqual([
+      'scope',
+      'scope',
+      'collection',
+      'pinned',
+      'source'
+    ]);
+  });
+
+  it('follows a rename rather than printing the name it was pinned under', () => {
+    // Same folder key, different label on the node — the pin shows today's name.
+    const tree = buildSourceTree({
+      population: [task({ category: 'AI-Maintenance' })],
+      filters: filters(),
+      pins: [pin({ label: 'the name it had last month' })]
+    });
+
+    expect(tree.find(n => n.key === 'pin:pin-1')!.label).toBe('AI-Maintenance');
   });
 });

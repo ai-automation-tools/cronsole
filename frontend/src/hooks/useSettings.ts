@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SavedView } from '../utils/savedViews';
+import type { RailPin } from '../utils/railPins';
 
 export type DashboardView = 'grid' | 'list' | 'kanban' | 'schedule';
 export type TemplateView = 'grid' | 'list' | 'kanban';
@@ -83,6 +84,30 @@ export interface Settings {
    */
   railCollapsed: boolean;
   /**
+   * Folders and job types lifted out of the source tree and shown beside your
+   * collections. See `utils/railPins.ts` — a pin is *derived* where a collection
+   * is *declared*, which is why it lives here as a preference rather than in
+   * `TaskCollection` as a row.
+   */
+  railPins: RailPin[];
+  /**
+   * Is the Collections band folded shut?
+   *
+   * Separate from `railCollapsed` because they answer different questions —
+   * how wide the rail is, versus how much of your own stuff is on screen — and
+   * someone with fifteen collections and three platforms wants opposite answers
+   * to the two.
+   */
+  collectionsCollapsed: boolean;
+  /**
+   * Is the Pinned band folded shut? Separate from `collectionsCollapsed` for the
+   * same reason that one is separate from `railCollapsed` — two sections that
+   * fold independently need two flags, or each chevron misreports the other.
+   */
+  pinnedCollapsed: boolean;
+  /** Is the Sources tree folded shut? Independent of the two bands above it. */
+  sourcesCollapsed: boolean;
+  /**
    * Which Tools-tab cards are open, by `ToolCard` id.
    *
    * Empty by default: the tab opens as a menu of ten named tools rather than ten
@@ -109,6 +134,10 @@ export const DEFAULT_SETTINGS: Settings = {
   lastImportCategories: null,
   savedViews: [],
   railCollapsed: false,
+  railPins: [],
+  collectionsCollapsed: false,
+  pinnedCollapsed: false,
+  sourcesCollapsed: false,
   openTools: [],
 };
 

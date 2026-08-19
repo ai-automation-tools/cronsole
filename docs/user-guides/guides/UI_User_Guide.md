@@ -192,7 +192,11 @@ platform, so starring works fine with the agent offline.
 
 ### Collections
 A **collection** is a set of tasks you pick by hand and give a name — "Morning checks", "Client
-work", "View2". It appears as a row in the source rail above your platforms, with its own count.
+work", "View2". It appears in the **Collections** section of the source rail — its own band between
+*Favorites* and your platforms, ruled off top and bottom — with its own count. The band **folds
+shut** from the chevron beside its heading, which keeps its tally visible while it is closed so a
+fold can never quietly hide twelve rows. **Pinned** is a second band just like it, directly below;
+the two fold independently.
 
 **A collection is not a saved filter, and that distinction is the whole feature.** A view stores
 *conditions* (active, failing, due today) and shows whatever matches them right now. A collection
@@ -213,12 +217,50 @@ there is no shared property to filter on.
 - **Collections compose with your view**, exactly like Favorites. Selecting one keeps whichever view
   is lit, so *Failures* + your collection is the failing tasks in it. Selecting one also clears any
   source, folder or starred scope — a collection spans systems, so it cannot sit "inside" one.
-- **Manage, rename and delete** from *Manage collections* at the bottom of the rail.
+- **Manage, rename and delete** from *Manage collections*, at the foot of the Collections section
+  itself — the control that makes a collection sits in the band it makes into.
 - **Deleting a collection never deletes tasks.** It removes the grouping; the tasks stay in Cronsole
   and keep running, and the confirmation says so with the count.
 - **Removing a task from Cronsole takes it out of any collection holding it** — the same rule as the
   star. A membership is a preference about a task Cronsole tracks, not a record that outlives it.
 - Collections are yours alone, change nothing on any platform, and work with the agent offline.
+
+### Pinned
+A folder you use constantly can be lifted out of the tree and parked in its own **Pinned** section,
+directly below Collections. Hover a folder or job type in the source rail and click the **+** beside
+its name; it appears above with a **pin** icon. Click the pin again — on the folder in the tree, or
+on the pinned row — to take it back off. Nothing about the folder changes; the tree keeps it either
+way.
+
+**Pinned is a separate section from Collections because they are separate kinds of thing.** A
+collection holds exactly the tasks you put in it. A pin is a *place*, and it keeps tracking that
+place — put a new task in `\Cronsole\AI-Maintenance\` tomorrow and the pinned row counts it that
+day, with no action from you. That is the reason pinning does not simply build a collection out of
+the folder's current contents: a set named after a folder that had quietly stopped matching it would
+be worse than no shortcut at all.
+
+The sidebar has **four sections**, top to bottom: the two scopes (*All sources*, *Favorites*), then
+**Collections**, **Pinned**, and **Sources** — the platform tree. The last three each carry a
+heading with a chevron and **fold independently**; a folded section keeps its count on screen, so
+folding one never hides how much is in it. They look and behave alike on purpose.
+
+**Pinned appears only once you have pinned something**, and goes when you unpin the last one; unlike
+Collections it carries no *New…* button, because pinning happens on a folder in the tree rather than
+from the band. The button at the very top of the sidebar collapses the **whole** rail to icons,
+which is a different thing from folding a section.
+
+Two consequences worth knowing:
+
+- **A pinned row and its folder in the tree always print the same number**, because they are the
+  same row shown twice — the pin reads the folder's count rather than tallying its own. Selecting
+  either lights both.
+- **A pin outlives what it points at.** Rename the folder and the pin follows it. Empty the folder,
+  disconnect the platform, or remove its last task, and the pin stays where it is reading `0` — it
+  is a place you declared, so it does not vanish out from under you, and you can still click it to
+  remove it.
+
+Pins are per-browser, like your other dashboard preferences (the rail's collapsed state, your saved
+views). They are not stored on the server and are not shared.
 
 ### Views, Search & Filters
 - **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.

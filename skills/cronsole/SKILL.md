@@ -311,10 +311,14 @@ Load these on demand — don't read them all up front:
     is the manual path and now **refuses any branch that is not up-to-date `main`** — it mirrors the
     working tree, so a stale branch replaces the public catalog with an older one and still prints
     *"Published."* ([#68](../../docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)).
-    **The front door is still manual and still unchecked**: a change to what the gallery claims
-    Cronsole can do needs `publish-frontdoor.ps1` too — one page, two hosts. Never keep manual work
-    in the two publish clones (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — each
-    script `git reset --hard`s them first.
+    **The front door is automated too, as of the same day**: `registry-site/index.html` is one page
+    on two hosts (`cronsole.mikesailab.com` and `mikesailab.com/cronsole-registry/`), and merging to
+    `main` publishes it to both (`publish-frontdoor.yml` + `publish-registry.yml`), with
+    **Front door drift** comparing served sha256 at both daily. The stale half is always whichever
+    host you did not happen to open, which is why it is checked rather than eyeballed. Never keep
+    manual work in the two publish clones (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`)
+    — each script `git reset --hard`s them first, and both now refuse a branch that is not
+    up-to-date `main`.
     **Be accurate about who a stale registry hurts**: `TEMPLATE_REGISTRY_URL` is commented out by
     default, so a default install reads the compiled-in `bundled.ts` and needs no publish. The hosted
     artifact is what the **public gallery** serves and what an opted-in install syncs — and
@@ -358,7 +362,7 @@ confidently doing the wrong thing. That's "the confident lie" aimed at your futu
 | A new user-facing control worth explaining | A topic in `help.ts` **and** the guide section it links to. Doc first: a topic must summarise something written down, never be the only place it is |
 | A new platform / connector / catalog rule | The invariants table here + the relevant `references/*.md` |
 | **The catalog** — `bundled.ts`, `packs.ts`, or what a template *is* | `npm run registry:build` and **commit `registry/`**. Merging to `main` publishes it (`publish-registry.yml`), and the daily **Registry drift** workflow fails if that ever stops working — the two guards that used to be missing. The drift *test* still fails on an unbuilt `registry/`. The manual `pwsh scripts/publish-registry.ps1` now refuses any branch that is not up-to-date `main` ([#68](../../docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)) |
-| **A capability or refusal the public gallery states** | [`registry-site/index.html`](../../registry-site/README.md), then **both** `publish-registry.ps1` **and** `publish-frontdoor.ps1` — one page, two hosts, and publishing one leaves the other stale. The gallery is static and cannot ask a server what an install can do, so it states the **condition** ("needs sign-in") where the app states the answer |
+| **A capability or refusal the public gallery states** | [`registry-site/index.html`](../../registry-site/README.md). Merging to `main` publishes it to **both** hosts (`publish-frontdoor.yml` + `publish-registry.yml`) and **Front door drift** compares served sha256 at both daily — publishing one and not the other used to leave the page stale at whichever address you did not open. The gallery is static and cannot ask a server what an install can do, so it states the **condition** ("needs sign-in") where the app states the answer |
 | Anything shipped, or scope moved | [`docs/ROADMAP.md`](../../docs/ROADMAP.md), dated |
 
 **Ask on every change: "would an agent reading only this skill now be wrong?"** If yes, the

@@ -1,7 +1,7 @@
-<h1 align="center">📡 Publishing the Template Registry</h1>
+<h1 align="center">📡 Publishing the Registry and the Front Door</h1>
 
 <p align="center">
-  <em>How the hosted catalog gets from <code>bundled.ts</code> to other people's machines — and the one secret that makes it automatic.</em>
+  <em>How the hosted catalog and the public gallery page reach other people's machines — and the two secrets that make it automatic.</em>
 </p>
 
 <p align="center">
@@ -38,13 +38,54 @@ one-character edit invalidates the checksum. `.gitattributes` pins them to LF fo
 erased by the next publish. Everything else in that repo — `README.md`, `.nojekyll`,
 `.gitattributes`, `docs/` — belongs to it and is never touched.
 
-## One-time setup: the deploy key
+## The second surface: the gallery page
 
-The **Publish registry** workflow pushes to a *different* repository than the one it runs in, so the
-default `GITHUB_TOKEN` cannot help it. It needs a key with write access to `cronsole-registry`.
+`registry-site/index.html` is **one page served from two hosts**:
+
+| Host | Why it exists |
+|:---|:---|
+| `https://cronsole.mikesailab.com/` | The front door — Cronsole's public landing page. |
+| `https://mikesailab.com/cronsole-registry/` | The same page, sitting beside the registry JSON it reads. |
+
+The page is built to work at both: it tries `./index.json` first and falls back to the canonical
+registry origin when it is not co-located (GitHub Pages sends `Access-Control-Allow-Origin: *`).
+
+**The registry JSON is deliberately not on the front door's domain.** The two have different blast
+radii. A page can move and the worst case is a bad link; the catalog URL moving breaks sync for
+every install that opted in, silently, on a schedule nobody watches. That URL is frozen.
+
+Two hosts means two publish paths, and for a long time two chances to forget one. The quiet failure
+is specific: **whichever host you happen to open looks fine**, so the page can be badly stale at the
+other address and nothing you do in a browser reveals it. Hence `frontdoor-drift.yml`, which
+compares sha256 over the served bytes at *both* against the committed file.
+
+> [!NOTE]
+> The comparison is **LF-normalized**, and `registry-site/**` is pinned `text eol=lf`. A CRLF
+> working tree makes the identical commit pass on a Linux runner and fail on a Windows machine, and
+> makes a manual publish copy different bytes than CI does — see
+> [troubleshooting #69](../../troubleshooting/README.md#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not).
+
+One asymmetry to know about: the **workflow** copies every flat file in `registry-site/`, while
+`publish-frontdoor.ps1` copies `index.html` alone. Add a stylesheet and publish by hand, and it
+reaches the registry host but not the front door. Publish through the workflow.
+
+## One-time setup: the deploy keys
+
+Both publish workflows push to a *different* repository than the one they run in, so the default
+`GITHUB_TOKEN` cannot help either. Each needs its own key:
+
+| Secret on `cronsole` | Deploy key on | Used by |
+|:---|:---|:---|
+| `REGISTRY_DEPLOY_KEY` | `cronsole-registry` | Publish registry |
+| `SITE_DEPLOY_KEY` | `cronsole-site` | Publish front door |
 
 Use a **deploy key**, not a personal access token. A deploy key is scoped to exactly one repository,
-so a leak reaches that repo and nothing else; a PAT carries your whole account.
+so a leak reaches that repo and nothing else; a PAT carries your whole account. Two keys rather than
+one shared key, for the same reason: the front-door workflow has no business being able to write the
+catalog.
+
+The steps below are written for the registry key. Repeat them with `cronsole-site` and
+`SITE_DEPLOY_KEY` for the front door.
 
 1. **Generate a keypair** (no passphrase — the runner is non-interactive):
 
@@ -84,8 +125,13 @@ so a leak reaches that repo and nothing else; a PAT carries your whole account.
 | Trigger | What happens |
 |:---|:---|
 | Merge to `main` touching `registry/**` or `registry-site/**` | **Publish registry** mirrors the artifact and the gallery page to `cronsole-registry`, commits only if something changed, and pushes. Pages rebuilds within a minute or two. |
+| Merge to `main` touching `registry-site/**` | **Publish front door** mirrors the same page to `cronsole-site`, after checking the target still has its `CNAME`. |
 | Daily at 13:10 UTC | **Registry drift** fetches the live `index.json` and compares ids and `sha256`s against the committed `registry/`. Fails if the host is behind, ahead, or different. |
-| You, manually | `pwsh scripts/publish-registry.ps1` — the out-of-band path, and what you reach for when the workflow is broken. Idempotent, so running it after the workflow is a no-op. |
+| Daily at 13:20 UTC | **Front door drift** compares sha256 over the page served at *both* hosts against the committed `registry-site/index.html`. |
+| You, manually | `pwsh scripts/publish-registry.ps1` / `pwsh scripts/publish-frontdoor.ps1` — the out-of-band path, and what you reach for when a workflow is broken. Idempotent, so running one after the workflow is a no-op. |
+
+A page change fires **both** publish workflows, because `registry-site/**` is in both path filters —
+that is the point. A registry change fires only the first.
 
 Publishing is queued, never cancelled (`concurrency: cancel-in-progress: false`). The mirror is a
 wholesale replace, so two racing publishes could serve an older catalog than `main`; a cancelled

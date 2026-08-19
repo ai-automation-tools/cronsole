@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 69 | A published-page check reports the gallery **stale at both public hosts** right after publishing. Both report the *same* hash as each other and a different one from the repo; republishing changes nothing; the same check passes on a Linux CI runner for the same commit | **CRLF in the Windows working tree.** The size gap is exactly the line count (1544 bytes). Git stores the blob LF and hands Windows CRLF; Pages serves the blob, so hashing the file as it sits on disk compares CRLF to LF and can never match. **Two hosts agreeing with each other and disagreeing with you is the tell** — real staleness would rarely hit both identically, since they publish through different paths. **Fixed 2026-08-19** both ways: `registry-site/**` pinned `text eol=lf` (which also stopped `publish-frontdoor.ps1` copying CRLF into the publish clone), and the checker LF-normalizes regardless. Refresh an existing checkout with `rm` + `git checkout --`, since `.gitattributes` does not rewrite files already on disk. **Any check hashing a working-tree file against something served is comparing across a line-ending boundary** | [→](#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not) |
 | 68 | You publish the registry after merging new templates and the gallery serves **fewer** than before. `publish-registry.ps1` printed `Published.` and errored on nothing; every served file still matches its `sha256` | **The script publishes the working tree, not `main`.** `$SrcDir` is `$RepoRoot/registry` — whatever is checked out. `mike_desktop` runs ~158 commits behind `main` in ordinary use (PRs merge *into* main and it is never merged back), so publishing from it **replaces** the newer artifact wholesale with an older one. The drift test, content addressing and the push all pass: an old snapshot is internally consistent, and it really did push. **Fixed 2026-08-19** — the script now refuses any branch that is not up-to-date `main` (`-Force` to override), and merging to `main` publishes automatically via `publish-registry.yml`. Verify with `node scripts/check-registry-published.mjs` (daily as **Registry drift**). **The tell: success and failure printed the same thing** | [→](#68-the-hosted-registry-goes-backwards-after-a-successful-publish) |
 | 67 | The dashboard shows **no tasks** and every source-rail count reads `0` — `All sources 0`, every source, every folder — while the header above them says *"Manage 373 tasks"*. The stack is healthy: `ALL UP`, agent connected, `GET /api/tasks` returns everything | **A search or filter persisted in the URL.** Filter state *is* the URL by design (§9), so `?q=test-search` survives a reload, a bookmark and a restored tab, and keeps applying until you clear it. The all-zero rail is **intended**: the rail counts over every lens it does not own — including search — because a row's count is a promise about what clicking it does, and clicking it keeps your search. **Read the URL first.** The app does say so, in four places at once: the search box holds the term with an × and `0 matches`, **Filters** carries a badge, **VIEWS** drops to `Custom`, and the empty state reads *"You have 373 tasks. This view shows none of them — it is filtered by matching ..."* with **Clear search** and **Reset to the default view**. **The trap is that an empty dashboard reads like a broken backend**, so two investigations went to auth and to the DB before anyone read the address bar | [→](#67-the-dashboard-shows-no-tasks-and-every-rail-count-reads-0) |
 | 66 | `get_diagnostics` says the Windows agent is *"Connected and answering"* while `list_platforms` / the **Platforms** tab says `OFFLINE — Agent not connected`, **in the same second**. The agent is fine and `list_folders` answers on demand. The row contradicts itself: its own **List folders** cell carries a success from a minute ago | **The matrix served a cached verdict nothing on that path refreshes.** `buildPlatformMatrix` read `PlatformConnection.healthState` from the DB, and that column has exactly one writer — the loop inside `GET /api/tasks/health`, the *dashboard's* 45s poll. Nothing on the MCP surface writes it (`get_task_health` wraps `/tools/task-health`), so with no browser tab open the matrix reported whatever the last poll left behind. **Fixed 2026-08-17**: health is derived from `connector.getHealth` at request time, as the diagnostics panel and the health route already did. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one layer down — a verdict from a cache instead of a precondition. The question: which code path writes this field, and is it running in the session doing the reading?** | [→](#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second) |
@@ -4583,6 +4584,61 @@ publish whatever a human left checked out. The tell is that success and failure 
 thing — a script that cannot fail cannot warn you.
 
 *First hit: 2026-08-19, near-miss. Guard, workflow and drift check added the same day.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 69. A published-page check reports both hosts stale, and they are not
+
+**Symptom.** `check-frontdoor-published.mjs` says the gallery page is stale at *both* public
+addresses, having just been published:
+
+```
+main: registry-site/index.html is 116670 bytes, sha256 24f35d19e00b0bda...
+  STALE https://cronsole.mikesailab.com/            115126 bytes, sha256 a895ef67b4d9334b...
+  STALE https://mikesailab.com/cronsole-registry/   115126 bytes, sha256 a895ef67b4d9334b...
+```
+
+Both hosts report the **same** hash as each other, and a different one from the repo. Publishing
+again changes nothing. The same check passes on a Linux CI runner, on the same commit.
+
+**Cause — CRLF in the Windows working tree.**
+
+```
+116670 - 115126 = 1544        # exactly the number of lines
+```
+
+Git stores the blob with LF and hands Windows a CRLF working copy. GitHub Pages serves the *blob*,
+so the served bytes are LF. Hashing the file as it sits on a Windows disk therefore compares
+CRLF against LF and can never match — while the identical check on Linux, where the working tree is
+already LF, passes.
+
+Two hosts agreeing with each other and disagreeing with you is the tell: a real staleness would
+almost never hit both hosts identically, because they publish through different paths.
+
+**Fix.** Both, deliberately:
+
+1. **`registry-site/**` is pinned `text eol=lf`** in `.gitattributes`, so the working tree holds the
+   bytes that get served. This matters beyond the check: `publish-frontdoor.ps1` copies the working
+   file, so on Windows it was copying CRLF into the publish clone and relying on git to normalize it
+   back on commit.
+2. **The checker normalizes anyway** before hashing, so it is correct on a checkout made before that
+   pin and under any `core.autocrlf` setting.
+
+After the pin, refresh an existing checkout — `.gitattributes` does not rewrite files already on
+disk:
+
+```bash
+rm registry-site/index.html && git checkout -- registry-site/index.html
+```
+
+**The general shape.** Any check that hashes a working-tree file and compares it to something
+served, published or transmitted is comparing across a line-ending boundary, and will disagree by
+platform. `registry/**` was pinned LF from the start for exactly this reason — the pin was simply
+never extended to the page next to it.
+
+*First hit: 2026-08-19, on the drift check's first run against the real hosts.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

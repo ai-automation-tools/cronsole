@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ntf-windows-broadcast-message",
+  "name": "Broadcast a Desktop Message (Windows)",
+  "description": "Pop up a message on every signed-in session using msg.exe — a local alert that needs no webhook, external service, or account to set up.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "notification",
+  "tags": [
+    "notification",
+    "windows",
+    "alert",
+    "local"
+  ],
+  "icon": "MessageCircleWarning",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * 1-5"
+  },
+  "commandTemplate": "msg * \"{{message}}\"",
+  "parameters": [
+    {
+      "key": "message",
+      "label": "Message",
+      "type": "text",
+      "default": "Scheduled reminder from Cronsole",
+      "required": true,
+      "help": "The text shown in the popup on every signed-in session."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0",
+  "id": "data-scp-upload",
+  "name": "Upload File via SCP",
+  "description": "Copy a local file to a remote server over SSH with scp, useful for shipping a report or backup off-box on a schedule.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "data-sync",
+  "tags": [
+    "data",
+    "sync",
+    "ssh",
+    "scp",
+    "upload"
+  ],
+  "icon": "UploadCloud",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 22 * * *"
+  },
+  "commandTemplate": "scp \"{{localFile}}\" \"{{remoteTarget}}\"",
+  "parameters": [
+    {
+      "key": "localFile",
+      "label": "Local file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the file to upload."
+    },
+    {
+      "key": "remoteTarget",
+      "label": "Remote destination",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "SSH destination in user@host:/path form, e.g. deploy@example.com:/backups/. Key-based authentication must already work for this user with no password prompt."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

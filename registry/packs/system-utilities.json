@@ -124,6 +124,48 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "sys-scheduled-reboot",
+      "name": "Scheduled Reboot (Windows)",
+      "description": "Restart the machine on a schedule after a warning delay — useful for applying pending updates during a maintenance window. Signs out every session, so schedule it only when no one is expected to be active.",
+      "runtime": "executable",
+      "os": "windows",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "reboot",
+        "maintenance"
+      ],
+      "icon": "Power",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 4 * * 0"
+      },
+      "commandTemplate": "shutdown /r /t {{delaySeconds}} /c \"{{comment}}\"",
+      "parameters": [
+        {
+          "key": "delaySeconds",
+          "label": "Warning delay (seconds)",
+          "type": "text",
+          "default": "60",
+          "required": true,
+          "help": "How long signed-in users see the restart warning before it happens."
+        },
+        {
+          "key": "comment",
+          "label": "Restart message",
+          "type": "text",
+          "default": "Scheduled maintenance restart",
+          "required": true,
+          "help": "Text shown in the shutdown warning dialog. Avoid quote characters."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "data-export-eventlog",
       "name": "Export Windows Event Log",
       "description": "Archive a Windows event log (System, Application, …) to an .evtx file.",
@@ -218,6 +260,50 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "data-scp-upload",
+      "name": "Upload File via SCP",
+      "description": "Copy a local file to a remote server over SSH with scp, useful for shipping a report or backup off-box on a schedule.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "sync",
+        "ssh",
+        "scp",
+        "upload"
+      ],
+      "icon": "UploadCloud",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 22 * * *"
+      },
+      "commandTemplate": "scp \"{{localFile}}\" \"{{remoteTarget}}\"",
+      "parameters": [
+        {
+          "key": "localFile",
+          "label": "Local file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the file to upload."
+        },
+        {
+          "key": "remoteTarget",
+          "label": "Remote destination",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "SSH destination in user@host:/path form, e.g. deploy@example.com:/backups/. Key-based authentication must already work for this user with no password prompt."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "ntf-discord-heartbeat",
       "name": "Discord Webhook Message",
       "description": "Post a scheduled message to a Discord channel via a webhook.",
@@ -286,6 +372,40 @@
           "default": "C:\\logs\\heartbeat.log",
           "required": true,
           "help": "Where to append the heartbeat timestamp."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "ntf-windows-broadcast-message",
+      "name": "Broadcast a Desktop Message (Windows)",
+      "description": "Pop up a message on every signed-in session using msg.exe — a local alert that needs no webhook, external service, or account to set up.",
+      "runtime": "executable",
+      "os": "windows",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "alert",
+        "local"
+      ],
+      "icon": "MessageCircleWarning",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * 1-5"
+      },
+      "commandTemplate": "msg * \"{{message}}\"",
+      "parameters": [
+        {
+          "key": "message",
+          "label": "Message",
+          "type": "text",
+          "default": "Scheduled reminder from Cronsole",
+          "required": true,
+          "help": "The text shown in the popup on every signed-in session."
         }
       ],
       "compatibleTargets": [

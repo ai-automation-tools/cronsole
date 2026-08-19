@@ -295,6 +295,61 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "native-script-ssl-cert-expiry",
+      "name": "SSL Certificate Expiry Check (Cronsole)",
+      "description": "Connect to a host over TLS and fail the run when its certificate expires within your warning window. Cronsole has no certificate probe yet, so this uses a Node script and the built-in tls module rather than a check job.",
+      "runtime": "node",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "monitoring",
+        "ssl",
+        "tls",
+        "certificate"
+      ],
+      "icon": "ShieldAlert",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "action": {
+        "kind": "script",
+        "interpreter": "node",
+        "body": "// Runs on the machine hosting the Cronsole backend, using the built-in tls module.\n// A non-zero exit records a failed run, same as a check that fails.\nconst tls = require(\"tls\");\n\nconst host = \"{{host}}\";\nconst port = Number(\"{{port}}\");\nconst warnDays = Number(\"{{warnDays}}\");\n\nconst socket = tls.connect({ host, port, servername: host, timeout: 10000 }, () => {\n  const cert = socket.getPeerCertificate();\n  socket.end();\n  if (!cert || !cert.valid_to) {\n    console.error(\"No certificate returned by \" + host + \":\" + port);\n    process.exitCode = 1;\n    return;\n  }\n  const expiresAt = new Date(cert.valid_to);\n  const daysLeft = Math.floor((expiresAt.getTime() - Date.now()) / 86400000);\n  console.log(\"Certificate for \" + host + \" expires \" + expiresAt.toISOString() + \" (\" + daysLeft + \" days left).\");\n  if (daysLeft < warnDays) {\n    console.error(\"Fewer than \" + warnDays + \" days remain.\");\n    process.exitCode = 1;\n  }\n});\n\nsocket.on(\"error\", (err) => {\n  console.error(\"TLS connection to \" + host + \":\" + port + \" failed: \" + err.message);\n  process.exitCode = 1;\n});\n\nsocket.on(\"timeout\", () => {\n  console.error(\"TLS connection to \" + host + \":\" + port + \" timed out.\");\n  socket.destroy();\n  process.exitCode = 1;\n});\n"
+      },
+      "parameters": [
+        {
+          "key": "host",
+          "label": "Host",
+          "type": "string",
+          "required": true,
+          "help": "Hostname to connect to, resolved from the machine running the Cronsole backend."
+        },
+        {
+          "key": "port",
+          "label": "Port",
+          "type": "number",
+          "default": "443",
+          "required": true,
+          "help": "TLS port to connect to."
+        },
+        {
+          "key": "warnDays",
+          "label": "Warn within (days)",
+          "type": "number",
+          "default": "14",
+          "required": true,
+          "help": "Fail the run when fewer than this many days remain before the certificate expires."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "native-check-endpoint-healthy",
       "name": "Endpoint Health Check (Cronsole)",
       "description": "Call a URL and require the response to actually say it is healthy — not just return 200. A failure here is a fact about your system, so it is worth alerting on.",

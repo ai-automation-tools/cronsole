@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 67 | The dashboard shows **zero tasks** while everything reports healthy: `cronsole up` says **ALL UP**, the Postgres container is `healthy`, and the agent is connected. An empty dashboard looks like an auth problem, so the instinct is to blame stored browser auth | **A long-lived backend lost its Postgres connection while Postgres never went down.** `logs/backend.err.log` carries Prisma `P1001 — Can't reach database server at localhost:5432`, but `docker inspect` shows `RestartCount=0` and the container checkpointing straight through the window: the *client's* pool was dead, not the server. `/api/tasks` then 500s and the dashboard renders nothing. **Two tells.** (1) A launcher that probes `GET /api/health` reports the backend **UP** — health does not touch the DB, so it passes while every data route fails. (2) On the dev origin there is no stored token *at all* (the `VITE_DEV_TOKEN` bypass stores nothing), so "a stale `cronsole.token` overrode the dev token" cannot be the cause — **read `localStorage` before believing an auth theory**. Fix: restart the backend; `docker restart` accomplishes nothing | [→](#67-the-dashboard-shows-zero-tasks-while-the-backend-the-database-and-the-agent-all-report-healthy) |
 | 66 | `get_diagnostics` says the Windows agent is *"Connected and answering"* while `list_platforms` / the **Platforms** tab says `OFFLINE — Agent not connected`, **in the same second**. The agent is fine and `list_folders` answers on demand. The row contradicts itself: its own **List folders** cell carries a success from a minute ago | **The matrix served a cached verdict nothing on that path refreshes.** `buildPlatformMatrix` read `PlatformConnection.healthState` from the DB, and that column has exactly one writer — the loop inside `GET /api/tasks/health`, the *dashboard's* 45s poll. Nothing on the MCP surface writes it (`get_task_health` wraps `/tools/task-health`), so with no browser tab open the matrix reported whatever the last poll left behind. **Fixed 2026-08-17**: health is derived from `connector.getHealth` at request time, as the diagnostics panel and the health route already did. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one layer down — a verdict from a cache instead of a precondition. The question: which code path writes this field, and is it running in the session doing the reading?** | [→](#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second) |
 | 65 | You export a task and there is nowhere to import it back. Tools → **Restore** offers `.json` in its file picker and then answers *"No task XML files found"*. Same dead end after a delete: the API returns `archived: true` with an `archiveId` and no verb turns it back into a task | **The export format had no reader.** `cronsoleTaskVersion` appeared in three places repo-wide — the bundle builder, the archive writer, and a test fixture — all writers. So Export produced something shaped like a backup that nothing could restore, and the pre-delete archive was a promise with no way to collect. Restore's `.json` is for the export *manifest*, not a task definition. **Fixed 2026-08-17**: Tools → **Import a task** (native `.json` + deleted-task restore), Restore keeps `.xml`/`.zip` (Windows), and `import_task` / `list_task_archives` / `restore_task_archive` over MCP. **The tell: grep your format constant — if every hit is a writer, the feature is half-built** | [→](#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it) |
 | 64 | You edit `registry-site/index.html`, reload the local preview, and the change **is not there** — a new CSS rule reads back as `none`, or new JS behaves like the old code. Nothing errors | **Two independent staleness traps, and they stack.** (1) The preview serves a *copy*: the documented recipe copies `index.html` into a scratch dir, so editing the repo file changes nothing until you re-copy. (2) The gallery is a **hash-router SPA** — navigating to the same `#/...` URL is a hash change, not a load, so neither the CSS nor the JS is re-fetched, and any earlier inline style you injected survives. Fix: re-copy, then **`location.reload(true)`** — not a `navigate` to the same route. Verify the rule is really present (`[...document.styleSheets[0].cssRules].some(r => r.selectorText === '…')`) before concluding a fix failed | [→](#64-a-gallery-change-doesnt-show-up-in-the-local-preview) |
@@ -4430,6 +4431,72 @@ about the system; it is a fact about whether anyone had a tab open.
 
 *First hit: 2026-08-17, found by driving the MCP tools after the diagnostics tool shipped — the
 second opinion is what made it visible.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 67. The dashboard shows zero tasks while the backend, the database and the agent all report healthy
+
+**Symptom.** The dashboard renders an empty task list. Everything you would check says it is fine:
+
+```
+[  UP  ]  Postgres (db)      docker   docker healthcheck: healthy
+[  UP  ]  Backend :3000      host     GET /api/health -> 200
+[  UP  ]  Frontend :7373     host     GET / -> 200
+[  UP  ]  Windows agent      host     process Cronsole.Agent running
+=> ALL UP
+```
+
+**Cause — the backend's connection pool died while Postgres stayed up.** `logs/backend.err.log`:
+
+```
+[NativeScheduler] tick error: PrismaClientKnownRequestError:
+Can't reach database server at `localhost:5432`
+  code: 'P1001'
+```
+
+and yet the server never restarted:
+
+```bash
+docker inspect taskhub-db-1 --format '{{.State.StartedAt}} restarts={{.RestartCount}}'
+# 2026-08-18T19:26:11Z restarts=0
+docker logs taskhub-db-1 --since 6h | grep checkpoint   # checkpointing straight through the window
+```
+
+A container that never bounced, with a client that cannot reach it, means the **client's** pool is
+gone — a Docker Desktop port-forward blip, a sleep/resume, or simply a `tsx watch` process that had
+been up 23 hours. Every data route 500s, so the dashboard has nothing to draw.
+
+**Why the stack reported ALL UP.** The launcher probes `GET /api/health`, which returns
+`{"status":"ok"}` **without touching the database**. It is a liveness check, not a readiness check,
+so it passes for exactly the failure that empties the dashboard. Same for `backend already up (GET
+/api/health -> 200)` — the launcher then declines to restart the one process that needed it.
+
+**The misdiagnosis this invites.** An empty dashboard behind a working login reads like an auth
+problem, and the tempting story is "a stale `cronsole.token` in localStorage overrode the valid dev
+token". Check before believing it:
+
+```js
+Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)?.slice(0, 12)]))
+```
+
+On the dev origin the answer is `cronsole.settings` and `cronsole.theme` and **nothing else** — the
+`VITE_DEV_TOKEN` bypass never *stores* a token, so there is no stale login token to override
+anything. A 401 would also have shown the **login screen**, not an empty dashboard: those are
+different symptoms and they point at different layers.
+
+**Fix.** Restart the backend. `docker restart taskhub-db-1` accomplishes nothing — the database was
+never the broken half.
+
+**The reusable question:** *does this health check exercise the dependency it is vouching for?* A
+liveness probe that answers from process memory will report **UP** for every failure that lives
+below it, which is precisely when you are looking at it. Pair it with the run-stale rule in
+[§4](../../CLAUDE.md) — an empty screen over a green stack is a **process** question before it is
+a code question.
+
+*First hit: 2026-08-19, after a fix had already been written for the auth theory the evidence did
+not support.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

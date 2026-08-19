@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { api, setAuthToken, clearAuthToken, hasLoginToken, getAuthToken, subscribeAuthFailure } from '../api';
 import { AuthContext, type AuthUser } from './useAuth';
 
@@ -53,13 +53,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // A protected request returned 401/403 anywhere in the app → session expired.
+  //
+  // The interceptor has already called `clearAuthToken()` by the time we run, so
+  // `getAuthToken()` now reports the dev/E2E fallback if one exists. That fallback
+  // is worth a turn: a stale *stored* login shouldn't strand a dev on a login
+  // screen when the token that actually works is sitting right there.
+  //
+  // It gets exactly one turn, though. Re-arming 'authed' on every failure would
+  // park the app on a dashboard retrying a token that will never work — and a dev
+  // token outliving its JWT_SECRET is the documented case, not a hypothetical
+  // (see frontend/.env.local). Silently retrying forever and "no problem here"
+  // would be the same code path, which §9 forbids; the second failure is
+  // evidence, so the login screen is the honest answer.
+  const fallbackSpent = useRef(false);
   useEffect(() => subscribeAuthFailure(() => {
     storeUser(null);
     setUser(null);
+    if (getAuthToken() && !fallbackSpent.current) {
+      fallbackSpent.current = true;
+      setStatus('authed');
+      return;
+    }
     setStatus('unauthed');
   }), []);
 
   const applyAuth = useCallback((token: string, u: AuthUser) => {
+    // A real login re-arms the fallback: the next expiry is a fresh question.
+    fallbackSpent.current = false;
     setAuthToken(token);
     storeUser(u);
     setUser(u);

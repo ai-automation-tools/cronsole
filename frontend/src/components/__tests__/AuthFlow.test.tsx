@@ -3,9 +3,10 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // Mock the api module so the auth state machine can be driven deterministically.
 // The token helpers are backed by a tiny in-memory value instead of localStorage.
-const { apiMock, tokenState } = vi.hoisted(() => ({
+const { apiMock, tokenState, authFailure } = vi.hoisted(() => ({
   apiMock: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
   tokenState: { value: null as string | null },
+  authFailure: { listeners: [] as Array<() => void> },
 }));
 
 vi.mock('../../api', () => ({
@@ -14,7 +15,12 @@ vi.mock('../../api', () => ({
   clearAuthToken: () => { tokenState.value = null; },
   hasLoginToken: () => tokenState.value !== null,
   getAuthToken: () => tokenState.value ?? undefined,
-  subscribeAuthFailure: () => () => {},
+  subscribeAuthFailure: (cb: () => void) => {
+    authFailure.listeners.push(cb);
+    return () => {
+      authFailure.listeners = authFailure.listeners.filter(l => l !== cb);
+    };
+  },
 }));
 
 import { AuthProvider } from '../../hooks/AuthProvider';
@@ -33,6 +39,7 @@ function renderApp() {
 beforeEach(() => {
   vi.clearAllMocks();
   tokenState.value = null;
+  authFailure.listeners = [];
   window.localStorage.clear();
 });
 
@@ -134,5 +141,36 @@ describe('auth flow', () => {
 
     expect(await screen.findByText('DASHBOARD')).toBeInTheDocument();
     expect(apiMock.get).not.toHaveBeenCalled(); // no /auth/status when already holding a token
+  });
+  it('stays authed after an auth failure when clearing a stale token reveals a fallback token', async () => {
+    tokenState.value = 'stale-login-token';
+    renderApp();
+
+    expect(await screen.findByText('DASHBOARD')).toBeInTheDocument();
+
+    tokenState.value = 'dev-fallback-token';
+    authFailure.listeners.forEach(l => l());
+
+    expect(await screen.findByText('DASHBOARD')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument();
+  });
+
+  it('falls through to login when the revealed fallback token fails too', async () => {
+    tokenState.value = 'stale-login-token';
+    renderApp();
+    expect(await screen.findByText('DASHBOARD')).toBeInTheDocument();
+
+    // First failure: clearing the stale login reveals the dev fallback, so it
+    // gets its one turn rather than bouncing straight to login.
+    tokenState.value = 'dev-fallback-token';
+    authFailure.listeners.forEach(l => l());
+    expect(await screen.findByText('DASHBOARD')).toBeInTheDocument();
+
+    // Second failure: the fallback is dead too (a dev token that outlived
+    // JWT_SECRET). Retrying it forever would hide a broken auth state behind a
+    // dashboard that never loads, so login is the only honest screen left.
+    authFailure.listeners.forEach(l => l());
+    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.queryByText('DASHBOARD')).not.toBeInTheDocument();
   });
 });

@@ -13,6 +13,12 @@
     registry -- run `npm run registry:build` (in backend/) and commit registry/ in
     the main repo first, so the two stay in lockstep.
 
+    Since 2026-08-19 this normally runs itself: the "Publish registry" GitHub
+    Actions workflow mirrors the artifact on every merge to main that touches
+    registry/. This script remains the manual path -- for publishing out of band,
+    and for when the workflow is broken. Both do the same mirroring and both are
+    idempotent, so running this after the workflow is a no-op.
+
 .EXAMPLE
     pwsh scripts/publish-registry.ps1
 #>
@@ -27,13 +33,38 @@ param(
     [string]$WorkDir = $(
         $tools = 'D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\cronsole-registry'
         if (Test-Path (Join-Path $tools '.git')) { $tools } else { Join-Path $env:TEMP 'cronsole-registry-publish' }
-    )
+    ),
+    # Publish whatever is checked out, even when it is not up-to-date main. For
+    # deliberately publishing a branch; never the routine path.
+    [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Main-repo registry/ (source of truth): repo root = two levels up from this script.
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
+
+# This publishes the registry/ in the WORKING TREE, and nothing about the run
+# says which commit that is. On a feature branch, or on a working branch behind
+# main, it will republish an older catalog over a newer one and print
+# "Published." like any other day. On 2026-08-19 the working branch was 158
+# commits behind main, and publishing from it would have replaced five
+# just-merged templates with the previous 72. The artifact is content-addressed,
+# so the result is not corrupt -- it is confidently, verifiably wrong, which is
+# the harder kind to notice.
+if (-not $Force) {
+    $branch = "$(git -C $RepoRoot rev-parse --abbrev-ref HEAD)".Trim()
+    git -C $RepoRoot fetch --quiet origin main
+    $behind = [int]"$(git -C $RepoRoot rev-list --count HEAD..origin/main)".Trim()
+
+    if ($branch -ne 'main') {
+        throw "Refusing to publish from branch '$branch'. The registry is published from main -- the only branch whose registry/ has passed the drift test in CI. Check out main, or pass -Force to publish this branch deliberately."
+    }
+    if ($behind -gt 0) {
+        throw "Refusing to publish: HEAD is $behind commit(s) behind origin/main, so registry/ here may be older than what is merged. Run 'git pull' first, or pass -Force."
+    }
+}
+
 $SrcDir = Join-Path $RepoRoot 'registry'
 if (-not (Test-Path (Join-Path $SrcDir 'index.json'))) {
     throw "No registry/index.json at $SrcDir -- run 'npm run registry:build' in backend/ first."

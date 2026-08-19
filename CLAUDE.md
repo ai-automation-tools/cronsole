@@ -327,9 +327,21 @@ Non-negotiable rules. **Every one has a reason recorded in
 
 ### Template catalog
 - **Templates are content, not code.** Edit `backend/src/catalog/bundled.ts` → `npm run registry:build`
-  → `pwsh scripts/publish-registry.ps1`. **The drift test catches an unbuilt `registry/`; nothing
-  catches an unpublished one** — installs fetch the hosted registry, so an unpublished fix is still
-  broken for every user.
+  → commit `registry/` → **merge to `main`, which publishes itself**
+  (`.github/workflows/publish-registry.yml`). **The drift test catches an unbuilt `registry/`; the
+  daily `Registry drift` workflow catches an unpublished one**
+  (`scripts/check-registry-published.mjs`, comparing the live index's ids and sha256s against the
+  committed artifact) — a stale CDN and a correct `registry/` are indistinguishable from inside the
+  repo, so no test in the suite can see it. `pwsh scripts/publish-registry.ps1` remains the manual
+  path and now **refuses to publish from anything but up-to-date `main`** (`-Force` to override):
+  it mirrors the working tree, so a branch behind `main` republishes an older catalog and prints
+  *"Published."* ([#68](docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)).
+- **Who a stale registry actually hurts is narrower than it looks.** `TEMPLATE_REGISTRY_URL` is
+  commented out in `backend/.env.example` by default, so a default install reads the compiled-in
+  `bundled.ts` and needs no publish at all. The hosted artifact is what the **public gallery** serves
+  and what an install that opts in syncs — and `catalogSync` auto-syncs only `core: true` rows, so
+  extended templates reach a user by being browsed and imported. Publish because the gallery is
+  advertising a catalog it does not have, not because installs are broken.
 - Registry files are **content-addressed** (sha256 over exact bytes): keep them LF, never hand-edit
   `registry/`. The registry base URL is **frozen** at `https://mikesailab.com/cronsole-registry/` —
   GitHub does not redirect renamed Pages paths, so there is no second free move.
@@ -383,7 +395,7 @@ three weeks — confidently doing the wrong thing.
 | An MCP env var, or how it's read | [`mcp-server/.env.example`](mcp-server/.env.example) + the config table in **both** READMEs |
 | A new invariant or architectural rule | §9 here + the invariants table in `SKILL.md` (rationale → [`DESIGN_NOTES.md`](docs/DESIGN_NOTES.md)) |
 | **Anything that took real digging** | [`troubleshooting/README.md`](docs/troubleshooting/README.md) **and** the traps table in `SKILL.md` |
-| The catalog (`bundled.ts`, `packs.ts`) | `npm run registry:build`, then **`pwsh scripts/publish-registry.ps1`** — nothing fails on an unpublished registry |
+| The catalog (`bundled.ts`, `packs.ts`) | `npm run registry:build` and **commit `registry/`** — merging to `main` publishes it (`publish-registry.yml`), and the daily **Registry drift** check reddens if that ever stops working |
 | A capability or claim the public gallery states | [`registry-site/index.html`](registry-site/README.md), then **both** `publish-registry.ps1` **and** `publish-frontdoor.ps1` (one page, two hosts) |
 | A field on a probe or action shape | The gallery's renderer — a *partial* reading is worse than raw JSON; absent and malformed are different facts |
 | A new platform / connector / catalog rule | §9 here + `SKILL.md` + the relevant `skills/cronsole/references/*.md` |
@@ -400,7 +412,9 @@ Two asymmetries: **the repo wins** — when the skill and a doc disagree, fix th
 belongs in a backend route.
 
 **Published surfaces are mirror surfaces too, and they stay wrong after a green build and a clean
-push**: the hosted registry and the gallery page are read by *other people's machines*. Both publish
+push**: the hosted registry and the gallery page are read by *other people's machines*. The registry
+half now publishes itself on merge and is checked daily (above); **the front door still does not** —
+`publish-frontdoor.ps1` is manual, and nothing anywhere notices when it is behind. Both publish
 scripts `git reset --hard origin/main` their working clone
 (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — **never keep manual work there**;
 both exclude `README.md` and `CNAME`, which the public repos own.

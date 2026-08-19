@@ -40,6 +40,7 @@ including the PostgreSQL and `DATABASE_URL` requirements — is documented in
 |:---|:---|
 | [**🤖 Windows Agent Setup Guide**](../user-guides/guides/Agent_Setup_Guide.md) | Installing, verifying, and troubleshooting the local agent in depth. |
 | [**🔧 Auto-start launcher**](../../scripts/startup-task/README.md) | Have the whole stack come up automatically at logon. |
+| [**📡 Publishing the Template Registry**](guides/Registry_Publishing_Guide.md) | Maintainers only — how the hosted catalog is mirrored on merge, the deploy key it needs, and the drift check that catches it failing. |
 
 ---
 

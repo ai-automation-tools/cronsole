@@ -43,6 +43,14 @@
     it is infrastructure (which domain this repo answers on), not content, and
     overwriting or dropping it would take the custom domain down.
 
+    Since 2026-08-19 this normally runs itself: the "Publish front door" GitHub
+    Actions workflow mirrors the page on every merge to main that touches
+    registry-site/, and "Front door drift" checks both hosts daily. This script
+    remains the manual path. One difference worth knowing: the workflow copies
+    every flat file in registry-site/ (as publish-registry.ps1 always has),
+    while this script copies index.html alone -- so if you add a stylesheet,
+    publish through the workflow or the two hosts will disagree.
+
 .EXAMPLE
     pwsh scripts/publish-frontdoor.ps1
 #>
@@ -56,12 +64,33 @@ param(
     [string]$WorkDir = $(
         $tools = 'D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\cronsole-site'
         if (Test-Path (Join-Path $tools '.git')) { $tools } else { Join-Path $env:TEMP 'cronsole-site-publish' }
-    )
+    ),
+    # Publish whatever is checked out, even when it is not up-to-date main. For
+    # deliberately publishing a branch; never the routine path.
+    [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
+
+# Same trap as publish-registry.ps1: this publishes the page in the WORKING
+# TREE, and nothing about the run says which commit that is. From a feature
+# branch, or a working branch behind main, it serves an older page to the public
+# and prints "Published." like any other day.
+if (-not $Force) {
+    $branch = "$(git -C $RepoRoot rev-parse --abbrev-ref HEAD)".Trim()
+    git -C $RepoRoot fetch --quiet origin main
+    $behind = [int]"$(git -C $RepoRoot rev-list --count HEAD..origin/main)".Trim()
+
+    if ($branch -ne 'main') {
+        throw "Refusing to publish from branch '$branch'. The front door is published from main. Check out main, or pass -Force to publish this branch deliberately."
+    }
+    if ($behind -gt 0) {
+        throw "Refusing to publish: HEAD is $behind commit(s) behind origin/main, so registry-site/ here may be older than what is merged. Run 'git pull' first, or pass -Force."
+    }
+}
+
 $SrcFile = Join-Path $RepoRoot 'registry-site\index.html'
 if (-not (Test-Path $SrcFile)) {
     throw "No registry-site/index.html at $SrcFile."

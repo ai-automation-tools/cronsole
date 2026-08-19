@@ -396,7 +396,7 @@ three weeks — confidently doing the wrong thing.
 | A new invariant or architectural rule | §9 here + the invariants table in `SKILL.md` (rationale → [`DESIGN_NOTES.md`](docs/DESIGN_NOTES.md)) |
 | **Anything that took real digging** | [`troubleshooting/README.md`](docs/troubleshooting/README.md) **and** the traps table in `SKILL.md` |
 | The catalog (`bundled.ts`, `packs.ts`) | `npm run registry:build` and **commit `registry/`** — merging to `main` publishes it (`publish-registry.yml`), and the daily **Registry drift** check reddens if that ever stops working |
-| A capability or claim the public gallery states | [`registry-site/index.html`](registry-site/README.md), then **both** `publish-registry.ps1` **and** `publish-frontdoor.ps1` (one page, two hosts) |
+| A capability or claim the public gallery states | [`registry-site/index.html`](registry-site/README.md) — merging to `main` publishes it to **both** hosts (`publish-registry.yml` + `publish-frontdoor.yml`), and **Front door drift** checks both daily. One page, two hosts, so a fix that reaches one and not the other is the failure to look for |
 | A field on a probe or action shape | The gallery's renderer — a *partial* reading is worse than raw JSON; absent and malformed are different facts |
 | A new platform / connector / catalog rule | §9 here + `SKILL.md` + the relevant `skills/cronsole/references/*.md` |
 | Renamed or removed a doc heading the app deep-links to | The matching `HelpTopic.doc` / `more` anchor in [`frontend/src/data/help.ts`](frontend/src/data/help.ts) (`docsLinks.test.ts` catches this) |
@@ -412,12 +412,22 @@ Two asymmetries: **the repo wins** — when the skill and a doc disagree, fix th
 belongs in a backend route.
 
 **Published surfaces are mirror surfaces too, and they stay wrong after a green build and a clean
-push**: the hosted registry and the gallery page are read by *other people's machines*. The registry
-half now publishes itself on merge and is checked daily (above); **the front door still does not** —
-`publish-frontdoor.ps1` is manual, and nothing anywhere notices when it is behind. Both publish
-scripts `git reset --hard origin/main` their working clone
-(`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — **never keep manual work there**;
-both exclude `README.md` and `CNAME`, which the public repos own.
+push**: the hosted registry and the gallery page are read by *other people's machines*. **Both now
+publish on merge and are checked daily** — `publish-registry.yml` + `publish-frontdoor.yml`,
+`registry-drift.yml` + `frontdoor-drift.yml`. The two publish scripts remain the manual path and
+both now **refuse any branch that is not up-to-date `main`**; both `git reset --hard origin/main`
+their working clone (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — **never keep
+manual work there** — and both exclude `README.md` and `CNAME`, which the public repos own. `CNAME`
+is infrastructure, not content: it decides which domain a Pages repo answers on, so the front-door
+workflow **fails** when the target has none rather than publishing a page nobody can reach.
+
+**One page, two hosts, so it is checked at both.** `registry-site/index.html` is served from
+`cronsole.mikesailab.com` *and* `mikesailab.com/cronsole-registry/`, by two different publish paths —
+so the stale half is whichever one you did not happen to open. `check-frontdoor-published.mjs`
+compares sha256 over the served bytes at both, **LF-normalized**: a CRLF working tree makes the same
+commit pass on Linux and fail on Windows, and makes a manual publish copy different bytes than CI
+([#69](docs/troubleshooting/README.md#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not)).
+`registry-site/**` is pinned `text eol=lf` for the same reason `registry/**` is.
 
 ---
 

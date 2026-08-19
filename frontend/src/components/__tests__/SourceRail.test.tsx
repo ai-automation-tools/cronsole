@@ -409,7 +409,7 @@ describe('SourceRail collections band', () => {
     renderBand({
       population: [
         task({ category: 'AI-Maintenance' }),
-        task({ category: '\Microsoft\Windows', isSystem: true })
+        task({ category: '\\Microsoft\\Windows', isSystem: true })
       ],
       filters: { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' }
     });

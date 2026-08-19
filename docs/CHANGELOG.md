@@ -13,6 +13,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Five new extended-tier catalog templates** (2026-08-19): SSL Certificate Expiry Check (Cronsole-native), Upload File via SCP, Broadcast a Desktop Message (Windows), Scheduled Reboot (Windows), and Backup a Registry Key — filling gaps in monitoring, data-sync, notification, system and backup.
+
 - **The sidebar gets two new sections: Collections and Pinned** (2026-08-19). Collections used to be spliced in among *All sources* and *Favorites*, sharing one rule with them, so three different kinds of row read as one list. It is now a **Collections** band of its own between Favorites and your platforms, ruled off top and bottom, with **Manage collections** moved from the very bottom of the rail into the foot of that band — the control that makes a collection now sits in the section it makes into, instead of a scroll away past fifteen platform rows.
 
   **New: pin a folder.** Hover any folder or job type in the source rail and click the **+** beside its name to lift it into a **Pinned** band directly below Collections — *Windows Task Scheduler › AI-Maintenance* without expanding Windows first. Click the pin again, on the tree row or the pinned row, to take it off.

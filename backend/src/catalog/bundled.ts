@@ -1127,6 +1127,77 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\heartbeat.log', required: true, help: 'Where to append the heartbeat timestamp.' }
     ],
     compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ntf-windows-broadcast-message',
+    name: 'Broadcast a Desktop Message (Windows)',
+    description: 'Pop up a message on every signed-in session using msg.exe — a local alert that needs no webhook, external service, or account to set up.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'notification',
+    tags: ['notification', 'windows', 'alert', 'local'],
+    icon: 'MessageCircleWarning',
+    trigger: sched('0 8 * * 1-5'),
+    commandTemplate: 'msg * "{{message}}"',
+    parameters: [
+      { key: 'message', label: 'Message', type: 'text', default: 'Scheduled reminder from Cronsole', required: true, help: 'The text shown in the popup on every signed-in session.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'data-scp-upload',
+    name: 'Upload File via SCP',
+    description: 'Copy a local file to a remote server over SSH with scp, useful for shipping a report or backup off-box on a schedule.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'data-sync',
+    tags: ['data', 'sync', 'ssh', 'scp', 'upload'],
+    icon: 'UploadCloud',
+    trigger: sched('0 22 * * *'),
+    commandTemplate: 'scp "{{localFile}}" "{{remoteTarget}}"',
+    parameters: [
+      { key: 'localFile', label: 'Local file path', type: 'path', default: '', required: true, help: 'Absolute path to the file to upload.' },
+      { key: 'remoteTarget', label: 'Remote destination', type: 'text', default: '', required: true, help: 'SSH destination in user@host:/path form, e.g. deploy@example.com:/backups/. Key-based authentication must already work for this user with no password prompt.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-scheduled-reboot',
+    name: 'Scheduled Reboot (Windows)',
+    description: 'Restart the machine on a schedule after a warning delay — useful for applying pending updates during a maintenance window. Signs out every session, so schedule it only when no one is expected to be active.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'reboot', 'maintenance'],
+    icon: 'Power',
+    trigger: sched('0 4 * * 0'),
+    commandTemplate: 'shutdown /r /t {{delaySeconds}} /c "{{comment}}"',
+    parameters: [
+      { key: 'delaySeconds', label: 'Warning delay (seconds)', type: 'text', default: '60', required: true, help: 'How long signed-in users see the restart warning before it happens.' },
+      { key: 'comment', label: 'Restart message', type: 'text', default: 'Scheduled maintenance restart', required: true, help: 'Text shown in the shutdown warning dialog. Avoid quote characters.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-registry-export',
+    name: 'Backup a Registry Key',
+    description: 'Export a Windows Registry key to a .reg file on a schedule — a lightweight way to snapshot configuration before it drifts or before a risky change.',
+    runtime: 'executable',
+    os: 'windows',
+    category: 'backup',
+    tags: ['backup', 'windows', 'registry'],
+    icon: 'Save',
+    trigger: sched('0 2 * * 0'),
+    commandTemplate: 'reg export "{{keyPath}}" "{{outFile}}" /y',
+    parameters: [
+      { key: 'keyPath', label: 'Registry key path', type: 'text', default: 'HKLM\\SOFTWARE\\MyApp', required: true, help: 'Full registry path to export, e.g. HKLM\\SOFTWARE\\MyApp.' },
+      { key: 'outFile', label: 'Output .reg path', type: 'path', default: 'C:\\backups\\registry-backup.reg', required: true, help: 'Where to write the exported key. /y overwrites an existing file.' }
+    ],
+    compatibleTargets: ['windows']
   }
 ];
 
@@ -1504,6 +1575,89 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
         default: '10737418240',
         required: true,
         help: 'Default is 10 GB. In bytes, because that is what the check stores — 1 GB is 1073741824.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-script-ssl-cert-expiry',
+    name: 'SSL Certificate Expiry Check (Cronsole)',
+    description:
+      'Connect to a host over TLS and fail the run when its certificate expires within your warning window. Cronsole has no certificate probe yet, so this uses a Node script and the built-in tls module rather than a check job.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['cronsole-native', 'script', 'monitoring', 'ssl', 'tls', 'certificate'],
+    icon: 'ShieldAlert',
+    trigger: sched('0 9 * * *'),
+    action: {
+      kind: 'script',
+      // node, so the check runs wherever the backend runs, with no extra
+      // dependency beyond the interpreter itself.
+      interpreter: 'node',
+      body: [
+        '// Runs on the machine hosting the Cronsole backend, using the built-in tls module.',
+        '// A non-zero exit records a failed run, same as a check that fails.',
+        'const tls = require("tls");',
+        '',
+        'const host = "{{host}}";',
+        'const port = Number("{{port}}");',
+        'const warnDays = Number("{{warnDays}}");',
+        '',
+        'const socket = tls.connect({ host, port, servername: host, timeout: 10000 }, () => {',
+        '  const cert = socket.getPeerCertificate();',
+        '  socket.end();',
+        '  if (!cert || !cert.valid_to) {',
+        '    console.error("No certificate returned by " + host + ":" + port);',
+        '    process.exitCode = 1;',
+        '    return;',
+        '  }',
+        '  const expiresAt = new Date(cert.valid_to);',
+        '  const daysLeft = Math.floor((expiresAt.getTime() - Date.now()) / 86400000);',
+        '  console.log("Certificate for " + host + " expires " + expiresAt.toISOString() + " (" + daysLeft + " days left).");',
+        '  if (daysLeft < warnDays) {',
+        '    console.error("Fewer than " + warnDays + " days remain.");',
+        '    process.exitCode = 1;',
+        '  }',
+        '});',
+        '',
+        'socket.on("error", (err) => {',
+        '  console.error("TLS connection to " + host + ":" + port + " failed: " + err.message);',
+        '  process.exitCode = 1;',
+        '});',
+        '',
+        'socket.on("timeout", () => {',
+        '  console.error("TLS connection to " + host + ":" + port + " timed out.");',
+        '  socket.destroy();',
+        '  process.exitCode = 1;',
+        '});',
+        ''
+      ].join('\n')
+    },
+    parameters: [
+      {
+        key: 'host',
+        label: 'Host',
+        type: 'string',
+        required: true,
+        help: 'Hostname to connect to, resolved from the machine running the Cronsole backend.'
+      },
+      {
+        key: 'port',
+        label: 'Port',
+        type: 'number',
+        default: '443',
+        required: true,
+        help: 'TLS port to connect to.'
+      },
+      {
+        key: 'warnDays',
+        label: 'Warn within (days)',
+        type: 'number',
+        default: '14',
+        required: true,
+        help: 'Fail the run when fewer than this many days remain before the certificate expires.'
       }
     ],
     compatibleTargets: ['cronsole-native']

@@ -120,6 +120,7 @@ export const bundledPacks: BundledPack[] = [
       'tpl_weekly_system_cleanup',
       'bkp-folder-zip',
       'bkp-robocopy-mirror',
+      'bkp-registry-export',
       'cln-old-files',
       'cln-recycle-bin',
       'dev-docker-prune',
@@ -164,6 +165,7 @@ export const bundledPacks: BundledPack[] = [
       // pack per job type would split that answer four ways.
       'native-script-starter',
       'native-script-powershell-disk-report',
+      'native-script-ssl-cert-expiry',
       'native-check-endpoint-healthy',
       'native-check-backup-fresh',
       'native-check-disk-space',
@@ -208,10 +210,13 @@ export const bundledPacks: BundledPack[] = [
       'sys-flush-dns',
       'sys-update-scan',
       'sys-battery-report',
+      'sys-scheduled-reboot',
       'data-export-eventlog',
       'data-rclone-sync',
+      'data-scp-upload',
       'ntf-discord-heartbeat',
-      'ntf-log-heartbeat'
+      'ntf-log-heartbeat',
+      'ntf-windows-broadcast-message'
     ]
   }
 ];

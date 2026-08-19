@@ -296,7 +296,7 @@ Load these on demand — don't read them all up front:
 1. **Start from `docs/ROADMAP.md`.** It's the plan of record. A material decision updates it **first**, then you implement.
 2. **Check `docs/troubleshooting/README.md` before debugging** any setup/runtime failure. Most "impossible" behavior is a known trap above.
 3. **`context7` before writing** against React, Prisma, Express, Socket.io, Tailwind, .NET, or WiX.
-4. **Templates are content, not code.** Never inline them in `seed.ts`. Edit `bundled.ts` → `npm run registry:build` → publish.
+4. **Templates are content, not code.** Never inline them in `seed.ts`. Edit `bundled.ts` → `npm run registry:build` → commit `registry/` → merge to `main`, which publishes it.
 5. **Never hand-edit `registry/`.** It's generated and content-addressed. The drift test will fail you.
 5a. **Same for the Connect Pack.** Edit the markdown in `backend/src/tools/connect-pack/`, then `npm run connectpack:build` — never `connectPackBundled.ts` directly. It's bundled rather than read from disk because **`tsc` emits only `.js`**, so loose `.md` under `src/` never reaches `dist/`: a filesystem read would work under `tsx` in dev and 404 in production. A drift test fails if the bundle and the markdown disagree.
 6. **A material change ships with its test.** A bug fix ships with a test that failed before it.
@@ -304,12 +304,22 @@ Load these on demand — don't read them all up front:
 8. **Prefer the honest refusal** over the graceful lie. See "The one thing to understand."
 9. **The MCP server and this skill are mirror surfaces — update them in the same change.** See below.
 9a. **So are the two published surfaces, and they are the only ones a stranger reads.** A catalog
-    change needs `npm run registry:build` **and** `pwsh scripts/publish-registry.ps1` — installs
-    fetch the hosted registry, not this repo, so an unpublished fix is still broken for every user
-    and **nothing fails to tell you**. A change to what the gallery claims Cronsole can do needs
-    **both** publish scripts: one page, two hosts. Never keep manual work in the two publish clones
-    (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — each script `git reset --hard`
-    them first.
+    change needs `npm run registry:build` and the **committed** `registry/`; merging that to `main`
+    publishes it (`.github/workflows/publish-registry.yml`, since 2026-08-19), and the daily
+    **Registry drift** workflow reddens if publishing ever stops working
+    (`node scripts/check-registry-published.mjs` runs it by hand). `pwsh scripts/publish-registry.ps1`
+    is the manual path and now **refuses any branch that is not up-to-date `main`** — it mirrors the
+    working tree, so a stale branch replaces the public catalog with an older one and still prints
+    *"Published."* ([#68](../../docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)).
+    **The front door is still manual and still unchecked**: a change to what the gallery claims
+    Cronsole can do needs `publish-frontdoor.ps1` too — one page, two hosts. Never keep manual work
+    in the two publish clones (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — each
+    script `git reset --hard`s them first.
+    **Be accurate about who a stale registry hurts**: `TEMPLATE_REGISTRY_URL` is commented out by
+    default, so a default install reads the compiled-in `bundled.ts` and needs no publish. The hosted
+    artifact is what the **public gallery** serves and what an opted-in install syncs — and
+    `catalogSync` auto-syncs only `core: true`, so extended templates arrive by being browsed and
+    imported.
 10. **Commits**: conventional prefix, imperative subject (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`).
 11. **Never commit** `.env*`, `node_modules/`, `dist/`, `bin/`, `obj/`, `*.msi`.
 
@@ -347,7 +357,7 @@ confidently doing the wrong thing. That's "the confident lie" aimed at your futu
 | **Renamed or removed a doc heading the app links to** | The matching anchor in [`frontend/src/data/help.ts`](../../frontend/src/data/help.ts) / `onboarding.ts`. `docsLinks.test.ts` catches it — listed so the fix reads as *the change*, not a broken test to route around |
 | A new user-facing control worth explaining | A topic in `help.ts` **and** the guide section it links to. Doc first: a topic must summarise something written down, never be the only place it is |
 | A new platform / connector / catalog rule | The invariants table here + the relevant `references/*.md` |
-| **The catalog** — `bundled.ts`, `packs.ts`, or what a template *is* | `npm run registry:build`, **then `pwsh scripts/publish-registry.ps1`**. The drift test fails on an unbuilt `registry/`; **nothing fails on an unpublished one**, and installs fetch the hosted registry rather than this repo — so a template fixed here and not published is still broken for every user |
+| **The catalog** — `bundled.ts`, `packs.ts`, or what a template *is* | `npm run registry:build` and **commit `registry/`**. Merging to `main` publishes it (`publish-registry.yml`), and the daily **Registry drift** workflow fails if that ever stops working — the two guards that used to be missing. The drift *test* still fails on an unbuilt `registry/`. The manual `pwsh scripts/publish-registry.ps1` now refuses any branch that is not up-to-date `main` ([#68](../../docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)) |
 | **A capability or refusal the public gallery states** | [`registry-site/index.html`](../../registry-site/README.md), then **both** `publish-registry.ps1` **and** `publish-frontdoor.ps1` — one page, two hosts, and publishing one leaves the other stale. The gallery is static and cannot ask a server what an install can do, so it states the **condition** ("needs sign-in") where the app states the answer |
 | Anything shipped, or scope moved | [`docs/ROADMAP.md`](../../docs/ROADMAP.md), dated |
 

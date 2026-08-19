@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 68 | You publish the registry after merging new templates and the gallery serves **fewer** than before. `publish-registry.ps1` printed `Published.` and errored on nothing; every served file still matches its `sha256` | **The script publishes the working tree, not `main`.** `$SrcDir` is `$RepoRoot/registry` — whatever is checked out. `mike_desktop` runs ~158 commits behind `main` in ordinary use (PRs merge *into* main and it is never merged back), so publishing from it **replaces** the newer artifact wholesale with an older one. The drift test, content addressing and the push all pass: an old snapshot is internally consistent, and it really did push. **Fixed 2026-08-19** — the script now refuses any branch that is not up-to-date `main` (`-Force` to override), and merging to `main` publishes automatically via `publish-registry.yml`. Verify with `node scripts/check-registry-published.mjs` (daily as **Registry drift**). **The tell: success and failure printed the same thing** | [→](#68-the-hosted-registry-goes-backwards-after-a-successful-publish) |
 | 67 | The dashboard shows **no tasks** and every source-rail count reads `0` — `All sources 0`, every source, every folder — while the header above them says *"Manage 373 tasks"*. The stack is healthy: `ALL UP`, agent connected, `GET /api/tasks` returns everything | **A search or filter persisted in the URL.** Filter state *is* the URL by design (§9), so `?q=test-search` survives a reload, a bookmark and a restored tab, and keeps applying until you clear it. The all-zero rail is **intended**: the rail counts over every lens it does not own — including search — because a row's count is a promise about what clicking it does, and clicking it keeps your search. **Read the URL first.** The app does say so, in four places at once: the search box holds the term with an × and `0 matches`, **Filters** carries a badge, **VIEWS** drops to `Custom`, and the empty state reads *"You have 373 tasks. This view shows none of them — it is filtered by matching ..."* with **Clear search** and **Reset to the default view**. **The trap is that an empty dashboard reads like a broken backend**, so two investigations went to auth and to the DB before anyone read the address bar | [→](#67-the-dashboard-shows-no-tasks-and-every-rail-count-reads-0) |
 | 66 | `get_diagnostics` says the Windows agent is *"Connected and answering"* while `list_platforms` / the **Platforms** tab says `OFFLINE — Agent not connected`, **in the same second**. The agent is fine and `list_folders` answers on demand. The row contradicts itself: its own **List folders** cell carries a success from a minute ago | **The matrix served a cached verdict nothing on that path refreshes.** `buildPlatformMatrix` read `PlatformConnection.healthState` from the DB, and that column has exactly one writer — the loop inside `GET /api/tasks/health`, the *dashboard's* 45s poll. Nothing on the MCP surface writes it (`get_task_health` wraps `/tools/task-health`), so with no browser tab open the matrix reported whatever the last poll left behind. **Fixed 2026-08-17**: health is derived from `connector.getHealth` at request time, as the diagnostics panel and the health route already did. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one layer down — a verdict from a cache instead of a precondition. The question: which code path writes this field, and is it running in the session doing the reading?** | [→](#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second) |
 | 65 | You export a task and there is nowhere to import it back. Tools → **Restore** offers `.json` in its file picker and then answers *"No task XML files found"*. Same dead end after a delete: the API returns `archived: true` with an `archiveId` and no verb turns it back into a task | **The export format had no reader.** `cronsoleTaskVersion` appeared in three places repo-wide — the bundle builder, the archive writer, and a test fixture — all writers. So Export produced something shaped like a backup that nothing could restore, and the pre-delete archive was a promise with no way to collect. Restore's `.json` is for the export *manifest*, not a task definition. **Fixed 2026-08-17**: Tools → **Import a task** (native `.json` + deleted-task restore), Restore keeps `.xml`/`.zip` (Windows), and `import_task` / `list_task_archives` / `restore_task_archive` over MCP. **The tell: grep your format constant — if every hit is a writer, the feature is half-built** | [→](#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it) |
@@ -4508,6 +4509,80 @@ reading `localStorage` (it was empty) — and both were checked only after a fix
 When the UI is telling you what it filtered by, the address bar outranks the logs.
 
 *First hit: 2026-08-19. Found by the user, after two agents had investigated the wrong layers.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 68. The hosted registry goes backwards after a successful publish
+
+**Symptom.** You merge new templates, run `pwsh scripts/publish-registry.ps1`, and it prints:
+
+```
+Refreshing clone at D:\AI_Agents\Projects\Mikes_AI_Lab\Repos\Tools\cronsole-registry
+Published. GitHub Pages will rebuild shortly (https://mikesailab.com/cronsole-registry).
+```
+
+The gallery then serves **fewer** templates than before, or the same count it had last week. Nothing
+errored. The registry is not corrupt — every `sha256` in the served `index.json` matches its served
+file exactly, because it is a coherent snapshot. Just an older one.
+
+**Cause — the script publishes the working tree, not `main`.**
+
+```powershell
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
+$SrcDir = Join-Path $RepoRoot 'registry'
+```
+
+That is whatever is checked out right now. The normal working branch here is `mike_desktop`, and
+because PRs merge *into* `main` without `main` ever being merged back, it sits **158 commits behind**
+in ordinary use. Publishing from it mirrors that branch's `registry/` over the public repo, wholesale
+— the newer templates on `main` are not merged with, they are **replaced**.
+
+Caught 2026-08-19 one command before it happened: five templates had just merged, the working tree
+still held the previous 72, and the count check ran first only by luck.
+
+**Why nothing catches it.** Three separate guards all pass:
+
+| Guard | What it proves | Why it is silent here |
+|:---|:---|:---|
+| Registry drift test | committed `registry/` matches a fresh `npm run registry:build` | True on the stale branch too — it was built correctly, just earlier |
+| Content addressing | every served file matches its `sha256` | An old snapshot is internally consistent |
+| The script itself | the push succeeded | It did. It pushed the wrong commit's artifact |
+
+**Fix.** Publish from up-to-date `main`. Since 2026-08-19 the script refuses to do anything else:
+
+```
+Refusing to publish from branch 'mike_desktop'. The registry is published from main --
+the only branch whose registry/ has passed the drift test in CI.
+```
+
+and, on `main` but behind:
+
+```
+Refusing to publish: HEAD is 3 commit(s) behind origin/main, so registry/ here may be
+older than what is merged. Run 'git pull' first, or pass -Force.
+```
+
+Better: **do not run it at all.** Merging to `main` now publishes through
+`.github/workflows/publish-registry.yml`, which checks out `main` by construction and cannot have
+this bug. The manual script is the out-of-band path.
+
+**Verify, either way** — this compares the live host against the committed artifact by id and
+`sha256`, and names what differs in which direction:
+
+```bash
+node scripts/check-registry-published.mjs
+```
+
+It runs daily as the **Registry drift** workflow. If it ever reports templates *served but no longer
+on `main`*, that is this bug's signature: the host is ahead of nothing and behind something.
+
+**The general shape.** A publish step that reads the filesystem instead of a named revision will
+publish whatever a human left checked out. The tell is that success and failure print the same
+thing — a script that cannot fail cannot warn you.
+
+*First hit: 2026-08-19, near-miss. Guard, workflow and drift check added the same day.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -802,6 +802,7 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 - [x] Export existing tasks — Windows → XML (UTF-16 LE + BOM), native → JSON *(2026-07-13)*
 - [x] One unreadable template no longer empties the whole hosted catalog *(2026-08-15, [#58](troubleshooting/README.md#58-one-unreadable-template-silently-empties-the-whole-hosted-catalog))*
 - [x] Template registry — schema + ADR, catalog behind an interface, static registry + remote source, hosted, runtime refresh, prune-on-sync *(2026-07-13 → 2026-07-14)*. The optional **index signing** follow-up is its own open item in Part I.
+- [x] Registry publishing is automatic and checked *(2026-08-19)* — merging to `main` mirrors the artifact (`publish-registry.yml`); a daily **Registry drift** workflow compares the live host to the committed artifact by id and sha256; `publish-registry.ps1` refuses to publish from a branch that is not up-to-date `main` *([#68](troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish))*. **The front door is still manual and unchecked** — `publish-frontdoor.ps1` has no equivalent.
 
 </details>
 

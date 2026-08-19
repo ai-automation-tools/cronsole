@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent } from '@testing-library/react';
+import { render, screen, within, fireEvent, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 import { SourceRail } from '../SourceRail';
@@ -217,7 +217,7 @@ describe('SourceRail', () => {
 
     it('offers the way back out', async () => {
       renderCollapsed();
-      expect(await screen.findByLabelText('Expand sources')).toBeInTheDocument();
+      expect(await screen.findByLabelText('Expand sidebar')).toBeInTheDocument();
     });
   });
 
@@ -228,5 +228,193 @@ describe('SourceRail', () => {
 
     const claude = (await screen.findByText('Claude Code')).closest('button')!;
     expect(within(claude).getByText('0')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The Collections band — its own section, between the scopes and the tree.
+ */
+describe('SourceRail collections band', () => {
+  const renderBand = (over: Partial<Parameters<typeof SourceRail>[0]> = {}) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const props = {
+      population: [task({ category: 'AI-Maintenance' })],
+      filters: DEFAULT_FILTERS,
+      onSelect: vi.fn(),
+      onManageCollections: vi.fn(),
+      onToggleCollectionsCollapsed: vi.fn(),
+      onTogglePinnedCollapsed: vi.fn(),
+      onToggleSourcesCollapsed: vi.fn(),
+      onTogglePin: vi.fn(),
+      pins: [],
+      ...over
+    } as Parameters<typeof SourceRail>[0];
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <SourceRail {...props} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    return props;
+  };
+
+  it('keeps the manage button inside the band, not at the foot of the rail', async () => {
+    renderBand();
+    const band = await screen.findByTestId('collections-band');
+    // The control that makes a collection belongs to the section it makes into.
+    expect(within(band).getByRole('button', { name: /new collection/i })).toBeInTheDocument();
+  });
+
+  it('folds a band shut, and says how much it is holding', async () => {
+    const pins = [
+      {
+        id: 'pin-1',
+        nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+        label: 'AI-Maintenance',
+        patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
+      }
+    ];
+
+    renderBand({ pins, pinnedCollapsed: false });
+    const open = await screen.findByTestId('pinned-band');
+    expect(within(open).getByText('AI-Maintenance')).toBeInTheDocument();
+
+    cleanup();
+
+    renderBand({ pins, pinnedCollapsed: true });
+    const shut = await screen.findByTestId('pinned-band');
+    // The rows go; the tally stays, because a chevron that hid twelve rows with
+    // no hint of them is the thing this count prevents.
+    expect(within(shut).queryByText('AI-Maintenance')).toBeNull();
+    expect(within(shut).getByText('1')).toBeInTheDocument();
+  });
+
+  it('folds the two bands independently', async () => {
+    const pins = [
+      {
+        id: 'pin-1',
+        nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+        label: 'AI-Maintenance',
+        patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
+      }
+    ];
+
+    // Pinned shut, Collections open: one chevron must not speak for the other.
+    renderBand({ pins, pinnedCollapsed: true, collectionsCollapsed: false });
+
+    const collections = await screen.findByTestId('collections-band');
+    expect(
+      within(collections).getByRole('button', { name: /new collection/i })
+    ).toBeInTheDocument();
+
+    const pinned = screen.getByTestId('pinned-band');
+    expect(within(pinned).queryByText('AI-Maintenance')).toBeNull();
+  });
+
+  it('names the Sources section down at the tree, not at the top of the rail', async () => {
+    renderBand();
+    const sources = await screen.findByTestId('sources-band');
+    // The heading and its help `?` sit inside the section they describe. Atop
+    // the rail the word named a quarter of what sat under it.
+    expect(within(sources).getByText('Sources')).toBeInTheDocument();
+    expect(within(sources).getByRole('button', { name: /collapse sources/i })).toBeInTheDocument();
+  });
+
+  it('folds the Sources tree without touching the bands above it', async () => {
+    renderBand({ sourcesCollapsed: true, collectionsCollapsed: false });
+
+    const sources = await screen.findByTestId('sources-band');
+    expect(within(sources).queryByText('Windows Task Scheduler')).toBeNull();
+    // Folded, it still says how many platforms it is holding.
+    expect(within(sources).getByText('1')).toBeInTheDocument();
+
+    const collections = screen.getByTestId('collections-band');
+    expect(
+      within(collections).getByRole('button', { name: /new collection/i })
+    ).toBeInTheDocument();
+  });
+
+  it('shows no Pinned band until something is pinned', async () => {
+    renderBand({ pins: [] });
+    // Collections keeps its empty state — the button below it is how the first
+    // one gets made. Pinned has no such control, so an empty band could only
+    // point somewhere else, and it does not render at all.
+    await screen.findByTestId('collections-band');
+    expect(screen.queryByTestId('pinned-band')).toBeNull();
+  });
+
+  it('pins a folder from the tree, and hands back the node it was asked about', async () => {
+    const props = renderBand({ filters: { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' } });
+
+    const add = await screen.findByRole('button', { name: /pin AI-Maintenance to collections/i });
+    fireEvent.click(add);
+
+    expect(props.onTogglePin).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(props.onTogglePin!).mock.calls[0][0]).toMatchObject({
+      key: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+      label: 'AI-Maintenance'
+    });
+  });
+
+  it('offers to unpin the folder that is already pinned', async () => {
+    renderBand({
+      filters: { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' },
+      pins: [
+        {
+          id: 'pin-1',
+          nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+          label: 'AI-Maintenance',
+          patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
+        }
+      ]
+    });
+
+    // Both surfaces offer it, and that is the intent: the tree row is where you
+    // notice the folder is already pinned, the band row is where you notice the
+    // pin is no longer earning its place.
+    await screen.findByTestId('collections-band');
+    expect(
+      screen.getAllByRole('button', { name: /unpin AI-Maintenance from collections/i })
+    ).toHaveLength(2);
+  });
+
+  it('unpins from the pinned row itself, so a pin whose folder is gone is still removable', async () => {
+    // The folder is NOT in the population — it has been emptied or its platform
+    // disconnected. There is no tree row left to click, which is exactly when a
+    // row you cannot remove would be worst.
+    const props = renderBand({
+      population: [task({ category: 'AI-Tools' })],
+      pins: [
+        {
+          id: 'pin-1',
+          nodeKey: 'WINDOWS_TASK_SCHEDULER/AI-Maintenance',
+          label: 'AI-Maintenance',
+          patch: { source: 'WINDOWS_TASK_SCHEDULER', category: 'AI-Maintenance' }
+        }
+      ]
+    });
+
+    const band = await screen.findByTestId('pinned-band');
+    // Still there, reading 0 rather than having silently disappeared.
+    expect(within(band).getByText('AI-Maintenance')).toBeInTheDocument();
+
+    fireEvent.click(
+      within(band).getByRole('button', { name: /unpin AI-Maintenance from collections/i })
+    );
+    expect(vi.mocked(props.onTogglePin!).mock.calls[0][0]).toMatchObject({ key: 'pin:pin-1' });
+  });
+
+  it('offers no pin on the system disclosure group — it is an expander, not a place', async () => {
+    renderBand({
+      population: [
+        task({ category: 'AI-Maintenance' }),
+        task({ category: '\Microsoft\Windows', isSystem: true })
+      ],
+      filters: { ...DEFAULT_FILTERS, source: 'WINDOWS_TASK_SCHEDULER' }
+    });
+
+    await screen.findByText('System tasks');
+    expect(screen.queryByRole('button', { name: /pin System tasks/i })).toBeNull();
   });
 });

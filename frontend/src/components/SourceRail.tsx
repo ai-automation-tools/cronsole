@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   ChevronRight, Layers, Monitor, Zap, Bot, Globe, Terminal, EyeOff, Star,
-  PanelLeftClose, PanelLeftOpen, FileCode, Activity, Bookmark, Plus
+  PanelLeftClose, PanelLeftOpen, FileCode, Activity, Bookmark, Plus, Pin, X
 } from 'lucide-react';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { sourcePlatform } from '../platform';
@@ -11,11 +11,13 @@ import {
   buildSourceTree,
   expandedSourceFor,
   isRailNodeSelected,
-  collectionIdFromKey,
+  railSectionOf,
   ALL_SOURCES,
   FAVORITES_KEY,
-  type RailNode
+  type RailNode,
+  type RailSection
 } from '../utils/sourceTree';
+import { pinForNode, type RailPin } from '../utils/railPins';
 import { useCollections } from '../hooks/useCollections';
 import type { Task } from '../types';
 import type { TaskFilters } from '../utils/taskFilters';
@@ -98,6 +100,48 @@ interface SourceRailProps {
    * rather than rendering a button that does nothing.
    */
   onManageCollections?: () => void;
+  /**
+   * Pinned rail locations. See `utils/railPins.ts` for why these are not
+   * collections: a collection's membership is declared, a pinned folder's is
+   * derived, and the rail must not blur the two.
+   */
+  pins?: RailPin[];
+  /**
+   * Pin or unpin a level-2 row. Optional on the same terms as
+   * `onManageCollections` — no handler, no `+`.
+   */
+  onTogglePin?: (node: RailNode) => void;
+  /**
+   * Is the Collections band folded shut?
+   *
+   * Its own preference rather than a piece of `collapsed`: folding the band is
+   * about *how much of your own stuff you want on screen*, while `collapsed` is
+   * about the width of the whole rail. Someone with fifteen collections and
+   * three platforms wants the first shut and the second open, and one flag
+   * cannot say that.
+   */
+  collectionsCollapsed?: boolean;
+  onToggleCollectionsCollapsed?: () => void;
+  /**
+   * Is the Pinned band folded shut?
+   *
+   * Its own flag rather than sharing the Collections one: the reason to shut
+   * fifteen collections has nothing to do with the reason to shut three pins,
+   * and a single toggle over two sections would make each one's chevron lie
+   * about the other.
+   */
+  pinnedCollapsed?: boolean;
+  onTogglePinnedCollapsed?: () => void;
+  /**
+   * Is the Sources tree folded shut?
+   *
+   * A third independent flag, for the same reason as the second. Someone who
+   * works out of two collections and one pinned folder has no use for a dozen
+   * platform rows underneath them, and no reason to lose the rail's width to
+   * hide them.
+   */
+  sourcesCollapsed?: boolean;
+  onToggleSourcesCollapsed?: () => void;
 }
 
 export const SourceRail = ({
@@ -106,7 +150,15 @@ export const SourceRail = ({
   onSelect,
   collapsed = false,
   onToggleCollapsed,
-  onManageCollections
+  onManageCollections,
+  pins = [],
+  onTogglePin,
+  collectionsCollapsed = false,
+  onToggleCollectionsCollapsed,
+  pinnedCollapsed = false,
+  onTogglePinnedCollapsed,
+  sourcesCollapsed = false,
+  onToggleSourcesCollapsed
 }: SourceRailProps) => {
   const { data: connections } = useConnections();
   const { data: collections } = useCollections();
@@ -120,20 +172,35 @@ export const SourceRail = ({
         // been asked anything, so listing it would put a permanent dead row in
         // the navigation — the same reason HealthStrip filters on `state`.
         connectedPlatforms: (connections ?? []).filter(c => c.state).map(c => c.platform),
-        collections: collections ?? []
+        collections: collections ?? [],
+        pins
       }),
-    [population, filters, connections, collections]
+    [population, filters, connections, collections, pins]
   );
+
+  /**
+   * The rail in three bands.
+   *
+   * Partitioned here rather than rendered from one flat list with dividers
+   * computed per row, which is what this did before: the rule was "rule under
+   * the last scope row, wherever that is", and every new row type meant
+   * re-deriving where the boundary had moved. Three arrays cannot put a
+   * separator in the wrong place.
+   */
+  const sections = useMemo(() => {
+    const bands: Record<RailSection, RailNode[]> = {
+      scope: [],
+      collection: [],
+      pinned: [],
+      source: []
+    };
+    for (const node of tree) bands[railSectionOf(node.key)].push(node);
+    return bands;
+  }, [tree]);
 
   const health = useMemo(
     () => new Map((connections ?? []).filter(c => c.state).map(c => [c.platform, c])),
     [connections]
-  );
-
-  /** Rail keys of the collection rows, in the order the tree emitted them. */
-  const collectionRowKeys = useMemo(
-    () => tree.map(n => n.key).filter(k => collectionIdFromKey(k) !== null),
-    [tree]
   );
 
   /**
@@ -168,83 +235,191 @@ export const SourceRail = ({
       data-testid="source-rail"
       className="flex flex-col gap-1 text-sm"
     >
-      {/* Section header with a rule that runs to the edge — it labels the tree
-          below it rather than floating above it as another small grey thing.
-          Collapsed, the label and the `?` go and the toggle centres: a 72px
-          column has room for one control, and it should be the way back out. */}
-      <div
-        className={`flex items-center pb-2 mb-1 border-b border-border/70 ${
-          collapsed ? 'justify-center' : 'gap-1.5 px-2'
-        }`}
-      >
-        {!collapsed && (
-          <>
-            <Layers size={11} className="text-subtle-foreground shrink-0" />
-            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-subtle-foreground">
-              Sources
-            </span>
-            <span className="ml-auto flex items-center">
-              <HelpButton topic={filters.source === ALL_SOURCES ? 'sources' : sourceTopicId(filters.source)} />
-            </span>
-          </>
-        )}
-        {onToggleCollapsed && (
+      {/*
+        The rail's own chrome, and nothing else.
+
+        This bar used to carry the word "SOURCES" and the help `?` as well —
+        which made it look like a heading for the whole rail while actually
+        naming only the tree at the bottom. Once the rail grew scopes,
+        Collections and Pinned above that tree, the label was describing a
+        quarter of what sat under it. Both moved down to the section they name;
+        what is left is the one control that belongs to the panel rather than to
+        any section inside it.
+
+        Rendered only when there is a toggle to hold. In the mobile drawer there
+        is none — the drawer draws its own titled header with a close button — so
+        this collapses to nothing instead of leaving an empty ruled strip, and
+        the drawer stops saying "Sources" twice.
+      */}
+      {onToggleCollapsed && (
+        <div
+          className={`flex items-center pb-2 mb-1 border-b border-border/70 ${
+            collapsed ? 'justify-center' : 'justify-end px-2'
+          }`}
+        >
           <button
             onClick={onToggleCollapsed}
-            aria-label={collapsed ? 'Expand sources' : 'Collapse sources'}
-            title={collapsed ? 'Expand sources' : 'Collapse sources'}
+            /* "sidebar", not "sources". This narrows the whole rail — scopes,
+               Collections and Pinned included — and the word only meant the
+               tree back when the tree was all there was. It would now also
+               collide with the Sources section's own fold, leaving two
+               different controls sharing one accessible name. */
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-expanded={!collapsed}
             className="flex h-6 w-6 items-center justify-center rounded-md text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
+      {/* Scopes: everything, and starred. Two rows that name a slice of every
+          system rather than one system — which is why they lead the rail and
+          are ruled off from it. */}
       <ul className="space-y-0.5">
-        {tree.map(node => {
-          // The scope rows — everything, starred, and each collection — are not
-          // platforms. They lead the rail and are separated from it by a rule,
-          // because "which system?" and "which slice of all of them?" are
-          // different questions and a reader should not have to infer the
-          // boundary. A collection is a scope in exactly this sense: a set that
-          // spans every system rather than living inside one.
-          const collectionId = collectionIdFromKey(node.key);
-          const isScope =
-            node.key === ALL_SOURCES || node.key === FAVORITES_KEY || collectionId !== null;
+        {sections.scope.map(node => (
+          <li key={node.key}>
+            <Row
+              node={node}
+              selected={isRailNodeSelected(node, filters)}
+              depth={0}
+              collapsed={collapsed}
+              Icon={node.key === ALL_SOURCES ? Layers : Star}
+              iconTone={node.key === FAVORITES_KEY ? 'warning' : undefined}
+              dot={null}
+              expandable={false}
+              open={false}
+              onToggle={() => {}}
+              onSelect={onSelect}
+            />
+          </li>
+        ))}
+      </ul>
+
+      {/*
+        **Collections, then Pinned — two bands, ruled off from each other.**
+
+        They were one band briefly, distinguished only by their icons. Splitting
+        them is the honest end of the distinction that made a pin a separate type
+        to begin with: one list wearing two glyphs asks the reader to hold "some
+        of these hold what I put in them, some track a folder" in their head,
+        while two headed sections say it without being read. Each folds on its
+        own, because the reason to shut fifteen collections has nothing to do
+        with the reason to shut three pins.
+      */}
+      <Band
+        testId="collections-band"
+        title="Collections"
+        Icon={Bookmark}
+        rows={sections.collection}
+        rowIcon={Bookmark}
+        railCollapsed={collapsed}
+        folded={collectionsCollapsed}
+        onToggleFolded={onToggleCollectionsCollapsed}
+        filters={filters}
+        onSelect={onSelect}
+        /*
+          Collections keep their empty state: the button below is how the first
+          one gets made, so the band has to be there before you have any.
+        */
+        keepWhenEmpty
+        footer={
+          !collapsed && onManageCollections ? (
+            /*
+              Creating a collection sits at the foot of the band it creates into,
+              not at the foot of the whole rail where it used to live — below
+              fifteen platform rows, a scroll away from the only section it has
+              anything to do with.
+            */
+            <button
+              type="button"
+              onClick={onManageCollections}
+              className="mt-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <Plus size={13} className="shrink-0" />
+              {collections?.length ? 'Manage collections' : 'New collection'}
+            </button>
+          ) : undefined
+        }
+      />
+
+      {/*
+        Pinned has **no** empty state, unlike Collections, and the asymmetry is
+        the point rather than an oversight. A band earns permanent chrome when
+        its empty state can teach you something you can act on *there* — which
+        "New collection" does. Pinning happens on a folder in the tree, so an
+        empty Pinned band could only point somewhere else, and a header with
+        nothing under it and nothing to click is a worse teacher than the `+`
+        itself. It appears when you have pinned something and goes when you
+        unpin the last one.
+      */}
+      <Band
+        testId="pinned-band"
+        title="Pinned"
+        Icon={Pin}
+        rows={sections.pinned}
+        rowIcon={Pin}
+        railCollapsed={collapsed}
+        folded={pinnedCollapsed}
+        onToggleFolded={onTogglePinnedCollapsed}
+        filters={filters}
+        onSelect={onSelect}
+        /*
+          Unpin from the pinned row itself, not only from the tree row it
+          mirrors. It is the surface you are looking at when you decide a pin has
+          served its purpose — and the only one that still works once the folder
+          is gone, which is exactly when a `0` row you cannot remove would be
+          worst. Collections carry no equivalent: removing one destroys a set you
+          built, and that belongs in the manager behind a confirmation.
+        */
+        rowAction={node => <UnpinButton node={node} onTogglePin={onTogglePin} />}
+      />
+
+      {/*
+        The source tree — now a named, foldable section like the two above it,
+        and, per the rule above, the owner of the separator over itself. It owns
+        that boundary whether the bands above it rendered or not, so an empty
+        Pinned band cannot take the rule with it when it goes.
+
+        It cannot use `Band`: these rows expand into folders and carry health
+        dots, where a collection or a pin is a single flat row. They share the
+        heading instead — see `BandHeader`.
+      */}
+      <div data-testid="sources-band" className="mt-2 border-t border-border/70 pt-2">
+        {!collapsed && (
+          <BandHeader
+            title="Sources"
+            Icon={Layers}
+            folded={sourcesCollapsed}
+            onToggleFolded={onToggleSourcesCollapsed}
+            count={sections.source.length}
+            /* The help `?` came down with the label: it explains the platforms,
+               and it is topic-sensitive to the selected source, so it belongs
+               beside the section that holds them rather than atop the rail. */
+            trailing={
+              <HelpButton
+                topic={filters.source === ALL_SOURCES ? 'sources' : sourceTopicId(filters.source)}
+              />
+            }
+          />
+        )}
+        {(collapsed || !sourcesCollapsed) && (
+      <ul className="space-y-0.5">
+        {sections.source.map(node => {
           const open = isOpen(node.key);
           const conn = health.get(node.key);
-          // The rule sits under the LAST scope row, wherever that is — under
-          // Favorites when there are no collections, under the final collection
-          // when there are. Hard-coding it to Favorites would draw the boundary
-          // through the middle of the scope group the moment one is created.
-          const lastScope =
-            collectionRowKeys.length > 0
-              ? collectionRowKeys[collectionRowKeys.length - 1]
-              : FAVORITES_KEY;
 
           return (
-            <li
-              key={node.key}
-              className={node.key === lastScope ? 'mb-2 pb-2 border-b border-border/70' : ''}
-            >
+            <li key={node.key}>
               <Row
                 node={node}
                 selected={isRailNodeSelected(node, filters)}
                 depth={0}
                 collapsed={collapsed}
-                Icon={
-                  node.key === ALL_SOURCES
-                    ? Layers
-                    : node.key === FAVORITES_KEY
-                      ? Star
-                      : collectionId !== null
-                        ? Bookmark
-                        : iconFor(node.key)
-                }
-                iconTone={node.key === FAVORITES_KEY ? 'warning' : undefined}
+                Icon={iconFor(node.key)}
                 dot={conn ? healthMeta(conn.state) : null}
-                expandable={!collapsed && !isScope && !!node.children?.length}
+                expandable={!collapsed && !!node.children?.length}
                 open={open}
                 onToggle={() => toggle(node.key)}
                 onSelect={onSelect}
@@ -266,6 +441,8 @@ export const SourceRail = ({
                       isOpen={isOpen}
                       onToggle={toggle}
                       onSelect={onSelect}
+                      pins={pins}
+                      onTogglePin={onTogglePin}
                     />
                   ))}
                 </ul>
@@ -274,29 +451,176 @@ export const SourceRail = ({
           );
         })}
       </ul>
-
-      {/*
-        Creating a collection lives at the bottom of the rail rather than beside
-        the rows, because it is a different kind of act: every row above answers
-        "show me these", and this one makes a new place. Hidden when collapsed —
-        naming a collection needs a dialog, and a 72px rail has nowhere to say
-        what the button would do.
-
-        Rendered only when a handler exists, so the rail stays usable in tests
-        and in any caller that has not wired the manager. A button that opens
-        nothing is worse than no button.
-      */}
-      {!collapsed && onManageCollections && (
-        <button
-          type="button"
-          onClick={onManageCollections}
-          className="mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          <Plus size={13} className="shrink-0" />
-          {collections?.length ? 'Manage collections' : 'New collection'}
-        </button>
-      )}
+        )}
+      </div>
     </nav>
+  );
+};
+
+/**
+ * A section heading: chevron, name, and — while folded — its tally.
+ *
+ * Shared by all three of the rail's named sections, because they are meant to
+ * read as the same kind of thing. *Sources* is the odd one out structurally (its
+ * rows are expandable trees, not a flat list, so it cannot use `Band`), and that
+ * is exactly why the heading had to come out on its own: without this, the one
+ * section that could not share the component would have been the one that
+ * drifted.
+ *
+ * The tally shows **only while folded**. Open, you can count the rows yourself;
+ * shut, it is the one thing you cannot see — and a chevron that hid twelve rows
+ * with no hint of them is the "silently hides 200 rows" problem in miniature.
+ */
+const BandHeader = ({
+  title,
+  Icon,
+  folded,
+  onToggleFolded,
+  count,
+  trailing
+}: {
+  title: string;
+  /** Shown beside the name when the section cannot fold (no handler given). */
+  Icon: typeof Monitor;
+  folded: boolean;
+  onToggleFolded?: () => void;
+  count: number;
+  /** An extra control docked to the right of the heading — Sources' help `?`. */
+  trailing?: ReactNode;
+}) => (
+  <div className="flex items-center gap-1 px-2 pb-1">
+    {onToggleFolded ? (
+      <button
+        type="button"
+        onClick={onToggleFolded}
+        aria-expanded={!folded}
+        aria-label={`${folded ? 'Expand' : 'Collapse'} ${title.toLowerCase()}`}
+        className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-0.5 text-subtle-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
+        <ChevronRight
+          size={11}
+          className={`shrink-0 transition-transform duration-200 ${folded ? '' : 'rotate-90'}`}
+        />
+        <span className="text-[10px] font-black uppercase tracking-[0.14em]">{title}</span>
+        {folded && count > 0 && (
+          <span className="ml-auto tabular-nums text-[10px] font-semibold">{count}</span>
+        )}
+      </button>
+    ) : (
+      <>
+        <Icon size={11} className="text-subtle-foreground shrink-0" />
+        <span className="flex-1 text-[10px] font-black uppercase tracking-[0.14em] text-subtle-foreground">
+          {title}
+        </span>
+      </>
+    )}
+    {trailing && <span className="flex shrink-0 items-center">{trailing}</span>}
+  </div>
+);
+
+/**
+ * One of the rail's two middle bands — *Collections* and *Pinned*.
+ *
+ * One component rather than two blocks of near-identical JSX, because the two
+ * sections are supposed to look and behave the same: same rule above and below,
+ * same heading weight, same fold, same tally when shut. Two copies would drift
+ * on the first change made to only one of them, and the drift would be the
+ * "these are the same kind of place" claim quietly becoming false.
+ *
+ * What differs between them is passed in, and it is only ever: the title and
+ * icon, the rows, whether an empty band still renders, and what each row's
+ * trailing control is.
+ */
+const Band = ({
+  testId,
+  title,
+  Icon,
+  rows,
+  rowIcon,
+  railCollapsed,
+  folded,
+  onToggleFolded,
+  filters,
+  onSelect,
+  keepWhenEmpty = false,
+  footer,
+  rowAction
+}: {
+  testId: string;
+  title: string;
+  /** Shown beside the heading when the band cannot be folded (no handler). */
+  Icon: typeof Monitor;
+  rows: RailNode[];
+  rowIcon: typeof Monitor;
+  /** The whole rail is icons-only. Distinct from `folded`, which is this band. */
+  railCollapsed: boolean;
+  folded: boolean;
+  onToggleFolded?: () => void;
+  filters: TaskFilters;
+  onSelect: (patch: Partial<TaskFilters>) => void;
+  /** Render the band even with no rows — for a band whose footer creates them. */
+  keepWhenEmpty?: boolean;
+  footer?: ReactNode;
+  rowAction?: (node: RailNode) => ReactNode;
+}) => {
+  /*
+    Nothing to show and nothing to offer: render no rule at all. A band that is
+    empty *and* has no way to fill itself from here is two hairlines around a
+    gap — and at 72px, where the heading and the footer are both dropped, that
+    is exactly what every empty band would be.
+  */
+  if (rows.length === 0 && (!keepWhenEmpty || railCollapsed)) return null;
+
+  const open = railCollapsed || !folded;
+
+  return (
+    /*
+      **The rule on top only.** Every section draws the boundary *above* itself
+      and none draws one below, so each gap between two sections is ruled exactly
+      once. Giving a band `border-y` made it self-contained and looked right in
+      isolation — but two stacked bands then put their own bottom and top rules a
+      margin apart, reading as a double line. A separator belongs to the boundary
+      between two things, not to either of them.
+    */
+    <div data-testid={testId} className="mt-2 border-t border-border/70 pt-2">
+      {/* Icons-only drops the heading: 72px has no room for a label, and a
+          disclosure you cannot read is one you cannot use. The band is simply
+          always open there. */}
+      {!railCollapsed && (
+        <BandHeader
+          title={title}
+          Icon={Icon}
+          folded={folded}
+          onToggleFolded={onToggleFolded}
+          count={rows.length}
+        />
+      )}
+
+      {open && (
+        <>
+          <ul className="space-y-0.5">
+            {rows.map(node => (
+              <li key={node.key}>
+                <Row
+                  node={node}
+                  selected={isRailNodeSelected(node, filters)}
+                  depth={0}
+                  collapsed={railCollapsed}
+                  Icon={rowIcon}
+                  dot={null}
+                  expandable={false}
+                  open={false}
+                  onToggle={() => {}}
+                  onSelect={onSelect}
+                  action={rowAction?.(node)}
+                />
+              </li>
+            ))}
+          </ul>
+          {footer}
+        </>
+      )}
+    </div>
   );
 };
 
@@ -313,13 +637,17 @@ const ChildRow = ({
   filters,
   isOpen,
   onToggle,
-  onSelect
+  onSelect,
+  pins,
+  onTogglePin
 }: {
   node: RailNode;
   filters: TaskFilters;
   isOpen: (key: string) => boolean;
   onToggle: (key: string) => void;
   onSelect: (patch: Partial<TaskFilters>) => void;
+  pins: RailPin[];
+  onTogglePin?: (node: RailNode) => void;
 }) => {
   const open = isOpen(node.key);
   const isGroup = !node.patch;
@@ -336,6 +664,7 @@ const ChildRow = ({
         open={open}
         onToggle={() => onToggle(node.key)}
         onSelect={onSelect}
+        action={<PinButton node={node} pins={pins} onTogglePin={onTogglePin} />}
       />
       {open && node.children && (
         <ul className="mt-px ml-[15px] pl-1.5 border-l border-border/70 space-y-px">
@@ -351,12 +680,99 @@ const ChildRow = ({
                 open={false}
                 onToggle={() => {}}
                 onSelect={onSelect}
+                action={<PinButton node={leaf} pins={pins} onTogglePin={onTogglePin} />}
               />
             </li>
           ))}
         </ul>
       )}
     </li>
+  );
+};
+
+/**
+ * Take a pinned row back off the band.
+ *
+ * A separate component from `PinButton` rather than a mode of it: that one is
+ * asked *about a folder* and has to work out whether it is pinned, while this
+ * one is on a row that is a pin by construction. Folding them together would
+ * mean a control whose meaning depends on which list it was rendered into.
+ */
+const UnpinButton = ({
+  node,
+  onTogglePin
+}: {
+  node: RailNode;
+  onTogglePin?: (node: RailNode) => void;
+}) => {
+  if (!onTogglePin) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onTogglePin(node)}
+      aria-label={`Unpin ${node.label} from collections`}
+      title={`Unpin ${node.label} — the folder itself is untouched`}
+      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded text-subtle-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+    >
+      <X size={11} />
+    </button>
+  );
+};
+
+/**
+ * Pin this folder to the Collections band, or take it back off.
+ *
+ * **One control, both directions.** A `+` that only added would leave removal to
+ * some other surface, and the row that shows you a folder is pinned is exactly
+ * the row you are looking at when you decide it should not be.
+ *
+ * Hover-revealed while unpinned, permanent once pinned — an affordance you have
+ * to go looking for is fine for an action, but the *state* has to be readable
+ * without a pointer, and there is no hover on a touch screen at all. It stays in
+ * the tab order either way, so the keyboard path does not depend on the mouse
+ * path.
+ *
+ * Absent for a node with no patch: the `\Microsoft\` disclosure group is an
+ * expander, not a destination, and pinning "the idea of system tasks" would
+ * produce a row that selects nothing. `pinFromNode` refuses it independently —
+ * this only avoids drawing a button that would be refused.
+ */
+const PinButton = ({
+  node,
+  pins,
+  onTogglePin
+}: {
+  node: RailNode;
+  pins: RailPin[];
+  onTogglePin?: (node: RailNode) => void;
+}) => {
+  if (!onTogglePin || !node.patch) return null;
+  const pinned = pinForNode(pins, node.key) !== undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onTogglePin(node)}
+      aria-pressed={pinned}
+      aria-label={
+        pinned
+          ? `Unpin ${node.label} from collections`
+          : `Pin ${node.label} to collections`
+      }
+      title={
+        pinned
+          ? `Unpin ${node.label} — it stays in the tree`
+          : `Pin ${node.label} to Collections. It keeps tracking this folder.`
+      }
+      className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+        pinned
+          ? 'text-primary opacity-100'
+          : 'text-subtle-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground hover:bg-muted'
+      }`}
+    >
+      {pinned ? <Pin size={11} fill="currentColor" /> : <Plus size={12} />}
+    </button>
   );
 };
 
@@ -380,7 +796,8 @@ const Row = ({
   expandable,
   open,
   onToggle,
-  onSelect
+  onSelect,
+  action
 }: {
   node: RailNode;
   selected: boolean;
@@ -395,6 +812,16 @@ const Row = ({
   open: boolean;
   onToggle: () => void;
   onSelect: (patch: Partial<TaskFilters>) => void;
+  /**
+   * A trailing control, rendered **outside** the row's own button.
+   *
+   * Outside because nesting it would put a button inside a button — invalid
+   * markup that browsers recover from by dropping one, and the one they drop is
+   * not the one you would choose. It also keeps the two jobs separate: the row
+   * navigates, the action acts on the row, and a click can only ever mean one
+   * of them.
+   */
+  action?: ReactNode;
 }) => {
   const selectable = !!node.patch;
   /*
@@ -627,6 +1054,8 @@ const Row = ({
           {node.count}
         </span>
       </button>
+
+      {action}
     </div>
   );
 };

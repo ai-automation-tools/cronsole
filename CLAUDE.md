@@ -259,7 +259,11 @@ Non-negotiable rules. **Every one has a reason recorded in
   an empty place is the point); a filter chip may not.
 - **A collection's membership is declared; every other lens is derived.** Collections and favorites
   are per-user joins keyed on `Task` with a cascade — never columns. `TaskExclusion` is the opposite
-  shape, keyed on `(platform, externalId)`, because it must outlive the row.
+  shape, keyed on `(platform, externalId)`, because it must outlive the row. **A pinned folder is
+  therefore not a collection** — it is derived, so it is a `RailPin` preference (`utils/railPins.ts`)
+  shown in its **own** rail band (Pinned, beside Collections — one `Band` component draws both),
+  storing no foreign key, reading its target node's count rather than re-deriving one, and
+  surviving its target's disappearance at `0`.
 - **A count beside a control describes the population that control governs** —
   `applyTaskFiltersExcept`, with the hidden count derived, not counted separately.
 - **A judgement has one definition and it is the server's** — `isSystem`, health tier, task source

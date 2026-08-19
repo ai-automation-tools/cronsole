@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Activity,
   Loader2,
@@ -29,6 +29,8 @@ import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
 import { SyncMenu } from '../components/SyncMenu';
 import { SourceRail } from '../components/SourceRail';
+import type { RailNode } from '../utils/sourceTree';
+import { pinForNode, pinFromNode, pinIdFromKey } from '../utils/railPins';
 import { HelpButton } from '../components/HelpButton';
 import { sourceTopicId } from '../data/help';
 import { ViewBar } from '../components/ViewBar';
@@ -115,6 +117,41 @@ export const DashboardScreen = ({
   // filter exists to stop.
   const { settings: prefs, update } = useSettings();
   const railCollapsed = prefs.railCollapsed;
+
+  /**
+   * Pin or unpin a folder from the rail.
+   *
+   * Lives here rather than inside `SourceRail` because the rail is given its
+   * state, not left to own it — the same call as `railCollapsed` and the
+   * filters. Toggling on `nodeKey` rather than on the node's label keeps it
+   * idempotent per *place*: two folders on two platforms can share a name, and
+   * pinning one must not read as having pinned the other.
+   */
+  const togglePin = useCallback(
+    (node: RailNode) => {
+      // Asked from the pinned row itself, which is the surface you are looking
+      // at when you decide a pin has outlived its use — and the only one that
+      // works when the folder's platform branch is collapsed, or when the
+      // folder has gone entirely and there is no tree row left to click.
+      const pinned = pinIdFromKey(node.key);
+      if (pinned) {
+        update('railPins', prefs.railPins.filter(p => p.id !== pinned));
+        return;
+      }
+
+      const existing = pinForNode(prefs.railPins, node.key);
+      if (existing) {
+        update('railPins', prefs.railPins.filter(p => p.id !== existing.id));
+        return;
+      }
+      const pin = pinFromNode(node, prefs.railPins);
+      // `null` only for a node with no patch — the `\Microsoft\` disclosure
+      // group. The rail already hides the control there; this is the guard that
+      // makes it a rule rather than an appearance.
+      if (pin) update('railPins', [...prefs.railPins, pin]);
+    },
+    [prefs.railPins, update]
+  );
 
   // ---- Filter state ------------------------------------------------------
   //
@@ -618,6 +655,16 @@ export const DashboardScreen = ({
           collapsed={railCollapsed}
           onToggleCollapsed={() => update('railCollapsed', !railCollapsed)}
           onManageCollections={() => setManagingCollections(true)}
+          pins={prefs.railPins}
+          onTogglePin={togglePin}
+          collectionsCollapsed={prefs.collectionsCollapsed}
+          onToggleCollectionsCollapsed={() =>
+            update('collectionsCollapsed', !prefs.collectionsCollapsed)
+          }
+          pinnedCollapsed={prefs.pinnedCollapsed}
+          onTogglePinnedCollapsed={() => update('pinnedCollapsed', !prefs.pinnedCollapsed)}
+          sourcesCollapsed={prefs.sourcesCollapsed}
+          onToggleSourcesCollapsed={() => update('sourcesCollapsed', !prefs.sourcesCollapsed)}
         />
       </aside>
 
@@ -659,6 +706,19 @@ export const DashboardScreen = ({
                 setRailOpen(false);
                 setManagingCollections(true);
               }}
+              // Pinning is not navigation, so it does NOT close the drawer:
+              // pinning two folders in a row is one errand, and a panel that
+              // shut after each would make it three gestures per pin.
+              pins={prefs.railPins}
+              onTogglePin={togglePin}
+              collectionsCollapsed={prefs.collectionsCollapsed}
+              onToggleCollectionsCollapsed={() =>
+                update('collectionsCollapsed', !prefs.collectionsCollapsed)
+              }
+              pinnedCollapsed={prefs.pinnedCollapsed}
+              onTogglePinnedCollapsed={() => update('pinnedCollapsed', !prefs.pinnedCollapsed)}
+              sourcesCollapsed={prefs.sourcesCollapsed}
+              onToggleSourcesCollapsed={() => update('sourcesCollapsed', !prefs.sourcesCollapsed)}
             />
           </div>
         </div>

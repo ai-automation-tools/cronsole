@@ -317,6 +317,12 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **Remote access is opt-in and single-origin**; the proxy binds loopback and Cloudflare Access is the
   gate. `TRUST_PROXY` stays off unless the proxy is the *only* route in — the test is "can the caller
   also reach `:3000`", so the same proxy yields opposite answers on Tunnel vs Tailscale.
+  **An opt-in the self-healer cannot read is not an opt-in.** The opt-in is a per-machine, gitignored
+  marker (`.cronsole-remote`, written by `cronsole remote on`) rather than an env var, because the
+  reader is a Scheduled Task with a bare environment — and `cronsole up` starts the proxy from it, so
+  the 5-minute self-heal covers it. `restart: unless-stopped` never undoes a deliberate stop and a
+  profile gate blocks a plain `compose up`, so without this the proxy has **no keeper at all**
+  ([#68](docs/troubleshooting/README.md#68-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
 - **Exactly one account-creation path: `POST /api/auth/setup`** (first run only). **Never re-add a
   register route for a test** — an integration test pins its 404.
 - **`ALLOWED_ORIGINS` is one list gating two surfaces** (REST CORS + the Socket.IO handshake), parsed

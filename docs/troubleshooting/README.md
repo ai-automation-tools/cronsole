@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 68 | The **Tailscale URL is dead** — `http://my-pc.my-tailnet.ts.net:8080/` returns **502**, empty body, from every device — while everything else is healthy: `cronsole status` says `ALL UP`, `localhost:7373` works, the agent is connected, `tailscale status` lists both machines, and `tailscale serve status` prints the right mapping | **The Caddy proxy container was stopped, and `restart: unless-stopped` means it.** The 502 is `tailscaled` reporting that *its upstream* refused — `curl 127.0.0.1:8080` answers `000` and `docker ps -a` shows `taskhub-proxy-1 Exited (0) 2 days ago`. `unless-stopped` restarts after a crash or a reboot but never undoes a deliberate `docker compose stop`; the proxy is also **profile-gated** (opt-in remote access, §9), so a routine `docker compose up -d` cannot bring it back and does not fail either — and `cronsole up` did not know it existed, so the 5-minute self-heal walked past it. **Fixed 2026-08-20:** `cronsole remote on` records the opt-in in `.cronsole-remote` and `up` starts the proxy. **A 404 here means something else** — `tailscale serve` matched no handler for the Host you sent, which is what curling the tailnet *IP* always does | [→](#68-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy) |
 | 67 | The dashboard shows **no tasks** and every source-rail count reads `0` — `All sources 0`, every source, every folder — while the header above them says *"Manage 373 tasks"*. The stack is healthy: `ALL UP`, agent connected, `GET /api/tasks` returns everything | **A search or filter persisted in the URL.** Filter state *is* the URL by design (§9), so `?q=test-search` survives a reload, a bookmark and a restored tab, and keeps applying until you clear it. The all-zero rail is **intended**: the rail counts over every lens it does not own — including search — because a row's count is a promise about what clicking it does, and clicking it keeps your search. **Read the URL first.** The app does say so, in four places at once: the search box holds the term with an × and `0 matches`, **Filters** carries a badge, **VIEWS** drops to `Custom`, and the empty state reads *"You have 373 tasks. This view shows none of them — it is filtered by matching ..."* with **Clear search** and **Reset to the default view**. **The trap is that an empty dashboard reads like a broken backend**, so two investigations went to auth and to the DB before anyone read the address bar | [→](#67-the-dashboard-shows-no-tasks-and-every-rail-count-reads-0) |
 | 66 | `get_diagnostics` says the Windows agent is *"Connected and answering"* while `list_platforms` / the **Platforms** tab says `OFFLINE — Agent not connected`, **in the same second**. The agent is fine and `list_folders` answers on demand. The row contradicts itself: its own **List folders** cell carries a success from a minute ago | **The matrix served a cached verdict nothing on that path refreshes.** `buildPlatformMatrix` read `PlatformConnection.healthState` from the DB, and that column has exactly one writer — the loop inside `GET /api/tasks/health`, the *dashboard's* 45s poll. Nothing on the MCP surface writes it (`get_task_health` wraps `/tools/task-health`), so with no browser tab open the matrix reported whatever the last poll left behind. **Fixed 2026-08-17**: health is derived from `connector.getHealth` at request time, as the diagnostics panel and the health route already did. **This is [#40](#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out) one layer down — a verdict from a cache instead of a precondition. The question: which code path writes this field, and is it running in the session doing the reading?** | [→](#66-two-cronsole-surfaces-disagree-about-the-agent-in-the-same-second) |
 | 65 | You export a task and there is nowhere to import it back. Tools → **Restore** offers `.json` in its file picker and then answers *"No task XML files found"*. Same dead end after a delete: the API returns `archived: true` with an `archiveId` and no verb turns it back into a task | **The export format had no reader.** `cronsoleTaskVersion` appeared in three places repo-wide — the bundle builder, the archive writer, and a test fixture — all writers. So Export produced something shaped like a backup that nothing could restore, and the pre-delete archive was a promise with no way to collect. Restore's `.json` is for the export *manifest*, not a task definition. **Fixed 2026-08-17**: Tools → **Import a task** (native `.json` + deleted-task restore), Restore keeps `.xml`/`.zip` (Windows), and `import_task` / `list_task_archives` / `restore_task_archive` over MCP. **The tell: grep your format constant — if every hit is a writer, the feature is half-built** | [→](#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it) |
@@ -4508,6 +4509,86 @@ reading `localStorage` (it was empty) — and both were checked only after a fix
 When the UI is telling you what it filtered by, the address bar outranks the logs.
 
 *First hit: 2026-08-19. Found by the user, after two agents had investigated the wrong layers.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 68. The Tailscale URL is dead for days while every other service is healthy
+
+**Symptom.** `http://my-pc.my-tailnet.ts.net:8080/` returns **502 Bad Gateway** with an empty body,
+from every device. Nothing else looks wrong: `cronsole status` says `ALL UP`, the dashboard works on
+the PC at `localhost:7373`, the agent is connected, and `tailscale status` lists both machines.
+
+`tailscale serve status` looks perfect, which is what sends you the wrong way:
+
+```
+http://my-pc.my-tailnet.ts.net:8080 (tailnet only)
+|-- / proxy http://127.0.0.1:8080
+```
+
+**Cause — the Caddy proxy container was stopped, and `restart: unless-stopped` means it.**
+
+The 502 is `tailscaled` reporting that *its upstream* refused the connection. The tell is one command:
+
+```console
+$ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/
+000                                   # nothing is listening at all
+
+$ docker ps -a --format '{{.Names}}\t{{.Status}}'
+taskhub-proxy-1   Exited (0) 2 days ago
+```
+
+**`Exited (0)` is the whole story, and it is Docker working exactly as designed.** `unless-stopped`
+restarts a container after a crash and after a reboot, but an *explicit* `docker compose stop` is a
+deliberate act it will not undo — that is the difference between it and `always`. So the proxy stayed
+down across two days and several reboots, and nothing ever said so.
+
+Two things then conspired to keep it invisible:
+
+- **The proxy is profile-gated** (`profiles: ["proxy", "remote"]`), deliberately — remote access is
+  opt-in ([§9](../../CLAUDE.md)), so nothing about it runs on a plain `docker compose up -d`. A
+  routine "bring everything back up" therefore *cannot* restart it, and doesn't fail either.
+- **`cronsole up` did not know the proxy existed**, so the `\Cronsole-Stack\CronsoleStack` task —
+  which re-runs `cronsole up` every 5 minutes precisely so a dead service comes back — self-healed
+  four services and walked past the fifth.
+
+**Do not debug Tailscale first.** Curl the tailnet name from the machine itself and read the status
+code, because the two failures are different codes and neither is a timeout:
+
+| What you get | What is actually wrong |
+|---|---|
+| **502**, empty body | `tailscale serve` is fine; **its upstream is down** — look at `127.0.0.1:8080` |
+| **404 page not found**, `Content-Type: text/plain` | `tailscale serve` answered, but no handler matched the **Host** you sent. Curling the tailnet *IP* does this every time — the handler is keyed on the hostname. Send `-H 'Host: my-pc.my-tailnet.ts.net:8080'` |
+| Connection refused / timeout | Now it is Tailscale: node key expiry, MagicDNS, or the device left the tailnet ([Remote Access Guide](../user-guides/guides/Remote_Access_Guide.md)) |
+
+**Fix — make the opt-in something the self-heal can see (2026-08-20).**
+
+```console
+$ cronsole remote on          # starts the proxy AND records the choice
+$ cronsole status             # the table now carries a Proxy :8080 row
+```
+
+`cronsole remote on` writes `.cronsole-remote` at the repo root (gitignored, per-machine), and
+`Invoke-Up` starts the compose `proxy` service whenever that marker is present. An explicit stop now
+lasts at most one 5-minute interval instead of lasting until somebody picks up their phone.
+
+**Why a marker file and not an environment variable.** The reader is a Scheduled Task. It runs with a
+bare environment that has never seen anything exported in a terminal — the same property that makes
+`CRONSOLE_TOKEN` vanish from an MCP host launched the wrong way ([#8](#8-every-mcp-tool-returns-403-invalid-or-expired-token)).
+An opt-in the self-healer cannot read is not an opt-in.
+
+**Why it stays opt-in rather than just always starting.** The proxy publishes the dashboard, and
+whether a machine does that is a property of the machine, not of the checkout — which is why the
+marker is gitignored and why `.gitignore` says so. Committing it would silently opt in every clone,
+which is the exact invariant the profile gate exists to protect.
+
+**The reusable question:** *which process is supposed to restart this, and is that process able to
+see that it should?* `restart: unless-stopped` and a 5-minute self-heal both look like coverage. The
+first excludes deliberate stops by design; the second only covers services its script enumerates. A
+service that is in neither set has no keeper at all, and the gap is silent in both directions.
+
+*First hit: 2026-08-20. Two days of downtime, noticed on a phone.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

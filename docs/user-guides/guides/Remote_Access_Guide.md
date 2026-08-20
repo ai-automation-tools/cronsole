@@ -270,11 +270,28 @@ through the tunnel *and* `http://localhost:8080` locally. That is what removes t
 > proxy. If you are on an older checkout, keep using `build:remote`.
 > ([#63](../../troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend))
 
-**2. Start the proxy and check it locally.**
+**2. Start the proxy — and tell this machine to keep starting it.**
 
 ```bash
-docker compose --profile proxy up -d
+pwsh scripts/cronsole.ps1 remote on
 ```
+
+This does two things: it starts the compose `proxy` service, and it records that **this machine**
+publishes its dashboard, in `.cronsole-remote` at the repo root. From then on `cronsole up` starts
+the proxy alongside Postgres and Redis — which matters because the `\Cronsole-Stack\CronsoleStack`
+task re-runs `cronsole up` every 5 minutes, so a proxy that goes down comes back on its own.
+
+**Do not skip the second half.** `docker compose --profile proxy up -d` starts the container and is
+all this guide used to say, but the container's `restart: unless-stopped` policy deliberately does
+*not* undo an explicit `docker compose stop` — and the proxy is profile-gated, so a later
+`docker compose up -d` cannot restart it either, and does not fail. That combination took the
+tailnet URL down for two days behind a completely healthy stack
+([#68](../../troubleshooting/README.md#68-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
+
+The marker is **per-machine and gitignored**: whether a machine publishes its dashboard is a
+property of that machine, not of the checkout. `cronsole remote off` revokes it and stops the proxy;
+a bare `cronsole remote` just reports which it is. Once it is on, `cronsole status` grows a
+**`Proxy :8080`** row, so a dead proxy is visible in the same table as everything else.
 
 It listens on **`127.0.0.1:8080`** — loopback only, deliberately. Publishing it to the LAN would
 be an unauthenticated-at-the-network-layer copy of exactly the thing the tunnel's access gate is
@@ -327,6 +344,8 @@ the host-run stack that `scripts/cronsole.ps1` starts.
 | Dashboard loads but shows "backend offline" | The API-origin override (Settings → About) isn't set to the reachable backend address, or the backend isn't listening on that interface. |
 | Tasks list is empty / CORS errors in console | The remote frontend origin isn't in `ALLOWED_ORIGINS` — add it and restart the backend. |
 | Live updates don't arrive | Same as above — the `/ui` Socket.IO connection needs the origin allowed and the backend reachable on `:3000`. |
+| The tailnet URL returns **502**, empty body, while everything else is healthy | `tailscale serve` is fine — **its upstream is down.** Check `curl http://127.0.0.1:8080/` (an `000` means nothing is listening) and `docker ps -a` (look for `taskhub-proxy-1  Exited (0)`). `restart: unless-stopped` never undoes a deliberate `docker compose stop`. Fix it *and keep it fixed* with `pwsh scripts/cronsole.ps1 remote on` ([#68](../../troubleshooting/README.md#68-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)). |
+| The tailnet URL returns **404 page not found**, plain text | That is `tailscale serve` itself, saying no handler matched the **Host** header. Its handler is keyed on the hostname, so curling the tailnet *IP* always does this — it is not a sign the proxy is down. Use the hostname, or `curl -H 'Host: my-pc.my-tailnet.ts.net:8080'`. |
 | Works on PC, not on phone | Confirm both devices are on the tailnet (Tailscale) or that the tunnel hostname resolves on the phone. |
 | Dashboard loads but is an **older version** than `:7373` | The proxy serves `frontend/dist`. Rebuild it (`npm run build`). ([#53](../../troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current)) |
 | Dashboard loads, is **up to date**, and cannot reach the backend | The opposite of the row above: the bundle has an absolute API address baked in rather than resolving same-origin. On a current checkout this only happens if `VITE_API_URL` is set to an absolute origin somewhere; on an older one it means `dist` was built with `npm run build` back when that baked in `http://localhost:3000`. Rebuild (`npm run build:remote` on an older checkout). ([#63](../../troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend)) |

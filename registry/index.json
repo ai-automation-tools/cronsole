@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-08-19T20:41:23.938Z",
+  "updatedAt": "2026-08-20T14:20:02.220Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1140,6 +1140,82 @@
       "sha256": "31a99a3e1b290692c8a86463fdae5f113836864c564913adf257510cdfc4d442"
     },
     {
+      "id": "bkp-system-restore-point",
+      "name": "Create a System Restore Point",
+      "description": "Create a Windows system restore point on a schedule, so there is a rollback point from before the week’s driver and application changes. This snapshots system state, not your files — pair it with a file backup rather than replacing one.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "windows",
+        "restore",
+        "system"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/bkp-system-restore-point.json",
+      "sha256": "50411090966077516f7faf4c7c164ca9736f3619efe174cafe1e0f95a9860106"
+    },
+    {
+      "id": "sys-defender-scan",
+      "name": "Run a Microsoft Defender Scan",
+      "description": "Start a Microsoft Defender antivirus scan on a schedule and let the run history record whether it completed. Choose a quick scan for a routine weekly sweep or a full scan when you can spare the machine for an hour.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "security",
+        "antivirus"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-defender-scan.json",
+      "sha256": "7fa642fd0b3769c0c74b94da41fea34e361eb29549eedc9cd52611088b48cf09"
+    },
+    {
+      "id": "mon-log-error-scan",
+      "name": "Scan a Log for Errors",
+      "description": "Search a log file for a pattern and fail the run when it matches, so a job that writes its problems to a file instead of alerting you still turns into something you can see. Supply the log to read and the text or regular expression that counts as trouble.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "logs",
+        "alert"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-log-error-scan.json",
+      "sha256": "f09f2e875fee4ca632d59f5b842674a37a0c9c29e82210728e4602e8ef5a5b0c"
+    },
+    {
+      "id": "mon-failed-scheduled-tasks",
+      "name": "Report Failed Scheduled Tasks",
+      "description": "Append every Windows scheduled task whose last run reported a non-zero result to a report file, so a task that has been failing quietly for a week shows up somewhere you read. Supply the file to append the report to.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "scheduler",
+        "report"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-failed-scheduled-tasks.json",
+      "sha256": "ec6c4f60e08c35a0901b4cd071e01c988dcd2f61ca08198911040bbb4825fe03"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -1491,6 +1567,26 @@
       ],
       "path": "templates/claude-routine-standup-digest.json",
       "sha256": "9e029cda298c06c1b0a80f539f3a35666df068f1b6329b8912dda5c6d692a4c8"
+    },
+    {
+      "id": "claude-routine-release-notes",
+      "name": "Routine: Release Notes Draft",
+      "description": "A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "release",
+        "changelog"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-release-notes.json",
+      "sha256": "cdaeed4fa658155b66558cafc09f2c578a4b63e88834b37f07dab1ab9134bea9"
     }
   ],
   "packs": [
@@ -1573,13 +1669,14 @@
         "bkp-folder-zip",
         "bkp-robocopy-mirror",
         "bkp-registry-export",
+        "bkp-system-restore-point",
         "cln-old-files",
         "cln-recycle-bin",
         "dev-docker-prune",
         "ai-claude-log-cleanup"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "d5c81c0495af3afcddc52dcfc7d5bb76bae9374f43386d5dcbb52e33b21500cf"
+      "sha256": "776fda1509137b249f004976f512800b3dcfb3c688b60e7c969162ac80453eae"
     },
     {
       "id": "monitoring",
@@ -1589,12 +1686,14 @@
         "mon-disk-report",
         "mon-ping-host",
         "mon-service-health",
+        "mon-log-error-scan",
+        "mon-failed-scheduled-tasks",
         "dev-docker-compose-up",
         "tpl_starter_webhook_windows",
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "78ce283c563bdedab2b685bb79270e38c0a7ef0cd81fca32916ecd9c5086eb86"
+      "sha256": "020f87fbf8dc5f519c60e81f326712085d322da9d56f2275a1c15ac1dd0fc13d"
     },
     {
       "id": "cronsole-native",
@@ -1628,10 +1727,11 @@
         "claude-routine-ci-failure-digest",
         "claude-routine-docs-drift",
         "claude-routine-standup-digest",
+        "claude-routine-release-notes",
         "tpl_starter_claude_routine"
       ],
       "path": "packs/claude-routines.json",
-      "sha256": "80394d84a1b0eb2db4d3306d0e093585cf26d69285ce3a511eb365ae2d3529b1"
+      "sha256": "9f4e7b9cfaf667f0774c012ee716602d317f14603f1c5f3e32d27c36838661eb"
     },
     {
       "id": "system-utilities",
@@ -1639,6 +1739,7 @@
       "description": "Windows housekeeping and plumbing: service restarts, DNS flushes, update scans, battery and event-log reports, cloud sync, and heartbeats.",
       "templateIds": [
         "sys-restart-service",
+        "sys-defender-scan",
         "sys-flush-dns",
         "sys-update-scan",
         "sys-battery-report",
@@ -1651,7 +1752,7 @@
         "ntf-windows-broadcast-message"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "9c68c64c5262d3fff19cc78f98ff4f1c2baade49f9099110ebfa6a6e358ae491"
+      "sha256": "27215940b244a1a31d8e23da4689ee94ae5c3ab2c878fd424afeccec9544d551"
     }
   ]
 }

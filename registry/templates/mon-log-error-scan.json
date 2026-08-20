@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-log-error-scan",
+  "name": "Scan a Log for Errors",
+  "description": "Search a log file for a pattern and fail the run when it matches, so a job that writes its problems to a file instead of alerting you still turns into something you can see. Supply the log to read and the text or regular expression that counts as trouble.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "windows",
+    "logs",
+    "alert"
+  ],
+  "icon": "FileSearch",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/20 * * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"if (Select-String -Path '{{logPath}}' -Pattern '{{pattern}}' -Quiet) { exit 1 }\"",
+  "parameters": [
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "The file to search. A wildcard such as C:\\logs\\*.log reads every matching file."
+    },
+    {
+      "key": "pattern",
+      "label": "Pattern that means trouble",
+      "type": "text",
+      "default": "ERROR",
+      "required": true,
+      "help": "Text or a regular expression. A match exits non-zero, which Cronsole records as a failed run. Avoid single quotes (they close the PowerShell string)."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

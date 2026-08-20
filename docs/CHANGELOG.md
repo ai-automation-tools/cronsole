@@ -13,6 +13,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Five new extended-tier catalog templates** (2026-08-20): Create a System Restore Point, Run a Microsoft Defender Scan, Scan a Log for Errors, Report Failed Scheduled Tasks, and Routine: Release Notes Draft — adding security hygiene and a rollback point to the Windows housekeeping families, turning a log file and the Task Scheduler's own failures into something a schedule can surface, and giving the Claude routines a release-notes draft.
+
 - **The public gallery page publishes itself too, to both its hosts** (2026-08-19). `registry-site/index.html` is one page served from two addresses — `cronsole.mikesailab.com` (the front door) and `mikesailab.com/cronsole-registry/` (beside the registry JSON it reads) — reached by two different publish paths. Merging a page change to `main` now runs **Publish front door** alongside **Publish registry**, so both hosts move together instead of depending on someone remembering the second script.
 
   **The failure this closes is a specific kind of quiet:** whichever host you happen to open looks correct, so the page could sit badly stale at the *other* address indefinitely and no amount of checking it in a browser would show you. The new **Front door drift** workflow compares sha256 over the bytes actually served at both hosts against the committed file, daily. The publish workflow also **refuses to publish when the target repo has lost its `CNAME`** — that file decides which domain the Pages repo answers on, and pushing over its absence produces a page nobody can reach at the documented address, with the push itself reporting success.

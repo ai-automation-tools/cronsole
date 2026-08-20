@@ -34,13 +34,13 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 77 templates (4 patterns + 9 dev + 7 ai + 20 starters + 19 extended + 6 native + 7 native scripts&checks + 5 claude routines)', () => {
-    expect(bundledCatalog).toHaveLength(77);
+  it('has the expected shape: 82 templates (4 patterns + 9 dev + 7 ai + 20 starters + 23 extended + 6 native + 7 native scripts&checks + 6 claude routines)', () => {
+    expect(bundledCatalog).toHaveLength(82);
     expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(24);
     expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(9);
     expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
     expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(13);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'))).toHaveLength(5);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'))).toHaveLength(6);
   });
 
   it('Cronsole-native is a real target — the pack that was missing until 2026-08-13', () => {
@@ -104,7 +104,7 @@ describe('bundled catalog snapshot', () => {
     // first template in the catalog that is guaranteed to work on a fresh
     // install rather than merely applicable to one.
     expect(core).toHaveLength(10);
-    expect(extended).toHaveLength(67);
+    expect(extended).toHaveLength(72);
     expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
     // Extended Pack templates use the ext-namespace prefixes and are never core.
     for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {
@@ -269,10 +269,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 77 normalized templates', async () => {
+  it('lists all 82 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(77);
+    expect(list).toHaveLength(82);
     expect(src.name).toBe('bundled');
   });
 });

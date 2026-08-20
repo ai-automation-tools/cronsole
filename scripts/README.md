@@ -25,7 +25,7 @@ the full details.
 | **`check-control-bytes.mjs`** | Fail on any literal control byte in a text file — tracked **and** untracked-but-not-ignored (a NUL once made a security-relevant file diff as binary; scanning only tracked files left new files invisible until the very commit that added them, see [#32](../docs/troubleshooting/README.md#33-a-rename-pass-silently-disables-the-back-compat-it-just-added--and-rewrites-the-tests-too)). Wired into CI as the `repo-hygiene` job. |
 | **`check-doc-links.mjs`** | Fail on any markdown link pointing at a file or heading that does not exist — **1298 links across 147 files**. A broken doc link does not 404: GitHub serves the page scrolled to the top, so a renamed heading silently starts delivering the wrong section and nothing anywhere reddens. The TaskHub rename left **13** dead links across `CHANGELOG.md` and `troubleshooting/README.md` from 2026-07-31 to 2026-08-17, through every green CI run. Wired into the `repo-hygiene` job. **Distinct from [`docsLinks.test.ts`](../frontend/src/data/__tests__/docsLinks.test.ts)**, which checks the links the *app* sends users to (`help.ts`, `onboarding.ts`); this one checks doc → doc, which that test cannot see. |
 | **`rename-stage1.mjs`** · **`rename-stage2.mjs`** | The scripted TaskHub → Cronsole rename (2026-07-31), kept so **stage 3 is a diff to a protection list rather than a fresh judgement call**. Stage 1 renamed in-repo identity only; stage 2 renamed what the machine points at. Each has an explicit `PROTECTED` list with a comment per entry explaining what would break. `--dry` reports without writing. |
-| [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Cronsole-Stack\CronsoleAgent` scheduled task (re-runs every 10 min as a self-heal). It now delegates to `cronsole.ps1 up`, so boot and manual control share one code path. |
+| [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Cronsole-Stack\` scheduled tasks (`CronsoleAgent` fires once at logon; `CronsoleStack` re-runs `cronsole.ps1 up` **every 5 minutes** as a self-heal). It now delegates to `cronsole.ps1 up`, so boot and manual control share one code path. |
 
 ## 🎛️ Controlling the stack (`cronsole.ps1`)
 
@@ -40,11 +40,25 @@ pwsh scripts\cronsole.ps1 status     # one table: every service, and how it was 
 pwsh scripts\cronsole.ps1 up         # start whatever's down (idempotent — safe to re-run)
 pwsh scripts\cronsole.ps1 restart    # stop the app tier, then bring it back
 pwsh scripts\cronsole.ps1 down       # stop backend + frontend + agent (leaves db/redis up)
-pwsh scripts\cronsole.ps1 down -All  # ...also stop the Docker db/redis containers
+pwsh scripts\cronsole.ps1 down -All  # ...also stop the Docker db/redis (+ proxy) containers
 pwsh scripts\cronsole.ps1 logs       # tail the backend/frontend logs
+
+pwsh scripts\cronsole.ps1 remote on  # publish the dashboard through the proxy, and KEEP it published
+pwsh scripts\cronsole.ps1 remote off # stop publishing it
+pwsh scripts\cronsole.ps1 remote     # say which this machine is
 ```
 
-`status` prints **ALL UP**, **DEGRADED**, **PARTIAL (n/5)**, or **DOWN** so you can
+**`remote` is the durability half of remote access.** The reverse proxy is opt-in by design
+(compose profile `proxy`, [§9](../CLAUDE.md)), so nothing starts it by accident — but that also
+means nothing restarted it after a `docker compose stop`, and `restart: unless-stopped` deliberately
+does not undo a deliberate stop. `remote on` starts it *and* records the choice in `.cronsole-remote`
+(gitignored, per-machine), which is what lets `up` — and therefore the 5-minute self-heal — bring it
+back. Without that marker the tailnet URL stays 502 until a human notices, which took two days
+([#70](../docs/troubleshooting/README.md#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
+A machine that has opted in grows a **`Proxy :8080`** row in `status`; one that has not shows no row
+at all, because a check with nothing to measure is omitted rather than rendered as a pass.
+
+`status` prints **ALL UP**, **DEGRADED**, **PARTIAL (n/5** — n/6 once `remote` is on**)**, or **DOWN** so you can
 tell at a glance. Docker db/redis carry `restart: unless-stopped`, so they recover
 from a crash or reboot on their own; the backend/frontend recover on the next
 auto-start self-heal (or immediately with `cronsole up`).

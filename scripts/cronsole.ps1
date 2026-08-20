@@ -11,12 +11,34 @@
     "which part is down?".
 
     Usage:
-      cronsole up        Start anything that isn't already running (idempotent)
-      cronsole down      Stop the backend, frontend, and agent (leaves db/redis up)
-      cronsole down -All Also stop the Docker db/redis containers
-      cronsole restart   down (app tier) then up
-      cronsole status    One table showing every service (default)
-      cronsole logs      Tail the backend/frontend/launcher logs
+      cronsole up          Start anything that isn't already running (idempotent)
+      cronsole down        Stop the backend, frontend, and agent (leaves db/redis up)
+      cronsole down -All   Also stop the Docker db/redis + proxy containers
+      cronsole restart     down (app tier) then up
+      cronsole status      One table showing every service (default)
+      cronsole logs        Tail the backend/frontend/launcher logs
+      cronsole remote on   Publish the dashboard through the reverse proxy, and
+                           keep it published (see Remote access below)
+      cronsole remote off  Stop publishing it
+      cronsole remote      Say whether this machine publishes it
+
+    REMOTE ACCESS
+
+    The single-origin reverse proxy (docker compose profile `proxy`, listening on
+    127.0.0.1:8080) is deliberately opt-in: a plain `docker compose up -d` does not
+    start it, and neither did `up` until this machine said it wanted it. Saying so
+    is `cronsole remote on`, which records the choice in `.cronsole-remote` at the
+    repo root - per-machine and gitignored, because whether a machine publishes its
+    dashboard is a property of the machine, not of the checkout.
+
+    Once recorded, `up` starts the proxy alongside db and redis, which is what makes
+    it SURVIVE. The container carries `restart: unless-stopped`, so it comes back on
+    its own after a reboot or a Docker restart - but NOT after an explicit
+    `docker compose stop`, which is Docker working as designed and how the tailnet
+    URL went dark for two days with every other service healthy. `up` is idempotent
+    and the \Cronsole-Stack\CronsoleStack task re-runs it every 5 minutes, so an
+    explicit stop now self-heals within one interval instead of lasting until
+    somebody notices (troubleshooting #70).
 
     Every service is probed by asking the SERVICE, not by checking whether its port
     is bound - /api/health for the backend, an HTTP GET for the frontend, pg_isready
@@ -31,8 +53,14 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'logs')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'logs', 'remote')]
     [string]$Command = 'status',
+
+    # Only meaningful for `remote`. Defaults to reporting rather than changing:
+    # a bare `cronsole remote` should never turn remote access on by accident.
+    [Parameter(Position = 1)]
+    [ValidateSet('on', 'off', 'status')]
+    [string]$Mode = 'status',
 
     [switch]$All
 )
@@ -46,6 +74,16 @@ $FrontendDir = Join-Path $RepoRoot 'frontend'
 $AgentExe    = Join-Path $RepoRoot 'agent\publish\Cronsole.Agent.exe'
 $LogDir      = Join-Path $RepoRoot 'logs'
 $Compose     = Join-Path $RepoRoot 'docker-compose.yml'
+$DistDir     = Join-Path $FrontendDir 'dist'
+
+# Per-machine opt-in for the reverse proxy. A FILE rather than an environment
+# variable because the reader is a Scheduled Task: it runs with a bare environment
+# that never sees anything exported in a terminal, and an opt-in the self-heal
+# cannot see is not an opt-in. Gitignored - see .gitignore.
+$RemoteMarker = Join-Path $RepoRoot '.cronsole-remote'
+$ProxyPort    = 8080
+
+function Test-RemoteEnabled { Test-Path $RemoteMarker }
 
 # The agent exe was renamed TaskHub.Agent -> Cronsole.Agent on 2026-07-31. A process
 # that STARTED before that rename is still named TaskHub.Agent, and it holds every
@@ -204,6 +242,25 @@ function Get-FrontendProbe {
     return New-Probe 'DOWN' 'nothing on :7373' 'run: cronsole up' $false
 }
 
+function Get-ProxyProbe {
+    # Ask the proxy for a PAGE, not for the port. Caddy answers on :8080 whether or
+    # not /srv has anything in it, so a bare port check would report UP at a proxy
+    # serving 404 to every phone on the tailnet - the frontend/dist staleness trap
+    # (troubleshooting #53) one step worse, because dist can be absent entirely.
+    $code = Get-HttpStatus ("http://127.0.0.1:{0}/" -f $ProxyPort)
+    if ($code -ge 200 -and $code -lt 400) {
+        if (-not (Test-Path (Join-Path $DistDir 'index.html'))) {
+            return New-Probe 'WARN' "GET / -> $code" 'serving, but frontend\dist has no index.html - run: npm run build:remote'
+        }
+        return New-Probe 'UP' "GET / -> $code"
+    }
+    if ($code -gt 0) { return New-Probe 'WARN' "GET / -> $code" 'the proxy answers but not with a page - is frontend\dist built? (npm run build:remote)' }
+    if (Test-PortBound $ProxyPort) {
+        return New-Probe 'WARN' ":$ProxyPort bound, no HTTP answer" 'something holds the port while the proxy behind it is dead'
+    }
+    return New-Probe 'DOWN' "nothing on :$ProxyPort" 'run: cronsole up' $false
+}
+
 function Get-AgentProbe {
     # The agent binds nothing - it dials OUT - so the process is the only signal
     # available locally. Whether it is CONNECTED is a different question, and only
@@ -274,6 +331,14 @@ function Invoke-Status {
         [pscustomobject]@{ Service = 'Frontend :7373'; Where = 'host';   Probe = (Get-FrontendProbe) }
         [pscustomobject]@{ Service = 'Windows agent';  Where = 'host';   Probe = (Get-AgentProbe) }
     )
+
+    # The proxy is a row only on a machine that opted in. On every other machine
+    # there is nothing to measure, and a check with nothing to measure is omitted -
+    # rendering it as DOWN would put a permanent red line under a stack that is
+    # completely healthy, and rendering it as UP would be a lie.
+    if (Test-RemoteEnabled) {
+        $rows += [pscustomobject]@{ Service = "Proxy :$ProxyPort"; Where = 'docker'; Probe = (Get-ProxyProbe) }
+    }
 
     Write-Host ''
     Write-Host '  Cronsole stack' -ForegroundColor Cyan
@@ -417,8 +482,36 @@ function Invoke-Up {
         Write-Host "  WARNING: agent exe not found at $AgentExe (publish it first)" -ForegroundColor Yellow
     }
 
+    # 5. Reverse proxy - only where this machine asked for it (`cronsole remote on`).
+    # This step is the whole reason remote access is durable. `restart: unless-stopped`
+    # survives reboots but NOT an explicit `docker compose stop`, so without a starter
+    # that runs on a schedule the proxy stays down until a human notices the tailnet
+    # URL is dead - which took two days (troubleshooting #70).
+    if (Test-RemoteEnabled) { Start-Proxy }
+
     Start-Sleep -Seconds 2
     Invoke-Status
+}
+
+function Start-Proxy {
+    $proxy = Get-ProxyProbe
+    if ($proxy.State -eq 'UP') { Write-Host "  proxy already up ($($proxy.Signal))"; return }
+
+    # Name the profile AND the service. The service carries `profiles:`, so a bare
+    # `up -d proxy` is silently a no-op on compose versions that do not auto-enable
+    # a named service's profile - a no-op that prints success is the failure mode
+    # this whole change exists to remove.
+    & $Docker compose -f $Compose --profile proxy up -d proxy 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host '  WARNING: docker compose up for the proxy failed - is Docker running?' -ForegroundColor Yellow
+        return
+    }
+    Write-Host "  proxy up (docker, 127.0.0.1:$ProxyPort)"
+
+    if (-not (Test-Path (Join-Path $DistDir 'index.html'))) {
+        Write-Host '  WARNING: frontend\dist has no index.html - the proxy will serve 404 to every' -ForegroundColor Yellow
+        Write-Host '           remote device. Build it:  cd frontend; npm run build:remote' -ForegroundColor Yellow
+    }
 }
 
 function Invoke-Down {
@@ -447,8 +540,73 @@ function Invoke-Down {
         Write-Host 'Stopping data services (docker)...'
         & $Docker compose -f $Compose stop db redis 2>&1 | Out-Null
         Write-Host '  db + redis stopped'
+        if (Test-RemoteEnabled) {
+            & $Docker compose -f $Compose stop proxy 2>&1 | Out-Null
+            Write-Host '  proxy stopped'
+            # Deliberately does NOT clear the marker. `down -All` is "stop things now",
+            # not "stop publishing this machine" - and the next `up`, including the
+            # 5-minute one, is meant to bring the proxy back. Use `cronsole remote off`
+            # to actually revoke the opt-in.
+            Write-Host '  (still opted in - the next "cronsole up" restarts it; "cronsole remote off" to opt out)'
+        }
     } else {
         Write-Host '  (db/redis left running - use "-All" to stop them too)'
+    }
+}
+
+function Invoke-Remote {
+    switch ($Mode) {
+        'on' {
+            if (Test-RemoteEnabled) {
+                Write-Host 'Remote access is already on for this machine.'
+            } else {
+                # Content is for the human who finds this file, not for the script -
+                # Test-Path is the whole read. Timestamped so "when did this machine
+                # start publishing?" has an answer.
+                Set-Content -Path $RemoteMarker -Encoding ASCII -Value @(
+                    '# Cronsole: this machine publishes its dashboard through the reverse proxy.',
+                    '# Created by: cronsole remote on',
+                    ('# On: {0}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
+                    '#',
+                    '# Presence of this file is the whole signal. `cronsole up` reads it and starts',
+                    '# the docker compose `proxy` service; delete it (or run `cronsole remote off`)',
+                    '# and `up` leaves the proxy alone. Per-machine and gitignored on purpose.'
+                )
+                Write-Host 'Remote access ON for this machine.' -ForegroundColor Green
+                Write-Host "  marker: $RemoteMarker"
+            }
+            Start-Proxy
+            Write-Host ''
+            Write-Host 'The proxy is loopback-only by design. To reach it from another device you'
+            Write-Host 'still need a tunnel in front of it - see docs\user-guides\guides\Remote_Access_Guide.md'
+            Write-Host '  Tailscale:  tailscale serve --bg --http=8080 http://127.0.0.1:8080'
+        }
+        'off' {
+            if (Test-RemoteEnabled) {
+                Remove-Item $RemoteMarker -Force -ErrorAction SilentlyContinue
+                Write-Host 'Remote access OFF for this machine.' -ForegroundColor Yellow
+            } else {
+                Write-Host 'Remote access is already off for this machine.'
+            }
+            & $Docker compose -f $Compose stop proxy 2>&1 | Out-Null
+            Write-Host '  proxy stopped'
+            Write-Host ''
+            Write-Host 'The tunnel in front of it is separate and is STILL PUBLISHED. Stop it too,'
+            Write-Host 'or the tailnet URL stays live and answers 502:'
+            Write-Host '  tailscale serve --https=443 off   (or: tailscale serve reset)'
+        }
+        default {
+            if (Test-RemoteEnabled) {
+                $proxy = Get-ProxyProbe
+                Write-Host 'Remote access: ON for this machine.' -ForegroundColor Green
+                Write-Host "  marker: $RemoteMarker"
+                Write-Host ("  proxy : {0} ({1})" -f $proxy.State, $proxy.Signal)
+                if ($proxy.Hint) { Write-Host "          $($proxy.Hint)" -ForegroundColor DarkGray }
+            } else {
+                Write-Host 'Remote access: OFF for this machine.'
+                Write-Host '  turn it on with:  cronsole remote on'
+            }
+        }
     }
 }
 
@@ -466,4 +624,5 @@ switch ($Command) {
     'restart' { Invoke-Down; Start-Sleep -Seconds 2; Invoke-Up }
     'status'  { Invoke-Status }
     'logs'    { Invoke-Logs }
+    'remote'  { Invoke-Remote }
 }

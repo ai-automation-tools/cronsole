@@ -139,3 +139,10 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
 frontend/.playwright/
+# --- Remote-access opt-in (per-machine; created by `cronsole remote on`) ---
+# Presence of this file tells scripts/cronsole.ps1 to start the docker compose
+# `proxy` service, which is what makes remote access survive a reboot or an
+# explicit `docker compose stop`. Whether a machine publishes its dashboard is a
+# property of THAT MACHINE, not of the checkout - committing it would silently
+# opt every clone in, which is exactly the invariant the profile gate protects.
+/.cronsole-remote

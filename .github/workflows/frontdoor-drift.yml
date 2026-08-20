@@ -1,0 +1,39 @@
+# Do both public hosts serve the gallery page that is on main?
+#
+# The sibling of registry-drift.yml, for the other published surface. Kept as
+# its own workflow rather than a second job there because the two answer
+# different questions and fail for different reasons: that one compares a
+# content-addressed JSON artifact, this one compares rendered HTML bytes across
+# two hosts. A single red "drift" check covering both would need reading twice
+# to learn which surface is wrong.
+#
+# The particular quiet failure here: whichever host you happen to open looks
+# fine, so the page can be badly stale at the OTHER address and nothing you do
+# in a browser reveals it.
+name: Front door drift
+
+on:
+  schedule:
+    # 13:20 UTC daily, ten minutes behind the registry check, so if a bad
+    # publish breaks both the notifications arrive in a readable order rather
+    # than as two simultaneous failures.
+    - cron: '20 13 * * *'
+  workflow_dispatch:
+
+jobs:
+  drift:
+    name: Both hosts serve the current gallery page
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compare both hosts against the committed page
+        run: node scripts/check-frontdoor-published.mjs

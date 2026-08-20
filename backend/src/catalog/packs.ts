@@ -120,6 +120,8 @@ export const bundledPacks: BundledPack[] = [
       'tpl_weekly_system_cleanup',
       'bkp-folder-zip',
       'bkp-robocopy-mirror',
+      'bkp-registry-export',
+      'bkp-system-restore-point',
       'cln-old-files',
       'cln-recycle-bin',
       'dev-docker-prune',
@@ -135,6 +137,8 @@ export const bundledPacks: BundledPack[] = [
       'mon-disk-report',
       'mon-ping-host',
       'mon-service-health',
+      'mon-log-error-scan',
+      'mon-failed-scheduled-tasks',
       'dev-docker-compose-up',
       'tpl_starter_webhook_windows',
       'tpl_starter_webhook_macos'
@@ -164,6 +168,7 @@ export const bundledPacks: BundledPack[] = [
       // pack per job type would split that answer four ways.
       'native-script-starter',
       'native-script-powershell-disk-report',
+      'native-script-ssl-cert-expiry',
       'native-check-endpoint-healthy',
       'native-check-backup-fresh',
       'native-check-disk-space',
@@ -189,6 +194,7 @@ export const bundledPacks: BundledPack[] = [
       'claude-routine-ci-failure-digest',
       'claude-routine-docs-drift',
       'claude-routine-standup-digest',
+      'claude-routine-release-notes',
       'tpl_starter_claude_routine'
     ]
   },
@@ -205,13 +211,17 @@ export const bundledPacks: BundledPack[] = [
       'Windows housekeeping and plumbing: service restarts, DNS flushes, update scans, battery and event-log reports, cloud sync, and heartbeats.',
     templateIds: [
       'sys-restart-service',
+      'sys-defender-scan',
       'sys-flush-dns',
       'sys-update-scan',
       'sys-battery-report',
+      'sys-scheduled-reboot',
       'data-export-eventlog',
       'data-rclone-sync',
+      'data-scp-upload',
       'ntf-discord-heartbeat',
-      'ntf-log-heartbeat'
+      'ntf-log-heartbeat',
+      'ntf-windows-broadcast-message'
     ]
   }
 ];

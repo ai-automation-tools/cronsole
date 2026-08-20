@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-system-restore-point",
+  "name": "Create a System Restore Point",
+  "description": "Create a Windows system restore point on a schedule, so there is a rollback point from before the week’s driver and application changes. This snapshots system state, not your files — pair it with a file backup rather than replacing one.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "windows",
+    "restore",
+    "system"
+  ],
+  "icon": "History",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * 1"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Checkpoint-Computer -Description '{{description}}' -RestorePointType MODIFY_SETTINGS\"",
+  "parameters": [
+    {
+      "key": "description",
+      "label": "Restore point description",
+      "type": "text",
+      "default": "Cronsole scheduled restore point",
+      "required": true,
+      "help": "The label shown in System Restore. Avoid single quotes (they close the PowerShell string)."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

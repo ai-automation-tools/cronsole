@@ -54,7 +54,7 @@ means nothing restarted it after a `docker compose stop`, and `restart: unless-s
 does not undo a deliberate stop. `remote on` starts it *and* records the choice in `.cronsole-remote`
 (gitignored, per-machine), which is what lets `up` — and therefore the 5-minute self-heal — bring it
 back. Without that marker the tailnet URL stays 502 until a human notices, which took two days
-([#68](../docs/troubleshooting/README.md#68-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
+([#70](../docs/troubleshooting/README.md#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
 A machine that has opted in grows a **`Proxy :8080`** row in `status`; one that has not shows no row
 at all, because a check with nothing to measure is omitted rather than rendered as a pass.
 

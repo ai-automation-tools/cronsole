@@ -286,7 +286,7 @@ all this guide used to say, but the container's `restart: unless-stopped` policy
 *not* undo an explicit `docker compose stop` — and the proxy is profile-gated, so a later
 `docker compose up -d` cannot restart it either, and does not fail. That combination took the
 tailnet URL down for two days behind a completely healthy stack
-([#68](../../troubleshooting/README.md#68-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
+([#70](../../troubleshooting/README.md#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
 
 The marker is **per-machine and gitignored**: whether a machine publishes its dashboard is a
 property of that machine, not of the checkout. `cronsole remote off` revokes it and stops the proxy;
@@ -344,7 +344,7 @@ the host-run stack that `scripts/cronsole.ps1` starts.
 | Dashboard loads but shows "backend offline" | The API-origin override (Settings → About) isn't set to the reachable backend address, or the backend isn't listening on that interface. |
 | Tasks list is empty / CORS errors in console | The remote frontend origin isn't in `ALLOWED_ORIGINS` — add it and restart the backend. |
 | Live updates don't arrive | Same as above — the `/ui` Socket.IO connection needs the origin allowed and the backend reachable on `:3000`. |
-| The tailnet URL returns **502**, empty body, while everything else is healthy | `tailscale serve` is fine — **its upstream is down.** Check `curl http://127.0.0.1:8080/` (an `000` means nothing is listening) and `docker ps -a` (look for `taskhub-proxy-1  Exited (0)`). `restart: unless-stopped` never undoes a deliberate `docker compose stop`. Fix it *and keep it fixed* with `pwsh scripts/cronsole.ps1 remote on` ([#68](../../troubleshooting/README.md#68-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)). |
+| The tailnet URL returns **502**, empty body, while everything else is healthy | `tailscale serve` is fine — **its upstream is down.** Check `curl http://127.0.0.1:8080/` (an `000` means nothing is listening) and `docker ps -a` (look for `taskhub-proxy-1  Exited (0)`). `restart: unless-stopped` never undoes a deliberate `docker compose stop`. Fix it *and keep it fixed* with `pwsh scripts/cronsole.ps1 remote on` ([#70](../../troubleshooting/README.md#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)). |
 | The tailnet URL returns **404 page not found**, plain text | That is `tailscale serve` itself, saying no handler matched the **Host** header. Its handler is keyed on the hostname, so curling the tailnet *IP* always does this — it is not a sign the proxy is down. Use the hostname, or `curl -H 'Host: my-pc.my-tailnet.ts.net:8080'`. |
 | Works on PC, not on phone | Confirm both devices are on the tailnet (Tailscale) or that the tunnel hostname resolves on the phone. |
 | Dashboard loads but is an **older version** than `:7373` | The proxy serves `frontend/dist`. Rebuild it (`npm run build`). ([#53](../../troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current)) |

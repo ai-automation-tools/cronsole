@@ -38,7 +38,7 @@
     URL went dark for two days with every other service healthy. `up` is idempotent
     and the \Cronsole-Stack\CronsoleStack task re-runs it every 5 minutes, so an
     explicit stop now self-heals within one interval instead of lasting until
-    somebody notices (troubleshooting #68).
+    somebody notices (troubleshooting #70).
 
     Every service is probed by asking the SERVICE, not by checking whether its port
     is bound - /api/health for the backend, an HTTP GET for the frontend, pg_isready
@@ -486,7 +486,7 @@ function Invoke-Up {
     # This step is the whole reason remote access is durable. `restart: unless-stopped`
     # survives reboots but NOT an explicit `docker compose stop`, so without a starter
     # that runs on a schedule the proxy stays down until a human notices the tailnet
-    # URL is dead - which took two days (troubleshooting #68).
+    # URL is dead - which took two days (troubleshooting #70).
     if (Test-RemoteEnabled) { Start-Proxy }
 
     Start-Sleep -Seconds 2

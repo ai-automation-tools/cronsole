@@ -190,6 +190,49 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "claude-routine-release-notes",
+      "name": "Routine: Release Notes Draft",
+      "description": "A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "release",
+        "changelog"
+      ],
+      "icon": "Tag",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 16 * * 4"
+      },
+      "commandTemplate": "Read the pull requests and commits merged into {{repo}} since the tag {{sinceTag}}. Draft release notes grouped into new features, fixes, and breaking changes, each entry one sentence describing what changed for someone using the software, with the pull request or commit it came from. Leave out refactors and internal chores that change nothing a user can observe. Write the draft only — do not tag a release, edit the changelog, or push anything.",
+      "parameters": [
+        {
+          "key": "repo",
+          "label": "Repository",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The owner/name of the repository to read. Attach the same repository to the routine so it has a checkout."
+        },
+        {
+          "key": "sinceTag",
+          "label": "Since tag",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The release tag the notes start after, e.g. v1.4.0. Everything merged after it is considered."
+        }
+      ],
+      "compatibleTargets": [
+        "claude-code"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "tpl_starter_claude_routine",
       "name": "Claude Code Routine",
       "description": "Run a natural-language Claude Code routine on a schedule.",

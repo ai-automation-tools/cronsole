@@ -1,0 +1,38 @@
+# Is the hosted registry actually serving what main says it should?
+#
+# The backstop for publish-registry.yml. That workflow can fail in ways that do
+# not redden anything a person looks at: a revoked deploy key, a path filter
+# that stops matching, a run that never triggered. Every one of those failure
+# modes looks exactly like "nobody changed the registry lately" from inside the
+# repo, because the committed artifact is still correct -- it is the CDN that is
+# behind, and no test in the suite can see the CDN.
+#
+# So this asks the only question that matters, on a schedule, against the real
+# public URL. It reports; it does not repair.
+name: Registry drift
+
+on:
+  schedule:
+    # 13:10 UTC daily. Offset off the hour because GitHub queues scheduled jobs
+    # hardest on the hour, and a delayed drift check is a check that reports
+    # yesterday.
+    - cron: '10 13 * * *'
+  workflow_dispatch:
+
+jobs:
+  drift:
+    name: Hosted registry matches main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compare the hosted registry against the committed artifact
+        run: node scripts/check-registry-published.mjs

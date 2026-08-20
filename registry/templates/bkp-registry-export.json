@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-registry-export",
+  "name": "Backup a Registry Key",
+  "description": "Export a Windows Registry key to a .reg file on a schedule — a lightweight way to snapshot configuration before it drifts or before a risky change.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "windows",
+    "registry"
+  ],
+  "icon": "Save",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 2 * * 0"
+  },
+  "commandTemplate": "reg export \"{{keyPath}}\" \"{{outFile}}\" /y",
+  "parameters": [
+    {
+      "key": "keyPath",
+      "label": "Registry key path",
+      "type": "text",
+      "default": "HKLM\\SOFTWARE\\MyApp",
+      "required": true,
+      "help": "Full registry path to export, e.g. HKLM\\SOFTWARE\\MyApp."
+    },
+    {
+      "key": "outFile",
+      "label": "Output .reg path",
+      "type": "path",
+      "default": "C:\\backups\\registry-backup.reg",
+      "required": true,
+      "help": "Where to write the exported key. /y overwrites an existing file."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

@@ -322,7 +322,7 @@ Non-negotiable rules. **Every one has a reason recorded in
   reader is a Scheduled Task with a bare environment — and `cronsole up` starts the proxy from it, so
   the 5-minute self-heal covers it. `restart: unless-stopped` never undoes a deliberate stop and a
   profile gate blocks a plain `compose up`, so without this the proxy has **no keeper at all**
-  ([#68](docs/troubleshooting/README.md#68-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
+  ([#70](docs/troubleshooting/README.md#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
 - **Exactly one account-creation path: `POST /api/auth/setup`** (first run only). **Never re-add a
   register route for a test** — an integration test pins its 404.
 - **`ALLOWED_ORIGINS` is one list gating two surfaces** (REST CORS + the Socket.IO handshake), parsed
@@ -333,9 +333,21 @@ Non-negotiable rules. **Every one has a reason recorded in
 
 ### Template catalog
 - **Templates are content, not code.** Edit `backend/src/catalog/bundled.ts` → `npm run registry:build`
-  → `pwsh scripts/publish-registry.ps1`. **The drift test catches an unbuilt `registry/`; nothing
-  catches an unpublished one** — installs fetch the hosted registry, so an unpublished fix is still
-  broken for every user.
+  → commit `registry/` → **merge to `main`, which publishes itself**
+  (`.github/workflows/publish-registry.yml`). **The drift test catches an unbuilt `registry/`; the
+  daily `Registry drift` workflow catches an unpublished one**
+  (`scripts/check-registry-published.mjs`, comparing the live index's ids and sha256s against the
+  committed artifact) — a stale CDN and a correct `registry/` are indistinguishable from inside the
+  repo, so no test in the suite can see it. `pwsh scripts/publish-registry.ps1` remains the manual
+  path and now **refuses to publish from anything but up-to-date `main`** (`-Force` to override):
+  it mirrors the working tree, so a branch behind `main` republishes an older catalog and prints
+  *"Published."* ([#68](docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)).
+- **Who a stale registry actually hurts is narrower than it looks.** `TEMPLATE_REGISTRY_URL` is
+  commented out in `backend/.env.example` by default, so a default install reads the compiled-in
+  `bundled.ts` and needs no publish at all. The hosted artifact is what the **public gallery** serves
+  and what an install that opts in syncs — and `catalogSync` auto-syncs only `core: true` rows, so
+  extended templates reach a user by being browsed and imported. Publish because the gallery is
+  advertising a catalog it does not have, not because installs are broken.
 - Registry files are **content-addressed** (sha256 over exact bytes): keep them LF, never hand-edit
   `registry/`. The registry base URL is **frozen** at `https://mikesailab.com/cronsole-registry/` —
   GitHub does not redirect renamed Pages paths, so there is no second free move.
@@ -389,8 +401,8 @@ three weeks — confidently doing the wrong thing.
 | An MCP env var, or how it's read | [`mcp-server/.env.example`](mcp-server/.env.example) + the config table in **both** READMEs |
 | A new invariant or architectural rule | §9 here + the invariants table in `SKILL.md` (rationale → [`DESIGN_NOTES.md`](docs/DESIGN_NOTES.md)) |
 | **Anything that took real digging** | [`troubleshooting/README.md`](docs/troubleshooting/README.md) **and** the traps table in `SKILL.md` |
-| The catalog (`bundled.ts`, `packs.ts`) | `npm run registry:build`, then **`pwsh scripts/publish-registry.ps1`** — nothing fails on an unpublished registry |
-| A capability or claim the public gallery states | [`registry-site/index.html`](registry-site/README.md), then **both** `publish-registry.ps1` **and** `publish-frontdoor.ps1` (one page, two hosts) |
+| The catalog (`bundled.ts`, `packs.ts`) | `npm run registry:build` and **commit `registry/`** — merging to `main` publishes it (`publish-registry.yml`), and the daily **Registry drift** check reddens if that ever stops working |
+| A capability or claim the public gallery states | [`registry-site/index.html`](registry-site/README.md) — merging to `main` publishes it to **both** hosts (`publish-registry.yml` + `publish-frontdoor.yml`), and **Front door drift** checks both daily. One page, two hosts, so a fix that reaches one and not the other is the failure to look for |
 | A field on a probe or action shape | The gallery's renderer — a *partial* reading is worse than raw JSON; absent and malformed are different facts |
 | A new platform / connector / catalog rule | §9 here + `SKILL.md` + the relevant `skills/cronsole/references/*.md` |
 | Renamed or removed a doc heading the app deep-links to | The matching `HelpTopic.doc` / `more` anchor in [`frontend/src/data/help.ts`](frontend/src/data/help.ts) (`docsLinks.test.ts` catches this) |
@@ -406,10 +418,22 @@ Two asymmetries: **the repo wins** — when the skill and a doc disagree, fix th
 belongs in a backend route.
 
 **Published surfaces are mirror surfaces too, and they stay wrong after a green build and a clean
-push**: the hosted registry and the gallery page are read by *other people's machines*. Both publish
-scripts `git reset --hard origin/main` their working clone
-(`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — **never keep manual work there**;
-both exclude `README.md` and `CNAME`, which the public repos own.
+push**: the hosted registry and the gallery page are read by *other people's machines*. **Both now
+publish on merge and are checked daily** — `publish-registry.yml` + `publish-frontdoor.yml`,
+`registry-drift.yml` + `frontdoor-drift.yml`. The two publish scripts remain the manual path and
+both now **refuse any branch that is not up-to-date `main`**; both `git reset --hard origin/main`
+their working clone (`Repos/Tools/cronsole-registry`, `Repos/Tools/cronsole-site`) — **never keep
+manual work there** — and both exclude `README.md` and `CNAME`, which the public repos own. `CNAME`
+is infrastructure, not content: it decides which domain a Pages repo answers on, so the front-door
+workflow **fails** when the target has none rather than publishing a page nobody can reach.
+
+**One page, two hosts, so it is checked at both.** `registry-site/index.html` is served from
+`cronsole.mikesailab.com` *and* `mikesailab.com/cronsole-registry/`, by two different publish paths —
+so the stale half is whichever one you did not happen to open. `check-frontdoor-published.mjs`
+compares sha256 over the served bytes at both, **LF-normalized**: a CRLF working tree makes the same
+commit pass on Linux and fail on Windows, and makes a manual publish copy different bytes than CI
+([#69](docs/troubleshooting/README.md#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not)).
+`registry-site/**` is pinned `text eol=lf` for the same reason `registry/**` is.
 
 ---
 

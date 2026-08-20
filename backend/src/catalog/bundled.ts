@@ -1198,6 +1198,75 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'outFile', label: 'Output .reg path', type: 'path', default: 'C:\\backups\\registry-backup.reg', required: true, help: 'Where to write the exported key. /y overwrites an existing file.' }
     ],
     compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'bkp-system-restore-point',
+    name: 'Create a System Restore Point',
+    description: 'Create a Windows system restore point on a schedule, so there is a rollback point from before the week\u2019s driver and application changes. This snapshots system state, not your files — pair it with a file backup rather than replacing one.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'backup',
+    tags: ['backup', 'windows', 'restore', 'system'],
+    icon: 'History',
+    trigger: sched('0 3 * * 1'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Checkpoint-Computer -Description \'{{description}}\' -RestorePointType MODIFY_SETTINGS"',
+    parameters: [
+      { key: 'description', label: 'Restore point description', type: 'text', default: 'Cronsole scheduled restore point', required: true, help: 'The label shown in System Restore. Avoid single quotes (they close the PowerShell string).' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-defender-scan',
+    name: 'Run a Microsoft Defender Scan',
+    description: 'Start a Microsoft Defender antivirus scan on a schedule and let the run history record whether it completed. Choose a quick scan for a routine weekly sweep or a full scan when you can spare the machine for an hour.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'system',
+    tags: ['system', 'windows', 'security', 'antivirus'],
+    icon: 'ShieldCheck',
+    trigger: sched('0 5 * * 6'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Start-MpScan -ScanType {{scanType}}"',
+    parameters: [
+      { key: 'scanType', label: 'Scan type', type: 'select', options: ['QuickScan', 'FullScan'], default: 'QuickScan', required: true, help: 'QuickScan checks the places malware usually starts and finishes in minutes; FullScan reads every file and can run for hours.' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-log-error-scan',
+    name: 'Scan a Log for Errors',
+    description: 'Search a log file for a pattern and fail the run when it matches, so a job that writes its problems to a file instead of alerting you still turns into something you can see. Supply the log to read and the text or regular expression that counts as trouble.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'logs', 'alert'],
+    icon: 'FileSearch',
+    trigger: sched('*/20 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "if (Select-String -Path \'{{logPath}}\' -Pattern \'{{pattern}}\' -Quiet) { exit 1 }"',
+    parameters: [
+      { key: 'logPath', label: 'Log file path', type: 'path', default: '', required: true, help: 'The file to search. A wildcard such as C:\\logs\\*.log reads every matching file.' },
+      { key: 'pattern', label: 'Pattern that means trouble', type: 'text', default: 'ERROR', required: true, help: 'Text or a regular expression. A match exits non-zero, which Cronsole records as a failed run. Avoid single quotes (they close the PowerShell string).' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-failed-scheduled-tasks',
+    name: 'Report Failed Scheduled Tasks',
+    description: 'Append every Windows scheduled task whose last run reported a non-zero result to a report file, so a task that has been failing quietly for a week shows up somewhere you read. Supply the file to append the report to.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'scheduler', 'report'],
+    icon: 'CalendarClock',
+    trigger: sched('0 13 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-ScheduledTask | Get-ScheduledTaskInfo | Where-Object LastTaskResult -ne 0 | Format-Table TaskName, LastRunTime, LastTaskResult | Out-File -Append \'{{reportPath}}\'"',
+    parameters: [
+      { key: 'reportPath', label: 'Report file path', type: 'path', default: 'C:\\reports\\failed-tasks.txt', required: true, help: 'Where to append the list of failing tasks. Reading every task needs the run to be elevated on most machines.' }
+    ],
+    compatibleTargets: ['windows']
   }
 ];
 
@@ -1815,6 +1884,26 @@ const claudeRoutinesPack: RegistryTemplate[] = [
       'Summarize activity in {{repo}} since yesterday morning: what merged, what is waiting on review, and what has been open long enough to be stuck. Write it as a short standup update in plain sentences, no bullet lists longer than five items.',
     parameters: [
       { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The repository to summarize.' }
+    ],
+    compatibleTargets: ['claude-code']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'claude-routine-release-notes',
+    name: 'Routine: Release Notes Draft',
+    description:
+      'A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'claude-code', 'routine', 'release', 'changelog'],
+    icon: 'Tag',
+    trigger: sched('0 16 * * 4'),
+    commandTemplate:
+      'Read the pull requests and commits merged into {{repo}} since the tag {{sinceTag}}. Draft release notes grouped into new features, fixes, and breaking changes, each entry one sentence describing what changed for someone using the software, with the pull request or commit it came from. Leave out refactors and internal chores that change nothing a user can observe. Write the draft only — do not tag a release, edit the changelog, or push anything.',
+    parameters: [
+      { key: 'repo', label: 'Repository', type: 'text', default: '', required: true, help: 'The owner/name of the repository to read. Attach the same repository to the routine so it has a checkout.' },
+      { key: 'sinceTag', label: 'Since tag', type: 'text', default: '', required: true, help: 'The release tag the notes start after, e.g. v1.4.0. Everything merged after it is considered.' }
     ],
     compatibleTargets: ['claude-code']
   }

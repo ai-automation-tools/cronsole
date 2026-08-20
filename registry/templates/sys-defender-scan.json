@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-defender-scan",
+  "name": "Run a Microsoft Defender Scan",
+  "description": "Start a Microsoft Defender antivirus scan on a schedule and let the run history record whether it completed. Choose a quick scan for a routine weekly sweep or a full scan when you can spare the machine for an hour.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "security",
+    "antivirus"
+  ],
+  "icon": "ShieldCheck",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 5 * * 6"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Start-MpScan -ScanType {{scanType}}\"",
+  "parameters": [
+    {
+      "key": "scanType",
+      "label": "Scan type",
+      "type": "select",
+      "default": "QuickScan",
+      "required": true,
+      "options": [
+        "QuickScan",
+        "FullScan"
+      ],
+      "help": "QuickScan checks the places malware usually starts and finishes in minutes; FullScan reads every file and can run for hours."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

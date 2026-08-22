@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Bot, Upload } from 'lucide-react';
+import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Bot, Upload, KeyRound } from 'lucide-react';
 import { importTaskFile, TaskFileImportError } from '../utils/importTaskFile';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
@@ -12,6 +12,7 @@ import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 import { HelpButton } from './HelpButton';
 import { sourceTopicId } from '../data/help';
 import { NativeJobFields } from './edit/NativeJobFields';
+import { TaskSecretsFields, type PendingSecret } from './edit/TaskSecretsFields';
 import {
   emptyNativeJobValues,
   nativeJobPayload,
@@ -62,6 +63,13 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   // `NativeJobFields` renders it and `nativeJobPayload` serializes it, so the
   // wire format has one definition.
   const [job, setJob] = useState<NativeJobValues>(emptyNativeJobValues);
+  /*
+   * Collected locally and sent WITH the create (ADR 0003). There is no task to
+   * PUT to yet, and doing it as a second request afterwards would mean a task
+   * could exist holding a reference to a credential that failed to store — the
+   * half-created state the atomic form exists to avoid.
+   */
+  const [secrets, setSecrets] = useState<PendingSecret[]>([]);
 
   // Where a native task will actually run. Read from the platform matrix rather
   // than assumed: the same spec means "your machine" on a host-run backend and
@@ -188,7 +196,12 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
         // EXEC job still goes as a command *line* — the server tokenizes it with
         // the parser the Windows path uses, so a security-relevant parse has one
         // definition and the browser never holds a copy of it.
-        job: nativeJobPayload(job)
+        job: nativeJobPayload(job),
+        // Omitted entirely when empty, so a create that uses no secrets sends
+        // the same body it always did.
+        ...(secrets.length
+          ? { secrets: Object.fromEntries(secrets.map(sec => [sec.name, sec.value])) }
+          : {})
       });
     },
     onSuccess: (res: unknown) => {
@@ -212,6 +225,21 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
             'success'
           );
         }
+        onClose();
+        return;
+      }
+      // The server's own answer to "does this task have what it needs to run",
+      // not a re-derivation of it. It is reported even on success because a task
+      // that was created and cannot start is exactly the state a success toast
+      // would otherwise paper over until its first scheduled run.
+      const missing = (res as { data?: { missingSecrets?: string[] } })?.data?.missingSecrets ?? [];
+      if (missing.length) {
+        toast(
+          `Cronsole task "${name}" created, but it refers to ${missing.length === 1 ? 'a secret that is not set' : 'secrets that are not set'}: ` +
+          `${missing.join(', ')}. Open the task → Edit → Secrets to store ${missing.length === 1 ? 'it' : 'them'}; ` +
+          'until then it will refuse to start rather than run with a blank credential.',
+          'error'
+        );
         onClose();
         return;
       }
@@ -535,6 +563,25 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                   </span>
                 </div>
               )}
+
+              {/*
+                Secrets, collected here and sent WITH the create (ADR 0003).
+                Always rendered rather than gated on the job containing a
+                reference: the point is to be able to write `${secret.TOKEN}`
+                into a header in the first place, and a section that only appears
+                once you have already typed the syntax teaches nobody the syntax.
+              */}
+              <div className="space-y-2 pt-2 border-t border-border">
+                <span className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <KeyRound size={11} /> Secrets<HelpButton topic="task-secrets" />
+                </span>
+                <TaskSecretsFields
+                  job={job}
+                  mode="pending"
+                  pending={secrets}
+                  onPendingChange={setSecrets}
+                />
+              </div>
             </>
           )}
 

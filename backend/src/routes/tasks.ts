@@ -10,6 +10,13 @@ import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { buildNativeJob } from '../services/nativeJob.js';
+import { missingSecretRefs, secretRefsIn } from '../services/jobSecrets.js';
+import {
+  deleteTaskSecret,
+  listTaskSecretNames,
+  setTaskSecret,
+  TaskSecretError
+} from '../services/taskSecrets.js';
 import { queueFailureNotification } from '../services/FailureNotificationService.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-conversion.js';
@@ -671,21 +678,40 @@ const createNativeSchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
   category: z.string().trim().min(1).optional(),
   schedule: z.string().trim().min(1, 'schedule is required'),
-  job: z.unknown() // semantic validation stays in validateJob (shared with the executor)
+  job: z.unknown(), // semantic validation stays in validateJob (shared with the executor)
+  /**
+   * Secret name → value, encrypted at rest and never returned (ADR 0003).
+   *
+   * Accepted on **create only**, so that making a task and giving it its
+   * credential is one gesture. Every other write is per secret
+   * (`PUT /:id/secrets/:name`), because a whole-set write is what destroys the
+   * secrets a client forgot to resend — and there is no read path to notice
+   * with. Name and length rules live in `validateSecret`, one definition shared
+   * with those routes.
+   */
+  secrets: z.record(z.string(), z.string()).optional()
 });
 
 // Create a Cronsole-native task (scheduled + executed by the backend itself —
 // docs/resources/Native_Tasks.md). Richer than the connector createTask path
 // because it takes a full job spec instead of a command string.
 router.post('/native', validateBody(createNativeSchema), async (req: Request, res: Response) => {
-  const { name, category, schedule, job } = req.body;
+  const { name, category, schedule, job, secrets } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   // Normalization, cron validation, the row, the capability evidence and the UI
   // notification all live in `createNativeTask`, shared with the import and
   // archive-restore paths — see the note there for why the split is at this line.
-  const task = await createNativeTask(userId, { name, category, schedule, job }).catch(rethrowNativeCreate);
-  res.json({ message: 'Native task created', task });
+  const created = await createNativeTask(userId, { name, category, schedule, job, secrets })
+    .catch(rethrowNativeCreate);
+  // `missingSecrets` is always present, empty when there is nothing to say —
+  // same rule as `foldersCreated` on the generic create, and for the same
+  // reason: an absent key is not an answer.
+  res.json({
+    message: 'Native task created',
+    task: created.task,
+    missingSecrets: created.missingSecrets
+  });
 });
 
 /** A create refusal is bad input, not a bug — 400, with the reason it gave. */
@@ -732,8 +758,17 @@ router.post('/import', async (req: Request, res: Response) => {
     throw err;
   }
 
-  const task = await createNativeTask(userId, parsed).catch(rethrowNativeCreate);
-  res.status(201).json({ message: 'Task imported', task, nextRunTime: task.nextRunTime });
+  const created = await createNativeTask(userId, parsed).catch(rethrowNativeCreate);
+  // A bundle carries a job that *names* its secrets and holds none of them —
+  // deliberately, since a value in a downloaded file is the thing ADR 0003
+  // exists to prevent. So the honest answer to "did this import?" is "yes, and
+  // here is what it still needs", not a refusal and not silence.
+  res.status(201).json({
+    message: 'Task imported',
+    task: created.task,
+    nextRunTime: created.task.nextRunTime,
+    missingSecrets: created.missingSecrets
+  });
 });
 
 const patchNativeJobSchema = z.object({
@@ -810,12 +845,151 @@ router.patch('/:id/job', validateBody(patchNativeJobSchema), async (req: Request
     data: { metadata: { ...meta, job: nativeJob } as unknown as Prisma.InputJsonValue }
   });
 
+  // Secrets are untouched by a job edit, and that is the whole reason they live
+  // in their own row rather than inside the job (ADR 0003): this route
+  // *replaces* the job, so a secret stored inside one would be destroyed by
+  // every schedule-adjacent edit. What the new job may have changed is which
+  // secrets it *needs* — reported, never silently left for 3am.
+  const stored = await listTaskSecretNames(id);
+
   // The write IS the change here, so success is known rather than reported —
   // unlike the Windows path, which records only after the agent confirms.
   await recordCapability(userId, PlatformType.TASKHUB_NATIVE, 'updateAction', true);
   notifyTasksChanged(userId);
-  res.json(updated);
+  res.json({ ...updated, missingSecrets: missingSecretRefs(nativeJob, stored.names) });
 });
+
+/**
+ * The secrets a Cronsole-native job refers to — **names only, always** (ADR 0003).
+ *
+ * There is no route anywhere that returns a value. That is not a filter this
+ * handler applies and a future one could forget; it is the absence of a read
+ * path, which is why the values live in a relation Prisma does not load by
+ * default rather than in a column every task read would carry.
+ *
+ * `referenced` is what the *job* asks for and `stored` is what the task *has*,
+ * reported separately rather than merged into one list. They disagree in both
+ * directions and the two disagreements mean different things: a referenced
+ * secret that is not stored is a task that will refuse to run, while a stored
+ * secret nothing references is harmless clutter left behind by an edit. One
+ * merged list would have to pick which of those to be wrong about.
+ *
+ * `unreadable` is a third state and never collapses into "none". A row that
+ * exists and cannot be decrypted (`ENCRYPTION_KEY` changed) reports zero names
+ * either way, and calling that "no secrets" would tell the user to set values
+ * that are already there — absence of evidence is `unknown`, never `ok`.
+ */
+router.get('/:id/secrets', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) throw new HttpError(404, 'Task not found');
+  requireNativeForSecrets(task.platform);
+
+  const stored = await listTaskSecretNames(id);
+  const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+    ? (task.metadata as Record<string, unknown>)
+    : {};
+
+  res.json({
+    stored: stored.names,
+    referenced: secretRefsIn(meta.job),
+    missing: missingSecretRefs(meta.job, stored.names),
+    unreadable: stored.unreadable,
+    // One timestamp for the row, and named for the event that writes it. A
+    // per-secret `updatedAt` would be a real timestamp of the wrong thing, which
+    // is the shape troubleshooting #42 is about.
+    secretsUpdatedAt: stored.updatedAt
+  });
+});
+
+const putSecretSchema = z.object({ value: z.string() });
+
+/**
+ * Store one secret. Write-only: the response says what the task now holds, by
+ * name, and never echoes what was sent.
+ *
+ * **`PUT` on a named secret rather than `POST` to a collection**, because
+ * setting a secret and replacing it are the same act — a credential is rotated
+ * far more often than it is first entered, and a create/replace split would make
+ * the common case the one that needs to know whether it already exists.
+ */
+router.put('/:id/secrets/:name', validateBody(putSecretSchema), async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const name = req.params.name as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) throw new HttpError(404, 'Task not found');
+  requireNativeForSecrets(task.platform);
+
+  let stored: string[];
+  try {
+    stored = await setTaskSecret(id, name, req.body.value);
+  } catch (err) {
+    if (err instanceof TaskSecretError) throw new HttpError(400, err.message);
+    throw err;
+  }
+
+  const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+    ? (task.metadata as Record<string, unknown>)
+    : {};
+  notifyTasksChanged(userId);
+  res.json({ message: `Secret "${name}" saved`, stored, missing: missingSecretRefs(meta.job, stored) });
+});
+
+/**
+ * Remove one secret.
+ *
+ * Deleting one the job still references is **allowed and reported**, not
+ * refused: you may well be removing it precisely because you are about to edit
+ * the job, and a delete that refuses until the job changes first makes the two
+ * halves of one intention block each other. The response names what the task
+ * will now refuse to run on.
+ */
+router.delete('/:id/secrets/:name', async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const name = req.params.name as string;
+  const userId = (req as AuthRequest).user!.id;
+
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) throw new HttpError(404, 'Task not found');
+  requireNativeForSecrets(task.platform);
+
+  const removed = await deleteTaskSecret(id, name);
+  if (!removed) throw new HttpError(404, `This task has no secret called "${name}".`);
+
+  const stored = await listTaskSecretNames(id);
+  const meta = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+    ? (task.metadata as Record<string, unknown>)
+    : {};
+  notifyTasksChanged(userId);
+  res.json({
+    message: `Secret "${name}" removed`,
+    stored: stored.names,
+    missing: missingSecretRefs(meta.job, stored.names)
+  });
+});
+
+/**
+ * Secrets belong to a Cronsole-native job, and the refusal says why rather than
+ * 404ing on a route that exists.
+ *
+ * Every other platform owns its own definition, so a credential Cronsole stored
+ * would never reach the thing that runs the task — it would be a secret with no
+ * consumer, which is worse than none.
+ */
+function requireNativeForSecrets(platform: PlatformType): void {
+  if (platform !== PlatformType.TASKHUB_NATIVE) {
+    throw new HttpError(
+      400,
+      `Task secrets belong to a Cronsole-native job; this one is ${platform}. Cronsole runs native ` +
+        'jobs itself, so it can substitute a stored secret into one — every other platform owns its ' +
+        'own definition, and a secret Cronsole held would never reach the thing that runs the task.'
+    );
+  }
+}
 
 // Get health for all connectors
 /**

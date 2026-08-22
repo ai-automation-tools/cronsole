@@ -143,6 +143,7 @@ describe('the tool surface', () => {
       'list_platforms',
       'list_run_history',
       'list_task_archives',
+      'list_task_secrets',
       'list_tasks',
       'list_templates',
       'rename_task',
@@ -1542,7 +1543,7 @@ describe('update_native_job', () => {
     const { client } = stubClient({ 'PATCH /tasks/n1/job': task });
     const mcp = await connect(client);
     const r = await call(mcp, 'update_native_job', { taskId: 'n1', jobType: 'HTTP', url: 'https://e.com' });
-    expect(text(r)).toMatch(/schedule, name and run history were preserved/i);
+    expect(text(r)).toMatch(/schedule, name, run history and stored secrets were preserved/i);
 
     const tool = (await mcp.listTools()).tools.find(t => t.name === 'update_native_job');
     // Replace-not-patch and the Windows alternative both have to be in the
@@ -1756,6 +1757,7 @@ describe('error handling across the surface', () => {
       'GET /tools/history': boom,
       'POST /tasks/import': boom,
       'GET /tools/task-archives': boom,
+      'GET /tasks/x/secrets': boom,
       'POST /tools/task-archives/arc_1/restore': boom
     });
     const mcp = await connect(client, true);
@@ -1792,6 +1794,7 @@ describe('error handling across the surface', () => {
       ['update_native_job', { taskId: 'x', jobType: 'HTTP', url: 'https://e.com' }],
       ['import_task', { bundle: { cronsoleTaskVersion: '1.0' } }],
       ['list_task_archives', {}],
+      ['list_task_secrets', { taskId: 'x' }],
       ['restore_task_archive', { archiveId: 'arc_1' }]
     ];
     // Every registered tool must appear above — a new tool that skips this guard

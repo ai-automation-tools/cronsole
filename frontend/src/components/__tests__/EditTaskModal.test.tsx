@@ -3,7 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { Task } from '../../types';
 
-vi.mock('../../api', () => ({ api: { patch: vi.fn(), get: vi.fn(), post: vi.fn(), delete: vi.fn() } }));
+vi.mock('../../api', () => ({
+  api: { patch: vi.fn(), get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }
+}));
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock('../../hooks/useToast', () => ({ useToast: () => ({ toast: toastMock }) }));
@@ -109,6 +111,12 @@ beforeEach(() => {
   vi.mocked(api.patch).mockResolvedValue({ data: {} });
   // ScheduleFields debounces a conversion preview against the backend.
   vi.mocked(api.post).mockResolvedValue({ data: { score: 1, warnings: [] } });
+  // A native task's Secrets section reads its own route (ADR 0003). Stubbed to
+  // "none" so these tests stay about the three-route fan-out; the secrets
+  // behaviour has its own file.
+  vi.mocked(api.get).mockResolvedValue({
+    data: { stored: [], referenced: [], missing: [], unreadable: false, secretsUpdatedAt: null }
+  });
 });
 
 /**

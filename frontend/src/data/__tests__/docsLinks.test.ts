@@ -10,6 +10,7 @@ import sourcesGuideDoc from '../../../../docs/user-guides/guides/Sources_Guide.m
 import agentSetupGuide from '../../../../docs/user-guides/guides/Agent_Setup_Guide.md?raw';
 import templatesDoc from '../../../../docs/reports/templates/Templates.md?raw';
 import troubleshooting from '../../../../docs/troubleshooting/README.md?raw';
+import adrPerJobSecrets from '../../../../docs/adr/0003-per-job-secrets.md?raw';
 
 import { describe, it, expect } from 'vitest';
 import { DOCS_BASE } from '../docs';
@@ -41,7 +42,8 @@ const DOC_SOURCES: Record<string, string> = {
   'docs/user-guides/guides/Sources_Guide.md': sourcesGuideDoc,
   'docs/user-guides/guides/Agent_Setup_Guide.md': agentSetupGuide,
   'docs/reports/templates/Templates.md': templatesDoc,
-  'docs/troubleshooting/README.md': troubleshooting
+  'docs/troubleshooting/README.md': troubleshooting,
+  'docs/adr/0003-per-job-secrets.md': adrPerJobSecrets
 };
 
 /**

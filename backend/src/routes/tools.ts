@@ -1178,9 +1178,9 @@ router.post('/task-archives/:id/restore', async (req: Request, res: Response) =>
     throw err;
   }
 
-  let task;
+  let created;
   try {
-    task = await createNativeTask(userId, parsed);
+    created = await createNativeTask(userId, parsed);
   } catch (err) {
     if (err instanceof NativeTaskCreateError) throw new HttpError(400, err.message);
     throw err;
@@ -1188,12 +1188,18 @@ router.post('/task-archives/:id/restore', async (req: Request, res: Response) =>
 
   res.status(201).json({
     message: 'Task restored',
-    task,
-    nextRunTime: task.nextRunTime,
+    task: created.task,
+    nextRunTime: created.task.nextRunTime,
     archiveId: archive.id,
     // Stated rather than implied: the caller is looking at a list of deletions
     // and needs to know this one is still in it.
-    archiveKept: true
+    archiveKept: true,
+    // The archive never held the task's secrets — they are destroyed with the
+    // row by design (ADR 0003), because an archive that outlives the delete is
+    // the last place a credential should survive it. So a restored task comes
+    // back with its references intact and its values gone, and this names them
+    // instead of leaving the first scheduled run to.
+    missingSecrets: created.missingSecrets
   });
 });
 

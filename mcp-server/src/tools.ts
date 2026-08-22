@@ -8,7 +8,7 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *   read      list_tasks · list_templates · list_folders · get_task_history ·
  *             export_task · convert_schedule · list_platforms · get_task_health ·
  *             get_diagnostics · list_run_history · list_task_archives ·
- *             list_claude_routines
+ *             list_task_secrets · list_claude_routines
  *   create    create_task · create_native_task · create_native_program_task ·
  *             create_native_script_task · create_native_check_task ·
  *             create_task_from_template · import_task · restore_task_archive ·
@@ -19,11 +19,17 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  *             connect_claude_routine · edit_claude_routine · disconnect_claude_routine
  *   destroy   delete_task            (native-only, and only when allowDestructive)
  *
- * That is 33 tools, and this list is a mirror surface like any other: it drifts
+ * That is 34 tools, and this list is a mirror surface like any other: it drifts
  * silently, because nothing imports it. It was last found describing 17 tools —
  * the set as of the first expansion — while the file registered 33. Regenerate it
  * from the file rather than appending to it by hand:
  *   grep -n "server.registerTool(" -A1 src/tools.ts
+ *
+ * One deliberate absence, so it is not read as an oversight: **no tool writes a
+ * secret value** (ADR 0003). `list_task_secrets` reports names; the values are
+ * entered in the app. A tool call is a chat transcript, and a credential that
+ * passes through a model's context has already left the place the encryption at
+ * rest was protecting.
  *
  * Each tool is a thin call through CronsoleClient into the REST API. Business
  * rules (owner scoping, no-shell command structuring, agent signing, cron→trigger
@@ -49,6 +55,25 @@ import { CronsoleClient, CronsoleApiError } from './client.js';
  * API still ignores, so the guarantee would hold only for callers who went
  * through this wrapper — i.e. not a guarantee.
  */
+
+/**
+ * The secrets paragraph every job-writing tool description ends with — ADR 0003.
+ *
+ * One definition, appended rather than retyped, because five tool descriptions
+ * each carrying their own wording is five things that drift apart the first time
+ * the rule changes. It is a description and not a parameter on purpose: **no tool
+ * on this surface accepts a secret value**, so the only thing the model can
+ * usefully be told is how to write the reference and who sets the value.
+ */
+const SECRET_REF_NOTE =
+  'SECRETS — do NOT put a credential in this call. Any free-text field below may carry ' +
+  '`${secret.NAME}` instead: Cronsole substitutes it from an encrypted per-task store at run time and ' +
+  'redacts the value back out of the run log. Legal in a url, a header value, a body, an arg and an ' +
+  'env value — never in an executable name, an interpreter or a check assertion, which are refused by ' +
+  'name. Values are set in the app (open the task → Edit → Secrets) and by NO tool on this server, ' +
+  'because a tool call is a chat transcript. Create the task with the reference: the result lists it ' +
+  'under missingSecrets until the user stores it, list_task_secrets reports the state, and until then ' +
+  'the task refuses to START rather than running with a blank credential.';
 
 export interface ToolOptions {
   /**
@@ -329,6 +354,29 @@ function ok(text: string, structuredContent: Record<string, unknown>) {
     content: [{ type: 'text' as const, text }],
     structuredContent
   };
+}
+
+/**
+ * The line a create/import/restore result adds when the task's job refers to a
+ * secret nobody has set — ADR 0003.
+ *
+ * **Empty string when there is nothing to say, and never silence when there is.**
+ * A task created with an unresolved `${secret.NAME}` is a legal state (an import
+ * carries the reference and never the value), but it is one that fails at its
+ * first scheduled run — so the moment to say so is the moment it is created, not
+ * 3am. The tool cannot fix it either: no MCP tool sets a secret value, and the
+ * sentence says where to.
+ */
+function missingSecretsNote(missing: unknown): string {
+  const names = Array.isArray(missing) ? missing.filter(n => typeof n === 'string') : [];
+  if (!names.length) return '';
+  return (
+    `
+⚠ This task's job refers to ${names.length === 1 ? 'a secret that is not set' : 'secrets that are not set'}: ` +
+    `${names.join(', ')}. It will refuse to run until ${names.length === 1 ? 'it is' : 'they are'} stored. ` +
+    'Secret VALUES cannot be set over MCP — a tool call is a chat transcript — so the user sets ' +
+    'them in Cronsole (open the task → Edit → Secrets). Use list_task_secrets to check.'
+  );
 }
 
 const compactTask = (t: TaskRow) => ({
@@ -925,7 +973,8 @@ export function registerTools(
         'itself, with no agent and no machine to be logged into. Use this instead of create_task when the job ' +
         'IS an HTTP call and you need more than a plain GET: this takes a full job spec (method, headers, body), ' +
         'where create_task with platform=TASKHUB_NATIVE only accepts a URL. ' +
-        'Good for pinging a health endpoint, triggering a webhook, or poking a deploy hook.',
+        'Good for pinging a health endpoint, triggering a webhook, or poking a deploy hook. ' +
+        SECRET_REF_NOTE,
       inputSchema: {
         name: z.string().describe('Task name.'),
         url: z.string().describe('The URL to request. Must be absolute, e.g. "https://example.com/health".'),
@@ -969,14 +1018,17 @@ export function registerTools(
         const payload: Record<string, unknown> = { name, schedule, job };
         if (category) payload.category = category;
 
-        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/native', payload);
+        const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
         const task = result.task;
         const created = task
           ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
             (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Native task created';
-        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+        return ok(`${msg}${created}${missingSecretsNote(result.missingSecrets)}`, {
+          task: task ? compactTask(task) : null,
+          missingSecrets: result.missingSecrets ?? []
+        });
       } catch (err) {
         return toolError(err);
       }
@@ -1009,7 +1061,8 @@ export function registerTools(
         'user\'s environment is unknown, and prefer create_task with platform=WINDOWS_TASK_SCHEDULER for a job ' +
         'that must run as the user on their desktop or survive Cronsole being down. ' +
         'The command is tokenized server-side and run with NO SHELL, so pipes, redirection and && are ordinary ' +
-        'characters — name cmd.exe /c or /bin/sh -c explicitly if the job genuinely needs them.',
+        'characters — name cmd.exe /c or /bin/sh -c explicitly if the job genuinely needs them.' +
+        SECRET_REF_NOTE,
       inputSchema: {
         name: z.string().describe('Task name.'),
         command: z
@@ -1047,7 +1100,7 @@ export function registerTools(
         const payload: Record<string, unknown> = { name, schedule, job };
         if (category) payload.category = category;
 
-        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/native', payload);
+        const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
         const task = result.task;
         const created = task
           ? `
@@ -1056,7 +1109,10 @@ ${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task
 Next run: ${task.nextRunTime}` : '')
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Native task created';
-        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+        return ok(`${msg}${created}${missingSecretsNote(result.missingSecrets)}`, {
+          task: task ? compactTask(task) : null,
+          missingSecrets: result.missingSecrets ?? []
+        });
       } catch (err) {
         return toolError(err);
       }
@@ -1086,7 +1142,8 @@ Next run: ${task.nextRunTime}` : '')
         'there: "node" always does (Cronsole runs on it), while powershell/pwsh/python may not — prefer node ' +
         'unless the user asked for a specific language or the executionHost on the Cronsole-native row of ' +
         'GET /api/tools/platforms says otherwise. ' +
-        'Unlike a program job, the body IS a shell script for its interpreter, so pipes and && work normally.',
+        'Unlike a program job, the body IS a shell script for its interpreter, so pipes and && work normally.' +
+        SECRET_REF_NOTE,
       inputSchema: {
         name: z.string().describe('Task name.'),
         interpreter: z
@@ -1129,14 +1186,17 @@ Next run: ${task.nextRunTime}` : '')
         const payload: Record<string, unknown> = { name, schedule, job };
         if (category) payload.category = category;
 
-        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/native', payload);
+        const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
         const task = result.task;
         const created = task
           ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
             (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Native script task created';
-        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+        return ok(`${msg}${created}${missingSecretsNote(result.missingSecrets)}`, {
+          task: task ? compactTask(task) : null,
+          missingSecrets: result.missingSecrets ?? []
+        });
       } catch (err) {
         return toolError(err);
       }
@@ -1158,7 +1218,8 @@ Next run: ${task.nextRunTime}` : '')
         'A failed check is a fact about the user\'s system, so these are the runs worth alerting on. ' +
         'The fileFresh and diskFree probes measure the filesystem of the machine the Cronsole BACKEND runs on, ' +
         'which is the container on a Dockerized stack — check executionHost on the Cronsole-native row of ' +
-        'GET /api/tools/platforms before using a path the user gave you from their desktop.',
+        'GET /api/tools/platforms before using a path the user gave you from their desktop.' +
+        SECRET_REF_NOTE,
       inputSchema: {
         name: z.string().describe('Task name.'),
         schedule: z
@@ -1244,14 +1305,17 @@ Next run: ${task.nextRunTime}` : '')
         };
         if (args.category) payload.category = args.category;
 
-        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/native', payload);
+        const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/native', payload);
         const task = result.task;
         const created = task
           ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
             (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Native check created';
-        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+        return ok(`${msg}${created}${missingSecretsNote(result.missingSecrets)}`, {
+          task: task ? compactTask(task) : null,
+          missingSecrets: result.missingSecrets ?? []
+        });
       } catch (err) {
         return toolError(err);
       }
@@ -1596,7 +1660,8 @@ Next run: ${task.nextRunTime}` : '')
         'A script job runs **wherever the backend runs**, which is inside the container on a Dockerized install — ' +
         'check `executionHost` on the Cronsole-native row of list_platforms before assuming a path resolves. ' +
         'The command is tokenized server-side and run with **no shell**: for pipes or `&&`, name one explicitly, ' +
-        'e.g. `cmd.exe /c "…"`.',
+        'e.g. `cmd.exe /c "…"`.' +
+        SECRET_REF_NOTE,
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks). Must be a TASKHUB_NATIVE task.'),
         jobType: z
@@ -1643,13 +1708,91 @@ Next run: ${task.nextRunTime}` : '')
           job.workingDirectory = workingDirectory;
         }
 
-        const task = await client.patch<TaskRow>(`/tasks/${encodeURIComponent(taskId)}/job`, { job });
+        const task = await client.patch<TaskRow & { missingSecrets?: string[] }>(
+          `/tasks/${encodeURIComponent(taskId)}/job`,
+          { job }
+        );
         const what = jobType === 'HTTP' ? `${method ?? 'GET'} ${url}` : command;
         return ok(
           `Job updated: ${task.name} now runs \`${what}\`.` +
-          '\nThe schedule, name and run history were preserved.',
-          { taskId, jobType, task: compactTask(task) }
+          '\nThe schedule, name, run history and stored secrets were preserved.' +
+          missingSecretsNote(task.missingSecrets),
+          { taskId, jobType, task: compactTask(task), missingSecrets: task.missingSecrets ?? [] }
         );
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // list_task_secrets — names only, and there is no tool that writes a value
+  // -------------------------------------------------------------------------
+  //
+  // The read half of ADR 0003, and deliberately the ONLY half on this surface.
+  // No tool here accepts a secret value, because a tool call is a chat
+  // transcript: the value would pass through the model's context, into the
+  // host's history file, and on a hosted model out to a vendor — three places
+  // the encryption at rest exists to keep it out of. Same reasoning that omits
+  // the bulk verbs: friction has to scale with blast radius, and MCP has no
+  // gesture that corresponds to typing into a password field.
+  //
+  // What an agent genuinely needs is the *diagnosis* — "this task will not run
+  // because SLACK_TOKEN is not set" — and that is names, which are safe.
+  server.registerTool(
+    'list_task_secrets',
+    {
+      title: 'List the secrets a Cronsole-native task uses',
+      description:
+        'Report the secrets a Cronsole-**native** task refers to and the ones it actually has stored — ' +
+        'BY NAME ONLY. Secret values are AES-256-GCM encrypted and no Cronsole API returns one, so there is ' +
+        'nothing here to read them with and no tool on this server that can set one. ' +
+        'Use this to explain a job that refuses to run: a native job refers to a stored secret as ' +
+        '`${secret.NAME}` inside its url, headers, body, args or env, and a reference with nothing behind it ' +
+        'makes the run fail to START (it is reported as ran=false, not as a failed check). ' +
+        'The three lists mean different things and are kept apart on purpose: `referenced` is what the job ' +
+        'asks for, `stored` is what the task has, and `missing` is the intersection that will break it. ' +
+        'A stored secret nothing references is harmless leftovers from an edit. ' +
+        'To FIX a missing one, tell the user to open the task in Cronsole → Edit → Secrets and enter the ' +
+        'value there; do not ask them to paste it into this conversation. ' +
+        'If `unreadable` is true a store exists that cannot be decrypted — ENCRYPTION_KEY changed, the ' +
+        'values are gone, and they must be re-entered. That is NOT the same as having no secrets, which is ' +
+        'why it is a separate field rather than an empty list.',
+      inputSchema: {
+        taskId: z.string().describe('The Cronsole task id (from list_tasks). Must be a TASKHUB_NATIVE task.')
+      }
+    },
+    async ({ taskId }) => {
+      try {
+        const result = await client.get<{
+          stored: string[];
+          referenced: string[];
+          missing: string[];
+          unreadable: boolean;
+          secretsUpdatedAt: string | null;
+        }>(`/tasks/${encodeURIComponent(taskId)}/secrets`);
+
+        const lines = [
+          `Referenced by the job: ${result.referenced.length ? result.referenced.join(', ') : 'none'}`,
+          `Stored on the task: ${result.stored.length ? result.stored.join(', ') : 'none'}` +
+            (result.secretsUpdatedAt ? ` (last changed ${result.secretsUpdatedAt})` : '')
+        ];
+        if (result.unreadable) {
+          lines.push(
+            '⚠ This task HAS a stored secret set that cannot be decrypted — ENCRYPTION_KEY has changed ' +
+            'since it was saved. The values are unrecoverable; they must be re-entered in Cronsole.'
+          );
+        } else if (result.missing.length) {
+          lines.push(
+            `⚠ Missing: ${result.missing.join(', ')} — this task will refuse to run until ${
+              result.missing.length === 1 ? 'it is' : 'they are'
+            } set. Values are entered in Cronsole (open the task → Edit → Secrets); no MCP tool can set one.`
+          );
+        } else if (result.referenced.length) {
+          lines.push('Every secret this job refers to is set.');
+        }
+
+        return ok(lines.join('\n'), { taskId, ...result });
       } catch (err) {
         return toolError(err);
       }
@@ -2471,14 +2614,17 @@ Next run: ${task.nextRunTime}` : '')
         // The body IS the file — no wrapper. Every check (version, platform,
         // job spec) is the backend's, so an import through this tool and an
         // import through the UI cannot accept different files.
-        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks/import', bundle);
+        const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>('/tasks/import', bundle);
         const task = result.task;
         const created = task
           ? `\n${task.name} [${task.platform}] — ${task.schedule ?? 'no schedule'} — ${task.status} (id: ${task.id})` +
             (task.nextRunTime ? `\nNext run: ${task.nextRunTime}` : '')
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Task imported';
-        return ok(`${msg}${created}`, { task: task ? compactTask(task) : null });
+        return ok(`${msg}${created}${missingSecretsNote(result.missingSecrets)}`, {
+          task: task ? compactTask(task) : null,
+          missingSecrets: result.missingSecrets ?? []
+        });
       } catch (err) {
         return toolError(err);
       }
@@ -2567,7 +2713,7 @@ Next run: ${task.nextRunTime}` : '')
     },
     async ({ archiveId }) => {
       try {
-        const result = await client.post<{ message?: string; task?: TaskRow }>(
+        const result = await client.post<{ message?: string; task?: TaskRow; missingSecrets?: string[] }>(
           `/tools/task-archives/${encodeURIComponent(archiveId)}/restore`
         );
         const task = result.task;
@@ -2577,8 +2723,13 @@ Next run: ${task.nextRunTime}` : '')
           : '';
         const msg = typeof result.message === 'string' ? result.message : 'Task restored';
         return ok(
-          `${msg}${created}\nThis is a new task; the archive (${archiveId}) is kept.`,
-          { task: task ? compactTask(task) : null, archiveId }
+          `${msg}${created}\nThis is a new task; the archive (${archiveId}) is kept.` +
+          missingSecretsNote(result.missingSecrets),
+          {
+            task: task ? compactTask(task) : null,
+            archiveId,
+            missingSecrets: result.missingSecrets ?? []
+          }
         );
       } catch (err) {
         return toolError(err);

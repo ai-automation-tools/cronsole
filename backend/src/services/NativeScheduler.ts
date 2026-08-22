@@ -4,6 +4,7 @@ import { computeNextRun } from '../utils/cron-next.js';
 import { executeJob, NativeJob } from './NativeTaskExecutor.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
 import { queueFailureNotification } from './FailureNotificationService.js';
+import { readTaskSecrets, TaskSecretDecryptError } from './taskSecrets.js';
 
 const TICK_INTERVAL_MS = 30_000;
 // Due times missed by more than this (server downtime) are skipped, not fired.
@@ -27,6 +28,30 @@ export interface SchedulerStatus {
   lastTickAt: Date | null;
   lastTickError: string | null;
   tickIntervalMs: number;
+}
+
+/**
+ * Run one due task, resolving its stored secrets first (ADR 0003).
+ *
+ * A store that cannot be decrypted is reported as **this task's** failure, with
+ * its own reason, rather than thrown into the tick — one task whose
+ * `ENCRYPTION_KEY` no longer matches must not stop every other task from
+ * running, and a scheduler error is a line in a console nobody is reading.
+ */
+async function runWithSecrets(
+  taskId: string,
+  job: NativeJob
+): Promise<{ success: boolean; log: string; durationMs: number }> {
+  let secrets: Record<string, string>;
+  try {
+    secrets = await readTaskSecrets(taskId);
+  } catch (err) {
+    if (err instanceof TaskSecretDecryptError) {
+      return { success: false, log: err.message, durationMs: 0 };
+    }
+    throw err;
+  }
+  return executeJob(job, secrets);
 }
 
 export class NativeScheduler {
@@ -106,7 +131,7 @@ export class NativeScheduler {
 
         const job = (task.metadata as any)?.job as NativeJob | undefined;
         const result = job
-          ? await executeJob(job)
+          ? await runWithSecrets(task.id, job)
           : { success: false, log: 'Task has no job spec in metadata.job', durationMs: 0 };
 
         const execution = await prisma.executionLog.create({

@@ -51,6 +51,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`import_task`** | "Set that task up on this machine too" — recreates a **Cronsole-native** task from a `.json` you exported. Windows tasks are `.xml` and go through Tools → Restore in the app | `POST /api/tasks/import` |
 | **`list_task_archives`** | "What have I deleted recently?" — the definitions Cronsole kept when tasks were deleted, and whether each can be rebuilt | `GET /api/tools/task-archives` |
 | **`restore_task_archive`** | "Bring back the nightly digest I deleted" — rebuilds it as a **new** task on its old schedule. The old run history does not come back | `POST /api/tools/task-archives/:id/restore` |
+| **`list_task_secrets`** | "Why won't that task run?" — which secrets a Cronsole-native job needs and which are actually set, **by name only**. No Cronsole API returns a secret's value, and no MCP tool can set one | `GET /api/tasks/:id/secrets` |
 | **`set_task_status`** | "Disable the nightly backup for now", "turn it back on" | `PATCH /api/tasks/:id/status` |
 | **`update_task_schedule`** | "Move the digest to 7am on weekdays" | `PATCH /api/tasks/:id/schedule` |
 | **`update_task_action`** | "Point that task at the new script path" | `PATCH /api/tasks/:id/actions` |
@@ -133,6 +134,17 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 > existing one — so a plausible-sounding request could destroy a real system task with no
 > error. The refusal is enforced in the backend *and* independently in the agent, which is the
 > process that holds the elevation.
+
+> [!IMPORTANT]
+> **No AI tool can set a secret, and that is deliberate.**
+> A Cronsole-native job keeps its credentials in an encrypted per-task store and refers to them by
+> name — `${secret.API_TOKEN}` in a URL, a header value, a request body, a program argument or an
+> environment value. Your assistant can **write the reference** when it creates a task, and can ask
+> `list_task_secrets` which ones are still unset. It cannot store the value: a tool call goes through
+> the model's context and into your AI host's history file, which is exactly where a credential
+> should not be. **Enter values in Cronsole** — open the task → Edit → Secrets. Until one is set the
+> task refuses to start rather than running with a blank credential, and every create, import and
+> restore says so by name. See [Secrets](UI_User_Guide.md#secrets).
 
 > [!IMPORTANT]
 > **What's safe, what's real, and what's off by default.**

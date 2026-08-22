@@ -12,6 +12,7 @@
 import { randomUUID } from 'node:crypto';
 import { PlatformType } from '@prisma/client';
 import type { RegistryTemplate } from './schema.js';
+import { secretRefsIn } from '../services/jobSecrets.js';
 
 /** Raised when a task can't be turned into a template; mapped to a 400. */
 export class SaveAsTemplateError extends Error {}
@@ -172,6 +173,27 @@ export function buildTemplateFromTask(
   if (!task.schedule || task.schedule.trim().split(/\s+/).length !== 5) {
     throw new SaveAsTemplateError(
       'This task has no cron-expressible schedule to template (e.g. a boot/logon trigger).'
+    );
+  }
+
+  // A job that refers to a stored secret cannot become a template, and the
+  // refusal is the honest option rather than a limitation (ADR 0003). A template
+  // is content meant to be shared, and the two things this could otherwise do
+  // are both wrong: carry the *value*, which puts a credential in the catalog
+  // and in every export of it, or carry the *reference*, which produces a
+  // template that applies cleanly and leaves behind a task that cannot run —
+  // the declared-but-uncompiled failure ADR 0002 already rejected.
+  const meta = (task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+    ? task.metadata
+    : {}) as Record<string, unknown>;
+  const refs = secretRefsIn(meta.job);
+  if (refs.length) {
+    throw new SaveAsTemplateError(
+      `This task's job uses ${refs.length === 1 ? 'a stored secret' : 'stored secrets'} (${refs.join(', ')}), ` +
+        'so it cannot be saved as a template. A template is portable content: it would either carry the ' +
+        'secret — into the catalog and into every export of it — or carry the reference and produce a ' +
+        'task that applies cleanly and then refuses to run. Export it as a task file instead, or template ' +
+        'a copy that takes its credential some other way.'
     );
   }
 

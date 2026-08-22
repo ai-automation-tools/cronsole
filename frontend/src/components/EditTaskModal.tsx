@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   XCircle, Loader2, CheckCircle2, AlertTriangle, Lock,
-  Tag, CalendarClock, Terminal, Save
+  Tag, CalendarClock, Terminal, Save, KeyRound
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task } from '../types';
@@ -15,6 +15,8 @@ import { Modal } from './ui/Modal';
 import { ScheduleFields } from './edit/ScheduleFields';
 import { WindowsActionFields } from './edit/WindowsActionFields';
 import { NativeJobFields } from './edit/NativeJobFields';
+import { TaskSecretsFields, type StoredSecretsState } from './edit/TaskSecretsFields';
+import { HelpButton } from './HelpButton';
 import {
   labelValues, platformName, runsEdit, scheduleEdit,
   nativeJobPayload, windowsActionPayload, emptyNativeJobValues,
@@ -111,6 +113,47 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
 
   const schedule = scheduleEdit(task);
   const runs = runsEdit(task);
+
+  /*
+   * A task's secrets are a **separate resource with their own routes** (ADR
+   * 0003), so they are read and written here rather than folded into the Save
+   * fan-out below. That is not tidiness: `PATCH /:id/job` replaces the job, so a
+   * secret carried inside it would be destroyed by every unrelated job edit —
+   * which is the whole reason the values do not live there.
+   *
+   * The query is the only source of `referenced`/`stored`/`missing`. The browser
+   * does not re-derive them for a task that exists; the server owns that
+   * judgement and reports all three.
+   */
+  const isNative = task.platform === 'TASKHUB_NATIVE';
+  const secretsQuery = useQuery<StoredSecretsState>({
+    queryKey: ['task-secrets', task.id],
+    queryFn: async () => (await api.get(`/tasks/${task.id}/secrets`)).data,
+    enabled: isNative
+  });
+
+  const refreshSecrets = () =>
+    queryClient.invalidateQueries({ queryKey: ['task-secrets', task.id] });
+
+  const setSecret = async (name: string, value: string) => {
+    try {
+      await api.put(`/tasks/${task.id}/secrets/${encodeURIComponent(name)}`, { value });
+    } catch (err) {
+      // The server's own sentence — every refusal here states its reason, and
+      // replacing it with a generic one throws that away.
+      throw new Error(errorMessage(err, 'Could not save that secret.'), { cause: err });
+    }
+    await refreshSecrets();
+  };
+
+  const removeSecret = async (name: string) => {
+    try {
+      await api.delete(`/tasks/${task.id}/secrets/${encodeURIComponent(name)}`);
+    } catch (err) {
+      throw new Error(errorMessage(err, 'Could not remove that secret.'), { cause: err });
+    }
+    await refreshSecrets();
+  };
 
   // ---- Values, and the baseline each is compared against -------------------
   // The baseline is state rather than derived from `task` so a section that
@@ -382,6 +425,47 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
             <Refusal reason={runs.reason} />
           )}
         </Section>
+
+        {/* ----------------------------------------------------------------
+            Secrets. Native only, and it renders even when the task has none —
+            an empty destination is still where you go to add the first one,
+            and hiding the section until a secret exists makes the feature
+            undiscoverable from the only screen that can create it.
+
+            Deliberately NOT a `Section` with a StatusChip: these writes are not
+            part of Save changes, so a chip reporting "Saved" beside them would
+            be describing a different button.
+        ---------------------------------------------------------------- */}
+        {isNative && runs.kind === 'native' && (
+          <section className="space-y-4">
+            <h3 className="flex items-center gap-2 text-xs font-bold text-subtle-foreground uppercase tracking-widest">
+              <KeyRound size={13} /> Secrets<HelpButton topic="task-secrets" />
+            </h3>
+            {secretsQuery.isLoading ? (
+              <p className="text-[11px] text-subtle-foreground flex items-center gap-1.5">
+                <Loader2 size={12} className="animate-spin" /> Reading this task's secrets…
+              </p>
+            ) : secretsQuery.isError ? (
+              /* Never rendered as "no secrets": not knowing and knowing there
+                 are none are different facts, and only one of them is safe to
+                 act on. */
+              <p className="text-[11px] text-danger-text flex items-start gap-1.5">
+                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                Cronsole could not read which secrets this task has. Nothing is shown rather than an
+                empty list, because those are different answers.
+              </p>
+            ) : (
+              <TaskSecretsFields
+                job={nativeJob}
+                mode="live"
+                state={secretsQuery.data}
+                onSet={setSecret}
+                onRemove={removeSecret}
+                busy={saving}
+              />
+            )}
+          </section>
+        )}
       </div>
 
       <footer className="p-6 bg-background border-t border-border space-y-3">

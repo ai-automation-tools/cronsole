@@ -34,6 +34,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 70 | The **Tailscale URL is dead** — `http://my-pc.my-tailnet.ts.net:8080/` returns **502**, empty body, from every device — while everything else is healthy: `cronsole status` says `ALL UP`, `localhost:7373` works, the agent is connected, `tailscale status` lists both machines, and `tailscale serve status` prints the right mapping | **The Caddy proxy container was stopped, and `restart: unless-stopped` means it.** The 502 is `tailscaled` reporting that *its upstream* refused — `curl 127.0.0.1:8080` answers `000` and `docker ps -a` shows `taskhub-proxy-1 Exited (0) 2 days ago`. `unless-stopped` restarts after a crash or a reboot but never undoes a deliberate `docker compose stop`; the proxy is also **profile-gated** (opt-in remote access, §9), so a routine `docker compose up -d` cannot bring it back and does not fail either — and `cronsole up` did not know it existed, so the 5-minute self-heal walked past it. **Fixed 2026-08-20:** `cronsole remote on` records the opt-in in `.cronsole-remote` and `up` starts the proxy. **A 404 here means something else** — `tailscale serve` matched no handler for the Host you sent, which is what curling the tailnet *IP* always does | [→](#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy) |
+| 71 | A Cronsole-native task **will not start** — the run history says *"This job refers to a secret that is not set on this task: X"* and the run is a **502**, not a failed check | Working as designed (ADR 0003). A native job holds `${secret.X}` and the value lives in a separate encrypted row; a reference with nothing behind it is a failure to **start** (`ran: false`), never a verdict about your system, because firing the request with a blank credential comes back as a 401 that reads like an expired token. Set it in the app: task → **Edit** → **Secrets**. `list_task_secrets` reports `referenced` / `stored` / `missing`. **`unreadable: true` is a fourth answer, not an empty list** — the store exists and `ENCRYPTION_KEY` changed, so the values are gone | [→](#71-a-native-task-refuses-to-start-and-names-a-secret) |
+| 71a | `prisma generate` fails `EPERM` in a **git worktree**, and there is no backend process to stop — `npm run dev` is not running and `docker ps` shows no backend | A worktree's `backend/node_modules` is a **symlink into the main checkout**, so `generate` writes to the *shared* copy and collides with whatever holds the DLL there — often a `\Cronsole-Stack\` scheduled task, whose command line reads back **blank** from a normal session, so [#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)'s "stop the backend" has nothing to aim at. **Rename the DLL aside instead of killing anything** — Windows permits renaming an open file, the running process keeps its handle, and `generate` writes a fresh one | [→](#71a-and-in-a-worktree-there-is-no-process-to-stop) |
 | 69 | A published-page check reports the gallery **stale at both public hosts** right after publishing. Both report the *same* hash as each other and a different one from the repo; republishing changes nothing; the same check passes on a Linux CI runner for the same commit | **CRLF in the Windows working tree.** The size gap is exactly the line count (1544 bytes). Git stores the blob LF and hands Windows CRLF; Pages serves the blob, so hashing the file as it sits on disk compares CRLF to LF and can never match. **Two hosts agreeing with each other and disagreeing with you is the tell** — real staleness would rarely hit both identically, since they publish through different paths. **Fixed 2026-08-19** both ways: `registry-site/**` pinned `text eol=lf` (which also stopped `publish-frontdoor.ps1` copying CRLF into the publish clone), and the checker LF-normalizes regardless. Refresh an existing checkout with `rm` + `git checkout --`, since `.gitattributes` does not rewrite files already on disk. **Any check hashing a working-tree file against something served is comparing across a line-ending boundary** | [→](#69-a-published-page-check-reports-both-hosts-stale-and-they-are-not) |
 | 68 | You publish the registry after merging new templates and the gallery serves **fewer** than before. `publish-registry.ps1` printed `Published.` and errored on nothing; every served file still matches its `sha256` | **The script publishes the working tree, not `main`.** `$SrcDir` is `$RepoRoot/registry` — whatever is checked out. `mike_desktop` runs ~158 commits behind `main` in ordinary use (PRs merge *into* main and it is never merged back), so publishing from it **replaces** the newer artifact wholesale with an older one. The drift test, content addressing and the push all pass: an old snapshot is internally consistent, and it really did push. **Fixed 2026-08-19** — the script now refuses any branch that is not up-to-date `main` (`-Force` to override), and merging to `main` publishes automatically via `publish-registry.yml`. Verify with `node scripts/check-registry-published.mjs` (daily as **Registry drift**). **The tell: success and failure printed the same thing** | [→](#68-the-hosted-registry-goes-backwards-after-a-successful-publish) |
 | 67 | The dashboard shows **no tasks** and every source-rail count reads `0` — `All sources 0`, every source, every folder — while the header above them says *"Manage 373 tasks"*. The stack is healthy: `ALL UP`, agent connected, `GET /api/tasks` returns everything | **A search or filter persisted in the URL.** Filter state *is* the URL by design (§9), so `?q=test-search` survives a reload, a bookmark and a restored tab, and keeps applying until you clear it. The all-zero rail is **intended**: the rail counts over every lens it does not own — including search — because a row's count is a promise about what clicking it does, and clicking it keeps your search. **Read the URL first.** The app does say so, in four places at once: the search box holds the term with an × and `0 matches`, **Filters** carries a badge, **VIEWS** drops to `Custom`, and the empty state reads *"You have 373 tasks. This view shows none of them — it is filtered by matching ..."* with **Clear search** and **Reset to the default view**. **The trap is that an empty dashboard reads like a broken backend**, so two investigations went to auth and to the DB before anyone read the address bar | [→](#67-the-dashboard-shows-no-tasks-and-every-rail-count-reads-0) |
@@ -4715,6 +4717,139 @@ first excludes deliberate stops by design; the second only covers services its s
 service that is in neither set has no keeper at all, and the gap is silent in both directions.
 
 *First hit: 2026-08-20. Two days of downtime, noticed on a phone.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 71. A native task refuses to start and names a secret
+
+**Symptom.** A Cronsole-native task's run history reads:
+
+```
+This job refers to a secret that is not set on this task: DISCORD_WEBHOOK.
+Set it in the task's Secrets section (Edit → Secrets), then run it again.
+```
+
+Over the API and MCP the run comes back as a **502**, not as a `200` with `success: false`. Nothing
+is broken.
+
+**Cause — this is the designed refusal, and the 502 is the point** ([ADR 0003](../adr/0003-per-job-secrets.md)).
+
+A native job never stores a credential. It stores a reference — `${secret.DISCORD_WEBHOOK}` — and
+the value lives AES-256-GCM encrypted in its own `TaskSecret` row. A reference with nothing behind
+it is a failure to **start**: `executeJob` returns `ran: false`, which the route turns into a 502
+exactly as it does for a malformed spec ([#59](#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check)).
+
+Substituting an empty string instead would be the worse outcome, and that is why it is not done:
+`Authorization: Bearer ` produces a **401 that reads like an expired token**, sending you off to
+rotate a credential that was never sent.
+
+Four ordinary ways to arrive here, none of them a bug:
+
+- **You imported a task file.** The bundle carries the job — including its `${secret.…}` references
+  — and none of the values, deliberately: a file in someone's Downloads folder is exactly where a
+  credential must not be. The import response names them under `missingSecrets`.
+- **You restored an archive.** Same reason, one step stronger: the archive *outlives* the row it
+  describes, which makes it the last place a credential should survive a delete.
+- **You applied a template** that references one.
+- **You removed the secret** and have not yet edited the job.
+
+**Fix.**
+
+Open the task → **Edit** → **Secrets** and enter the value. The section marks a referenced secret
+that is not stored as *Not set*.
+
+To diagnose without the UI:
+
+```console
+$ curl -s -H "Authorization: Bearer $CRONSOLE_TOKEN" \
+    http://localhost:3000/api/tasks/<id>/secrets
+{"stored":["OLD_KEY"],"referenced":["DISCORD_WEBHOOK"],"missing":["DISCORD_WEBHOOK"],
+ "unreadable":false,"secretsUpdatedAt":"2026-08-21T…"}
+```
+
+Read all four fields; they are four different facts:
+
+| Field | Means |
+|---|---|
+| `referenced` | what the **job** asks for |
+| `stored` | what the **task** holds — one that nothing references is leftovers, not a fault |
+| `missing` | the intersection that stops the run |
+| `unreadable: true` | **a store exists and cannot be decrypted.** `ENCRYPTION_KEY` changed since it was saved; the values are unrecoverable and must be re-entered. It reports `stored: []` as well, so reading only that list would tell you to set values that are already there |
+
+**No MCP tool can set a value**, and `list_task_secrets` is the read half only — a tool call passes
+through the model's context and into the host's transcript. The value is entered in the app.
+
+**Two related refusals that are also by design:**
+
+- **A secret must be at least 4 characters.** Redaction is a substring replace over the job's
+  captured output, so a shorter value would blank those characters out of every word the job prints.
+- **A task with secrets cannot be saved as a template.** A template would either carry the value
+  into the catalog or carry the reference and produce a task that applies cleanly and then refuses
+  to run. Export it as a task file instead.
+
+*First hit: 2026-08-21.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 71a. …and in a worktree there is no process to stop
+
+**Symptom.** In a git worktree of this repo, `npx prisma generate` fails with
+[#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)'s
+error:
+
+```
+EPERM: operation not permitted, rename
+'…\cronsole\backend\node_modules\.prisma\client\query_engine-windows.dll.node.tmp31812' ->
+'…\cronsole\backend\node_modules\.prisma\client\query_engine-windows.dll.node'
+```
+
+Two things are odd. The path names the **main checkout**, not the worktree you ran it in. And
+[#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)'s
+fix has nothing to aim at: `npm run dev` is not running, `docker ps` shows no backend container, and
+nothing obvious holds port 3000.
+
+**Cause — two facts that only bite together.**
+
+1. **A worktree's `node_modules` is a symlink into the main checkout** (`backend`, `frontend` and
+   `mcp-server` all are). So `prisma generate` run from the worktree writes into the *shared*
+   `node_modules` and collides with whatever holds the DLL open **there**.
+2. **The process holding it may be unidentifiable from your session.** On a machine with
+   `\Cronsole-Stack\` installed the backend runs from a Scheduled Task, and
+   `Get-CimInstance Win32_Process` returns a **blank `CommandLine`** for processes in another
+   session — so the usual `Where-Object CommandLine -like '*tsx*watch*'` matches nothing at all.
+
+**Fix — rename the locked DLL aside. Do not go hunting for a process to kill.**
+
+Windows permits **renaming** an open file even though it refuses to replace one, and the running
+process keeps its handle to the renamed file. Prisma then writes a fresh DLL into the free name:
+
+```console
+$ cd <main-checkout>/backend/node_modules/.prisma/client
+$ mv query_engine-windows.dll.node query_engine-windows.dll.node.locked-$(date +%s)
+$ cd <worktree>/backend && npx prisma generate
+✔ Generated Prisma Client
+```
+
+Nothing is stopped, nothing restarts, and the running backend is unaffected — it is still executing
+the copy it loaded at start-up. Delete the `.locked-*` file the next time that process is down.
+
+**While you are in there:** the same directory accumulates orphaned
+`query_engine-windows.dll.node.tmp*` files, one per failed `generate`, at **21 MB each**. Fifteen
+had built up. `rm -f query_engine-windows.dll.node.tmp*` — any still held open simply refuse and can
+go later.
+
+**And do not apply a feature branch's migration to the dev database.** Prisma records applied
+migrations by name in `_prisma_migrations`, so a migration applied from a branch that never merges
+leaves the dev DB claiming one the tree does not contain — and Prisma's remedy for that offers to
+drop the database ([#29](#29-prisma-migrate-refuses-to-run-migration-was-modified-after-it-was-applied--and-offers-to-drop-your-database)).
+The integration suite migrates its own `taskhub_test` in `globalSetup`, which proves the SQL without
+touching real data.
+
+*First hit: 2026-08-21.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

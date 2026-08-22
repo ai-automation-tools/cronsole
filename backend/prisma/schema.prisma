@@ -134,11 +134,44 @@ model Task {
   executions  ExecutionLog[]
   favorites   TaskFavorite[]
   collections TaskCollectionMember[]
+  secrets     TaskSecret?
 
   @@unique([platform, externalId])
   @@index([userId, platform])
   @@index([nextRunTime])
   @@index([category])
+}
+
+/// The encrypted secrets a Cronsole-native job refers to by name — ADR 0003.
+///
+/// **A table, not a column on Task, and that *is* the security property.** Prisma
+/// returns every scalar field of a model by default, so a `Task.secretsEncrypted`
+/// column would ride into `prisma.task.findMany()` — and therefore into every task
+/// list, every export, every `DeletedTaskArchive.bundle` and every MCP read —
+/// unless all of them remembered to exclude it. A rule each call site has to
+/// remember is the rule the next call site forgets. A relation is absent unless
+/// explicitly `include`d, so the default read cannot leak it.
+///
+/// One row per task holding **all** of its secrets, because they are written and
+/// read as a set: `data` is `encryptConfig({ [name]: value })` — the same
+/// AES-256-GCM envelope `PlatformConnection.config` uses, from the same key.
+///
+/// Keyed on the **Task row with a cascade**, which is `TaskFavorite`'s shape and
+/// the deliberate opposite of `TaskExclusion`: an exclusion has to *outlive* the
+/// row it describes or the next sync undoes your removal, while a secret must not
+/// — deleting a task destroying its credential is the only honest reading of the
+/// gesture. Nothing else in Cronsole may copy the plaintext anywhere that outlives
+/// this row.
+model TaskSecret {
+  taskId    String   @id
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  /// AES-256-GCM ciphertext (`iv:tag:payload`) of a JSON object of name → value.
+  /// Never logged, never returned by any route, never included in an export.
+  data      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /// Per-user "starred" flag for a tracked task. A join model rather than a column

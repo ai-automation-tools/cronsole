@@ -213,6 +213,19 @@ Non-negotiable rules. **Every one has a reason recorded in
   A type is a permanent rail row, so the test is "a different *kind* of thing", not "useful".
   `SCRIPT` carries its body and uses a fixed interpreter allowlist; `CHECK` is the only type whose
   failure is a fact about the system rather than a bug in your script.
+- **A native job stores a *reference* to a credential, never the credential**
+  ([ADR 0003](docs/adr/0003-per-job-secrets.md)). `${secret.NAME}` in a url · header value · body ·
+  arg · env value — refused in an `executable`, an `interpreter` or a check assertion, by name. The
+  value lives AES-256-GCM encrypted in **`TaskSecret`**, a **relation and never a `Task` column**:
+  Prisma returns every scalar by default, so a column rides into every task read, export and archive
+  unless all of them remember to exclude it. **No route returns a value** — the absence of a read
+  path, not a filter. `executeJob` both substitutes and redacts the value back out of the log, at
+  the one point every job type funnels through, for the reason `ran` is stamped there. Secrets are
+  not in `metadata.job` (a job edit *replaces* it), not in the export or the archive (both outlive
+  the moment), and **cascade away with the task** — the opposite of `TaskExclusion`. A
+  referenced-but-unset secret is a **run-time** refusal (`ran: false`), never a create-time one:
+  import, restore and template-apply all legitimately produce one, so every write reports
+  `missingSecrets`. Save-as-template refuses a secret-bearing job outright.
 - **`runTask` returns `ran` alongside `success`.** A job that ran and failed is a `200` with
   `success: false`; only "could not start" is a `502`
   ([#59](docs/troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check)).

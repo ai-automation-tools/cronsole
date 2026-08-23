@@ -3601,11 +3601,35 @@ on `:7373`, which is slow over a tunnel and would need the tunnel hostname in Vi
 **Fix.**
 
 ```bash
-cd frontend && npm run build:remote     # mode `remote` => VITE_API_URL=same-origin
+cd frontend && npm run build
 ```
 
 The proxy mounts `./frontend/dist` read-only and Caddy serves it directly, so no container restart
 is needed — the next request picks up the new files.
+
+> **`build:remote` is no longer required** *(since 2026-08-17)*. `FALLBACK_API_ORIGIN` in
+> `frontend/src/api.ts` folds on `import.meta.env.DEV`, so **every** production build defaults to
+> same-origin and both scripts emit the same bytes. `.env.remote` still exists and still says
+> `VITE_API_URL=same-origin`, as belt-and-braces rather than as the mechanism. The mode is kept
+> because runbooks name it; correctness no longer depends on remembering it.
+
+**Detecting it before it wastes an afternoon** *(added 2026-08-23)*:
+
+```bash
+node scripts/check-dist-fresh.mjs        # STALE | NEVER BUILT | OK | UNKNOWN
+```
+
+It compares the newest file in `dist/assets` against the newest of `frontend/src/**`,
+`index.html`, `vite.config.ts` and `package.json`, and **omits itself** when the proxy is down —
+nothing serves `dist` then, so its age is a fact about nothing, and rendering that as a pass is
+the mistake the health tiers exist to prevent. Wired into `/doctor` as check 7.
+
+**This recurred on 2026-08-23** and cost an hour, in the most misleading possible form: a feature
+shipped, passed 1,740 tests, was verified end-to-end with `curl` against the backend — and was
+absent from the proxied page, because `dist` was four days old. Every signal said the code was
+correct. It was; nothing was serving it. **`cronsole up` starts the proxy and never rebuilds
+`dist`**, and that stays true deliberately — a start command that silently replaces what is being
+served is a worse property than a bundle you occasionally have to rebuild.
 
 **The general rule.** This is a **fourth thing that runs stale**, and it belongs on the list with
 the other three (the Dockerized backend, `agent/publish/`, `mcp-server/dist/`). All four share one

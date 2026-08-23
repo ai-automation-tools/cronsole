@@ -24,6 +24,17 @@ a scheduled task is durable, runs unattended, and runs **elevated** on Windows.
 | **An exported *task* file** (`cronsoleTaskVersion`) | **`import_task`** (MCP) / `POST /api/tasks/import` | Not a template — a specific task, exported from a Cronsole install. Pass the file **whole**. **Cronsole-native only**; a Windows bundle is refused and points at Tools → Restore. |
 | **A task the user deleted** | **`restore_task_archive`** (MCP) / `POST /api/tools/task-archives/:id/restore` | Rebuilds it from the definition Cronsole archived before deleting. Find the id with `list_task_archives`. |
 
+**A credential never goes in the job spec** (ADR 0003). Any free-text field of a native job may
+carry `${secret.NAME}` — legal in a url, a header value, a body, an arg and an env value; refused
+by name in an `executable`, an `interpreter` and a check assertion. The value lives encrypted on
+the task, is substituted only inside `executeJob`, and is redacted back out of the run log.
+`POST /api/tasks/native` takes an optional `secrets` map so a create is one gesture; everything
+after that is per secret (`PUT` / `DELETE /api/tasks/:id/secrets/:name`), because a whole-set write
+destroys what the client forgot to resend and there is no read path to notice with. **No MCP tool
+writes a value** — `list_task_secrets` reports names, and the user enters the value in the app. A
+reference with nothing behind it is a **run-time** refusal (`ran: false`, so a 502), never a
+create-time one; every create, import and restore reports `missingSecrets`.
+
 **Exporting has two formats, and the same distinction runs the other way.**
 `GET /api/tasks/:id/export` defaults to `native` — the platform's own definition, which restores
 *this* task onto *this* platform — and takes **`?format=template`** for a portable Registry v1

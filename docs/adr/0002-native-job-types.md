@@ -276,6 +276,12 @@ backend is.
 **Q4 — per-job encrypted fields still does not exist**, and both deferred types remain blocked on
 it. Unchanged by this work.
 
+> **Resolved 2026-08-21 by [ADR 0003](0003-per-job-secrets.md).** It answers Q4's "may deserve its
+> own ADR" with yes, and lands the opposite of the shape this ADR's phrasing implied: not encrypted
+> *fields*, but a separate encrypted resource the job **refers to** by name. `NOTIFY` and `SQL` are
+> unblocked; ADR 0003 restates this ADR's request that they be re-evaluated **together** rather than
+> picked off separately, and schedules neither.
+
 ### One thing found during implementation, and fixed with it
 
 Publishing a new registry `action.kind` would have **blanked the entire hosted catalog for every

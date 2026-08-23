@@ -506,6 +506,53 @@ const nativeJobType: HelpTopic = {
   ]
 };
 
+const taskSecrets: HelpTopic = {
+  id: 'task-secrets',
+  title: 'Secrets',
+  summary:
+    'A credential a native job needs, stored encrypted and referred to by name. Write ' +
+    '${secret.NAME} where the value belongs and Cronsole substitutes it when the task runs.',
+  points: [
+    {
+      label: 'The value is never shown again',
+      body:
+        'No screen and no API returns a stored secret. To change one you replace it — there is ' +
+        'nothing that reads it back.'
+    },
+    {
+      label: 'It is taken back out of the run log',
+      body:
+        'If the job prints its token, the history shows ${secret.NAME} where the value was. That ' +
+        'works by matching the stored value, so it is a safety net rather than a guarantee — a ' +
+        'script that encodes its token before printing defeats it.'
+    },
+    {
+      label: 'Not everywhere — a closed list',
+      body:
+        'Legal in a URL, a header value, a request body, a program argument and an environment ' +
+        "value. Refused in a program's executable, a script's interpreter and a check's " +
+        'assertions: a secret hiding which program runs protects nothing and makes the log unreadable.'
+    },
+    {
+      label: 'A missing one stops the task rather than blanking it',
+      body:
+        'A reference with nothing behind it makes the run refuse to start, by name. Firing a ' +
+        'request with an empty credential would come back as a 401 that reads like an expired token.'
+    },
+    {
+      label: 'They stay on this machine',
+      body:
+        'An export carries the ${secret.…} references and none of the values, and so does the ' +
+        'archive written before a delete. Deleting the task destroys its secrets; editing what it ' +
+        'runs never touches them.'
+    }
+  ],
+  doc: { label: 'UI User Guide › Secrets', url: uiGuide('secrets') },
+  more: [
+    { label: 'ADR 0003 — Per-job secrets', url: docLink('docs/adr/0003-per-job-secrets.md') }
+  ]
+};
+
 const command: HelpTopic = {
   id: 'command',
   title: 'What the task runs',
@@ -1090,6 +1137,7 @@ const TOPIC_LIST: HelpTopic[] = [
   sourceClaude,
   schedule,
   nativeJobType,
+  taskSecrets,
   command,
   taskActions,
   views,

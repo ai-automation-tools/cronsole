@@ -37,6 +37,16 @@ export interface NativeTaskBundle {
  * row round-trips. A Windows task's definition lives on the machine and comes
  * back as Task Scheduler XML through a `task:export` agent round trip, which
  * needs the agent online and so cannot be part of a delete's precondition.
+ *
+ * **A task's stored secrets are deliberately not here, and must never be added**
+ * (ADR 0003). This bundle is written *because* it outlives the row, which makes
+ * it the last place a credential should survive a delete — and the same builder
+ * produces the file a user downloads, so a value here would travel to whatever
+ * machine that file reaches. The job it carries *names* every secret it needs,
+ * in plain text, which is what import and restore report back as
+ * `missingSecrets`. There is deliberately no `requiredSecrets` field: it would
+ * be a second derivation of something the file already states, and this repo has
+ * paid for a serialized field nothing reads before (troubleshooting #65).
  */
 export function buildNativeTaskBundle(task: Task, now: Date = new Date()): NativeTaskBundle {
   const meta =

@@ -512,3 +512,58 @@ export function windowsActionPayload(v: WindowsActionValues): Record<string, unk
     runLevel: v.runLevel
   };
 }
+
+// ---------------------------------------------------------------------------
+// Secret references
+// ---------------------------------------------------------------------------
+
+/** `${secret.NAME}` — a **mirror** of the backend's `SECRET_REF` (ADR 0003). */
+const SECRET_REF = /\$\{secret\.([A-Za-z_][A-Za-z0-9_]*)\}/g;
+
+/**
+ * Which secrets the job **currently being typed** refers to.
+ *
+ * This is not a second definition of the server's judgement, and the distinction
+ * matters. For a task that exists, `GET /tasks/:id/secrets` answers this and the
+ * UI reads it from there — the server owns it. This function exists for the one
+ * case the server cannot answer: a task that does not exist yet, where the job
+ * has never been sent anywhere. It reads the **payload** rather than the form
+ * fields for exactly that reason — the same bytes `POST /tasks/native` will
+ * receive, so the browser cannot see a reference the server will not, or miss
+ * one it will. The server re-derives it either way and reports `missingSecrets`
+ * on the create response; this only decides what the form can say beforehand.
+ */
+export function secretRefsIn(values: NativeJobValues): string[] {
+  const payload = nativeJobPayload(values);
+  if (!payload) return [];
+  const found: string[] = [];
+  const take = (v: unknown) => {
+    if (typeof v !== 'string') return;
+    for (const m of v.matchAll(SECRET_REF)) found.push(m[1]!);
+  };
+  const takeValues = (v: unknown) => {
+    if (v && typeof v === 'object' && !Array.isArray(v)) Object.values(v).forEach(take);
+  };
+
+  if (payload.jobType === 'HTTP') {
+    take(payload.url);
+    takeValues(payload.headers);
+    take(payload.body);
+  } else if (payload.jobType === 'EXEC') {
+    // The command line is tokenized server-side, so a ref anywhere in it lands
+    // in an arg — which is where it is legal. The executable is not, and the
+    // server refuses that by name.
+    take(payload.command);
+    takeValues(payload.env);
+  } else if (payload.jobType === 'SCRIPT') {
+    take(payload.body);
+    takeValues(payload.env);
+  } else if (payload.jobType === 'CHECK') {
+    const probe = payload.probe as Record<string, unknown> | undefined;
+    if (probe?.kind === 'http') {
+      take(probe.url);
+      takeValues(probe.headers);
+    }
+  }
+  return [...new Set(found)];
+}

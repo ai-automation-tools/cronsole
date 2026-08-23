@@ -70,16 +70,22 @@ conversion first, put it in \Cronsole, and confirm the registered action.
 
 ## 🧰 The toolbox
 
-32 tools are always present; `delete_task` appears only when the operator enabled it.
+33 tools are always present; `delete_task` appears only when the operator enabled it.
 
 | Tier | Tools |
 |:---|:---|
-| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `get_diagnostics` · `export_task` (`format: native \| template`) · `list_task_archives` · `convert_schedule` |
+| **Read** | `list_tasks` · `list_templates` · `list_folders` · `list_platforms` · `list_claude_routines` · `get_task_history` · `list_run_history` · `get_task_health` · `get_diagnostics` · `export_task` (`format: native \| template`) · `list_task_archives` · `list_task_secrets` · `convert_schedule` |
 | **Create** | `create_task` · `create_native_task` · `create_native_program_task` · `create_native_script_task` · `create_native_check_task` · `create_task_from_template` · `create_claude_routine` · `import_task` · `restore_task_archive` |
 | **Act** | `run_task` · `sync_tasks` |
 | **Modify** (reversible) | `set_task_status` · `update_task_schedule` · `update_task_action` · `update_native_job` · `rename_task` · `untrack_task` |
 | **Connect** | `connect_claude_routine` · `edit_claude_routine` · `disconnect_claude_routine` |
 | **Destroy** (gated, native-only) | `delete_task` — needs `CRONSOLE_MCP_ALLOW_DESTRUCTIVE=true` |
+
+One tool has **no write counterpart, deliberately**: `list_task_secrets` reports which secrets a
+native job needs and which are set, and nothing on this surface can store a value. A tool call goes
+through the model's context and into the host's transcript, which is the one place an encrypted-at-
+rest credential must not end up. The assistant writes the `${secret.NAME}` reference; you enter the
+value in Cronsole ([ADR 0003](../../adr/0003-per-job-secrets.md)).
 
 Gating is tiered rather than blanket. Reversible verbs are ungated, including `set_task_status`
 — parking a task is the recommended safe move, and putting a gate on the safe path pushes people

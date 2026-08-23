@@ -253,3 +253,96 @@ describe('executeJob — EXEC', () => {
     expect(result.durationMs).toBe(0);
   });
 });
+
+/**
+ * ADR 0003 at the executor. The three properties that make the reference model
+ * safe all live in `executeJob`, so they are asserted where they live: an
+ * unresolved reference **never runs**, a resolved value **reaches the request**,
+ * and the value **does not come back in the log**.
+ */
+describe('executeJob — stored secrets', () => {
+  beforeEach(() => {
+    vi.mocked(axios.request).mockReset();
+  });
+
+  it('substitutes a secret into the request without it appearing in the log', async () => {
+    vi.mocked(axios.request).mockResolvedValue({ status: 204, data: '' });
+
+    const result = await executeJob(
+      {
+        jobType: 'HTTP',
+        method: 'POST',
+        url: 'https://hooks.example.com/${secret.HOOK_PATH}',
+        headers: { Authorization: 'Bearer ${secret.TOKEN}' }
+      },
+      { HOOK_PATH: 'w3bh00k', TOKEN: 'tok_live_secret' }
+    );
+
+    expect(axios.request).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://hooks.example.com/w3bh00k',
+      headers: { Authorization: 'Bearer tok_live_secret' }
+    }));
+    expect(result.success).toBe(true);
+    // The URL is echoed into the log line by design, so this is the case that
+    // makes redaction load-bearing rather than decorative.
+    expect(result.log).not.toContain('w3bh00k');
+    expect(result.log).toContain('${secret.HOOK_PATH}');
+  });
+
+  it('redacts a secret a program printed back out', async () => {
+    const result = await executeJob(
+      node('', { args: ['-e', 'console.log(process.env.LEAK)'], env: { LEAK: '${secret.T}' } }),
+      { T: 'tok_live_secret' }
+    );
+    expect(result.log).not.toContain('tok_live_secret');
+    expect(result.log).toContain('${secret.T}');
+  });
+
+  it('refuses to start when a referenced secret is not set, and names it', async () => {
+    const result = await executeJob(
+      { jobType: 'HTTP', url: 'https://x.com', headers: { A: 'Bearer ${secret.MISSING_ONE}' } },
+      {}
+    );
+    // `ran: false` — nothing executed, so this is a failure to START and the
+    // route answers 502 rather than reporting a verdict (troubleshooting #59).
+    expect(result.ran).toBe(false);
+    expect(result.success).toBe(false);
+    expect(result.log).toContain('MISSING_ONE');
+    expect(axios.request).not.toHaveBeenCalled();
+  });
+
+  it('accepts a url that is entirely a reference, and checks its shape after resolving', async () => {
+    vi.mocked(axios.request).mockResolvedValue({ status: 200, data: 'ok' });
+    // A whole webhook URL is frequently the credential — that has to be storable.
+    expect(validateJob({ jobType: 'HTTP', url: '${secret.WEBHOOK}' })).toBeNull();
+
+    const good = await executeJob({ jobType: 'HTTP', url: '${secret.WEBHOOK}' }, {
+      WEBHOOK: 'https://hooks.example.com/abc'
+    });
+    expect(good.ran).toBe(true);
+
+    const bad = await executeJob({ jobType: 'HTTP', url: '${secret.WEBHOOK}' }, {
+      WEBHOOK: 'not-a-url-at-all'
+    });
+    expect(bad.ran).toBe(false);
+    expect(bad.log).toMatch(/after resolving/);
+    // The refusal must not quote the value it refused.
+    expect(bad.log).not.toContain('not-a-url-at-all');
+  });
+
+  it('refuses a reference in a field that cannot hold one, before anything runs', async () => {
+    const result = await executeJob(
+      { jobType: 'EXEC', executable: '${secret.EXE}' } as NativeJob,
+      { EXE: 'node' }
+    );
+    expect(result.ran).toBe(false);
+    expect(result.log).toMatch(/executable/);
+  });
+
+  it('is unchanged for a job with no references', async () => {
+    vi.mocked(axios.request).mockResolvedValue({ status: 200, data: 'ok' });
+    const result = await executeJob({ jobType: 'HTTP', url: 'https://example.com' }, { UNUSED: 'value1' });
+    expect(result.success).toBe(true);
+    expect(result.log).toContain('https://example.com');
+  });
+});

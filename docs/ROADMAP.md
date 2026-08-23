@@ -39,8 +39,9 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
-**The three largest open items, in order:** per-job encrypted fields (two job types are blocked on
-it) · the light theme · the POSIX agent.
+**The two largest open items, in order:** the light theme · the POSIX agent. *(Per-job encrypted
+fields led this list until it shipped 2026-08-21, which unblocked the `NOTIFY` and `SQL` job
+types — neither is scheduled.)*
 
 ---
 
@@ -59,16 +60,16 @@ which is why it sits first, not because it outranks the larger work below.
 
 Four items were requested directly after the dashboard IA redesign landed. **Three shipped** —
 collections, the native job types, and the phone verification (see
-[Part II](#shipped-2026-08-15--2026-08-17)). Two things remain.
+[Part II](#shipped-2026-08-15--2026-08-17)); the fourth, per-job encrypted fields, shipped
+2026-08-21 as [ADR 0003](adr/0003-per-job-secrets.md). **The themes are what is left**, plus the
+small `env`-editor remainder that work carved out.
 
-- [ ] **Per-job encrypted fields — the unfinished half of the native job types**
-      *(from [ADR 0002](adr/0002-native-job-types.md); every other follow-up from that ADR closed
-      2026-08-15 → 2026-08-17)*. `NOTIFY` needs it (a Discord webhook URL *is* its authentication)
-      and `SQL` needs it (a connection string is a `PlatformConnection`-grade secret), so **two
-      deferred job types are sequenced behind it**. It is also a **current** gap, not only a future
-      blocker: a `SCRIPT` job's `env` is already a plausible home for a secret with nothing but
-      column storage behind it. Probably deserves its own ADR; sequence the two deferred types
-      behind it together rather than picking them off separately.
+- [ ] **An `env` editor for `EXEC` and `SCRIPT` jobs** *(carved out of per-job secrets,
+      2026-08-21)*. A native job's `env` is reachable through the API and MCP only —
+      `NativeJobFields` has never rendered it — so a secret can be *stored* in the app and then
+      referenced from a field the app cannot edit. `nativeJobPayload` would gain one field and the
+      form two controls; the boundary rules already exist (`validateEnv`, and `${secret.…}` is
+      legal in an env value but never in an env *name*).
 
 - [ ] **Fix the themes — light first.** The light theme clashes and is hard to read; the dark
       palette is also open to reconsideration. This is `frontend/src/index.css` and nowhere else —
@@ -510,6 +511,23 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ## Shipped 2026-08-15 → 2026-08-18 — the current sprint
 
+### Shipped 2026-08-21
+
+- [x] **Per-job secrets — the unfinished half of the native job types** *(2026-08-21,
+      [ADR 0003](adr/0003-per-job-secrets.md))*. A native job stores a **reference**,
+      `${secret.NAME}`, and the value lives AES-256-GCM encrypted in its own `TaskSecret` row —
+      a relation and not a `Task` column, so no default read can carry it. Legal in a url ·
+      header value · body · arg · env value; refused by name in an executable, an interpreter or
+      a check assertion. `executeJob` is the one place that substitutes *and* the one place that
+      redacts the value back out of the log. Write-only by construction (no route returns a
+      value); per-secret routes, so a job edit cannot destroy one; cascades away with the task,
+      and is absent from the export and the archive. A referenced-but-unset secret is a run-time
+      refusal (`ran: false`) reported as `missingSecrets` on every create, import and restore.
+      New MCP tool `list_task_secrets` (names only) — and **no tool writes a value**, deliberately.
+      **`NOTIFY` and `SQL` are unblocked**; neither is scheduled by this, and ADR 0002 asks that
+      they be re-evaluated together.
+      Left out, and tracked below: `EXEC`/`SCRIPT` `env` still has no editor in the browser.
+
 ### The 2026-08-15 requests
 
 - [x] **Cronsole-native job types `SCRIPT` + `CHECK`** — native went from two types to four, with
@@ -517,8 +535,8 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
       `create_native_check_task`, old EXEC tool renamed `create_native_program_task`), per-source
       descriptions, help topics and the Sources Guide *(2026-08-15,
       [ADR 0002](adr/0002-native-job-types.md))*. `NOTIFY` and `SQL` remain deferred behind
-      per-job encrypted fields (Part I); `SEQUENCE` is last and only if per-step verdicts are the
-      goal.
+      per-job secrets — **which shipped 2026-08-21, so both are now unblocked and neither is
+      scheduled**; `SEQUENCE` is last and only if per-step verdicts are the goal.
 - [x] **Both new job types driven end-to-end on a live stack** — including the negative cases and a
       check of `childEnv()` on a real child process *(2026-08-15)*.
 - [x] **`runTask` returns `ran` alongside `success`** — a job that ran and failed is a `200` with

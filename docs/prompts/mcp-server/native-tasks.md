@@ -147,6 +147,34 @@ same schedule.
 > change to a script job, it just stops being read. Ask the assistant to tell you what a type
 > switch throws away *before* it makes it.
 
+## 🔑 Secrets a native job needs
+
+A native job never holds a credential. It holds a **reference** — `${secret.NAME}` — and Cronsole
+substitutes the value from an encrypted per-task store when the task runs, then takes it back out of
+the run log. So an assistant can write the whole task, credential-shaped hole and all:
+
+```text
+Using Cronsole, create a native HTTP task that POSTs to my Discord webhook every
+morning at 9am. Put the webhook URL in as ${secret.DISCORD_WEBHOOK} rather than
+asking me for it, and tell me where to enter the value.
+```
+
+```text
+Using Cronsole, the native check "API healthy" is failing to start. List its
+secrets and tell me which one is missing.
+```
+
+> [!IMPORTANT]
+> **Do not paste a credential into the conversation.** No Cronsole MCP tool can store one, and that
+> is on purpose — a tool call passes through the model's context and lands in your AI host's history
+> file. Enter values in the app: open the task → **Edit** → **Secrets**. Until a referenced secret is
+> set, the task **refuses to start** rather than firing a request with a blank credential, and every
+> create, import and restore reports the missing names.
+>
+> References are legal in a URL, a header value, a request body, a program argument and an
+> environment value — and refused in a program's executable, a script's interpreter and a check's
+> assertions. See [Secrets](../../user-guides/guides/UI_User_Guide.md#secrets).
+
 ## 🗑️ Deleting one
 
 Native is the **only** platform an MCP assistant can delete on, and that's not a limitation to

@@ -4,6 +4,7 @@ import { prisma } from '../db.js';
 import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions } from './platform.interface.js';
 import { executeJob, validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { buildNativeJob, nativeJobFromCommand, isUrlCommand } from '../services/nativeJob.js';
+import { readTaskSecrets, TaskSecretDecryptError } from '../services/taskSecrets.js';
 import { computeNextRun } from '../utils/cron-next.js';
 
 /**
@@ -40,10 +41,24 @@ export class CronsoleNativeConnector implements PlatformConnector {
       return { success: false, message: 'Task has no job spec in metadata.job' };
     }
 
+    // The job's `${secret.…}` references are resolved inside `executeJob`, from
+    // this set (ADR 0003). An undecryptable store is a failure to *start* and
+    // says so — never an empty set, which would run the job with its references
+    // unresolved and report nothing wrong.
+    let secrets: Record<string, string>;
+    try {
+      secrets = await readTaskSecrets(task.id);
+    } catch (err) {
+      if (err instanceof TaskSecretDecryptError) {
+        return { success: false, ran: false, message: err.message };
+      }
+      throw err;
+    }
+
     // `ran` comes from the executor, not from "we got this far": a spec that
     // fails validateJob never executes, and reporting that as a verdict would
     // hand the user a "check failed" for a task that never ran.
-    const result = await executeJob(job);
+    const result = await executeJob(job, secrets);
     return { success: result.success, ran: result.ran, message: result.log };
   }
 

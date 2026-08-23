@@ -4,6 +4,13 @@ import { connect } from 'node:net';
 import { mkdtemp, writeFile, rm, stat, statfs } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  hasSecretRef,
+  illegalSecretRef,
+  missingSecretRefs,
+  redactSecrets,
+  resolveJobSecrets
+} from './jobSecrets.js';
 
 /**
  * What a Cronsole-native task *does*. Four job types, discriminated on `jobType`.
@@ -272,6 +279,20 @@ export function childEnv(jobEnv?: Record<string, string>): NodeJS.ProcessEnv {
 }
 
 /**
+ * A URL field is legal when it is a URL **or** when a secret will make it one.
+ *
+ * A whole webhook URL is frequently the credential — that is the `NOTIFY` case
+ * ADR 0002 deferred — so `${secret.WEBHOOK}` has to be storable in a `url`. The
+ * shape check is not lost, only moved: `executeJob` re-runs `validateJob` on the
+ * **resolved** job, where the reference is gone and this predicate collapses back
+ * to the strict test. A secret whose value is not a URL is therefore an honest
+ * run-time refusal rather than a request fired at nothing.
+ */
+function isUrlOrSecretRef(value: string): boolean {
+  return /^https?:\/\//i.test(value) || hasSecretRef(value);
+}
+
+/**
  * Validates a job spec from client input / task metadata.
  * Returns an error message, or null if valid.
  */
@@ -279,8 +300,17 @@ export function validateJob(job: unknown): string | null {
   if (!job || typeof job !== 'object') return 'Missing job spec';
   const j = job as Record<string, unknown>;
 
+  // Where a `${secret.NAME}` may appear is a property of the **spec**, so it is
+  // checked here and refused by name (ADR 0003). The other secret failure — a
+  // reference to a secret that is not set — is a property of the task *right
+  // now*, so it belongs to `executeJob` and not to this function. Two different
+  // facts, two different layers; collapsing them would make an imported task or
+  // a restored archive impossible to express.
+  const illegalRef = illegalSecretRef(j);
+  if (illegalRef) return illegalRef;
+
   if (j.jobType === 'HTTP') {
-    if (typeof j.url !== 'string' || !/^https?:\/\//i.test(j.url)) {
+    if (typeof j.url !== 'string' || !isUrlOrSecretRef(j.url)) {
       return 'Job url must start with http:// or https://';
     }
     if (j.method !== undefined && !ALLOWED_METHODS.includes(String(j.method).toUpperCase())) {
@@ -371,7 +401,7 @@ function validateProbe(probe: unknown): string | null {
   const p = probe as Record<string, unknown>;
 
   if (p.kind === 'http') {
-    if (typeof p.url !== 'string' || !/^https?:\/\//i.test(p.url)) {
+    if (typeof p.url !== 'string' || !isUrlOrSecretRef(p.url)) {
       return 'Check url must start with http:// or https://';
     }
     if (p.method !== undefined && !ALLOWED_METHODS.includes(String(p.method).toUpperCase())) {
@@ -423,8 +453,24 @@ function validateProbe(probe: unknown): string | null {
   return `Unsupported check kind: ${(p as { kind?: unknown }).kind}`;
 }
 
-/** Executes a Cronsole-native job (docs/resources/Native_Tasks.md). */
-export async function executeJob(job: NativeJob): Promise<NativeRunResult> {
+/**
+ * Executes a Cronsole-native job (docs/resources/Native_Tasks.md).
+ *
+ * **The one place a `${secret.NAME}` becomes a value, and the one place a value
+ * is taken back out of the log** (ADR 0003). Both live here, in the branch every
+ * job type already funnels through, for the reason `ran` does: a fifth job type
+ * cannot ship having resolved a credential into a command line and then logged
+ * the command line, because it never touches either step itself.
+ *
+ * `secrets` is passed in rather than read from the database, so this function
+ * stays free of Prisma and testable without one. Its two callers —
+ * `NativeScheduler` and `CronsoleNativeConnector.runTask` — both already have
+ * the task in hand.
+ */
+export async function executeJob(
+  job: NativeJob,
+  secrets: Record<string, string> = {}
+): Promise<NativeRunResult> {
   const invalid = validateJob(job);
   if (invalid) {
     // Nothing executed. A malformed spec is a failure to *start*, so it must not
@@ -432,10 +478,45 @@ export async function executeJob(job: NativeJob): Promise<NativeRunResult> {
     // distinction into 502 vs 200.
     return { success: false, log: invalid, durationMs: 0, ran: false };
   }
+
+  // A reference to a secret that is not set is a failure to *start*, and it is
+  // named rather than substituted with a blank: an empty Authorization header
+  // comes back as a 401 that reads exactly like an expired token, which sends
+  // the reader to the wrong system entirely.
+  const missing = missingSecretRefs(job, Object.keys(secrets));
+  if (missing.length) {
+    return {
+      success: false,
+      durationMs: 0,
+      ran: false,
+      log:
+        `This job refers to ${missing.length === 1 ? 'a secret that is not set' : 'secrets that are not set'} on ` +
+        `this task: ${missing.join(', ')}. Set ${missing.length === 1 ? 'it' : 'them'} in the task's ` +
+        'Secrets section (Edit → Secrets), then run it again.'
+    };
+  }
+
+  const resolved = resolveJobSecrets(job, secrets);
+
+  // Re-validated **after** substitution, which is where the shape checks a
+  // reference was allowed to skip actually get made — a secret whose value is
+  // not a URL is caught here rather than being fired at nothing. The message is
+  // redacted for the same reason the log is: a refusal that quotes the offending
+  // value would publish it.
+  const resolvedInvalid = validateJob(resolved);
+  if (resolvedInvalid) {
+    return {
+      success: false,
+      durationMs: 0,
+      ran: false,
+      log: `${redactSecrets(resolvedInvalid, secrets)} (after resolving this task's secrets)`
+    };
+  }
+
   // Everything past validation executes, so `ran` is set once here rather than
   // in each of the four executors, where a new job type could forget it.
-  const result = await runByJobType(job);
-  return { ...result, ran: true };
+  const result = await runByJobType(resolved);
+  return { ...result, log: redactSecrets(result.log, secrets), ran: true };
 }
 
 function runByJobType(job: NativeJob): Promise<Omit<NativeRunResult, 'ran'>> {

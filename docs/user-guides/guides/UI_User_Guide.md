@@ -79,6 +79,10 @@ Three things worth knowing about *Run a program*:
   anything you set explicitly — not Cronsole's own, which holds the key that encrypts your stored
   platform credentials.
 
+And one thing that applies to all four kinds: **if the job needs a credential, put it in
+[Secrets](#secrets) rather than in the job**. The New Task form has a Secrets section; anything you
+enter there is saved encrypted along with the task, in the same request.
+
 **Use a Windows task instead** for anything that must run as your logged-in user, or keep running
 when Cronsole is down.
 
@@ -433,6 +437,70 @@ Three things to know about the native side:
 
 A **Claude routine's** prompt is defined at claude.ai; Cronsole can schedule and fire it, not
 rewrite it.
+
+#### Secrets
+
+A Cronsole-native job frequently needs a credential — a bearer token in a header, an API key in an
+environment variable, a webhook URL that *is* its own authentication. **Put it in Secrets, not in
+the job.**
+
+A secret is a **name and a value**. The value is stored AES-256-GCM encrypted, exactly like your
+platform credentials; the job refers to it by name:
+
+```
+${secret.API_TOKEN}
+```
+
+Write that anywhere the credential belongs and Cronsole substitutes the real value when the task
+runs:
+
+| Kind of job | Where a `${secret.NAME}` works |
+|---|---|
+| Call a URL | the URL, any header value, the request body |
+| Run a program | any argument, any environment value |
+| Write a script | the script body, any environment value |
+| Check something | an endpoint check's URL and header values |
+
+Not in a program's *executable*, a script's *interpreter*, or a check's *assertions* — Cronsole
+refuses those by name, because a secret hiding which program runs makes the run log unreadable
+without protecting anything.
+
+**What you get for using it:**
+
+- **The value is never shown again.** No screen and no API returns it. To change one you replace
+  it; there is nothing to read it back with, including for Cronsole itself outside the moment a
+  task runs.
+- **It is taken back out of the run log.** If a job prints its token, the history shows
+  `${secret.API_TOKEN}` where the value was — so you can still see *which* secret was involved.
+  This is a genuine safety net and not a guarantee: it works by matching the stored value, so a
+  script that encodes its token before printing defeats it.
+- **It never leaves this install.** Exporting the task exports the job — including the
+  `${secret.…}` references, so the file says what it needs — and none of the values. Same for the
+  archive Cronsole writes before a delete. Import the file elsewhere and you enter the values there.
+- **Deleting the task destroys them.** Unlike the archive, which deliberately outlives the row,
+  the secrets go with it.
+- **Editing the job never touches them.** *What it runs* replaces the whole job; the secrets are a
+  separate thing on the task, so they survive every edit. They are also written **immediately**,
+  one at a time — they are not part of *Save changes*.
+
+**A reference with nothing behind it is a task that will not start**, and Cronsole says so at every
+point it could: the Secrets section marks it *Not set*, creating or importing such a task reports it
+by name, and the run itself refuses with *"this job refers to a secret that is not set"* rather than
+firing a request with a blank credential.
+
+Two smaller rules, both stated where they bite:
+
+- **A secret must be at least four characters.** Redaction is a text match over the job's output, so
+  a one- or two-character value would blank those characters out of every word the task prints.
+- **A task with secrets cannot be saved as a template.** A template is portable content: it would
+  either carry your credential into the catalog or produce a task that applies cleanly and then
+  refuses to run. Export it as a **task file** instead.
+
+If Cronsole reports that stored secrets **cannot be decrypted**, `ENCRYPTION_KEY` has changed since
+they were saved. The values are unrecoverable — re-enter them.
+
+*(AI assistants can see which secrets a task uses and which are missing, through the
+`list_task_secrets` MCP tool. None of them can set a value: a tool call is a chat transcript.)*
 
 ### Removing a task — two very different buttons
 The modal footer offers **two** ways to make a task go away, and they are not interchangeable.

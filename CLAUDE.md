@@ -82,7 +82,10 @@ cronsole/
 
 **Three things run stale** and cause most "impossible" behavior: the Dockerized backend, the
 published agent (`agent/publish/`), and `mcp-server/dist/`. A fourth — `frontend/dist/` — only while
-the `proxy` profile is running. Run **`/doctor`** before debugging your own code.
+the `proxy` profile is running, and it is the one with **no keeper**: `cronsole up` starts the proxy
+and never rebuilds it, so the proxied page can be a complete, working dashboard from another day
+while `:7373` is current (`node scripts/check-dist-fresh.mjs`, which omits itself when the proxy is
+down). Run **`/doctor`** before debugging your own code.
 
 ---
 

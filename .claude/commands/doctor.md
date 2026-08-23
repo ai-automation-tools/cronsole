@@ -1,7 +1,7 @@
 ---
 allowed-tools: Read, Bash, Grep, Glob
-argument-hint: (no args) | --stale | --agent | --mcp | --fix
-description: Diagnose a Cronsole stack that builds but misbehaves — the three processes that run stale, agent connectivity, and MCP token expansion
+argument-hint: (no args) | --stale | --agent | --mcp | --dist | --fix
+description: Diagnose a Cronsole stack that builds but misbehaves — the four things that run stale (incl. the proxied frontend bundle), agent connectivity, and MCP token expansion
 ---
 
 # Cronsole Doctor
@@ -10,14 +10,16 @@ Run **before** debugging your own code when live behavior contradicts the source
 
 ## Why this exists
 
-Cronsole has **three processes that run stale**, and each one presents as a bug in your
-logic rather than a stale process:
+Cronsole has **four things that run stale**, and each one presents as a bug in your logic
+rather than a stale process. The first three are always live; the fourth only matters while the
+reverse proxy is running:
 
 | Stale thing | Presents as | Because |
 |:---|:---|:---|
 | **Dockerized backend** | New route 404s; live request disagrees with source; offline tests pass | Windows→Linux bind mounts do not propagate inotify, so `tsx watch` never fires |
 | **Published .NET agent** | New agent command 502s "Agent … timeout" after ~15s; DB-only paths work | It is a host process running a published exe; it never hot-reloads |
 | **`mcp-server/dist/`** | Tool behaves like the old code | The host runs `dist/`, not `src/` — an unbuilt change is invisible |
+| **`frontend/dist/`** *(only while the proxy runs)* | The proxied page works perfectly and is **from another day**; `:7373` is current | Nothing rebuilds it — `cronsole up` starts the proxy but never runs a build |
 
 Most "impossible" behavior is one of these. Check them before suspecting your own code.
 
@@ -125,25 +127,44 @@ cd backend && npm test   # the drift test fails if registry/ disagrees with bund
 
 ### 7. Only if the proxy is running: is `frontend/dist` right?
 
-**Skip this check entirely unless `taskhub-proxy-1` is up** — on a normal stack nothing serves
-`frontend/dist`, which is why it is not on the standing stale list.
+**`frontend/dist` is the fourth thing that runs stale, and the only one with no keeper.** The
+other three announce themselves — a stale backend 404s, a stale agent 502s, an unbuilt
+`mcp-server/dist` behaves like old code. A stale `dist` serves a **complete, working,
+correct-looking dashboard from another day**. Nothing errors, nothing logs, and `:7373` is
+current the whole time, so the two addresses disagree and only the one you are not looking at
+is wrong.
 
 ```bash
-docker ps --filter "name=taskhub-proxy" --format "{{.Names}}"          # empty => skip
-cd frontend/dist/assets && grep -o '.\{4\}`same-origin`.\{4\}' index-*.js | tail -1
+node scripts/check-dist-fresh.mjs
 ```
 
-Two different failures, and they present as **opposites** — do not diagnose one as the other:
+It **omits itself** when the proxy is down (nothing serves `dist`, so its age is a fact about
+nothing) and reports `UNKNOWN` when Docker cannot be asked — neither is a pass. `--force`
+measures anyway. Verdicts: `OK` · `STALE` · `NEVER BUILT` · `UNKNOWN`.
 
-| Proxied page | Requests | Cause | Entry |
-|:---|:---|:---|:---|
-| Older than `:7373` | fine | never rebuilt | [#53](../../docs/troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current) |
-| Current | all fail, *cannot reach backend* | built with `npm run build`, not `build:remote` | [#63](../../docs/troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend) |
+| Verdict | Means | Fix |
+|:---|:---|:---|
+| `STALE` | The proxied page is older than the source | `cd frontend && npm run build` — the mount is live, no container restart ([#53](../../docs/troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current)) |
+| `NEVER BUILT` | Proxy is up, `dist` absent — the page is a 404, not a stale page | `cd frontend && npm run build` |
 
-The grep reads the **call**, not the occurrence: `Rl(\`same-origin\`)` is a correct remote build,
-`Rl(\`http://localhost:3000\`)` is the wrong mode. Searching for either string on its own proves
-nothing — both appear in every bundle. Fix for both: `cd frontend && npm run build:remote` (the
-mount is live; no container restart).
+> **`cronsole up` starts the proxy and does not rebuild `dist`** — deliberately. Rebuilding on
+> every `up` would let a routine start command silently replace what is being served, which is a
+> worse property than an occasional stale bundle. The gap is closed by reporting, per the
+> standing rule that a diagnostic reports and does not repair.
+
+**Do not diagnose the API-origin failure from the bundle's bytes.** Since the 2026-08-17 fold
+(`FALLBACK_API_ORIGIN` in `frontend/src/api.ts`), **`npm run build` and `npm run build:remote`
+produce the same correct same-origin bundle** — there is no longer a wrong command to run, and
+`.env.remote` says so itself. The old advice here, to grep for a `same-origin` *call* and to
+always prefer `build:remote`, is superseded: `http://localhost:3000` still appears once in a
+**correct** build, and the minifier now emits an assignment rather than the documented call
+shape, so that grep distinguishes nothing.
+
+What can still bake a wrong origin is an **input**: `VITE_API_URL` set in `frontend/.env.local`,
+which Vite loads in *every* mode and compiles in as a literal. `check-dist-fresh.mjs` reports
+that alongside its verdict. That is the live form of
+[#63](../../docs/troubleshooting/README.md#63-the-proxied-dashboard-loads-on-the-phone-but-cannot-reach-the-backend)
+— the page loads fine on a phone and reaches no backend.
 
 ## Report format
 
@@ -157,8 +178,10 @@ a failure to find something.
 - `--stale` — only the three stale-prone processes (checks 2–4)
 - `--agent` — only agent connectivity and build currency (check 3)
 - `--mcp` — only the MCP server and token (check 4)
-- `--fix` — apply the safe fixes (`docker restart`, `npm run build` in `mcp-server/`). **Never**
-  auto-run the agent republish: it needs elevation and would kill a running agent. In `frontend/`
-  the fix is **`npm run build:remote`**, never plain `build` — see check 7.
+- `--dist` — only the proxied-bundle freshness check (check 7)
+- `--fix` — apply the safe fixes (`docker restart`, `npm run build` in `mcp-server/` and, when
+  check 7 reports `STALE`, in `frontend/`). **Never** auto-run the agent republish: it needs
+  elevation and would kill a running agent. Plain `npm run build` is correct in `frontend/`
+  since the 2026-08-17 fold — see check 7.
 
 $ARGUMENTS

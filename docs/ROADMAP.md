@@ -537,6 +537,25 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
       picks up changes on its next load.
       ([troubleshooting #72](troubleshooting/README.md#72-the-sidebar-is-half-empty-at-a-second-address))
 
+- [x] **`/doctor` can see the fourth stale thing now** *(2026-08-23,
+      `scripts/check-dist-fresh.mjs`)*. `frontend/dist` is the only one of the four with **no
+      keeper** — a stale backend 404s, a stale agent 502s, an unbuilt `mcp-server/dist` behaves
+      like old code, but a stale `dist` serves a complete, working, correct-looking dashboard from
+      another day while `:7373` stays current. It cost an hour the same day, in the worst possible
+      form: preference sync shipped, passed 1,740 tests, was verified with `curl` against the
+      backend, and was absent from the Tailscale URL because the proxy was serving a bundle from
+      four days earlier. Every signal said the code was right. It was; nothing was serving it.
+      The check compares `dist/assets` against `frontend/src/**` plus the four compiled-in inputs,
+      **omits itself when the proxy is down** (nothing serves `dist` then, so its age is a fact
+      about nothing) and reports `UNKNOWN` when Docker cannot be asked — neither rendered as a
+      pass. Wired in as `/doctor` check 7, whose prose was **itself stale**: it still required
+      `build:remote` and grepped the minified bundle for a `same-origin` *call*, both superseded by
+      the 2026-08-17 fold. Corrected in the same change, along with the matching rows in `SKILL.md`
+      and troubleshooting #53.
+      **Deliberately not fixed by `cronsole up` rebuilding `dist`** — a start command that silently
+      replaces what is being served is a worse property than a bundle you occasionally rebuild, and
+      a diagnostic reports rather than repairs.
+
 ### Shipped 2026-08-21
 
 - [x] **Per-job secrets — the unfinished half of the native job types** *(2026-08-21,

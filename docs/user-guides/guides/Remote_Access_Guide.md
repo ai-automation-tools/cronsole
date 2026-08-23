@@ -310,6 +310,39 @@ If the backend runs in Docker rather than on the host, also set
 `CRONSOLE_BACKEND_UPSTREAM=backend:3000` — the default, `host.docker.internal:3000`, points at
 the host-run stack that `scripts/cronsole.ps1` starts.
 
+## What follows you to the second address, and what doesn't
+
+Reaching Cronsole from a second address is reaching it from a second **origin**, and the browser
+treats those as different sites. Everything Cronsole keeps in `localStorage` is scoped to one
+origin, so a fresh URL starts with an empty copy of it — that is the browser's rule, not a
+Cronsole setting, and clearing site data at either address does not touch the other.
+
+**Your preferences follow your account.** Rail pins, saved views, the folded state of each rail
+band, the authoring timezone, the system-task lens and the rest of Settings are stored against
+your Cronsole account and read back at every address this install answers on. Settings → Data &
+reset shows where this browser stands: **Synced** means it is following the account, **This
+browser** means nobody is signed in yet, and **Not synced** means the account could not be
+reached and changes are being held locally for now.
+
+The first browser to sign in with preferences already set seeds the account from them. A browser
+that has never had a preference changed does *not* — otherwise opening the dashboard once on a
+phone would flatten the desktop you have been curating. Two devices editing at once resolve by
+recency: the later write wins the whole document, so a pin added on the phone while the desktop
+is also being changed can be lost. In practice that means "don't reorganise your sidebar in two
+places at the same moment", not anything you have to manage.
+
+**Three things are deliberately per-browser**, because they describe the device rather than you:
+
+| Stays local | Why |
+|:---|:---|
+| **Theme** (dark/light) | Read before you sign in, so syncing it would mean rendering the wrong theme and then repainting on every load. A phone at night and a desktop at noon also reasonably differ. |
+| **API-origin override** (Settings → About) | It names an address, and the whole point of it is to differ per device. A synced one would be wrong everywhere except where it was set. |
+| **Login session** | A token is issued to a browser. Signing in on the phone is a separate session by design. |
+
+**Collections and favorites were never affected** — those are rows in the database and have
+always followed your account. Before preference sync, half the source rail crossed over and half
+did not, which is why the gap read as a bug rather than as a boundary.
+
 ## Security checklist
 
 - [ ] Cronsole is reachable **only** over Tailscale or an Access-gated tunnel — never a raw

@@ -281,6 +281,17 @@ Non-negotiable rules. **Every one has a reason recorded in
   shown in its **own** rail band (Pinned, beside Collections — one `Band` component draws both),
   storing no foreign key, reading its target node's count rather than re-deriving one, and
   surviving its target's disappearance at `0`.
+- **A preference follows the account; only a fact about the device stays in the browser.**
+  `localStorage` is scoped to an *origin*, so the same install at `localhost:8080` and at a
+  Tailscale name is two stores — collections and favorites crossed over (rows), pins and saved
+  views did not, and both draw the same sidebar. The whole `cronsole.settings` blob now syncs
+  through `UserPreference` (`routes/preferences.ts`, one opaque JSON row per user; the server
+  stores it and never reads it, or the shape gets a second definition that drifts silently).
+  **The client hydrates before it may ever push**, and a browser holding untouched defaults does
+  not seed — otherwise opening the dashboard once on a phone flattens the desktop. Conflicts
+  resolve by recency over the whole document, never field-by-field. Theme, the API-origin
+  override and the session token stay per-browser *because they describe the device*, and theme
+  additionally is read before login.
 - **A count beside a control describes the population that control governs** —
   `applyTaskFiltersExcept`, with the hidden count derived, not counted separately.
 - **A judgement has one definition and it is the server's** — `isSystem`, health tier, task source

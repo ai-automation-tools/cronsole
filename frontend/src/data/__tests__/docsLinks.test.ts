@@ -11,6 +11,7 @@ import agentSetupGuide from '../../../../docs/user-guides/guides/Agent_Setup_Gui
 import templatesDoc from '../../../../docs/reports/templates/Templates.md?raw';
 import troubleshooting from '../../../../docs/troubleshooting/README.md?raw';
 import adrPerJobSecrets from '../../../../docs/adr/0003-per-job-secrets.md?raw';
+import remoteAccessGuide from '../../../../docs/user-guides/guides/Remote_Access_Guide.md?raw';
 
 import { describe, it, expect } from 'vitest';
 import { DOCS_BASE } from '../docs';
@@ -43,7 +44,8 @@ const DOC_SOURCES: Record<string, string> = {
   'docs/user-guides/guides/Agent_Setup_Guide.md': agentSetupGuide,
   'docs/reports/templates/Templates.md': templatesDoc,
   'docs/troubleshooting/README.md': troubleshooting,
-  'docs/adr/0003-per-job-secrets.md': adrPerJobSecrets
+  'docs/adr/0003-per-job-secrets.md': adrPerJobSecrets,
+  'docs/user-guides/guides/Remote_Access_Guide.md': remoteAccessGuide
 };
 
 /**

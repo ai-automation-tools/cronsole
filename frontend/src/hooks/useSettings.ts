@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { api, subscribeAuthToken } from '../api';
 import type { SavedView } from '../utils/savedViews';
 import type { RailPin } from '../utils/railPins';
 
@@ -141,7 +142,20 @@ export const DEFAULT_SETTINGS: Settings = {
   openTools: [],
 };
 
+
 const STORAGE_KEY = 'cronsole.settings';
+
+/** Where the account's copy lives. One blob, opaque to the server. */
+const SYNC_PATH = '/preferences';
+
+/**
+ * How long a burst of changes is allowed to settle before it reaches the server.
+ *
+ * Long enough that dragging a slider or ticking four boxes in a row is one
+ * request, short enough that closing the tab a moment later still catches it —
+ * and `flushPush()` on `pagehide` covers the case where it doesn't.
+ */
+const PUSH_DEBOUNCE_MS = 600;
 
 function read(): Settings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;
@@ -155,20 +169,223 @@ function read(): Settings {
   }
 }
 
+function writeLocal(next: Settings): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Private mode, quota, a disabled store. The account copy is the durable
+    // one now, so losing the local cache costs a round trip, not a preference.
+  }
+}
+
 // Module-level store so every consumer (dashboard, run handlers, settings page)
 // stays in sync when a preference changes — mirrors the pub/sub in api.ts.
 let current: Settings = read();
 const listeners = new Set<() => void>();
 
+/**
+ * Whether this browser's preferences are following the account.
+ *
+ * `'local'` is the honest word for "not synced and not trying" — logged out, or
+ * the sync never started. It is deliberately not called `'offline'`, which would
+ * claim a failure where there is only an absence.
+ */
+export type SettingsSyncStatus = 'local' | 'syncing' | 'synced' | 'error';
+
+let syncStatus: SettingsSyncStatus = 'local';
+
+/**
+ * Set only after a **successful** hydrate, and this flag is the whole safety
+ * property of the design.
+ *
+ * The clobber to avoid is a browser that has never read the account pushing its
+ * own defaults over preferences another device spent months accumulating. That
+ * cannot happen while a write is gated on having first completed a read: if the
+ * GET failed, this stays false and a later edit re-hydrates instead of pushing.
+ * Losing a preference to a retry is recoverable; overwriting an account's
+ * sidebar with an empty one is not.
+ */
+let pushEnabled = false;
+
+/** The token the current hydrate belongs to, so a re-login re-reads. */
+let syncedToken: string | undefined;
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function notify(): void {
+  listeners.forEach(l => l());
+}
+
+function setStatus(next: SettingsSyncStatus): void {
+  if (syncStatus === next) return;
+  syncStatus = next;
+  notify();
+}
+
+/**
+ * Structural comparison with a stable key order.
+ *
+ * `JSON.stringify` alone would not do: a blob read back from the server has
+ * whatever key order it was written in, and one merged over `DEFAULT_SETTINGS`
+ * has the literal's — so two identical settings objects routinely serialize
+ * differently. Getting this wrong would make every hydrate look like a change
+ * and every load push a redundant write.
+ */
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  return `{${Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)
+    .join(',')}}`;
+}
+
+export function sameSettings(a: Partial<Settings>, b: Partial<Settings>): boolean {
+  return canonical(a) === canonical(b);
+}
+
+/**
+ * Has anyone actually chosen anything in this browser?
+ *
+ * This is what decides whether a browser may **seed** an account that has never
+ * stored preferences. A blob equal to the defaults asserts nothing, so pushing
+ * it would let a phone opened once claim the account's preferences and flatten
+ * the desktop that has real ones. A blob that differs is a set of decisions
+ * somebody made, and is worth keeping.
+ */
+export function isDefaultSettings(value: Settings): boolean {
+  return sameSettings(value, DEFAULT_SETTINGS);
+}
+
+/** Adopt the account's copy, replacing whatever this browser had. */
+function applyRemote(remote: Partial<Settings>): void {
+  const next = { ...DEFAULT_SETTINGS, ...remote };
+  if (sameSettings(next, current)) return;
+  current = next;
+  writeLocal(next);
+  notify();
+}
+
+async function push(value: Settings): Promise<void> {
+  await api.put(SYNC_PATH, { data: value });
+}
+
+/**
+ * Read the account's preferences and decide which copy wins — **before this
+ * browser is allowed to write one.**
+ *
+ * Three outcomes, and the middle one is the one worth stating: a stored blob is
+ * adopted wholesale; *no* stored blob with local changes seeds the account; and
+ * no stored blob with untouched defaults does nothing at all, leaving the
+ * account never-stored so the next device with real preferences can seed it.
+ */
+async function hydrate(): Promise<void> {
+  setStatus('syncing');
+  try {
+    const { data } = await api.get<{ data: Partial<Settings> | null }>(SYNC_PATH);
+    if (data?.data) {
+      applyRemote(data.data);
+    } else if (!isDefaultSettings(current)) {
+      await push(current);
+    }
+    pushEnabled = true;
+    setStatus('synced');
+  } catch {
+    // Keep serving the local copy and stay read-only until a hydrate succeeds.
+    pushEnabled = false;
+    setStatus('error');
+  }
+}
+
+function schedulePush(): void {
+  if (!pushEnabled) {
+    // An edit made while unsynced is the natural moment to retry the read that
+    // failed — and it must be a read, never the write we are declining to do.
+    if (syncStatus === 'error' && syncedToken) void hydrate();
+    return;
+  }
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    pushTimer = null;
+    push(current).then(
+      () => setStatus('synced'),
+      () => setStatus('error')
+    );
+  }, PUSH_DEBOUNCE_MS);
+}
+
+/** Send a pending debounced write now — used when the page is going away. */
+function flushPush(): void {
+  if (!pushTimer) return;
+  clearTimeout(pushTimer);
+  pushTimer = null;
+  // Best effort: an in-flight request usually survives `pagehide`. `sendBeacon`
+  // would be the durable form and cannot be used here — it carries no
+  // Authorization header, and this route is authenticated.
+  void push(current).catch(() => { /* the local copy is still correct */ });
+}
+
 function persist(next: Settings) {
   current = next;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-  listeners.forEach(l => l());
+  writeLocal(next);
+  notify();
+  schedulePush();
+}
+
+/**
+ * Begin following the account. Called once from `main.tsx`, after the storage
+ * migration and before anything renders.
+ *
+ * Deliberately explicit rather than a module-level side effect: importing a
+ * preferences hook must not fire a network request, or every unit test that
+ * touches settings acquires one.
+ */
+export function startSettingsSync(): () => void {
+  const stop = subscribeAuthToken(token => {
+    if (token === syncedToken) return;
+    syncedToken = token;
+    pushEnabled = false;
+    if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
+    if (!token) {
+      // Logged out: keep the local copy on screen, stop writing to an account
+      // that is no longer ours.
+      setStatus('local');
+      return;
+    }
+    void hydrate();
+  });
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flushPush);
+  }
+
+  return () => {
+    stop();
+    if (typeof window !== 'undefined') window.removeEventListener('pagehide', flushPush);
+  };
 }
 
 /** Read the current settings without subscribing (for use outside React). */
 export function getSettings(): Settings {
   return current;
+}
+
+/** Where this browser's preferences stand relative to the account. */
+export function getSettingsSyncStatus(): SettingsSyncStatus {
+  return syncStatus;
+}
+
+/**
+ * Change one preference from outside React — the write counterpart to
+ * `getSettings()`, and the same store the hook mutates.
+ *
+ * Exported because the store is the real thing here and the hook is a wrapper
+ * over it: a caller that is not a component (and a test of the sync rules, which
+ * are not rendering rules) should not have to stand up a renderer to set a flag.
+ */
+export function setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void {
+  persist({ ...current, [key]: value });
 }
 
 /**
@@ -177,9 +394,10 @@ export function getSettings(): Settings {
  */
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(current);
+  const [sync, setSync] = useState<SettingsSyncStatus>(syncStatus);
 
   useEffect(() => {
-    const l = () => setSettings(current);
+    const l = () => { setSettings(current); setSync(syncStatus); };
     listeners.add(l);
     // Sync in case the store changed between initial render and subscribe.
     l();
@@ -187,7 +405,7 @@ export function useSettings() {
   }, []);
 
   const update = useCallback(<K extends keyof Settings>(key: K, value: Settings[K]) => {
-    persist({ ...current, [key]: value });
+    setSetting(key, value);
   }, []);
 
   const replaceAll = useCallback((next: Partial<Settings>) => {
@@ -198,5 +416,5 @@ export function useSettings() {
     persist({ ...DEFAULT_SETTINGS });
   }, []);
 
-  return { settings, update, replaceAll, reset };
+  return { settings, syncStatus: sync, update, replaceAll, reset };
 }

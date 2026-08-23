@@ -97,13 +97,17 @@ skill**.
 `web-performance-optimization` · `senior-devops` · `release-engineering` (installers, signing,
 versioning, go-public) · `claude-api` / `agent-tool-builder` (MCP work) · `github-readme` ·
 `update-docs`.
+Only `cronsole`, `release-engineering`, and `api-architect` are in this repo. The rest moved to
+**user scope** (`~/.claude/skills/`, `~/.claude/commands/`) on 2026-08-23 and are available in every
+repo — don't re-add copies here.
 **Commands:** **`/doctor`** (stale processes, agent connectivity, `CRONSOLE_TOKEN`) ·
 **`/sync-surfaces`** (the §11a drift check, mechanized — run before committing anything non-trivial).
 
 **Subagents:** `native-agent-engineer` (anything under `agent/`, incl. the coming launchd agent) ·
-`template-curator` (catalog/registry) · `test-engineer` · `api-designer` · `backend-designer` ·
-`frontend-designer` · `frontend-developer` · `fullstack-developer` · `project-manager` ·
-`technical-writer` · `Explore` · `Plan`.
+`template-curator` (catalog/registry) · `test-engineer` — these three are in this repo. The
+general-purpose set — `api-designer` · `backend-designer` · `frontend-designer` ·
+`frontend-developer` · `fullstack-developer` · `project-manager` · `technical-writer` — is at **user
+scope** (`~/.claude/agents/`) since 2026-08-23. `Explore` and `Plan` are built in.
 
 **MCP — two different surfaces share `.mcp.json`** (gitignored; seeded from `.mcp.json.example`):
 - **Dev tooling** that helps you *build* Cronsole: `context7` (check library docs before writing

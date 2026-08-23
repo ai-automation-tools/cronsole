@@ -511,6 +511,32 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ## Shipped 2026-08-15 → 2026-08-18 — the current sprint
 
+### Shipped 2026-08-23
+
+- [x] **Preferences follow the account, not the browser** *(2026-08-23, reported from the
+      Tailscale URL)*. `localStorage` is scoped to an **origin**, so the same install reached at
+      `localhost:8080` and at a Tailscale name handed one person two stores — and the source rail
+      was drawn from both kinds of storage at once. Collections and favorites are rows and crossed
+      over; **rail pins and saved views did not**, which reads as a bug rather than as a boundary
+      because both halves render in bands that look alike on purpose. The whole `cronsole.settings`
+      blob now syncs through **`UserPreference`** — one JSON row per user, `userId` as the primary
+      key so a second row is unrepresentable — behind `GET` / `PUT /api/preferences`.
+      **The server stores it and never reads it**: a server-side `Settings` schema would be a
+      second definition of a shape the frontend owns, and its drift is silent (a backend one
+      release behind strips a field a newer browser just wrote). The boundary checks are only *is
+      it an object* and *is it under 64 kB* — under Express's 100 kB default, so ours is the error
+      that fires. **The client hydrates before it may ever push**, and a browser holding untouched
+      defaults does not seed, so opening the dashboard once on a phone cannot flatten a curated
+      desktop; `data: null` (never stored) and `{}` (stored defaults) are different answers and the
+      client acts on the difference. Settings → Data & reset reports Synced / This browser / Not
+      synced, as a **readout with no repair button** (the `/doctor` rule). Theme, the API-origin
+      override and the session token stay per-browser deliberately — they describe the device, and
+      theme is additionally read before login.
+      **Known limit, not scheduled:** two devices editing at once resolve by recency over the whole
+      document, never field-by-field, and there is no live push between open tabs — a second device
+      picks up changes on its next load.
+      ([troubleshooting #72](troubleshooting/README.md#72-the-sidebar-is-half-empty-at-a-second-address))
+
 ### Shipped 2026-08-21
 
 - [x] **Per-job secrets — the unfinished half of the native job types** *(2026-08-21,

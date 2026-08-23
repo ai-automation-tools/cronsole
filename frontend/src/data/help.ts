@@ -823,6 +823,55 @@ const importSync: HelpTopic = {
 
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 
+const preferenceSync: HelpTopic = {
+  id: 'preference-sync',
+  title: 'Preference sync',
+  summary:
+    'Your pins, saved views and settings are stored against your account, so they are the same ' +
+    'at every address this install answers on — localhost, the proxy, the Tailscale name.',
+  points: [
+    {
+      label: 'Because a second URL is a second store',
+      body:
+        'Browsers scope local storage to one origin, so reaching Cronsole at a new address used ' +
+        'to hand you an empty sidebar. Collections and favorites always crossed over — they are ' +
+        'rows — which is why the gap looked like a bug rather than a boundary.'
+    },
+    {
+      label: 'A new browser adopts, it does not overwrite',
+      body:
+        'Signing in reads your account before it ever writes to it, and a browser where nothing ' +
+        'has been changed will not seed. Opening the dashboard once on a phone cannot flatten ' +
+        'the desktop you have been curating.'
+    },
+    {
+      label: 'Two devices at once resolve by recency',
+      body:
+        'The later write wins the whole set, not field by field. Reorganising your sidebar in ' +
+        'two places in the same minute can lose one side of it.'
+    },
+    {
+      label: 'Theme and the API origin stay local',
+      body:
+        'Both describe the device rather than you: the theme is read before you sign in, and the ' +
+        'API-origin override names an address whose whole point is to differ per machine.'
+    },
+    {
+      label: 'Not synced means held, not lost',
+      body:
+        'If the account cannot be reached, changes stay in this browser and are retried on your ' +
+        'next change. Nothing is written to the account until it has been read once.'
+    }
+  ],
+  doc: {
+    label: 'Remote Access Guide › What follows you to the second address',
+    url: docLink(
+      `${GUIDES}/Remote_Access_Guide.md`,
+      'what-follows-you-to-the-second-address-and-what-doesnt'
+    )
+  }
+};
+
 const templates: HelpTopic = {
   id: 'templates',
   title: 'Templates',
@@ -1150,7 +1199,8 @@ const TOPIC_LIST: HelpTopic[] = [
   taskImport,
   taskExport,
   diagnostics,
-  taskHealth
+  taskHealth,
+  preferenceSync
 ];
 
 export const HELP_TOPICS: Record<string, HelpTopic> = Object.fromEntries(

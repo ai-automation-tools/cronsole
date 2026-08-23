@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { HelpButton } from './HelpButton';
 import {
   Palette,
   LayoutDashboard,
@@ -26,7 +27,13 @@ import {
   LogOut,
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
-import { useSettings, DEFAULT_SETTINGS, type Settings, type DashboardView } from '../hooks/useSettings';
+import {
+  useSettings,
+  DEFAULT_SETTINGS,
+  type Settings,
+  type DashboardView,
+  type SettingsSyncStatus
+} from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
 import { ApiTokensRow } from './settings/ApiTokensRow';
 import { useAuth } from '../hooks/useAuth';
@@ -100,20 +107,65 @@ const Section = ({
 const Row = ({
   label,
   description,
+  help,
   children,
 }: {
   label: string;
   description?: string;
+  /** An optional `?` beside the label, for a row with a rule behind it. */
+  help?: React.ReactNode;
   children: React.ReactNode;
 }) => (
   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4">
     <div className="min-w-0">
-      <div className="text-sm font-semibold text-foreground">{label}</div>
+      <div className="text-sm font-semibold text-foreground flex items-center">{label}{help}</div>
       {description && <div className="text-xs text-subtle-foreground mt-0.5 max-w-md">{description}</div>}
     </div>
     <div className="shrink-0">{children}</div>
   </div>
 );
+
+/**
+ * What preference sync is doing, in words — and each of the four says a
+ * different thing on purpose.
+ *
+ * `local` is an absence, not a failure: nobody is logged in, so there is no
+ * account to follow. `error` is a failure, and it names the consequence the user
+ * would otherwise discover on the next device rather than reassuring them.
+ * Collapsing the two into one "not syncing" would be the same lie in both
+ * directions that the health tiers exist to avoid (CLAUDE.md §9).
+ */
+const SYNC_COPY: Record<SettingsSyncStatus, string> = {
+  local:
+    'Stored in this browser only. Preferences follow your account once you sign in — localStorage is scoped to one address, so a second URL gets its own copy.',
+  syncing: 'Reading the copy stored on your account…',
+  synced:
+    'Your pins, saved views and preferences follow your account, so they are the same at every address this install answers on.',
+  error:
+    'Could not reach your account, so changes are being kept in this browser only and will not appear on your other devices yet. Retried on your next change.'
+};
+
+const SYNC_BADGE: Record<SettingsSyncStatus, { label: string; className: string }> = {
+  local: { label: 'This browser', className: 'text-subtle-foreground border-border' },
+  syncing: { label: 'Checking…', className: 'text-muted-foreground border-border' },
+  synced: { label: 'Synced', className: 'text-success-text border-success/40' },
+  error: { label: 'Not synced', className: 'text-warning-text border-warning/40' }
+};
+
+/**
+ * A readout, not a control — there is no button to force a sync, for the same
+ * reason the diagnostics panel has no "restart the agent": the failure this
+ * would appear to fix is upstream of the browser, and a button that reports
+ * success without changing anything is worse than no button.
+ */
+const SyncBadge = ({ status }: { status: SettingsSyncStatus }) => {
+  const { label, className } = SYNC_BADGE[status];
+  return (
+    <span className={`inline-flex items-center px-3 py-1.5 rounded-xl border text-xs font-bold ${className}`}>
+      {label}
+    </span>
+  );
+};
 
 const Toggle = ({
   checked,
@@ -350,7 +402,7 @@ const AccountSection = () => {
 // ---- Screen ----------------------------------------------------------------
 
 export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
-  const { settings, update, replaceAll, reset } = useSettings();
+  const { settings, syncStatus, update, replaceAll, reset } = useSettings();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('ok');
@@ -548,8 +600,15 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
       </Section>
 
       {/* Data */}
-      <Section icon={Database} title="Data & reset" subtitle="Manage locally stored preferences.">
-        <Row label="Export settings" description="Download your preferences as a JSON file.">
+      <Section icon={Database} title="Data & reset" subtitle="Preferences follow your account, not this browser.">
+        <Row
+          label="Preference sync"
+          description={SYNC_COPY[syncStatus]}
+          help={<HelpButton topic="preference-sync" />}
+        >
+          <SyncBadge status={syncStatus} />
+        </Row>
+        <Row label="Export settings" description="Download a snapshot of your preferences as a JSON file.">
           <button
             onClick={exportSettings}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
@@ -557,7 +616,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
             <Download size={14} /> Export
           </button>
         </Row>
-        <Row label="Import settings" description="Load preferences from a previously exported file.">
+        <Row label="Import settings" description="Load preferences from a previously exported file. This replaces the copy on your account too.">
           <button
             onClick={() => importInputRef.current?.click()}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"

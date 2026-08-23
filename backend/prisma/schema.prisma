@@ -28,6 +28,7 @@ model User {
   capabilities   PlatformCapability[]
   deletedTasks   DeletedTaskArchive[]
   apiTokens      ApiToken[]
+  preferences    UserPreference?
 
   @@index([email])
 }
@@ -561,4 +562,51 @@ model ApiToken {
 
   @@index([userId])
   @@index([jti])
+}
+
+
+/// The browser-preferences blob, so it follows the user instead of the browser.
+///
+/// **This is one row of opaque JSON, and that is the point.** Everything in it
+/// — the rail pins, the saved views, which bands are folded, the authoring
+/// timezone — is a preference that means nothing to any other user and that no
+/// server-side code reads or acts on. It is stored here for exactly one reason:
+/// `localStorage` is scoped to an **origin**, and the same person reaching the
+/// same install at `http://localhost:8080` and at
+/// `http://desktop.tail-scale.ts.net:8080` is handed two different stores. Half
+/// the source rail followed them across (collections and favorites are rows) and
+/// half did not (pins and views were `localStorage`), which reads as a bug
+/// because the two halves sit in the same sidebar.
+///
+/// It does **not** make a pin a resource. `utils/railPins.ts` argues a pin holds
+/// no foreign key, names no platform and cannot be shared — all still true. What
+/// that argument never considered is one user at two origins, and syncing the
+/// blob answers that without turning a preference into an entity: the shape
+/// stays entirely the frontend's, and the server never opens it.
+///
+/// So `data` is deliberately `Json` and deliberately unvalidated beyond a size
+/// cap (routes/preferences.ts). A server-side schema here would be a **second
+/// definition of `Settings`** that has to be edited in lockstep with the first,
+/// and the failure when they drift is silent: a backend one release behind would
+/// reject or strip a field a newer browser just wrote, losing a preference the
+/// user set. The blob is per-user private data the server only ever hands back
+/// to the one account that stored it, so there is nothing here for it to judge.
+///
+/// Keyed on `userId` as the primary key rather than a `cuid()` with a unique
+/// index: there is exactly one of these per user, and a schema that can express
+/// two is a schema where a merge conflict is representable.
+model UserPreference {
+  /// Both the primary key and the foreign key — one row per user, enforced by
+  /// the shape rather than by a constraint someone can drop.
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The `cronsole.settings` blob verbatim. Opaque here; see above.
+  data      Json
+
+  /// Last write wins between devices, and this is how a client can tell which
+  /// write it is looking at. Not a merge base — see routes/preferences.ts for
+  /// why concurrent edits from two browsers are resolved by recency and not by
+  /// field-level merge.
+  updatedAt DateTime @updatedAt
 }

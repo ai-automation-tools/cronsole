@@ -4,6 +4,7 @@ import taskRoutes from './routes/tasks.js';
 import templateRoutes from './routes/templates.js';
 import toolsRoutes from './routes/tools.js';
 import collectionRoutes from './routes/collections.js';
+import preferenceRoutes from './routes/preferences.js';
 import authRoutes from './routes/auth.js';
 import { authenticateToken } from './auth/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -77,6 +78,7 @@ export function createApp(): Express {
   app.use('/api/templates', authenticateToken, templateRoutes);
   app.use('/api/tools', authenticateToken, toolsRoutes);
   app.use('/api/collections', authenticateToken, collectionRoutes);
+  app.use('/api/preferences', authenticateToken, preferenceRoutes);
 
   // Single error boundary — mounted after all routes. Express 5 forwards
   // rejected promises from async handlers here automatically.

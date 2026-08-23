@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 72 | The **sidebar is half empty at a second address** — pinned folders and saved views are missing at `http://my-pc.my-tailnet.ts.net:8080/`, while **collections and favorites are all there**. Nothing errors, nothing is logged, and the same browser shows them correctly at `localhost` | **`localStorage` is scoped to an origin, and half the rail was in it.** Collections and favorites are database rows keyed on the user, so they followed the account across; rail pins and saved views lived in the `cronsole.settings` blob, which the browser hands out per origin — a different host or port is a different store, and a fresh one is empty. Both halves draw into the same sidebar, so the boundary reads as a bug. **Fixed 2026-08-23:** the whole settings blob syncs through `UserPreference` (`GET`/`PUT /api/preferences`). Theme and the API-origin override still do not sync, deliberately — they describe the device | [→](#72-the-sidebar-is-half-empty-at-a-second-address) |
 | 70 | The **Tailscale URL is dead** — `http://my-pc.my-tailnet.ts.net:8080/` returns **502**, empty body, from every device — while everything else is healthy: `cronsole status` says `ALL UP`, `localhost:7373` works, the agent is connected, `tailscale status` lists both machines, and `tailscale serve status` prints the right mapping | **The Caddy proxy container was stopped, and `restart: unless-stopped` means it.** The 502 is `tailscaled` reporting that *its upstream* refused — `curl 127.0.0.1:8080` answers `000` and `docker ps -a` shows `taskhub-proxy-1 Exited (0) 2 days ago`. `unless-stopped` restarts after a crash or a reboot but never undoes a deliberate `docker compose stop`; the proxy is also **profile-gated** (opt-in remote access, §9), so a routine `docker compose up -d` cannot bring it back and does not fail either — and `cronsole up` did not know it existed, so the 5-minute self-heal walked past it. **Fixed 2026-08-20:** `cronsole remote on` records the opt-in in `.cronsole-remote` and `up` starts the proxy. **A 404 here means something else** — `tailscale serve` matched no handler for the Host you sent, which is what curling the tailnet *IP* always does | [→](#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy) |
 | 71 | A Cronsole-native task **will not start** — the run history says *"This job refers to a secret that is not set on this task: X"* and the run is a **502**, not a failed check | Working as designed (ADR 0003). A native job holds `${secret.X}` and the value lives in a separate encrypted row; a reference with nothing behind it is a failure to **start** (`ran: false`), never a verdict about your system, because firing the request with a blank credential comes back as a 401 that reads like an expired token. Set it in the app: task → **Edit** → **Secrets**. `list_task_secrets` reports `referenced` / `stored` / `missing`. **`unreadable: true` is a fourth answer, not an empty list** — the store exists and `ENCRYPTION_KEY` changed, so the values are gone | [→](#71-a-native-task-refuses-to-start-and-names-a-secret) |
 | 71a | `prisma generate` fails `EPERM` in a **git worktree**, and there is no backend process to stop — `npm run dev` is not running and `docker ps` shows no backend | A worktree's `backend/node_modules` is a **symlink into the main checkout**, so `generate` writes to the *shared* copy and collides with whatever holds the DLL there — often a `\Cronsole-Stack\` scheduled task, whose command line reads back **blank** from a normal session, so [#26](#26-prisma-generate-fails-with-eperm-operation-not-permitted-rename--query_engine-windowsdllnode)'s "stop the backend" has nothing to aim at. **Rename the DLL aside instead of killing anything** — Windows permits renaming an open file, the running process keeps its handle, and `generate` writes a fresh one | [→](#71a-and-in-a-worktree-there-is-no-process-to-stop) |
@@ -4721,6 +4722,62 @@ service that is in neither set has no keeper at all, and the gap is silent in bo
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
 ---
+
+## 72. The sidebar is half empty at a second address
+
+**Symptom.** You open Cronsole at a second address — the Tailscale name, the proxy, a different
+port — and the source rail is missing your **pinned folders** and **saved views**. Your
+**collections and favorites are all present.** Nothing errors, nothing appears in the console or
+the backend log, and the same browser at `localhost` shows everything correctly.
+
+**Cause — `localStorage` is scoped to an origin, and half the rail lived in it.**
+
+An origin is scheme + host + port, so `http://localhost:8080` and
+`http://desktop.tail-scale.ts.net:8080` are two different sites as far as the browser is
+concerned, each with its own store. That is a browser rule, not a Cronsole setting, and there is
+no way to opt out of it.
+
+What made this read as a bug rather than as a boundary is that the rail was drawn from **two
+different kinds of storage at once**:
+
+| In the sidebar | Where it lived | Followed you to the second address? |
+|:---|:---|:---|
+| Collections | `TaskCollection` rows, keyed on the user | **Yes** |
+| Favorites | `TaskFavorite` rows, keyed on the user | **Yes** |
+| Pinned folders | `railPins` in the `cronsole.settings` blob | No |
+| Saved views | `savedViews` in the same blob | No |
+
+Both halves render in the same component, in bands that look alike on purpose. Half a sidebar
+arriving is a far more confusing signal than none of it arriving.
+
+This was never wrong on its own terms — a pin *is* a preference, holds no foreign key, and means
+nothing to another account (`utils/railPins.ts` argues exactly that, and still does). What the
+argument had not considered is **one user at two origins**, which is precisely what remote access
+made routine.
+
+**Fixed 2026-08-23.** The whole `cronsole.settings` blob is stored against the account in
+`UserPreference` and read back at every address (`GET` / `PUT /api/preferences`). Settings → Data
+& reset shows the state: **Synced**, **This browser** (nobody signed in), or **Not synced** (the
+account could not be reached; changes are held locally and retried).
+
+**Three things still do not sync, and that is deliberate** — each describes the device rather
+than you:
+
+- **Theme.** It is read *before* login, so syncing it would mean painting the wrong theme and
+  repainting on every load.
+- **The API-origin override** (Settings → About). It names an address; a synced one would be
+  correct on exactly one machine.
+- **The login session.** A token is issued to a browser.
+
+**If a second device still looks empty**, check Settings → Data & reset on the device that *has*
+the preferences. If it says **This browser**, nothing has been stored to the account yet — sign
+in there and change any preference once to seed it. A browser where nothing has ever been changed
+deliberately does **not** seed the account, so that opening the dashboard once on a phone cannot
+flatten a desktop you have curated.
+
+**A caution worth stating**: two devices editing preferences in the same moment resolve by
+recency over the *whole* document, not field by field. Reorganising the sidebar in two places at
+once can lose one side of it.
 
 ## 71. A native task refuses to start and names a secret
 

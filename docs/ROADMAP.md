@@ -33,7 +33,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 |---|---|---|
 | **P0 — Security** | 🟢 substantially closed | one item: resolve `req.user` from the DB |
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
-| **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · themes · trust indicators · polish |
+| **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(themes done 2026-08-24)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
 | **Sources** | 🟡 4 of ~8 built | POSIX agent (the big one) · Vercel + Supabase observers |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
@@ -45,8 +45,9 @@ GitHub Actions' live verification, ran against a real repository and immediately
 it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)),
 which is the argument for doing this on every connector rather than trusting a green suite.
 
-**The two largest open items, in order:** the light theme · the POSIX agent. *(The `env` editor —
-the last remainder of the 2026-08-15 request block other than the themes — shipped 2026-08-24.)* *(Per-job encrypted
+**The largest open item is now the POSIX agent.** *(The light theme and the `env` editor — the
+whole 2026-08-15 request block — both shipped 2026-08-24; the theme pass carved out one follow-up,
+`--border` needing a second token to meet WCAG 1.4.11.)* *(Per-job encrypted
 fields led this list until it shipped 2026-08-21, which unblocked the `NOTIFY` and `SQL` job
 types — neither is scheduled.)*
 
@@ -109,7 +110,8 @@ Four items were requested directly after the dashboard IA redesign landed. **Thr
 collections, the native job types, and the phone verification (see
 [Part II](#shipped-2026-08-15--2026-08-17)); the fourth, per-job encrypted fields, shipped
 2026-08-21 as [ADR 0003](adr/0003-per-job-secrets.md), and the `env`-editor remainder that work
-carved out shipped 2026-08-24. **The themes are all that is left.**
+carved out shipped 2026-08-24. **The themes shipped the same day, so this block is closed** — see
+the two entries below for what measuring them turned up.
 
 - [x] **An `env` editor for `EXEC` and `SCRIPT` jobs** — shipped 2026-08-24 *(carved out of per-job
       secrets, 2026-08-21)*. One **Environment** control shared by both types, `NAME=value` per line
@@ -137,20 +139,40 @@ carved out shipped 2026-08-24. **The themes are all that is left.**
       handled `env` the whole time and nothing in the browser sent it, which is green from both
       sides.
 
-- [ ] **Fix the themes — light first.** The light theme clashes and is hard to read; the dark
-      palette is also open to reconsideration. This is `frontend/src/index.css` and nowhere else —
-      every colour is already a semantic role token, which is what makes this an edit *there*
-      rather than a 263-site sweep.
-      **What to check rather than guess at:** the roles were tokenised on 2026-08-12 because every
-      light-theme status role failed WCAG AA on white (1.67–2.77 against a 4.5 bar). That fix
-      corrected the `-text` variants and **did not audit the whole light ramp**. The surface steps
-      are the likely culprit — light runs `background 100% → surface 95% → raised 98%`, which
-      inverts the dark ramp's direction and gives a *raised* panel less contrast than a *surface*
-      one. Measure every role pair in both themes before changing values, and keep the two rules
-      the token system exists to enforce: `--x` and `--x-text` are separate because the text form
-      must invert between themes and the accent must not, and a shared hue is not a shared role.
-      Visible on every screen, so regenerate the visual baselines — masking hides colour, not
-      geometry ([#43](troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
+- [x] **Fix the themes — light first** — shipped 2026-08-24. The hypothesis recorded here was
+      right, and measuring first is what found the rest: **26 pairs were below the WCAG AA bar
+      across both themes**, not only in light.
+      **The structural fault was the one predicted.** Light ran `background 100% → surface 95% →
+      raised 98%`, putting a *raised* panel at 1.04 against the page — flatter than the `surface`
+      card it sits above (1.12) and very nearly invisible. Light is now the **mirror** of dark:
+      the same separations, in the only direction available when the page is white. Dark
+      1.05/1.16/1.27, light 1.07/1.14/1.25. The old comment defended the inversion as "lifted
+      rather than sunken", which is a real concern and the wrong trade — on a white page every
+      step away from the background is darker, so "lifted" cannot be expressed as "lighter" and
+      the honest choice is a step you can see.
+      **What measuring found that guessing would not:** `subtle-foreground` — the 10px uppercase
+      label above every form field, 338 sites — failed AA on *every* surface in **both** themes
+      (3.27 dark, 2.89 light). White on the green **Run now** fill was 2.59 and white on the red
+      destructive-confirm fill 3.78. Amber and sky were invisible as *dots* in light (2.14, 2.85)
+      — a status dot has no text beside it, so it is non-text UI at 3:1. `muted-foreground` had to
+      move with `subtle-foreground` in light or the two collapsed to one weight.
+      **The bars are now a test, not a review** (`frontend/src/__tests__/themeContrast.test.ts`,
+      65 assertions): it parses `index.css` and measures every pair, so a future value cannot
+      regress quietly. It also pins `:root === .dark`, because a drift there flashes the wrong
+      palette before hydration on every cold load and nothing fails. Baselines regenerated; the
+      `-text` / accent split and "a shared hue is not a shared role" both held throughout — no
+      component changed, exactly as scoped.
+
+- [ ] **`--border` does not meet WCAG 1.4.11, and needs a second token** *(carved out of the theme
+      pass, 2026-08-24)*. It measures **1.61:1** in light and **1.69:1** dark against the page,
+      against a 3:1 bar for non-text UI. It was raised from 1.41/1.40 as far as one token can go,
+      and the test pins that floor so it cannot slip back — but the gap cannot be closed by a
+      value. `--border` does two jobs: separating cards (decorative, *exempt* from 1.4.11) and
+      drawing the boundary of a text input (in scope, not exempt). Reaching 3:1 needs `L=58%` in
+      light and `L=37%` in dark, which would turn every hairline into a heavy rule at all **313**
+      call sites, including the ~260 the rule does not apply to. The fix is `--border` plus
+      `--border-strong` and a sweep of the *controls* only — a component change, which is why it
+      is not in the palette pass. The test says so and will fail if someone closes it by value.
 
 <a id="import-sync-split"></a>
 

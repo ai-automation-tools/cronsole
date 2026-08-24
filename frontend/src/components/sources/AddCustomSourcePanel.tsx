@@ -1,4 +1,4 @@
-import { ExternalLink, GitPullRequest } from 'lucide-react';
+import { BookOpen, ExternalLink, GitPullRequest } from 'lucide-react';
 import { addingASourceDoc } from '../../data/docs';
 
 /**
@@ -21,7 +21,7 @@ import { addingASourceDoc } from '../../data/docs';
  * sources you could have, which is exactly what it is.
  */
 export const AddCustomSourcePanel = () => (
-  <div className="bg-surface border border-border border-dashed rounded-2xl p-5 space-y-3">
+  <div className="bg-surface border border-border border-dashed rounded-2xl p-5 flex flex-col items-start gap-3">
     <div className="flex items-center gap-2.5">
       <span className="h-9 w-9 rounded-lg bg-muted text-muted-foreground shrink-0 grid place-items-center">
         <GitPullRequest size={16} />
@@ -48,13 +48,28 @@ export const AddCustomSourcePanel = () => (
       costs you a paragraph rather than a weekend.
     </p>
 
+    {/*
+      Styled as the card's primary action rather than as a line of body text.
+      It is the only thing on this panel you can actually do, and it was
+      previously a bold sentence sitting directly under two other bold
+      sentences — findable if you already knew it was a link, and invisible
+      otherwise.
+
+      Still an `<a>`, not a `<button>`: it navigates. The leading glyph says
+      *documentation* and the trailing one says *new tab*, which is the pair
+      every other outbound link in the app uses. `title` carries the same fact
+      for anyone who cannot see the arrow.
+    */}
     <a
       href={addingASourceDoc()}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 text-xs font-bold text-foreground hover:text-primary transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+      title="Opens the Adding a source guide on GitHub in a new tab"
+      className="self-start inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 active:scale-[0.98] shadow-lg shadow-primary/20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
     >
-      Read: Adding a source <ExternalLink size={12} />
+      <BookOpen size={15} className="shrink-0" />
+      Read: Adding a source
+      <ExternalLink size={13} className="shrink-0 opacity-70" />
     </a>
   </div>
 );

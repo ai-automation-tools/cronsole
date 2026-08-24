@@ -1,9 +1,21 @@
-# Adding a source
+<a id="adding-a-source-top"></a>
 
-> **You want Cronsole to read scheduled work from a platform it doesn't support yet.** This is the
-> document for that. It is written for someone about to open an editor — the decision to make
-> first, the contract to meet, the files to touch in order, and the reasons a proposal gets
-> declined.
+<h1 align="center">🔌 Adding a Source</h1>
+
+<p align="center">
+  <em>Make Cronsole read scheduled work from a platform it doesn't support yet.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/audience-contributors-8B5CF6?style=for-the-badge" alt="For contributors">
+  <a href="../../.github/ISSUE_TEMPLATE/new_source.md"><img src="https://img.shields.io/badge/start_with-a_proposal-2ea44f?style=for-the-badge" alt="Start with a proposal issue"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/↩-contributing-6B7280?style=for-the-badge" alt="Contributing home"></a>
+</p>
+
+---
+
+> **This is the document for someone about to open an editor** — the decision to make first, the
+> contract to meet, the files to touch in order, and the reasons a proposal gets declined.
 >
 > Using Cronsole rather than extending it? The
 > [Sources Guide](../user-guides/guides/Sources_Guide.md) is the one you want.
@@ -19,7 +31,7 @@ in this document rather than in a reply three days later.
 
 ---
 
-## Before you write anything
+## 🧭 Before you write anything
 
 **Open a [source proposal issue](https://github.com/michaelschecht/cronsole/issues/new?template=new_source.md)
 first.** It takes five minutes and asks the four questions that decide whether the connector is worth
@@ -32,7 +44,7 @@ be a quick link, not a connector"* costs you a paragraph instead of a weekend.
 
 ---
 
-## 1. Decide which shape it is
+## 1️⃣ Decide which shape it is
 
 Three shapes. **Picking the wrong one is the usual reason a connector stalls half-built.**
 
@@ -59,7 +71,7 @@ cells does not — that says strictly *less* than a link to the platform's own d
 
 ---
 
-## 2. Meet the contract
+## 2️⃣ Meet the contract
 
 Every one of these has cost someone real time. They are not style preferences.
 
@@ -95,7 +107,7 @@ Every one of these has cost someone real time. They are not style preferences.
 
 ---
 
-## 3. Build it, in this order
+## 3️⃣ Build it, in this order
 
 Steps 1–7 are the backend. **Do not stop there** — steps 8–10 are what make the source appear as
 itself rather than as a grey globe labelled `SCREAMING_ENUM`, and none of them fails a test when you
@@ -159,7 +171,7 @@ weeks later as someone confidently doing the wrong thing.
 
 ---
 
-## 4. Copy the closest one
+## 4️⃣ Copy the closest one
 
 **Start from a real connector rather than from this document.** There is no scaffold or template file
 on purpose — a template that nothing compiles against drifts from the interface, which is the exact
@@ -178,7 +190,7 @@ are copying before you change it.
 
 ---
 
-## 5. What will not be accepted
+## 5️⃣ What will not be accepted
 
 - **A connector for a platform with no public scheduled-task API.** It renders as a row of
   *Unsupported* cells that say strictly less than a bookmark does. Add a quick link instead — the
@@ -198,7 +210,7 @@ are copying before you change it.
 
 ---
 
-## 6. Open the PR
+## 6️⃣ Open the PR
 
 Say, in the description:
 
@@ -232,3 +244,13 @@ does, [`CLAUDE.md`](../../CLAUDE.md) §9 for the full invariant list, and
 [`DESIGN_NOTES.md`](../DESIGN_NOTES.md) for the argument behind any rule you want to push back on.*
 
 *Last Updated: August 24, 2026*
+
+<p align="right"><sub><a href="#adding-a-source-top">back to top</a></sub></p>
+
+---
+
+<p align="center">
+  <a href="README.md">← Contributing home</a> ·
+  <a href="../../CONTRIBUTING.md">CONTRIBUTING.md</a> ·
+  <a href="../user-guides/guides/Sources_Guide.md">Sources Guide →</a>
+</p>

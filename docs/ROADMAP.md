@@ -35,7 +35,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · themes · trust indicators · polish |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
-| **Sources** | 🟡 3 of ~8 built | POSIX agent (the big one), then read-only observers |
+| **Sources** | 🟡 4 of ~8 built | POSIX agent (the big one) · Vercel + Supabase observers |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
@@ -315,22 +315,20 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
       honest-warning treatment the Windows trigger conversion already has.
 
-- [ ] **GitHub Actions — read-only observer** *(~a day)*: near-universal for developers, and
-      scheduled workflows are invisible until they break. `on: schedule` cron is **already UTC**, so
-      it matches the storage contract exactly — no conversion layer, none of the DST asymmetry
-      Windows carries. The API gives **real run outcomes**, which makes health scoring genuinely
-      good here rather than the "agent accepted a start" approximation Windows forces. Ships as an
-      observer: sync + health verified, every mutating verb `unsupported`. It is the **mirror image
-      of Claude** — reads everything, changes nothing; between them they bracket the pattern.
-
-- [ ] **Vercel Cron · Supabase `pg_cron` — read-only observers**: increasingly the default for web
-      and indie developers, and both have trivial APIs. Same observer shape as GitHub Actions.
+- [ ] **Vercel Cron · Supabase `pg_cron` — read-only observers** *(next up in this section)*:
+      increasingly the default for web and indie developers, and both have trivial APIs. Same
+      observer shape as GitHub Actions, which **shipped 2026-08-23 and proved it end to end** —
+      a fixed `unsupportedVerbs`, health from stored sync evidence with no probe, a hand-composed
+      connection with a write-only token, and the repository/project as the category. The pieces
+      those two need that GitHub did not have are their own auth surfaces and nothing else.
 
 - [ ] **Deferred — Kubernetes CronJobs · AWS EventBridge Scheduler · Azure Functions · Google Cloud
       Scheduler**: common in *teams*, rare for a solo developer, and each is its own auth surface,
-      rate limit and mental model for exactly one source. Revisit only after the observer pattern
-      has proven itself on the two above. Kept here rather than dropped so the omission stays a
-      decision rather than an oversight.
+      rate limit and mental model for exactly one source. The gate was "revisit once the observer
+      pattern has proven itself", and GitHub Actions did that on 2026-08-23 — but the gate's
+      *second* half stands: these are common in teams and rare for a solo developer, so they wait
+      on the two cheap ones above rather than on the pattern. Kept here rather than dropped so the
+      omission stays a decision rather than an oversight.
 
 - [ ] **Staying quick-links-only — ChatGPT · Gemini · Jules**: no public scheduled-task API exists.
       A connector would render a row of `unsupported` that says strictly less than the link already
@@ -750,6 +748,28 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ## Completed — Sources & connectors
 
+- [x] **GitHub Actions — the first read-only observer** *(2026-08-23)*. Connect a PAT on the
+      Platforms tab, watch repositories by URL or `owner/name`, and sync brings in every workflow
+      with an `on: schedule` trigger. **Every mutating verb is `unsupported`**, and two of them
+      (`run`, `setStatus`) have real APIs behind them and are refused anyway: a `workflow_dispatch`
+      run is not the scheduled run, and enabling a workflow is a repository-state change. `create`
+      would mean committing to the user's default branch.
+      Three things it settled for every observer that follows. **`unsupportedVerbs` is a fixed
+      array here, not a getter** — Claude's answer changes with the install, this one is a property
+      of the connector's design, and a constant is the honest shape when the boundary really is
+      fixed. **Health reads back stored `PlatformCapability` evidence and never probes**, the same
+      conclusion Windows and Claude reached by three different routes: `getHealth` polls every 45s
+      per open tab, against a 5,000/hour rate limit. And **the repository is the category**, derived
+      from the `externalId` (`owner/repo#<workflow id>`, keyed on the numeric id so a renamed file
+      or a changed `name:` does not strand the row).
+      Two honesty details worth carrying forward: an unreadable workflow file yields
+      `schedule: null` **with a reason**, never an assumed cron (troubleshooting #60's shape); and
+      a sync where *every* repository failed **throws** rather than returning `[]`, or
+      `reconcileMissingTasks` would read one revoked scope as "every workflow was deleted".
+      What it is unusually good at: GitHub reports a run's real `conclusion`, so
+      `services/taskHealth.ts` scores it on the outcome of the work rather than on "the agent
+      accepted a start" — better-founded health than the platform Cronsole controls most. It also
+      surfaces GitHub's **silent 60-day inactivity disable** as its own signal.
 - [x] **Native job types — scripts (`EXEC`)** *(2026-08-12)*: `StructuredAction {executable,
       args[]}` reused, containerization detected at boot so a task states where it executes, and
       real `ExecutionLog` rows.

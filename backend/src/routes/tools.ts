@@ -28,6 +28,19 @@ import {
   routineEditSchema
 } from '../services/claudeRoutines.js';
 import { getClaudeCredential } from '../services/claudeOAuth.js';
+import {
+  readConfig as readGitHubConfig,
+  redactConfig as redactGitHubConfig,
+  normalizeRepository,
+  repoFullName,
+  removeRepository,
+  upsertRepository,
+  looksLikeGitHubToken,
+  repositoryFromExternalId,
+  tokenInputSchema,
+  repositoryInputSchema
+} from '../services/githubRepositories.js';
+import { listWorkflows, verifyToken as verifyGitHubToken } from '../services/githubActions.js';
 import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
 import { createNativeTask, NativeTaskCreateError } from '../services/nativeTaskCreate.js';
 import { HttpError } from '../middleware/errorHandler.js';
@@ -948,6 +961,329 @@ router.delete('/platforms/claude/routines/:id', async (req: Request, res: Respon
     tasksRemoved: doomedIds.length,
     connectionRemoved: remaining.length === 0
   });
+});
+
+/* ---------------------------------------------------------------------------
+ * GitHub Actions connection — the second config a user composes by hand.
+ *
+ * Shaped deliberately unlike the Claude routes above, because the platforms are
+ * shaped differently. Anthropic mints a bearer token **per routine**, so Claude's
+ * config is a list of `(id, token)` pairs and every write touches a secret.
+ * GitHub issues **one** token per account and it is what makes every repository
+ * readable — so the token is a property of the *connection* and the repository
+ * list holds no secrets at all.
+ *
+ * The visible payoff: removing a repository here can never cost the user a
+ * credential, so none of the "re-adding is the rotation path" care the Claude
+ * panel carries is needed. Adding one is idempotent rather than a 409.
+ *
+ * Still GitHub-specific rather than a generic
+ * `PUT /platforms/:platform/connection`, for the reason stated over the Claude
+ * block: a generic route would imply the other platforms are configurable this
+ * way and would take an arbitrary blob into a field every connector trusts.
+ *
+ * **The token is write-only across all of these.** `GET` reports `hasToken` and
+ * the last four characters — enough to answer *"is this the token I just
+ * made?"*, not enough to be one. There is no reveal endpoint: GitHub shows a PAT
+ * once and cannot re-display it either.
+ * -------------------------------------------------------------------------- */
+
+/** Load the GitHub connection and its config, or a well-formed empty state. */
+async function loadGitHubConnection(userId: string) {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.GITHUB_ACTIONS }
+  });
+  return {
+    connection,
+    config: connection
+      ? readGitHubConfig(deserializeConfig(connection.config))
+      : readGitHubConfig({})
+  };
+}
+
+/**
+ * Write the config back, creating the connection on first use.
+ *
+ * `serializeConfig` is not optional: `PlatformConnection.config` is AES-256-GCM
+ * encrypted at rest and this holds a live third-party credential.
+ */
+async function saveGitHubConnection(
+  userId: string,
+  connectionId: string | undefined,
+  config: ReturnType<typeof readGitHubConfig>
+) {
+  const serialized = serializeConfig(config);
+  if (connectionId) {
+    await prisma.platformConnection.update({ where: { id: connectionId }, data: { config: serialized } });
+  } else {
+    await prisma.platformConnection.create({
+      data: { userId, platform: PlatformType.GITHUB_ACTIONS, isActive: true, config: serialized }
+    });
+  }
+  await refreshGitHubHealth(userId);
+}
+
+/**
+ * Recompute and store this connection's health right after writing it.
+ *
+ * Same reason as `refreshClaudeHealth`: the dashboard's 45-second poll is the
+ * only other writer of `PlatformConnection.healthState`, so without this the
+ * card sits at whatever that poll last left until the next one runs.
+ *
+ * Safe here for one specific reason, and **only** that reason: the GitHub
+ * connector's `getHealth` reads back stored `PlatformCapability` evidence and
+ * does not probe. Do not copy this into a write path for a platform whose health
+ * check talks to the platform.
+ */
+async function refreshGitHubHealth(userId: string): Promise<void> {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.GITHUB_ACTIONS }
+  });
+  if (!connection) return;
+
+  const connector = connectorRegistry.getConnector(PlatformType.GITHUB_ACTIONS);
+  if (!connector) return;
+
+  try {
+    const health = await connector.getHealth({ ...deserializeConfig(connection.config), userId });
+    await prisma.platformConnection.update({
+      where: { id: connection.id },
+      // `?? null`, not a bare value: Prisma reads `undefined` as "leave the
+      // column alone", which keeps a stale reason under a fresh state.
+      data: { healthState: health.state, healthReason: health.reason ?? null }
+    });
+  } catch {
+    // Health is a readout, not the operation. Failing to refresh it must not
+    // fail the write the user just made.
+  }
+}
+
+/**
+ * The connection's state — repositories, whether a token is stored, and how many
+ * workflows each repository currently accounts for.
+ *
+ * `taskCount` per repository is here for the same reason it is on the Claude
+ * panel: removing a repository strands its tracked workflows, and the UI has to
+ * be able to say so **before** the click rather than report it after.
+ */
+router.get('/platforms/github/connection', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { connection, config } = await loadGitHubConnection(userId);
+
+  const tasks = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.GITHUB_ACTIONS },
+    select: { externalId: true }
+  });
+  const counts = new Map<string, number>();
+  for (const t of tasks) {
+    const repo = repositoryFromExternalId(t.externalId)?.toLowerCase();
+    if (repo) counts.set(repo, (counts.get(repo) ?? 0) + 1);
+  }
+
+  const redacted = redactGitHubConfig(config);
+  res.json({
+    connected: Boolean(connection),
+    hasToken: redacted.hasToken,
+    tokenHint: redacted.tokenHint,
+    repositories: redacted.repositories.map(r => ({
+      ...r,
+      fullName: repoFullName(r),
+      taskCount: counts.get(repoFullName(r).toLowerCase()) ?? 0
+    }))
+  });
+});
+
+/**
+ * Store (or rotate) the account token.
+ *
+ * **Verified before it is stored**, with one `GET /user`. That is the only place
+ * in this connector that contacts GitHub outside a sync, and it is here rather
+ * than in `getHealth` on purpose: a bad paste should fail at the click that made
+ * it, while a health check runs on a 45-second poll per open tab and would spend
+ * a rate limit answering a question sync answers for free.
+ *
+ * A token GitHub rejects is a **400**, not a 502 — the request is wrong, not the
+ * gateway, and retrying the same paste cannot help. A token GitHub *accepts*
+ * whose shape is unfamiliar is saved with a warning: GitHub has shipped four
+ * token formats and will ship more, so refusing one it introduces later would be
+ * worse than the 401 that names itself.
+ */
+router.put(
+  '/platforms/github/connection',
+  validateBody(tokenInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const token = String((req.body as { token: string }).token).trim();
+
+    const verified = await verifyGitHubToken(token);
+    if (!verified.ok) {
+      throw new HttpError(verified.status === null ? 502 : 400, verified.message);
+    }
+
+    const { connection, config } = await loadGitHubConnection(userId);
+    await saveGitHubConnection(userId, connection?.id, { ...config, token });
+
+    res.json({
+      login: verified.data.login,
+      hasToken: true,
+      tokenHint: token.slice(-4),
+      repositories: config.repositories.map(r => ({ ...r, fullName: repoFullName(r) })),
+      warnings: looksLikeGitHubToken(token)
+        ? []
+        : ['That token does not match a format GitHub currently issues. It verified, so it is saved.']
+    });
+  }
+);
+
+/**
+ * Watch a repository.
+ *
+ * Idempotent: re-adding one already watched returns it unchanged rather than a
+ * 409. A duplicate add is a user checking, and the row carries no state a re-add
+ * could rotate — the opposite of the Claude route above, where re-adding an id
+ * *is* the token-rotation path.
+ *
+ * **Verified against GitHub before it is stored**, by listing the repository's
+ * workflows. A repository saved unverified fails much later, inside a sync, as
+ * one line among several — and for a private repository GitHub answers 404
+ * rather than 403, so that failure would read as a typo when it is a missing
+ * `repo` scope. Checking here lets the message say which.
+ */
+router.post(
+  '/platforms/github/repositories',
+  validateBody(repositoryInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const raw = String((req.body as { repository: string }).repository);
+
+    const repository = normalizeRepository(raw);
+    if (!repository) {
+      throw new HttpError(
+        400,
+        'Could not read an owner/repo from that. Paste the repository URL, or its owner and name — ' +
+          'for example github.com/acme/website or acme/website.'
+      );
+    }
+
+    const { connection, config } = await loadGitHubConnection(userId);
+    if (!config.token) {
+      throw new HttpError(400, 'Add a GitHub token first — Cronsole needs one to read a repository.');
+    }
+
+    const probe = await listWorkflows(config.token, repository.owner, repository.repo);
+    if (!probe.ok) {
+      throw new HttpError(probe.status === null ? 502 : 400, probe.message);
+    }
+
+    const already = config.repositories.some(
+      r => repoFullName(r).toLowerCase() === repoFullName(repository).toLowerCase()
+    );
+    await saveGitHubConnection(userId, connection?.id, {
+      ...config,
+      repositories: upsertRepository(config.repositories, repository)
+    });
+
+    res.status(already ? 200 : 201).json({
+      repository: { ...repository, fullName: repoFullName(repository), taskCount: 0 },
+      already,
+      // What syncing would find. Every workflow in the repository — how many are
+      // *scheduled* needs each file read, which is the sync's job, so this
+      // deliberately does not promise a number of tasks.
+      workflowCount: probe.data.total
+    });
+  }
+);
+
+/**
+ * Stop watching a repository, and remove the workflows it put on the dashboard.
+ *
+ * **Cronsole-side only** — the workflows keep running on GitHub exactly as
+ * before, which is why the UI says *Stop watching* and never *Delete*.
+ *
+ * The tracked rows go with the declaration, in the same request, for the reason
+ * the Claude disconnect route learned: a row whose repository is no longer
+ * watched cannot be synced, cannot be run (nothing here can), and would sit on
+ * the dashboard flipping to MISSING at the next sync. Absence of a row is what
+ * "stopped watching" means, so stopping has to produce it.
+ *
+ * **No `TaskExclusion` is written**, deliberately, and the reasoning is Claude's
+ * rather than Windows'. An exclusion exists to stop a *re-enumeration* putting
+ * something back; here the declaration is the only thing that enumerates this
+ * repository at all, so with it gone there is nothing to fence against — and a
+ * stale exclusion would silently swallow the repository if it were ever
+ * re-added. Untracking one workflow while still watching its repository is the
+ * case exclusions *are* for, and that path (`untrack_task`) works normally.
+ */
+router.delete('/platforms/github/repositories/:owner/:repo', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const target = { owner: String(req.params.owner), repo: String(req.params.repo) };
+  const fullName = repoFullName(target).toLowerCase();
+
+  const { connection, config } = await loadGitHubConnection(userId);
+  if (!config.repositories.some(r => repoFullName(r).toLowerCase() === fullName)) {
+    throw new HttpError(404, `${repoFullName(target)} is not being watched.`);
+  }
+
+  const remaining = removeRepository(config.repositories, target);
+  await saveGitHubConnection(userId, connection?.id, { ...config, repositories: remaining });
+
+  const doomed = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.GITHUB_ACTIONS },
+    select: { id: true, externalId: true }
+  });
+  const doomedIds = doomed
+    .filter(t => repositoryFromExternalId(t.externalId)?.toLowerCase() === fullName)
+    .map(t => t.id);
+
+  if (doomedIds.length) {
+    await prisma.$transaction([
+      // ExecutionLog has no cascade on its Task relation, so it must go first or
+      // the delete violates the FK. TaskFavorite does cascade.
+      prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
+      prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
+    ]);
+    notifyTasksChanged(userId);
+  }
+
+  res.json({ removed: repoFullName(target), tasksRemoved: doomedIds.length, watching: remaining.length });
+});
+
+/**
+ * Disconnect GitHub entirely — forget the token, the repositories and the rows.
+ *
+ * The connection row is **deleted** rather than emptied, for the reason the
+ * Claude route gives: an empty connection is `configured: true` with nothing in
+ * it, so the card would sit at "connected, nothing to read" indefinitely for
+ * someone who has actually left. With no connection the card reads *Not
+ * connected*, which is the true statement. Capability evidence is keyed
+ * separately and survives, so verbs already verified stay verified if GitHub is
+ * reconnected later.
+ */
+router.delete('/platforms/github/connection', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { connection } = await loadGitHubConnection(userId);
+  if (!connection) {
+    throw new HttpError(404, 'GitHub is not connected.');
+  }
+
+  const doomed = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.GITHUB_ACTIONS },
+    select: { id: true }
+  });
+  const doomedIds = doomed.map(t => t.id);
+
+  await prisma.$transaction([
+    ...(doomedIds.length
+      ? [
+          prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
+          prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
+        ]
+      : []),
+    prisma.platformConnection.delete({ where: { id: connection.id } })
+  ]);
+  if (doomedIds.length) notifyTasksChanged(userId);
+
+  res.json({ disconnected: true, tasksRemoved: doomedIds.length });
 });
 
 /**

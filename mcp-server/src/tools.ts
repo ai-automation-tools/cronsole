@@ -110,7 +110,13 @@ const ALL_PLATFORMS = [
   'JULES',
   'OPEN_CLAW',
   'HERMES',
-  'TASKHUB_NATIVE'
+  'TASKHUB_NATIVE',
+  // Read-only. Listed here because these are filter enums — an agent that
+  // cannot name the platform cannot narrow list_tasks or get_task_health to
+  // it. What it may *do* with one is `list_platforms`' answer, not this
+  // list's: a hardcoded exclusion here would be the frontend's deleted
+  // CREATABLE_PLATFORMS constant all over again.
+  'GITHUB_ACTIONS'
 ] as const;
 
 // ---- API response shapes (only the fields the tools surface) ----
@@ -424,8 +430,11 @@ export function registerTools(
     {
       title: 'List scheduled tasks',
       description:
-        'List the scheduled tasks Cronsole tracks for the current user (Windows Task Scheduler + Cronsole-native), ' +
-        'with each task\'s schedule, status, next run time, and last run result. Optional filters narrow the list.',
+        'List the scheduled tasks Cronsole tracks for the current user — Windows Task Scheduler, Cronsole-native, ' +
+        'Claude Code routines and GitHub Actions workflows — with each task\'s schedule, status, next run time ' +
+        'and last run result. Optional filters narrow the list. GITHUB_ACTIONS is a READ-ONLY source: its tasks ' +
+        'list and report health, and every verb that would change one is refused. Call list_platforms before ' +
+        'planning work on a platform you are unsure about.',
       inputSchema: {
         platform: z
           .enum(ALL_PLATFORMS)

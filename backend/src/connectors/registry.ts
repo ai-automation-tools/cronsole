@@ -3,6 +3,7 @@ import { PlatformConnector } from './platform.interface.js';
 import { ClaudeConnector } from './ClaudeConnector.js';
 import { WindowsAgentConnector } from './WindowsAgentConnector.js';
 import { CronsoleNativeConnector } from './CronsoleNativeConnector.js';
+import { GitHubActionsConnector } from './GitHubActionsConnector.js';
 
 class ConnectorRegistry {
   private connectors: Map<PlatformType, PlatformConnector> = new Map();
@@ -11,6 +12,7 @@ class ConnectorRegistry {
     this.register(new ClaudeConnector());
     this.register(new WindowsAgentConnector());
     this.register(new CronsoleNativeConnector());
+    this.register(new GitHubActionsConnector());
   }
 
   register(connector: PlatformConnector) {

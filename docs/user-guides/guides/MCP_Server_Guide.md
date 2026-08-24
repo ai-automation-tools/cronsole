@@ -96,6 +96,11 @@ removes it for you), and it does **not** let a task be filed under `\Microsoft\`
 refused either way, so Windows' own scheduled tasks can't be overwritten. Ask your assistant to
 list folders first if you're not sure what already exists.
 
+**`platform` accepts `GITHUB_ACTIONS`** as of 2026-08-23 — a **read-only** source. Its workflows
+list, filter and report health like any other task, and every verb that would change one is
+refused with a `400`. `list_platforms` is the authority on that, as it is for every platform;
+do not infer a capability from a task being listed.
+
 `list_tasks` and `list_templates` accept optional filters (`platform`, `status`, `category`,
 `search`) and are bounded (default 50 results, with an honest "showing N of M" note). A task's
 `status` can be **`MISSING`** — tracked by Cronsole but gone from the platform on the last sync

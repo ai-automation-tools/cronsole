@@ -66,7 +66,7 @@ describe('the boundary is declared, not implied', () => {
     // `verbReachability` reads `typeof connector.deleteTask === 'function'`, so
     // listing these in `unsupportedVerbs` too would be a second statement of one
     // fact, free to disagree with the first.
-    const c = connector as Record<string, unknown>;
+    const c = connector as unknown as Record<string, unknown>;
     for (const verb of ['deleteTask', 'exportTask', 'importTask', 'updateSchedule', 'updateActions', 'listFolders']) {
       expect(c[verb], `${verb} should be absent, not implemented`).toBeUndefined();
     }

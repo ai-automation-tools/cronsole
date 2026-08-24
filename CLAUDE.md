@@ -354,6 +354,14 @@ Non-negotiable rules. **Every one has a reason recorded in
   the 5-minute self-heal covers it. `restart: unless-stopped` never undoes a deliberate stop and a
   profile gate blocks a plain `compose up`, so without this the proxy has **no keeper at all**
   ([#70](docs/troubleshooting/README.md#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy)).
+- **A tracked `.env*` file is an allowlist, not a habit.** `.gitignore` denies `.env*` and re-includes
+  three `.env.example` files plus `frontend/.env.remote` — a build input (`vite build --mode remote`)
+  holding one public routing value. The risk is not today's content but tomorrow's one-line diff to a
+  file git has carried for months, which nothing would redden. `scripts/check-tracked-env.mjs`
+  (CI `repo-hygiene`) refuses any unlisted tracked `.env*` path, **pins `.env.remote` to
+  `VITE_API_URL=same-origin` and nothing else**, and scans every tracked env file for credentials.
+  Credential patterns have **one definition** (`scripts/secret-patterns.mjs`), shared with the
+  build-output guard — different populations, same fact.
 - **Exactly one account-creation path: `POST /api/auth/setup`** (first run only). **Never re-add a
   register route for a test** — an integration test pins its 404.
 - **`ALLOWED_ORIGINS` is one list gating two surfaces** (REST CORS + the Socket.IO handshake), parsed

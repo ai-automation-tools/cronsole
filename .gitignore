@@ -7,6 +7,11 @@
 # because it is part of how the app is built, and it holds exactly one non-secret
 # value. Keep it that way — anything confidential belongs in an ignored .env, and
 # a VITE_* variable is compiled into the bundle and served to every visitor anyway.
+#
+# "Keep it that way" is enforced, not remembered: scripts/check-tracked-env.mjs (CI,
+# repo-hygiene) pins this file to that one key and that one value, and refuses any
+# other tracked .env* path outright. A secret added to a file git already carries is
+# a one-line diff nothing else would redden.
 !frontend/.env.remote
 *.pem
 *.key

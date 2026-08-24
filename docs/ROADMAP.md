@@ -513,6 +513,8 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ### Shipped 2026-08-23
 
+- [x] **A committed `.env*` file cannot quietly grow a secret** *(2026-08-23, from the cross-repo security audit)*. The audit flagged `frontend/.env.remote` as tracked. The value in it is public by construction and the file is a real build input, so untracking it — the suggested remediation — would have removed a build input and left the actual hazard untouched for the three `.env.example` files that must stay tracked. New `scripts/check-tracked-env.mjs` in the `repo-hygiene` CI job instead makes the `.gitignore`'s *“Keep it that way”* enforceable: unlisted tracked `.env*` paths are refused, `.env.remote` is pinned to `VITE_API_URL=same-origin`, example values must be placeholders, and every tracked env file is scanned for credentials. Credential patterns are now one shared definition (`scripts/secret-patterns.mjs`) with the build-output guard. See [DESIGN_NOTES › Security](DESIGN_NOTES.md#security).
+
 - [x] **Preferences follow the account, not the browser** *(2026-08-23, reported from the
       Tailscale URL)*. `localStorage` is scoped to an **origin**, so the same install reached at
       `localhost:8080` and at a Tailscale name handed one person two stores — and the source rail

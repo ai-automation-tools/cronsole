@@ -47,6 +47,15 @@ jobs:
       - name: Check documentation links resolve
         run: node scripts/check-doc-links.mjs
 
+      # `.gitignore` denies `.env*` and re-includes three examples plus
+      # frontend/.env.remote, which is a real build input holding one public routing
+      # value. Nothing stopped that file - or an example - from later gaining a live
+      # credential in a one-line diff to a file git had been carrying for months.
+      # A 2026-08-23 audit flagged the shape here and found it already realised one
+      # repo over (a Neon admin connection string committed in a migration write-up).
+      - name: Check tracked .env files are allowlisted and secret-free
+        run: node scripts/check-tracked-env.mjs
+
   backend:
     name: Backend tests and build
     runs-on: ubuntu-latest

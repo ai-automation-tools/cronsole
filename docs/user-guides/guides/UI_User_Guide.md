@@ -76,8 +76,9 @@ Three things worth knowing about *Run a program*:
   runs **inside the container**, where your paths and tools do not exist. The modal states which,
   so a task never fails as "executable not found" for a file you can see in Explorer.
 - **Your Cronsole secrets are not passed to it.** The program gets a minimal environment plus
-  anything you set explicitly — not Cronsole's own, which holds the key that encrypts your stored
-  platform credentials.
+  anything you set explicitly in the form's **Environment** field — not Cronsole's own, which holds
+  the key that encrypts your stored platform credentials. See
+  [Environment variables](#environment-variables).
 
 And one thing that applies to all four kinds: **if the job needs a credential, put it in
 [Secrets](#secrets) rather than in the job**. The New Task form has a Secrets section; anything you
@@ -441,20 +442,50 @@ refuse it and it works with the agent offline. You can change an HTTP job's URL,
 headers and body, or a script job's command line and working directory — the URL in particular
 used to require deleting the task and starting over, which threw away its run history.
 
-Three things to know about the native side:
+Four things to know about the native side:
 
 - **Headers take either form.** Paste `Authorization: Bearer …` lines straight out of an API's
   docs, or JSON. Something it can't read blocks the save rather than being quietly sent as no
   headers.
+- **Run a program and Write a script take an environment.** See
+  [Environment variables](#environment-variables) below.
 - **You can convert an HTTP job into a script job, and the other way round** — but the job is
   **replaced, not merged**. The two kinds share no fields, so switching discards the other
   type's: the form names exactly what goes before you click. The task keeps its name, schedule,
-  category and run history.
+  category and run history. The one exception is the **environment**, which means the same thing
+  on both program and script jobs and so carries across that pair — the warning says so, and
+  says the opposite when you switch to a kind that has none.
 - **A script job says where it will run** — your machine, or inside the container if you run
   the backend in Docker. Same statement as the New Task form, for the same reason.
 
 A **Claude routine's** prompt is defined at claude.ai; Cronsole can schedule and fire it, not
 rewrite it.
+
+#### Environment variables
+
+**Run a program** and **Write a script** both take an **Environment** — extra variables handed to
+the process when it starts. One `NAME=value` per line, or JSON:
+
+```
+API_BASE=https://api.example.com
+LOG_LEVEL=debug
+API_TOKEN=${secret.API_TOKEN}
+```
+
+- **It is added to a minimal environment, not to Cronsole's.** The program does *not* inherit the
+  backend's own variables — that process holds the key encrypting every platform credential you
+  have stored. What you write here, plus a small base, is everything the child gets.
+- **A value may be a secret; a name may not.** `${secret.API_TOKEN}` in a value is substituted at
+  run time and taken back out of the run log. In a *name* it is refused — the form will not accept
+  one, because a variable called `${secret.…}` hides which variable was set without protecting
+  anything. See [Secrets](#secrets).
+- **Everything after the first `=` is the value.** `CONN=host=db;port=5432` is one variable, not
+  three. Blank lines and `#` lines are ignored, so a block pasted out of a `.env` file works.
+- **Something it can't read blocks the save**, naming the environment — it is never quietly sent
+  as no environment, which would leave a job running without the credential it was written to use.
+
+Until 2026-08-24 this field existed in the API and the MCP tools but had no control in the app, so
+a secret could be stored on a task and then referenced from the one field you could not edit.
 
 #### Secrets
 

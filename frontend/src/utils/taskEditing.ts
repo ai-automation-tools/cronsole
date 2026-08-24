@@ -75,6 +75,10 @@ export interface NativeJobValues {
   body: string;
   command: string;
   workingDirectory: string;
+  /** EXEC and SCRIPT only, as typed: `NAME=value` per line, or JSON. Both types
+   *  carry the same `env` contract, so unlike `body` this one field serves both
+   *  and survives a switch between them without meaning something different. */
+  env: string;
   // SCRIPT
   interpreter: ScriptInterpreter;
   scriptBody: string;
@@ -105,6 +109,7 @@ export const emptyNativeJobValues = (): NativeJobValues => ({
   body: '',
   command: '',
   workingDirectory: '',
+  env: '',
   interpreter: 'powershell',
   scriptBody: '',
   checkKind: 'http',
@@ -122,14 +127,25 @@ export const emptyNativeJobValues = (): NativeJobValues => ({
   minFreeMb: '1024'
 });
 
-/** What switching *away* from a stored job type throws away, named before the click. */
-export const discardedByTypeSwitch = (stored: JobType): string =>
-  ({
+/**
+ * What switching *away* from a stored job type throws away, named before the click.
+ *
+ * Reads the **target** type too, because one field survives some switches and not
+ * others: `env` has the same contract on EXEC and SCRIPT, so it carries across
+ * that pair and is dropped by every other move. Naming it unconditionally would
+ * promise a loss that does not happen; omitting it would hide one that does, and
+ * a warning that is wrong in either direction stops being read.
+ */
+export const discardedByTypeSwitch = (stored: JobType, next: JobType): string => {
+  const base = {
     HTTP: 'URL, method, headers and body',
     EXEC: 'command and working directory',
     SCRIPT: 'script body and interpreter',
     CHECK: 'check and everything it compares against'
-  }[stored]);
+  }[stored];
+  const keepsEnv = (t: JobType) => t === 'EXEC' || t === 'SCRIPT';
+  return keepsEnv(stored) && !keepsEnv(next) ? `${base}, and the environment` : base;
+};
 
 // ---------------------------------------------------------------------------
 // Section availability
@@ -304,6 +320,11 @@ function nativeJobEdit(task: Task): RunsEdit {
       body: jobType === 'HTTP' ? asText(job.body) ?? '' : '',
       command,
       workingDirectory: asText(job.workingDirectory) ?? '',
+      // Read for EXEC and SCRIPT only — not because the two disagree about what
+      // `env` means (they are the one field that agrees), but because a stored
+      // job of another type has none, and prefilling from a key that type never
+      // writes is how a discarded value reappears.
+      env: jobType === 'EXEC' || jobType === 'SCRIPT' ? formatEnv(job.env) : '',
 
       interpreter: (asText(job.interpreter) ?? 'powershell') as ScriptInterpreter,
       scriptBody: jobType === 'SCRIPT' ? asText(job.body) ?? '' : '',
@@ -382,10 +403,95 @@ export function parseHeaders(text: string): Record<string, string> | null {
   return out;
 }
 
+/**
+ * A name a child process can actually be given.
+ *
+ * A **mirror** of the backend's `SECRET_NAME_RE`, and deliberately the same
+ * shape: it is what makes `${secret.…}` in an env *name* unrepresentable here
+ * rather than merely refused later — `$`, `{` and `.` are not legal characters,
+ * so the illegal case cannot be typed instead of being typed and rejected at
+ * 3am. The server still refuses it by name (`illegalSecretRef`); this only
+ * decides what the form will send.
+ */
+const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * Environment text → the `env` object the API stores. `null` when it cannot be read.
+ *
+ * `NAME=value` per line, which is what `.env` files, `docker run -e` and every
+ * shell already use — the same argument `parseHeaders` makes for accepting curl's
+ * `Name: value`. JSON is accepted first for the same reason it is there: that is
+ * what the API stores and what an export round-trips.
+ *
+ * Values are **not** trimmed past the first `=`, and everything after it belongs
+ * to the value — `PATH=a=b` is one variable, and a trailing space in a token is
+ * the caller's business. `#` lines are dropped so a block pasted out of a `.env`
+ * file works, which is the only reason a comment is a concept here at all.
+ */
+export function parseEnv(text: string): Record<string, string> | null {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      const out: Record<string, string> = {};
+      for (const [k, val] of Object.entries(parsed)) {
+        if (!ENV_NAME_RE.test(k)) return null;
+        out[k] = String(val);
+      }
+      return out;
+    } catch {
+      return null;
+    }
+  }
+  const out: Record<string, string> = {};
+  for (const line of trimmed.split('\n')) {
+    const row = line.trim();
+    if (!row || row.startsWith('#')) continue;
+    const at = row.indexOf('=');
+    if (at <= 0) return null;
+    const name = row.slice(0, at).trim();
+    if (!ENV_NAME_RE.test(name)) return null;
+    out[name] = row.slice(at + 1);
+  }
+  return out;
+}
+
+/** The stored `env` object → the text the editor shows. */
+export function formatEnv(env: unknown): string {
+  if (!env || typeof env !== 'object' || Array.isArray(env)) return '';
+  return Object.entries(env as Record<string, unknown>)
+    .map(([k, val]) => `${k}=${String(val)}`)
+    .join('\n');
+}
+
+/**
+ * Why the form cannot be turned into a job at all — as opposed to a job that is
+ * merely incomplete.
+ *
+ * One definition, because two surfaces need the same sentence and `nativeJobPayload`
+ * can only answer `null`. A `null` with the reason left at the call site is how
+ * the edit modal came to explain an unreadable *environment* as a headers
+ * problem: declining to build and saying why must not be two code paths (§9).
+ */
+export function nativeJobUnreadable(v: NativeJobValues): string | null {
+  if (v.jobType === 'HTTP' && !parseHeaders(v.headers)) {
+    return 'Headers must be JSON, or one "Name: value" per line.';
+  }
+  if ((v.jobType === 'EXEC' || v.jobType === 'SCRIPT') && !parseEnv(v.env)) {
+    return 'Environment must be one NAME=value per line, or JSON. A name takes letters, digits and underscores.';
+  }
+  return null;
+}
+
 /** The exact body `PATCH /tasks/:id/job` receives. Built here so the dirty check
  *  and the request compare the same thing — a section that reports itself
  *  unchanged must be unchanged *on the wire*, not merely in the fields. */
 export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | null {
+  // The one gate, so `null` and the sentence explaining it can never disagree.
+  if (nativeJobUnreadable(v)) return null;
+
   if (v.jobType === 'HTTP') {
     const parsed = parseHeaders(v.headers);
     if (!parsed) return null;
@@ -399,6 +505,8 @@ export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | 
   }
 
   if (v.jobType === 'SCRIPT') {
+    const env = parseEnv(v.env);
+    if (!env) return null;
     return {
       jobType: 'SCRIPT',
       interpreter: v.interpreter,
@@ -406,7 +514,10 @@ export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | 
       // newline is what makes a shell script's last line run — trimming a script
       // body the way a form field is trimmed silently changes what it does.
       body: v.scriptBody,
-      ...(v.workingDirectory.trim() ? { workingDirectory: v.workingDirectory.trim() } : {})
+      ...(v.workingDirectory.trim() ? { workingDirectory: v.workingDirectory.trim() } : {}),
+      // Omitted when empty rather than sent as `{}`, so a job that sets nothing
+      // reads as it always did — and the dirty check does not see a change.
+      ...(Object.keys(env).length ? { env } : {})
     };
   }
 
@@ -414,6 +525,8 @@ export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | 
     return { jobType: 'CHECK', probe: checkProbePayload(v) };
   }
 
+  const env = parseEnv(v.env);
+  if (!env) return null;
   return {
     jobType: 'EXEC',
     // Sent as a command line on purpose: the backend tokenizes it with the same
@@ -421,7 +534,8 @@ export function nativeJobPayload(v: NativeJobValues): Record<string, unknown> | 
     // definition of "how a command line becomes argv" and the browser never
     // holds a copy that can drift from it.
     command: v.command.trim(),
-    ...(v.workingDirectory.trim() ? { workingDirectory: v.workingDirectory.trim() } : {})
+    ...(v.workingDirectory.trim() ? { workingDirectory: v.workingDirectory.trim() } : {}),
+    ...(Object.keys(env).length ? { env } : {})
   };
 }
 
@@ -464,15 +578,39 @@ function checkProbePayload(v: NativeJobValues): Record<string, unknown> {
 }
 
 /**
+ * A URL field the server will accept — a **mirror** of the backend's
+ * `isUrlOrSecretRef`, including the half this file used to be missing.
+ *
+ * A webhook URL that *is* its own authentication is the ordinary reason to put a
+ * `${secret.…}` in a URL, and it is explicitly legal (ADR 0003). Testing only for
+ * `https?://` refused in the browser what the API would have stored, which made
+ * the form the stricter of the two authorities on a judgement it does not own.
+ *
+ * Non-global on purpose: `SECRET_REF` carries `g` for `matchAll`, and `.test` on
+ * a global regex is stateful — it would answer differently on alternate calls.
+ */
+const isUrlOrSecretRef = (value: string): boolean =>
+  /^https?:\/\//i.test(value) || /\$\{secret\.[A-Za-z_][A-Za-z0-9_]*\}/.test(value);
+
+/**
  * Is the form complete enough to send? Returns the reason it is not.
  *
  * Shared by the create and edit forms so a job cannot be submittable in one and
  * refused in the other — the same one-derivation rule the prefill and the gate
- * already follow.
+ * already follow. The edit modal only started honouring that on 2026-08-24; it
+ * had a local copy that knew two job types and blocked a script edit on a
+ * missing `command`.
  */
 export function nativeJobIncomplete(v: NativeJobValues): string | null {
+  // Unreadable first. A form whose headers or environment cannot be parsed has
+  // no payload at all, so letting it past this gate posted a literal `job: null`
+  // — the create path's half of the bug the edit path reported with the wrong
+  // field's name.
+  const unreadable = nativeJobUnreadable(v);
+  if (unreadable) return unreadable;
+
   if (v.jobType === 'HTTP') {
-    return /^https?:\/\//i.test(v.url.trim()) ? null : 'Enter a URL starting with http:// or https://';
+    return isUrlOrSecretRef(v.url.trim()) ? null : 'Enter a URL starting with http:// or https://';
   }
   if (v.jobType === 'EXEC') {
     return v.command.trim() ? null : 'Enter the command to run';
@@ -481,7 +619,7 @@ export function nativeJobIncomplete(v: NativeJobValues): string | null {
     return v.scriptBody.trim() ? null : 'Write the script to run';
   }
   if (v.checkKind === 'http') {
-    if (!/^https?:\/\//i.test(v.checkUrl.trim())) return 'Enter a URL starting with http:// or https://';
+    if (!isUrlOrSecretRef(v.checkUrl.trim())) return 'Enter a URL starting with http:// or https://';
     const min = Number(v.expectStatusMin);
     const max = Number(v.expectStatusMax);
     if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {

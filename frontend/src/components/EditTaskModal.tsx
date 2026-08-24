@@ -19,7 +19,7 @@ import { TaskSecretsFields, type StoredSecretsState } from './edit/TaskSecretsFi
 import { HelpButton } from './HelpButton';
 import {
   labelValues, platformName, runsEdit, scheduleEdit,
-  nativeJobPayload, windowsActionPayload, emptyNativeJobValues,
+  nativeJobPayload, nativeJobUnreadable, nativeJobIncomplete, windowsActionPayload, emptyNativeJobValues,
   type LabelValues, type NativeJobValues, type WindowsActionValues
 } from '../utils/taskEditing';
 
@@ -239,20 +239,27 @@ export const EditTaskModal = ({ task, executionHost, onClose }: Props) => {
   } else if (runs.kind === 'native') {
     const payload = nativeJobPayload(nativeJob);
     const basePayload = nativeJobPayload(nativeBase);
+    /*
+     * `nativeJobIncomplete` rather than a check written here — the same one the
+     * New Task modal gates on, which is what its doc comment always claimed and
+     * this file did not honour. The local version knew two job types: anything
+     * not HTTP had to have a `command`, so editing a **script** or a **check**
+     * was blocked by "A command is required." over a field that type does not
+     * have. It also names the unreadable field (headers on HTTP, environment on
+     * EXEC and SCRIPT) instead of reporting every null payload as a headers
+     * problem, on a type that may have no headers at all.
+     */
+    const problem = nativeJobIncomplete(nativeJob) ?? undefined;
     plans.push({
       key: 'runs',
       title: 'What it runs',
       icon: Terminal,
-      // A null payload means the headers cannot be read. That counts as dirty on
+      // A null payload means a field cannot be read. That counts as dirty on
       // purpose: it must block Save rather than be quietly treated as unchanged.
       dirty: payload === null || JSON.stringify(payload) !== JSON.stringify(basePayload),
-      problem: payload === null
-        ? 'Headers must be JSON, or one "Name: value" per line.'
-        : nativeJob.jobType === 'HTTP'
-          ? (nativeJob.url.trim() ? undefined : 'A URL is required.')
-          : (nativeJob.command.trim() ? undefined : 'A command is required.'),
+      problem,
       save: async () => {
-        if (!payload) throw new Error('Headers must be JSON, or one "Name: value" per line.');
+        if (!payload) throw new Error(nativeJobUnreadable(nativeJob) ?? 'This job cannot be read.');
         await api.patch(`/tasks/${task.id}/job`, { job: payload });
       },
       settle: () => setNativeBase(nativeJob)

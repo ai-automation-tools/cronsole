@@ -45,7 +45,8 @@ GitHub Actions' live verification, ran against a real repository and immediately
 it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)),
 which is the argument for doing this on every connector rather than trusting a green suite.
 
-**The two largest open items, in order:** the light theme · the POSIX agent. *(Per-job encrypted
+**The two largest open items, in order:** the light theme · the POSIX agent. *(The `env` editor —
+the last remainder of the 2026-08-15 request block other than the themes — shipped 2026-08-24.)* *(Per-job encrypted
 fields led this list until it shipped 2026-08-21, which unblocked the `NOTIFY` and `SQL` job
 types — neither is scheduled.)*
 
@@ -107,15 +108,34 @@ was built and these are the record of why it took that shape:**
 Four items were requested directly after the dashboard IA redesign landed. **Three shipped** —
 collections, the native job types, and the phone verification (see
 [Part II](#shipped-2026-08-15--2026-08-17)); the fourth, per-job encrypted fields, shipped
-2026-08-21 as [ADR 0003](adr/0003-per-job-secrets.md). **The themes are what is left**, plus the
-small `env`-editor remainder that work carved out.
+2026-08-21 as [ADR 0003](adr/0003-per-job-secrets.md), and the `env`-editor remainder that work
+carved out shipped 2026-08-24. **The themes are all that is left.**
 
-- [ ] **An `env` editor for `EXEC` and `SCRIPT` jobs** *(carved out of per-job secrets,
-      2026-08-21)*. A native job's `env` is reachable through the API and MCP only —
-      `NativeJobFields` has never rendered it — so a secret can be *stored* in the app and then
-      referenced from a field the app cannot edit. `nativeJobPayload` would gain one field and the
-      form two controls; the boundary rules already exist (`validateEnv`, and `${secret.…}` is
-      legal in an env value but never in an env *name*).
+- [x] **An `env` editor for `EXEC` and `SCRIPT` jobs** — shipped 2026-08-24 *(carved out of per-job
+      secrets, 2026-08-21)*. One **Environment** control shared by both types, `NAME=value` per line
+      or JSON, `#` and blank lines dropped so a pasted `.env` block works. Backend needed nothing:
+      `buildNativeJob` and `validateEnv` already carried `env`, and `secretRefsIn` already read
+      `payload.env` — the field was reachable through the API and MCP the whole time and had no
+      control in the app. `${secret.…}` is legal in a value and **unrepresentable** in a name
+      (the parser mirrors `SECRET_NAME_RE`, so the illegal case cannot be typed rather than being
+      typed and refused at 3am). `discardedByTypeSwitch` now reads the *target* type too, because
+      `env` is the one field EXEC and SCRIPT agree about and so survives that pair's conversion
+      and no other.
+      **What building it found**, both the [#20a](troubleshooting/README.md) second-definition
+      shape: `EditTaskModal` carried its own completeness check that knew two job types, so
+      **every edit to a script or check task was blocked by "A command is required."** over a
+      field those types do not have; and the null-payload refusal was hard-coded to the headers,
+      so an unreadable env on a script job reported a headers problem on a type with no headers
+      ([#76](troubleshooting/README.md#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist)).
+      Both now go through the shared `nativeJobIncomplete` / `nativeJobUnreadable` pair — which
+      also closed the create form's half (unreadable headers posted a literal `job: null`) and a
+      third disagreement it exposed: the browser refused a `${secret.WEBHOOK_URL}` URL the API
+      accepts and the guide recommends.
+      **Verified live, not only in the suite** — `frontend/tests/e2e/native-job-env.spec.ts` drives
+      the real form against a real backend and reads the stored job back, on both the create and
+      the edit path. The unit suite could never have caught the gap this closed: `buildNativeJob`
+      handled `env` the whole time and nothing in the browser sent it, which is green from both
+      sides.
 
 - [ ] **Fix the themes — light first.** The light theme clashes and is hard to read; the dark
       palette is also open to reconsideration. This is `frontend/src/index.css` and nowhere else —

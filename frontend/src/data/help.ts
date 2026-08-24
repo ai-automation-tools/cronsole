@@ -585,6 +585,53 @@ const nativeJobType: HelpTopic = {
   ]
 };
 
+const jobEnv: HelpTopic = {
+  id: 'job-env',
+  title: 'Environment',
+  summary:
+    'Extra variables handed to the program or script when it starts. One NAME=value per line, or ' +
+    'JSON.',
+  points: [
+    {
+      label: 'Added to a minimal environment, not to Cronsole\'s',
+      body:
+        'The child does not inherit the backend\'s own variables — that process holds the key ' +
+        'encrypting every platform credential you have stored. What you write here, plus a small ' +
+        'base, is everything it gets.'
+    },
+    {
+      label: 'A value may be a secret; a name may not',
+      body:
+        '${secret.NAME} in a value is substituted at run time and taken back out of the run log. ' +
+        'In a variable *name* it is refused — that would hide which variable was set without ' +
+        'protecting anything.'
+    },
+    {
+      label: 'Everything after the first = is the value',
+      body:
+        'CONN=host=db;port=5432 is one variable, not three. Blank lines and # lines are ignored, ' +
+        'so a block pasted out of a .env file works.'
+    },
+    {
+      label: 'It survives a switch between program and script',
+      body:
+        'Those two kinds mean the same thing by it, so converting between them keeps it. Every ' +
+        'other conversion drops it, and the warning above says which you are doing.'
+    },
+    {
+      label: 'Unreadable blocks the save',
+      body:
+        'Something that cannot be parsed stops the save and says so, rather than being sent as no ' +
+        'environment — which would leave the job running without the credential it was written to use.'
+    }
+  ],
+  doc: { label: 'UI User Guide › Environment variables', url: uiGuide('environment-variables') },
+  more: [
+    { label: 'UI User Guide › Secrets', url: uiGuide('secrets') },
+    { label: 'ADR 0003 — Per-job secrets', url: docLink('docs/adr/0003-per-job-secrets.md') }
+  ]
+};
+
 const taskSecrets: HelpTopic = {
   id: 'task-secrets',
   title: 'Secrets',
@@ -1303,6 +1350,7 @@ const TOPIC_LIST: HelpTopic[] = [
   sourceGitHub,
   schedule,
   nativeJobType,
+  jobEnv,
   taskSecrets,
   command,
   taskActions,

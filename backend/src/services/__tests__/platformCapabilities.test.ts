@@ -27,6 +27,7 @@ import {
   MATRIX_PLATFORMS,
   PLATFORM_DESCRIPTORS,
   capabilitySupport,
+  runVerbSucceeded,
   connectorFor,
   verbReachability,
   verbDeclaredUnsupported,
@@ -254,6 +255,36 @@ describe('capabilitySupport', () => {
   });
 });
 
+describe("runVerbSucceeded — the run cell asks 'could Cronsole run it', not 'did it pass'", () => {
+  // The four rows of `PlatformConnector.runTask`'s own table. Three of them are
+  // the verb working; only the last is the verb failing.
+  it('a dispatch the platform accepted is the verb working (Windows, Claude)', () => {
+    expect(runVerbSucceeded({ success: true, ran: false })).toBe(true);
+    expect(runVerbSucceeded({ success: true })).toBe(true);
+  });
+
+  it('a native job that ran and passed is the verb working', () => {
+    expect(runVerbSucceeded({ success: true, ran: true })).toBe(true);
+  });
+
+  it('a native job that RAN AND FAILED is still the verb working', () => {
+    // The regression this exists for. A CHECK that finds a missing file is the
+    // check doing its job; recording it as a `run` failure put "1 verb failed
+    // more recently than it succeeded" on the Sources tab of a healthy
+    // platform, blaming Cronsole-native for a fact about the user's disk.
+    expect(runVerbSucceeded({ success: false, ran: true })).toBe(true);
+  });
+
+  it('only "could not be started at all" fails the verb', () => {
+    expect(runVerbSucceeded({ success: false, ran: false })).toBe(false);
+    // An absent `ran` from a connector that never sets it means a dispatch, and
+    // a failed dispatch is a real failure of the verb — so absence must not be
+    // read as "it ran".
+    expect(runVerbSucceeded({ success: false })).toBe(false);
+  });
+});
+
+
 describe('every route that performs a verb records it', () => {
   const toolsSource = readFileSync(new URL('../../routes/tools.ts', import.meta.url), 'utf8');
   const combined = routesSource + toolsSource;
@@ -267,6 +298,15 @@ describe('every route that performs a verb records it', () => {
       expect(new RegExp(`recordCapability\\([^)]*'${verb}'`).test(combined)).toBe(true);
     });
   }
+
+  it("records 'run' from `runVerbSucceeded`, never from `success` alone", () => {
+    // A source assertion because the honest thing to pin is *which value reaches
+    // the recorder*, and that lives on a route this suite does not boot.
+    // `result.success` passed straight in is the bug: it reports a check that
+    // correctly failed as the Run verb being broken.
+    expect(combined).toContain('runVerbSucceeded(result)');
+    expect(/recordCapability\([^)]*'run',\s*result\.success/.test(combined)).toBe(false);
+  });
 });
 
 describe('access — controller or observer', () => {

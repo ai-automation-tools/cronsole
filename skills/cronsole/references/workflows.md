@@ -108,7 +108,18 @@ pwsh .\scripts\cronsole.ps1 up
    undefined *is* the design — a stub returning `{ success: true }` converts a missing
    capability into a lie.
 4. Add the `PlatformType` enum value (Prisma migration).
-5. **No platform-specific logic outside the connector layer.**
+5. **Declare `access`** in `PLATFORM_DESCRIPTORS` — `controller` or `observer`. Declared, never
+   counted from the cells: a finished read-only connector and one whose write verbs are unbuilt
+   produce the same row of refusals, and only one is worth waiting for.
+6. **Is your tracked set declared or observed?** If a user names what to watch in the connection
+   config (repositories, projects, accounts) rather than by picking folders off a machine,
+   implement **`trackedCategories(config)`** — or a plain Sync will filter out everything you just
+   read and report success ([#75](../../../docs/troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)).
+7. **Say what you looked at.** Return a `SyncOutcome` with `notes` when importing zero can be
+   *correct* — otherwise a working sync and a broken one are the same empty screen. Set `partial`
+   whenever you saw less than the whole platform (a truncated page, one unreadable source), which
+   suppresses retirement for that pass.
+8. **No platform-specific logic outside the connector layer.**
 
 ## Add an API route
 

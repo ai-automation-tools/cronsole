@@ -19,7 +19,17 @@ const listRunsMock = vi.mocked(listWorkflowRuns);
 const schedulesMock = vi.mocked(workflowSchedules);
 const findFirst = vi.mocked(prisma.platformCapability.findFirst);
 
+import { PlatformType } from '@prisma/client';
+import { TaskService } from '../../services/TaskService.js';
+
 const connector = new GitHubActionsConnector();
+
+/**
+ * The tasks half of the sync, so the assertions below read as they did before
+ * `syncTasks` started also reporting what it *looked at*. The notes have their
+ * own describe block — every other case here is about what was found.
+ */
+const syncedTasks = async (config: unknown) => (await connector.syncTasks(config)).tasks;
 
 const config = (over: Record<string, unknown> = {}) => ({
   token: 'ghp_test',
@@ -96,10 +106,51 @@ describe('capability boundaries', () => {
   });
 });
 
+/**
+ * **The tracked set here is declared, not observed — and getting that wrong made
+ * the whole connector silently import nothing.**
+ *
+ * A plain Sync (`POST /tasks/sync` with `scope: 'tracked'`) filters the
+ * connector's output to categories that are already tracked. On Windows that set
+ * is derived from stored rows, because a folder becomes tracked by being picked
+ * in the discovery modal and the rows are the only record that happened. GitHub
+ * keeps that record in its **config**: the repositories you watch. Deriving it
+ * from rows meant a freshly added repository had none, the include-set came back
+ * empty, every workflow it reported was filtered out, and Sync said *"Tasks
+ * synced."* over nothing — with no second gesture to reach for, because the
+ * discovery modal talks to the Windows agent. Found on a live install
+ * 2026-08-24, on the first connection to a real repository.
+ */
+describe('trackedCategories', () => {
+  it('names every watched repository, so adding one is what adopts it', () => {
+    expect(connector.trackedCategories(config({
+      repositories: [{ owner: 'acme', repo: 'website' }, { owner: 'acme', repo: 'api' }]
+    }))).toEqual(['acme/website', 'acme/api']);
+  });
+
+  it('matches the category the sync route derives from the same task', async () => {
+    // **The whole fix rests on these two agreeing**, and they are computed in
+    // different places from different inputs: this list comes from the config,
+    // while the route compares it against `extractCategory(externalId)`. If
+    // either changes shape, an equal-looking pair of strings is the only thing
+    // between a working sync and one that filters out everything it just read —
+    // silently, and reported as success.
+    okWorkflows([workflow()]);
+    const [task] = await syncedTasks(config());
+    const routeCategory = TaskService.extractCategory(task.externalId, PlatformType.GITHUB_ACTIONS);
+
+    expect(connector.trackedCategories(config())).toContain(routeCategory);
+  });
+
+  it('is empty when nothing is watched, and that must not read as "sync everything"', () => {
+    expect(connector.trackedCategories(config({ repositories: [] }))).toEqual([]);
+  });
+});
+
 describe('syncTasks', () => {
   it('returns one task per scheduled workflow, keyed on the workflow id', () => {
     okWorkflows([workflow()]);
-    return connector.syncTasks(config()).then(tasks => {
+    return syncedTasks(config()).then(tasks => {
       expect(tasks).toHaveLength(1);
       expect(tasks[0].externalId).toBe('acme/website#42');
       expect(tasks[0].schedule).toBe('0 9 * * *');
@@ -112,7 +163,7 @@ describe('syncTasks', () => {
     // scheduled task. A row with no cadence could only ever say "unknown".
     okWorkflows([workflow()]);
     schedulesMock.mockResolvedValue({ ok: true, data: { crons: [] } } as never);
-    expect(await connector.syncTasks(config())).toEqual([]);
+    expect(await syncedTasks(config())).toEqual([]);
   });
 
   it('keeps a workflow whose file could not be read, and says why', async () => {
@@ -125,7 +176,7 @@ describe('syncTasks', () => {
       data: { crons: [], reason: 'Cronsole could not parse the workflow file: bad indentation' }
     } as never);
 
-    const tasks = await connector.syncTasks(config());
+    const tasks = await syncedTasks(config());
     expect(tasks).toHaveLength(1);
     expect(tasks[0].schedule).toBeNull();
     expect(tasks[0].metadata.scheduleReason).toMatch(/could not parse/);
@@ -135,7 +186,7 @@ describe('syncTasks', () => {
     okWorkflows([workflow()]);
     schedulesMock.mockResolvedValue({ ok: true, data: { crons: ['0 6 * * *', '0 18 * * *'] } } as never);
 
-    const [task] = await connector.syncTasks(config());
+    const [task] = await syncedTasks(config());
     // `Task.schedule` is one 5-field string — the storage contract — so the rest
     // ride in metadata rather than being silently dropped.
     expect(task.schedule).toBe('0 6 * * *');
@@ -148,7 +199,7 @@ describe('syncTasks', () => {
     // screen to say which was right. Same call the Claude connector makes about
     // Anthropic's jitter, reached from the other direction.
     okWorkflows([workflow()]);
-    const [task] = await connector.syncTasks(config());
+    const [task] = await syncedTasks(config());
     expect(task.nextRunTime).toBeNull();
   });
 
@@ -157,7 +208,7 @@ describe('syncTasks', () => {
     // someone believes is nightly having stopped two months ago is exactly what
     // this observer exists to surface.
     okWorkflows([workflow({ state: 'disabled_inactivity' })]);
-    const [task] = await connector.syncTasks(config());
+    const [task] = await syncedTasks(config());
     expect(task.status).toBe('DISABLED');
     expect(task.metadata.disabledReason).toMatch(/60 days/);
   });
@@ -173,7 +224,7 @@ describe('syncTasks', () => {
       ]
     } as never);
 
-    const [task] = await connector.syncTasks(config());
+    const [task] = await syncedTasks(config());
     expect(task.metadata.lastConclusion).toBe('failure');
     expect(task.metadata.failureStreak).toBe(2);
     expect(task.metadata.scheduledRunCount).toBe(3);
@@ -192,7 +243,7 @@ describe('syncTasks', () => {
       ]
     } as never);
 
-    const [task] = await connector.syncTasks(config());
+    const [task] = await syncedTasks(config());
     expect(task.metadata.lastConclusion).toBe('success');
     expect(task.metadata.failureStreak).toBeUndefined();
   });
@@ -204,7 +255,7 @@ describe('syncTasks', () => {
     okWorkflows([workflow()]);
     listRunsMock.mockResolvedValue({ ok: false, status: 403, message: 'rate limited' } as never);
 
-    const [task] = await connector.syncTasks(config());
+    const [task] = await syncedTasks(config());
     expect(task.metadata.reportsRunResult).toBe(false);
   });
 
@@ -214,7 +265,7 @@ describe('syncTasks', () => {
       .mockResolvedValueOnce({ ok: false, status: 404, message: 'gone' } as never)
       .mockResolvedValueOnce({ ok: true, data: { workflows: [workflow({ id: 7 })], total: 1 } } as never);
 
-    const tasks = await connector.syncTasks(
+    const tasks = await syncedTasks(
       config({ repositories: [{ owner: 'acme', repo: 'dead' }, { owner: 'acme', repo: 'website' }] })
     );
     expect(tasks.map(t => t.externalId)).toEqual(['acme/website#7']);
@@ -226,20 +277,49 @@ describe('syncTasks', () => {
     // `reconcileMissingTasks` would act on it. Throwing records the failure
     // against the `sync` capability and skips reconciliation entirely.
     listWorkflowsMock.mockResolvedValue({ ok: false, status: 401, message: 'token rejected' } as never);
-    await expect(connector.syncTasks(config())).rejects.toThrow(/token rejected/);
+    await expect(syncedTasks(config())).rejects.toThrow(/token rejected/);
   });
 
-  it('names a repository whose workflow list was truncated', async () => {
-    // GitHub returns at most 100 per page. Reading the first hundred and
-    // reporting success would mark the rest MISSING.
+  it('marks a truncated workflow list partial, so nothing is retired from it', async () => {
+    // GitHub returns at most 100 per page, and a task absent from a narrowed
+    // enumeration is not evidence the task is gone — reading the first hundred
+    // and reconciling would mark the rest MISSING (#74's shape).
+    //
+    // This used to *throw*, which stopped reconciliation only as a side effect
+    // and only when the truncated read also happened to find no scheduled
+    // workflow. With one found, the same truncation was discarded silently.
+    // `partial` states the fact directly, so the protection no longer depends on
+    // the count coming out at zero.
     okWorkflows([workflow()], 140);
     schedulesMock.mockResolvedValue({ ok: true, data: { crons: [] } } as never);
-    await expect(connector.syncTasks(config())).rejects.toThrow(/140 workflows/);
+
+    const outcome = await connector.syncTasks(config());
+    expect(outcome.partial).toBe(true);
+    expect(outcome.warnings?.join(' ')).toMatch(/140 workflows/);
+  });
+
+  it('marks a sync partial when one repository could not be read', async () => {
+    listWorkflowsMock
+      .mockResolvedValueOnce({ ok: true, data: { workflows: [workflow()], total: 1 } } as never)
+      .mockResolvedValueOnce({ ok: false, status: 404, message: 'GitHub returned 404.' } as never);
+
+    const outcome = await connector.syncTasks(config({
+      repositories: [{ owner: 'acme', repo: 'website' }, { owner: 'acme', repo: 'private' }]
+    }));
+
+    // A revoked scope on one repository must not retire the workflows in it.
+    expect(outcome.partial).toBe(true);
+    expect(outcome.tasks).toHaveLength(1);
+  });
+
+  it('is not partial when every repository was read whole', async () => {
+    okWorkflows([workflow()]);
+    expect((await connector.syncTasks(config())).partial).toBe(false);
   });
 
   it('reads nothing at all without a token or repositories', async () => {
-    expect(await connector.syncTasks({ repositories: [] })).toEqual([]);
-    expect(await connector.syncTasks({ token: 'ghp_x', repositories: [] })).toEqual([]);
+    expect(await syncedTasks({ repositories: [] })).toEqual([]);
+    expect(await syncedTasks({ token: 'ghp_x', repositories: [] })).toEqual([]);
     expect(listWorkflowsMock).not.toHaveBeenCalled();
   });
 });
@@ -312,5 +392,76 @@ describe('getHealth', () => {
     findFirst.mockResolvedValue(null as never);
     const health = await connector.getHealth(config());
     expect(health.lastContactAt).toBeUndefined();
+  });
+});
+
+/**
+ * **"Found nothing" and "looked at nothing" render the same**, and that
+ * ambiguity is not theoretical: it hid a real defect until the database was read
+ * by hand (#75), while the ordinary case it imitates — a repository whose
+ * workflows all run on `push` — is working perfectly. So the sync reports what
+ * it *looked at*, not only what it kept.
+ */
+describe('what the sync says it covered', () => {
+  it('counts what it read and what was scheduled, even when it found nothing', async () => {
+    schedulesMock.mockResolvedValue({ ok: true, data: { crons: [] } } as never);
+    okWorkflows([workflow(), workflow({ id: 43, path: '.github/workflows/deploy.yml' })]);
+
+    const { tasks, notes } = await connector.syncTasks(config());
+    expect(tasks).toHaveLength(0);
+    expect(notes?.[0]).toBe('GitHub Actions: read 2 workflows across 1 repository, 0 scheduled.');
+  });
+
+  it('names a repository whose workflows are all push-triggered', async () => {
+    // Named rather than counted: with several watched repositories, "0
+    // scheduled" does not say WHICH one you were expecting something from.
+    schedulesMock.mockResolvedValue({ ok: true, data: { crons: [] } } as never);
+    okWorkflows([workflow()]);
+
+    const { notes } = await connector.syncTasks(config());
+    expect(notes).toContain('acme/website has no scheduled workflows — nothing there runs on a clock.');
+  });
+
+  it('says nothing about a repository that has no workflows at all', async () => {
+    // There is no expectation to correct: an empty `.github/workflows` is not a
+    // surprise anyone needs a sentence about.
+    okWorkflows([]);
+    const { notes } = await connector.syncTasks(config());
+    expect(notes?.some(n => n.includes('no scheduled workflows'))).toBe(false);
+  });
+
+  it('reports a truncated listing as a warning, not as coverage', async () => {
+    // It used to be pushed onto `failures`, which is read ONLY when every
+    // repository failed — so the one warning about a partial read was discarded
+    // in exactly the case it described. A warning survives the "hide success
+    // toasts" preference; coverage does not, and this must be seen.
+    okWorkflows([workflow()], 137);
+    const { notes, warnings } = await connector.syncTasks(config());
+
+    expect(warnings?.[0]).toMatch(/137 workflows, of which Cronsole read 1/);
+    expect(notes?.join(' ')).not.toMatch(/137/);
+  });
+
+  it('reports a repository it could not read while returning the ones it could', async () => {
+    listWorkflowsMock
+      .mockResolvedValueOnce({ ok: true, data: { workflows: [workflow()], total: 1 } } as never)
+      .mockResolvedValueOnce({ ok: false, status: 404, message: 'GitHub returned 404.' } as never);
+
+    const { tasks, warnings } = await connector.syncTasks(config({
+      repositories: [{ owner: 'acme', repo: 'website' }, { owner: 'acme', repo: 'private' }]
+    }));
+
+    // A partial failure returns what it has — and now says what it lost, instead
+    // of dropping that on the floor whenever one other repository worked.
+    expect(tasks).toHaveLength(1);
+    expect(warnings?.some(w => w.includes('acme/private'))).toBe(true);
+  });
+
+  it('still throws when every repository failed, rather than reporting it as a note', async () => {
+    // A caller must not have to read prose to find out the sync failed: an empty
+    // list from a connection that HAS repositories would be read as "every
+    // workflow was deleted" by `reconcileMissingTasks`.
+    listWorkflowsMock.mockResolvedValue({ ok: false, status: 500, message: 'GitHub server error.' } as never);
+    await expect(connector.syncTasks(config())).rejects.toThrow(/GitHub server error/);
   });
 });

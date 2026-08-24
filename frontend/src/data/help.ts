@@ -105,7 +105,7 @@ const sources: HelpTopic = {
       body:
         'Windows opens to your real Task Scheduler folders. Cronsole-native opens to its job ' +
         'type — HTTP jobs and Scripts — which are the same connector with identical ' +
-        'capabilities, so the Platforms tab does not split them.'
+        'capabilities, so the Sources tab does not split them.'
     },
     {
       label: 'It composes with views',
@@ -130,10 +130,27 @@ const sources: HelpTopic = {
       body:
         'That means none of its tasks survive the current view — or you are connected to it and ' +
         'have imported nothing yet. The row stays either way, so you can always click into it.'
+    },
+    {
+      label: 'A fresh install lists two sources',
+      body:
+        'Windows Task Scheduler and Cronsole-native. Claude Code and GitHub Actions are added ' +
+        'from Explore sources, below the tree — four platforms of which two are real is how a ' +
+        'first run teaches you that half the product is broken.'
+    },
+    {
+      label: 'Explore and Manage are under the tree',
+      body:
+        'Explore sources shows everything Cronsole can connect to, including what you have not ' +
+        'added. Manage sources is where you connect, disconnect, and choose which sources this ' +
+        'sidebar lists. A source holding tasks can never be hidden, and connecting one shows it.'
     }
   ],
   doc: { label: 'Sources Guide › What a source is', url: sourcesGuide('what-a-source-is') },
-  more: [{ label: 'UI User Guide › The source rail', url: uiGuide('source--where-a-task-comes-from') }]
+  more: [
+    { label: 'Sources Guide › Choosing which sources you see', url: sourcesGuide('choosing-which-sources-you-see') },
+    { label: 'UI User Guide › The source rail', url: uiGuide('source--where-a-task-comes-from') }
+  ]
 };
 
 const sourceWindows: HelpTopic = {
@@ -362,9 +379,11 @@ const sourceGitHub: HelpTopic = {
     {
       label: 'Read-only is the whole shape, not a first version',
       body:
-        'Every mutating capability reads Unsupported on the Platforms tab and that is deliberate. ' +
-        'Running, pausing and editing a workflow happen on GitHub — Cronsole will not commit to ' +
-        'your repository, and a workflow_dispatch run is not the scheduled run you came to check.'
+        'Every mutating capability reads Unsupported on the Sources tab and that is deliberate — ' +
+        'the row is labelled Observer for that reason. Running, pausing and editing a workflow ' +
+        'happen on GitHub: Cronsole will not commit to your repository, and a workflow_dispatch ' +
+        'run is not the scheduled run you came to check. Of the three, only Enable/disable is a ' +
+        'candidate to unlock later, and it would arrive with its own scope and its own confirmation.'
     },
     {
       label: 'These crons are already UTC, so nothing is converted',
@@ -974,12 +993,18 @@ const templates: HelpTopic = {
   more: [{ label: 'Template catalog reference', url: docLink('docs/reports/templates/Templates.md') }]
 };
 
+/**
+ * The **Sources tab**'s topic. The id stays `platforms` on purpose: `sources` is
+ * already the rail's topic, and these answer different questions — *where do I
+ * navigate* versus *what can Cronsole do here*. Renaming the id to match the tab
+ * would collide with a topic that is not going anywhere.
+ */
 const platforms: HelpTopic = {
   id: 'platforms',
   title: 'What Cronsole can do here',
   summary:
-    'One row per platform, answering "what happens if I click this?" — in three states, each ' +
-    'about this install rather than about the code.',
+    'One row per source, answering "what happens if I click this?" — in three states, each ' +
+    'about this install rather than about the code. Plus what you are not watching yet.',
   points: [
     {
       label: 'Verified means it worked here',
@@ -1003,10 +1028,33 @@ const platforms: HelpTopic = {
       body:
         'The row shows both. An agent can be reachable while its task list is a day old, so the ' +
         'two facts are never collapsed into one.'
+    },
+    {
+      label: 'Controller and Observer are different things',
+      body:
+        'A controller can change scheduled work here; an observer only reads it. The badge is ' +
+        'declared by the connector rather than counted from its cells, so a read-only source ' +
+        'reads as finished rather than as one somebody stopped halfway through.'
+    },
+    {
+      label: 'Available is what you are not watching yet',
+      body:
+        'A fresh install lists Windows and Cronsole-native; the rest are added from here. Adding ' +
+        'one lists it in the sidebar — connecting it is a separate step, and either one is enough ' +
+        'to make it show.'
+    },
+    {
+      label: 'Quick links are bookmarks, not sources',
+      body:
+        'Schedulers with no connector, kept below the real sources for that reason. Nothing is ' +
+        'read or written through them.'
     }
   ],
-  doc: { label: 'UI User Guide › Platforms', url: uiGuide('6-platforms--what-cronsole-can-actually-do') },
-  more: [{ label: 'Sources Guide', url: sourcesGuide() }]
+  doc: { label: 'UI User Guide › Sources', url: uiGuide('6-sources--what-cronsole-can-actually-do') },
+  more: [
+    { label: 'Sources Guide', url: sourcesGuide() },
+    { label: 'Sources Guide › Adding a source', url: sourcesGuide('adding-a-source') }
+  ]
 };
 
 /* ── Tools ───────────────────────────────────────────────────────────────── */

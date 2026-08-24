@@ -108,6 +108,9 @@ SOURCES
       HTTP jobs               7
       Scripts                 5
 ▸ ● Claude Code                3
+  ─────────────────────────────
+  🔍 Explore sources
+  ⚙  Manage sources
 ```
 
 **Level 1 is the system.** *All sources* and **Favorites** lead, separated by a rule from the
@@ -151,9 +154,24 @@ On a phone the rail is a drawer: tap **Sources** beside the page heading. The br
 heading is what tells you where you are while it is closed. The drawer always opens at full width —
 an icons-only tree inside a panel you had to tap open would be two gestures to reach one folder.
 
-The **?** at the top of the rail opens the same breakdown in the app, for the source you are on.
-For what each source can actually do — and the things that catch people out on each one — see the
-[Sources Guide](Sources_Guide.md).
+**Two buttons sit under the tree**, because the rail lists the sources you *have* and says nothing
+about the ones you could:
+
+- **Explore sources** — every source Cronsole can connect to, including the ones you have not added
+  and the schedulers it can only bookmark. It opens the **Sources** tab at its *Available* section.
+- **Manage sources** — the same tab at *Your sources*: connect, disconnect, and show or hide each
+  one.
+
+**A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code and
+GitHub Actions are shown once you add them from *Explore*, which is why the button is there rather
+than a first run listing four platforms of which two are real. Two rules make hiding safe: **a
+source holding tasks is never hidden**, and **connecting one shows it**.
+
+The **?** beside the *Sources* heading opens the same breakdown in the app, for the source you are
+on. For what each source can actually do — and the things that catch people out on each one — see
+the [Sources Guide](Sources_Guide.md), whose
+[Adding a source](Sources_Guide.md#adding-a-source) section covers writing a connector for a
+platform Cronsole does not have yet.
 
 ### Saved views
 Across the top of the dashboard is a row of **views** — named filter combinations, so the question
@@ -547,7 +565,7 @@ Cronsole's list of removed tasks read empty. *(If you hit that loop before 12 Au
 was it — [troubleshooting #47](../../troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole).)*
 
 **Disconnect routine** removes the declaration and the tracked task together, from either the
-task modal or **Platforms › Claude**. Two things it also does, both stated in its confirmation:
+task modal or **Sources › Claude**. Two things it also does, both stated in its confirmation:
 
 - **It forgets the stored API token**, which claude.ai shows exactly once and will not show
   again. Reconnecting means generating a new token there. This is precisely why it isn't folded
@@ -619,7 +637,7 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 - **Other platforms** keep Cronsole's own categories — only Windows has a real folder hierarchy to point at.
 - **Cronsole-native templates** (*Run a Program*, *Node Script*, *Uptime Check*, …) need no agent at all: Cronsole schedules and runs them itself. The trade-off is **where** they run — on the machine running the Cronsole backend, which on a Dockerized stack is *inside the container*, against a filesystem that is not your desktop. If a script must run as you, or keep running when Cronsole is stopped, use a Windows template instead.
 - **Claude Code templates** are prompts, not commands. Applying one creates a real **routine** that Anthropic runs in the cloud on your schedule — so the Apply screen shows *Resolved prompt* rather than *Resolved command*, and offers a **Repositories** box for the repos the routine may check out (one URL per line; a routine with no repository still runs, it just has no checkout). This needs you to be signed in to the Claude Code CLI on the machine running Cronsole; if you aren't, the platform button is greyed out and the modal says what to do instead of failing when you click Create.
-- **What's greyed out is about *your* install, not about the template.** The platform buttons and the "Compatible with" badges come from the same capability check the [Platforms tab](#6-platforms--what-cronsole-can-actually-do) shows, so a target that works here is offered here. While that check is still loading nothing is marked either way — Cronsole would rather say nothing for a moment than tell you a platform is unavailable and be wrong.
+- **What's greyed out is about *your* install, not about the template.** The platform buttons and the "Compatible with" badges come from the same capability check the [Sources tab](#6-sources--what-cronsole-can-actually-do) shows, so a target that works here is offered here. While that check is still loading nothing is marked either way — Cronsole would rather say nothing for a moment than tell you a platform is unavailable and be wrong.
 - **Schedule:** the field is labelled with the zone it reads in (`Schedule (cron · PDT)`), quick preset chips fill common crons in that same zone, and a plain-language preview under the field ("Runs daily at 8:00 AM PDT") confirms what the cron means before you create anything. The stored UTC expression is printed underneath. Conversion warnings appear when a cron can't map cleanly onto a native Windows trigger.
 - The created task appears on the Dashboard immediately — no need to wait for a sync.
 
@@ -901,11 +919,14 @@ Cronsole — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection 
 
 ---
 
-## 6. Platforms — what Cronsole can actually do
+## 6. Sources — what Cronsole can actually do
 
-The **Platforms** tab answers one question per platform: *what will happen if I click this?*
+The **Sources** tab answers one question per platform — *what will happen if I click this?* — and
+one about the set: *what else could I be watching?* It has four sections.
 
-Each connected platform gets a row with its connection state, how many tasks Cronsole tracks
+### Your sources
+
+Each source you have gets a row with its connection state, how many tasks Cronsole tracks
 there, its last real sync, and ten capability chips — Sync, List folders, Run now, Create,
 Enable/disable, Edit schedule, Edit action, Export, Restore, Delete. **Show the evidence behind
 each capability** expands the row into a table with, per verb, its state, when it last succeeded,
@@ -924,8 +945,31 @@ nothing has been tried yet. Use a verb once and its chip turns *Verified* with a
 deliberate — a table that claimed capabilities from the code rather than from your machine would be
 a specification, and you already have one of those.
 
-**Quick links** below the matrix are bookmarks to schedulers Cronsole has no connector for
-(Claude, ChatGPT, Gemini, and any you add). Nothing is read or written through them.
+Each row also carries a **Show in sidebar** switch. Turning it off drops an empty source out of
+the rail without disconnecting anything; **a source holding tasks cannot be hidden**, and its
+switch says so rather than going missing.
+
+### Available
+
+Everything Cronsole can connect to that you have not added — today Claude Code and GitHub Actions
+on a fresh install. Each card says what the source *is*, whether it is a **controller** (Cronsole
+can change things there) or an **observer** (it can only read), and carries the button that adds
+it. **This is the section that makes hiding a source safe**: nothing you turn off becomes
+unfindable.
+
+### Quick links
+
+Bookmarks to schedulers Cronsole has no connector for — ChatGPT, Gemini, Jules, and any you add.
+**Nothing is read or written through them**, which is why they sit below the real sources instead
+of among them. They follow your account rather than this browser.
+
+### Add a custom source
+
+A source is a **connector** compiled into the backend, not a plugin you can drop in — so adding one
+means a pull request against the repository, and the answer may be that a bookmark is the honest
+shape for it. The panel links to
+[Sources Guide › Adding a source](Sources_Guide.md#adding-a-source), which covers the three shapes
+a source can take, what a connector must answer, and what will not be accepted.
 
 ## 7. System Status & Connections
 
@@ -980,7 +1024,7 @@ Where the **?** buttons are, and what each one answers:
 | **New Task** › Command / Program | The no-shell rule, and where the job will actually run |
 | **Task details** header | Rename, edit, remove, delete, disconnect — which button does what |
 | **Templates** header | The catalog, starters vs. patterns, applying and saving |
-| **Platforms** › each platform row | That source specifically, including what it cannot do |
+| **Sources** › each source row | That source specifically, including what it cannot do |
 | **Tools** › Mass actions | Scope-first bulk changes, and the typed confirmation |
 | **Tools** › Task health | The four tiers, and why *Unknown* is not *Healthy* |
 | **Import** | Import vs. Sync — the distinction that costs people the most time |

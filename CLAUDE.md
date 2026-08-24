@@ -201,12 +201,44 @@ Non-negotiable rules. **Every one has a reason recorded in
   each boundary is stated once. A sync where *every* source failed **throws** rather than
   returning `[]`, or `reconcileMissingTasks` reads one revoked scope as a mass deletion; a
   partial failure returns what it has. And a schedule it could not *read* is `null` **with a
-  reason**, never an assumed cron.
+  reason**, never an assumed cron. **Which of the two a connector is, is declared** — a
+  `PlatformDescriptor.access` of `controller` or `observer`, served on the matrix and read by the
+  Sources tab and `list_platforms`. Counting the cells instead would make a finished read-only
+  connector indistinguishable from one whose write verbs are merely unbuilt, which is the whole
+  thing the field exists to say.
+- **Which sources a user sees is a union of three facts, and only one is a preference**
+  (`utils/sourceVisibility.ts`, one definition for the rail and the Sources tab). Shown = asked
+  for in `settings.shownSources`, **or** holds tasks, **or** has a connection — so opting in is
+  additive, connecting never needs a second gesture, and **a source holding tasks can never be
+  hidden**. It is a *show* list rather than a hide list for the same reason: a platform added to
+  Cronsole later is absent from every existing list, so it arrives opt-in without a migration.
+  A fresh install shows Windows and Cronsole-native; the rest are added from **Explore sources**,
+  and that route existing is what makes hiding safe rather than indistinguishable from missing.
 - **A refresh and an import are two requests, and must stay two.** `POST /tasks/sync`
   `{ categories }` **clears the untrack exclusions** inside those folders — naming a folder is the
   gesture that started tracking it — while `{ scope: 'tracked' }` must never clear one, or a
   routine refresh silently undoes a deliberate removal. A refresh still *creates rows* for new
   tasks inside folders already tracked; what it cannot do is adopt a new folder.
+  **A refresh's include-set is the platform's own record of what you asked for, which is not always
+  the rows.** `TaskService.trackedCategories` reads stored rows because that is how a Windows folder
+  becomes tracked — you pick it in the discovery modal and the rows are the only trace. A connector
+  whose tracked set is *declared* implements `PlatformConnector.trackedCategories(config)` instead
+  (GitHub Actions: the watched repositories). Deriving from rows made *adding a repository* unable to
+  adopt anything — no rows, empty include-set, every workflow filtered out, **Sync reporting success
+  over nothing** with no second gesture to reach for, because the discovery modal talks to the agent
+  ([#75](docs/troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)).
+  It changes only which categories are *included*; it must never clear an exclusion.
+- **A sync reports what it *looked at*, not only what it kept.** `SyncOutcome` carries `notes`
+  (coverage — success information, so it obeys `toastOnSuccess`), `warnings` (what it could not do
+  while still returning what it had — never suppressible, the untracked sentence's rule) and
+  `partial`. Returning a bare `TaskInfo[]` stays legal for a connector with nothing to add. The
+  reason is that **"found nothing" and "looked at nothing" render identically**: a repository whose
+  workflows are all push-triggered imports zero tasks and is working perfectly, which is the same
+  empty screen as a broken sync — and that ambiguity hid a real defect until the DB was read by hand.
+- **`partial` means add and refresh, but retire nothing** — the #74 rule generalized off the agent.
+  A truncated listing or one unreadable repository is a *narrowed reader*, not an emptier platform,
+  so `reconcileMissingTasks` is skipped for that pass. The 50%-retention guard does not cover it:
+  100 of 140 looks plausible, which is what makes a partial view worse than an empty one.
 - **Health reports evidence, never preconditions**, and never has a side effect (Claude's documented
   routines endpoint *fires* the routine). `UNKNOWN` is the absence of a verdict and must rank above
   healthy in any summary; failure evidence ages out (15 min), connection evidence renews itself.

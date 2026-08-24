@@ -268,3 +268,46 @@ describe('every route that performs a verb records it', () => {
     });
   }
 });
+
+describe('access — controller or observer', () => {
+  it('declares one for every platform in the matrix', () => {
+    // A missing value would render as an empty badge rather than failing, on the
+    // screen whose whole job is to say what a source can do.
+    for (const platform of MATRIX_PLATFORMS) {
+      expect(['controller', 'observer']).toContain(PLATFORM_DESCRIPTORS[platform]!.access);
+    }
+  });
+
+  it('calls GitHub Actions an observer, and everything else a controller', () => {
+    expect(PLATFORM_DESCRIPTORS[PlatformType.GITHUB_ACTIONS]!.access).toBe('observer');
+    expect(PLATFORM_DESCRIPTORS[PlatformType.WINDOWS_TASK_SCHEDULER]!.access).toBe('controller');
+    expect(PLATFORM_DESCRIPTORS[PlatformType.TASKHUB_NATIVE]!.access).toBe('controller');
+  });
+
+  it('calls Claude a controller in both of its modes', () => {
+    // `unsupportedVerbs` is a getter there, so which verbs work depends on the
+    // install — but "does this connector change anything" does not, and a field
+    // that flipped with a readable session would be reporting the wrong fact.
+    withClaudeSession();
+    expect(PLATFORM_DESCRIPTORS[PlatformType.CLAUDE_CODE]!.access).toBe('controller');
+    noClaudeSession();
+    expect(PLATFORM_DESCRIPTORS[PlatformType.CLAUDE_CODE]!.access).toBe('controller');
+  });
+
+  it('is declared rather than counted from the cells', () => {
+    // The distinction the field exists for: an observer and a controller whose
+    // write verbs are merely unbuilt produce identical cells. If this ever
+    // becomes `every mutating verb is unsupported`, the two collapse and
+    // "read-only on purpose" stops being sayable.
+    const mutating: CapabilityVerb[] = ['run', 'create', 'setStatus', 'updateSchedule', 'updateAction', 'delete'];
+    const githubRefusesAll = mutating.every(
+      verb => !verbReachability(PlatformType.GITHUB_ACTIONS, verb)
+    );
+    expect(githubRefusesAll).toBe(true);
+
+    // …and Windows refuses none of them, so the two are not distinguishable by
+    // this count alone only because Windows happens to implement them. The
+    // declared field is what survives a connector that has not got there yet.
+    expect(verbReachability(PlatformType.WINDOWS_TASK_SCHEDULER, 'run')).toBe(true);
+  });
+});

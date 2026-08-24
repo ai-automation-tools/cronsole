@@ -11,7 +11,7 @@ import { ImportFileModal } from './components/ImportFileModal';
 import { SyncSourcesModal } from './components/SyncSourcesModal';
 import { CreateTaskModal } from './components/CreateTaskModal';
 import { SettingsScreen } from './components/SettingsScreen';
-import { PlatformsScreen } from './screens/PlatformsScreen';
+import { SourcesScreen } from './screens/SourcesScreen';
 import { TemplatesScreen } from './screens/TemplatesScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { ToolsScreen } from './screens/ToolsScreen';
@@ -20,7 +20,7 @@ import { useToast } from './hooks/useToast';
 import { useConfirm } from './hooks/useConfirm';
 import { useNavigate, useLocation } from 'react-router';
 import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
-import { describeUntracked, type SyncResponse } from './utils/syncSummary';
+import { describeUntracked, describeCoverage, type SyncResponse } from './utils/syncSummary';
 import { stageRestore } from './utils/restoreHandoff';
 import { taskDetailRoute, taskDetailReturn } from './utils/taskRoute';
 
@@ -29,8 +29,13 @@ import { taskDetailRoute, taskDetailReturn } from './utils/taskRoute';
 const Dashboard = () => {
   // Section + open task detail come from the URL (bookmarkable, back/forward):
   //   /                → dashboard      /templates → templates
-  //   /platforms       → platforms      /settings  → settings
+  //   /sources         → sources        /settings  → settings
   //   /tools           → tools
+  //
+  // `/platforms` is the tab's old address and still resolves here: it was a
+  // bookmarkable route and the docs shipped links to it, so it redirects rather
+  // than falling through to the dashboard, which would look like the tab was
+  // removed.
   //   /tasks/:id       → dashboard with the task detail modal open
   //
   // `/tasks/:id` keeps the query it was opened with, because the dashboard's
@@ -41,7 +46,9 @@ const Dashboard = () => {
   const location = useLocation();
   const segments = location.pathname.split('/').filter(Boolean);
   const section = segments[0] ?? '';
-  const activeTab = ['templates', 'platforms', 'tools', 'settings'].includes(section) ? section : 'dashboard';
+  const activeTab = section === 'platforms'
+    ? 'sources'
+    : ['templates', 'sources', 'tools', 'settings'].includes(section) ? section : 'dashboard';
   const setActiveTab = (tab: string) => navigate(tab === 'dashboard' ? '/' : `/${tab}`);
   const routeTaskId = section === 'tasks' ? segments[1] : undefined;
 
@@ -56,6 +63,14 @@ const Dashboard = () => {
   const { settings, update } = useSettings();
   const { toast } = useToast();
   const confirm = useConfirm();
+
+  // The tab moved from /platforms to /sources. Rewrite the address rather than
+  // only rendering the right screen at the old one: `replace`, so Back does not
+  // bounce between the two, and the query survives because the rail's deep
+  // links (`?focus=available`) are legal on either spelling.
+  useEffect(() => {
+    if (section === 'platforms') navigate({ pathname: '/sources', search: location.search }, { replace: true });
+  }, [section, location.search, navigate]);
 
   // Push-based live updates: refresh the task list when the backend signals a
   // change (agent sync, scheduled run, another tab), instead of only polling.
@@ -261,6 +276,12 @@ const Dashboard = () => {
       // fence away indefinitely while every sync cheerfully reports success.
       // That silence cost a full debugging session (troubleshooting #20).
       const untracked = describeUntracked(data);
+      // What the sync *covered*. Success information — it is true on a perfectly
+      // healthy run — so it obeys `toastOnSuccess`, unlike the sentence below.
+      // Without it, "imported nothing because nothing here is scheduled" and
+      // "imported nothing because something is broken" are the same empty screen
+      // (troubleshooting #75).
+      const coverage = describeCoverage(data);
       if (untracked) {
         // Deliberately NOT gated behind `toastOnSuccess`: that setting suppresses
         // routine "it worked" noise, and this is the opposite — the one thing the
@@ -269,12 +290,15 @@ const Dashboard = () => {
         // the only prompt that adopting new folders is possible at all, and
         // making the reader go and find the menu it names is how a prompt
         // becomes a dead end.
-        toast(untracked, 'info', {
+        // Coverage rides along when there is already a toast to carry it, even
+        // with success toasts off: the reader is being shown this message
+        // anyway, and the numbers are what make its "N aren't imported" legible.
+        toast([coverage, untracked].filter(Boolean).join(' '), 'info', {
           label: 'Add tasks from this machine',
           onClick: () => setShowSyncSources(true)
         });
       } else if (settings.toastOnSuccess) {
-        toast('Tasks synced.', 'success');
+        toast(coverage ? `Synced. ${coverage}` : 'Tasks synced.', 'success');
       }
     },
     onError: (error: unknown) => {
@@ -384,7 +408,7 @@ const Dashboard = () => {
         {activeTab !== 'dashboard' && (
           <div className="px-4 py-5 md:px-8 md:py-7">
             {activeTab === 'templates' && <TemplatesScreen />}
-            {activeTab === 'platforms' && <PlatformsScreen />}
+            {activeTab === 'sources' && <SourcesScreen />}
             {activeTab === 'tools' && <ToolsScreen />}
             {activeTab === 'settings' && <SettingsScreen tasks={tasks} />}
           </div>

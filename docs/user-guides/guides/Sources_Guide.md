@@ -8,28 +8,28 @@ and Cronsole can only knock on its door. A GitHub Actions workflow Cronsole can 
 This guide has one section per source: what it is, **what Cronsole can and can't do with it**,
 and the things that surprise people. It is what the **?** buttons in the app link to.
 
-> **Where to find this in the app:** the **Source** bar sits above the saved views on the
-> Dashboard, with one button per source you actually have tasks from. The **Platforms** tab
-> shows the same systems from the other direction — what each one is capable of, and what has
-> been *proven* to work on your machine.
+> **Where to find this in the app:** the **Sources** section of the sidebar lists one row per
+> source you have, with **Explore sources** and **Manage sources** beneath it. The **Sources**
+> tab shows the same systems from the other direction — what each one is capable of, what has
+> been *proven* to work on your machine, and everything you have not added yet.
 
 ---
 
 ## What a source is
 
 A **source** is where a task comes from — the first question you ask about a task, before
-"is it failing?". It is the Dashboard's outermost lens, which is why it has its own bar
+"is it failing?". It is the Dashboard's outermost lens, which is why it is the sidebar rail
 rather than a row inside the Filters drawer.
 
 **A source is finer than a platform.** A *platform* is what Cronsole talks to: one connector,
-one row on the Platforms tab, one connection. A *source* is what you navigate by, and the two
+one row on the Sources tab, one connection. A *source* is what you navigate by, and the two
 stopped matching when Cronsole-native gained a second kind of job — an HTTP call and a script
-are the same platform and genuinely different things to look at. So the Source bar splits
-them and the Platforms tab does not.
+are the same platform and genuinely different things to look at. So the rail splits them and
+the Sources tab does not.
 
 Three behaviours worth knowing:
 
-- **Source composes with views instead of replacing them.** Pick *Windows Task Scheduler*,
+- **A source composes with views instead of replacing them.** Pick *Windows Task Scheduler*,
   click *Failures*, and both stay lit — you are looking at failing Windows tasks and the two
   chips say so together. Every other filter drops the view to *Custom*; source is the one
   exception, and it is allowed only because both constraints are visible at once.
@@ -38,6 +38,33 @@ Three behaviours worth knowing:
 - **A source can read `0`.** It means you have tasks from that source but none survive your
   current view. The button stays so you can always click back out. It disappears only when you
   have no tasks from that source at all.
+
+---
+
+## Choosing which sources you see
+
+A fresh install shows **two**: Windows Task Scheduler and Cronsole-native. Claude Code and
+GitHub Actions are supported, and are **not** shown until you ask for them — a first run
+listing four platforms of which two are real teaches you that half the product is broken.
+
+Both halves of that live on the **Sources** tab, and the sidebar's **Sources** section links
+straight into them:
+
+- **Explore sources** — everything Cronsole can connect to, including what you have not added
+  and the schedulers it can only bookmark. This is where a hidden source is found again, which
+  is what makes hiding one safe in the first place.
+- **Manage sources** — the sources you already have: their capabilities, their connection, and
+  a switch to show or hide each one.
+
+Two rules hold whichever you use:
+
+- **A source holding tasks is never hidden.** Hiding is for an empty row you do not want, never
+  for tasks you would then be unable to find. The switch on a source with tasks says so.
+- **Connecting a source shows it.** You never have to do both, and Cronsole never asks you to
+  confirm something it can infer from what you just did.
+
+Which sources you show is a **preference, so it follows your account** rather than this browser —
+the same install reached at `localhost` and over a Tailscale name shows you the same sidebar.
 
 ---
 
@@ -134,7 +161,7 @@ in the gallery.
 > existing tasks changed — only the label.
 
 Same platform as *Cronsole (HTTP)* — the Source rail separates them because they are different
-things to look at, and the Platforms tab does not because they have identical capabilities.
+things to look at, and the Sources tab does not because they have identical capabilities.
 
 ### What Cronsole can do here
 
@@ -261,7 +288,7 @@ Claude Code from a background poll. Nothing to configure: sign in with `/login` 
 
 Signed in: **sync · run now · create · enable/disable · edit schedule**, plus connect, edit and
 disconnect the declaration. Not signed in: **run now** and the declaration verbs; create,
-enable/disable and edit-schedule show as *Unsupported* on the Platforms tab, which is that tab
+enable/disable and edit-schedule show as *Unsupported* on the Sources tab, which is that tab
 answering about *this install* rather than about the product.
 
 **Delete is impossible either way** — neither Claude API exposes one. Cronsole can pause a
@@ -288,7 +315,7 @@ routine and forget it; removing it happens at claude.ai.
 - **"Remove from Cronsole" is refused here — use *Disconnect routine*.** On Windows, untracking
   means "don't re-import this"; here there is nothing on a machine to be re-imported from, so
   the row would simply come back on the next sync while the exclusion table read empty.
-  **Disconnect routine** (in the task modal, and on the Platforms tab) removes the declaration
+  **Disconnect routine** (in the task modal, and on the Sources tab) removes the declaration
   *and* the tracked tasks together.
   - It also **forgets the API token**, which claude.ai will not show you again — so the
     confirmation says so. That is why the two are separate buttons: a control labelled
@@ -309,12 +336,12 @@ routine and forget it; removing it happens at claude.ai.
 
 ## GitHub Actions
 
-**Scheduled workflows in the repositories you watch.** Connect on the **Platforms** tab: paste a
+**Scheduled workflows in the repositories you watch.** Connect on the **Sources** tab: paste a
 GitHub personal access token, then add repositories by URL or `owner/name`. Sync brings in every
 workflow in them that has an `on: schedule` trigger.
 
 **This source is read-only, and that is the design rather than a first version.** Every mutating
-capability on its Platforms row reads *Unsupported*. Cronsole tells you what is scheduled, when it
+capability on its Sources row reads *Unsupported*. Cronsole tells you what is scheduled, when it
 claims to run, and how the last runs actually went — running, pausing and editing a workflow happen
 on GitHub.
 
@@ -326,10 +353,17 @@ Two of the three refusals have APIs behind them and are still refused, deliberat
 - **Enable / disable** changes repository state, and belongs behind its own scopes and its own
   confirmation rather than slipping in behind a read.
 
+**What would change that.** Of the three, only *Enable / disable* is a candidate: it is the one
+whose GitHub API (`PUT …/actions/workflows/:id/disable`) does exactly what the Cronsole verb claims,
+with no second meaning. Unlocking it is not a flag — it needs a token scope you have granted on
+purpose, a confirmation that names the repository, and the capability cell to stop saying
+*Unsupported* only once both exist. Until then, read-only here is a decision that has been made,
+not a version that has not been finished.
+
 ### What Cronsole can do here
 
 **Sync** and **health**, plus **Remove from Cronsole** on an individual workflow. Everything else
-shows as *Unsupported* on the Platforms tab — which is that tab stating a boundary, not waiting for
+shows as *Unsupported* on the Sources tab — which is that tab stating a boundary, not waiting for
 evidence. A connector that only reads is a finished thing; it just says plainly which half it is.
 
 ### Things that surprise people
@@ -371,12 +405,96 @@ evidence. A connector that only reads is a finished thing; it just says plainly 
 
 ## Quick links — schedulers with no connector
 
-Below the capability matrix on the **Platforms** tab is a list of bookmarks: ChatGPT, Gemini,
-Jules, and any you add yourself. Nothing is read or written through them — they exist so the
-schedulers Cronsole *cannot* reach are still one click away rather than invisible.
+The **Sources** tab has a *Quick links* section: bookmarks to ChatGPT, Gemini, Jules, and any you
+add yourself. **Nothing is read or written through them.** They exist so the schedulers Cronsole
+*cannot* reach are still one click away rather than invisible, and they sit below the real sources
+rather than among them, because a bookmark that looks like a connector reads as a broken one.
 
-A link graduates to a connector when it can do something a bookmark cannot. A connector that
-only *reads* is a finished thing, not a stalled one: it says plainly which half it is.
+They are a preference, so your links follow your account rather than the browser you added them in.
+
+A link graduates to a connector when it can do something a bookmark cannot — which needs a public
+API for reading scheduled work, and is the first question in
+[Adding a source](#adding-a-source). A connector that only *reads* is a finished thing, not a
+stalled one: it says plainly which half it is.
+
+---
+
+## Adding a source
+
+Every source is a **connector**: one class per platform implementing one interface
+(`PlatformConnector`), compiled into the backend. There is no plugin folder and nothing to drop in
+at runtime — deliberately. A connector holds credentials, issues commands to your machine and
+decides what a sync is allowed to retire, which is not a thing to load off disk unreviewed.
+
+So **adding a source means a pull request** to
+[the repository](https://github.com/michaelschecht/cronsole), and the honest version of that
+sentence is: open one, and you will get an answer about whether it fits. Some proposals do not, and
+the reasons are below rather than in a reply to your PR.
+
+### First: is it a source at all?
+
+Three shapes, and picking the wrong one is the usual reason a connector stalls half-built.
+
+| Shape | When it fits | What it costs |
+|:--|:--|:--|
+| **Controller** | The platform has an API to read *and* change scheduled work — run, enable/disable, edit, delete. | The most work, and the most trust. Windows Task Scheduler and Cronsole-native are the two. |
+| **Observer** | It can be read but should not be written, or cannot be. | Much less, and it is a **finished** state rather than a stalled one. GitHub Actions is the worked example. |
+| **Quick link** | No public API for scheduled work exists at all. | A bookmark, added from the Sources tab in ten seconds by anyone. |
+
+An observer is the right default for a hosted platform. Cronsole says plainly which half a
+connector is, so shipping a read-only source is not an apology.
+
+### What a connector has to answer
+
+- **A 5-field cron in UTC**, for every task it reports. That is the storage contract everywhere in
+  Cronsole. If the platform's schedule cannot be expressed as one, the conversion is lossy and the
+  connector has to say so — an approximation that goes unmentioned is the one outcome ruled out.
+- **A schedule it could not read is `null` with a reason**, never a guessed cron. "Cronsole could
+  not read this" and "this has no schedule" are different facts and get different rows.
+- **Its own boundaries, as a list.** Verbs the platform genuinely cannot support go in
+  `unsupportedVerbs`, which turns an attempt into a refusal (`400`) instead of a failure (`502`).
+  Optional verbs you simply do not implement are unsupported by their absence — do not state the
+  same boundary twice.
+- **Health as evidence, never as a precondition.** No side effects: a health check that *fires* the
+  thing it is checking is not a health check. Having no verdict is `UNKNOWN`, which is not a
+  synonym for healthy.
+- **A stable `externalId`**, unique within the platform. It is the identity every row is keyed on
+  and every command addressed to.
+- **A sync that fails loudly.** If *every* source in a sync failed, throw — returning an empty list
+  reads as "the platform no longer has these tasks" and retires the lot. A partial failure returns
+  what it got.
+
+### Where the code goes
+
+| Piece | Where |
+|:--|:--|
+| The connector | `backend/src/connectors/<Name>Connector.ts`, registered in `connectors/registry.ts` |
+| The platform value | `PlatformType` in the Prisma schema, plus a migration |
+| Its row on the Sources tab | `MATRIX_PLATFORMS` and `PLATFORM_DESCRIPTORS` in `backend/src/services/platformCapabilities.ts` |
+| Its labels and icon | `frontend/src/platform.ts` |
+| Its help topic and this guide | `frontend/src/data/help.ts` + a section here — `docsLinks.test.ts` checks the link resolves |
+
+**No platform-specific logic lives outside the connector layer.** A `switch` on the platform in a
+route or a component is the thing code review will send back, every time. Credentials go in
+`PlatformConnection.config`, which is encrypted at the application layer and never logged decrypted.
+
+### What will not be accepted
+
+- **A connector for a platform with no public scheduled-task API.** It renders as a row of
+  *Unsupported* cells that say strictly less than a bookmark does. Add a quick link instead.
+- **A write verb that is really a different action wearing the verb's name.** GitHub Actions refuses
+  *Run now* even though `workflow_dispatch` exists, because a dispatched run is not the scheduled
+  run you came to check.
+- **Anything that makes the agent write files.** The Windows agent is elevated and local, and gets
+  no file-write verb for that reason.
+
+### Opening the PR
+
+Say which of the three shapes it is and why, list the verbs you are *not* supporting and whether
+that is "cannot" or "not yet", and include the auth surface it needs. Read
+[`CONTRIBUTING.md`](../../../CONTRIBUTING.md) for the rest — commit format, tests, and what a review
+looks at. A connector with an honest capability matrix and half the verbs beats a complete-looking
+one that guesses.
 
 ---
 
@@ -394,4 +512,4 @@ scheduler. See [ROADMAP.md](../../ROADMAP.md) › Sources.
 assistant, and the [troubleshooting log](../../troubleshooting/README.md) when something behaves
 unexpectedly.*
 
-*Last Updated: August 23, 2026*
+*Last Updated: August 24, 2026*

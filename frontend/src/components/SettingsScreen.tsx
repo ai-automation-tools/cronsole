@@ -51,9 +51,8 @@ import {
   subscribeBackendStatus,
   type BackendStatus
 } from '../api';
+import { DEFAULT_QUICK_LINKS } from '../utils/quickLinks';
 import type { Task } from '../types';
-
-const PLATFORM_LINKS_KEY = 'cronsole_platform_links';
 
 /** Zones offered in the schedule-timezone picker, in rough west-to-east order. */
 const COMMON_ZONES: { id: string; name: string }[] = [
@@ -500,9 +499,12 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
     }
   };
 
-  const resetPlatformLinks = () => {
-    localStorage.removeItem(PLATFORM_LINKS_KEY);
-    toast('Platform links reset to defaults. Reload to see the change.', 'info');
+  // Quick links moved out of `localStorage` and into the synced settings
+  // document, so resetting them is now a preference write like any other — and
+  // it takes effect on the spot instead of asking for a reload.
+  const resetQuickLinks = () => {
+    update('quickLinks', DEFAULT_QUICK_LINKS);
+    toast('Quick links reset to defaults.', 'info');
   };
 
   const saveApiOrigin = async () => {
@@ -635,9 +637,9 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
             }}
           />
         </Row>
-        <Row label="Reset platform links" description="Restore the default Platforms tab quick links.">
+        <Row label="Reset quick links" description="Restore the default Sources tab quick links.">
           <button
-            onClick={resetPlatformLinks}
+            onClick={resetQuickLinks}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
           >
             <RotateCcw size={14} /> Reset links

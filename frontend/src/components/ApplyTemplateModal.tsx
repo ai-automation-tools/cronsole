@@ -228,7 +228,7 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
                     title={
                       can === 'yes' ? undefined
                         : can === 'unknown' ? 'Checking what Cronsole can do on this platform…'
-                          : 'Cronsole can’t create tasks on this platform on this install — see the Platforms tab for why.'
+                          : 'Cronsole can’t create tasks on this platform on this install — see the Sources tab for why.'
                     }
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                       platform === p

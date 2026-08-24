@@ -195,6 +195,15 @@ interface PlatformMatrixRow {
   label: string;
   summary: string;
   maturity: 'functional' | 'experimental';
+  /**
+   * Controller or observer — whether this connector changes anything at all.
+   *
+   * Declared by the connector rather than counted from its cells, which is what
+   * makes it worth reporting: a row of `unsupported` verbs cannot tell an agent
+   * whether it is looking at a finished read-only source or an unfinished one,
+   * and the difference decides whether waiting or retrying could ever help.
+   */
+  access: 'controller' | 'observer';
   configured: boolean;
   isActive: boolean;
   healthState: string | null;
@@ -233,6 +242,19 @@ interface SyncResultRow {
   count: number;
   missing: number;
   untracked?: { count: number; folders: string[]; systemCount: number; excludedCount: number };
+  /**
+   * What this platform's sync **covered**, not only what it kept — e.g. "read 9
+   * workflows across 3 repositories, 3 scheduled".
+   *
+   * Worth forwarding verbatim: `count: 0` alone cannot distinguish *correctly
+   * imported nothing* from *broken*, and an agent that reports the first as a
+   * failure sends someone to debug a working install.
+   */
+  notes?: string[];
+  /** What it could NOT do while still returning what it had. Never suppress these. */
+  warnings?: string[];
+  /** The platform was seen only in part, so nothing was retired from this pass. */
+  partial?: boolean;
   exclusionsCleared?: number;
 }
 
@@ -1933,8 +1955,14 @@ Next run: ${task.nextRunTime}` : '')
         '`declared` = the route would accept it, but nothing has been observed to work yet; ' +
         '`unsupported` = the route would refuse, because the platform has no such API. ' +
         '`unsupported` is a boundary, not a to-do: no amount of retrying turns it into `verified`. ' +
-        'Example: Claude Code reports `create` and `setStatus` as unsupported, because Anthropic exposes exactly ' +
-        'one routines endpoint (fire) and no way to create or pause one. ' +
+        'Each row also carries `access`: `controller` means Cronsole can change scheduled work there, ' +
+        '`observer` means it only reads. An observer is a FINISHED connector, not a half-built one — ' +
+        'GitHub Actions is read-only on purpose, and two of its three refusals have working GitHub APIs ' +
+        'behind them (a workflow_dispatch run is not the scheduled run; enabling a workflow is a ' +
+        'repository-state change). Do not plan around an observer gaining write verbs. ' +
+        'What a platform reports also depends on the install: Claude Code supports `create` and ' +
+        '`setStatus` when Cronsole can read your Claude Code session, and refuses both when it cannot — ' +
+        'which is exactly why this matrix is worth calling rather than assumed. ' +
         'Each row also carries a `health`, which is about the connection rather than the verbs: ' +
         '`HEALTHY`, `DEGRADED` (something was observed to fail), `OFFLINE` (nothing is connected), and ' +
         '`UNKNOWN`. Read `UNKNOWN` as "no current evidence", NOT as a problem — either the platform has ' +
@@ -1970,7 +1998,7 @@ Next run: ${task.nextRunTime}` : '')
               ? `${p.healthState ?? 'unknown'}${p.healthReason ? ` — ${p.healthReason}` : ''}`
               : 'not connected';
             return [
-              `• ${p.label} (${p.platform}) — ${p.maturity}, ${p.taskCount} task(s), health: ${health}`,
+              `• ${p.label} (${p.platform}) — ${p.access}, ${p.maturity}, ${p.taskCount} task(s), health: ${health}`,
               `    verified:    ${verified.join(', ') || '—'}`,
               `    declared:    ${declared.join(', ') || '—'}`,
               `    unsupported: ${unsupported.join(', ') || '—'}`
@@ -2155,7 +2183,7 @@ Next run: ${task.nextRunTime}` : '')
         'trigger: open the routine, Edit, Add another trigger, API, then Generate token. ' +
         'SECURITY: the token is a live credential and is passed here as a plain parameter, so it will appear in ' +
         'this conversation and in the MCP host\'s logs. If a human is available, prefer the Cronsole UI ' +
-        '(Dashboard, New Task, Claude — or the Platforms tab), where the token goes straight into encrypted ' +
+        '(Dashboard, New Task, Claude — or the Sources tab), where the token goes straight into encrypted ' +
         'storage without passing through a model context. Ask before requesting a token from a user. ' +
         'Generating a token at claude.ai revokes the previous one for that routine, so re-connecting an id ' +
         'here replaces the stored token rather than erroring — that is the rotation path. ' +
@@ -2341,6 +2369,11 @@ Next run: ${task.nextRunTime}` : '')
         'omit `categories` for a REFRESH of what you already track (statuses, schedules, last-run info) — this ' +
         'adds nothing new; ' +
         'pass `categories` to IMPORT those categories, which is how untracked tasks first appear. ' +
+        'A row may carry `notes` (what the sync COVERED — "read 9 workflows across 3 repositories, 3 ' +
+        'scheduled"), `warnings` (what it could not do while still returning what it had), and ' +
+        '`partial` (it saw less than the whole platform, so nothing was retired). **Read `notes` before ' +
+        'calling a zero result a failure**: a source whose work is all push-triggered correctly imports ' +
+        'nothing, and that is indistinguishable from a broken sync without them. ' +
         'Call list_untracked_categories… (or, in the UI, Sync › Add tasks from this machine) to see what is available — on a real machine ' +
         'there can be hundreds of Windows folders, most of them Windows\' own. ' +
         'An explicit `categories` import also forgets any prior untracks inside those categories, because naming ' +
@@ -2371,7 +2404,15 @@ Next run: ${task.nextRunTime}` : '')
                   ? ` — ${r.untracked.count} still untracked`
                   : '';
                 const missing = r.missing ? `, ${r.missing} missing` : '';
-                return `• ${r.platform}: ${r.count} tracked${missing}${untracked}`;
+                // Coverage and warnings on their own lines: `count: 0` cannot say
+                // whether a platform has nothing scheduled or could not be read,
+                // and reporting the first as a failure is how an agent sends
+                // someone to debug an install that is working.
+                const said = [...(r.notes ?? []), ...(r.warnings ?? [])]
+                  .map(n => `\n    ${n}`)
+                  .join('');
+                const partial = r.partial ? '\n    Partial view — nothing was retired on this pass.' : '';
+                return `• ${r.platform}: ${r.count} tracked${missing}${untracked}${said}${partial}`;
               })
               .join('\n')
           : 'No platforms reported.';

@@ -52,6 +52,7 @@ import {
   selectExportCandidates,
   type BulkExportSelection
 } from '../services/bulkExport.js';
+import { syncOutcomeOf } from '../connectors/platform.interface.js';
 import {
   csvFilename,
   historyWhere,
@@ -230,7 +231,7 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
   // honest answer: we cannot know what is on the machine without asking it.
   let enumerated;
   try {
-    enumerated = await connector.syncTasks(config);
+    enumerated = syncOutcomeOf(await connector.syncTasks(config)).tasks;
   } catch (err: any) {
     throw new HttpError(502, err?.message === 'Agent offline'
       ? 'The Windows agent is offline, so Cronsole cannot read the machine\'s tasks.'
@@ -423,11 +424,13 @@ router.post('/restore/tasks', validateBody(restoreTasksSchema), async (req: Requ
   let existingTaskPaths: string[];
   let existingFolders: string[];
   try {
-    const [tasks, folders] = await Promise.all([
+    const [synced, folders] = await Promise.all([
       connector.syncTasks(config),
       connector.listFolders(config)
     ]);
-    existingTaskPaths = tasks.map(t => String(t.externalId ?? '')).filter(Boolean);
+    existingTaskPaths = syncOutcomeOf(synced).tasks
+      .map(t => String(t.externalId ?? ''))
+      .filter(Boolean);
     if (!folders.success) {
       throw new Error(folders.message || 'Could not read this machine\'s Task Scheduler folders');
     }

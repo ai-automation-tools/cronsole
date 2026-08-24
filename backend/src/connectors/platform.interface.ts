@@ -172,6 +172,67 @@ export type CapabilityVerb =
   | 'delete'
   | 'listFolders';
 
+/**
+ * A sync that also reports what it *looked at*, not only what it found.
+ *
+ * **The gap this closes: "found nothing" and "looked at nothing" render the
+ * same.** A GitHub repository with no `on: schedule` workflow imports zero
+ * tasks, which is correct — and indistinguishable, on screen, from a sync that
+ * is broken. That ambiguity has now cost time twice: once as troubleshooting #20
+ * on Windows (a fence nobody could see) and once as #75 on GitHub, where a real
+ * defect hid behind exactly this silence for as long as it took to read the
+ * database by hand.
+ *
+ * `notes` are user-facing sentences about *this* sync — coverage, and anything
+ * partial. They are **not** errors: a connector that could not sync at all still
+ * throws, because a caller must not have to read prose to find out. The rule
+ * they exist to enforce is the one #20 already forced on the Windows sync — a
+ * surface that omits what it withheld is lying by omission.
+ *
+ * Returning a bare `TaskInfo[]` stays legal, and is what three of the four
+ * connectors do: a connector with nothing to add should not be made to say so.
+ */
+export interface SyncOutcome {
+  tasks: TaskInfo[];
+  /**
+   * What this sync **covered** — routine, and true on a completely healthy run.
+   *
+   * "Read 9 workflows across 3 repositories, 3 scheduled." Success information,
+   * so a user who has turned success toasts off does not see it.
+   */
+  notes?: string[];
+  /**
+   * What this sync could **not** do, while still returning what it had.
+   *
+   * A repository that failed while others worked, or a listing truncated at
+   * GitHub's page limit. **Separate from `notes` because it must survive the
+   * "hide success toasts" preference**: that setting suppresses *it worked*
+   * noise, and this is the opposite. Same division the untracked sentence
+   * already gets — and a partial read reported only as success noise is how a
+   * truncated sync gets mistaken for a complete one.
+   */
+  warnings?: string[];
+  /**
+   * Did this sync see **less than the whole platform**?
+   *
+   * A repository that failed while others worked; a listing truncated at a page
+   * limit. When true the route **adds and refreshes rows but retires none** —
+   * because a task absent from a narrowed enumeration is not evidence the task
+   * is gone, and acting on it is how 86 healthy Windows tasks were declared
+   * MISSING by an unelevated agent (troubleshooting #74).
+   *
+   * The 50%-retention guard does not cover this: reading 100 of 140 workflows
+   * looks entirely plausible, which is exactly what makes a partial view more
+   * dangerous than a catastrophically empty one.
+   */
+  partial?: boolean;
+}
+
+/** One shape for the route, whichever form a connector returned. */
+export function syncOutcomeOf(result: TaskInfo[] | SyncOutcome): SyncOutcome {
+  return Array.isArray(result) ? { tasks: result } : result;
+}
+
 export interface PlatformConnector {
   platform: PlatformType;
 
@@ -197,10 +258,37 @@ export interface PlatformConnector {
   readonly unsupportedVerbs?: readonly CapabilityVerb[];
 
   /**
-   * Sync tasks from the platform.
-   * Returns a list of normalized task information.
+   * The categories this connector's **own configuration** declares as tracked.
+   *
+   * Optional, and the default is the right answer for most platforms: a plain
+   * refresh (`POST /tasks/sync` with `scope: 'tracked'`) computes its include-set
+   * from the categories already holding stored rows, because on Windows a folder
+   * becomes tracked by being *picked* in the discovery modal and there is nowhere
+   * else that fact lives.
+   *
+   * **It is the wrong question for a connector whose tracked set is declared
+   * rather than observed.** GitHub Actions is the first: the repositories you
+   * watch live in `PlatformConnection.config`, and adding one *is* the gesture
+   * that names the folder — the same gesture the Windows modal performs. Deriving
+   * the include-set from stored rows made that gesture unable to adopt anything:
+   * a freshly added repository has no rows, so `trackedCategories` returned `[]`,
+   * every task it reported was filtered out, and **Sync reported success over
+   * nothing, forever**. There is no second gesture to reach for, because the
+   * discovery modal talks to the Windows agent.
+   *
+   * Implement it when the answer is in the config. It changes only *which
+   * categories a refresh includes* — it must not clear a `TaskExclusion`, because
+   * an untracked workflow has to survive a routine refresh (that is the whole
+   * distinction between a refresh and an import).
    */
-  syncTasks(config: any): Promise<TaskInfo[]>;
+  trackedCategories?(config: any): string[];
+
+  /**
+   * Sync tasks from the platform.
+   * Returns a list of normalized task information, or a {@link SyncOutcome} when
+   * the connector also has something to *say* about what it looked at.
+   */
+  syncTasks(config: any): Promise<TaskInfo[] | SyncOutcome>;
 
   /**
    * Trigger a task run.

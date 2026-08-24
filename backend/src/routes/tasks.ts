@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { Prisma, PlatformType, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
+import { syncOutcomeOf } from '../connectors/platform.interface.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
 import { serializeConfig, deserializeConfig } from '../auth/connectionConfig.js';
@@ -1142,15 +1143,32 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
     if (connector) {
       // One platform failing must not abort the others' sync.
       try {
-        let tasks = await connector.syncTasks({ ...deserializeConfig(conn.config), userId });
+        const connectorConfig = { ...deserializeConfig(conn.config), userId };
+        // A connector may return a bare list or a `SyncOutcome` that also says
+        // what it *looked at*. Normalized once, here, so nothing downstream has
+        // to know which form it got.
+        const outcome = syncOutcomeOf(await connector.syncTasks(connectorConfig));
+        let tasks = outcome.tasks;
         const allExternalIds = tasks.map(t => t.externalId);
 
-        // Resolve the include-set. `scope: 'tracked'` is computed per platform
-        // from the tasks already stored; an empty set legitimately means "sync
-        // nothing here", so it must still filter rather than fall through to
-        // "sync everything" — hence the `!== undefined` check, not truthiness.
+        // Resolve the include-set. `scope: 'tracked'` is computed per platform;
+        // an empty set legitimately means "sync nothing here", so it must still
+        // filter rather than fall through to "sync everything" — hence the
+        // `!== undefined` check, not truthiness.
+        //
+        // **A connector may declare its own tracked set**, and one does. The
+        // default — categories that already hold stored rows — encodes how a
+        // folder becomes tracked on Windows: you pick it in the discovery modal,
+        // and the rows are the only record that you did. GitHub Actions keeps
+        // that record in its config instead (the repositories you watch), so
+        // deriving from rows made adding a repository unable to adopt anything:
+        // no rows yet, empty include-set, every workflow filtered out, and
+        // **Sync reporting success over nothing on every press**. Asking the
+        // connector keeps the platform-specific half inside the connector layer,
+        // where §9 requires it.
         const include = scope === 'tracked'
-          ? await TaskService.trackedCategories(userId, conn.platform)
+          ? connector.trackedCategories?.(connectorConfig)
+            ?? await TaskService.trackedCategories(userId, conn.platform)
           : categories;
 
         if (include !== undefined) {
@@ -1194,8 +1212,16 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
         // to ACTIVE/DISABLED and won't be re-marked. Skip TASKHUB_NATIVE (its
         // connector returns [] — the DB itself is the source of truth) and skip
         // empty lists as a safety net against flipping a whole platform.
+        //
+        // **And never on a partial view.** A connector that saw less than the
+        // whole platform says so (`outcome.partial`), and a task absent from a
+        // narrowed enumeration is not evidence the task is gone — it is evidence
+        // the reader was narrowed. Retiring on one is how an unelevated agent
+        // declared 86 healthy tasks MISSING (#74); the 50%-retention guard does
+        // not help, because a plausible-looking partial read is the dangerous
+        // kind.
         let missing = 0;
-        if (conn.platform !== 'TASKHUB_NATIVE' && allExternalIds.length > 0) {
+        if (conn.platform !== 'TASKHUB_NATIVE' && allExternalIds.length > 0 && !outcome.partial) {
           missing = await TaskService.reconcileMissingTasks(userId, conn.platform, allExternalIds);
         }
 
@@ -1220,7 +1246,19 @@ router.post('/sync', validateBody(syncSchema), async (req: Request, res: Respons
         });
 
         await recordCapability(userId, conn.platform, 'sync', true);
-        results.push({ platform: conn.platform, count: tasks.length, missing, untracked, exclusionsCleared });
+        results.push({
+          platform: conn.platform,
+          count: tasks.length,
+          missing,
+          untracked,
+          exclusionsCleared,
+          // What this sync covered, in the connector's own words. Present only
+          // where a connector has something to add: "found nothing" and "looked
+          // at nothing" are the same on screen otherwise, and that ambiguity has
+          // now hidden a real defect once (troubleshooting #75).
+          ...(outcome.notes?.length ? { notes: outcome.notes } : {}),
+          ...(outcome.warnings?.length ? { warnings: outcome.warnings } : {})
+        });
       } catch (err: any) {
         await recordCapability(userId, conn.platform, 'sync', false, err?.message);
         results.push({ platform: conn.platform, error: err.message });
@@ -1253,7 +1291,7 @@ router.get('/discover', async (req: Request, res: Response) => {
     if (connector) {
       // A platform that fails to enumerate is skipped, not fatal to discovery.
       try {
-        const tasks = await connector.syncTasks({ ...deserializeConfig(conn.config), userId });
+        const { tasks } = syncOutcomeOf(await connector.syncTasks({ ...deserializeConfig(conn.config), userId }));
         console.log(`[Discovery] Connector returned ${tasks.length} tasks for ${conn.platform}`);
 
         const categories = Array.from(new Set(tasks.map(t => TaskService.extractCategory(t.externalId, conn.platform))));

@@ -72,7 +72,8 @@ Every integration implements `PlatformConnector` (`backend/src/connectors/platfo
 and registers in `backend/src/connectors/registry.ts`. **No platform-specific logic lives
 outside this layer.**
 
-Implementations: `WindowsAgentConnector`, `CronsoleNativeConnector`, `ClaudeConnector`.
+Implementations: `WindowsAgentConnector`, `CronsoleNativeConnector`, `ClaudeConnector`,
+`GitHubActionsConnector` (the first **observer** — read-only by design, 2026-08-23).
 
 ### Capability is encoded in the type system
 
@@ -83,6 +84,24 @@ runTask(externalId, config): Promise<{ success, platformRunId?, message? }>
 getHealth(config): Promise<ConnectorHealth>
 createTask(name, schedule, command, config, options?): Promise<{ success, externalId?, message? }>
 ```
+
+**Two optional declarations, both about what a connector *is* rather than what it does:**
+
+- **`trackedCategories?(config): string[]`** — the categories this connector's own configuration
+  declares as tracked. Implement it when the tracked set is **declared** rather than observed. The
+  default answer (categories that already hold stored rows) encodes the *Windows* gesture: you pick
+  a folder in the discovery modal and the rows are the only record you did. GitHub keeps that record
+  in its config, and deriving from rows made *adding a repository* unable to adopt anything — empty
+  include-set, every workflow filtered out, **Sync reporting success over nothing**
+  ([#75](../../../docs/troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)).
+  It changes inclusion only; it must never clear a `TaskExclusion`.
+- **`syncTasks` may return a `SyncOutcome`** instead of a bare `TaskInfo[]`: `notes` (what the sync
+  *covered* — success info, obeys `toastOnSuccess`), `warnings` (what it could not do while still
+  returning what it had — never suppressible) and `partial` (it saw less than the whole platform, so
+  `reconcileMissingTasks` is skipped). Return the bare array when you have nothing to add. The
+  reason `notes` exists: **"found nothing" and "looked at nothing" render identically**, and the
+  first is usually correct.
+  `partial` is #74's rule off the agent — **a narrowed reader may add and refresh, never retire.**
 
 **`getHealth` has a contract beyond its signature, and every connector broke it the same way.**
 `ConnectorHealth` is `{ state, reason?, lastContactAt? }`, and both optional fields are optional
@@ -141,7 +160,8 @@ Absence encodes incapability for the optional methods above. The **required** fo
 `runTask`, `createTask`, `setTaskStatus`) get no such signal: the interface demands them, so
 `verbReachability` read their presence as proof the route would accept them. That is right for a
 method that reaches a platform and wrong for one that is a hardcoded `{ success: false }` because
-no such API exists — the Platforms matrix rendered Claude's `create` and `setStatus` as
+no such API exists — the Sources matrix (the tab was called *Platforms* until 2026-08-24)
+rendered Claude's `create` and `setStatus` as
 **`declared`**, which reads *"reachable, just unproven"*.
 
 ```ts

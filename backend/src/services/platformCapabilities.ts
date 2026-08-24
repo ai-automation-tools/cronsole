@@ -94,24 +94,50 @@ export interface PlatformDescriptor {
   summary: string;
   /** `experimental` platforms are scaffolds — say so rather than implying parity. */
   maturity: 'functional' | 'experimental';
+  /**
+   * Does this connector change things on its platform, or only read them?
+   *
+   * **Declared, not derived**, and that is the point. It would be easy to
+   * compute — "every mutating cell is `unsupported`, so call it an observer" —
+   * and the computed answer would be indistinguishable from a connector whose
+   * write verbs merely happen to be unimplemented today. This says which of the
+   * two it is: `observer` is a **finished shape**, chosen, not a controller
+   * somebody stopped halfway through.
+   *
+   * It is a *judgement*, so it is the server's — like `isSystem`, the health
+   * tier and task source. The Sources tab renders it; nothing re-derives it in
+   * the browser (troubleshooting #20a).
+   *
+   * It says nothing about `maturity`, which answers a different question: how
+   * stable the API underneath is. GitHub Actions is a `functional` `observer`;
+   * Claude Code is an `experimental` `controller`.
+   */
+  access: 'controller' | 'observer';
 }
 
 export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
   [PlatformType.WINDOWS_TASK_SCHEDULER]: {
     platform: PlatformType.WINDOWS_TASK_SCHEDULER,
     label: 'Windows Task Scheduler',
+    access: 'controller',
     summary: 'Your machine\'s own scheduler, reached through the local Cronsole agent.',
     maturity: 'functional'
   },
   [PlatformType.TASKHUB_NATIVE]: {
     platform: PlatformType.TASKHUB_NATIVE,
     label: 'Cronsole-native',
+    access: 'controller',
     summary: 'Scheduled and executed by the Cronsole backend itself. No agent involved.',
     maturity: 'functional'
   },
   [PlatformType.CLAUDE_CODE]: {
     platform: PlatformType.CLAUDE_CODE,
     label: 'Claude Code Routines',
+    // A controller **in both of its modes**: even the declared-registry install,
+    // which can only fire a routine it was handed a token for, changes something
+    // on the platform. What varies with the install is *which* verbs, which
+    // `unsupportedVerbs` being a getter already reports per cell.
+    access: 'controller',
     // **What this platform can do depends on the install**, which is why the
     // summary hedges where the verb cells do not. With a readable Claude Code
     // session Cronsole lists, creates, reschedules, pauses and fires routines;
@@ -134,6 +160,13 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
   [PlatformType.GITHUB_ACTIONS]: {
     platform: PlatformType.GITHUB_ACTIONS,
     label: 'GitHub Actions',
+    // **The first observer, and the reason this field exists.** Two of its three
+    // refusals have working APIs behind them (`POST …/dispatches`,
+    // `PUT …/disable`) and are refused anyway: a dispatched run is not the
+    // scheduled run, and enabling a workflow is a repository-state change. A
+    // reader who cannot tell "chosen" from "unfinished" reads ten struck-through
+    // cells as a broken connector.
+    access: 'observer',
     // **The one row where the summary leads with what Cronsole will not do**,
     // because that is the surprising half. Every other platform here can be
     // acted on, so a user arriving at a row of `unsupported` cells with no
@@ -305,6 +338,8 @@ export interface PlatformMatrixRow {
   label: string;
   summary: string;
   maturity: 'functional' | 'experimental';
+  /** Controller or observer — see {@link PlatformDescriptor.access}. */
+  access: 'controller' | 'observer';
   /** No PlatformConnection row yet — nothing has ever been asked of it. */
   configured: boolean;
   isActive: boolean;
@@ -449,6 +484,7 @@ export async function buildPlatformMatrix(userId: string): Promise<PlatformMatri
       label: descriptor.label,
       summary: descriptor.summary,
       maturity: descriptor.maturity,
+      access: descriptor.access,
       configured: Boolean(conn),
       isActive: conn?.isActive ?? false,
       healthState,

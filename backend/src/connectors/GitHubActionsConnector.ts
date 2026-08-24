@@ -4,7 +4,8 @@ import {
   PlatformConnector,
   TaskInfo,
   ConnectorHealth,
-  CapabilityVerb
+  CapabilityVerb,
+  SyncOutcome
 } from './platform.interface.js';
 import {
   listWorkflows,
@@ -128,16 +129,50 @@ export class GitHubActionsConnector implements PlatformConnector {
    * someone believes is nightly having quietly stopped two months ago is exactly
    * the failure this observer exists to surface.
    */
-  async syncTasks(config: any): Promise<TaskInfo[]> {
+  /**
+   * The repositories being watched — this platform's tracked set, **declared**.
+   *
+   * A GitHub category is `owner/repo`, and the list of them is in the connection
+   * config rather than inferred from stored rows. Which makes the default
+   * include-set (categories that already hold tasks) the wrong question here, and
+   * wrong in the silent direction: a newly added repository has no rows, so a
+   * plain **Sync** filtered out every workflow it reported and said *"Tasks
+   * synced."* — troubleshooting #20's shape, on a platform with no discovery
+   * modal to escape through, because that modal talks to the Windows agent.
+   *
+   * **Adding a repository is the gesture that names the folder**, so this is
+   * where that fact belongs. It deliberately does not clear exclusions: an
+   * individually untracked workflow must survive a refresh.
+   */
+  trackedCategories(config: any): string[] {
+    return readConfig(config).repositories.map(repoFullName);
+  }
+
+  async syncTasks(config: any): Promise<SyncOutcome> {
     const { token, repositories } = readConfig(config);
-    if (!token || repositories.length === 0) return [];
+    if (!token || repositories.length === 0) return { tasks: [] };
 
     const tasks: TaskInfo[] = [];
     const failures: string[] = [];
+    const notes: string[] = [];
+    const warnings: string[] = [];
+    /** Did this sync see less than the whole platform? See {@link SyncOutcome.partial}. */
+    let partial = false;
+
+    // Coverage: what this sync *looked at*, not only what it kept. Most
+    // workflows in a real repository run on `push`, so importing none of them is
+    // the ordinary case — and identical on screen to a broken sync unless the
+    // numbers are said out loud. See {@link SyncOutcome}.
+    let workflowsRead = 0;
+    /** Repositories that had workflows, none of them scheduled. Named, not counted. */
+    const noneScheduled: string[] = [];
 
     for (const repository of repositories) {
       const listed = await listWorkflows(token, repository.owner, repository.repo);
       if (!listed.ok) {
+        // A repository that could not be read is a hole in the enumeration, not
+        // an empty repository — so nothing in it may be retired on this pass.
+        partial = true;
         failures.push(`${repoFullName(repository)}: ${listed.message}`);
         continue;
       }
@@ -145,16 +180,28 @@ export class GitHubActionsConnector implements PlatformConnector {
       // Named out loud rather than truncated silently. A repository with more
       // than 100 workflows is past what one page returns, and a sync that read
       // the first hundred and reported success would mark the rest MISSING.
+      //
+      // This used to be pushed onto `failures`, which is **only ever read when
+      // every repository failed** — so the one warning about a partial read was
+      // discarded in exactly the case it described. It is a note now.
       if (listed.data.total > listed.data.workflows.length) {
-        failures.push(
+        partial = true;
+        warnings.push(
           `${repoFullName(repository)}: ${listed.data.total} workflows, of which Cronsole read ` +
             `${listed.data.workflows.length} — GitHub returns at most 100 per page and Cronsole does not page here.`
         );
       }
 
+      workflowsRead += listed.data.workflows.length;
+      let scheduledHere = 0;
+
       for (const workflow of listed.data.workflows) {
         const task = await this.toTaskInfo(token, repository, workflow);
-        if (task) tasks.push(task);
+        if (task) { tasks.push(task); scheduledHere++; }
+      }
+
+      if (scheduledHere === 0 && listed.data.workflows.length > 0) {
+        noneScheduled.push(repoFullName(repository));
       }
     }
 
@@ -170,7 +217,17 @@ export class GitHubActionsConnector implements PlatformConnector {
       throw new Error(failures.join(' · '));
     }
 
-    return tasks;
+    // A partial failure returns what it has — and now says which repositories it
+    // could not read, instead of dropping that on the floor whenever at least
+    // one other repository worked.
+    for (const failure of failures) warnings.push(`Could not read ${failure}`);
+
+    notes.push(coverageNote(repositories.length, workflowsRead, tasks.length));
+    for (const repo of noneScheduled) {
+      notes.push(`${repo} has no scheduled workflows — nothing there runs on a clock.`);
+    }
+
+    return { tasks, notes, warnings, partial };
   }
 
   /** One workflow as a Cronsole task, or null when it has no schedule. */
@@ -392,4 +449,26 @@ function runMetadata(runs: GitHubRun[]): Record<string, unknown> {
     ...(last.html_url ? { lastRunUrl: last.html_url } : {}),
     ...(streak > 0 ? { failureStreak: streak } : {})
   };
+}
+
+/**
+ * The one sentence that turns "nothing imported" from an ambiguity into a fact.
+ *
+ * Every number in it is something the sync already counted, and each answers a
+ * different question a confused user is actually asking: *is Cronsole reaching
+ * GitHub at all* (repositories), *is it seeing my workflows* (read), and *why is
+ * my dashboard empty* (scheduled). Reporting only the last one is what made a
+ * correct empty result and a broken sync look identical.
+ *
+ * Deliberately not phrased as a warning. A repository whose workflows all run on
+ * `push` is working exactly as intended, and saying so in an alarmed voice would
+ * train people to ignore the line that matters.
+ */
+function coverageNote(repositories: number, workflowsRead: number, scheduled: number): string {
+  const repoWord = repositories === 1 ? 'repository' : 'repositories';
+  const readWord = workflowsRead === 1 ? 'workflow' : 'workflows';
+  return (
+    `GitHub Actions: read ${workflowsRead} ${readWord} across ${repositories} ${repoWord}, ` +
+    `${scheduled} scheduled.`
+  );
 }

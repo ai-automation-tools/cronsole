@@ -22,6 +22,7 @@ const row = (label: string, capabilities: CapabilityCell[]): PlatformMatrixRow =
   label,
   summary: '',
   maturity: 'functional',
+  access: 'controller',
   configured: true,
   isActive: true,
   healthState: 'HEALTHY',

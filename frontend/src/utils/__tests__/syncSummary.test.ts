@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describeUntracked } from '../syncSummary';
+import { describeUntracked, describeCoverage } from '../syncSummary';
 
 const win = (count: number, folders: string[], systemCount = 0) => ({
   platform: 'WINDOWS_TASK_SCHEDULER',
@@ -89,5 +89,64 @@ describe('describeUntracked', () => {
         results: [{ ...win(0, []), exclusionsCleared: 0 }]
       })).toBeNull();
     });
+  });
+});
+
+describe('describeCoverage', () => {
+  it('says what the sync looked at, not only what it kept', () => {
+    // The line that separates "correctly imported nothing" from "broken", which
+    // are the same empty dashboard otherwise (troubleshooting #75).
+    expect(describeCoverage({
+      results: [{
+        platform: 'GITHUB_ACTIONS',
+        notes: ['GitHub Actions: read 9 workflows across 3 repositories, 3 scheduled.']
+      }]
+    })).toBe('GitHub Actions: read 9 workflows across 3 repositories, 3 scheduled.');
+  });
+
+  it('is null when no connector had anything to add', () => {
+    // Three of the four connectors send nothing, and a platform with nothing to
+    // say must not be made to pad the toast.
+    expect(describeCoverage({ results: [{ platform: 'WINDOWS_TASK_SCHEDULER', count: 4 } as never] })).toBeNull();
+    expect(describeCoverage(undefined)).toBeNull();
+  });
+
+  it('keeps coverage out of the untracked sentence', () => {
+    // They are shown together but decided apart: coverage is success info and
+    // obeys `toastOnSuccess`, the untracked sentence never can.
+    const data = {
+      results: [{
+        platform: 'GITHUB_ACTIONS',
+        notes: ['GitHub Actions: read 2 workflows across 1 repository, 0 scheduled.'],
+        untracked: { count: 0, folders: [], systemCount: 0 }
+      }]
+    };
+    expect(describeUntracked(data)).toBeNull();
+    expect(describeCoverage(data)).toContain('0 scheduled');
+  });
+});
+
+describe('warnings, which a preference may not suppress', () => {
+  it('reports a partial read even when everything else succeeded', () => {
+    // This used to be pushed onto the connector's `failures` list, which is only
+    // read when EVERY repository failed — so the one warning about a partial
+    // read was discarded in exactly the case it described.
+    expect(describeUntracked({
+      results: [{
+        platform: 'GITHUB_ACTIONS',
+        warnings: ['acme/big: 137 workflows, of which Cronsole read 100.']
+      }]
+    })).toBe('acme/big: 137 workflows, of which Cronsole read 100.');
+  });
+
+  it('puts the warning ahead of the untracked sentence', () => {
+    const said = describeUntracked({
+      results: [{
+        platform: 'GITHUB_ACTIONS',
+        warnings: ['Could not read acme/private: 404.'],
+        untracked: { count: 2, folders: ['acme/web'], systemCount: 0 }
+      }]
+    });
+    expect(said).toMatch(/^Could not read acme\/private: 404\. Synced\. 2 tasks/);
   });
 });

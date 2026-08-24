@@ -1,9 +1,14 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router';
 import {
   ChevronRight, Layers, Monitor, Zap, Bot, Globe, Terminal, EyeOff, Star,
-  PanelLeftClose, PanelLeftOpen, FileCode, Activity, Bookmark, Plus, Pin, X
+  PanelLeftClose, PanelLeftOpen, FileCode, Activity, Bookmark, Plus, Pin, X,
+  Compass, SlidersHorizontal
 } from 'lucide-react';
 import { useConnections, healthMeta } from '../hooks/useConnections';
+import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
+import { useSettings } from '../hooks/useSettings';
+import { railListedPlatforms } from '../utils/sourceVisibility';
 import { sourcePlatform } from '../platform';
 import { HelpButton } from './HelpButton';
 import { sourceTopicId } from '../data/help';
@@ -160,22 +165,43 @@ export const SourceRail = ({
   sourcesCollapsed = false,
   onToggleSourcesCollapsed
 }: SourceRailProps) => {
+  const navigate = useNavigate();
   const { data: connections } = useConnections();
   const { data: collections } = useCollections();
+  const { data: matrix } = usePlatformMatrix();
+  const { settings } = useSettings();
+
+  /**
+   * Which platforms get a row even with no tasks of their own.
+   *
+   * The union of three facts — asked for, holds tasks, is connected — with one
+   * definition in `utils/sourceVisibility.ts`, because the Sources tab's
+   * *Your sources* / *Available* split has to be the same question. A second
+   * copy here is how "connected but hidden" starts meaning two things.
+   *
+   * Connections are still read directly: they arrive on their own query, and a
+   * rail that waits for the matrix would drop every empty-but-connected row for
+   * the first paint after login.
+   */
+  const listedPlatforms = useMemo(
+    () => railListedPlatforms(
+      matrix?.platforms,
+      (connections ?? []).filter(c => c.state).map(c => c.platform),
+      settings.shownSources
+    ),
+    [matrix, connections, settings.shownSources]
+  );
 
   const tree = useMemo(
     () =>
       buildSourceTree({
         population,
         filters,
-        // Only platforms with a real connection. An unconfigured one has never
-        // been asked anything, so listing it would put a permanent dead row in
-        // the navigation — the same reason HealthStrip filters on `state`.
-        connectedPlatforms: (connections ?? []).filter(c => c.state).map(c => c.platform),
+        connectedPlatforms: listedPlatforms,
         collections: collections ?? [],
         pins
       }),
-    [population, filters, connections, collections, pins]
+    [population, filters, listedPlatforms, collections, pins]
   );
 
   /**
@@ -452,10 +478,71 @@ export const SourceRail = ({
         })}
       </ul>
         )}
+
+        {/*
+          **The rail lists the sources you have and says nothing about the ones
+          you could.** That gap is what these two answer, and it is load-bearing
+          now that a fresh install deliberately lists two platforms out of four:
+          without a route to the rest, "opt-in" would be indistinguishable from
+          "missing".
+
+          Two buttons rather than the three that were asked for, and one
+          destination rather than two modals. *Explore* and *Manage* are two
+          views of one list, so they are two entry points into the Sources tab
+          (`?focus=`) — and **Add a custom source** lives on that screen, reached
+          from Explore, because it is the rarest of the three and a 240px rail is
+          not the place to spend a third row on it.
+
+          Hidden while the rail is collapsed: at icon width the labels are gone
+          and two unlabelled glyphs under the tree would be indistinguishable
+          from two more sources.
+        */}
+        {!collapsed && !sourcesCollapsed && (
+          <div className="mt-1.5 space-y-0.5">
+            <RailAction
+              Icon={Compass}
+              label="Explore sources"
+              title="Everything Cronsole can connect to, including what you have not added"
+              onClick={() => navigate('/sources?focus=available')}
+            />
+            <RailAction
+              Icon={SlidersHorizontal}
+              label="Manage sources"
+              title="Connect, disconnect, and choose which sources this sidebar lists"
+              onClick={() => navigate('/sources?focus=yours')}
+            />
+          </div>
+        )}
       </div>
     </nav>
   );
 };
+
+/**
+ * A button under the Sources tree that leaves the rail.
+ *
+ * Deliberately not a `Row`: a `Row` is a *destination inside your tasks* and
+ * carries a count, a health dot and a selected state. These change the screen,
+ * select nothing, and would be lying if they took the same shape — so they are
+ * quieter than a row rather than louder, and sit below the rule that ends the
+ * tree.
+ */
+const RailAction = ({ Icon, label, title, onClick }: {
+  Icon: typeof Compass;
+  label: string;
+  title: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={title}
+    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold text-subtle-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+  >
+    <Icon size={13} className="shrink-0" />
+    <span className="truncate">{label}</span>
+  </button>
+);
 
 /**
  * A section heading: chevron, name, and — while folded — its tally.

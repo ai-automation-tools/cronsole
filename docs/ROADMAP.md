@@ -39,6 +39,12 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
+**Leading the queue as of 2026-08-24:** the
+[source-onboarding requests](#sources-onboarding) — **all five landed the same day.** The fifth,
+GitHub Actions' live verification, ran against a real repository and immediately earned its keep:
+it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)),
+which is the argument for doing this on every connector rather than trusting a green suite.
+
 **The two largest open items, in order:** the light theme · the POSIX agent. *(Per-job encrypted
 fields led this list until it shipped 2026-08-21, which unblocked the `NOTIFY` and `SQL` job
 types — neither is scheduled.)*
@@ -53,6 +59,46 @@ types — neither is scheduled.)*
 
 The short list. Everything here is small, known, and was found by hand rather than reported —
 which is why it sits first, not because it outranks the larger work below.
+
+<a id="sources-onboarding"></a>
+
+### 🔴 Requested 2026-08-24 — source onboarding
+
+Five requests about **sources**: how a new user meets them, how the set is managed, and where the
+things that are *not* sources ended up. **Four shipped the same day** (see
+[Part II](#shipped-2026-08-24--source-onboarding)); what is left is the one half that needs a
+credential nobody has checked in.
+
+**The three decisions taken first, kept here because the items in Part II are the record of what
+was built and these are the record of why it took that shape:**
+
+1. **The Platforms tab becomes the Sources tab.** It already holds the capability matrix, the
+   Claude and GitHub panels and the quick links — it *was* the sources screen under a name that
+   described the code rather than the user's question. Rebuilt as **Your sources · Available ·
+   Quick links · Add a custom source**, rather than standing up a second screen about the same
+   four platforms, which is the §11a drift shape.
+2. **The rail gets two buttons, not three.** *Explore sources* and *Manage sources* deep-link into
+   that screen's two halves; **Add a custom source** lives on the screen, reached from Explore.
+   Three controls stacked in a 240px rail is furniture, and Explore/Manage are two views of one
+   list.
+3. **A fresh install shows Windows Task Scheduler and Cronsole-native.** Claude Code and GitHub
+   Actions are opt-in from Explore. Visibility is the **union** of the preference, the platforms
+   holding tasks, and the platforms with a connection — so opting in is additive and *no source
+   holding a task can be hidden*.
+
+- [~] **GitHub Actions — verified against a real repository** *(2026-08-24)*. Connected with a PAT,
+      watched two repositories, and synced: **3 tasks**, two with their crons read UTC-for-UTC
+      (`10 13 * * *`, `20 13 * * *`) and their real run outcomes, the third kept with
+      `schedule: null` **and a reason** because its workflow file is genuinely malformed YAML — the
+      *"could not read ≠ has no schedule"* rule doing exactly its job on a file nobody planted.
+      The pass found a real defect and it was not in the read path: a plain **Sync** could never
+      adopt a newly watched repository, and reported success on every press
+      ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)) —
+      fixed the same day.
+      **Left, and only reachable by waiting or by breaking something on purpose:** a revoked scope
+      mid-life must **throw** rather than retire every tracked workflow, and GitHub's silent 60-day
+      auto-disable must surface as health with GitHub's own reason. Both paths have unit coverage;
+      neither has been seen live.
 
 <a id="native-job-types"></a>
 
@@ -134,10 +180,8 @@ of that list which have since shipped are in Part II.
       it instead"*; `untrack_task` 400s for `CLAUDE_CODE`; neither names
       `disconnect_claude_routine`. Same pass: untrack's message promises that removing the routine
       *"also forgets its API token"*, which an OAuth-created routine never had.
-- [ ] **`list_platforms`' MCP tool description is stale** — it still teaches that Claude Code
-      reports `create` and `setStatus` as unsupported. The matrix itself now reports both as
-      `verified`. A §11a mirror surface, and the description is what an agent reads *before*
-      deciding what is possible.
+- [>] **`list_platforms`' MCP tool description was stale** — fixed 2026-08-24 alongside the
+      `access` field, see [Part II](#shipped-2026-08-24--source-onboarding).
 - [ ] **`update_task_schedule` echoes a next-run time it computed** — the immediate response
       carries `computeNextRun(cron)` while the platform's real value (Anthropic's jitter, Windows'
       trigger) only lands on the next sync. Storage converges, so this is the response shape only —
@@ -372,6 +416,11 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       `OnCalendar` maps onto 5-field cron, which is lossy in both directions and needs the same
       honest-warning treatment the Windows trigger conversion already has.
 
+- [x] **Verify GitHub Actions against a real repository** *(2026-08-24 — see
+      [Next up](#sources-onboarding))*. The observer shape is now proven end to end, and the two
+      below inherit both the pattern and its one live lesson: a connector whose tracked set is
+      **declared** must say so, or its first sync silently imports nothing.
+
 - [ ] **Vercel Cron · Supabase `pg_cron` — read-only observers** *(next up in this section)*:
       increasingly the default for web and indie developers, and both have trivial APIs. Same
       observer shape as GitHub Actions, which **shipped 2026-08-23 and proved it end to end** —
@@ -565,6 +614,83 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 <a id="shipped-2026-08-15--2026-08-17"></a>
 
 ## Shipped 2026-08-15 → 2026-08-18 — the current sprint
+
+### Shipped 2026-08-24 — source onboarding
+
+Four of the five [2026-08-24 requests](#sources-onboarding). The fifth — GitHub Actions' live
+verification pass — is still open above, narrowed to the half that needs a token.
+
+- [x] **A fresh install shows two sources, and the rest are opt-in** *(2026-08-24)*. Windows Task
+      Scheduler and Cronsole-native; Claude Code and GitHub Actions are added from **Explore
+      sources**. Visibility is the union of `settings.shownSources`, the platforms holding tasks and
+      the platforms with a connection — one definition in `utils/sourceVisibility.ts`, shared by the
+      rail and the Sources tab so "connected but hidden" cannot come to mean two things. A **show**
+      list rather than a hide list, so a platform added to Cronsole later arrives opt-in with no
+      migration. A source holding tasks cannot be hidden and its switch says which tasks are holding
+      it; connecting one shows it without a second gesture.
+
+- [x] **The Platforms tab is the Sources tab, with Explore and Manage in the rail** *(2026-08-24)*.
+      The tab already held the capability matrix, both hand-composed connection panels and the quick
+      links — it *was* the sources screen under a name that described the code. Rebuilt as **Your
+      sources · Available · Quick links · Add a custom source**, rather than a second screen about
+      the same four platforms. Two `RailAction` buttons under the rail's Sources tree deep-link into
+      it (`?focus=`); **Add a custom source** lives on the screen, because three controls in a 240px
+      rail is furniture and Explore/Manage are two views of one list. `/platforms` redirects.
+
+- [x] **Quick links moved out from under the matrix, and onto the account** *(2026-08-24)*. Their own
+      section of the Sources tab, below the real sources and still carrying *"nothing is read or
+      written"*. They were in `localStorage` under `cronsole_platform_links` — the pre-`UserPreference`
+      shape, so one install kept two lists across two origins — and are now part of the synced
+      settings document, migrated on first load (`utils/quickLinks.ts`, which clears the legacy key
+      so it cannot become a second source of truth). Any link is removable now, not only added ones,
+      and the defaults are restorable.
+
+- [x] **A source declares whether it is a controller or an observer** *(2026-08-24)*.
+      `PlatformDescriptor.access`, served on the matrix and read by the Sources tab and
+      `list_platforms`. **Declared, not counted from the cells** — a finished read-only connector and
+      one whose write verbs are merely unbuilt produce the same row of refusals, and only one is
+      worth waiting for. GitHub Actions' struck-through cells now carry the sentence that says they
+      were chosen. Of its three refusals only `setStatus` is named as a candidate to unlock, with
+      its own scope and its own confirmation, and that is written in the guide rather than legible
+      only from the connector.
+
+- [x] **The Sources Guide says how to add a source** *(2026-08-24)*. New *Adding a source* section —
+      the three shapes (controller · observer · quick link), what a connector must answer, where each
+      piece of code goes, what will not be accepted, and what to put in the PR — plus *Choosing which
+      sources you see*. The **Add a custom source** panel links to it, and says outright that a source
+      is compiled in rather than a plugin, so the honest path is a pull request that may be declined.
+
+- [x] **A watched GitHub repository could never be adopted by a plain Sync** *(2026-08-24, found by
+      the live pass on its first run)*. `scope: 'tracked'` built its include-set from
+      `TaskService.trackedCategories` — the categories of stored **rows** — for every platform. That
+      encodes the Windows gesture: you pick a folder in the discovery modal, and the rows are the
+      only record you did. GitHub records it in `PlatformConnection.config` instead, so a freshly
+      watched repository had no rows, the set came back `[]`, every workflow it read was filtered
+      out, and Sync reported success on every press. **No escape hatch either** — the discovery modal
+      talks to the Windows agent. Fixed with an optional `PlatformConnector.trackedCategories(config)`
+      the route asks first, implemented by the GitHub connector as its watched repositories, so the
+      platform-specific half stays in the connector layer. Inclusion only: it never clears a
+      `TaskExclusion`, or a refresh would undo a deliberate untrack.
+      ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive))
+
+- [x] **A sync reports what it *looked at*, and a partial view retires nothing** *(2026-08-24,
+      straight out of the confusion the fix above left behind)*. `SyncOutcome` gained `notes`
+      (coverage — success information, obeys `toastOnSuccess`), `warnings` (never suppressible, the
+      untracked sentence's rule) and `partial`. A bare `TaskInfo[]` stays legal, so three connectors
+      are untouched. The reason: **"found nothing" and "looked at nothing" render identically** — a
+      repository whose workflows are all push-triggered imports zero and is working perfectly, which
+      is the same empty screen as a broken sync. `partial` generalizes #74's rule off the agent: a
+      truncated listing or one unreadable repository is a *narrowed reader*, so
+      `reconcileMissingTasks` is skipped rather than retiring what it could not see. That protection
+      previously existed only by accident — a truncated read threw, but only when it also happened to
+      find nothing scheduled. Surfaced in the sync toast and by `sync_tasks`.
+
+- [x] **`list_platforms`' tool description stopped teaching a stale boundary** *(2026-08-24, carved
+      out of the [2026-08-13 follow-ups](#follow-ups-2026-08-13))*. It still said Claude Code reports
+      `create` and `setStatus` as unsupported "because Anthropic exposes exactly one routines
+      endpoint"; the matrix has reported both as `verified` since OAuth mode landed. It now says the
+      answer depends on the install, and explains `access` — which is the more useful thing for an
+      agent to read before planning work.
 
 ### Shipped 2026-08-23
 

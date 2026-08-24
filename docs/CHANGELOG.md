@@ -12,7 +12,51 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Fixed
+- **A sync now says what it looked at, not just what it found** (2026-08-24). Add a GitHub repository whose workflows all run on `push`, press **Sync**, and you used to get *"Tasks synced."* and an empty dashboard — identical, on screen, to a sync that is broken. It now says:
+
+  > Synced. GitHub Actions: read 9 workflows across 3 repositories, 3 scheduled. `owner/repo` has no scheduled workflows — nothing there runs on a clock.
+
+  Every number in that line was already being counted and then thrown away. It matters because **"imported nothing" and "couldn't see anything" look the same**, and the first is usually correct: most workflows in a real repository run on push, not on a clock. That ambiguity is not hypothetical — it hid a real bug for as long as it took to read the database by hand.
+
+  Coverage is success information, so it rides with the toast you can turn off in **Settings → Notifications**. Anything the sync could **not** do is separate and always shown — a repository it failed to read while others worked, or a workflow list longer than one page.
+
+  `sync_tasks` reports the same three fields to an AI assistant, with the instruction to read them before calling a zero result a failure.
+
+- **A sync that saw only part of a platform no longer retires anything** (2026-08-24). If Cronsole reads 100 of a repository's 140 workflows, or one repository fails while the others succeed, the tasks it could not see are **left alone** instead of being marked *Missing*. A task absent from a narrowed view is evidence about the reader, not about the task.
+
+  This is the same rule an unelevated Windows agent already gets, generalized: the connector now reports that its view was partial, and reconciliation is skipped for that pass. Previously a truncated GitHub read only avoided this by accident — it threw an error, but *only* when the truncated read also happened to find no scheduled workflow. With one found, the truncation was discarded silently and the unread workflows were eligible to be retired.
+
+- **A watched GitHub repository imports nothing, and Sync reports success anyway** (2026-08-24, found on the first connection to a real repository). You paste a valid token, add a repository, press **Sync**, and get *"Sync complete."* — with zero tasks, on every press, with the platform reading **HEALTHY** and nothing in the error log.
+
+  **The plain Sync is a refresh, and a refresh only includes categories you already track.** That set was worked out the same way for every platform: the categories of the tasks already stored. On Windows that is right, because a folder becomes tracked by being picked in **Sync › Add tasks from this machine**, and the rows are the only record that you picked it. GitHub keeps that record somewhere else — **the repositories you watch are the tracked set**, and adding one is the same gesture as picking a folder. So a repository you had just added had no tasks yet, the include-set came back empty, and every workflow Cronsole had correctly read was thrown away one step later.
+
+  **There was also nothing to reach for.** On Windows the way out of this is the discovery picker, which is exactly what adopts a new folder — but it talks to the Windows agent, so on GitHub it offers nothing. The state was unreachable from the interface.
+
+  A connector can now declare its own tracked set, and the GitHub connector declares its watched repositories. Adding a repository and pressing Sync imports its scheduled workflows, as it always read as doing. **Untracking a single workflow still survives a refresh** — the fix changes which repositories are *included*, and deliberately does not clear a removal you made on purpose. Written up as [troubleshooting #75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive).
+
+
 ### Added
+- **The Platforms tab is now the Sources tab, and a fresh install starts with two sources instead of four** (2026-08-24). Cronsole supports four sources; a first run could use two of them, and listing all four — half of them empty, unconnected and unexplained — taught people that half the product was broken. **Windows Task Scheduler and Cronsole-native are what a new install shows.** Claude Code and GitHub Actions are added deliberately, from a new **Available** section.
+
+  **Two buttons now sit under the sidebar's *Sources* tree**, because the tree lists the sources you have and said nothing about the ones you could. **Explore sources** opens everything Cronsole can connect to, including what you have not added and the schedulers it can only bookmark; **Manage sources** opens the same screen at your own sources, where each row has a **Show in sidebar** switch. That route existing is what makes an opt-in default safe — without it, "not added yet" and "missing" look identical.
+
+  **Two rules hold whichever you use.** A source **holding tasks can never be hidden** — the switch is disabled and says which tasks are holding it, rather than disappearing. And **connecting a source shows it**, so you are never asked to confirm something Cronsole can infer from what you just did. Which sources you show is a preference, so it follows your account rather than the browser.
+
+  **The tab was renamed because it already was the sources screen.** It held the capability matrix, the Claude routines panel, the GitHub repositories panel and the quick links — everything about where tasks come from — under a name that described the code. It is now four sections: **Your sources**, **Available**, **Quick links**, and **Add a custom source**. `/platforms` still works and redirects, so an old bookmark or a link in the docs lands in the right place.
+
+- **Quick links came out from under the capability matrix, and stopped being per-browser** (2026-08-24). They were the last section of the Platforms tab, below four rows of capability chips — backwards, because the matrix is for the platforms Cronsole *operates* and a quick link is a bookmark to a scheduler it cannot see at all. They now sit in their own section of the Sources tab, still below the real sources and still saying **nothing is read or written** through them, which is what keeps a bookmark from reading as a broken connector.
+
+  **They also follow your account now.** They lived in browser storage under their own key, which is scoped to an *origin* — so the same install reached at `localhost` and over a Tailscale name kept two different lists while drawing one sidebar, the same failure pinned folders and saved views had before they moved to the account. Your existing links are carried over on first load. Any link can now be removed, not only ones you added, and **Restore the defaults** brings back Claude, ChatGPT and Gemini if you clear them all. Settings → *Reset quick links* applies immediately instead of asking for a reload.
+
+- **A source now says whether Cronsole can change anything there, or only read** (2026-08-24). Every row on the Sources tab carries **Controller** or **Observer**. GitHub Actions is an observer, and its ten struck-through capabilities now come with a sentence saying they are boundaries this connector chose rather than ones waiting to be built.
+
+  **The badge is declared by the connector, not counted from its cells** — deliberately, because a finished read-only source and a controller whose write verbs are merely unbuilt produce exactly the same row of refusals, and only one of them is worth waiting for. `list_platforms` reports it too, so an AI assistant reading the matrix stops planning around an observer growing write verbs.
+
+  Of GitHub's three refusals only **Enable/disable** is a candidate to unlock later: it is the one whose GitHub API does exactly what the Cronsole verb claims, with no second meaning. It would arrive with its own token scope and its own confirmation naming the repository — not a flag. That is now written down in the [Sources Guide](user-guides/guides/Sources_Guide.md#github-actions) rather than being a thing you could only learn by reading the connector.
+
+- **The Sources Guide explains how to add a source** (2026-08-24). New section: [Adding a source](user-guides/guides/Sources_Guide.md#adding-a-source). A source is a connector compiled into the backend rather than a plugin you can drop in — a connector holds credentials, issues commands to your machine and decides what a sync may retire — so adding one is a pull request, and the guide says so plainly along with what will not be accepted. It covers the three shapes a source can take (**controller**, **observer**, **quick link**), the six things a connector has to answer, where each piece of code goes, and what to put in the PR. The **Add a custom source** panel on the Sources tab links straight to it. Also new: [Choosing which sources you see](user-guides/guides/Sources_Guide.md#choosing-which-sources-you-see).
+
 - **GitHub Actions is a source now — read-only, on purpose** (2026-08-23). Connect on the **Platforms** tab with a GitHub personal access token, add the repositories you care about by URL or `owner/name`, and sync. Every workflow in them with an `on: schedule` trigger arrives on the dashboard beside your Windows tasks, your Cronsole jobs and your Claude routines: its cron, whether GitHub still has it enabled, and **how its last scheduled runs actually went**.
 
   **Every capability that would change something reads *Unsupported*, and that is the shape rather than a first version.** Running, pausing and editing a workflow happen on GitHub. Two of those three do have APIs behind them and are still refused: a *Run now* here would be a `workflow_dispatch` run, which is not the scheduled run you came to check, and enabling a workflow changes repository state. Creating one would mean Cronsole committing a file to your default branch, which is a code change and not something a *New Task* button should be able to make.

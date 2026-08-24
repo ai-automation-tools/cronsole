@@ -169,7 +169,15 @@ export interface SourceTreeInput {
    */
   population: Task[];
   filters: TaskFilters;
-  /** Platforms with a `PlatformConnection`, so a connected-but-empty one lists. */
+  /**
+   * Platforms that get a row even when they hold no tasks.
+   *
+   * Once "connected", now the caller's whole visibility union — connected, **or**
+   * asked for in `settings.shownSources`. The union is computed in
+   * `utils/sourceVisibility.ts` and handed in already resolved, so this file
+   * keeps knowing only how to *draw* a tree and never has to hold an opinion
+   * about which sources somebody wants.
+   */
   connectedPlatforms?: string[];
   /**
    * The user's collections, in rail order.
@@ -228,10 +236,13 @@ export function buildSourceTree({
     else byPlatform.set(p, [t]);
   }
 
-  // Which platforms get a row. Tasks you have, plus platforms you are connected
-  // to, plus whatever the current filter names — that last one so a link written
-  // against a source nothing currently derives still lights a row rather than
-  // filtering the list while the rail sits entirely unlit.
+  // Which platforms get a row. Tasks you have, plus the platforms the caller
+  // says to list (connected, or shown by preference), plus whatever the current
+  // filter names — that last one so a link written against a source nothing
+  // currently derives still lights a row rather than filtering the list while
+  // the rail sits entirely unlit. A filter naming a hidden source therefore
+  // *shows* it: the alternative is a URL that filters to nothing with no row on
+  // screen to say why.
   const platforms = new Set<string>([
     ...byPlatform.keys(),
     ...connectedPlatforms,

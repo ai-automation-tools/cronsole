@@ -326,13 +326,42 @@ describe('SourceRail collections band', () => {
 
     const sources = await screen.findByTestId('sources-band');
     expect(within(sources).queryByText('Windows Task Scheduler')).toBeNull();
-    // Folded, it still says how many platforms it is holding.
-    expect(within(sources).getByText('1')).toBeInTheDocument();
+    // Folded, it still says how many platforms it is holding: Windows, which
+    // has the task, plus Cronsole-native, which `shownSources` defaults to even
+    // with nothing in it.
+    expect(within(sources).getByText('2')).toBeInTheDocument();
 
     const collections = screen.getByTestId('collections-band');
     expect(
       within(collections).getByRole('button', { name: /new collection/i })
     ).toBeInTheDocument();
+  });
+
+  it('offers Explore and Manage under the tree, and only while the tree is open', async () => {
+    renderBand({ sourcesCollapsed: false });
+    const sources = await screen.findByTestId('sources-band');
+
+    // The rail lists the sources you have; these are the only route to the ones
+    // you do not — which is what makes an opt-in default set safe rather than
+    // indistinguishable from a missing platform.
+    expect(within(sources).getByRole('button', { name: /explore sources/i })).toBeInTheDocument();
+    expect(within(sources).getByRole('button', { name: /manage sources/i })).toBeInTheDocument();
+  });
+
+  it('hides the two actions while the Sources tree is folded', async () => {
+    renderBand({ sourcesCollapsed: true });
+    const sources = await screen.findByTestId('sources-band');
+    // Folding a section hides what it holds. Two buttons surviving the fold
+    // would be the section refusing to close.
+    expect(within(sources).queryByRole('button', { name: /explore sources/i })).toBeNull();
+  });
+
+  it('lists Cronsole-native on a fresh install even with no native tasks', async () => {
+    renderBand();
+    const sources = await screen.findByTestId('sources-band');
+    // The default `shownSources`. A first run that listed only the platforms
+    // holding tasks would show one row and no way to learn there are others.
+    expect(within(sources).getByText('Cronsole (Native)')).toBeInTheDocument();
   });
 
   it('shows no Pinned band until something is pinned', async () => {

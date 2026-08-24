@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, subscribeAuthToken } from '../api';
 import type { SavedView } from '../utils/savedViews';
 import type { RailPin } from '../utils/railPins';
+import type { PlatformLink } from '../types';
+import { DEFAULT_QUICK_LINKS, readLegacyQuickLinks } from '../utils/quickLinks';
 
 export type DashboardView = 'grid' | 'list' | 'kanban' | 'schedule';
 export type TemplateView = 'grid' | 'list' | 'kanban';
@@ -109,6 +111,32 @@ export interface Settings {
   /** Is the Sources tree folded shut? Independent of the two bands above it. */
   sourcesCollapsed: boolean;
   /**
+   * Sources listed in the rail even when they hold nothing and are not connected.
+   *
+   * **The opt-in half of a three-way union.** A source is shown when it is in
+   * here, **or** it holds tasks, **or** it has a connection — so this list is
+   * additive and can never hide a source you would then be unable to find. That
+   * is also why it lists what to *show* rather than what to hide: a platform
+   * added to Cronsole later (Vercel, Supabase, the POSIX agent) is absent from
+   * every existing user's list, so it arrives opt-in for free. A hide-list would
+   * have made each new source appear unasked in every install.
+   *
+   * Defaults to Windows plus native — the two a fresh install can actually use.
+   * Listing four platforms of which two are real is how a first run teaches
+   * someone that half the product is broken.
+   */
+  shownSources: string[];
+  /**
+   * Bookmarks to schedulers Cronsole has no connector for.
+   *
+   * Here rather than in `localStorage` under `cronsole_platform_links`, where
+   * they used to live, because `localStorage` is scoped to an *origin*: the same
+   * install at `localhost:8080` and at a Tailscale name kept two different link
+   * lists while drawing one dashboard. A link is a preference, not a fact about
+   * the device.
+   */
+  quickLinks: PlatformLink[];
+  /**
    * Which Tools-tab cards are open, by `ToolCard` id.
    *
    * Empty by default: the tab opens as a menu of ten named tools rather than ten
@@ -118,6 +146,16 @@ export interface Settings {
    */
   openTools: string[];
 }
+
+/**
+ * The sources a fresh install lists: Windows Task Scheduler and Cronsole-native.
+ *
+ * Native is named here rather than assumed, so "which sources am I showing" has
+ * exactly one answer to read. Claude Code and GitHub Actions are added from
+ * **Explore sources** — both are real, both need a credential nobody has on a
+ * first run, and an empty row for each is four platforms of which two work.
+ */
+export const DEFAULT_SHOWN_SOURCES: string[] = ['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'];
 
 export const DEFAULT_SETTINGS: Settings = {
   defaultView: 'grid',
@@ -139,6 +177,8 @@ export const DEFAULT_SETTINGS: Settings = {
   collectionsCollapsed: false,
   pinnedCollapsed: false,
   sourcesCollapsed: false,
+  shownSources: DEFAULT_SHOWN_SOURCES,
+  quickLinks: DEFAULT_QUICK_LINKS,
   openTools: [],
 };
 
@@ -161,9 +201,17 @@ function read(): Settings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
+    const stored = raw ? (JSON.parse(raw) as Partial<Settings>) : {};
     // Merge over defaults so a stored blob missing newer keys stays valid.
-    return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) };
+    const merged: Settings = { ...DEFAULT_SETTINGS, ...stored };
+    // Quick links predate this document and had their own key. Adopt them
+    // **only** when the blob has never carried them, so a link deleted after the
+    // move cannot be resurrected by the leftover key on the next boot.
+    if (stored.quickLinks === undefined) {
+      const legacy = readLegacyQuickLinks();
+      if (legacy) merged.quickLinks = legacy;
+    }
+    return merged;
   } catch {
     return DEFAULT_SETTINGS;
   }

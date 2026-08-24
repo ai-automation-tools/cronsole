@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, Cpu, Library, LogOut, Wrench } from 'lucide-react';
+import { LayoutDashboard, Settings, Layers, Library, LogOut, Wrench } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '../hooks/useAuth';
 
@@ -32,7 +32,7 @@ import { useAuth } from '../hooks/useAuth';
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'templates', label: 'Templates', Icon: Library },
-  { id: 'platforms', label: 'Platforms', Icon: Cpu },
+  { id: 'sources', label: 'Sources', Icon: Layers },
   { id: 'tools', label: 'Tools', Icon: Wrench },
   { id: 'settings', label: 'Settings', Icon: Settings }
 ] as const;

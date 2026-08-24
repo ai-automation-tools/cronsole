@@ -5,7 +5,7 @@ import { api } from '../api';
  * The platform capability matrix from `GET /api/tools/platforms` — what Cronsole
  * can do with each platform, and the evidence behind each claim.
  *
- * One hook because two surfaces read it: the Platforms tab renders the whole
+ * One hook because two surfaces read it: the Sources tab renders the whole
  * matrix, and the dashboard's health strip renders the newest event out of it.
  * Two queries would eventually become two shapes, and the strip and the tab
  * disagreeing about the same fact is worse than either being absent.
@@ -28,6 +28,21 @@ export interface PlatformMatrixRow {
   label: string;
   summary: string;
   maturity: 'functional' | 'experimental';
+  /**
+   * Does this connector change things on its platform, or only read them?
+   *
+   * **The server declares it; nothing here derives it.** Counting the cells
+   * ("every mutating verb is unsupported, so call it read-only") would give the
+   * same answer for a finished observer and for a controller whose write verbs
+   * are simply unbuilt — and only one of those is worth waiting for. A judgement
+   * belongs to the server, like `isSystem` and the health tier
+   * (troubleshooting #20a).
+   *
+   * Independent of `maturity`, which answers how stable the API underneath is:
+   * GitHub Actions is a `functional` `observer`, Claude Code an `experimental`
+   * `controller`.
+   */
+  access: 'controller' | 'observer';
   configured: boolean;
   isActive: boolean;
   healthState: string | null;

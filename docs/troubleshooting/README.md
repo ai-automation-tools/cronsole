@@ -34,6 +34,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent through `\Cronsole-Stack\CronsoleAgent` (RunLevel `Highest`), then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
+| 75 | **A watched GitHub repository imports nothing.** The PAT is valid, the repository is listed, **Sync** reports success and updates `lastSync` on every press, the platform reads **HEALTHY** with `sync` **verified** — and `taskCount` stays `0`, forever, with nothing in the error log | **The plain Sync filters to already-tracked categories, and GitHub records what you asked for in its config rather than in rows.** `scope: 'tracked'` derived the include-set from stored rows (how Windows works — you pick a folder in the discovery modal and the rows are the record), so a freshly added repository had none, the set came back `[]`, and every workflow it read was filtered out. **Adding the repository *is* the naming gesture**, and there was no fallback: the discovery modal talks to the Windows agent. Fixed 2026-08-24 — `PlatformConnector.trackedCategories(config)`, implemented by the GitHub connector as its watched repositories. If you are on older code, the workaround is a `{ categories: ['owner/repo'] }` sync | [→](#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive) |
 | 73 | **Cronsole says a GitHub repository does not exist**, and you are looking at it in the next browser tab. *Watch a repository* fails with a 404 message; **public repositories add fine and only private ones fail**, which reads like a typo you have now checked four times | **GitHub answers `404`, not `403`, for anything a token cannot see** — deliberately, so a token cannot be used to enumerate private repositories. So “not found” is the *expected* symptom of a PAT missing the `repo` scope, and the status code sends you to check spelling instead of scopes. Regenerate the token with **`repo`** (fine-grained: **Contents: read** + **Actions: read** on that repository) and paste it again. Cronsole names the likely cause in the error rather than passing GitHub's word through | [→](#73-cronsole-says-a-github-repository-does-not-exist-and-you-are-looking-at-it) |
 | 72 | The **sidebar is half empty at a second address** — pinned folders and saved views are missing at `http://my-pc.my-tailnet.ts.net:8080/`, while **collections and favorites are all there**. Nothing errors, nothing is logged, and the same browser shows them correctly at `localhost` | **`localStorage` is scoped to an origin, and half the rail was in it.** Collections and favorites are database rows keyed on the user, so they followed the account across; rail pins and saved views lived in the `cronsole.settings` blob, which the browser hands out per origin — a different host or port is a different store, and a fresh one is empty. Both halves draw into the same sidebar, so the boundary reads as a bug. **Fixed 2026-08-23:** the whole settings blob syncs through `UserPreference` (`GET`/`PUT /api/preferences`). Theme and the API-origin override still do not sync, deliberately — they describe the device | [→](#72-the-sidebar-is-half-empty-at-a-second-address) |
 | 70 | The **Tailscale URL is dead** — `http://my-pc.my-tailnet.ts.net:8080/` returns **502**, empty body, from every device — while everything else is healthy: `cronsole status` says `ALL UP`, `localhost:7373` works, the agent is connected, `tailscale status` lists both machines, and `tailscale serve status` prints the right mapping | **The Caddy proxy container was stopped, and `restart: unless-stopped` means it.** The 502 is `tailscaled` reporting that *its upstream* refused — `curl 127.0.0.1:8080` answers `000` and `docker ps -a` shows `taskhub-proxy-1 Exited (0) 2 days ago`. `unless-stopped` restarts after a crash or a reboot but never undoes a deliberate `docker compose stop`; the proxy is also **profile-gated** (opt-in remote access, §9), so a routine `docker compose up -d` cannot bring it back and does not fail either — and `cronsole up` did not know it existed, so the 5-minute self-heal walked past it. **Fixed 2026-08-20:** `cronsole remote on` records the opt-in in `.cronsole-remote` and `up` starts the proxy. **A 404 here means something else** — `tailscale serve` matched no handler for the Host you sent, which is what curling the tailnet *IP* always does | [→](#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy) |
@@ -5050,6 +5051,75 @@ it, not the moment it flipped; `reconcileMissingTasks` skips rows already MISSIN
 sharing one `updatedAt` does mean one event, but that event is the sync, not the disappearance.
 
 *First hit: 2026-08-23.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 75. A GitHub repository is watched, Sync succeeds, and no workflows ever arrive
+
+**Symptom.** You paste a valid PAT, add a repository, press **Sync**, and get *"Sync complete."*
+The GitHub Actions row reads **HEALTHY**, `sync` is **verified** with a timestamp from seconds ago,
+`lastSync` updates on every press — and `taskCount` stays **0**. Pressing Sync again does the same
+thing. Nothing is in the error log, because nothing failed.
+
+**The tell.** Every layer reports success and the count is zero, so read the *shape* rather than the
+status: `GET /api/tools/platforms/github/connection` lists the repositories, and the connector reads
+them fine. Drive the read path by hand and it returns exactly what you expect —
+
+```
+LIST OK cronsole  total 5  read 5
+  .github/workflows/registry-drift.yml    {"crons":["10 13 * * *"]}
+  .github/workflows/frontdoor-drift.yml   {"crons":["20 13 * * *"]}
+```
+
+**So the loss is downstream of the connector**, in the one place a sync deliberately throws work
+away: the include-set.
+
+**Cause.** `POST /tasks/sync` with `scope: 'tracked'` — what the plain **Sync** button sends —
+filters the connector's output to categories that are *already tracked*, and that set was computed
+one way for every platform: `TaskService.trackedCategories`, which reads the categories of **stored
+rows**. That encodes how a folder becomes tracked *on Windows* — you pick it in the discovery modal,
+and the rows are the only record that you did.
+
+GitHub keeps that record somewhere else. The repositories you watch live in
+`PlatformConnection.config`, and **adding one is the gesture that names the folder** — the same
+gesture the Windows modal performs. Deriving the include-set from rows made that gesture unable to
+adopt anything: a freshly added repository has no rows, so the include-set came back `[]`, every
+workflow was filtered out, and the sync reported success over nothing.
+
+**And there was no second gesture to reach for.** On Windows the escape hatch is
+**Sync › Add tasks from this machine**, which sends `{ categories }` and adopts the folder. That
+modal talks to the *agent*, so on GitHub it offers nothing — the state was unreachable from the UI
+entirely, which is what separates this from [#20](#20-tasks-exist-on-the-machine-but-arent-in-taskhub).
+
+**Fix** *(2026-08-24)*. `PlatformConnector` gained an optional `trackedCategories(config)`, and
+`GitHubActionsConnector` implements it as the watched repositories. The route asks the connector
+first and falls back to the row-derived set, so the platform-specific half stays inside the connector
+layer where §9 requires it. It changes *which categories a refresh includes* and nothing else — in
+particular it does **not** clear a `TaskExclusion`, because an individually untracked workflow must
+survive a routine refresh. That distinction between a refresh and an import is the whole reason
+`scope: 'tracked'` exists.
+
+**The reusable question: when a sync filters, ask where the platform records "I asked for this."**
+If the answer is "the rows we are about to filter", the first import can never happen. It is #20's
+shape — a correct fence, invisible — with the fence's own gate missing.
+
+**Why no test caught it.** The connector's suite proves what it *reads*; the route's suite proves
+the include-set filters. Both were right. Nothing asserted that the connector's notion of a category
+and the route's `extractCategory` describe the same thing on the same task, which is now pinned
+(`GitHubActionsConnector.test.ts` › *trackedCategories*). **Found by connecting a real repository** —
+the live pass the roadmap had kept open, on its first run.
+
+**The silence was the expensive half, and it is fixed separately** *(2026-08-24)*. Even with the bug
+gone, the *correct* empty result is unreadable: a repository whose workflows all run on `push`
+imports nothing and is working perfectly, which is the same empty screen. `SyncOutcome` now carries
+**`notes`** — *"read 9 workflows across 3 repositories, 3 scheduled"* — so "found nothing" and
+"looked at nothing" stop rendering the same. If you hit this symptom again, **read that line first**:
+it distinguishes the two in one sentence, and it is the reason this entry should not need a second
+edition.
+
+*First hit: 2026-08-24.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

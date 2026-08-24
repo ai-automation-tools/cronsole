@@ -2,7 +2,7 @@
 // styling. Cronsole-native tasks get a distinct violet identity so they're
 // immediately separable from platform-synced tasks (docs/resources/Native_Tasks.md).
 import {
-  Activity, Bot, Cpu, FileCode, GitBranch, Globe, Laptop, Monitor, Terminal, Zap,
+  Activity, Bot, Cpu, FileCode, GitBranch, Globe, Laptop, Monitor, Terminal, Triangle, Zap,
   type LucideIcon
 } from 'lucide-react';
 
@@ -16,7 +16,8 @@ export const platformLabel = (p: string) =>
     OPEN_CLAW: 'Open Claw',
     HERMES: 'Hermes',
     TASKHUB_NATIVE: 'Cronsole',
-    GITHUB_ACTIONS: 'GitHub'
+    GITHUB_ACTIONS: 'GitHub',
+    VERCEL_CRON: 'Vercel'
   }[p] ?? p.split('_')[0]);
 
 /**
@@ -41,7 +42,8 @@ export const platformSourceLabel = (p: string) =>
     OPEN_CLAW: 'Open Claw',
     HERMES: 'Hermes',
     TASKHUB_NATIVE: 'Cronsole (Native)',
-    GITHUB_ACTIONS: 'GitHub Actions'
+    GITHUB_ACTIONS: 'GitHub Actions',
+    VERCEL_CRON: 'Vercel Cron'
   }[p] ?? platformLabel(p));
 
 /**
@@ -128,7 +130,14 @@ export const sourceDescription = (key: string): string | null => {
     // so a screen of `unsupported` cells with no explanation reads as a broken
     // connection rather than as the shape of the integration.
     GITHUB_ACTIONS:
-      'Scheduled workflows in the repositories you watch. Read-only — Cronsole shows their crons and how their last runs actually went, and changes nothing.'
+      'Scheduled workflows in the repositories you watch. Read-only — Cronsole shows their crons and how their last runs actually went, and changes nothing.',
+    // The second read-only row, and its sentence has to do one more job than
+    // GitHub's: say what this observer cannot report *that the other one can*.
+    // Vercel publishes no run history for a cron, so every row here sits at
+    // `unknown` health forever — a user comparing two read-only sources should
+    // learn that here rather than infer it from a grey pill.
+    VERCEL_CRON:
+      'Cron jobs declared by the Vercel projects you watch. Read-only, and Vercel publishes no run history for them — Cronsole shows their schedules, never how they went.'
   };
   return exact[key] ?? exact[key.split(':')[0]] ?? null;
 };
@@ -142,7 +151,8 @@ export const platformBadgeClass = (p: string) =>
     TASKHUB_NATIVE: 'bg-native/10 text-native-text border-native/30',
     CLAUDE_CODE: 'bg-claude/10 text-claude-text border-claude/20',
     CHATGPT: 'bg-chatgpt/10 text-chatgpt-text border-chatgpt/20',
-    GITHUB_ACTIONS: 'bg-github/10 text-github-text border-github/30'
+    GITHUB_ACTIONS: 'bg-github/10 text-github-text border-github/30',
+    VERCEL_CRON: 'bg-vercel/10 text-vercel-text border-vercel/30'
   }[p] ?? 'bg-muted/10 text-muted-foreground border-border/20');
 
 export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';
@@ -192,7 +202,13 @@ const SOURCE_ICON: Record<string, LucideIcon> = {
   // lucide dropped its brand glyphs at v1, so there is no Octocat to reach for.
   // A branch is the honest second choice: what Cronsole reads here is a workflow
   // living in a repository, not the service's logo.
-  GITHUB_ACTIONS: GitBranch
+  GITHUB_ACTIONS: GitBranch,
+  // Vercel's mark is a triangle, and lucide has one that is not a brand glyph —
+  // so unlike GitHub this is the shape the user already associates with the
+  // platform rather than a second choice. Outline, not filled: the tile behind
+  // it carries the identity colour, and a solid triangle at this size reads as
+  // a warning sign.
+  VERCEL_CRON: Triangle
 };
 
 export const sourceIcon = (key: string): LucideIcon =>
@@ -217,7 +233,8 @@ export const platformAccent = (p: string): { tile: string; rule: string } =>
     TASKHUB_NATIVE: { tile: 'bg-native/10 text-native-text', rule: 'bg-native/40' },
     CLAUDE_CODE: { tile: 'bg-claude/10 text-claude-text', rule: 'bg-claude/40' },
     CHATGPT: { tile: 'bg-chatgpt/10 text-chatgpt-text', rule: 'bg-chatgpt/40' },
-    GITHUB_ACTIONS: { tile: 'bg-github/10 text-github-text', rule: 'bg-github/40' }
+    GITHUB_ACTIONS: { tile: 'bg-github/10 text-github-text', rule: 'bg-github/40' },
+    VERCEL_CRON: { tile: 'bg-vercel/10 text-vercel-text', rule: 'bg-vercel/40' }
   }[p] ?? { tile: 'bg-muted text-muted-foreground', rule: 'bg-border' });
 
 /**
@@ -257,5 +274,9 @@ export const sourceSetupHint = (p: string): { hasPanel: boolean; hint: string } 
     GITHUB_ACTIONS: {
       hasPanel: true,
       hint: 'Name the repositories to watch and Cronsole reads their scheduled workflows. Read-only — it changes nothing in the repository.'
+    },
+    VERCEL_CRON: {
+      hasPanel: true,
+      hint: 'Paste a Vercel access token and pick the projects to watch — Cronsole lists them for you, with how many cron jobs each has. Read-only: it changes nothing in the project.'
     }
   }[p] ?? { hasPanel: false, hint: 'Nothing to connect here yet.' });

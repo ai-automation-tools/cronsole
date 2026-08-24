@@ -164,7 +164,7 @@ about the ones you could:
   one.
 
 **A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code and
-GitHub Actions are shown once you add them from *Explore*, which is why the button is there rather
+GitHub Actions and Vercel Cron are shown once you add them from *Explore*, which is why the button is there rather
 than a first run listing four platforms of which two are real. Two rules make hiding safe: **a
 source holding tasks is never hidden**, and **connecting one shows it**.
 
@@ -997,13 +997,13 @@ Everything Cronsole can connect to that is **not connected**, in two groups.
 asked for that have nothing behind them yet. Each says what would actually connect it, and the
 answer takes one of two shapes:
 
-- **Something to fill in** — Claude Code and GitHub Actions are registered by hand, so **Set up**
+- **Something to fill in** — Claude Code, GitHub Actions and Vercel Cron are registered by hand, so **Set up**
   opens that panel in place.
 - **Nothing to fill in** — Windows connects when the Cronsole agent is running; Cronsole-native
   connects whenever the backend is up. These get the sentence and no button, because nothing you
   could type would connect them.
 
-**Not added** holds the rest — today Claude Code and GitHub Actions on a fresh install. Each card
+**Not added** holds the rest — today Claude Code, GitHub Actions and Vercel Cron on a fresh install. Each card
 says what the source *is* and whether it is a **controller** (Cronsole can change things there) or
 an **observer** (it can only read). Adding one lists it in the sidebar and moves it into the group
 above; **it connects nothing on its own.** This view is what makes hiding a source safe: nothing

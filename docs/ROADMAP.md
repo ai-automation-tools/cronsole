@@ -35,7 +35,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(themes done 2026-08-24)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
-| **Sources** | 🟡 4 of ~8 built | POSIX agent (the big one) · Vercel + Supabase observers |
+| **Sources** | 🟡 5 of ~8 built | POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
@@ -463,12 +463,33 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       below inherit both the pattern and its one live lesson: a connector whose tracked set is
       **declared** must say so, or its first sync silently imports nothing.
 
-- [ ] **Vercel Cron · Supabase `pg_cron` — read-only observers** *(next up in this section)*:
-      increasingly the default for web and indie developers, and both have trivial APIs. Same
-      observer shape as GitHub Actions, which **shipped 2026-08-23 and proved it end to end** —
-      a fixed `unsupportedVerbs`, health from stored sync evidence with no probe, a hand-composed
-      connection with a write-only token, and the repository/project as the category. The pieces
-      those two need that GitHub did not have are their own auth surfaces and nothing else.
+- [x] **Vercel Cron — read-only observer** *(2026-08-24)*. The second observer, and it inherited
+      the whole GitHub shape: a fixed `unsupportedVerbs`, a **declared** tracked set
+      (`trackedCategories` reads the watched projects out of the config — #75's lesson, applied
+      before it could bite), health from stored sync evidence with no probe, a hand-composed
+      connection with a write-only token, and the project as the category.
+      **Where it differs from GitHub it differs in both directions, and both are worth carrying
+      forward.** Cheaper: a Vercel project object carries `crons.definitions[]`, so one
+      `GET /v9/projects/:id` returns every cron already parsed, already 5-field, already UTC — no
+      second fetch, no YAML, no unreadable-file branch, and a cron count that is *exact* rather than
+      an upper bound. That is also what makes the connect flow a **picker** rather than a paste box:
+      the list is one request and already says which projects have crons.
+      Poorer: **Vercel publishes no run history for a cron**, so `reportsRunResult: false` and every
+      task sits at `unknown` health permanently. Scoring `enabledAt` instead would have called every
+      configured cron healthy — *configured* and *working* are different claims, and only the first
+      is knowable. Said in the connector, the summary, the panel, the help topic and the guide,
+      because a permanent `unknown` discovered from a grey pill reads as a broken integration.
+      One defect found on the way and fixed at the root: `scoreTask` dispatched on platform with the
+      **Windows arm as the `else`**, so every source without its own scoring — Claude too, not just
+      the new one — was told to *"republish the agent"*.
+
+- [ ] **Supabase `pg_cron` — read-only observer** *(next up in this section)*: the other half of the
+      2026-08-12 pair. Same observer shape again, and the piece it needs that neither GitHub nor
+      Vercel had is a **different kind of read**: `cron.job` is a table in the user's own Postgres,
+      not a REST resource, so it is either a `pg` connection string (a much heavier credential than
+      an API token, and one Cronsole would then hold) or a user-created SQL function exposed through
+      PostgREST (no new credential, but a setup step). **That choice is the open question**, and it
+      is why this is now its own item rather than half of a pair — it is not the same build twice.
 
 - [ ] **Deferred — Kubernetes CronJobs · AWS EventBridge Scheduler · Azure Functions · Google Cloud
       Scheduler**: common in *teams*, rare for a solo developer, and each is its own auth surface,
@@ -485,7 +506,8 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 - [ ] **Umbrella grouping for the hosted observers** *(reading (c) of the 2026-08-12 source
       decision, left open when (b) was chosen)*: group GitHub Actions / Vercel / Supabase under one
       two-level source node. A presentation question about the rail, not a data-model one — worth
-      doing once three hosted observers exist, and it blocks nothing until then.
+      doing once three hosted observers exist, and it blocks nothing until then. **Two of the three
+      exist as of 2026-08-24**, so this is one source away from being worth doing.
 
 - [ ] **The last unedited attribute — a question, not a task** *(reported 2026-08-12)*. Category,
       schedule, action/command, job spec and name are all editable now. A task's **`externalId`**

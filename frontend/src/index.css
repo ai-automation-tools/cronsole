@@ -104,6 +104,15 @@
      platform's claim on it. */
   --github: 213 18% 55%;
   --github-text: 213 27% 72%;
+  /* Vercel Cron. **Monochrome, and that is the identity rather than a shortage of
+     ideas** — Vercel's own mark has no hue, and the two observers now on the tab
+     need to be told apart at a glance: GitHub's cool slate against this neutral
+     grey. A hue-free pair also cannot collide with a status role, which is the
+     trap `--native` fell into against `--primary`. Measured like every other
+     pair: the accent clears 3.0 as a bare dot and the text clears 4.5 on
+     `--muted`, which is the binding surface in both themes. */
+  --vercel: 0 0% 62%;
+  --vercel-text: 0 0% 72%;
   --ring: 262 83% 62%;
   --radius: 0.5rem;
 }
@@ -146,6 +155,15 @@
   --chatgpt-text: 158 64% 52%;
   --github: 213 18% 55%;
   --github-text: 213 27% 72%;
+  /* Vercel Cron. **Monochrome, and that is the identity rather than a shortage of
+     ideas** — Vercel's own mark has no hue, and the two observers now on the tab
+     need to be told apart at a glance: GitHub's cool slate against this neutral
+     grey. A hue-free pair also cannot collide with a status role, which is the
+     trap `--native` fell into against `--primary`. Measured like every other
+     pair: the accent clears 3.0 as a bare dot and the text clears 4.5 on
+     `--muted`, which is the binding surface in both themes. */
+  --vercel: 0 0% 62%;
+  --vercel-text: 0 0% 72%;
   --ring: 262 83% 62%;
 }
 
@@ -204,6 +222,8 @@
   --chatgpt-text: 158 64% 28%;
   --github: 213 20% 45%;
   --github-text: 215 25% 30%;
+  --vercel: 0 0% 38%;
+  --vercel-text: 0 0% 22%;
   --ring: 262 83% 58%;
 }
 
@@ -250,6 +270,8 @@
   --color-chatgpt-text: hsl(var(--chatgpt-text));
   --color-github: hsl(var(--github));
   --color-github-text: hsl(var(--github-text));
+  --color-vercel: hsl(var(--vercel));
+  --color-vercel-text: hsl(var(--vercel-text));
   --color-ring: hsl(var(--ring));
 }
 

@@ -84,7 +84,8 @@ export const MATRIX_PLATFORMS: readonly PlatformType[] = [
   PlatformType.WINDOWS_TASK_SCHEDULER,
   PlatformType.TASKHUB_NATIVE,
   PlatformType.CLAUDE_CODE,
-  PlatformType.GITHUB_ACTIONS
+  PlatformType.GITHUB_ACTIONS,
+  PlatformType.VERCEL_CRON
 ] as const;
 
 export interface PlatformDescriptor {
@@ -180,6 +181,30 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
     // GitHub's endpoints here are stable, documented, versioned REST — nothing
     // like Claude's dated beta headers. A connector is judged by whether what it
     // claims is true, not by how much of the interface it fills.
+    maturity: 'functional'
+  },
+  [PlatformType.VERCEL_CRON]: {
+    platform: PlatformType.VERCEL_CRON,
+    label: 'Vercel Cron',
+    // **The second observer**, and the field's value is clearest here: Vercel's
+    // refusals look like GitHub's on the matrix and are reached by different
+    // routes. `run` is refused despite the cron path being a plain HTTP endpoint
+    // anyone can call, because calling it is not the *scheduled* invocation;
+    // `setStatus` is refused because Vercel has no per-cron switch to expose at
+    // all. Ten struck-through cells with no `access` beside them read as a
+    // broken connector rather than as a chosen shape.
+    access: 'observer',
+    // Leads with what Cronsole will not do, for the reason GitHub's does — and
+    // then names the one thing this observer cannot report that GitHub can.
+    // A user comparing two read-only rows should not have to discover the
+    // difference from an `unknown` health pill.
+    summary:
+      'Read-only. Cronsole reads the cron jobs declared by the projects you name and their schedules, ' +
+      'and changes nothing. Vercel publishes no run history for a cron, so their health stays unknown.',
+    // Functional, not experimental: `GET /v9/projects` is stable, documented,
+    // versioned REST, and `crons.definitions` is part of its published schema —
+    // nothing like Claude's dated beta headers. A connector is judged by whether
+    // what it claims is true, not by how much of the interface it fills.
     maturity: 'functional'
   }
 };

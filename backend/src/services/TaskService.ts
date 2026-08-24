@@ -1,6 +1,7 @@
 import { PlatformType, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 import { repositoryFromExternalId } from './githubRepositories.js';
+import { projectFromExternalId } from './vercelProjects.js';
 
 export interface NormalizedTask {
   externalId: string;
@@ -364,6 +365,15 @@ export class TaskService {
     // of an id" is the drift that took a whole folder out of every sync (#20a).
     if (platform === PlatformType.GITHUB_ACTIONS) {
       return repositoryFromExternalId(externalId) ?? 'Uncategorized';
+    }
+
+    // A Vercel cron's category is its **project**, the same level-2 grouping the
+    // rail draws for a GitHub repository — you watch a project, never a single
+    // cron path. Read out of the id rather than stored beside it, and through
+    // the one exported definition the connector writes with, for the reason
+    // above: two copies of "how do you read a project out of an id" is #20a.
+    if (platform === PlatformType.VERCEL_CRON) {
+      return projectFromExternalId(externalId) ?? 'Uncategorized';
     }
 
     return 'Uncategorized';

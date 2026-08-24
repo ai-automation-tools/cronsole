@@ -41,6 +41,23 @@ import {
   repositoryInputSchema
 } from '../services/githubRepositories.js';
 import { listWorkflows, verifyToken as verifyGitHubToken } from '../services/githubActions.js';
+import {
+  readConfig as readVercelConfig,
+  redactConfig as redactVercelConfig,
+  normalizeProjectInput,
+  removeProject,
+  upsertProject,
+  looksLikeVercelToken,
+  projectFromExternalId,
+  tokenInputSchema as vercelTokenInputSchema,
+  projectInputSchema
+} from '../services/vercelProjects.js';
+import {
+  getProject as getVercelProject,
+  listProjects as listVercelProjects,
+  listTeams as listVercelTeams,
+  verifyToken as verifyVercelToken
+} from '../services/vercelApi.js';
 import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
 import { createNativeTask, NativeTaskCreateError } from '../services/nativeTaskCreate.js';
 import { HttpError } from '../middleware/errorHandler.js';
@@ -2121,6 +2138,417 @@ router.post('/tasks/untrack', validateBody(bulkUntrackSchema), async (req: Reque
       'These tasks are no longer tracked by Cronsole. They still exist on their platform and will ' +
       'keep running on their own schedules. Re-import their category to track them again.'
   });
+});
+
+/* ---------------------------------------------------------------------------
+ * Vercel Cron connection — the third config a user composes by hand.
+ *
+ * Shaped like the GitHub block above rather than the Claude one, because Vercel
+ * is shaped like GitHub: **one** access token per account, and it is what makes
+ * every project readable, so the token is a property of the *connection* and the
+ * project list holds no secrets at all. Removing a project can never cost the
+ * user a credential, so none of the "re-adding is the rotation path" care the
+ * Claude panel carries is needed here.
+ *
+ * Still Vercel-specific rather than a generic
+ * `PUT /platforms/:platform/connection`, for the reason stated over both blocks
+ * above: a generic route would imply the other platforms are configurable this
+ * way and would take an arbitrary blob into a field every connector trusts.
+ *
+ * **The token is write-only across all of these.** `GET` reports `hasToken` and
+ * the last four characters — enough to answer *"is this the token I just
+ * made?"*, not enough to be one. There is no reveal endpoint: Vercel shows an
+ * access token once and cannot re-display it either.
+ *
+ * One route has no GitHub counterpart — `GET .../discover`. GitHub cannot list
+ * "your repositories" usefully (a token reaches thousands), but Vercel's project
+ * list is small, is one request, and **already carries each project's crons**.
+ * So the panel can offer a picker showing which projects actually have cron jobs
+ * instead of asking someone to type a name they are looking at in another tab.
+ * It is a read with no side effect and it stores nothing.
+ * -------------------------------------------------------------------------- */
+
+/** Load the Vercel connection and its config, or a well-formed empty state. */
+async function loadVercelConnection(userId: string) {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.VERCEL_CRON }
+  });
+  return {
+    connection,
+    config: connection ? readVercelConfig(deserializeConfig(connection.config)) : readVercelConfig({})
+  };
+}
+
+/**
+ * Write the config back, creating the connection on first use.
+ *
+ * `serializeConfig` is not optional: `PlatformConnection.config` is AES-256-GCM
+ * encrypted at rest and this holds a live third-party credential.
+ */
+async function saveVercelConnection(
+  userId: string,
+  connectionId: string | undefined,
+  config: ReturnType<typeof readVercelConfig>
+) {
+  const serialized = serializeConfig(config);
+  if (connectionId) {
+    await prisma.platformConnection.update({ where: { id: connectionId }, data: { config: serialized } });
+  } else {
+    await prisma.platformConnection.create({
+      data: { userId, platform: PlatformType.VERCEL_CRON, isActive: true, config: serialized }
+    });
+  }
+  await refreshVercelHealth(userId);
+}
+
+/**
+ * Recompute and store this connection's health right after writing it.
+ *
+ * Same reason as `refreshClaudeHealth` and `refreshGitHubHealth`: the
+ * dashboard's 45-second poll is the only other writer of
+ * `PlatformConnection.healthState`, so without this the card sits at whatever
+ * that poll last left until the next one runs.
+ *
+ * Safe here for one specific reason, and **only** that reason: the Vercel
+ * connector's `getHealth` reads back stored `PlatformCapability` evidence and
+ * does not probe. Do not copy this into a write path for a platform whose health
+ * check talks to the platform.
+ */
+async function refreshVercelHealth(userId: string): Promise<void> {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.VERCEL_CRON }
+  });
+  if (!connection) return;
+
+  const connector = connectorRegistry.getConnector(PlatformType.VERCEL_CRON);
+  if (!connector) return;
+
+  try {
+    const health = await connector.getHealth({ ...deserializeConfig(connection.config), userId });
+    await prisma.platformConnection.update({
+      where: { id: connection.id },
+      // `?? null`, not a bare value: Prisma reads `undefined` as "leave the
+      // column alone", which keeps a stale reason under a fresh state.
+      data: { healthState: health.state, healthReason: health.reason ?? null }
+    });
+  } catch {
+    // Health is a readout, not the operation. Failing to refresh it must not
+    // fail the write the user just made.
+  }
+}
+
+/**
+ * The connection's state — projects, whether a token is stored, and how many
+ * cron jobs each project currently accounts for.
+ *
+ * `taskCount` per project is here for the same reason it is on the GitHub and
+ * Claude panels: removing a project strands its tracked crons, and the UI has to
+ * be able to say so **before** the click rather than report it after.
+ */
+router.get('/platforms/vercel/connection', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { connection, config } = await loadVercelConnection(userId);
+
+  const tasks = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.VERCEL_CRON },
+    select: { externalId: true }
+  });
+  const counts = new Map<string, number>();
+  for (const t of tasks) {
+    const project = projectFromExternalId(t.externalId);
+    if (project) counts.set(project, (counts.get(project) ?? 0) + 1);
+  }
+
+  const redacted = redactVercelConfig(config);
+  res.json({
+    connected: Boolean(connection),
+    hasToken: redacted.hasToken,
+    tokenHint: redacted.tokenHint,
+    projects: redacted.projects.map(p => ({ ...p, taskCount: counts.get(p.name) ?? 0 }))
+  });
+});
+
+/**
+ * Store (or rotate) the account token.
+ *
+ * **Verified before it is stored**, with one `GET /v2/user`. That is one of only
+ * two places in this connector that contacts Vercel outside a sync, and it is
+ * here rather than in `getHealth` on purpose: a bad paste should fail at the
+ * click that made it, while a health check runs on a 45-second poll per open tab
+ * and would spend a rate limit answering a question sync answers for free.
+ *
+ * A token Vercel rejects is a **400**, not a 502 — the request is wrong, not the
+ * gateway, and retrying the same paste cannot help. A token Vercel *accepts*
+ * whose shape is unfamiliar is saved with a warning, the same call the GitHub
+ * route makes: a token format is a fact about this year, not a contract.
+ */
+router.put(
+  '/platforms/vercel/connection',
+  validateBody(vercelTokenInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const token = String((req.body as { token: string }).token).trim();
+
+    const verified = await verifyVercelToken(token);
+    if (!verified.ok) {
+      throw new HttpError(verified.status === null ? 502 : 400, verified.message);
+    }
+
+    const { connection, config } = await loadVercelConnection(userId);
+    await saveVercelConnection(userId, connection?.id, { ...config, token });
+
+    res.json({
+      username: verified.data.username,
+      hasToken: true,
+      tokenHint: token.slice(-4),
+      projects: config.projects,
+      warnings: looksLikeVercelToken(token)
+        ? []
+        : ['That token does not match a format Vercel currently issues. It verified, so it is saved.']
+    });
+  }
+);
+
+/**
+ * What this token can see — projects across the personal account and every team,
+ * each with whether it actually has cron jobs.
+ *
+ * **A read, and only a read.** It stores nothing and watches nothing; the picker
+ * it feeds still ends in an explicit add. The reason it exists at all is that
+ * Vercel makes it nearly free — the project list is one request and already
+ * carries `crons.definitions` — and the alternative is asking someone to
+ * hand-type a name they can see in another tab, which is exactly the friction
+ * the Windows discovery modal removes for its platform.
+ *
+ * A team whose listing fails is **named, not dropped**: an account whose team
+ * projects silently vanished from the picker would look like an empty account,
+ * which is the "found nothing versus looked at nothing" ambiguity one layer up
+ * from where the sync fixes it.
+ */
+router.get('/platforms/vercel/discover', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { config } = await loadVercelConnection(userId);
+  if (!config.token) {
+    throw new HttpError(400, 'Add a Vercel token first — Cronsole needs one to list your projects.');
+  }
+
+  const warnings: string[] = [];
+  const scopes: { teamId?: string; label: string }[] = [{ label: 'Personal account' }];
+
+  const teams = await listVercelTeams(config.token);
+  if (teams.ok) {
+    for (const team of teams.data) scopes.push({ teamId: team.id, label: team.name });
+  } else {
+    warnings.push(`Could not list your teams: ${teams.message}`);
+  }
+
+  const watched = new Set(config.projects.map(p => p.id));
+  const projects: {
+    id: string;
+    name: string;
+    teamId?: string;
+    scope: string;
+    cronCount: number;
+    hasCrons: boolean;
+    watched: boolean;
+  }[] = [];
+
+  for (const scope of scopes) {
+    const listed = await listVercelProjects(config.token, scope.teamId);
+    if (!listed.ok) {
+      warnings.push(`Could not list projects in ${scope.label}: ${listed.message}`);
+      continue;
+    }
+    if (listed.data.truncated) {
+      warnings.push(
+        `${scope.label} has more projects than one page returns — Cronsole listed the first 100. ` +
+          'Paste a project URL to watch one that is not shown.'
+      );
+    }
+    for (const project of listed.data.projects) {
+      projects.push({
+        id: project.id,
+        name: project.name,
+        ...(scope.teamId ? { teamId: scope.teamId } : {}),
+        scope: scope.label,
+        // `crons: null` means the project has never deployed a cron; an empty
+        // `definitions` means it has crons enabled and none right now. Both read
+        // as "nothing to import", and the picker only needs the count — but the
+        // two stay distinguishable in `hasCrons` so a project that *had* crons
+        // and lost them is not offered as if it never had any.
+        cronCount: project.crons?.definitions.length ?? 0,
+        hasCrons: project.crons !== null,
+        watched: watched.has(project.id)
+      });
+    }
+  }
+
+  res.json({ projects, warnings });
+});
+
+/**
+ * Watch a project.
+ *
+ * Takes a dashboard URL, a bare name, or a `prj_…` id — someone doing this by
+ * hand is looking at the project in a browser, so pasting the address bar is the
+ * expected input rather than an edge case.
+ *
+ * **Verified against Vercel before it is stored**, by reading the project. A
+ * project saved unverified fails much later, inside a sync, as one line among
+ * several — and a *team* project looked up without its team resolves against the
+ * personal account and 404s, so that failure would read as a typo when it is a
+ * scope problem. Checking here lets the message say which.
+ *
+ * Idempotent, and a re-add **replaces** the stored row rather than being a no-op
+ * (GitHub's leaves it alone). Nothing here is a secret, so nothing can be lost —
+ * and a re-add is the only path that refreshes a stale name or a project that
+ * moved under a team.
+ */
+router.post(
+  '/platforms/vercel/projects',
+  validateBody(projectInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const raw = String((req.body as { project: string }).project);
+    const teamIdHint = typeof req.body?.teamId === 'string' && req.body.teamId ? String(req.body.teamId) : undefined;
+
+    const ref = normalizeProjectInput(raw);
+    if (!ref) {
+      throw new HttpError(
+        400,
+        'Could not read a project from that. Paste the project\'s dashboard URL, its name, or its ' +
+          'prj_… id — for example vercel.com/acme/website or website.'
+      );
+    }
+
+    const { connection, config } = await loadVercelConnection(userId);
+    if (!config.token) {
+      throw new HttpError(400, 'Add a Vercel token first — Cronsole needs one to read a project.');
+    }
+
+    const idOrName = ref.kind === 'id' ? ref.id : ref.name;
+    // The team slug from a pasted dashboard URL, or the id the picker sent.
+    // Vercel accepts either as the scope of the lookup, and without one a team
+    // project resolves against the personal account and is genuinely not found.
+    const slug = ref.kind === 'name' ? ref.teamSlug : undefined;
+    const read = await getVercelProject(config.token, idOrName, teamIdHint, slug);
+    if (!read.ok) {
+      throw new HttpError(read.status === null ? 502 : 400, read.message);
+    }
+
+    const project = {
+      id: read.data.id,
+      name: read.data.name,
+      ...(read.data.teamId ? { teamId: read.data.teamId } : teamIdHint ? { teamId: teamIdHint } : {})
+    };
+    const already = config.projects.some(p => p.id === project.id);
+
+    await saveVercelConnection(userId, connection?.id, {
+      ...config,
+      projects: upsertProject(config.projects, project)
+    });
+
+    res.status(already ? 200 : 201).json({
+      project: { ...project, taskCount: 0 },
+      already,
+      // What syncing will find — and unlike GitHub's `workflowCount`, this is
+      // exact, because a Vercel project hands over its cron definitions in the
+      // same response. Nothing has to be read per task to know the number.
+      cronCount: read.data.crons?.definitions.length ?? 0,
+      hasCrons: read.data.crons !== null
+    });
+  }
+);
+
+/**
+ * Stop watching a project, and remove the cron jobs it put on the dashboard.
+ *
+ * **Cronsole-side only** — the crons keep running on Vercel exactly as before,
+ * which is why the UI says *Stop watching* and never *Delete*.
+ *
+ * The tracked rows go with the declaration, in the same request, for the reason
+ * the Claude and GitHub disconnects learned: a row whose project is no longer
+ * watched cannot be synced, cannot be run (nothing here can), and would sit on
+ * the dashboard flipping to MISSING at the next sync. Absence of a row is what
+ * "stopped watching" means, so stopping has to produce it.
+ *
+ * **No `TaskExclusion` is written**, deliberately. An exclusion exists to stop a
+ * *re-enumeration* putting something back; here the declaration is the only
+ * thing that enumerates this project at all, so with it gone there is nothing to
+ * fence against — and a stale exclusion would silently swallow the project if it
+ * were ever re-added. Untracking one cron while still watching its project is
+ * the case exclusions *are* for, and `untrack_task` works normally.
+ */
+router.delete('/platforms/vercel/projects/:id', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const id = String(req.params.id);
+
+  const { connection, config } = await loadVercelConnection(userId);
+  const target = config.projects.find(p => p.id === id);
+  if (!target) {
+    throw new HttpError(404, 'That project is not being watched.');
+  }
+
+  const remaining = removeProject(config.projects, id);
+  await saveVercelConnection(userId, connection?.id, { ...config, projects: remaining });
+
+  const doomed = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.VERCEL_CRON },
+    select: { id: true, externalId: true }
+  });
+  const doomedIds = doomed
+    .filter(t => projectFromExternalId(t.externalId) === target.name)
+    .map(t => t.id);
+
+  if (doomedIds.length) {
+    await prisma.$transaction([
+      // ExecutionLog has no cascade on its Task relation, so it must go first or
+      // the delete violates the FK. TaskFavorite does cascade.
+      prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
+      prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
+    ]);
+    notifyTasksChanged(userId);
+  }
+
+  res.json({ removed: target.name, tasksRemoved: doomedIds.length, watching: remaining.length });
+});
+
+/**
+ * Disconnect Vercel entirely — forget the token, the projects and the rows.
+ *
+ * The connection row is **deleted** rather than emptied, for the reason the
+ * Claude and GitHub routes give: an empty connection is `configured: true` with
+ * nothing in it, so the card would sit at "connected, nothing to read"
+ * indefinitely for someone who has actually left. With no connection the card
+ * reads *Not connected*, which is the true statement. Capability evidence is
+ * keyed separately and survives, so verbs already verified stay verified if
+ * Vercel is reconnected later.
+ */
+router.delete('/platforms/vercel/connection', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { connection } = await loadVercelConnection(userId);
+  if (!connection) {
+    throw new HttpError(404, 'Vercel is not connected.');
+  }
+
+  const doomed = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.VERCEL_CRON },
+    select: { id: true }
+  });
+  const doomedIds = doomed.map(t => t.id);
+
+  await prisma.$transaction([
+    ...(doomedIds.length
+      ? [
+          prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
+          prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
+        ]
+      : []),
+    prisma.platformConnection.delete({ where: { id: connection.id } })
+  ]);
+  if (doomedIds.length) notifyTasksChanged(userId);
+
+  res.json({ disconnected: true, tasksRemoved: doomedIds.length });
 });
 
 export default router;

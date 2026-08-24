@@ -3,7 +3,8 @@
 Cronsole shows tasks from more than one system, and those systems are not the same shape.
 A Windows task lives on your machine and keeps running whether or not Cronsole is up. A
 Cronsole-native task *is* a row in Cronsole's database. A Claude routine lives at claude.ai
-and Cronsole can only knock on its door. A GitHub Actions workflow Cronsole can only *watch*.
+and Cronsole can only knock on its door. A GitHub Actions workflow or a Vercel cron job Cronsole
+can only *watch*.
 
 This guide has one section per source: what it is, **what Cronsole can and can't do with it**,
 and the things that surprise people. It is what the **?** buttons in the app link to.
@@ -45,7 +46,7 @@ Three behaviours worth knowing:
 ## Choosing which sources you see
 
 A fresh install shows **two**: Windows Task Scheduler and Cronsole-native. Claude Code and
-GitHub Actions are supported, and are **not** shown until you ask for them — a first run
+GitHub Actions and Vercel Cron are supported, and are **not** shown until you ask for them — a first run
 listing four platforms of which two are real teaches you that half the product is broken.
 
 Both halves of that live on the **Sources** tab, and the sidebar's **Sources** section links
@@ -72,7 +73,7 @@ whether your sidebar lists it. The two are different facts and the screen shows 
 sources you asked for that have nothing connected behind them — a real, common, half-finished
 state. Each one says what would actually connect it, and the answer is one of two shapes:
 
-- **Composed by hand** — Claude Code and GitHub Actions have something to fill in, so *Set up*
+- **Composed by hand** — Claude Code, GitHub Actions and Vercel Cron have something to fill in, so *Set up*
   opens that panel right there.
 - **Connects itself** — Windows connects when the Cronsole agent is running; Cronsole-native
   connects whenever the backend is up. There is no button, because nothing you could type would
@@ -431,6 +432,84 @@ evidence. A connector that only reads is a finished thing; it just says plainly 
 
 ---
 
+## Vercel Cron
+
+**The cron jobs declared by the projects you watch.** Connect on the **Sources** tab: paste a Vercel
+access token, then pick projects from the list Cronsole reads for you — it shows how many cron jobs
+each one has before you commit to any of them. A project past the first page, or one under a team the
+token cannot list, can still be added by pasting its dashboard URL.
+
+**This source is read-only, and — like GitHub Actions — that is the design rather than a first
+version.** Every mutating capability on its Sources row reads *Unsupported*. Cronsole tells you what
+is scheduled and when it claims to run; adding, editing, running and pausing a cron all happen on
+Vercel.
+
+The three refusals, and why each one is a boundary rather than a gap:
+
+- **Create** would mean adding a `crons` entry to your project's `vercel.json` and deploying it.
+  That is a code change, not a scheduler feature.
+- **Run now** looks possible — a cron path is a plain HTTP endpoint anyone can call — and is refused
+  because calling it yourself **is not the scheduled invocation**. It bypasses your `CRON_SECRET`
+  check, Vercel never records it as a cron run, and Cronsole would be reporting a success for
+  something the scheduler never did. Use the project's Cron Jobs tab, or `vercel crons run`.
+- **Enable / disable** is refused because Vercel has no per-cron switch to expose: crons are turned
+  on and off for a **whole project** at once. A per-task toggle would be inventing a control the
+  platform does not have.
+
+### The one thing this source cannot tell you
+
+**Vercel publishes no run history for a cron job.** Invocations show up in the project's function
+logs, behind no stable API, so Cronsole has nothing to score with — and every Vercel task sits at
+**unknown** health, permanently, however well it is actually running.
+
+That is worth stating plainly because it is the one place this source gives *less* than GitHub
+Actions, which reports a real `success` / `failure` / `timed_out` per run. Cronsole could easily
+report "enabled, therefore healthy" instead and it would be a lie: **configured** and **working** are
+different claims, and only the first is knowable here. Absence of evidence is `unknown`, never `ok`.
+
+### What Cronsole can do here
+
+**Sync** and **health**, plus **Remove from Cronsole** on an individual cron job. Everything else
+shows as *Unsupported* on the Sources tab — that tab stating a boundary, not waiting for evidence.
+
+### Things that surprise people
+
+- **You watch a project, not a cron job.** The project name is the category, so adding one brings in
+  every cron it declares and *Stop watching* takes them all back out. To drop a single cron while
+  keeping the rest, use **Remove from Cronsole** on that task — the ordinary untrack path works here,
+  and the next sync will not bring it back.
+- **These crons need no conversion at all.** Vercel documents cron expressions as UTC with no
+  timezone support, which is exactly how Cronsole stores every schedule. Like GitHub Actions, this
+  source has no conversion layer and none of the DST asymmetry a Windows trigger carries.
+- **Reading a project's crons is one request, unlike GitHub's.** A GitHub workflow keeps its cron in
+  a file, so Cronsole has to fetch and parse each one. A Vercel project hands over every cron
+  definition on the project object itself — which is why the picker can tell you a project has three
+  cron jobs before you add it, and why the count Cronsole reports is exact rather than an upper bound.
+- **Disabled is a fact about the project, not the cron.** Vercel turns crons on and off as a unit, so
+  when a project's crons are off *every* cron in it shows as Disabled, with that reason attached.
+- **Two crons on the same path are one row.** Vercel lets a project declare the same path twice with
+  different schedules. Cronsole stores one schedule per task, so the row shows the first and carries
+  the rest — rather than being quietly wrong about when it runs, or splitting into two rows fighting
+  over one identity.
+- **There is no next-run time, on purpose.** Vercel queues cron invocations on a best-effort basis —
+  on Hobby, documented as within the hour of the scheduled time. A time computed from the cron would
+  disagree with what actually happens, with nothing on screen to say which was right.
+- **A team project looked up by name will 404.** A bare name resolves against your *personal*
+  account, so a project owned by a team is genuinely not there. Paste the dashboard URL instead — it
+  carries the team — and Cronsole's error says so rather than sending you to check the spelling.
+- **Renaming a project on Vercel re-keys its rows.** The project name is the category and it is part
+  of each task's identity, so a rename retires the old tasks and brings in new ones under the new
+  name. Cronsole warns on the sync that first sees it; re-add the project to follow the rename.
+- **The token is stored encrypted and never shown again.** Vercel cannot re-display an access token
+  either, so there is no reveal button and rotating means pasting a new one. Cronsole verifies a
+  token against Vercel before saving it, so a bad paste fails at the click rather than inside a sync
+  days later.
+- **Health here comes from your syncs, not from a probe.** The same rule every source follows:
+  `getHealth` runs every 45 seconds per open tab, so probing would spend your rate limit on a
+  question sync already answers. Sync is your probe.
+
+---
+
 ## Quick links — schedulers with no connector
 
 The **Sources** tab has a *Quick links* view: bookmarks to ChatGPT, Gemini, Jules, and any you
@@ -471,7 +550,7 @@ Three shapes, and picking the wrong one is the usual reason a connector stalls h
 | Shape | When it fits | What it costs |
 |:--|:--|:--|
 | **Controller** | The platform has an API to read *and* change scheduled work — run, enable/disable, edit, delete. | The most work, and the most trust. Windows Task Scheduler and Cronsole-native are the two. |
-| **Observer** | It can be read but should not be written, or cannot be. | Much less, and it is a **finished** state rather than a stalled one. GitHub Actions is the worked example. |
+| **Observer** | It can be read but should not be written, or cannot be. | Much less, and it is a **finished** state rather than a stalled one. GitHub Actions and Vercel Cron are the worked examples. |
 | **Quick link** | No public API for scheduled work exists at all. | A bookmark, added from the Sources tab in ten seconds by anyone. |
 
 An observer is the right default for a hosted platform. Cronsole says plainly which half a

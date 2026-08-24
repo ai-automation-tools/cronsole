@@ -116,7 +116,8 @@ const ALL_PLATFORMS = [
   // it. What it may *do* with one is `list_platforms`' answer, not this
   // list's: a hardcoded exclusion here would be the frontend's deleted
   // CREATABLE_PLATFORMS constant all over again.
-  'GITHUB_ACTIONS'
+  'GITHUB_ACTIONS',
+  'VERCEL_CRON'
 ] as const;
 
 // ---- API response shapes (only the fields the tools surface) ----
@@ -453,10 +454,12 @@ export function registerTools(
       title: 'List scheduled tasks',
       description:
         'List the scheduled tasks Cronsole tracks for the current user — Windows Task Scheduler, Cronsole-native, ' +
-        'Claude Code routines and GitHub Actions workflows — with each task\'s schedule, status, next run time ' +
-        'and last run result. Optional filters narrow the list. GITHUB_ACTIONS is a READ-ONLY source: its tasks ' +
-        'list and report health, and every verb that would change one is refused. Call list_platforms before ' +
-        'planning work on a platform you are unsure about.',
+        'Claude Code routines, GitHub Actions workflows and Vercel cron jobs — with each task\'s schedule, ' +
+        'status, next run time and last run result. Optional filters narrow the list. GITHUB_ACTIONS and ' +
+        'VERCEL_CRON are READ-ONLY sources: their tasks list and report health, and every verb that would ' +
+        'change one is refused. VERCEL_CRON additionally never reports a last run result — Vercel publishes ' +
+        'no run history for a cron, so its tasks are permanently `unknown` health rather than unhealthy. ' +
+        'Call list_platforms before planning work on a platform you are unsure about.',
       inputSchema: {
         platform: z
           .enum(ALL_PLATFORMS)
@@ -1962,9 +1965,10 @@ Next run: ${task.nextRunTime}` : '')
         'Cronsole is a bug, not a capability limit. ' +
         'Each row also carries `access`: `controller` means Cronsole can change scheduled work there, ' +
         '`observer` means it only reads. An observer is a FINISHED connector, not a half-built one — ' +
-        'GitHub Actions is read-only on purpose, and two of its three refusals have working GitHub APIs ' +
-        'behind them (a workflow_dispatch run is not the scheduled run; enabling a workflow is a ' +
-        'repository-state change). Do not plan around an observer gaining write verbs. ' +
+        'GitHub Actions and Vercel Cron are read-only on purpose, and most of their refusals have working ' +
+        'APIs behind them (a workflow_dispatch run is not the scheduled run; enabling a workflow is a ' +
+        'repository-state change; calling a Vercel cron path yourself bypasses its CRON_SECRET and is not ' +
+        'the scheduled invocation). Do not plan around an observer gaining write verbs. ' +
         'What a platform reports also depends on the install: Claude Code supports `create` and ' +
         '`setStatus` when Cronsole can read your Claude Code session, and refuses both when it cannot — ' +
         'which is exactly why this matrix is worth calling rather than assumed. ' +

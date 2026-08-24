@@ -5,6 +5,7 @@ import { sourceVisibility } from '../../utils/sourceVisibility';
 import { sourceSetupHint } from '../../platform';
 import { ClaudeRoutinesPanel } from '../ClaudeRoutinesPanel';
 import { GitHubReposPanel } from '../GitHubReposPanel';
+import { VercelProjectsPanel } from '../VercelProjectsPanel';
 import { SidebarToggle, SourceHeading, SourceStatusPill, SourceTile } from './SourceIdentity';
 
 /**
@@ -92,6 +93,7 @@ export const PendingSourceCard = ({ row, shownSources, onToggleShown }: {
           */}
           {row.platform === 'CLAUDE_CODE' && <ClaudeRoutinesPanel />}
           {row.platform === 'GITHUB_ACTIONS' && <GitHubReposPanel />}
+          {row.platform === 'VERCEL_CRON' && <VercelProjectsPanel />}
 
           <button
             type="button"

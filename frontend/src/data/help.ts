@@ -134,7 +134,7 @@ const sources: HelpTopic = {
     {
       label: 'A fresh install lists two sources',
       body:
-        'Windows Task Scheduler and Cronsole-native. Claude Code and GitHub Actions are added ' +
+        'Windows Task Scheduler and Cronsole-native. Claude Code, GitHub Actions and Vercel Cron are added ' +
         'from Explore sources, below the tree — four platforms of which two are real is how a ' +
         'first run teaches you that half the product is broken.'
     },
@@ -429,6 +429,76 @@ const sourceGitHub: HelpTopic = {
     }
   ],
   doc: { label: 'Sources Guide › GitHub Actions', url: sourcesGuide('github-actions') }
+};
+
+const sourceVercel: HelpTopic = {
+  id: 'source:VERCEL_CRON',
+  title: 'Vercel Cron',
+  summary:
+    'Cron jobs declared by the Vercel projects you watch. Read-only, and Vercel publishes no run ' +
+    'history for them — Cronsole shows their schedules, never how they went.',
+  points: [
+    {
+      label: 'Health here is always unknown, and that is the honest answer',
+      body:
+        'Vercel publishes no run history for a cron job — invocations appear only in the project\'s ' +
+        'function logs, behind no API. So Cronsole has nothing to score with and says so. Reporting ' +
+        '"enabled, therefore healthy" instead would be a lie: configured and working are different ' +
+        'claims, and only the first is knowable here.'
+    },
+    {
+      label: 'Read-only is the whole shape, not a first version',
+      body:
+        'Every mutating capability reads Unsupported on the Sources tab and the row is labelled ' +
+        'Observer for that reason. Creating one means editing your vercel.json; enabling one is ' +
+        'impossible per cron because Vercel turns them on and off for a whole project; and Run now ' +
+        'is refused even though a cron path is an ordinary HTTP endpoint — calling it yourself ' +
+        'bypasses your CRON_SECRET and is not the scheduled invocation.'
+    },
+    {
+      label: 'These crons are already UTC, so nothing is converted',
+      body:
+        'Vercel documents cron expressions as UTC with no timezone support, which is exactly how ' +
+        'Cronsole stores every schedule. Like GitHub Actions, this source has no conversion layer ' +
+        'and none of the DST asymmetry a Windows trigger carries.'
+    },
+    {
+      label: 'You watch a project, not a cron job',
+      body:
+        'The project name is the category, so adding one brings in every cron it declares and ' +
+        'stopping brings them all out. To drop a single cron while keeping the rest, use Remove ' +
+        'from Cronsole on that task.'
+    },
+    {
+      label: 'Disabled is a fact about the project, not the cron',
+      body:
+        'Vercel turns cron jobs on and off for a whole project at once, so when they are off every ' +
+        'cron in that project shows as Disabled with that reason attached. There is no per-cron ' +
+        'switch to offer.'
+    },
+    {
+      label: 'A team project looked up by name will 404',
+      body:
+        'A bare project name resolves against your personal account, so one owned by a team is ' +
+        'genuinely not there. Paste the dashboard URL instead — it carries the team — or pick the ' +
+        'project from the list, which already knows which account it is in.'
+    },
+    {
+      label: 'Renaming the project on Vercel re-keys its tasks',
+      body:
+        'The project name is part of each cron\'s identity, so a rename retires the old tasks and ' +
+        'brings in new ones. Cronsole warns on the sync that first sees it — re-add the project to ' +
+        'follow the rename.'
+    },
+    {
+      label: 'No next-run time, and that is honest',
+      body:
+        'Vercel queues cron invocations on a best-effort basis — on Hobby, within the hour of the ' +
+        'scheduled time. A time computed from the cron would disagree with what actually happens, ' +
+        'with nothing on screen to say which was right.'
+    }
+  ],
+  doc: { label: 'Sources Guide \u203a Vercel Cron', url: sourcesGuide('vercel-cron') }
 };
 
 const sourceClaude: HelpTopic = {
@@ -1348,6 +1418,7 @@ const TOPIC_LIST: HelpTopic[] = [
   sourceNativeCheck,
   sourceClaude,
   sourceGitHub,
+  sourceVercel,
   schedule,
   nativeJobType,
   jobEnv,

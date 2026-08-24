@@ -629,6 +629,30 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       quick-start that works on a machine that isn't Mike's, screenshots/GIF, an honest
       feature-status table, and the wider stale-claims sweep.
 
+- [ ] **Flip the six "this repo is private" claims** *(noted 2026-08-24)*. Each is true today and
+      becomes false the moment the repo flips, and **none of them will fail a test or a build** —
+      they are prose. Listed by file and phrase rather than by line, since line numbers rot:
+
+      - `README.md` — *"Cronsole is a private MVP-stage repository"*
+      - `CONTRIBUTING.md` — *"currently a **private MVP-stage repository**"*, the opening sentence
+      - `CLAUDE.md` — the `**Repo:**` line's `(private)`
+      - `docs/DESIGN_NOTES.md` — the `**GitHub:**` line's `(private)`
+      - `docs/resources/repos/README.md` — *"This project (private)."*
+      - `frontend/src/data/docs.ts` — *"The app repo is private today, so these open for the
+        owner"*, and the whole premise of that note, since the in-app doc deep-links start
+        resolving for everyone
+
+      **Do not touch `docs/CHANGELOG.md`.** Its private-repo mentions are dated historical entries,
+      and that file's own header says rewriting them to match today is the one thing a changelog
+      must never do. The same goes for the 2026-07-13 audit note recording *why* the squash-to-a-
+      fresh-public-root decision was made.
+
+      Two are more than wording. `docs.ts` explains why a `?` button might not resolve for a
+      reader — once public, that caveat is not just stale but backwards. And `SECURITY.md` carries
+      *"don't expose publicly until real login lands"*, which is a **statement about the product's
+      security posture, not about the repo's visibility**: check it still says what is true rather
+      than deleting it with this sweep.
+
 ### Application goes public
 
 - [ ] **Versioning & releases** ← *next*: semver across the four independently-versioned

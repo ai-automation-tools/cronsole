@@ -318,8 +318,9 @@ describe('access — controller or observer', () => {
     }
   });
 
-  it('calls GitHub Actions an observer, and everything else a controller', () => {
+  it('calls the two read-only sources observers, and everything else a controller', () => {
     expect(PLATFORM_DESCRIPTORS[PlatformType.GITHUB_ACTIONS]!.access).toBe('observer');
+    expect(PLATFORM_DESCRIPTORS[PlatformType.VERCEL_CRON]!.access).toBe('observer');
     expect(PLATFORM_DESCRIPTORS[PlatformType.WINDOWS_TASK_SCHEDULER]!.access).toBe('controller');
     expect(PLATFORM_DESCRIPTORS[PlatformType.TASKHUB_NATIVE]!.access).toBe('controller');
   });
@@ -340,10 +341,10 @@ describe('access — controller or observer', () => {
     // becomes `every mutating verb is unsupported`, the two collapse and
     // "read-only on purpose" stops being sayable.
     const mutating: CapabilityVerb[] = ['run', 'create', 'setStatus', 'updateSchedule', 'updateAction', 'delete'];
-    const githubRefusesAll = mutating.every(
-      verb => !verbReachability(PlatformType.GITHUB_ACTIONS, verb)
-    );
-    expect(githubRefusesAll).toBe(true);
+    for (const observer of [PlatformType.GITHUB_ACTIONS, PlatformType.VERCEL_CRON]) {
+      const refusesAll = mutating.every(verb => !verbReachability(observer, verb));
+      expect(refusesAll, `${observer} should refuse every mutating verb`).toBe(true);
+    }
 
     // …and Windows refuses none of them, so the two are not distinguishable by
     // this count alone only because Windows happens to implement them. The

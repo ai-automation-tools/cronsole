@@ -1,0 +1,19 @@
+-- Adds VERCEL_CRON to PlatformType — Cronsole's **second** read-only observer.
+--
+-- The same shape GitHub Actions proved on 2026-08-23: a hand-composed connection
+-- holding one account token, a declared tracked set (the projects you name),
+-- health read back from stored sync evidence, and every mutating verb
+-- `unsupported` rather than unimplemented.
+--
+-- One real difference from GitHub, and it is a subtraction: Vercel exposes no
+-- API for a cron job's run outcomes. GitHub hands back `conclusion` per run, so
+-- a workflow can be scored healthy or failing; a Vercel cron cannot be, and the
+-- connector reports `reportsRunResult: false` so `taskHealth` returns `unknown`
+-- instead of inventing a verdict. Absence of evidence is `unknown`, never `ok`.
+--
+-- Nothing else in this file: a new PlatformType needs no table, no column and no
+-- backfill. `PlatformConnection`, `Task`, `TaskExclusion` and `PlatformCapability`
+-- are all keyed on the enum and gain the value for free.
+--
+-- See docs/ROADMAP.md › "Sources — where a task comes from".
+ALTER TYPE "PlatformType" ADD VALUE IF NOT EXISTS 'VERCEL_CRON';

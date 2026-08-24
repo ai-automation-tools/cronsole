@@ -40,8 +40,8 @@ access, registry). Functional MVP: real-time agent↔backend sync, selective imp
 template catalog with an Apply modal, and a shipped MCP server.
 
 **Platforms:** Windows Task Scheduler (functional) · Cronsole-native jobs (functional) · Claude Code
-routines (two modes — see Connectors) · GitHub Actions (**read-only observer**) · ChatGPT / Jules /
-Open Claw / Hermes = quick links only.
+routines (two modes — see Connectors) · GitHub Actions and Vercel Cron (**read-only observers**) ·
+ChatGPT / Jules / Open Claw / Hermes = quick links only.
 
 ---
 
@@ -193,6 +193,11 @@ Non-negotiable rules. **Every one has a reason recorded in
   reachability rule and makes refusals a `400`, not a `502`. `declared` is a promise, `verified` is
   evidence, `unsupported` is a boundary.
 - **A read-only observer is a finished connector, and its boundary is fixed rather than derived.**
+  **Two of them ship** — GitHub Actions and Vercel Cron — and both refuse the same three verbs by
+  different routes, which is the point: the boundary is a property of the *connector's design*, not
+  a count of unbuilt cells. Vercel's `run` is refused although a cron path is an ordinary HTTP
+  endpoint (calling it bypasses `CRON_SECRET` and is **not the scheduled invocation**), and its
+  `setStatus` because Vercel has no per-cron switch at all — crons are enabled per **project**.
   GitHub Actions reads scheduled workflows and changes nothing; `run` / `create` / `setStatus`
   are named in `unsupportedVerbs` as a **constant, not a getter** — Claude's answer changes with
   the install, this one is a property of the connector's design, and two of the three are
@@ -248,6 +253,13 @@ Non-negotiable rules. **Every one has a reason recorded in
   A truncated listing or one unreadable repository is a *narrowed reader*, not an emptier platform,
   so `reconcileMissingTasks` is skipped for that pass. The 50%-retention guard does not cover it:
   100 of 140 looks plausible, which is what makes a partial view worse than an empty one.
+- **A platform that reports no run outcomes says `unknown` in its own terms, permanently.**
+  `metadata.reportsRunResult` is present-and-false, never absent, and `scoreTask` dispatches on
+  platform with **no fallback arm** — the Windows branch used to be the `else`, so every other
+  source read an absent Windows snapshot and was told to *"republish the agent"*, advice about a
+  component it does not have. Vercel is the permanent case: it publishes no cron run history, so
+  scoring `enabledAt` would report every configured cron healthy. **`configured` and `working` are
+  different claims**, and only the first is knowable there.
 - **Health reports evidence, never preconditions**, and never has a side effect (Claude's documented
   routines endpoint *fires* the routine). `UNKNOWN` is the absence of a verdict and must rank above
   healthy in any summary; failure evidence ages out (15 min), connection evidence renews itself.

@@ -96,10 +96,15 @@ removes it for you), and it does **not** let a task be filed under `\Microsoft\`
 refused either way, so Windows' own scheduled tasks can't be overwritten. Ask your assistant to
 list folders first if you're not sure what already exists.
 
-**`platform` accepts `GITHUB_ACTIONS`** as of 2026-08-23 — a **read-only** source. Its workflows
-list, filter and report health like any other task, and every verb that would change one is
-refused with a `400`. `list_platforms` is the authority on that, as it is for every platform;
-do not infer a capability from a task being listed.
+**`platform` accepts `GITHUB_ACTIONS`** (2026-08-23) and **`VERCEL_CRON`** (2026-08-24) — two
+**read-only** sources. Their tasks list, filter and report health like any other, and every verb
+that would change one is refused with a `400`. `list_platforms` is the authority on that, as it is
+for every platform; do not infer a capability from a task being listed.
+
+**`VERCEL_CRON` never reports a last run result**, and that is permanent rather than pending:
+Vercel publishes no run history for a cron job, so its tasks show a schedule and stay at `unknown`
+health however well they are running. Read that as *no evidence*, not as a problem — and do not
+suggest a sync or a reconnect to "fix" it, because nothing will.
 
 `list_tasks` and `list_templates` accept optional filters (`platform`, `status`, `category`,
 `search`) and are bounded (default 50 results, with an honest "showing N of M" note). A task's

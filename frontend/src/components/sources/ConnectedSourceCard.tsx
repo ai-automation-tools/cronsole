@@ -5,6 +5,7 @@ import { sourceVisibility } from '../../utils/sourceVisibility';
 import { timeAgo } from '../../utils/datetime';
 import { ClaudeRoutinesPanel } from '../ClaudeRoutinesPanel';
 import { GitHubReposPanel } from '../GitHubReposPanel';
+import { VercelProjectsPanel } from '../VercelProjectsPanel';
 import { SidebarToggle, SourceHeading, SourceStatusPill, SourceTile, Stat } from './SourceIdentity';
 import { SUPPORT_STYLE } from './sourceStyles';
 
@@ -122,6 +123,15 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
         than as the shape of the integration.
       */}
       {row.platform === 'GITHUB_ACTIONS' && <GitHubReposPanel />}
+
+      {/*
+        Vercel is the third hand-composed connection and the second read-only
+        one. Its panel opens by saying two things rather than GitHub's one: what
+        Cronsole will not do, and — the surprise GitHub does not have — that
+        Vercel publishes no cron run history, so these tasks stay at `unknown`
+        health however well they are running.
+      */}
+      {row.platform === 'VERCEL_CRON' && <VercelProjectsPanel />}
 
       <button
         type="button"

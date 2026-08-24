@@ -254,7 +254,24 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
     if (!scoreGitHubRuns(task, now, add, disabled)) {
       return { ...base, tier: 'unknown', score: null, signals };
     }
-  } else {
+  } else if (task.platform === PlatformType.VERCEL_CRON) {
+    // **Vercel publishes no run history for a cron**, so there is nothing here
+    // to score with and `unknown` is the whole verdict — permanently, not until
+    // some future sync fills it in. Said as a property of the platform rather
+    // than as a gap in Cronsole, because the two suggest opposite next actions:
+    // one is "wait", the other is "go and look at your function logs".
+    //
+    // Scoring `enabledAt` instead would report every configured cron as healthy,
+    // which is the confident lie the observer exists to avoid: *configured* and
+    // *working* are different claims and only one of them is knowable here.
+    add(
+      'no-run-evidence',
+      'info',
+      'Cronsole has no run results for this cron job.',
+      "Vercel publishes no run history for cron jobs — their invocations appear only in the project's function logs"
+    );
+    return { ...base, tier: 'unknown', score: null, signals };
+  } else if (task.platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
     const snapshot = readWindowsSnapshot(task.metadata);
 
     if (!snapshot.reportsRunResult) {
@@ -270,6 +287,22 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
     }
 
     scoreWindowsSnapshot(task, snapshot, now, add, disabled);
+  } else {
+    // A platform with no run evidence of its own — Claude routines, and any
+    // source added before it has somewhere to report outcomes from.
+    //
+    // This used to be the Windows branch's `else`, so **every** such task was
+    // scored by reading a Windows snapshot out of its metadata and, finding
+    // none, told to "republish the agent". That is a true sentence about exactly
+    // one platform and a misdirection everywhere else, and it would have greeted
+    // the next source added here with advice about an agent it does not have.
+    add(
+      'no-run-evidence',
+      'info',
+      'Cronsole has no run results for this task yet.',
+      `${task.platform} does not report run outcomes to Cronsole`
+    );
+    return { ...base, tier: 'unknown', score: null, signals };
   }
 
   return finalize(base, signals);

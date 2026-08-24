@@ -9,6 +9,7 @@ import {
   type WatchedRepository
 } from '../hooks/useGitHubConnection';
 import { errorMessage } from '../utils/errorMessage';
+import { ConnectionField as Field } from './sources/ConnectionField';
 
 /**
  * **Watch a repository so Cronsole can read its scheduled workflows.**
@@ -341,33 +342,5 @@ export const GitHubReposPanel = () => {
     </div>
   );
 };
-
-const Field = ({
-  label, hint, value, onChange, placeholder, secret
-}: {
-  label: string;
-  hint: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  secret?: boolean;
-}) => (
-  <label className="block">
-    <span className="text-[10px] font-black uppercase tracking-widest text-subtle-foreground">{label}</span>
-    <input
-      // type="password" on the token: it is a live third-party credential typed
-      // into a tab someone may well be screen-sharing.
-      type={secret ? 'password' : 'text'}
-      autoComplete="off"
-      spellCheck={false}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      aria-label={label}
-      className="mt-1 w-full px-2.5 py-1.5 rounded-lg text-xs bg-surface border border-border text-foreground placeholder:text-subtle-foreground/60 focus:outline-none focus:border-primary font-mono"
-    />
-    <span className="text-[10px] text-subtle-foreground mt-1 block">{hint}</span>
-  </label>
-);
 
 export default GitHubReposPanel;

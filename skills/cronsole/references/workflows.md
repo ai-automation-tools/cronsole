@@ -119,7 +119,32 @@ pwsh .\scripts\cronsole.ps1 up
    *correct* — otherwise a working sync and a broken one are the same empty screen. Set `partial`
    whenever you saw less than the whole platform (a truncated page, one unreadable source), which
    suppresses retirement for that pass.
-8. **No platform-specific logic outside the connector layer.**
+8. **Can this platform report run outcomes?** Put `reportsRunResult` in every task's metadata —
+   **present-and-`false`**, never absent, because `services/taskHealth.ts` reads an absent key as
+   "Cronsole never asked" rather than "the platform has nothing to say". Then give the platform its
+   own arm in `scoreTask`. There is deliberately **no fallback arm**: the Windows branch used to be
+   the `else`, so every other source read an absent Windows snapshot and was told to *"republish the
+   agent"* — advice about a component it does not have. If the platform genuinely publishes no run
+   history (Vercel Cron), the honest answer is `unknown` **permanently**, with the reason naming the
+   platform. Never score "configured, therefore healthy": *configured* and *working* are different
+   claims.
+9. **Wire the frontend, or the source lands nameless.** None of this fails a test on its own — a
+   platform missing from these maps renders a grey globe and a raw `SCREAMING_ENUM`, and the suite
+   stays green. In `frontend/src/platform.ts`: `platformLabel`, `platformSourceLabel`,
+   `sourceDescription`, `platformBadgeClass`, `SOURCE_ICON`, `platformAccent`, and
+   **`sourceSetupHint`** (`hasPanel` decides whether the unconnected card offers a *Set up* button or
+   a sentence). In `frontend/src/index.css`: an identity pair `--x` / `--x-text` in **all three**
+   blocks (`:root`, `.dark`, `.light`) plus `@theme` — then add both to `themeContrast.test.ts`, so
+   the palette is **measured, not reviewed**. If the connection is hand-composed, render its panel
+   from **both** `ConnectedSourceCard` and `UnconnectedSourceCards` (setting a source up and
+   maintaining it later must be one surface), and reuse `sources/ConnectionField` rather than
+   growing a third copy of it.
+10. **No platform-specific logic outside the connector layer.**
+11. **Then the mirror surfaces, in the same change** (CLAUDE.md §11a): a `HelpTopic` in
+    `frontend/src/data/help.ts` pointing at a **new section in the Sources Guide** (`docsLinks.test.ts`
+    checks the anchor resolves), the `ALL_PLATFORMS` enum and the platform sentences in
+    `mcp-server/src/tools.ts`, the `list_tasks` / `list_platforms` rows in **both** MCP tool tables,
+    the platform line in CLAUDE.md §2, and CHANGELOG + ROADMAP.
 
 ## Add an API route
 

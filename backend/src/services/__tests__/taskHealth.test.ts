@@ -445,6 +445,52 @@ describe('scoreTask — GitHub Actions', () => {
   });
 });
 
+describe('a platform with no run evidence says so in its own terms', () => {
+  const vercelTask = (overrides: Partial<HealthInputTask> = {}): HealthInputTask => ({
+    id: 'v1',
+    name: '/api/cron',
+    externalId: 'website#/api/cron',
+    platform: PlatformType.VERCEL_CRON,
+    category: 'website',
+    status: TaskStatus.ACTIVE,
+    schedule: '0 9 * * *',
+    nextRunTime: null,
+    updatedAt: hoursAgo(1),
+    metadata: { reportsRunResult: false, project: 'website', path: '/api/cron' },
+    executions: [],
+    ...overrides
+  });
+
+  it('scores a Vercel cron as unknown, never as ok', () => {
+    // Vercel publishes no run history for a cron, so there is nothing to score
+    // with — permanently, not until some future sync fills it in. Scoring
+    // `enabledAt` instead would report every configured cron as healthy, which
+    // is the confident lie the observer exists to avoid: *configured* and
+    // *working* are different claims.
+    const result = scoreTask(vercelTask(), NOW);
+    expect(result.tier).toBe('unknown');
+    expect(result.score).toBeNull();
+  });
+
+  it('blames the platform rather than an agent the user does not have', () => {
+    // The misdirection this branch exists to stop. Until 2026-08-24 the Windows
+    // arm was the `else`, so **every** platform without its own scoring fell
+    // into it, read an absent Windows snapshot, and was told to "republish the
+    // agent" — a true sentence about exactly one platform.
+    const result = scoreTask(vercelTask(), NOW);
+    expect(JSON.stringify(result.signals)).not.toMatch(/republish/i);
+    expect(JSON.stringify(result.signals)).toMatch(/function logs/i);
+  });
+
+  it('gives a Claude routine the same honest reason, not the Windows one', () => {
+    // The root-cause half: fixing this only for Vercel would have left the
+    // sibling platform still misrouted.
+    const result = scoreTask(vercelTask({ platform: PlatformType.CLAUDE_CODE, metadata: {} }), NOW);
+    expect(result.tier).toBe('unknown');
+    expect(JSON.stringify(result.signals)).not.toMatch(/republish/i);
+  });
+});
+
 describe('summarizeHealth', () => {
   it('counts each tier for the badge', () => {
     const results = [

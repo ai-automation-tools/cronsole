@@ -151,9 +151,13 @@ export interface Settings {
  * The sources a fresh install lists: Windows Task Scheduler and Cronsole-native.
  *
  * Native is named here rather than assumed, so "which sources am I showing" has
- * exactly one answer to read. Claude Code and GitHub Actions are added from
- * **Explore sources** — both are real, both need a credential nobody has on a
- * first run, and an empty row for each is four platforms of which two work.
+ * exactly one answer to read. Every other source is added from **Explore
+ * sources** — they are all real, and they all need a credential nobody has on a
+ * first run, so a row for each is a sidebar that looks mostly broken on day one.
+ *
+ * Deliberately phrased as the rule rather than a tally: this comment used to say
+ * "four platforms of which two work", which stopped being true the moment a
+ * fifth source shipped.
  */
 export const DEFAULT_SHOWN_SOURCES: string[] = ['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'];
 

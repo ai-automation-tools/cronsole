@@ -441,6 +441,7 @@ enum PlatformType {
   OPEN_CLAW
   HERMES
   TASKHUB_NATIVE         // scheduled + executed by the Cronsole backend itself (docs/resources/Native_Tasks.md)
+  GITHUB_ACTIONS         // read-only observer: scheduled workflows on repositories you name
 }
 
 enum ScriptType {

@@ -75,6 +75,20 @@ describe('TaskService', () => {
     expect((TaskService as any).extractCategory('trig_01ABC', 'CLAUDE_CODE')).toBe('Claude');
   });
 
+  it('files a GitHub workflow under its repository', () => {
+    // The repository is the level-2 grouping the rail draws and the unit the
+    // Import screen offers — you track `owner/repo`, never a single workflow.
+    // Read out of the id rather than stored beside it, exactly as a Windows
+    // folder is: the id is what survives a rename.
+    expect((TaskService as any).extractCategory('acme/website#42', 'GITHUB_ACTIONS')).toBe('acme/website');
+  });
+
+  it('does not guess a repository out of a malformed GitHub id', () => {
+    // Uncategorized is the honest bucket. Inventing one would file the row under
+    // a category no rail node can reach.
+    expect((TaskService as any).extractCategory('42', 'GITHUB_ACTIONS')).toBe('Uncategorized');
+  });
+
   it('should upsert tasks with initial category', async () => {
     const tasks = [
       { externalId: '\\Mikes\\Task1', name: 'Task 1', status: 'ACTIVE' as const }

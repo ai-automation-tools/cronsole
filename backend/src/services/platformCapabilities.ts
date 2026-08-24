@@ -83,7 +83,8 @@ export const CAPABILITY_VERBS: readonly CapabilityDescriptor[] = [
 export const MATRIX_PLATFORMS: readonly PlatformType[] = [
   PlatformType.WINDOWS_TASK_SCHEDULER,
   PlatformType.TASKHUB_NATIVE,
-  PlatformType.CLAUDE_CODE
+  PlatformType.CLAUDE_CODE,
+  PlatformType.GITHUB_ACTIONS
 ] as const;
 
 export interface PlatformDescriptor {
@@ -129,6 +130,24 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
     // fuller triggers API is undocumented and gated behind another. Both may
     // change shape without notice.
     maturity: 'experimental'
+  },
+  [PlatformType.GITHUB_ACTIONS]: {
+    platform: PlatformType.GITHUB_ACTIONS,
+    label: 'GitHub Actions',
+    // **The one row where the summary leads with what Cronsole will not do**,
+    // because that is the surprising half. Every other platform here can be
+    // acted on, so a user arriving at a row of `unsupported` cells with no
+    // explanation would read them as a broken connection rather than as the
+    // shape of the integration. The matrix makes the boundary honest per verb;
+    // this sentence makes it intentional.
+    summary:
+      'Read-only. Cronsole reads the scheduled workflows in the repositories you name, their crons ' +
+      'and their real run outcomes, and changes nothing — running, pausing and editing happen on GitHub.',
+    // Functional, not experimental, and the distinction is not modesty. Both of
+    // GitHub's endpoints here are stable, documented, versioned REST — nothing
+    // like Claude's dated beta headers. A connector is judged by whether what it
+    // claims is true, not by how much of the interface it fills.
+    maturity: 'functional'
   }
 };
 

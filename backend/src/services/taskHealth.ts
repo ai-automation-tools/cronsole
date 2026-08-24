@@ -245,6 +245,15 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
 
   if (task.platform === PlatformType.TASKHUB_NATIVE) {
     scoreNativeExecutions(task, now, add, disabled);
+  } else if (task.platform === PlatformType.GITHUB_ACTIONS) {
+    // A GitHub task with no run evidence is `unknown`, not `ok` — the same
+    // early return the Windows branch below makes for an agent that predates
+    // run-result reporting. Any signal already added (a workflow GitHub
+    // auto-disabled, say) still travels: `unknown` is the absence of a verdict
+    // about its runs, not a reason to withhold what we do know.
+    if (!scoreGitHubRuns(task, now, add, disabled)) {
+      return { ...base, tier: 'unknown', score: null, signals };
+    }
   } else {
     const snapshot = readWindowsSnapshot(task.metadata);
 
@@ -326,6 +335,134 @@ function scoreNativeExecutions(
         WEIGHTS.durationDrift
       );
     }
+  }
+}
+
+/**
+ * Score a GitHub Actions workflow from **real run outcomes**.
+ *
+ * This is the branch the platform was worth adding for. Everywhere else in this
+ * file a run's outcome is either Cronsole's own (`ExecutionLog`, native) or an
+ * exit code the agent read back off Task Scheduler — and for a Windows task a
+ * Cronsole-recorded `SUCCESS` only ever means *the agent accepted a start*.
+ * GitHub reports `conclusion` for the run itself: `success`, `failure`,
+ * `cancelled`, `timed_out`. So the evidence sentence here can name the thing the
+ * user actually cares about, and the health tier means what it looks like.
+ *
+ * Two rules carried over unchanged, because they are what stops a summary
+ * lying:
+ *
+ * **`reportsRunResult` is present-and-boolean, so absence is `unknown`.** A run
+ * query that failed leaves the flag `false`, and that scores nothing at all
+ * rather than reading as "never ran" — the same reason the Windows snapshot
+ * distinguishes an absent key from a null one. Flagging every workflow in a
+ * repository because one rate-limited request came back empty is exactly the
+ * dashboard-scale wrongness this file exists to avoid.
+ *
+ * **A disabled workflow is not unhealthy**, and GitHub disables scheduled
+ * workflows *by itself* after 60 days of repository inactivity. That is the
+ * single most useful thing this observer surfaces, so it is called out as its
+ * own signal with GitHub's reason attached rather than folded into the generic
+ * `disabled` note — a workflow someone believes runs nightly having quietly
+ * stopped two months ago is a fact, not a preference.
+ */
+function scoreGitHubRuns(
+  task: HealthInputTask,
+  now: Date,
+  add: (c: string, s: HealthSignal['severity'], sum: string, ev: string, w?: number) => void,
+  disabled: boolean
+): boolean {
+  const m = (task.metadata && typeof task.metadata === 'object' ? task.metadata : {}) as Record<string, unknown>;
+  const asOf = `as of the sync at ${task.updatedAt.toISOString()}`;
+
+  // GitHub turned it off on its own. Reported whether or not it also has run
+  // evidence, and deliberately as `warn` rather than `info`: unlike a task a
+  // person parked, nobody chose this.
+  if (disabled && typeof m.disabledReason === 'string' && m.state === 'disabled_inactivity') {
+    add(
+      'workflow-auto-disabled',
+      'warn',
+      'GitHub disabled this scheduled workflow for repository inactivity.',
+      `GitHub reports state "disabled_inactivity" ${asOf}`,
+      WEIGHTS.missedRuns
+    );
+  }
+
+  if (m.reportsRunResult !== true) {
+    add(
+      'no-run-evidence',
+      'info',
+      'Cronsole has no run results for this workflow yet.',
+      'GitHub did not return a run list on the last sync — sync again to check',
+      0
+    );
+    return false;
+  }
+
+  const runCount = typeof m.scheduledRunCount === 'number' ? m.scheduledRunCount : 0;
+  if (runCount === 0) {
+    if (!disabled) {
+      add(
+        'never-run',
+        'warn',
+        'This workflow has never completed a scheduled run.',
+        `GitHub reports no finished \`schedule\` runs ${asOf}`,
+        WEIGHTS.neverRun
+      );
+    }
+    // Evidence, not silence: GitHub answered, and the answer was that there are
+    // no finished scheduled runs. That is a fact worth scoring.
+    return true;
+  }
+
+  const conclusion = typeof m.lastConclusion === 'string' ? m.lastConclusion : null;
+  const lastRun = typeof m.lastRunTime === 'string' ? new Date(m.lastRunTime) : null;
+  const when = lastRun && !Number.isNaN(lastRun.getTime()) ? ago(lastRun, now) : 'at an unreported time';
+
+  if (conclusion && conclusion !== 'success') {
+    // `cancelled` and `skipped` are outcomes somebody or something chose, not
+    // breakage — named, weighted lower, and never called a failure.
+    const chosen = conclusion === 'cancelled' || conclusion === 'skipped';
+    add(
+      chosen ? 'run-terminated' : 'recent-failure',
+      chosen ? 'warn' : 'critical',
+      `The most recent scheduled run ${describeConclusion(conclusion)}.`,
+      `GitHub reports conclusion "${conclusion}" for the run ${when}`,
+      chosen ? WEIGHTS.terminated : WEIGHTS.recentFailure
+    );
+
+    const streak = typeof m.failureStreak === 'number' ? m.failureStreak : 0;
+    if (streak >= 3) {
+      add(
+        'failure-streak',
+        'critical',
+        `The last ${streak} scheduled runs all ended without success.`,
+        `${streak} consecutive non-success conclusions in the ${runCount} runs GitHub returned`,
+        WEIGHTS.failureStreak
+      );
+    }
+  }
+
+  return true;
+}
+
+/** A GitHub `conclusion`, as a verb phrase. */
+function describeConclusion(conclusion: string): string {
+  switch (conclusion) {
+    case 'failure':
+      return 'failed';
+    case 'timed_out':
+      return 'timed out';
+    case 'cancelled':
+      return 'was cancelled';
+    case 'skipped':
+      return 'was skipped';
+    case 'action_required':
+      return 'is waiting for approval';
+    case 'startup_failure':
+      return 'could not start';
+    default:
+      return `ended as "${conclusion}"`;
   }
 }
 

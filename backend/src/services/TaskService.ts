@@ -1,5 +1,6 @@
 import { PlatformType, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
+import { repositoryFromExternalId } from './githubRepositories.js';
 
 export interface NormalizedTask {
   externalId: string;
@@ -350,6 +351,19 @@ export class TaskService {
     // because Claude has no hierarchy to reflect.
     if (platform === PlatformType.CLAUDE_CODE) {
       return 'Claude';
+    }
+
+    // A GitHub workflow's category is its **repository**, which is the level-2
+    // grouping the rail draws and the unit the Import screen offers — you track
+    // `owner/repo`, never a single workflow. Read out of the id rather than
+    // stored beside it, exactly as a Windows folder is: the id is what survives
+    // a rename, so anything derived from it stays correct through one.
+    //
+    // One definition, imported: `repositoryFromExternalId` is also what the
+    // connector writes with, and two copies of "how do you read a repository out
+    // of an id" is the drift that took a whole folder out of every sync (#20a).
+    if (platform === PlatformType.GITHUB_ACTIONS) {
+      return repositoryFromExternalId(externalId) ?? 'Uncategorized';
     }
 
     return 'Uncategorized';

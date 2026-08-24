@@ -11,7 +11,8 @@ export const platformLabel = (p: string) =>
     JULES: 'Jules',
     OPEN_CLAW: 'Open Claw',
     HERMES: 'Hermes',
-    TASKHUB_NATIVE: 'Cronsole'
+    TASKHUB_NATIVE: 'Cronsole',
+    GITHUB_ACTIONS: 'GitHub'
   }[p] ?? p.split('_')[0]);
 
 /**
@@ -35,7 +36,8 @@ export const platformSourceLabel = (p: string) =>
     JULES: 'Jules',
     OPEN_CLAW: 'Open Claw',
     HERMES: 'Hermes',
-    TASKHUB_NATIVE: 'Cronsole (Native)'
+    TASKHUB_NATIVE: 'Cronsole (Native)',
+    GITHUB_ACTIONS: 'GitHub Actions'
   }[p] ?? platformLabel(p));
 
 /**
@@ -116,7 +118,13 @@ export const sourceDescription = (key: string): string | null => {
     TASKHUB_NATIVE:
       'Scheduled and executed by Cronsole itself. Nothing appears in Windows Task Scheduler and no agent is involved — but these only run while the Cronsole backend is running.',
     CLAUDE_CODE:
-      'Prompts Anthropic runs on a schedule in the cloud. What Cronsole can do here depends on whether this machine has a Claude Code session it can read.'
+      'Prompts Anthropic runs on a schedule in the cloud. What Cronsole can do here depends on whether this machine has a Claude Code session it can read.',
+    // The one source whose sentence leads with what Cronsole will not do,
+    // because that is the surprising half: every other row here can be acted on,
+    // so a screen of `unsupported` cells with no explanation reads as a broken
+    // connection rather than as the shape of the integration.
+    GITHUB_ACTIONS:
+      'Scheduled workflows in the repositories you watch. Read-only — Cronsole shows their crons and how their last runs actually went, and changes nothing.'
   };
   return exact[key] ?? exact[key.split(':')[0]] ?? null;
 };
@@ -129,7 +137,8 @@ export const platformBadgeClass = (p: string) =>
     WINDOWS_TASK_SCHEDULER: 'bg-primary/10 text-foreground border-primary/20',
     TASKHUB_NATIVE: 'bg-native/10 text-native-text border-native/30',
     CLAUDE_CODE: 'bg-claude/10 text-claude-text border-claude/20',
-    CHATGPT: 'bg-chatgpt/10 text-chatgpt-text border-chatgpt/20'
+    CHATGPT: 'bg-chatgpt/10 text-chatgpt-text border-chatgpt/20',
+    GITHUB_ACTIONS: 'bg-github/10 text-github-text border-github/30'
   }[p] ?? 'bg-muted/10 text-muted-foreground border-border/20');
 
 export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';

@@ -3,7 +3,7 @@
 Cronsole shows tasks from more than one system, and those systems are not the same shape.
 A Windows task lives on your machine and keeps running whether or not Cronsole is up. A
 Cronsole-native task *is* a row in Cronsole's database. A Claude routine lives at claude.ai
-and Cronsole can only knock on its door.
+and Cronsole can only knock on its door. A GitHub Actions workflow Cronsole can only *watch*.
 
 This guide has one section per source: what it is, **what Cronsole can and can't do with it**,
 and the things that surprise people. It is what the **?** buttons in the app link to.
@@ -307,6 +307,68 @@ routine and forget it; removing it happens at claude.ai.
 
 ---
 
+## GitHub Actions
+
+**Scheduled workflows in the repositories you watch.** Connect on the **Platforms** tab: paste a
+GitHub personal access token, then add repositories by URL or `owner/name`. Sync brings in every
+workflow in them that has an `on: schedule` trigger.
+
+**This source is read-only, and that is the design rather than a first version.** Every mutating
+capability on its Platforms row reads *Unsupported*. Cronsole tells you what is scheduled, when it
+claims to run, and how the last runs actually went — running, pausing and editing a workflow happen
+on GitHub.
+
+Two of the three refusals have APIs behind them and are still refused, deliberately:
+
+- **Create** would mean committing a workflow file to your default branch. That is a code change,
+  not a scheduler feature, and not one a *New Task* button should be able to make.
+- **Run now** would be a `workflow_dispatch` run, which is not the scheduled run you came to check.
+- **Enable / disable** changes repository state, and belongs behind its own scopes and its own
+  confirmation rather than slipping in behind a read.
+
+### What Cronsole can do here
+
+**Sync** and **health**, plus **Remove from Cronsole** on an individual workflow. Everything else
+shows as *Unsupported* on the Platforms tab — which is that tab stating a boundary, not waiting for
+evidence. A connector that only reads is a finished thing; it just says plainly which half it is.
+
+### Things that surprise people
+
+- **You watch a repository, not a workflow.** `owner/repo` is the category, so adding one brings in
+  every scheduled workflow it has, and *Stop watching* takes them all back out. To drop a single
+  workflow while keeping the rest, use **Remove from Cronsole** on that task — the ordinary untrack
+  path works here, and the next sync will not bring it back.
+- **These crons need no conversion at all.** GitHub documents `on: schedule` as UTC with no timezone
+  support, which is exactly how Cronsole stores every schedule. This is the one source with no
+  conversion layer, no lossy-trigger warning and none of the DST asymmetry a Windows trigger carries.
+- **The run outcomes here are real outcomes.** GitHub reports whether a run succeeded, failed, timed
+  out or was cancelled — the result of the work. A Windows task can only tell Cronsole that the agent
+  *accepted a start*, so health scoring is actually better founded on the source Cronsole cannot
+  touch than on the one it controls most.
+- **GitHub disables scheduled workflows after 60 days of repository quiet.** It does this silently.
+  Cronsole surfaces it as its own health signal with GitHub's reason attached, which is usually the
+  first anyone hears that a "nightly" workflow stopped two months ago.
+- **There is no next-run time, on purpose.** GitHub queues scheduled runs on a best-effort basis and
+  delays them under load. A time computed from the cron would disagree with what actually happens,
+  with nothing on screen to say which was right — so the card shows the cron and no prediction.
+- **A private repository that 404s is usually a scope, not a typo.** GitHub answers `404` rather than
+  `403` for anything a token cannot see, so "not found" is the *expected* symptom of a token missing
+  the `repo` scope. Cronsole says so in the error rather than sending you to check the spelling.
+- **A workflow with several `cron:` entries shows the first one.** Cronsole stores one schedule per
+  task, so the rest travel with the task and the card says how many there are — rather than the row
+  being quietly wrong about when it runs.
+- **A workflow whose file Cronsole cannot read keeps its row and says why.** "Could not read this"
+  and "this has no schedule" are different facts and need different actions, so they never render the
+  same.
+- **The token is stored encrypted and never shown again.** GitHub cannot re-display a PAT either, so
+  there is no reveal button and rotating means pasting a new one. Cronsole verifies a token against
+  GitHub before saving it, so a bad paste fails at the click rather than inside a sync days later.
+- **Health here comes from your syncs, not from a probe.** `getHealth` runs every 45 seconds per open
+  tab against a 5,000-requests-an-hour rate limit, so probing would spend your budget on a question
+  sync already answers. Sync is your probe, on every source.
+
+---
+
 ## Quick links — schedulers with no connector
 
 Below the capability matrix on the **Platforms** tab is a list of bookmarks: ChatGPT, Gemini,
@@ -332,4 +394,4 @@ scheduler. See [ROADMAP.md](../../ROADMAP.md) › Sources.
 assistant, and the [troubleshooting log](../../troubleshooting/README.md) when something behaves
 unexpectedly.*
 
-*Last Updated: August 12, 2026*
+*Last Updated: August 23, 2026*

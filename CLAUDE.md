@@ -40,7 +40,8 @@ access, registry). Functional MVP: real-time agent↔backend sync, selective imp
 template catalog with an Apply modal, and a shipped MCP server.
 
 **Platforms:** Windows Task Scheduler (functional) · Cronsole-native jobs (functional) · Claude Code
-routines (two modes — see Connectors) · ChatGPT / Jules / Open Claw / Hermes = quick links only.
+routines (two modes — see Connectors) · GitHub Actions (**read-only observer**) · ChatGPT / Jules /
+Open Claw / Hermes = quick links only.
 
 ---
 
@@ -191,6 +192,16 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **"Cannot" and "has not yet" are different cells.** `unsupportedVerbs` (a boundary) outranks every
   reachability rule and makes refusals a `400`, not a `502`. `declared` is a promise, `verified` is
   evidence, `unsupported` is a boundary.
+- **A read-only observer is a finished connector, and its boundary is fixed rather than derived.**
+  GitHub Actions reads scheduled workflows and changes nothing; `run` / `create` / `setStatus`
+  are named in `unsupportedVerbs` as a **constant, not a getter** — Claude's answer changes with
+  the install, this one is a property of the connector's design, and two of the three are
+  refused *despite* having APIs (a `workflow_dispatch` run is not the scheduled run; enabling a
+  workflow is a repository-state change). The optional verbs stay unsupported by **absence**, so
+  each boundary is stated once. A sync where *every* source failed **throws** rather than
+  returning `[]`, or `reconcileMissingTasks` reads one revoked scope as a mass deletion; a
+  partial failure returns what it has. And a schedule it could not *read* is `null` **with a
+  reason**, never an assumed cron.
 - **A refresh and an import are two requests, and must stay two.** `POST /tasks/sync`
   `{ categories }` **clears the untrack exclusions** inside those folders — naming a folder is the
   gesture that started tracking it — while `{ scope: 'tracked' }` must never clear one, or a

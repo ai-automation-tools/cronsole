@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 73 | **Cronsole says a GitHub repository does not exist**, and you are looking at it in the next browser tab. *Watch a repository* fails with a 404 message; **public repositories add fine and only private ones fail**, which reads like a typo you have now checked four times | **GitHub answers `404`, not `403`, for anything a token cannot see** — deliberately, so a token cannot be used to enumerate private repositories. So “not found” is the *expected* symptom of a PAT missing the `repo` scope, and the status code sends you to check spelling instead of scopes. Regenerate the token with **`repo`** (fine-grained: **Contents: read** + **Actions: read** on that repository) and paste it again. Cronsole names the likely cause in the error rather than passing GitHub's word through | [→](#73-cronsole-says-a-github-repository-does-not-exist-and-you-are-looking-at-it) |
 | 72 | The **sidebar is half empty at a second address** — pinned folders and saved views are missing at `http://my-pc.my-tailnet.ts.net:8080/`, while **collections and favorites are all there**. Nothing errors, nothing is logged, and the same browser shows them correctly at `localhost` | **`localStorage` is scoped to an origin, and half the rail was in it.** Collections and favorites are database rows keyed on the user, so they followed the account across; rail pins and saved views lived in the `cronsole.settings` blob, which the browser hands out per origin — a different host or port is a different store, and a fresh one is empty. Both halves draw into the same sidebar, so the boundary reads as a bug. **Fixed 2026-08-23:** the whole settings blob syncs through `UserPreference` (`GET`/`PUT /api/preferences`). Theme and the API-origin override still do not sync, deliberately — they describe the device | [→](#72-the-sidebar-is-half-empty-at-a-second-address) |
 | 70 | The **Tailscale URL is dead** — `http://my-pc.my-tailnet.ts.net:8080/` returns **502**, empty body, from every device — while everything else is healthy: `cronsole status` says `ALL UP`, `localhost:7373` works, the agent is connected, `tailscale status` lists both machines, and `tailscale serve status` prints the right mapping | **The Caddy proxy container was stopped, and `restart: unless-stopped` means it.** The 502 is `tailscaled` reporting that *its upstream* refused — `curl 127.0.0.1:8080` answers `000` and `docker ps -a` shows `taskhub-proxy-1 Exited (0) 2 days ago`. `unless-stopped` restarts after a crash or a reboot but never undoes a deliberate `docker compose stop`; the proxy is also **profile-gated** (opt-in remote access, §9), so a routine `docker compose up -d` cannot bring it back and does not fail either — and `cronsole up` did not know it existed, so the 5-minute self-heal walked past it. **Fixed 2026-08-20:** `cronsole remote on` records the opt-in in `.cronsole-remote` and `up` starts the proxy. **A 404 here means something else** — `tailscale serve` matched no handler for the Host you sent, which is what curling the tailnet *IP* always does | [→](#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy) |
 | 71 | A Cronsole-native task **will not start** — the run history says *"This job refers to a secret that is not set on this task: X"* and the run is a **502**, not a failed check | Working as designed (ADR 0003). A native job holds `${secret.X}` and the value lives in a separate encrypted row; a reference with nothing behind it is a failure to **start** (`ran: false`), never a verdict about your system, because firing the request with a blank credential comes back as a 401 that reads like an expired token. Set it in the app: task → **Edit** → **Secrets**. `list_task_secrets` reports `referenced` / `stored` / `missing`. **`unreadable: true` is a fourth answer, not an empty list** — the store exists and `ENCRYPTION_KEY` changed, so the values are gone | [→](#71-a-native-task-refuses-to-start-and-names-a-secret) |
@@ -4931,6 +4932,45 @@ The integration suite migrates its own `taskhub_test` in `globalSetup`, which pr
 touching real data.
 
 *First hit: 2026-08-21.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 73. Cronsole says a GitHub repository does not exist, and you are looking at it
+
+**Symptom.** On **Platforms › GitHub Actions**, *Watch a repository* refuses with a 404 for a
+repository that is plainly there — you have it open in the next tab. Public repositories add
+without complaint; only the private ones fail. Re-pasting the URL, the `owner/name`, and the SSH
+remote all fail identically, which reads like a parsing bug in Cronsole.
+
+**Cause.** The token cannot see the repository, and **GitHub reports that as `404`, not `403`** —
+deliberately, so that an under-scoped token cannot be used to enumerate an account's private
+repositories by watching which names come back forbidden. It is a good decision by GitHub and a
+terrible symptom to debug: the one status code covers *"this does not exist"* and *"this exists and
+you may not look at it"*, and only the first of those is what a 404 means anywhere else.
+
+The tell is the split: **public works, private does not.** A wrong name fails for both.
+
+**Fix.** Regenerate the personal access token with read access to the repository, and paste it again
+on the Platforms tab:
+
+- **Classic PAT:** the **`repo`** scope. (`public_repo` alone is enough only for public repositories,
+  which is why they were working.)
+- **Fine-grained PAT:** the repository selected, with **Contents: read** (Cronsole reads the workflow
+  file to get its cron) and **Actions: read** (the workflow list and its run outcomes).
+
+Cronsole verifies a token against `GET /user` when you save it, so a *rejected* token fails at that
+click with a 401 — this failure mode is specifically a token that is valid and under-scoped, which
+nothing can detect until a repository is actually asked for.
+
+**The reusable rule.** When an API collapses *absent* and *forbidden* into one status, **the error
+message has to name both readings, because the caller cannot.** Cronsole's 404 here says so rather
+than forwarding GitHub's word, for the same reason the Claude fire endpoint's 400 says *"most often
+the routine is paused"* — a status code that is honest and ambiguous still sends people to the wrong
+place, and the layer that knows the platform is the layer that can say which.
+
+*First hit: 2026-08-23.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

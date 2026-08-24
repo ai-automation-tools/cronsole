@@ -44,6 +44,21 @@ const nativeTask = (executions: HealthInputTask['executions'], overrides: Partia
   ...overrides
 });
 
+const githubTask = (metadata: Record<string, unknown>, overrides: Partial<HealthInputTask> = {}): HealthInputTask => ({
+  id: 'g1',
+  name: 'Nightly',
+  externalId: 'acme/website#42',
+  platform: PlatformType.GITHUB_ACTIONS,
+  category: 'acme/website',
+  status: TaskStatus.ACTIVE,
+  schedule: '0 9 * * *',
+  nextRunTime: null,
+  updatedAt: hoursAgo(1),
+  metadata: { reportsRunResult: true, scheduledRunCount: 5, lastConclusion: 'success', lastRunTime: hoursAgo(12).toISOString(), ...metadata },
+  executions: [],
+  ...overrides
+});
+
 const run = (status: ExecutionStatus, hours: number, durationMs: number | null = 1000) => ({
   status,
   triggeredAt: hoursAgo(hours),
@@ -334,6 +349,99 @@ describe('rankByHealth', () => {
     ]).map(h => h.taskId);
 
     expect(ranked).toEqual(['worse', 'bad', 'warn', 'unknown', 'ok']);
+  });
+});
+
+/**
+ * **GitHub Actions is the one platform whose run outcomes are real outcomes.**
+ *
+ * Everywhere else in this file a run's verdict is either Cronsole's own
+ * (`ExecutionLog`, native) or an exit code the agent read off Task Scheduler —
+ * and a Cronsole-recorded `SUCCESS` on a Windows task only ever means *the agent
+ * accepted a start*. GitHub reports `conclusion` for the run itself, so the
+ * evidence sentence can name the thing the user cares about.
+ *
+ * The two rules carried over unchanged are the ones that stop a summary lying,
+ * and both are pinned below: absence of evidence is `unknown`, and a workflow
+ * GitHub turned off by itself is a fact rather than a preference.
+ */
+describe('scoreTask — GitHub Actions', () => {
+  it('is ok when the last scheduled run succeeded', () => {
+    const result = scoreTask(githubTask({}), NOW);
+    expect(result.tier).toBe('ok');
+  });
+
+  it('reads a failure as critical and names GitHub as the source', () => {
+    const result = scoreTask(githubTask({ lastConclusion: 'failure' }), NOW);
+    expect(result.tier).toBe('critical');
+    const signal = result.signals.find(s => s.code === 'recent-failure')!;
+    expect(signal.summary).toMatch(/failed/);
+    // The claim never travels without its source.
+    expect(signal.evidence).toMatch(/GitHub reports conclusion "failure"/);
+  });
+
+  it('calls a cancelled run terminated, not failed', () => {
+    // `cancelled` and `skipped` are outcomes somebody chose, not breakage.
+    const result = scoreTask(githubTask({ lastConclusion: 'cancelled' }), NOW);
+    expect(result.signals.map(s => s.code)).toContain('run-terminated');
+    expect(result.signals.map(s => s.code)).not.toContain('recent-failure');
+  });
+
+  it('adds a streak signal only once it is worth saying', () => {
+    const one = scoreTask(githubTask({ lastConclusion: 'failure', failureStreak: 1 }), NOW);
+    expect(one.signals.map(s => s.code)).not.toContain('failure-streak');
+
+    const three = scoreTask(githubTask({ lastConclusion: 'failure', failureStreak: 3 }), NOW);
+    const streak = three.signals.find(s => s.code === 'failure-streak')!;
+    // Named alongside the sample size — it is a streak *seen* in the runs GitHub
+    // returned, never a claim about the whole history.
+    expect(streak.evidence).toMatch(/in the 5 runs GitHub returned/);
+  });
+
+  it('is unknown, not ok, when the run query failed', () => {
+    // `reportsRunResult: false` scores nothing at all. Reading silence as "never
+    // ran" is what would flag every workflow in a repository over one
+    // rate-limited request.
+    const result = scoreTask(githubTask({ reportsRunResult: false }), NOW);
+    expect(result.tier).toBe('unknown');
+    expect(result.score).toBeNull();
+    expect(result.signals.map(s => s.code)).toContain('no-run-evidence');
+  });
+
+  it('flags a workflow GitHub disabled for inactivity', () => {
+    // GitHub does this silently after 60 days of repository quiet. Unlike a task
+    // a person parked, nobody chose this — so it is a warning, not an info note.
+    const result = scoreTask(
+      githubTask(
+        { state: 'disabled_inactivity', disabledReason: 'GitHub disabled this scheduled workflow…' },
+        { status: TaskStatus.DISABLED }
+      ),
+      NOW
+    );
+    const signal = result.signals.find(s => s.code === 'workflow-auto-disabled')!;
+    expect(signal.severity).toBe('warn');
+    expect(signal.summary).toMatch(/inactivity/);
+  });
+
+  it('does not call a workflow never-run when it is disabled', () => {
+    const result = scoreTask(
+      githubTask({ scheduledRunCount: 0, lastConclusion: undefined }, { status: TaskStatus.DISABLED }),
+      NOW
+    );
+    expect(result.signals.map(s => s.code)).not.toContain('never-run');
+  });
+
+  it('flags an active workflow that has never completed a scheduled run', () => {
+    const result = scoreTask(githubTask({ scheduledRunCount: 0, lastConclusion: undefined }), NOW);
+    expect(result.signals.map(s => s.code)).toContain('never-run');
+  });
+
+  it('does not ask a GitHub task for a Windows agent republish', () => {
+    // Before this branch existed every non-native platform fell through to the
+    // Windows snapshot, so a GitHub row would have been told to republish an
+    // agent it has nothing to do with.
+    const result = scoreTask(githubTask({ reportsRunResult: false }), NOW);
+    expect(JSON.stringify(result.signals)).not.toMatch(/republish/i);
   });
 });
 

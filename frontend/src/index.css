@@ -98,6 +98,12 @@
   --claude-text: 270 95% 75%;
   --chatgpt: 160 84% 39%;
   --chatgpt-text: 158 64% 52%;
+  /* GitHub Actions. A cool slate rather than a brand blue: this is the one
+     read-only source, and it sits beside three that can be acted on — a quieter
+     identity is the honest one, and it keeps `--info` (a status) free of a
+     platform's claim on it. */
+  --github: 213 18% 55%;
+  --github-text: 213 27% 72%;
   --ring: 262 83% 62%;
   --radius: 0.5rem;
 }
@@ -138,6 +144,8 @@
   --claude-text: 270 95% 75%;
   --chatgpt: 160 84% 39%;
   --chatgpt-text: 158 64% 52%;
+  --github: 213 18% 55%;
+  --github-text: 213 27% 72%;
   --ring: 262 83% 62%;
 }
 
@@ -182,6 +190,8 @@
   --claude-text: 272 72% 42%;
   --chatgpt: 160 84% 34%;
   --chatgpt-text: 158 64% 28%;
+  --github: 213 20% 45%;
+  --github-text: 215 25% 30%;
   --ring: 262 83% 58%;
 }
 
@@ -226,6 +236,8 @@
   --color-claude-text: hsl(var(--claude-text));
   --color-chatgpt: hsl(var(--chatgpt));
   --color-chatgpt-text: hsl(var(--chatgpt-text));
+  --color-github: hsl(var(--github));
+  --color-github-text: hsl(var(--github-text));
   --color-ring: hsl(var(--ring));
 }
 

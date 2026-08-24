@@ -11,6 +11,7 @@ import {
 } from '../hooks/usePlatformMatrix';
 import { timeAgo } from '../utils/datetime';
 import { ClaudeRoutinesPanel } from '../components/ClaudeRoutinesPanel';
+import { GitHubReposPanel } from '../components/GitHubReposPanel';
 import { HelpButton } from '../components/HelpButton';
 import { sourceTopicId } from '../data/help';
 import type { PlatformLink } from '../types';
@@ -319,6 +320,16 @@ const PlatformMatrixCard = ({ row }: { row: PlatformMatrixRow }) => {
         someone goes when the row says "Not connected".
       */}
       {row.platform === 'CLAUDE_CODE' && <ClaudeRoutinesPanel />}
+
+      {/*
+        GitHub is the second hand-composed connection, and the first read-only
+        one. The panel lives in the platform's own card for the same reason
+        Claude's does — this is where someone goes when the row says "Not
+        connected" — and it opens by saying what Cronsole will *not* do, because
+        a card of `unsupported` cells otherwise reads as a fault rather than as
+        the shape of the integration.
+      */}
+      {row.platform === 'GITHUB_ACTIONS' && <GitHubReposPanel />}
 
       <button
         onClick={() => setExpanded(!expanded)}

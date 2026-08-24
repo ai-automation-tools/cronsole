@@ -352,6 +352,66 @@ const sourceNative: HelpTopic = {
   ]
 };
 
+const sourceGitHub: HelpTopic = {
+  id: 'source:GITHUB_ACTIONS',
+  title: 'GitHub Actions',
+  summary:
+    'Scheduled workflows in the repositories you watch. Read-only: Cronsole shows their crons and ' +
+    'how their last runs actually went, and changes nothing.',
+  points: [
+    {
+      label: 'Read-only is the whole shape, not a first version',
+      body:
+        'Every mutating capability reads Unsupported on the Platforms tab and that is deliberate. ' +
+        'Running, pausing and editing a workflow happen on GitHub — Cronsole will not commit to ' +
+        'your repository, and a workflow_dispatch run is not the scheduled run you came to check.'
+    },
+    {
+      label: 'These crons are already UTC, so nothing is converted',
+      body:
+        'GitHub documents on: schedule as UTC with no timezone support, which is exactly how ' +
+        'Cronsole stores every schedule. This is the one source with no conversion layer and none ' +
+        'of the DST asymmetry a Windows trigger carries.'
+    },
+    {
+      label: 'The run outcomes here are real outcomes',
+      body:
+        'GitHub reports whether the run succeeded, failed, timed out or was cancelled — the result ' +
+        'of the work. A Windows task can only tell Cronsole that the agent accepted a start, so ' +
+        'health scoring is better founded here than on the platform Cronsole controls most.'
+    },
+    {
+      label: 'GitHub disables scheduled workflows after 60 days of quiet',
+      body:
+        'It does this silently on a repository with no activity. Cronsole surfaces it as its own ' +
+        'health signal with GitHub\'s reason attached, which is usually the first anyone hears ' +
+        'that a nightly workflow stopped two months ago.'
+    },
+    {
+      label: 'You watch a repository, not a workflow',
+      body:
+        'The repository is the category, so adding one brings in every scheduled workflow it has ' +
+        'and stopping brings them all out. To drop a single workflow while keeping the rest, use ' +
+        'Remove from Cronsole on that task.'
+    },
+    {
+      label: 'A private repository that 404s is usually a scope, not a typo',
+      body:
+        'GitHub answers 404 rather than 403 for anything a token cannot see, so "not found" is the ' +
+        'expected symptom of a token missing the repo scope. Cronsole says so in the error rather ' +
+        'than sending you to check the spelling.'
+    },
+    {
+      label: 'No next-run time, and that is honest',
+      body:
+        'GitHub queues scheduled runs on a best-effort basis and delays them under load. A time ' +
+        'computed from the cron would disagree with what actually happens, with nothing on screen ' +
+        'to say which was right — so Cronsole shows the cron and no prediction.'
+    }
+  ],
+  doc: { label: 'Sources Guide › GitHub Actions', url: sourcesGuide('github-actions') }
+};
+
 const sourceClaude: HelpTopic = {
   id: 'source:CLAUDE_CODE',
   title: 'Claude Code routines',
@@ -1184,6 +1244,7 @@ const TOPIC_LIST: HelpTopic[] = [
   sourceNativeScript,
   sourceNativeCheck,
   sourceClaude,
+  sourceGitHub,
   schedule,
   nativeJobType,
   taskSecrets,

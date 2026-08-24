@@ -1,0 +1,16 @@
+-- Adds GITHUB_ACTIONS to PlatformType — Cronsole's first **read-only observer**.
+--
+-- Every platform before this one could be acted on: Windows through the agent,
+-- Claude through /fire, Cronsole-native because the row IS the task. GitHub
+-- Actions is the mirror image — Cronsole reads the scheduled workflows on the
+-- repositories you name, their crons and their real run outcomes, and changes
+-- nothing. Every mutating verb is `unsupported`, which the capability matrix has
+-- been able to state honestly since 2026-08-12; before that a connector had to
+-- be fully controllable to avoid implying verbs it could not perform.
+--
+-- Nothing else in this file: a new PlatformType needs no table, no column and no
+-- backfill. `PlatformConnection`, `Task`, `TaskExclusion` and `PlatformCapability`
+-- are all keyed on the enum and gain the value for free.
+--
+-- See docs/ROADMAP.md › "Sources — where a task comes from".
+ALTER TYPE "PlatformType" ADD VALUE IF NOT EXISTS 'GITHUB_ACTIONS';

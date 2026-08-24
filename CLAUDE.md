@@ -331,6 +331,17 @@ Non-negotiable rules. **Every one has a reason recorded in
   (`bg-amber-500` etc. are banned in `frontend/src`). Each role is a pair: `--x` (accent, used at low
   opacity) and `--x-text` (text on the page background — it must invert between themes while the
   accent must not). `-text` is not `-foreground`. A shared hue is not a shared role.
+- **The palette is measured, not reviewed** (`__tests__/themeContrast.test.ts`, WCAG AA: 4.5 text,
+  3.0 non-text). Colour is the one thing that breaks *silently* — a failing role renders perfectly
+  — so every role is checked against **every surface it can land on**, not against the page. The
+  2026-08-12 pass measured against white and left 26 pairs under the bar, because `muted` is the
+  binding constraint and a status **dot** is non-text UI with no text beside it to rescue it.
+  **Elevation steps away from the page background**, in whichever direction that theme's page
+  sits: light cannot say "lifted" with "lighter" (the page is white), so it steps darker and
+  keeps the order. Inverting it put `raised` at 1.04 — flatter than the card it sits above
+  ([#78](docs/troubleshooting/README.md#78-the-light-theme-is-hard-to-read-and-every-value-looks-defensible)).
+  `:root` must equal `.dark` exactly, or the default theme flashes a different palette before
+  hydration on every cold load and nothing fails.
 - TanStack Query for all server state; invalidate on `task:updated`. Mobile is first-class — every
   page passes a `<375px` viewport check.
 - **Filter state is one `TaskFilters` object and lives in the URL** (`utils/taskFilters.ts`,

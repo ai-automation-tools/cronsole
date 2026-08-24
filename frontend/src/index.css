@@ -59,20 +59,20 @@
      mechanical reason every control read at one weight. */
   --raised: 0 0% 11%;
   --muted: 0 0% 14%;
-  --border: 0 0% 17%;
+  --border: 0 0% 22%;
   --foreground: 0 0% 96%;
   --muted-foreground: 0 0% 64%;
-  --subtle-foreground: 0 0% 45%;
+  --subtle-foreground: 0 0% 55%;
   --primary: 262 83% 58%;
   --primary-foreground: 0 0% 100%;
-  --primary-hover: 262 84% 67%;
-  --success: 160 84% 39%;
+  --primary-hover: 262 84% 63%;
+  --success: 160 84% 26%;
   --success-foreground: 0 0% 100%;
-  --success-hover: 158 74% 45%;
+  --success-hover: 158 74% 30%;
   --success-text: 158 64% 52%;
   --warning: 38 92% 50%;
   --warning-text: 43 96% 56%;
-  --danger: 0 84% 60%;
+  --danger: 0 84% 50%;
   --danger-foreground: 0 0% 100%;
   --danger-text: 0 91% 71%;
   --danger-surface: 0 75% 12%;
@@ -113,20 +113,20 @@
   --surface: 0 0% 7%;
   --raised: 0 0% 11%;
   --muted: 0 0% 14%;
-  --border: 0 0% 17%;
+  --border: 0 0% 22%;
   --foreground: 0 0% 96%;
   --muted-foreground: 0 0% 64%;
-  --subtle-foreground: 0 0% 45%;
+  --subtle-foreground: 0 0% 55%;
   --primary: 262 83% 58%;
   --primary-foreground: 0 0% 100%;
-  --primary-hover: 262 84% 67%;
-  --success: 160 84% 39%;
+  --primary-hover: 262 84% 63%;
+  --success: 160 84% 26%;
   --success-foreground: 0 0% 100%;
-  --success-hover: 158 74% 45%;
+  --success-hover: 158 74% 30%;
   --success-text: 158 64% 52%;
   --warning: 38 92% 50%;
   --warning-text: 43 96% 56%;
-  --danger: 0 84% 60%;
+  --danger: 0 84% 50%;
   --danger-foreground: 0 0% 100%;
   --danger-text: 0 91% 71%;
   --danger-surface: 0 75% 12%;
@@ -151,35 +151,47 @@
 
 .light {
   --background: 0 0% 100%;
-  --surface: 0 0% 95%;
-  /* In light the ramp runs the other way: raised sits *between* white and
-     surface, so a lifted panel still reads as lifted rather than sunken. */
-  --raised: 0 0% 98%;
-  --muted: 0 0% 89%;
-  --border: 0 0% 85%;
+  --surface: 0 0% 97%;
+  /* Light is the **mirror** of dark, not a re-invention: the same separations
+     from the page, in the only direction available when the page is white.
+     Until 2026-08-24 it ran 100 -> 95 -> 98, which put `raised` *closer* to the
+     page (1.04) than `surface` (1.12) — a panel that is supposed to sit above a
+     card read flatter than the card, and at 1.04 was very nearly invisible. The
+     comment here used to defend that as "lifted rather than sunken", which is a
+     real concern and the wrong trade: on a white page every step away from the
+     background is darker, so "lifted" cannot be expressed as "lighter" and the
+     honest choice is a step you can actually see. Compare the two ramps against
+     their own background — dark 1.05/1.16/1.27, light 1.07/1.14/1.25. */
+  --raised: 0 0% 94%;
+  --muted: 0 0% 90%;
+  --border: 0 0% 80%;
   --foreground: 0 0% 9%;
-  --muted-foreground: 0 0% 40%;
-  --subtle-foreground: 0 0% 52%;
+  --muted-foreground: 0 0% 34%;
+  --subtle-foreground: 0 0% 40%;
   --primary: 262 83% 58%;
   --primary-foreground: 0 0% 100%;
   --primary-hover: 262 72% 48%;
-  --success: 160 84% 34%;
+  --success: 160 84% 28%;
   --success-foreground: 0 0% 100%;
-  --success-hover: 161 84% 28%;
+  --success-hover: 161 84% 22%;
   /* Every `-text` below is markedly darker than its dark-theme twin. That flip
      is the whole point: these were previously one raw value serving both
-     themes, so light mode rendered dark mode's colours on white. */
+     themes, so light mode rendered dark mode's colours on white.
+     Re-measured 2026-08-24 against **every** surface rather than against white
+     alone, which is what the 2026-08-12 pass checked: `muted` is the binding
+     constraint, not `background`, and two roles were clearing the page while
+     failing the fill they are most often read on. */
   --success-text: 158 64% 28%;
-  --warning: 38 92% 50%;
-  --warning-text: 26 90% 37%;
-  --danger: 0 84% 60%;
+  --warning: 38 92% 41%;
+  --warning-text: 26 90% 34%;
+  --danger: 0 84% 50%;
   --danger-foreground: 0 0% 100%;
   --danger-text: 0 74% 42%;
   --danger-surface: 0 75% 12%;
   --danger-surface-text: 0 86% 92%;
   --isolate: 350 89% 60%;
   --isolate-text: 345 83% 41%;
-  --info: 199 89% 48%;
+  --info: 199 89% 45%;
   --info-text: 201 90% 33%;
   --system: 258 90% 66%;
   --system-text: 259 69% 45%;

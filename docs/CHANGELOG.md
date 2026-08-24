@@ -35,6 +35,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 
 ### Fixed
+- **The light theme is legible now, and both themes are measured rather than reviewed** (2026-08-24). Light mode clashed and was hard to read. Measuring every role against every surface — rather than against white, which is what the 2026-08-12 tokenising pass checked — found **26 pairs below the WCAG AA bar across both themes**, and the cause of the "washed out" feeling was structural.
+
+  **Elevation was inverted in light.** The ramp ran page 100% → surface 95% → **raised 98%**, which put a *raised* panel closer to the page (1.04:1) than the card it was supposed to sit above (1.12:1) — at 1.04 it was very nearly invisible. Light is now the mirror of dark: the same separations, in the only direction available when the page is white. Dark reads 1.05/1.16/1.27 from its background; light now reads 1.07/1.14/1.25.
+
+  **The field labels were the worst offender.** `subtle-foreground` — the 10px uppercase label above every form field, 338 places — failed AA on every surface in **both** themes (down to 3.27 dark, 2.89 light). It now clears 4.5 everywhere. `muted-foreground` moved with it in light, so the two do not collapse into one weight.
+
+  **Two buttons could not be read at all.** White on the green **Run now** fill measured 2.59:1, and white on the red destructive-confirm fill 3.78:1. Both now clear 4.5. The greens and reds are correspondingly deeper; the separate `-text` variants are untouched, so status *text* is as bright as it was.
+
+  **Amber and sky were invisible as dots in light** (2.14:1 and 2.85:1 against white) — a status dot carries meaning with no text beside it, so it needs 3:1. Both darkened in light only.
+
+  All of this is now pinned by a test that parses `index.css` and measures every pair, so the palette cannot regress quietly — including a check that `:root` still matches `.dark` exactly, since a drift there would flash the wrong palette before hydration on every cold load. One known gap is pinned rather than papered over: `--border` still does not meet WCAG 1.4.11's 3:1, because it is one token doing both decorative card separation and input-control boundaries, and closing it properly needs a second token.
+
 - **A check that correctly fails no longer marks Cronsole-native itself broken** (2026-08-24). Point a *File freshness* check at a file that is not there, run it, and the Sources tab put a red banner on the whole platform: *"1 verb failed more recently than it succeeded — Run now: `D:/nope/missing.tar` does not exist"*. Nothing was wrong with Cronsole-native. The check had done exactly what it was written to do.
 
   `runTask` reports two different things — whether the run could be **started**, and whether the job **passed** — because for a native job those are separate facts. The capability cell means *"Cronsole can trigger a run on this platform"*, so it is the first one that belongs there; it was reading the second. The run route already drew that line correctly in its response (a failing check is a `200` with bad news, not a gateway error) and the line recording the capability, four lines earlier, did not.

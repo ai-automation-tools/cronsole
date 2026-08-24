@@ -34,6 +34,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent through `\Cronsole-Stack\CronsoleAgent` (RunLevel `Highest`), then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
+| 78 | **The light theme is hard to read and nothing in it looks obviously wrong.** Panels sit flat on the page, field labels wash out, coloured status dots vanish — and every individual value looks defensible when you open `index.css` | **Colour fails silently, so it has to be measured rather than reviewed.** A role below the WCAG bar renders perfectly. Measuring every role against every *surface* (not just the page) found **26 pairs under AA across both themes**, and the structural fault: light ran `background 100% -> surface 95% -> raised 98%`, putting a *raised* panel at **1.04:1** against the page — flatter than the `surface` card it sits above (1.12) and effectively invisible. `muted` is the binding constraint in light, not `background`, which is why a pass that checked against white missed it. Fixed 2026-08-24: light is now the mirror of dark (1.07/1.14/1.25 vs 1.05/1.16/1.27) and `themeContrast.test.ts` measures every pair, so this cannot recur quietly. **If a colour looks wrong, run that test before opening a picker** | [→](#78-the-light-theme-is-hard-to-read-and-every-value-looks-defensible) |
 | 77 | **The Sources tab says a verb failed, and the reason is your own broken file.** Cronsole-native shows *"1 verb failed more recently than it succeeded — Run now: `D:/nope/missing.tar` does not exist (checked on the machine the backend runs on)"*. The platform is otherwise **HEALTHY**, every task runs, and the named file is one *you* pointed a check at | **A `CHECK` that correctly finds a problem was recorded as a failure of the platform's Run verb.** `runTask` returns `success` **and** `ran` because they are orthogonal; the row `success: false, ran: true` is a native job that *executed* and reported bad news — the check working. The route's response branch drew that line correctly (it is what #59 fixed) and the `recordCapability` call four lines above it still passed `result.success`, so one failing check marked Cronsole-native's own Run verb broken and kept the reason. **The tell: the reason names something on your disk rather than anything about Cronsole.** Capability failures do **not** age out — they clear when that verb next succeeds. Fixed 2026-08-24 (`runVerbSucceeded`); **restart the backend**, then run any native task once and the banner clears | [→](#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file) |
 | 76 | **Save is blocked on a script or check task** with *"What it runs: A command is required."* — over a form that has no command field. Editing the script body, the interpreter, the working directory or any part of a check reproduces it; an HTTP job on the same screen saves fine. Related: an unreadable **Environment** on a script job reported *"Headers must be JSON…"*, and a script job has no headers | **The edit modal had its own completeness check, and it knew two job types.** `nativeJobIncomplete` is the shared definition — its own doc comment says "shared by the create and edit forms so a job cannot be submittable in one and refused in the other" — but `EditTaskModal` never called it: it asked for a URL on HTTP and a `command` on *everything else*, which SCRIPT and CHECK do not have. The null-payload message was hard-coded to the headers for the same reason. Both are the §9 one-definition rule: a second copy of a judgement drifts the moment the first grows a case. **Fixed 2026-08-24** — the edit modal calls `nativeJobIncomplete`, and the unreadable-field sentence comes from `nativeJobUnreadable`, which names the field | [→](#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist) |
 | 75 | **A watched GitHub repository imports nothing.** The PAT is valid, the repository is listed, **Sync** reports success and updates `lastSync` on every press, the platform reads **HEALTHY** with `sync` **verified** — and `taskCount` stays `0`, forever, with nothing in the error log | **The plain Sync filters to already-tracked categories, and GitHub records what you asked for in its config rather than in rows.** `scope: 'tracked'` derived the include-set from stored rows (how Windows works — you pick a folder in the discovery modal and the rows are the record), so a freshly added repository had none, the set came back `[]`, and every workflow it read was filtered out. **Adding the repository *is* the naming gesture**, and there was no fallback: the discovery modal talks to the Windows agent. Fixed 2026-08-24 — `PlatformConnector.trackedCategories(config)`, implemented by the GitHub connector as its watched repositories. If you are on older code, the workaround is a `{ categories: ['owner/repo'] }` sync | [→](#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive) |
@@ -5231,6 +5232,71 @@ it once the fix is loaded.
 **The reusable tell:** a capability failure whose reason names something on *your* disk is not a
 capability failure. The matrix says what Cronsole *can do*; if the sentence is about your system
 rather than about Cronsole, the wrong predicate reached the recorder.
+
+*First hit: 2026-08-24.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 78. The light theme is hard to read, and every value looks defensible
+
+**Symptom.** Light mode "clashes". Panels sit flat on the page instead of reading as panels, the
+small uppercase field labels wash out, amber and blue status dots are hard to find on white. Open
+`index.css` and every single value looks reasonable — which is why this sat for twelve days after a
+pass that was specifically about theme colour.
+
+**Cause — the general one.** **Colour is the one part of the app that breaks silently.** A role
+below the WCAG bar renders perfectly, ships, and is only caught by someone squinting. There is no
+error, no failing test, no console warning. So it cannot be reviewed; it has to be *measured*.
+
+The 2026-08-12 pass tokenised every role precisely because light mode was broken, and then checked
+the new values **against white**. That is the wrong reference:
+
+- `muted` is the darkest fill in light mode, so it — not `background` — is the binding constraint.
+  Two roles cleared the page and failed the fill they are most often read on.
+- A **status dot** has no text beside it. It is non-text UI at 3:1, and `--warning` (2.14:1) and
+  `--info` (2.85:1) were invisible on white while their `-text` twins were fine.
+
+Measuring every role against every surface found **26 pairs below the bar, in both themes** —
+including `subtle-foreground` (the 10px label above every form field, 338 sites) failing on *every*
+surface in dark as well as light, and white-on-green **Run now** at 2.59:1.
+
+**Cause — the structural one.** The light ramp was inverted:
+
+```
+light   background 100%  ->  surface 95%  ->  raised 98%
+                  1.00          1.12            1.04   <- raised is FLATTER than surface
+dark    background   4%  ->  surface  7%  ->  raised 11%
+                  1.00          1.05            1.16   <- correctly ordered
+```
+
+`raised` is meant to sit *above* `surface`. At 1.04:1 it was very nearly the page itself. The
+comment defending it argued that on a white page a lifted panel should be lighter, "lifted rather
+than sunken" — which is a real concern and the wrong trade. **White is a ceiling.** On a light page
+every step away from the background is darker, so "lifted" cannot be expressed as "lighter", and a
+step you cannot see is worse than one that reads as inset.
+
+**Fix (2026-08-24).** Light is now the **mirror** of dark — the same separations, opposite
+direction: 1.07 / 1.14 / 1.25 against 1.05 / 1.16 / 1.27. Roles were corrected by solving for the
+minimum change that clears the bar on the *worst* surface, so hue and saturation were never touched.
+`muted-foreground` moved with `subtle-foreground` in light, because the value that clears AA was the
+one `muted-foreground` already had and the two would have collapsed into a single weight.
+
+`frontend/src/__tests__/themeContrast.test.ts` now parses `index.css` and measures every pair (65
+assertions). It also pins `:root === .dark`, because a drift there flashes the wrong palette before
+hydration on every cold load and — again — nothing fails.
+
+**One gap is pinned rather than closed.** `--border` is 1.61:1 light / 1.69:1 dark against a 3:1
+bar. It is one token doing two jobs: separating cards (decorative, exempt from WCAG 1.4.11) and
+drawing the boundary of a text input (in scope). 3:1 needs `L=58%` / `L=37%`, which would make every
+hairline in the app a heavy rule at all 313 call sites. That needs a second token and a sweep of the
+*controls*, which is on the roadmap; the test asserts the current floor **and** fails if someone
+closes the gap by value alone.
+
+**The reusable rule:** when a colour looks wrong, measure before you open a picker — and measure
+against every surface the role can land on, not against the page. A role that passes on the
+background and fails on `muted` looks exactly like a role that is fine.
 
 *First hit: 2026-08-24.*
 

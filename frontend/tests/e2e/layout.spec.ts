@@ -99,6 +99,43 @@ async function dashboardReady(page: Page) {
   await expect(page.getByTestId('task-list')).toBeVisible();
 }
 
+/**
+ * Anything in `<main>` wider than the viewport, ignoring deliberate scrollers.
+ *
+ * Extracted 2026-08-24 so a second screen can be held to the same rule. The
+ * Sources tab is the one that needed it: its capability table and its tab strip
+ * are both wider than a phone, and both are *supposed* to scroll inside their
+ * own box — which is indistinguishable from the page panning sideways unless
+ * something walks the ancestors and checks.
+ */
+async function measureOverflow(page: Page) {
+  return page.evaluate(() => {
+  const main = document.querySelector('main');
+  const wide = [...document.querySelectorAll('main *')]
+    .filter(el => {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.right <= window.innerWidth + 1) return false;
+      // Ignore anything inside a deliberate horizontal scroller — a row that
+      // scrolls inside its own box is the fix, not the bug. The walk goes all
+      // the way up, not one level: the view chips sit two wrappers deep
+      // inside the saved-views scroller, so a parent-only check reported the
+      // mobile fix as the mobile bug.
+      for (let a: Element | null = el; a && a.tagName !== 'MAIN'; a = a.parentElement) {
+        const ox = getComputedStyle(a).overflowX;
+        if (ox === 'auto' || ox === 'scroll') return false;
+      }
+      return true;
+    })
+    .slice(0, 5)
+    .map(el => `${el.tagName}.${String((el as HTMLElement).className).slice(0, 70)}`);
+  return {
+    bodyScrolls: document.documentElement.scrollWidth > window.innerWidth + 1,
+    mainScrolls: main ? main.scrollWidth > main.clientWidth + 1 : false,
+    wide
+  };
+  });
+}
+
 test.describe('mobile layout — 375px', () => {
   test.use({ viewport: MOBILE });
 
@@ -109,35 +146,43 @@ test.describe('mobile layout — 375px', () => {
     // The whole point of the mobile pass. A single element wider than the
     // viewport makes the entire page pan sideways, which on a phone reads as the
     // app being broken rather than as one chip being too wide.
-    const overflow = await page.evaluate(() => {
-      const main = document.querySelector('main');
-      const wide = [...document.querySelectorAll('main *')]
-        .filter(el => {
-          const r = el.getBoundingClientRect();
-          if (r.width === 0 || r.right <= window.innerWidth + 1) return false;
-          // Ignore anything inside a deliberate horizontal scroller — a row that
-          // scrolls inside its own box is the fix, not the bug. The walk goes all
-          // the way up, not one level: the view chips sit two wrappers deep
-          // inside the saved-views scroller, so a parent-only check reported the
-          // mobile fix as the mobile bug.
-          for (let a: Element | null = el; a && a.tagName !== 'MAIN'; a = a.parentElement) {
-            const ox = getComputedStyle(a).overflowX;
-            if (ox === 'auto' || ox === 'scroll') return false;
-          }
-          return true;
-        })
-        .slice(0, 5)
-        .map(el => `${el.tagName}.${String((el as HTMLElement).className).slice(0, 70)}`);
-      return {
-        bodyScrolls: document.documentElement.scrollWidth > window.innerWidth + 1,
-        mainScrolls: main ? main.scrollWidth > main.clientWidth + 1 : false,
-        wide
-      };
-    });
+    const overflow = await measureOverflow(page);
 
     expect(overflow.wide).toEqual([]);
     expect(overflow.bodyScrolls).toBe(false);
     expect(overflow.mainScrolls).toBe(false);
+  });
+
+  /*
+    The Sources tab on a phone, all three views.
+
+    It is the screen with the most ways to be too wide — a segmented control, a
+    four-column stat row, a card header carrying a status pill and a switch, and
+    a ten-row evidence table — and every one of them shipped with its responsive
+    classes written and read back as correct. jsdom does not evaluate media
+    queries, so `grid-cols-2 sm:grid-cols-4` is invisible to the unit suite and
+    it passes whether the class is right or wrong. This is where that is caught.
+  */
+  test('every Sources view fits a phone, including the evidence table', async ({ page }) => {
+    for (const focus of ['connected', 'available', 'links']) {
+      await page.goto(`/sources?focus=${focus}`);
+      await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
+      await expect(page.getByRole('tablist', { name: 'Sources' })).toBeVisible();
+
+      const overflow = await measureOverflow(page);
+      expect(overflow.wide, `${focus} view has an element wider than the viewport`).toEqual([]);
+      expect(overflow.bodyScrolls, `${focus} view pans sideways`).toBe(false);
+    }
+
+    // The table is the deliberate exception, and it has to actually be one: it
+    // scrolls inside its own box rather than widening the page.
+    await page.goto('/sources?focus=connected');
+    await page.getByRole('button', { name: /Capabilities and evidence/ }).first().click();
+    const table = page.locator('table').first();
+    await expect(table).toBeVisible();
+    const scroller = table.locator('xpath=ancestor::div[1]');
+    expect(await scroller.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+    expect((await measureOverflow(page)).bodyScrolls).toBe(false);
   });
 
   test('the saved views bar is one scrolling row, not four stacked ones', async ({ page }) => {
@@ -402,16 +447,19 @@ test.describe('desktop layout — 1280px', () => {
    * whenever a row's height moves. The rules the page exists to express are
    * structural, so they are asserted structurally.
    */
-  test('platforms matrix states each capability as evidence', async ({ page }) => {
+  test('sources matrix states each capability as evidence', async ({ page }) => {
+    // The legacy address, on purpose: `/platforms` is rewritten to `/sources`,
+    // and a link in the wild landing on the wrong screen is indistinguishable
+    // from a broken one.
     await page.goto('/platforms');
-    await expect(page.getByRole('heading', { name: 'Platforms' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
 
     // The two platforms that actually work must be present — their absence was
     // the original defect: the tab listed only bookmarks to Claude/ChatGPT/Gemini.
     await expect(page.getByText('Windows Task Scheduler')).toBeVisible();
     await expect(page.getByText('Cronsole-native')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Show the evidence behind each capability' }).first().click();
+    await page.getByRole('button', { name: /Capabilities and evidence/ }).first().click();
     const table = page.locator('table').first();
     await expect(table).toBeVisible();
 
@@ -431,6 +479,10 @@ test.describe('desktop layout — 1280px', () => {
     // what it runs with no agent and while one is offline. This assertion still
     // demanded Unsupported for it, which was true of an older build.)
     const native = page.getByTestId('platform-row-TASKHUB_NATIVE');
+    // Per-verb detail lives behind each card's own disclosure since the
+    // 2026-08-24 redesign, so this asks the native card rather than assuming the
+    // chips are on screen because another card was expanded.
+    await native.getByRole('button', { name: /Capabilities and evidence/ }).click();
     for (const verb of ['Edit schedule', 'Export', 'Delete', 'Edit action']) {
       await expect(native.getByTitle(new RegExp(`^${verb}: (Verified|Declared)`))).toBeVisible();
     }

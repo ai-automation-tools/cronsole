@@ -214,6 +214,15 @@ Non-negotiable rules. **Every one has a reason recorded in
   Cronsole later is absent from every existing list, so it arrives opt-in without a migration.
   A fresh install shows Windows and Cronsole-native; the rest are added from **Explore sources**,
   and that route existing is what makes hiding safe rather than indistinguishable from missing.
+  **`shown` and `configured` are two facts, and the Sources tab renders both on different
+  controls** — its three views (`?focus=connected|available|links`, one definition in
+  `SourcesScreen`) split on `configured`; the eye switch on each card is the only thing that reads
+  `shown`. Collapsing them is the tempting simplification and it destroys the union rule: adding a
+  source would have to connect it. So *Available* holds two groups — added-but-unconnected first,
+  because that is the state with something to do — and **an unconnected source states what would
+  connect it** (`sourceSetupHint`): a panel to open, or a sentence and no button where nothing you
+  could type would help. `?focus=yours` stays a legal alias; a stale link landing on the wrong view
+  is indistinguishable from a broken one.
 - **A refresh and an import are two requests, and must stay two.** `POST /tasks/sync`
   `{ categories }` **clears the untrack exclusions** inside those folders — naming a folder is the
   gesture that started tracking it — while `{ scope: 'tracked' }` must never clear one, or a

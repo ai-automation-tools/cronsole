@@ -1,15 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  ChevronRight, Layers, Monitor, Zap, Bot, Globe, Terminal, EyeOff, Star,
-  PanelLeftClose, PanelLeftOpen, FileCode, Activity, Bookmark, Plus, Pin, X,
+  ChevronRight, Layers, Monitor, EyeOff, Star,
+  PanelLeftClose, PanelLeftOpen, Bookmark, Plus, Pin, X,
   Compass, SlidersHorizontal
 } from 'lucide-react';
 import { useConnections, healthMeta } from '../hooks/useConnections';
 import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
 import { useSettings } from '../hooks/useSettings';
 import { railListedPlatforms } from '../utils/sourceVisibility';
-import { sourcePlatform } from '../platform';
+import { sourceIcon } from '../platform';
 import { HelpButton } from './HelpButton';
 import { sourceTopicId } from '../data/help';
 import {
@@ -55,28 +55,9 @@ import type { TaskFilters } from '../utils/taskFilters';
  * import from it. See `buildSourceTree` for the existence-vs-count split.
  */
 
-/**
- * Icon per source key, then per platform, then a globe.
- *
- * Keyed on the full source key first so a subtype can differ from its platform —
- * a native HTTP job and a native script are the same platform and should not
- * look identical in the one control that separates them.
- */
-const SOURCE_ICON: Record<string, typeof Monitor> = {
-  WINDOWS_TASK_SCHEDULER: Monitor,
-  'TASKHUB_NATIVE:HTTP': Globe,
-  'TASKHUB_NATIVE:EXEC': Terminal,
-  // A stored script reads as a document; a check reads as a measurement. Both
-  // are deliberately unlike Terminal, since the three sit adjacent in the tree
-  // and a shared glyph would make the level-2 rows scan as one thing.
-  'TASKHUB_NATIVE:SCRIPT': FileCode,
-  'TASKHUB_NATIVE:CHECK': Activity,
-  TASKHUB_NATIVE: Zap,
-  CLAUDE_CODE: Bot
-};
-
-const iconFor = (key: string) =>
-  SOURCE_ICON[key] ?? SOURCE_ICON[sourcePlatform(key)] ?? Globe;
+// One definition, in `platform.ts`, because the Sources tab draws the same
+// glyphs on its cards. See `sourceIcon` for why it is not private here.
+const iconFor = sourceIcon;
 
 interface SourceRailProps {
   /**
@@ -175,9 +156,13 @@ export const SourceRail = ({
    * Which platforms get a row even with no tasks of their own.
    *
    * The union of three facts — asked for, holds tasks, is connected — with one
-   * definition in `utils/sourceVisibility.ts`, because the Sources tab's
-   * *Your sources* / *Available* split has to be the same question. A second
-   * copy here is how "connected but hidden" starts meaning two things.
+   * definition in `utils/sourceVisibility.ts`, because the eye switch on every
+   * Sources-tab card has to be answering this same question. A second copy here
+   * is how "connected but hidden" starts meaning two things.
+   *
+   * Note the Sources tab's three *views* do **not** read this: they split on
+   * `configured`. Listed and connected are different facts, and only this one
+   * decides whether the rail draws a row.
    *
    * Connections are still read directly: they arrive on their own query, and a
    * rail that waits for the matrix would drop every empty-but-connected row for
@@ -509,7 +494,7 @@ export const SourceRail = ({
               Icon={SlidersHorizontal}
               label="Manage sources"
               title="Connect, disconnect, and choose which sources this sidebar lists"
-              onClick={() => navigate('/sources?focus=yours')}
+              onClick={() => navigate('/sources?focus=connected')}
             />
           </div>
         )}

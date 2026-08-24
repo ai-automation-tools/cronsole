@@ -4,9 +4,15 @@ import type { PlatformMatrixRow } from '../hooks/usePlatformMatrix';
  * Which sources this install shows, and which it is only *offering*.
  *
  * One definition, because three surfaces ask it — the rail (which rows to draw),
- * the Sources tab (*Your sources* versus *Available*), and the show/hide switch
- * (whether it may be turned off at all). Three copies of a union is three places
- * for "connected but hidden" to mean something different.
+ * the Sources tab's *Available* view (which of its two groups a source lands in),
+ * and the show/hide switch (whether it may be turned off at all). Three copies of
+ * a union is three places for "connected but hidden" to mean something different.
+ *
+ * **This is not what the Sources tab's three views split on.** Those read
+ * `configured` — whether a source actually has a connection — because "listed in
+ * my sidebar" and "working" are different questions and the screen answers both.
+ * Collapsing them would make *adding* a source *connect* it, which is precisely
+ * the union rule below being destroyed.
  *
  * **Shown is a union of three facts, and only one of them is a preference:**
  *
@@ -22,7 +28,7 @@ import type { PlatformMatrixRow } from '../hooks/usePlatformMatrix';
  */
 
 export interface SourceVisibility {
-  /** Drawn in the rail and listed under *Your sources*. */
+  /** Drawn in the rail, and grouped as *added* rather than *offered*. */
   shown: boolean;
   /**
    * May the switch be turned off?

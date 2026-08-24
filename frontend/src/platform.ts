@@ -1,6 +1,10 @@
-// Single source of truth for platform display — labels and badge styling.
-// Cronsole-native tasks get a distinct violet identity so they're immediately
-// separable from platform-synced tasks (docs/resources/Native_Tasks.md).
+// Single source of truth for platform display — labels, glyphs and badge
+// styling. Cronsole-native tasks get a distinct violet identity so they're
+// immediately separable from platform-synced tasks (docs/resources/Native_Tasks.md).
+import {
+  Activity, Bot, Cpu, FileCode, GitBranch, Globe, Laptop, Monitor, Terminal, Zap,
+  type LucideIcon
+} from 'lucide-react';
 
 export const platformLabel = (p: string) =>
   ({
@@ -159,3 +163,99 @@ export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';
 // the browser renders it.** A second copy in the browser is the drift that took
 // a whole folder out of every sync (troubleshooting #20a) — and this copy had
 // already gone wrong in both directions inside two days.
+
+/**
+ * Icon per source key, then per platform, then a globe.
+ *
+ * Keyed on the full source key first so a subtype can differ from its platform —
+ * a native HTTP job and a native script are the same platform and should not
+ * look identical in the one control that separates them.
+ *
+ * **Hoisted out of `SourceRail` on 2026-08-24**, when the Sources tab needed the
+ * same glyphs for its cards. Two private maps of one fact is the §11a shape: the
+ * rail and the Sources tab would have drifted into drawing the same platform two
+ * ways, and neither would have failed a test while doing it.
+ */
+const SOURCE_ICON: Record<string, LucideIcon> = {
+  WINDOWS_TASK_SCHEDULER: Monitor,
+  MACOS_LAUNCHD: Laptop,
+  'TASKHUB_NATIVE:HTTP': Globe,
+  'TASKHUB_NATIVE:EXEC': Terminal,
+  // A stored script reads as a document; a check reads as a measurement. Both
+  // are deliberately unlike Terminal, since the three sit adjacent in the tree
+  // and a shared glyph would make the level-2 rows scan as one thing.
+  'TASKHUB_NATIVE:SCRIPT': FileCode,
+  'TASKHUB_NATIVE:CHECK': Activity,
+  TASKHUB_NATIVE: Zap,
+  CLAUDE_CODE: Bot,
+  CHATGPT: Cpu,
+  // lucide dropped its brand glyphs at v1, so there is no Octocat to reach for.
+  // A branch is the honest second choice: what Cronsole reads here is a workflow
+  // living in a repository, not the service's logo.
+  GITHUB_ACTIONS: GitBranch
+};
+
+export const sourceIcon = (key: string): LucideIcon =>
+  SOURCE_ICON[key] ?? SOURCE_ICON[sourcePlatform(key)] ?? Globe;
+
+/**
+ * A platform's identity colour, as the two classes a card actually needs.
+ *
+ * Identity, **not status** — the same distinction `--native` and `--system` are
+ * kept apart for. A card's tile says *which* source this is; the health pill
+ * beside it says how it is doing, and the two must never be read off one colour.
+ *
+ * Role tokens only (`bg-claude/10`, `text-claude-text`), never a raw Tailwind
+ * palette utility — those are banned in `frontend/src` because a literal cannot
+ * know which theme it is in, and light mode ends up wearing dark mode's colours.
+ * Windows has no token of its own and uses `primary`, matching the badge it
+ * already wears on every task card.
+ */
+export const platformAccent = (p: string): { tile: string; rule: string } =>
+  ({
+    WINDOWS_TASK_SCHEDULER: { tile: 'bg-primary/10 text-foreground', rule: 'bg-primary/40' },
+    TASKHUB_NATIVE: { tile: 'bg-native/10 text-native-text', rule: 'bg-native/40' },
+    CLAUDE_CODE: { tile: 'bg-claude/10 text-claude-text', rule: 'bg-claude/40' },
+    CHATGPT: { tile: 'bg-chatgpt/10 text-chatgpt-text', rule: 'bg-chatgpt/40' },
+    GITHUB_ACTIONS: { tile: 'bg-github/10 text-github-text', rule: 'bg-github/40' }
+  }[p] ?? { tile: 'bg-muted text-muted-foreground', rule: 'bg-border' });
+
+/**
+ * What actually makes this source connect — for a card that says *Not connected*.
+ *
+ * The half-finished state used to render a full capability matrix of unproven
+ * chips and the words "Not connected", which names the problem and offers
+ * nothing. Two shapes of answer, and which one a platform gets is a real
+ * difference rather than a gap in the copy:
+ *
+ *  - **Composed by hand** (Claude, GitHub) — there is a panel to fill in, so the
+ *    card opens it. `hasPanel` is what the card branches on.
+ *  - **Connects itself** (Windows, native) — nothing to type; the connection
+ *    appears when the agent dials in or the backend comes up. Offering a
+ *    *Connect* button here would be a control that cannot do what it says.
+ *
+ * Copy, not a judgement: `configured` is the server's and is never re-derived.
+ */
+export const sourceSetupHint = (p: string): { hasPanel: boolean; hint: string } =>
+  ({
+    WINDOWS_TASK_SCHEDULER: {
+      hasPanel: false,
+      hint: 'Connects itself once the Cronsole agent is installed and running on this machine. Nothing to fill in here — if it stays unconnected, the agent is the thing to check.'
+    },
+    TASKHUB_NATIVE: {
+      hasPanel: false,
+      hint: 'Connects itself whenever the Cronsole backend is running, because this database is its scheduler. If it reads unconnected, the backend is down.'
+    },
+    MACOS_LAUNCHD: {
+      hasPanel: false,
+      hint: 'Waiting on the macOS agent. Nothing to connect yet.'
+    },
+    CLAUDE_CODE: {
+      hasPanel: true,
+      hint: 'Anthropic issues a token per routine and publishes no way to list them, so each routine is registered here by hand.'
+    },
+    GITHUB_ACTIONS: {
+      hasPanel: true,
+      hint: 'Name the repositories to watch and Cronsole reads their scheduled workflows. Read-only — it changes nothing in the repository.'
+    }
+  }[p] ?? { hasPanel: false, hint: 'Nothing to connect here yet.' });

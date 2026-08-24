@@ -1,30 +1,50 @@
-# Contributing — extending Cronsole
+<h1 align="center">🛠️ Contributing</h1>
 
-Documents for people writing code *for* Cronsole rather than using it. The general rules — branch
-roles, commit format, local setup, the checks CI runs — are in
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md) at the repo root. What lives here is the deeper guidance
-for the extension points that have one.
+<p align="center">
+  <em>Guides for writing code that extends Cronsole, rather than for using it.</em>
+</p>
 
-| Doc | What's inside |
-|:---|:---|
-| [**Adding a source**](Adding_A_Source.md) | Make Cronsole read scheduled work from a platform it doesn't support yet. The three shapes (controller · observer · quick link) and how to pick, the contract a connector must meet, the build order file by file, which existing connector to copy, and what gets declined. |
-
-## Why there is no plugin folder
-
-Every extension point here is **compiled in**, and that is a decision rather than an unfinished
-feature. A connector holds third-party credentials, issues commands to the user's own machine, and
-decides what a sync is allowed to retire — loading that off disk unreviewed would put arbitrary code
-behind Cronsole's trust boundary. So extending Cronsole means a pull request, and the tradeoff is
-stated out loud in the app itself rather than only here.
-
-The upside is that an extension cannot silently disagree with the interface it implements: the type
-checker and the suite see every connector, so a contract change breaks the build instead of breaking
-someone's install.
+<p align="center">
+  <img src="https://img.shields.io/badge/extension_point-connectors-8B5CF6?style=for-the-badge" alt="Extension point: connectors">
+  <a href="../../CONTRIBUTING.md"><img src="https://img.shields.io/badge/setup_&_PR_rules-CONTRIBUTING-2ea44f?style=for-the-badge" alt="CONTRIBUTING.md"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/↩-docs-6B7280?style=for-the-badge" alt="Docs home"></a>
+</p>
 
 ---
 
-*See also: [`CLAUDE.md`](../../CLAUDE.md) §9 for the full invariant list,
-[`DESIGN_NOTES.md`](../DESIGN_NOTES.md) for the argument behind any rule you want to push back on,
-and the [Sources Guide](../user-guides/guides/Sources_Guide.md) for what each shipped source does.*
+Branch roles, commit format, local setup and the checks CI runs are in
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md) at the repo root. This folder holds the longer guidance
+for the parts of Cronsole built to be extended.
 
-*Last Updated: August 24, 2026*
+| Guide | What's inside |
+|:---|:---|
+| [**🔌 Adding a source**](Adding_A_Source.md) | Make Cronsole read scheduled work from a platform it doesn't support yet. Which of the three shapes it is and how to pick, the contract a connector must meet, the ten files to touch in order, which existing connector to copy, and what gets declined. |
+
+## 🧩 Why there is no plugin folder
+
+Every extension point here is **compiled in**. That is a decision, not an unfinished feature: a
+connector holds third-party credentials, issues commands to the user's own machine, and decides what
+a sync may retire. Loading that off disk unreviewed would put arbitrary code inside Cronsole's trust
+boundary.
+
+So extending Cronsole means opening a pull request. The tradeoff is stated in the app itself rather
+than only here — the **Add a custom source** panel on the Sources tab says the same thing before it
+sends you to the guide.
+
+What you get back for it: an extension cannot quietly disagree with the interface it implements. The
+type checker and the test suite see every connector, so a contract change breaks the build instead of
+breaking somebody's install.
+
+> [!TIP]
+> Start with a [source proposal issue](../../.github/ISSUE_TEMPLATE/new_source.md). It asks the four
+> questions that decide whether a connector is worth building — shape, auth surface, which verbs are
+> *cannot* versus *not yet*, and whether the platform reports run outcomes. Five minutes there beats
+> discovering the answer four hundred lines in.
+
+---
+
+<p align="center">
+  <a href="../README.md">← Docs home</a> ·
+  <a href="../../CONTRIBUTING.md">CONTRIBUTING.md</a> ·
+  <a href="../user-guides/guides/Sources_Guide.md">Sources Guide →</a>
+</p>

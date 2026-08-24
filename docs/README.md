@@ -44,7 +44,7 @@ New to Cronsole? Follow this path in order:
 |:---|:---|
 | [**📄 reports/**](reports/README.md) | Task templates (the two-tier catalog) and worked API examples. |
 | [**🧩 Template registry**](reports/templates/Registry_Schema_v1.md) | The target-agnostic Registry v1 JSON schema for templates (the catalog is a decoupled, hosted registry). |
-| [**🧠 adr/**](adr/0001-template-registry-schema.md) | Architecture decision records (ADR 0001: the template registry). |
+| [**🧠 adr/**](adr/README.md) | Architecture decision records — the template registry, the four native job types, and per-job secrets. Each dated, and kept as written once it ships. |
 | [**🛠️ agent-tools/**](agent-tools/README.md) | The AI tooling Cronsole is built with — MCP servers, CLIs, and subagents. |
 | [**🧠 skills/**](../skills/README.md) | The Cronsole Agent Skill — architecture, invariants, and traps, so an AI agent knows the system before it edits it. |
 | [**🌐 resources/**](resources/README.md) | Curated external links — native scheduler UIs and reference repos/sites. |

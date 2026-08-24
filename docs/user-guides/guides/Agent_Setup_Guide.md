@@ -34,7 +34,7 @@ The repository provides an automation script, [setup-agent-startup.ps1](../../..
 3. **Cleans Up Legacy Tasks**: Scans Windows Task Scheduler for any existing `CronsoleAgent` registrations (whether at the root `\` or in subfolders) and unregisters them to prevent duplicate executions.
 4. **Registers in dedicated Folder**: Creates and registers a new task named `CronsoleAgent` inside the `\Cronsole-Stack\` Task Scheduler folder.
 5. **Logon Trigger**: Configures the task to trigger automatically whenever you log into Windows, using the current user context with highest privileges.
-6. **Robust Execution Settings**:
+6. **Settings that keep it running**:
    - **No execution time limit** — Task Scheduler's default is 72 hours, which would silently kill the long-running agent after 3 days (restart-on-failure does not apply to time-limit kills).
    - Allows execution on battery power and prevents stopping when going on battery.
    - Set to automatically restart up to 3 times (every 1 minute) if it encounters an unexpected exit.

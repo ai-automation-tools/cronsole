@@ -21,23 +21,20 @@
  */
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { CREDENTIAL_PATTERNS } from '../../scripts/secret-patterns.mjs';
 
 const DIST = join(import.meta.dirname, '..', 'dist');
 
-const PATTERNS = [
-  {
-    name: 'JSON Web Token',
-    // header.payload — a JWT header always base64s to this prefix, so this is the
-    // token itself rather than any long base64 string (source maps and inlined
-    // assets are full of those, and a looser pattern would be ignored within a week).
-    re: /eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}/g
-  },
-  { name: 'AWS access key id', re: /\bAKIA[0-9A-Z]{16}\b/g },
-  { name: 'GitHub token', re: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g },
-  { name: 'Anthropic API key', re: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/g },
-  { name: 'OpenAI API key', re: /\bsk-[A-Za-z0-9]{32,}\b/g },
-  { name: 'Private key block', re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g }
-];
+/**
+ * One definition, shared with scripts/check-tracked-env.mjs, which runs the same
+ * patterns over every git-tracked .env* file. Different population, same fact:
+ * adding a provider in one place covers both surfaces.
+ *
+ * Deliberately tight rather than broad - a JWT is matched by its header.payload
+ * shape, not as "any long base64 string", because source maps and inlined assets
+ * are full of those and a looser pattern would be ignored within a week.
+ */
+const PATTERNS = CREDENTIAL_PATTERNS;
 
 if (!existsSync(DIST)) {
   console.error('check-bundle-secrets: no dist/ to scan — run the build first.');

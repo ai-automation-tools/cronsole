@@ -12,9 +12,10 @@ import templatesDoc from '../../../../docs/reports/templates/Templates.md?raw';
 import troubleshooting from '../../../../docs/troubleshooting/README.md?raw';
 import adrPerJobSecrets from '../../../../docs/adr/0003-per-job-secrets.md?raw';
 import remoteAccessGuide from '../../../../docs/user-guides/guides/Remote_Access_Guide.md?raw';
+import addingASource from '../../../../docs/contributing/Adding_A_Source.md?raw';
 
 import { describe, it, expect } from 'vitest';
-import { DOCS_BASE } from '../docs';
+import { DOCS_BASE, addingASourceDoc } from '../docs';
 import { helpTopics } from '../help';
 import { GETTING_STARTED_STEPS, HELP_GUIDES } from '../onboarding';
 
@@ -45,7 +46,8 @@ const DOC_SOURCES: Record<string, string> = {
   'docs/reports/templates/Templates.md': templatesDoc,
   'docs/troubleshooting/README.md': troubleshooting,
   'docs/adr/0003-per-job-secrets.md': adrPerJobSecrets,
-  'docs/user-guides/guides/Remote_Access_Guide.md': remoteAccessGuide
+  'docs/user-guides/guides/Remote_Access_Guide.md': remoteAccessGuide,
+  'docs/contributing/Adding_A_Source.md': addingASource
 };
 
 /**
@@ -88,7 +90,17 @@ const links: { from: string; label: string; url: string }[] = [
     label: s.link!.label,
     url: s.link!.url
   })),
-  ...HELP_GUIDES.map(g => ({ from: 'Help Center guides', label: g.label, url: g.url }))
+  ...HELP_GUIDES.map(g => ({ from: 'Help Center guides', label: g.label, url: g.url })),
+  // Not a `HelpTopic`, so none of the collectors above sees it — and a link the
+  // matrix cannot see is exactly the one that rots, which is this file's whole
+  // premise. `AddCustomSourcePanel` is the only component that deep-links into
+  // the repo on its own rather than through `help.ts`; if a second ever does,
+  // the honest fix is to collect them rather than to add a second line here.
+  {
+    from: 'AddCustomSourcePanel',
+    label: 'Adding a source',
+    url: addingASourceDoc()
+  }
 ];
 
 describe('in-app documentation links', () => {

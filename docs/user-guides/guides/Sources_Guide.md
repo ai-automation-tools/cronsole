@@ -541,7 +541,13 @@ decides what a sync is allowed to retire, which is not a thing to load off disk 
 So **adding a source means a pull request** to
 [the repository](https://github.com/michaelschecht/cronsole), and the honest version of that
 sentence is: open one, and you will get an answer about whether it fits. Some proposals do not, and
-the reasons are below rather than in a reply to your PR.
+the reasons are written down rather than delivered in a reply to your PR.
+
+> **Writing one? Read [Adding a source](../../contributing/Adding_A_Source.md)** — the contributor
+> document. It has the build order file by file, which connector to copy, the full contract, and a
+> five-minute proposal issue to open *before* you write anything, so that *"this should be a quick
+> link"* costs you a paragraph rather than a weekend. The rest of this section is the short version:
+> what the shapes are, and what gets declined.
 
 ### First: is it a source at all?
 
@@ -578,17 +584,15 @@ connector is, so shipping a read-only source is not an apology.
 
 ### Where the code goes
 
-| Piece | Where |
-|:--|:--|
-| The connector | `backend/src/connectors/<Name>Connector.ts`, registered in `connectors/registry.ts` |
-| The platform value | `PlatformType` in the Prisma schema, plus a migration |
-| Its row on the Sources tab | `MATRIX_PLATFORMS` and `PLATFORM_DESCRIPTORS` in `backend/src/services/platformCapabilities.ts` |
-| Its labels and icon | `frontend/src/platform.ts` |
-| Its help topic and this guide | `frontend/src/data/help.ts` + a section here — `docsLinks.test.ts` checks the link resolves |
+Ten files, in a fixed order — backend connector, Prisma enum and migration, capability descriptor,
+then the frontend labels, palette and panel, then the records. The full list with the reason behind
+each step is in [Adding a source](../../contributing/Adding_A_Source.md#3-build-it-in-this-order),
+kept in one place because it is exactly the sort of list that goes stale when it is written twice.
 
-**No platform-specific logic lives outside the connector layer.** A `switch` on the platform in a
-route or a component is the thing code review will send back, every time. Credentials go in
-`PlatformConnection.config`, which is encrypted at the application layer and never logged decrypted.
+Two rules from it are worth stating here because they are what review sends a PR back for:
+**no platform-specific logic lives outside the connector layer** — a `switch` on the platform in a
+route or a component — and **credentials go in `PlatformConnection.config`**, which is encrypted at
+the application layer and never logged decrypted.
 
 ### What will not be accepted
 
@@ -603,10 +607,13 @@ route or a component is the thing code review will send back, every time. Creden
 ### Opening the PR
 
 Say which of the three shapes it is and why, list the verbs you are *not* supporting and whether
-that is "cannot" or "not yet", and include the auth surface it needs. Read
-[`CONTRIBUTING.md`](../../../CONTRIBUTING.md) for the rest — commit format, tests, and what a review
-looks at. A connector with an honest capability matrix and half the verbs beats a complete-looking
-one that guesses.
+that is "cannot" or "not yet", include the auth surface it needs, and say whether the platform
+reports run outcomes at all. [Adding a source](../../contributing/Adding_A_Source.md#6-open-the-pr)
+has the full list and the commands to run first;
+[`CONTRIBUTING.md`](../../../CONTRIBUTING.md) has the commit format and branch roles.
+
+**A connector with an honest capability matrix and half the verbs beats a complete-looking one that
+guesses.**
 
 ---
 

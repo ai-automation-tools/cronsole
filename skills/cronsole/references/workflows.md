@@ -102,6 +102,11 @@ pwsh .\scripts\cronsole.ps1 up
 
 ## Add a new platform connector
 
+> **Canonical: [`docs/contributing/Adding_A_Source.md`](../../../docs/contributing/Adding_A_Source.md).**
+> That doc is public-facing and has the reasoning, the contract and which connector to copy
+> (`VercelCronConnector` is the smallest complete one). What follows is the same order in short
+> form — if the two ever disagree, **the doc wins and this list is what gets fixed.**
+
 1. Implement `PlatformConnector` in `backend/src/connectors/<Platform>Connector.ts`.
 2. Register in `backend/src/connectors/registry.ts`.
 3. **Only implement the optional methods you can honestly do.** Leaving `deleteTask?`

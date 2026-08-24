@@ -737,6 +737,21 @@ verification pass — is still open above, narrowed to the half that needs a tok
       its own scope and its own confirmation, and that is written in the guide rather than legible
       only from the connector.
 
+- [x] **Adding a source has a contributor document and a proposal template** *(2026-08-24, ahead of
+      going public)*. The Sources Guide section below was written for a *user* and the panel linked
+      into the middle of it, so a developer arriving to build landed in a page about something else.
+      [`docs/contributing/Adding_A_Source.md`](contributing/Adding_A_Source.md) is the canonical
+      version: the shape decision, the contract with its reasons, the ten-file build order (the four
+      frontend steps fail no test when skipped, which is why they are numbered), which connector to
+      copy, what gets declined, and what to put in the PR. A
+      [source proposal issue](../.github/ISSUE_TEMPLATE/new_source.md) comes first and asks the four
+      questions that decide whether it is worth building — shape, auth surface, *cannot* vs *not
+      yet*, and whether the platform reports run outcomes.
+      **Deliberately no scaffold or template connector**: a file nothing compiles against drifts from
+      the interface, so the doc points at `VercelCronConnector` — real, tested, and the smallest
+      complete one. Nothing was duplicated — the guide keeps its user-facing half, and the skill
+      checklist routes to the doc and states that the doc wins.
+
 - [x] **The Sources Guide says how to add a source** *(2026-08-24)*. New *Adding a source* section —
       the three shapes (controller · observer · quick link), what a connector must answer, where each
       piece of code goes, what will not be accepted, and what to put in the PR — plus *Choosing which

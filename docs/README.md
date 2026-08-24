@@ -35,6 +35,7 @@ New to Cronsole? Follow this path in order:
 | [**🖥️ user-guides/**](user-guides/README.md) | Use it — dashboard walkthrough, the Windows agent guide, the [MCP server](user-guides/guides/MCP_Server_Guide.md) (drive Cronsole from Claude/Codex/Cursor), and [remote access](user-guides/guides/Remote_Access_Guide.md) so you can reach your own instance from your phone. |
 | [**💬 prompts/**](prompts/README.md) | Talk to it — copy-paste prompts for driving Cronsole in natural language, grouped by what you're doing: [scheduled scripts](prompts/mcp-server/windows-tasks.md), [headless coding-agent runs](prompts/mcp-server/ai-agent-jobs.md), [HTTP and script jobs](prompts/mcp-server/native-tasks.md), [Claude routines](prompts/mcp-server/claude-routines.md), audits, cleanup — plus the `cronsole` skill and the REST API. |
 | [**🧯 troubleshooting/**](troubleshooting/README.md) | Fix it — symptom → cause → fix for problems we've actually hit. |
+| [**🛠️ contributing/**](contributing/README.md) | Extend it — how to add a source (a new scheduler) as a connector: which shape it is, the contract, the build order, and which existing connector to copy. |
 | [**🧪 testing/**](testing/README.md) | Verify it — functional, integration, regression, and UAT: what to test, what covers it today, and how to run it. Includes copy-pasteable [manual runbooks](testing/manual-testing/README.md) for what no suite can prove (real Task Scheduler, agent resilience, security at rest). |
 
 ## 🧰 Reference & building blocks

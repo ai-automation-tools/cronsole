@@ -1037,17 +1037,25 @@ const platforms: HelpTopic = {
         'reads as finished rather than as one somebody stopped halfway through.'
     },
     {
+      label: 'The tabs split on connected, the switch on listed',
+      body:
+        'Connected holds sources with a working connection; Available holds everything else. ' +
+        'The eye switch on each card is a different question — whether the sidebar lists it — ' +
+        'and a source can be listed with nothing connected behind it. Available shows those ' +
+        'first, with what would actually connect them.'
+    },
+    {
       label: 'Available is what you are not watching yet',
       body:
         'A fresh install lists Windows and Cronsole-native; the rest are added from here. Adding ' +
-        'one lists it in the sidebar — connecting it is a separate step, and either one is enough ' +
-        'to make it show.'
+        'one lists it in the sidebar and gives it somewhere to be set up from — it connects ' +
+        'nothing on its own.'
     },
     {
       label: 'Quick links are bookmarks, not sources',
       body:
-        'Schedulers with no connector, kept below the real sources for that reason. Nothing is ' +
-        'read or written through them.'
+        'Schedulers with no connector, kept in their own view for that reason. Nothing is read ' +
+        'or written through them, and no task from one appears in your dashboard.'
     }
   ],
   doc: { label: 'UI User Guide › Sources', url: uiGuide('6-sources--what-cronsole-can-actually-do') },

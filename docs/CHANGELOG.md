@@ -12,6 +12,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+- **The Sources tab is three views now, split on whether a source is actually connected** (2026-08-24). It was one long scroll of four stacked sections, and the seam between them was in the wrong place: *Your sources* meant **listed in your sidebar**, so a source with nothing connected behind it sat among the working ones wearing a full grid of unproven capability chips and the words *Not connected*. That is a real, common state — you add GitHub Actions, then get to the token later — and it was the one the screen described worst while being the only one with anything to do.
+
+  **Connected** holds sources with a working connection. **Available** holds everything else, in two groups: the sources you have already added, then the ones you have not. **Quick links** holds the bookmarks. The tabs carry live counts, and the sidebar's *Explore sources* and *Manage sources* buttons open the view they name — `?focus=` now selects a view instead of smooth-scrolling to an anchor, so a reload and a shared link land where they say they will. The old `?focus=yours` spelling still resolves.
+
+  **An unconnected source now says what would actually connect it**, and the answer takes one of two shapes. Claude Code and GitHub Actions have something to fill in, so **Set up** opens that panel in place. Windows and Cronsole-native have nothing to type — they connect when the agent dials in or the backend comes up — so they get the sentence and no button, because a *Connect* control that cannot connect anything is worse than the explanation.
+
+  **Connected cards lead with the summary.** Identity, health and the four numbers stay on screen; the per-verb chips and the evidence table moved behind one disclosure that says how many verbs are verified and how many are unproven. Four connected sources used to fill three screens. **Nothing about a problem moved** — a degraded reason and any verb that failed more recently than it succeeded still break out on the card itself, because collapsing a card is a density decision and must never make the screen quieter exactly when something is wrong.
+
+  Each source now wears its own glyph and identity colour, from the same definition the sidebar draws from. Loading is a skeleton of the card rather than a spinner, and each empty view says what to do next instead of announcing a void.
+
+- **Quick links are reachable on a phone** (2026-08-24). The remove control sat at `opacity-0` until you hovered the row — which on a touch screen is a control that does not exist. It is always rendered now, quiet until you reach for it. The tiles also show a link's **host** instead of its whole URL, which at tile width truncated into an ellipsis and identified nothing; the full URL is still in the tooltip.
+
+
 ### Fixed
 - **A sync now says what it looked at, not just what it found** (2026-08-24). Add a GitHub repository whose workflows all run on `push`, press **Sync**, and you used to get *"Tasks synced."* and an empty dashboard — identical, on screen, to a sync that is broken. It now says:
 
@@ -43,7 +57,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
   **Two rules hold whichever you use.** A source **holding tasks can never be hidden** — the switch is disabled and says which tasks are holding it, rather than disappearing. And **connecting a source shows it**, so you are never asked to confirm something Cronsole can infer from what you just did. Which sources you show is a preference, so it follows your account rather than the browser.
 
-  **The tab was renamed because it already was the sources screen.** It held the capability matrix, the Claude routines panel, the GitHub repositories panel and the quick links — everything about where tasks come from — under a name that described the code. It is now four sections: **Your sources**, **Available**, **Quick links**, and **Add a custom source**. `/platforms` still works and redirects, so an old bookmark or a link in the docs lands in the right place.
+  **The tab was renamed because it already was the sources screen.** It held the capability matrix, the Claude routines panel, the GitHub repositories panel and the quick links — everything about where tasks come from — under a name that described the code. It is now three views — **Connected**, **Available** and **Quick links** — described in the entry below. `/platforms` still works and redirects, so an old bookmark or a link in the docs lands in the right place.
 
 - **Quick links came out from under the capability matrix, and stopped being per-browser** (2026-08-24). They were the last section of the Platforms tab, below four rows of capability chips — backwards, because the matrix is for the platforms Cronsole *operates* and a quick link is a bookmark to a scheduler it cannot see at all. They now sit in their own section of the Sources tab, still below the real sources and still saying **nothing is read or written** through them, which is what keeps a bookmark from reading as a broken connector.
 

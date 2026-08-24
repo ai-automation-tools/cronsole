@@ -637,9 +637,28 @@ verification pass — is still open above, narrowed to the half that needs a tok
       it (`?focus=`); **Add a custom source** lives on the screen, because three controls in a 240px
       rail is furniture and Explore/Manage are two views of one list. `/platforms` redirects.
 
+- [x] **The Sources tab is three views, split on `configured`** *(2026-08-24, same day as the rename)*.
+      The first pass kept the old seam — *Your sources* meant **listed in the sidebar**, so an added
+      but unconnected source sat among the working ones wearing a grid of unproven capability chips
+      and the words *Not connected*. That is the state with the most to do and the screen described
+      it worst. Now **Connected · Available · Quick links**, with `?focus=` selecting a view rather
+      than smooth-scrolling to an anchor (`yours` kept as an alias). `sourceVisibility` is untouched
+      and still owns the sidebar; the tabs read `configured` and only the per-card eye switch reads
+      `shown`, because collapsing the two would make *adding* a source *connect* it. *Available*
+      leads with added-but-unconnected, and each such card states what would connect it
+      (`sourceSetupHint`) — a panel to open for the two hand-composed sources, a sentence and no
+      button for the two that connect themselves. Connected cards lead with the summary and put the
+      chips and the evidence table behind one disclosure; **`healthReason` and any regressed verb
+      still break out on the card**, since collapsing must never make the screen quieter when
+      something is wrong. `sourceIcon` / `platformAccent` hoisted into `platform.ts` so the rail and
+      the tab draw one identity. Quick links became a tile grid whose remove control is **rendered
+      rather than revealed on hover** — a hover-only control does not exist on a phone — and shows a
+      link's host instead of a URL that truncated into an ellipsis. Covered at 375px by a new
+      Playwright case over all three views.
+
 - [x] **Quick links moved out from under the matrix, and onto the account** *(2026-08-24)*. Their own
-      section of the Sources tab, below the real sources and still carrying *"nothing is read or
-      written"*. They were in `localStorage` under `cronsole_platform_links` — the pre-`UserPreference`
+      view on the Sources tab, kept apart from the real sources and still carrying *"nothing is read
+      or written"*. They were in `localStorage` under `cronsole_platform_links` — the pre-`UserPreference`
       shape, so one install kept two lists across two origins — and are now part of the synced
       settings document, migrated on first load (`utils/quickLinks.ts`, which clears the legacy key
       so it cannot become a second source of truth). Any link is removable now, not only added ones,

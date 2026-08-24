@@ -10,8 +10,9 @@ and the things that surprise people. It is what the **?** buttons in the app lin
 
 > **Where to find this in the app:** the **Sources** section of the sidebar lists one row per
 > source you have, with **Explore sources** and **Manage sources** beneath it. The **Sources**
-> tab shows the same systems from the other direction — what each one is capable of, what has
-> been *proven* to work on your machine, and everything you have not added yet.
+> tab shows the same systems from the other direction, in three views — **Connected**,
+> **Available** and **Quick links** — covering what each one is capable of, what has been
+> *proven* to work on your machine, and everything you have not added yet.
 
 ---
 
@@ -55,6 +56,30 @@ straight into them:
   is what makes hiding one safe in the first place.
 - **Manage sources** — the sources you already have: their capabilities, their connection, and
   a switch to show or hide each one.
+
+### The three views
+
+The tab itself is three views, and they split on **whether a source is connected** — not on
+whether your sidebar lists it. The two are different facts and the screen shows both.
+
+| View | Holds | What you do here |
+|---|---|---|
+| **Connected** | Sources with a working connection | Read what each can do and the evidence behind it; show or hide it in the sidebar |
+| **Available** | Everything not connected | Set up a source you have added; add one you have not; open a pull request for a source Cronsole has no connector for |
+| **Quick links** | Bookmarks to schedulers with no connector | Add, open and remove links. Nothing is read or written |
+
+**Available is in two groups, and the first one is the point.** *Added to your sidebar* holds
+sources you asked for that have nothing connected behind them — a real, common, half-finished
+state. Each one says what would actually connect it, and the answer is one of two shapes:
+
+- **Composed by hand** — Claude Code and GitHub Actions have something to fill in, so *Set up*
+  opens that panel right there.
+- **Connects itself** — Windows connects when the Cronsole agent is running; Cronsole-native
+  connects whenever the backend is up. There is no button, because nothing you could type would
+  connect them, and a *Connect* button that cannot connect is worse than the sentence saying so.
+
+*Not added* holds the rest. Adding one lists it in the sidebar and moves it into the group above
+so it has somewhere to be set up from — **adding connects nothing on its own.**
 
 Two rules hold whichever you use:
 
@@ -405,10 +430,15 @@ evidence. A connector that only reads is a finished thing; it just says plainly 
 
 ## Quick links — schedulers with no connector
 
-The **Sources** tab has a *Quick links* section: bookmarks to ChatGPT, Gemini, Jules, and any you
-add yourself. **Nothing is read or written through them.** They exist so the schedulers Cronsole
-*cannot* reach are still one click away rather than invisible, and they sit below the real sources
-rather than among them, because a bookmark that looks like a connector reads as a broken one.
+The **Sources** tab has a *Quick links* view: bookmarks to ChatGPT, Gemini, Jules, and any you
+add yourself. **Nothing is read or written through them**, and no task from one appears in your
+dashboard. They exist so the schedulers Cronsole *cannot* reach are still one click away rather
+than invisible, and they get their own view rather than a place among the real sources, because a
+bookmark that looks like a connector reads as a broken one.
+
+Each link shows its host rather than its whole URL — the part that identifies it, instead of a
+line that truncates into an ellipsis at tile width — and the remove control is **always
+rendered**, not revealed on hover, so it is reachable on a phone.
 
 They are a preference, so your links follow your account rather than the browser you added them in.
 

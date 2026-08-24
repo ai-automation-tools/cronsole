@@ -159,7 +159,7 @@ about the ones you could:
 
 - **Explore sources** — every source Cronsole can connect to, including the ones you have not added
   and the schedulers it can only bookmark. It opens the **Sources** tab at its *Available* section.
-- **Manage sources** — the same tab at *Your sources*: connect, disconnect, and show or hide each
+- **Manage sources** — the same tab at *Connected*: connect, disconnect, and show or hide each
   one.
 
 **A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code and
@@ -922,15 +922,24 @@ Cronsole — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection 
 ## 6. Sources — what Cronsole can actually do
 
 The **Sources** tab answers one question per platform — *what will happen if I click this?* — and
-one about the set: *what else could I be watching?* It has four sections.
+one about the set: *what else could I be watching?* It is three views, and they split on **whether
+a source is connected** — not on whether your sidebar lists it. Those are two different facts, and
+the tab shows both: the views read *connected*, the eye switch on each card reads *listed*.
 
-### Your sources
+### Connected
 
-Each source you have gets a row with its connection state, how many tasks Cronsole tracks
-there, its last real sync, and ten capability chips — Sync, List folders, Run now, Create,
-Enable/disable, Edit schedule, Edit action, Export, Restore, Delete. **Show the evidence behind
-each capability** expands the row into a table with, per verb, its state, when it last succeeded,
-and when it last failed and why.
+Each connected source gets a card with its identity glyph, its health, whether it is a
+**controller** or an **observer**, and four figures: tracked tasks, last real sync, last verified,
+and how many of its verbs are verified.
+
+**Capabilities and evidence** expands the card into the per-verb detail — ten chips (Sync, List
+folders, Run now, Create, Enable/disable, Edit schedule, Edit action, Export, Restore, Delete) and
+a table giving each verb's state, when it last succeeded, and when it last failed and why. The
+disclosure says how many verbs are verified and how many are unproven before you open it.
+
+**Nothing about a problem is behind that disclosure.** A degraded reason, and any verb that failed
+more recently than it succeeded, are shown on the card itself — collapsing a card makes it shorter,
+never quieter.
 
 **The three states, and why the middle one exists:**
 
@@ -945,31 +954,43 @@ nothing has been tried yet. Use a verb once and its chip turns *Verified* with a
 deliberate — a table that claimed capabilities from the code rather than from your machine would be
 a specification, and you already have one of those.
 
-Each row also carries a **Show in sidebar** switch. Turning it off drops an empty source out of
+Each card also carries a **Show in sidebar** switch. Turning it off drops an empty source out of
 the rail without disconnecting anything; **a source holding tasks cannot be hidden**, and its
 switch says so rather than going missing.
 
 ### Available
 
-Everything Cronsole can connect to that you have not added — today Claude Code and GitHub Actions
-on a fresh install. Each card says what the source *is*, whether it is a **controller** (Cronsole
-can change things there) or an **observer** (it can only read), and carries the button that adds
-it. **This is the section that makes hiding a source safe**: nothing you turn off becomes
-unfindable.
+Everything Cronsole can connect to that is **not connected**, in two groups.
+
+**Added to your sidebar** comes first, because it is the group with something to do: sources you
+asked for that have nothing behind them yet. Each says what would actually connect it, and the
+answer takes one of two shapes:
+
+- **Something to fill in** — Claude Code and GitHub Actions are registered by hand, so **Set up**
+  opens that panel in place.
+- **Nothing to fill in** — Windows connects when the Cronsole agent is running; Cronsole-native
+  connects whenever the backend is up. These get the sentence and no button, because nothing you
+  could type would connect them.
+
+**Not added** holds the rest — today Claude Code and GitHub Actions on a fresh install. Each card
+says what the source *is* and whether it is a **controller** (Cronsole can change things there) or
+an **observer** (it can only read). Adding one lists it in the sidebar and moves it into the group
+above; **it connects nothing on its own.** This view is what makes hiding a source safe: nothing
+you turn off becomes unfindable.
+
+The view ends with **Add a custom source**. A source is a **connector** compiled into the backend,
+not a plugin you can drop in — so adding one means a pull request against the repository, and the
+answer may be that a bookmark is the honest shape for it. It links to
+[Sources Guide › Adding a source](Sources_Guide.md#adding-a-source), which covers the three shapes
+a source can take, what a connector must answer, and what will not be accepted.
 
 ### Quick links
 
 Bookmarks to schedulers Cronsole has no connector for — ChatGPT, Gemini, Jules, and any you add.
-**Nothing is read or written through them**, which is why they sit below the real sources instead
-of among them. They follow your account rather than this browser.
-
-### Add a custom source
-
-A source is a **connector** compiled into the backend, not a plugin you can drop in — so adding one
-means a pull request against the repository, and the answer may be that a bookmark is the honest
-shape for it. The panel links to
-[Sources Guide › Adding a source](Sources_Guide.md#adding-a-source), which covers the three shapes
-a source can take, what a connector must answer, and what will not be accepted.
+**Nothing is read or written through them** and no task from one appears on your dashboard, which
+is why they get their own view instead of a place among the real sources. Each tile shows the
+link's host, and its remove button is always there rather than appearing on hover, so it works on
+a phone. They follow your account rather than this browser.
 
 ## 7. System Status & Connections
 

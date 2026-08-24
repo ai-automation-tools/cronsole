@@ -53,7 +53,8 @@ export const GETTING_STARTED_STEPS: OnboardingStep[] = [
     title: 'Use & grow templates',
     body:
       "The Templates tab has ready-to-use starters — fill in the blanks and Cronsole creates a real scheduled task. " +
-      "Save a real task as a template, or import/export template JSON to share. New templates also arrive from the hosted registry automatically.",
+      "Save a real task as a template, or import and export template JSON to share. " +
+      "A small curated set syncs from the hosted registry on its own; the rest of the catalog is there to browse when you want it.",
     link: { label: 'Template catalog guide', url: `${DOCS_BASE}/docs/reports/templates/Templates.md` }
   }
 ];
@@ -68,12 +69,12 @@ export interface HelpLink {
 export const HELP_GUIDES: HelpLink[] = [
   {
     label: 'UI User Guide',
-    description: 'Dashboard, task details, categorizing, templates, connections',
+    description: 'Every screen in order — dashboard, task details, categories, templates, sources',
     url: `${DOCS_BASE}/docs/user-guides/guides/UI_User_Guide.md`
   },
   {
     label: 'Sources Guide',
-    description: 'Windows, Cronsole HTTP, Cronsole scripts, Claude — one at a time',
+    description: 'One section per source: what Cronsole can do with each, and what it will not',
     url: `${DOCS_BASE}/docs/user-guides/guides/Sources_Guide.md`
   },
   {

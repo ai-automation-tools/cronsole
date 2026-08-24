@@ -135,9 +135,9 @@ const sources: HelpTopic = {
     {
       label: 'A fresh install lists two sources',
       body:
-        'Windows Task Scheduler and Cronsole-native. Claude Code, GitHub Actions and Vercel Cron are added ' +
-        'from Explore sources, below the tree — four platforms of which two are real is how a ' +
-        'first run teaches you that half the product is broken.'
+        'Windows Task Scheduler and Cronsole-native — the two that need no credential. Everything ' +
+        'else is added from Explore sources, below the tree. A sidebar of empty rows waiting on ' +
+        'tokens nobody has yet is how a first run teaches you that most of the product is broken.'
     },
     {
       label: 'Explore and Manage are under the tree',

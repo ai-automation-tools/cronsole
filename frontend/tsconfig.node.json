@@ -20,5 +20,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts"]
+  /* vite.config.ts, plus the one test that genuinely needs node APIs -- see
+     the note in tsconfig.app.json. */
+  "include": ["vite.config.ts", "src/__tests__/themeContrast.test.ts"]
 }

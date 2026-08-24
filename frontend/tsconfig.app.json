@@ -21,5 +21,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  /* themeContrast.test.ts reads index.css with node:fs, because `?raw` would
+     hand back Vite's *processed* CSS -- `@theme inline` expanded, and the
+     `.dark` / `.light` blocks it measures gone. A browser project cannot
+     typecheck it, so it lives in tsconfig.node.json instead. Everything else
+     under src/ stays here. */
+  "exclude": ["src/__tests__/themeContrast.test.ts"]
 }

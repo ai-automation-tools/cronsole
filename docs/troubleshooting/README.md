@@ -5095,7 +5095,7 @@ workflow was filtered out, and the sync reported success over nothing.
 **And there was no second gesture to reach for.** On Windows the escape hatch is
 **Sync › Add tasks from this machine**, which sends `{ categories }` and adopts the folder. That
 modal talks to the *agent*, so on GitHub it offers nothing — the state was unreachable from the UI
-entirely, which is what separates this from [#20](#20-tasks-exist-on-the-machine-but-arent-in-taskhub).
+entirely, which is what separates this from [#20](#20-sync-now-never-brings-in-a-task-you-just-created-in-task-scheduler).
 
 **Fix** *(2026-08-24)*. `PlatformConnector` gained an optional `trackedCategories(config)`, and
 `GitHubActionsConnector` implements it as the watched repositories. The route asks the connector

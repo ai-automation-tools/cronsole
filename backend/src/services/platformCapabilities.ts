@@ -278,6 +278,30 @@ export function verbDeclaredUnsupported(platform: PlatformType, verb: Capability
 }
 
 /**
+ * Did the **run verb** work, as opposed to the job passing?
+ *
+ * They are different questions and the matrix asks the first one: the cell means
+ * *"Cronsole can trigger a run on this platform"*. `PlatformConnector.runTask`
+ * returns `success` and `ran` precisely because they are orthogonal, and its
+ * third row — `success: false, ran: true` — is a native job that **executed**
+ * and reported failure. A `CHECK` that fails is the check *working*; that is the
+ * entire reason the job type exists.
+ *
+ * Reading `success` here marked Cronsole-native's own Run verb broken whenever a
+ * check found what it was written to find, putting *"1 verb failed more recently
+ * than it succeeded"* on the Sources tab of a platform with nothing wrong with
+ * it — and, because the reason is kept, attributing it to the user's missing
+ * file. That is troubleshooting #59 one layer up from where #59 was fixed.
+ *
+ * Given a definition rather than an inline expression so the route and the test
+ * cannot disagree about it, and so the next caller inherits the rule instead of
+ * re-deriving it.
+ */
+export function runVerbSucceeded(result: { success: boolean; ran?: boolean }): boolean {
+  return result.success || result.ran === true;
+}
+
+/**
  * Record that a verb succeeded or failed against a platform.
  *
  * **This never throws.** It observes a verb; it must not be able to fail the verb

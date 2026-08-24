@@ -288,7 +288,12 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **`runTask` returns `ran` alongside `success`.** A job that ran and failed is a `200` with
   `success: false`; only "could not start" is a `502`
   ([#59](docs/troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check)).
-  `ran` is stamped once, in `executeJob`.
+  `ran` is stamped once, in `executeJob`. **And every reader of that result asks `ran`, not
+  `success`** — the `run` capability cell means *"Cronsole can trigger a run here"*, so a check
+  that correctly fails is the verb **working** (`runVerbSucceeded`, one definition). Recording it
+  as a failure marked a healthy platform broken on the Sources tab and blamed it for a fact about
+  the user's disk — #59's shape one layer up, in a line whose own comment stated the right rule
+  ([#77](docs/troubleshooting/README.md#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file)).
 - **`buildNativeJob` / `validateJob` have one definition**, shared by create, edit and the connector —
   a second definition is how an edit produces a spec creation would have refused.
 - Prefer the connector that unlocks several sources (one POSIX agent → launchd + cron + systemd) over

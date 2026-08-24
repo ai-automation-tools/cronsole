@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Terminal, FolderOpen, Globe, FileCode, Activity } from 'lucide-react';
+import { Terminal, FolderOpen, Globe, FileCode, Activity, Variable } from 'lucide-react';
 import {
+  parseEnv,
   parseHeaders,
   discardedByTypeSwitch,
   SCRIPT_INTERPRETERS,
@@ -48,6 +49,7 @@ interface Props {
  */
 export const NativeJobFields = ({ value, onChange, storedJobType, executionHost, disabled }: Props) => {
   const [headerError, setHeaderError] = useState<string | null>(null);
+  const [envError, setEnvError] = useState<string | null>(null);
 
   const set = <K extends keyof NativeJobValues>(key: K, next: NativeJobValues[K]) =>
     onChange({ ...value, [key]: next });
@@ -93,7 +95,7 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
         </div>
         {typeChanged && (
           <p className="text-[11px] text-warning-text">
-            This replaces the whole job — the {discardedByTypeSwitch(storedJobType)} currently
+            This replaces the whole job — the {discardedByTypeSwitch(storedJobType, value.jobType)} currently
             saved will be discarded. The task keeps its name, schedule and history.
           </p>
         )}
@@ -156,6 +158,20 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
               className={FIELD}
             />
           </div>
+
+          <EnvField
+            value={value.env}
+            error={envError}
+            disabled={disabled}
+            onChange={next => { set('env', next); setEnvError(null); }}
+            onBlur={() =>
+              setEnvError(
+                parseEnv(value.env)
+                  ? null
+                  : 'Use one NAME=value per line, or JSON. A name takes letters, digits and underscores.'
+              )
+            }
+          />
 
           {executionHost && (
             <p className="text-[11px] text-warning-text">
@@ -265,6 +281,20 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
             />
           </div>
 
+          <EnvField
+            value={value.env}
+            error={envError}
+            disabled={disabled}
+            onChange={next => { set('env', next); setEnvError(null); }}
+            onBlur={() =>
+              setEnvError(
+                parseEnv(value.env)
+                  ? null
+                  : 'Use one NAME=value per line, or JSON. A name takes letters, digits and underscores.'
+              )
+            }
+          />
+
           {/*
             Where this runs is not cosmetic. A native job executes wherever the
             BACKEND runs — inside the container on a Dockerized stack, against a
@@ -282,6 +312,60 @@ export const NativeJobFields = ({ value, onChange, storedJobType, executionHost,
     </div>
   );
 };
+
+/**
+ * The environment a program or script is given.
+ *
+ * One component for both types because they carry the **same** `env` contract —
+ * the two halves of this form that genuinely agree about a field, which is also
+ * why the value survives a switch between them.
+ *
+ * It exists at all because `env` was reachable through the API and MCP only: a
+ * secret could be stored on a task and then referenced from the one field the
+ * app could not edit. That is the whole reason the hint below names
+ * `${secret.NAME}` — the reference is legal in a **value** and refused in a
+ * *name*, and the parser makes the illegal half unrepresentable rather than
+ * waiting to reject it.
+ */
+const EnvField = ({
+  value,
+  error,
+  disabled,
+  onChange,
+  onBlur
+}: {
+  value: string;
+  error: string | null;
+  disabled?: boolean;
+  onChange: (next: string) => void;
+  onBlur: () => void;
+}) => (
+  <div className="space-y-2">
+    <label htmlFor="job-env" className={LABEL}>
+      <Variable size={11} /> Environment<HelpButton topic="job-env" />
+    </label>
+    <textarea
+      id="job-env"
+      value={value}
+      disabled={disabled}
+      onChange={e => onChange(e.target.value)}
+      onBlur={onBlur}
+      rows={3}
+      spellCheck={false}
+      placeholder={'API_BASE=https://example.com\nAPI_TOKEN=${secret.API_TOKEN}'}
+      className={`${FIELD} resize-y`}
+    />
+    {error
+      ? <p className="text-[11px] text-danger-text">{error}</p>
+      : (
+        <p className="text-[11px] text-subtle-foreground">
+          One <span className="font-mono">NAME=value</span> per line, or JSON. Added to a minimal
+          environment — Cronsole&apos;s own is never passed through. A value may be{' '}
+          <span className="font-mono">{'${secret.NAME}'}</span>; a name may not.
+        </p>
+      )}
+  </div>
+);
 
 interface CheckProps {
   value: NativeJobValues;

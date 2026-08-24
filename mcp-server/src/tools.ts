@@ -1955,6 +1955,11 @@ Next run: ${task.nextRunTime}` : '')
         '`declared` = the route would accept it, but nothing has been observed to work yet; ' +
         '`unsupported` = the route would refuse, because the platform has no such API. ' +
         '`unsupported` is a boundary, not a to-do: no amount of retrying turns it into `verified`. ' +
+        'A row may also carry `lastFailureAt` / `lastFailureReason`, and they mean something narrow: ' +
+        'Cronsole could not PERFORM the verb. They never mean the work the verb performed reported bad ' +
+        'news — a CHECK task that correctly finds a missing file is the `run` verb WORKING, and is ' +
+        'recorded as a success here. So a failure reason describing the user\'s own system rather than ' +
+        'Cronsole is a bug, not a capability limit. ' +
         'Each row also carries `access`: `controller` means Cronsole can change scheduled work there, ' +
         '`observer` means it only reads. An observer is a FINISHED connector, not a half-built one — ' +
         'GitHub Actions is read-only on purpose, and two of its three refusals have working GitHub APIs ' +

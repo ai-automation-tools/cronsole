@@ -34,6 +34,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent through `\Cronsole-Stack\CronsoleAgent` (RunLevel `Highest`), then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
+| 77 | **The Sources tab says a verb failed, and the reason is your own broken file.** Cronsole-native shows *"1 verb failed more recently than it succeeded — Run now: `D:/nope/missing.tar` does not exist (checked on the machine the backend runs on)"*. The platform is otherwise **HEALTHY**, every task runs, and the named file is one *you* pointed a check at | **A `CHECK` that correctly finds a problem was recorded as a failure of the platform's Run verb.** `runTask` returns `success` **and** `ran` because they are orthogonal; the row `success: false, ran: true` is a native job that *executed* and reported bad news — the check working. The route's response branch drew that line correctly (it is what #59 fixed) and the `recordCapability` call four lines above it still passed `result.success`, so one failing check marked Cronsole-native's own Run verb broken and kept the reason. **The tell: the reason names something on your disk rather than anything about Cronsole.** Capability failures do **not** age out — they clear when that verb next succeeds. Fixed 2026-08-24 (`runVerbSucceeded`); **restart the backend**, then run any native task once and the banner clears | [→](#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file) |
+| 76 | **Save is blocked on a script or check task** with *"What it runs: A command is required."* — over a form that has no command field. Editing the script body, the interpreter, the working directory or any part of a check reproduces it; an HTTP job on the same screen saves fine. Related: an unreadable **Environment** on a script job reported *"Headers must be JSON…"*, and a script job has no headers | **The edit modal had its own completeness check, and it knew two job types.** `nativeJobIncomplete` is the shared definition — its own doc comment says "shared by the create and edit forms so a job cannot be submittable in one and refused in the other" — but `EditTaskModal` never called it: it asked for a URL on HTTP and a `command` on *everything else*, which SCRIPT and CHECK do not have. The null-payload message was hard-coded to the headers for the same reason. Both are the §9 one-definition rule: a second copy of a judgement drifts the moment the first grows a case. **Fixed 2026-08-24** — the edit modal calls `nativeJobIncomplete`, and the unreadable-field sentence comes from `nativeJobUnreadable`, which names the field | [→](#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist) |
 | 75 | **A watched GitHub repository imports nothing.** The PAT is valid, the repository is listed, **Sync** reports success and updates `lastSync` on every press, the platform reads **HEALTHY** with `sync` **verified** — and `taskCount` stays `0`, forever, with nothing in the error log | **The plain Sync filters to already-tracked categories, and GitHub records what you asked for in its config rather than in rows.** `scope: 'tracked'` derived the include-set from stored rows (how Windows works — you pick a folder in the discovery modal and the rows are the record), so a freshly added repository had none, the set came back `[]`, and every workflow it read was filtered out. **Adding the repository *is* the naming gesture**, and there was no fallback: the discovery modal talks to the Windows agent. Fixed 2026-08-24 — `PlatformConnector.trackedCategories(config)`, implemented by the GitHub connector as its watched repositories. If you are on older code, the workaround is a `{ categories: ['owner/repo'] }` sync | [→](#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive) |
 | 73 | **Cronsole says a GitHub repository does not exist**, and you are looking at it in the next browser tab. *Watch a repository* fails with a 404 message; **public repositories add fine and only private ones fail**, which reads like a typo you have now checked four times | **GitHub answers `404`, not `403`, for anything a token cannot see** — deliberately, so a token cannot be used to enumerate private repositories. So “not found” is the *expected* symptom of a PAT missing the `repo` scope, and the status code sends you to check spelling instead of scopes. Regenerate the token with **`repo`** (fine-grained: **Contents: read** + **Actions: read** on that repository) and paste it again. Cronsole names the likely cause in the error rather than passing GitHub's word through | [→](#73-cronsole-says-a-github-repository-does-not-exist-and-you-are-looking-at-it) |
 | 72 | The **sidebar is half empty at a second address** — pinned folders and saved views are missing at `http://my-pc.my-tailnet.ts.net:8080/`, while **collections and favorites are all there**. Nothing errors, nothing is logged, and the same browser shows them correctly at `localhost` | **`localStorage` is scoped to an origin, and half the rail was in it.** Collections and favorites are database rows keyed on the user, so they followed the account across; rail pins and saved views lived in the `cronsole.settings` blob, which the browser hands out per origin — a different host or port is a different store, and a fresh one is empty. Both halves draw into the same sidebar, so the boundary reads as a bug. **Fixed 2026-08-23:** the whole settings blob syncs through `UserPreference` (`GET`/`PUT /api/preferences`). Theme and the API-origin override still do not sync, deliberately — they describe the device | [→](#72-the-sidebar-is-half-empty-at-a-second-address) |
@@ -5118,6 +5120,117 @@ imports nothing and is working perfectly, which is the same empty screen. `SyncO
 "looked at nothing" stop rendering the same. If you hit this symptom again, **read that line first**:
 it distinguishes the two in one sentence, and it is the reason this entry should not need a second
 edition.
+
+*First hit: 2026-08-24.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 76. Save is blocked on a script task, over a command field that does not exist
+
+**Symptom.** Open a Cronsole-native **script** task, change the body, and Save is inert with
+
+> ⚠ What it runs: A command is required.
+
+There is no command field on the form. The same happens on a **check** task, for any edit to the
+probe. An HTTP job on the same screen saves normally. A second face of the same bug: type something
+unparseable into the new **Environment** field of a script job and the refusal reads *"Headers must
+be JSON, or one `Name: value` per line"* — a script job has no headers.
+
+**Cause.** `EditTaskModal` carried its own copy of "is this job complete", written when there were
+two job types:
+
+```ts
+problem: nativeJob.jobType === 'HTTP'
+  ? (nativeJob.url.trim() ? undefined : 'A URL is required.')
+  : (nativeJob.command.trim() ? undefined : 'A command is required.')
+```
+
+`SCRIPT` and `CHECK` landed later (ADR 0002) and fell into the `else`. `nativeJobEdit` prefills
+`command` from `job.executable`, which those types do not have, so `command` is `''` and the branch
+is always taken. It only bites once the section is *dirty* — `blocked` looks at dirty plans only —
+which is why the task opens fine and fails at the last step.
+
+The shared definition existed the whole time. `nativeJobIncomplete` in `utils/taskEditing.ts` knows
+all four types, and its doc comment already claimed to be *"shared by the create and edit forms so a
+job cannot be submittable in one and refused in the other"*. Only the create form called it.
+
+The headers sentence is the same shape one layer down: `nativeJobPayload` returns `null` with no
+reason, so the caller supplied one — and a caller that guesses which field failed is right only
+until a second field can fail.
+
+**Fix (2026-08-24).** The edit modal calls `nativeJobIncomplete`. The reason a payload could not be
+built has one definition, `nativeJobUnreadable`, which names the field — headers on HTTP,
+environment on EXEC and SCRIPT — and `nativeJobPayload` gates on it, so `null` and the sentence
+explaining it cannot disagree. `nativeJobIncomplete` calls it first, which also closed the create
+form's half: unreadable headers there posted a literal `job: null`.
+
+**The tell, if you meet this shape again:** a refusal that names a field the visible form does not
+have. That is not a validation bug, it is two definitions of one judgement, and the older one is
+answering.
+
+*First hit: 2026-08-24.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 77. The Sources tab says a verb failed, and names your own broken file
+
+**Symptom.** **Sources › Connected › Cronsole-native** shows a red banner:
+
+> ⚠ 1 verb failed more recently than it succeeded
+> **Run now:** `D:/nope/missing.tar` does not exist (checked on the machine the backend runs on)
+
+The platform is `HEALTHY`, every task runs fine, and the path it names is one **you** aimed a
+*File freshness* check at. Nothing clears it — not a refresh, not waiting.
+
+**Cause.** A `CHECK` that correctly finds a problem was being recorded as a failure of the
+**platform's** `run` capability.
+
+`PlatformConnector.runTask` returns `success` and `ran` precisely because they answer different
+questions, and its own doc comment has the table:
+
+| `success` | `ran` | meaning |
+|---|---|---|
+| `true` | `false` | the platform accepted the start (Windows, Claude) |
+| `true` | `true` | the job executed here and passed (native) |
+| `false` | `true` | the job executed here and **failed** (native) |
+| `false` | `false` | it could not be started at all |
+
+Only the last row is the verb failing. Row three is a check *working* — reporting a fact about your
+system, which is the entire reason the job type exists.
+
+`POST /api/tasks/:id/run` got this right in its response (a 200 carrying a failing verdict, which is
+what [#59](#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check)
+fixed) and wrong four lines earlier:
+
+```ts
+// The matrix cell says "Cronsole can trigger a run on this platform" …
+await recordCapability(userId, task.platform, 'run', result.success, result.message);
+//                                                   ^^^^^^^^^^^^^^ asks the other question
+```
+
+The comment directly above states the correct rule. **A comment is not a constraint.**
+
+Two things made it stick. Capability failures have **no aging** — unlike health failure evidence,
+which expires after 15 minutes, a cell stays failed until that verb next *succeeds*. And every
+subsequent run of the same still-broken check re-failed it, so the banner was self-sustaining.
+
+**Fix (2026-08-24).** `runVerbSucceeded(result)` — one exported definition of "did the run verb
+work", used by the route and pinned by tests over all four rows of that table. `success ||
+ran === true`; only "could not be started at all" fails the cell. The reason is now attached only
+when the verb genuinely failed, so a successful record cannot carry a check's bad news.
+
+**To clear an existing banner:** restart the backend — it is one of the things that runs stale, so
+`/doctor` first — then run any Cronsole-native task once. A success writes `lastSuccessAt` and
+explicitly nulls `lastFailureAt` and the reason, so even re-running the *same* broken check clears
+it once the fix is loaded.
+
+**The reusable tell:** a capability failure whose reason names something on *your* disk is not a
+capability failure. The matrix says what Cronsole *can do*; if the sentence is about your system
+rather than about Cronsole, the wrong predicate reached the recorder.
 
 *First hit: 2026-08-24.*
 

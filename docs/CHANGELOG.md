@@ -12,6 +12,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+- **A native program or script job can be given environment variables from the app** (2026-08-24). **Run a program** and **Write a script** now have an **Environment** field — one `NAME=value` per line, or JSON. It was reachable through the API and the MCP tools all along and had no control in the UI, which left a real hole once per-job secrets shipped: you could store a secret on a task and then only reference it from the one field the app could not edit.
+
+  A value may be `${secret.NAME}`; a **name** may not, and the form will not let you type one rather than accepting it and failing at run time. Everything after the first `=` is the value, so `CONN=host=db;port=5432` is one variable; blank and `#` lines are ignored, so a block pasted out of a `.env` file works. Something unreadable blocks the save and says so, instead of being quietly sent as no environment.
+
+  It is added to a **minimal** environment, never to Cronsole's own — that process holds the key encrypting every platform credential you have stored. And because program and script jobs mean the same thing by it, the environment is the one field that survives a conversion between those two; the warning above the type picker now says so, and says the opposite when you switch to a kind that drops it.
+
+
 ### Changed
 - **The Sources tab is three views now, split on whether a source is actually connected** (2026-08-24). It was one long scroll of four stacked sections, and the seam between them was in the wrong place: *Your sources* meant **listed in your sidebar**, so a source with nothing connected behind it sat among the working ones wearing a full grid of unproven capability chips and the words *Not connected*. That is a real, common state — you add GitHub Actions, then get to the token later — and it was the one the screen described worst while being the only one with anything to do.
 
@@ -27,6 +35,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 
 ### Fixed
+- **A check that correctly fails no longer marks Cronsole-native itself broken** (2026-08-24). Point a *File freshness* check at a file that is not there, run it, and the Sources tab put a red banner on the whole platform: *"1 verb failed more recently than it succeeded — Run now: `D:/nope/missing.tar` does not exist"*. Nothing was wrong with Cronsole-native. The check had done exactly what it was written to do.
+
+  `runTask` reports two different things — whether the run could be **started**, and whether the job **passed** — because for a native job those are separate facts. The capability cell means *"Cronsole can trigger a run on this platform"*, so it is the first one that belongs there; it was reading the second. The run route already drew that line correctly in its response (a failing check is a `200` with bad news, not a gateway error) and the line recording the capability, four lines earlier, did not.
+
+  It also stuck: capability failures do not expire the way health evidence does — a verb stays failed until it next succeeds — and re-running the same still-broken check re-failed it every time, so the banner sustained itself.
+
+  **If you are still seeing this banner**, restart the backend and run any Cronsole-native task once; a success clears the cell and its reason. See [troubleshooting #77](troubleshooting/README.md#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file).
+
+- **Saving an edit to a script or check task no longer fails on a command field that does not exist** (2026-08-24). Change a script's body and Save was inert, reporting *"What it runs: A command is required."* over a form with no command on it. Any edit to a check did the same. The edit modal had its own copy of "is this job complete", written when there were only two job types: it asked for a URL on an HTTP job and a command on **everything else**, and scripts and checks landed later. It now calls the same check the New Task form does — which is what that function's own description had claimed for months.
+
+  Two things this also fixed: an unreadable field now **names itself**, so an environment that cannot be parsed on a script job stops saying *"Headers must be JSON…"* over a type that has no headers; and the New Task form now refuses unreadable headers instead of posting an empty job. A URL that is itself a secret — `${secret.WEBHOOK_URL}`, which the API accepts and the guide recommends for a webhook that is its own authentication — is no longer refused by the browser. See [troubleshooting #76](troubleshooting/README.md#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist).
+
 - **A sync now says what it looked at, not just what it found** (2026-08-24). Add a GitHub repository whose workflows all run on `push`, press **Sync**, and you used to get *"Tasks synced."* and an empty dashboard — identical, on screen, to a sync that is broken. It now says:
 
   > Synced. GitHub Actions: read 9 workflows across 3 repositories, 3 scheduled. `owner/repo` has no scheduled workflows — nothing there runs on a clock.

@@ -34,7 +34,7 @@ import { validateBody } from '../middleware/validate.js';
 import { importTemplates } from '../catalog/importCatalog.js';
 import { buildTemplateFromTask, SaveAsTemplateError } from '../catalog/templateFromTask.js';
 import { toTaskXmlBuffer } from '../services/bulkExport.js';
-import { recordCapability, verbDeclaredUnsupported } from '../services/platformCapabilities.js';
+import { recordCapability, runVerbSucceeded, verbDeclaredUnsupported } from '../services/platformCapabilities.js';
 import { taskSourceKey } from '../services/taskSource.js';
 import { ensureClaudeConnection } from '../services/claudeConnection.js';
 import {
@@ -1846,7 +1846,19 @@ router.post('/:id/run', async (req: Request, res: Response) => {
   // thing `ExecutionLog.SUCCESS` means here, and no more. The matrix cell says
   // "Cronsole can trigger a run on this platform", which is exactly that claim;
   // whether the task then did its job is Windows' `lastTaskResult`, elsewhere.
-  await recordCapability(userId, task.platform, 'run', result.success, result.message);
+  //
+  // Which is why the predicate is `ran`, not `success`. They are orthogonal
+  // (`PlatformConnector.runTask`), and row three of that table — `success:
+  // false, ran: true` — is a native job that **executed** and reported failure.
+  // A CHECK finding a missing file is the check *working*; recording it as a
+  // `run` capability failure marks Cronsole-native's own Run verb broken for 15
+  // minutes over a fact about the user's disk, and puts "1 verb failed more
+  // recently than it succeeded" on the Sources tab of a platform that is fine.
+  // That is troubleshooting #59 one layer up: the response branch below already
+  // draws this line, and this call was left on the wrong side of it. Only
+  // "could not be started at all" is a failure of the verb.
+  const couldRun = runVerbSucceeded(result);
+  await recordCapability(userId, task.platform, 'run', couldRun, couldRun ? null : result.message);
 
   const execution = await prisma.executionLog.create({
     data: {

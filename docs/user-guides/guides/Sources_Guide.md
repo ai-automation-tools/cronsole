@@ -203,8 +203,10 @@ runs, export, delete.
   filesystem that is not yours — so a path you can see in Explorer fails as *"executable not
   found"*. The New Task and Edit job forms both state the execution host before you click.
 - **It does not inherit Cronsole's environment.** The program gets the OS essentials plus
-  whatever you set explicitly — not Cronsole's own variables, which include the key that
-  encrypts your stored platform credentials.
+  whatever you set explicitly in the job's **Environment** field — not Cronsole's own variables,
+  which include the key that encrypts your stored platform credentials. One `NAME=value` per
+  line, and a value may be a `${secret.NAME}`; see
+  [UI User Guide › Environment variables](UI_User_Guide.md#environment-variables).
 - **Use a Windows task instead** for anything that must run as your logged-in user, needs your
   user's privileges, or has to keep running while Cronsole is down. The agent is the thing that
   unambiguously means *your machine*; the backend is not.
@@ -244,7 +246,8 @@ edit what it runs, export, delete.
 - **The temporary file is deleted afterwards**, including when the script times out and is
   killed, and it is written so only the account running the backend can read it.
 - **It does not inherit Cronsole's environment**, exactly like a program job. Set what you need
-  explicitly.
+  in the job's **Environment** field —
+  [UI User Guide › Environment variables](UI_User_Guide.md#environment-variables).
 
 ---
 

@@ -1,4 +1,17 @@
-# Cronsole Windows Agent Setup Guide
+<h1 align="center">🤖 Windows Agent Setup Guide</h1>
+
+<p align="center">
+  <em>Install, register and run the local .NET agent — the process that lets Cronsole
+  read and control real Windows Task Scheduler entries on your machine.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Platform: Windows">
+  <img src="https://img.shields.io/badge/runtime-.NET_10-512BD4?style=for-the-badge&logo=.net&logoColor=white" alt="Runtime: .NET 10">
+  <img src="https://img.shields.io/badge/connection-outbound_WebSocket-2ea44f?style=for-the-badge" alt="Connection: outbound WebSocket">
+</p>
+
+---
 
 This guide details how to install, register, and run the **Cronsole C# Agent** on Windows. 
 
@@ -105,3 +118,12 @@ If you are developing or debugging the agent and want to run it directly inside 
     ```powershell
     Start-ScheduledTask -TaskPath "\Cronsole-Stack\" -TaskName "CronsoleAgent"
     ```
+
+---
+
+<p align="center">
+  <a href="../README.md">← User Guides</a> ·
+  <a href="../../README.md">Docs home</a> ·
+  <a href="../../troubleshooting/README.md">Troubleshooting</a>
+</p>
+

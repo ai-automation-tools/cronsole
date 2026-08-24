@@ -1,4 +1,19 @@
-# Cronsole UI User Guide
+<a id="ui-user-guide-top"></a>
+
+<h1 align="center">🖥️ UI User Guide</h1>
+
+<p align="center">
+  <em>Every screen in Cronsole, in the order you meet them — the dashboard, the source rail,
+  creating and editing a task, the Sources tab and the Tools tab.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/audience-end_users-2ea44f?style=for-the-badge" alt="Audience: end users">
+  <img src="https://img.shields.io/badge/covers-every_screen-8B5CF6?style=for-the-badge" alt="Covers every screen">
+  <img src="https://img.shields.io/badge/in--app_help-the_?_buttons-0078D4?style=for-the-badge" alt="In-app help: the ? buttons">
+</p>
+
+---
 
 Every screen in **Cronsole**, in the order you meet them: the dashboard and its filters, the source rail, creating and editing a task, the Sources tab, and the Tools tab. Written to be read start to finish once, then jumped into by heading.
 
@@ -1088,3 +1103,14 @@ because a stale help link fails silently.
 ---
 
 *Last Updated: August 12, 2026*
+
+<p align="right"><sub><a href="#ui-user-guide-top">back to top</a></sub></p>
+
+---
+
+<p align="center">
+  <a href="../README.md">← User Guides</a> ·
+  <a href="../../README.md">Docs home</a> ·
+  <a href="Sources_Guide.md">Sources Guide →</a>
+</p>
+

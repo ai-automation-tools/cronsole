@@ -1,4 +1,19 @@
-# Cronsole Sources Guide
+<a id="sources-guide-top"></a>
+
+<h1 align="center">🧭 Sources Guide</h1>
+
+<p align="center">
+  <em>One section per source — what Cronsole can do with each, what it deliberately will not,
+  and why the two are different things.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/shapes-controller_·_observer_·_quick_link-8B5CF6?style=for-the-badge" alt="Shapes: controller, observer, quick link">
+  <img src="https://img.shields.io/badge/read--only_sources-GitHub_·_Vercel-2ea44f?style=for-the-badge" alt="Read-only sources: GitHub Actions and Vercel Cron">
+  <a href="../../contributing/Adding_A_Source.md"><img src="https://img.shields.io/badge/extend-add_a_source-0078D4?style=for-the-badge" alt="Add a source"></a>
+</p>
+
+---
 
 Cronsole shows tasks from more than one system, and those systems are not the same shape.
 A Windows task lives on your machine and keeps running whether or not Cronsole is up. A
@@ -632,3 +647,14 @@ assistant, and the [troubleshooting log](../../troubleshooting/README.md) when s
 unexpectedly.*
 
 *Last Updated: August 24, 2026*
+
+<p align="right"><sub><a href="#sources-guide-top">back to top</a></sub></p>
+
+---
+
+<p align="center">
+  <a href="../README.md">← User Guides</a> ·
+  <a href="../../README.md">Docs home</a> ·
+  <a href="../../contributing/Adding_A_Source.md">Adding a source →</a>
+</p>
+

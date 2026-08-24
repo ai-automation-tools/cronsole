@@ -1,15 +1,21 @@
 import { ExternalLink, GitPullRequest } from 'lucide-react';
-import { sourcesGuide } from '../../data/docs';
+import { addingASourceDoc } from '../../data/docs';
 
 /**
  * The honest answer to "can I add my own scheduler?".
  *
  * A source is a `PlatformConnector` compiled into the backend — there is no
  * plugin folder, and saying otherwise would advertise an extension point that
- * does not exist. So this panel points at the guide and at a pull request, and
- * says up front that the answer may be *no*, because a connector for a platform
- * with no scheduled-task API renders as a row of refusals that says less than a
- * bookmark does.
+ * does not exist. So this panel points at the contributor doc and at a pull
+ * request, and says up front that the answer may be *no*, because a connector
+ * for a platform with no scheduled-task API renders as a row of refusals that
+ * says less than a bookmark does.
+ *
+ * **It links to `docs/contributing/Adding_A_Source.md`, not to the Sources
+ * Guide's section**, which is where it pointed until 2026-08-24. That guide is
+ * for people *using* Cronsole, so a developer who clicked this landed two-thirds
+ * of the way down a long page about something else and had to work out which
+ * half applied to them.
  *
  * Lives at the foot of **Available**: it is the last thing on the list of
  * sources you could have, which is exactly what it is.
@@ -34,16 +40,21 @@ export const AddCustomSourcePanel = () => (
 
     <p className="text-xs text-subtle-foreground leading-relaxed">
       A connector that only <span className="font-bold text-foreground">reads</span> is a finished
-      thing, not a stalled one — GitHub Actions ships that way on purpose.
+      thing, not a stalled one — GitHub Actions and Vercel Cron both ship that way on purpose. The
+      guide starts with a five-minute proposal, so{' '}
+      <span className="font-bold text-foreground">
+        &ldquo;this should be a quick link&rdquo;
+      </span>{' '}
+      costs you a paragraph rather than a weekend.
     </p>
 
     <a
-      href={sourcesGuide('adding-a-source')}
+      href={addingASourceDoc()}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-center gap-2 text-xs font-bold text-foreground hover:text-primary transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
     >
-      Sources Guide › Adding a source <ExternalLink size={12} />
+      Read: Adding a source <ExternalLink size={12} />
     </a>
   </div>
 );

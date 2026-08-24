@@ -248,14 +248,26 @@ describe('SourcesScreen', () => {
       .toEqual(expect.arrayContaining([expect.objectContaining({ name: 'n8n' })]));
   });
 
-  it('points a custom source at the guide rather than at a form', async () => {
+  it('points a custom source at the contributor doc rather than at a form', async () => {
     renderScreen('?focus=available');
     await screen.findByTestId('available-source-GITHUB_ACTIONS');
 
-    // There is no plugin folder, so offering a form would advertise an
-    // extension point that does not exist.
+    // Two things pinned here, and they fail for different reasons.
+    //
+    // **A link, not a form** — there is no plugin folder, so offering a form
+    // would advertise an extension point that does not exist.
+    //
+    // **The contributor doc, not the Sources Guide.** It pointed at
+    // `Sources_Guide.md#adding-a-source` until 2026-08-24, which is a document
+    // written for people *using* Cronsole — so a developer who clicked this
+    // landed two-thirds of the way down a page about something else. The two
+    // audiences want different documents, and this is the control that decides
+    // which one a would-be contributor meets first.
     const link = screen.getByRole('link', { name: /adding a source/i });
-    expect(link).toHaveAttribute('href', expect.stringContaining('Sources_Guide.md#adding-a-source'));
+    expect(link).toHaveAttribute(
+      'href',
+      expect.stringContaining('docs/contributing/Adding_A_Source.md')
+    );
   });
 
   it('moves between views with the arrow keys, as a tablist should', async () => {

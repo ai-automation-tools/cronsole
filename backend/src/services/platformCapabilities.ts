@@ -88,6 +88,45 @@ export const MATRIX_PLATFORMS: readonly PlatformType[] = [
   PlatformType.VERCEL_CRON
 ] as const;
 
+/**
+ * **Every platform above must actually exist on the enum, checked at boot.**
+ *
+ * `PlatformType` is a runtime object from the generated Prisma client, so
+ * `PlatformType.SOMETHING_NEW` is plain `undefined` whenever the client on disk
+ * predates the schema — a backend process that started before
+ * `prisma generate` finished, a container built from a stale layer, a typo.
+ *
+ * Nothing downstream notices, and that is the whole problem. TypeScript is
+ * satisfied (the *types* have the value). The array happily holds `undefined`.
+ * `PLATFORM_DESCRIPTORS[undefined]` **succeeds**, because the computed key
+ * `[PlatformType.VERCEL_CRON]` in that object literal also evaluated to
+ * `undefined` and became the string `"undefined"` — so the two agree with each
+ * other and disagree with reality. The matrix then serves a row carrying a
+ * label, a summary and ten capability cells, with **no `platform` field at
+ * all**, since `JSON.stringify` drops an undefined value.
+ *
+ * That reached the browser as a white screen on the Sources tab —
+ * `sourceIcon(undefined)` calling `.split(':')` on nothing — which is a very
+ * long way from the actual cause. Two layers of "correct" code cooperating to
+ * hide a stale process is exactly the class of failure this repo treats as
+ * worse than a crash, so it is now a crash: **at boot, once, naming the value.**
+ *
+ * This can only fire on a code/client mismatch, never on user input or platform
+ * behaviour, so failing to start is the proportionate answer. A backend that
+ * refuses to boot and says why costs minutes; one that silently serves a broken
+ * matrix costs an afternoon.
+ */
+for (const [index, platform] of MATRIX_PLATFORMS.entries()) {
+  if (!platform) {
+    throw new Error(
+      `MATRIX_PLATFORMS[${index}] is ${String(platform)} — a PlatformType value in this file does not ` +
+        'exist on the generated Prisma client. The client is older than the schema: run ' +
+        '`npx prisma generate` in backend/ and restart this process. (If a Prisma engine file was ' +
+        'locked during generate, the running backend was holding it — stop it first.)'
+    );
+  }
+}
+
 export interface PlatformDescriptor {
   platform: PlatformType;
   label: string;

@@ -15,6 +15,24 @@ Read these first:
 
 If your change affects runtime behavior, docs, or roadmap status, update the matching docs in the same PR.
 
+## Adding a source (a new scheduler)
+
+Cronsole reads scheduled work from platforms through **connectors** — one class per platform,
+compiled into the backend. If you want it to support a scheduler it doesn't yet, that is the most
+common substantial contribution, and it has its own document:
+
+**→ [`docs/contributing/Adding_A_Source.md`](docs/contributing/Adding_A_Source.md)**
+
+It covers the decision to make first (controller, observer, or just a quick link), the contract a
+connector has to meet, the build order file by file, which existing connector to copy, and what
+gets declined. Start by opening a
+[source proposal issue](.github/ISSUE_TEMPLATE/new_source.md) — five minutes, and it answers
+"is this worth building" before you write four hundred lines.
+
+**A read-only connector is a finished contribution, not a half-finished one.** Cronsole's capability
+matrix states per verb what a source can and cannot do, so an observer says something true rather
+than implying verbs it does not have.
+
 ## Contribution principles
 
 - Keep one logical change per PR.
@@ -131,7 +149,7 @@ Update docs when you change:
 - roadmap status
 - setup steps
 - API behavior
-- connector behavior
+- connector behavior (see [`docs/contributing/Adding_A_Source.md`](docs/contributing/Adding_A_Source.md))
 - data model expectations
 - agent ↔ backend protocol
 - user-visible workflows

@@ -6,6 +6,41 @@ import {
   type LucideIcon
 } from 'lucide-react';
 
+/**
+ * A key that is safe to index *and* to split.
+ *
+ * **Every function in this file takes `string` and may still be handed
+ * something else at runtime**, because these keys come out of a JSON payload
+ * rather than out of TypeScript. `JSON.stringify` drops an undefined value
+ * entirely, so a backend row whose `platform` was undefined arrives with the
+ * field simply *missing* — and the type says `string` the whole way down.
+ *
+ * Indexing a lookup object with `undefined` is harmless (it misses, and the
+ * `??` fallback runs). Calling `.split` on it is not, and that is what turned
+ * one malformed row into a blank Sources screen. This makes the fallbacks
+ * reachable, which is the only thing that makes them true.
+ */
+const asKey = (k: string | null | undefined): string => (typeof k === 'string' ? k : '');
+
+/**
+ * Which platform a source key belongs to — for identity colour and icons.
+ *
+ * **Total, like every other function in this file.** Each of its neighbours
+ * already ends in a fallback — `sourceIcon` a globe, `platformAccent` muted,
+ * `sourceLabel` the platform's own label — and each says why in its comment: *a
+ * source added server-side before it is named here should still render as
+ * something.* This one did not honour that: a bare `key.split(':')` on an absent
+ * key threw before any of those fallbacks could run, and took down the entire
+ * Sources screen with *Cannot read properties of undefined (reading 'split')*.
+ *
+ * The row that caused it carried no `platform` at all, which is a server defect
+ * and is now caught at the server's own boot. But a presentation helper
+ * crashing the page is a *second* defect rather than the same one — it puts the
+ * stack trace two layers away from the cause.
+ */
+export const sourcePlatform = (key: string | null | undefined): string =>
+  asKey(key).split(':')[0]!;
+
 export const platformLabel = (p: string) =>
   ({
     WINDOWS_TASK_SCHEDULER: 'Windows',
@@ -18,7 +53,7 @@ export const platformLabel = (p: string) =>
     TASKHUB_NATIVE: 'Cronsole',
     GITHUB_ACTIONS: 'GitHub',
     VERCEL_CRON: 'Vercel'
-  }[p] ?? p.split('_')[0]);
+  }[p] ?? asKey(p).split('_')[0]!);
 
 /**
  * The full name of a task's **source**, for the dashboard's source bar.
@@ -70,7 +105,7 @@ export const sourceLabel = (key: string) =>
     'TASKHUB_NATIVE:EXEC': 'Cronsole (Programs)',
     'TASKHUB_NATIVE:SCRIPT': 'Cronsole (Scripts)',
     'TASKHUB_NATIVE:CHECK': 'Cronsole (Checks)'
-  }[key] ?? platformSourceLabel(key.split(':')[0]));
+  }[key] ?? platformSourceLabel(sourcePlatform(key)));
 
 /**
  * The label for a source's **subtype alone**, for a level-2 row in the source
@@ -139,11 +174,8 @@ export const sourceDescription = (key: string): string | null => {
     VERCEL_CRON:
       'Cron jobs declared by the Vercel projects you watch. Read-only, and Vercel publishes no run history for them — Cronsole shows their schedules, never how they went.'
   };
-  return exact[key] ?? exact[key.split(':')[0]] ?? null;
+  return exact[key] ?? exact[sourcePlatform(key)] ?? null;
 };
-
-/** Which platform a source key belongs to — for identity colour and icons. */
-export const sourcePlatform = (key: string) => key.split(':')[0];
 
 export const platformBadgeClass = (p: string) =>
   ({

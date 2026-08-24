@@ -629,6 +629,30 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       quick-start that works on a machine that isn't Mike's, screenshots/GIF, an honest
       feature-status table, and the wider stale-claims sweep.
 
+- [ ] **Flip the six "this repo is private" claims** *(noted 2026-08-24)*. Each is true today and
+      becomes false the moment the repo flips, and **none of them will fail a test or a build** —
+      they are prose. Listed by file and phrase rather than by line, since line numbers rot:
+
+      - `README.md` — *"Cronsole is a private MVP-stage repository"*
+      - `CONTRIBUTING.md` — *"currently a **private MVP-stage repository**"*, the opening sentence
+      - `CLAUDE.md` — the `**Repo:**` line's `(private)`
+      - `docs/DESIGN_NOTES.md` — the `**GitHub:**` line's `(private)`
+      - `docs/resources/repos/README.md` — *"This project (private)."*
+      - `frontend/src/data/docs.ts` — *"The app repo is private today, so these open for the
+        owner"*, and the whole premise of that note, since the in-app doc deep-links start
+        resolving for everyone
+
+      **Do not touch `docs/CHANGELOG.md`.** Its private-repo mentions are dated historical entries,
+      and that file's own header says rewriting them to match today is the one thing a changelog
+      must never do. The same goes for the 2026-07-13 audit note recording *why* the squash-to-a-
+      fresh-public-root decision was made.
+
+      Two are more than wording. `docs.ts` explains why a `?` button might not resolve for a
+      reader — once public, that caveat is not just stale but backwards. And `SECURITY.md` carries
+      *"don't expose publicly until real login lands"*, which is a **statement about the product's
+      security posture, not about the repo's visibility**: check it still says what is true rather
+      than deleting it with this sweep.
+
 ### Application goes public
 
 - [ ] **Versioning & releases** ← *next*: semver across the four independently-versioned
@@ -736,6 +760,21 @@ verification pass — is still open above, narrowed to the half that needs a tok
       were chosen. Of its three refusals only `setStatus` is named as a candidate to unlock, with
       its own scope and its own confirmation, and that is written in the guide rather than legible
       only from the connector.
+
+- [x] **Adding a source has a contributor document and a proposal template** *(2026-08-24, ahead of
+      going public)*. The Sources Guide section below was written for a *user* and the panel linked
+      into the middle of it, so a developer arriving to build landed in a page about something else.
+      [`docs/contributing/Adding_A_Source.md`](contributing/Adding_A_Source.md) is the canonical
+      version: the shape decision, the contract with its reasons, the ten-file build order (the four
+      frontend steps fail no test when skipped, which is why they are numbered), which connector to
+      copy, what gets declined, and what to put in the PR. A
+      [source proposal issue](../.github/ISSUE_TEMPLATE/new_source.md) comes first and asks the four
+      questions that decide whether it is worth building — shape, auth surface, *cannot* vs *not
+      yet*, and whether the platform reports run outcomes.
+      **Deliberately no scaffold or template connector**: a file nothing compiles against drifts from
+      the interface, so the doc points at `VercelCronConnector` — real, tested, and the smallest
+      complete one. Nothing was duplicated — the guide keeps its user-facing half, and the skill
+      checklist routes to the doc and states that the doc wins.
 
 - [x] **The Sources Guide says how to add a source** *(2026-08-24)*. New *Adding a source* section —
       the three shapes (controller · observer · quick link), what a connector must answer, where each

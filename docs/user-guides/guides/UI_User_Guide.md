@@ -1,6 +1,6 @@
 # Cronsole UI User Guide
 
-Welcome to the **Cronsole** interface! This guide provides a comprehensive overview of how to navigate the dashboard, manage your scheduled tasks, and use advanced features like categorization and templates.
+Every screen in **Cronsole**, in the order you meet them: the dashboard and its filters, the source rail, creating and editing a task, the Sources tab, and the Tools tab. Written to be read start to finish once, then jumped into by heading.
 
 > **In a hurry?** Every screen has **?** buttons next to the things that most often surprise
 > people. Each one explains that control in place and links back here. See

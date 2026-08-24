@@ -34,6 +34,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent through `\Cronsole-Stack\CronsoleAgent` (RunLevel `Highest`), then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
+| 79 | **A whole screen renders blank after adding a new platform**, with no server error and a green test suite. The console says `TypeError: Cannot read properties of undefined (reading 'split')` somewhere in presentation code that has nothing to do with what you changed | **A `PlatformType.X` that is `undefined` at runtime, because the generated Prisma client is older than the schema** — a backend process started before `prisma generate` finished, or a container built on a stale layer. Nothing catches it: TypeScript is happy (the *types* have the value), `MATRIX_PLATFORMS` holds the `undefined` quietly, and `PLATFORM_DESCRIPTORS[undefined]` **succeeds** — the computed key in that object literal also evaluated to `undefined` and became the string `"undefined"`, so the two agree with each other and disagree with reality. The matrix then serves a row with a label, a summary and ten capability cells and **no `platform` field at all**, since `JSON.stringify` drops an undefined value. **The tell: one row in `list_platforms` is missing a key every other row has.** Fixed 2026-08-24 — `MATRIX_PLATFORMS` is checked at boot and throws naming the value, and the `platform.ts` lookups are total so a bad row degrades to a globe instead of a white page | [→](#79-a-screen-goes-blank-after-adding-a-platform-and-nothing-logs-an-error) |
 | 78 | **The light theme is hard to read and nothing in it looks obviously wrong.** Panels sit flat on the page, field labels wash out, coloured status dots vanish — and every individual value looks defensible when you open `index.css` | **Colour fails silently, so it has to be measured rather than reviewed.** A role below the WCAG bar renders perfectly. Measuring every role against every *surface* (not just the page) found **26 pairs under AA across both themes**, and the structural fault: light ran `background 100% -> surface 95% -> raised 98%`, putting a *raised* panel at **1.04:1** against the page — flatter than the `surface` card it sits above (1.12) and effectively invisible. `muted` is the binding constraint in light, not `background`, which is why a pass that checked against white missed it. Fixed 2026-08-24: light is now the mirror of dark (1.07/1.14/1.25 vs 1.05/1.16/1.27) and `themeContrast.test.ts` measures every pair, so this cannot recur quietly. **If a colour looks wrong, run that test before opening a picker** | [→](#78-the-light-theme-is-hard-to-read-and-every-value-looks-defensible) |
 | 77 | **The Sources tab says a verb failed, and the reason is your own broken file.** Cronsole-native shows *"1 verb failed more recently than it succeeded — Run now: `D:/nope/missing.tar` does not exist (checked on the machine the backend runs on)"*. The platform is otherwise **HEALTHY**, every task runs, and the named file is one *you* pointed a check at | **A `CHECK` that correctly finds a problem was recorded as a failure of the platform's Run verb.** `runTask` returns `success` **and** `ran` because they are orthogonal; the row `success: false, ran: true` is a native job that *executed* and reported bad news — the check working. The route's response branch drew that line correctly (it is what #59 fixed) and the `recordCapability` call four lines above it still passed `result.success`, so one failing check marked Cronsole-native's own Run verb broken and kept the reason. **The tell: the reason names something on your disk rather than anything about Cronsole.** Capability failures do **not** age out — they clear when that verb next succeeds. Fixed 2026-08-24 (`runVerbSucceeded`); **restart the backend**, then run any native task once and the banner clears | [→](#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file) |
 | 76 | **Save is blocked on a script or check task** with *"What it runs: A command is required."* — over a form that has no command field. Editing the script body, the interpreter, the working directory or any part of a check reproduces it; an HTTP job on the same screen saves fine. Related: an unreadable **Environment** on a script job reported *"Headers must be JSON…"*, and a script job has no headers | **The edit modal had its own completeness check, and it knew two job types.** `nativeJobIncomplete` is the shared definition — its own doc comment says "shared by the create and edit forms so a job cannot be submittable in one and refused in the other" — but `EditTaskModal` never called it: it asked for a URL on HTTP and a `command` on *everything else*, which SCRIPT and CHECK do not have. The null-payload message was hard-coded to the headers for the same reason. Both are the §9 one-definition rule: a second copy of a judgement drifts the moment the first grows a case. **Fixed 2026-08-24** — the edit modal calls `nativeJobIncomplete`, and the unreadable-field sentence comes from `nativeJobUnreadable`, which names the field | [→](#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist) |
@@ -5314,6 +5315,73 @@ Keep it short and greppable. For each problem, capture:
 4. Add a row to the **Quick lookup** table and date it (`*First hit: YYYY-MM-DD.*`).
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 79. A screen goes blank after adding a platform, and nothing logs an error
+
+**Symptom.** You add a new `PlatformType`, everything builds, all suites pass, the backend starts
+clean — and one screen in the app renders as a white page. The browser console points at a
+presentation helper unrelated to your change:
+
+```
+TypeError: Cannot read properties of undefined (reading 'split')
+    at sourcePlatform (src/platform.ts)
+    at sourceIcon (src/platform.ts)
+    at SourceTile (src/components/sources/SourceIdentity.tsx)
+```
+
+**Cause.** `PlatformType` is a runtime object from the generated Prisma client, so
+`PlatformType.YOUR_NEW_VALUE` is plain `undefined` whenever the client on disk predates the schema.
+The usual way in is mundane: the backend process started a minute before `npx prisma generate`
+finished, and it holds the old module. On Windows that is *likely* rather than unlucky — a running
+backend locks `query_engine-windows.dll.node`, so `prisma generate` fails the rename, and it is
+tempting to shrug at an error that only mentions a file lock.
+
+What makes it expensive is that **four layers all behave correctly and cooperate to hide it**:
+
+- **TypeScript is satisfied**, because `index.d.ts` regenerated fine — only the runtime module is stale.
+- **`MATRIX_PLATFORMS` holds the `undefined`** without complaint; it is a legal array element.
+- **`PLATFORM_DESCRIPTORS[undefined]` succeeds.** The computed key `[PlatformType.YOUR_NEW_VALUE]`
+  in that object literal *also* evaluated to `undefined` and became the string `"undefined"`. The
+  lookup and the list agree with each other and disagree with the database.
+- **`JSON.stringify` drops an undefined value**, so the field does not arrive as `null` — it is
+  simply absent, and every `?? fallback` downstream sails past it.
+
+The row that reaches the browser therefore has a label, a summary and ten capability cells, and no
+`platform`. The first helper that does `key.split(...)` on it takes down the page.
+
+**The tell.** Call `list_platforms` (or `GET /api/tools/platforms`) and compare the rows: one of them
+is missing a key that every other row has.
+
+```json
+{"platform":"GITHUB_ACTIONS","label":"GitHub Actions", ...}
+{"label":"Vercel Cron", ...}          <-- no "platform"
+```
+
+**Fix.**
+
+1. Stop the backend — it is what holds the Prisma engine file.
+2. `cd backend && npx prisma generate`
+3. Apply the migration if you have not: `npx prisma migrate deploy` (or `migrate dev`).
+4. Start the backend again.
+
+**What stops it recurring.** Two guards, added the same day, and they fail in opposite directions on
+purpose:
+
+- **`MATRIX_PLATFORMS` is checked at boot** and throws naming the offending index. This can only fire
+  on a code/client mismatch, never on user input, so refusing to start is the proportionate answer —
+  a backend that says why costs minutes, one that silently serves a broken matrix costs an afternoon.
+- **The `platform.ts` lookups are total** (`platformTotality.test.ts`). Every one of them already
+  ended in a fallback — a globe, a muted swatch, the platform's own label — and each promised in its
+  own comment that an unnamed source still renders as *something*. A bare `.split` threw before any
+  of those fallbacks could run, so the promise was never keepable.
+
+> [!TIP]
+> The generalizable half: **when a lookup object is built with computed keys from an enum, a missing
+> enum value produces a key that matches nothing you meant and everything you did.** `obj[undefined]`
+> and `{[undefined]: x}` meet in the middle at `"undefined"`. If a lookup "works" for a value you
+> know is broken, that is the shape to suspect.
 
 ---
 

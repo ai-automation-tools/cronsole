@@ -37,3 +37,14 @@ export const uiGuide = (anchor?: string) => docLink(`${GUIDES}/UI_User_Guide.md`
 
 /** The per-source guide — the target for every source-type help topic. */
 export const sourcesGuide = (anchor?: string) => docLink(`${GUIDES}/Sources_Guide.md`, anchor);
+
+/**
+ * The contributor doc for writing a new connector.
+ *
+ * Deliberately **not** an anchor into the Sources Guide, which is where this
+ * used to point. That guide is written for someone *using* Cronsole, so a
+ * developer arriving with intent to build landed two-thirds of the way down a
+ * long page about something else. The two audiences want different documents,
+ * and the split is what lets each one stop hedging for the other.
+ */
+export const addingASourceDoc = () => docLink('docs/contributing/Adding_A_Source.md');

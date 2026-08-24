@@ -1,4 +1,5 @@
 import { docLink, uiGuide, sourcesGuide, GUIDES } from './docs';
+import { sourcePlatform } from '../platform';
 
 /**
  * **Per-control help.** Each topic is what one `?` button says.
@@ -1458,7 +1459,11 @@ export const helpTopic = (id: string): HelpTopic | undefined => HELP_TOPICS[id];
  */
 export const sourceTopicId = (key: string): string => {
   if (HELP_TOPICS[`source:${key}`]) return `source:${key}`;
-  const platform = key.split(':')[0];
+  // `sourcePlatform` rather than a bare split, for the reason its own comment
+  // gives: these keys come out of a JSON payload, so the type says `string` and
+  // the value may still be missing. A `?` button is the last thing that should
+  // be able to blank the page it sits on.
+  const platform = sourcePlatform(key);
   if (HELP_TOPICS[`source:${platform}`]) return `source:${platform}`;
   return 'sources';
 };

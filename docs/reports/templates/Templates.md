@@ -23,7 +23,7 @@
 
 ## 1. Why templates matter
 
-Templates are the most leveraged surface in Cronsole. A scheduled task is really just three
+Templates are where the least effort buys the most. A scheduled task is really just three
 things — **a runtime**, **a command/script**, and **a schedule**. Most users don't want to
 remember PowerShell syntax *and* cron syntax *and* the Windows trigger XML at the same time.
 A template collapses all of that into: *pick one → fill a couple of blanks → click Apply.*

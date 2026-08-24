@@ -186,6 +186,63 @@ The five original items and the two shipped halves of the API-token work are in
 New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
 see [Part II](#completed--p1-correctness--honesty).
 
+- [ ] **The agent must report its own elevation, and MISSING must be bounded by what the agent can
+      see** *(logged 2026-08-23, from a live incident)*. An agent started by hand from an ordinary
+      shell runs **unelevated** and cannot enumerate the ACL-protected task folders —
+      `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`,
+      `\License Manager\`, `\DeviceDirectoryClient\` and a dozen more. On this machine that is
+      **86 of 371 tasks**. The next sync compared a 285-task snapshot against 374 tracked rows and
+      marked the difference MISSING, and the dashboard offered to *Clear 89 missing*.
+      **Every layer was individually honest and the product still lied.** The agent reported what it
+      could see. `getHealth` correctly said connected-and-answering — elevation is not liveness.
+      `reconcileMissingTasks` did exactly its job. The 50%-retention guard did not fire, because
+      285/374 is 76%: the guard catches a *catastrophically* partial snapshot, not a
+      systematically-blinded one, which is the more dangerous shape precisely because it looks
+      plausible.
+      **This is the "absence of evidence is `unknown`, never `ok`" rule with the sign flipped** —
+      here absence of evidence rendered as a confident *"the platform no longer has this task"*.
+      Three parts:
+      **(a)** the agent sends its **integrity level** on the handshake (it knows its own token), and
+      it lands beside health rather than inside it — *connected*, *answering* and *elevated* are
+      three facts and collapsing them is how this hid;
+      **(b)** the Platforms row and the health strip say **"agent is running unelevated — some task
+      folders are not visible"**, which is a *fact about the reader*, not a verdict about the tasks;
+      **(c)** `reconcileMissingTasks` **refuses to mark anything MISSING when the agent reports a
+      narrower field of view than the snapshot it is being compared against** — an unelevated agent
+      may add and refresh rows, never retire them. Retiring a row is the one operation that needs
+      the reader to have been able to see everything.
+      Cheap corroborating signal worth having either way: **a MISSING set concentrated in whole
+      subtrees is structurally different from scattered attrition**, and the difference is
+      computable. See [troubleshooting #74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy).
+
+- [ ] **`Clear N missing` states its scope in words, and its friction scales** *(logged
+      2026-08-23, same incident)*. `DELETE /api/tasks/missing` makes **no platform call** — it drops
+      Cronsole's rows and their `ExecutionLog`, writes no `TaskExclusion`, and the next sync
+      re-imports everything as **new rows**. So the machine is never at risk and the headline damage
+      is nil. What does **not** come back is everything hanging off the old row id: stars
+      (`TaskFavorite`), collection membership, `TaskSecret`, run history, and any rename or custom
+      category — silently, and only for the tasks a user cared enough about to have annotated.
+      The route's own comment states the premise that fails: *"MISSING means the platform already
+      reported the task gone, so there is nothing left to remove and no confirmation to obtain."*
+      The platform reported nothing; a blinded agent did. **A control may not derive its own
+      safety from a status whose trustworthiness it cannot check.**
+      So: name the scope in words rather than as a bare count (*"89 tasks across
+      `\Microsoft\Windows\UpdateOrchestrator`, `\TPM`, … "*), apply the
+      `TYPE_TO_CONFIRM_THRESHOLD` rule the Mass Actions console already earns past 25, and **say
+      what is lost that a re-import will not restore** — the count of stars, collection memberships
+      and secrets about to be dropped, which is the only part that is not recoverable. Everything
+      needed to compute that is already on the row.
+      *(The route is otherwise written defensively and should stay that way — its guard against a
+      stale Prisma client making `TaskStatus.MISSING` undefined, which would widen the `where` to
+      every task the user owns, is exactly right.)*
+
+- [ ] **The E2E suite writes real rows into live data** *(logged 2026-08-23)*. A run leaves
+      `\E2E\Mock Nightly Backup` tracked against the developer's own account, which then goes
+      MISSING when the mock agent disconnects and sits on the dashboard forever. Same family as
+      [#5a](troubleshooting/README.md#5a-and-the-transient-agent-is-the-e2e-suite) — the suite drives
+      the live stack and leaves something behind — and it lands in the same place as the fixtures
+      work in the CI item below: the mock agent needs its **own user**, not the developer's.
+
 - [ ] **Run the E2E suite in CI — it is the only thing that renders CSS, and nothing runs it**
       *(logged 2026-08-16)*. `npm run test:e2e` sat **100% broken for a day** (18 of 18) after the
       IA redesign moved a heading every test waited on, while backend 715, integration 223 and

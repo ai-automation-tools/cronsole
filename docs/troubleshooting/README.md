@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent through `\Cronsole-Stack\CronsoleAgent` (RunLevel `Highest`), then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
 | 73 | **Cronsole says a GitHub repository does not exist**, and you are looking at it in the next browser tab. *Watch a repository* fails with a 404 message; **public repositories add fine and only private ones fail**, which reads like a typo you have now checked four times | **GitHub answers `404`, not `403`, for anything a token cannot see** — deliberately, so a token cannot be used to enumerate private repositories. So “not found” is the *expected* symptom of a PAT missing the `repo` scope, and the status code sends you to check spelling instead of scopes. Regenerate the token with **`repo`** (fine-grained: **Contents: read** + **Actions: read** on that repository) and paste it again. Cronsole names the likely cause in the error rather than passing GitHub's word through | [→](#73-cronsole-says-a-github-repository-does-not-exist-and-you-are-looking-at-it) |
 | 72 | The **sidebar is half empty at a second address** — pinned folders and saved views are missing at `http://my-pc.my-tailnet.ts.net:8080/`, while **collections and favorites are all there**. Nothing errors, nothing is logged, and the same browser shows them correctly at `localhost` | **`localStorage` is scoped to an origin, and half the rail was in it.** Collections and favorites are database rows keyed on the user, so they followed the account across; rail pins and saved views lived in the `cronsole.settings` blob, which the browser hands out per origin — a different host or port is a different store, and a fresh one is empty. Both halves draw into the same sidebar, so the boundary reads as a bug. **Fixed 2026-08-23:** the whole settings blob syncs through `UserPreference` (`GET`/`PUT /api/preferences`). Theme and the API-origin override still do not sync, deliberately — they describe the device | [→](#72-the-sidebar-is-half-empty-at-a-second-address) |
 | 70 | The **Tailscale URL is dead** — `http://my-pc.my-tailnet.ts.net:8080/` returns **502**, empty body, from every device — while everything else is healthy: `cronsole status` says `ALL UP`, `localhost:7373` works, the agent is connected, `tailscale status` lists both machines, and `tailscale serve status` prints the right mapping | **The Caddy proxy container was stopped, and `restart: unless-stopped` means it.** The 502 is `tailscaled` reporting that *its upstream* refused — `curl 127.0.0.1:8080` answers `000` and `docker ps -a` shows `taskhub-proxy-1 Exited (0) 2 days ago`. `unless-stopped` restarts after a crash or a reboot but never undoes a deliberate `docker compose stop`; the proxy is also **profile-gated** (opt-in remote access, §9), so a routine `docker compose up -d` cannot bring it back and does not fail either — and `cronsole up` did not know it existed, so the 5-minute self-heal walked past it. **Fixed 2026-08-20:** `cronsole remote on` records the opt-in in `.cronsole-remote` and `up` starts the proxy. **A 404 here means something else** — `tailscale serve` matched no handler for the Host you sent, which is what curling the tailnet *IP* always does | [→](#70-the-tailscale-url-is-dead-for-days-while-every-other-service-is-healthy) |
@@ -4969,6 +4970,84 @@ message has to name both readings, because the caller cannot.** Cronsole's 404 h
 than forwarding GitHub's word, for the same reason the Claude fire endpoint's 400 says *"most often
 the routine is paused"* — a status code that is honest and ambiguous still sends people to the wrong
 place, and the layer that knows the platform is the layer that can say which.
+
+*First hit: 2026-08-23.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 74. Dozens of Windows tasks go MISSING in one sync, and the agent is healthy
+
+**Symptom.** The dashboard header offers to **Clear 89 missing**. The Windows platform reads
+**HEALTHY**, the agent process is running, sync reports success, and nothing is in the error log.
+Opening Task Scheduler shows the tasks are still there, running on schedule.
+
+**The tell, before you debug anything: look at the shape of what went missing.** Group the MISSING
+rows by subtree. Real attrition is *scattered* — a vendor updater here, a rotated GUID there. This
+failure is *structural*: *entire* subtrees disappear at once, and they are precisely the ACL-protected
+ones —
+
+```
+\Microsoft\Windows\UpdateOrchestrator      15 gone,  0 remaining
+\Microsoft\Windows\DeviceDirectoryClient   12 gone,  0 remaining
+\Microsoft\Windows\WindowsAI                6 gone,  0 remaining
+\Microsoft\Windows\TPM                      3 gone,  0 remaining
+\Microsoft\Windows\Pluton | License Manager | WaaSMedic | EnterpriseMgmt | HelloFace | …
+```
+
+A machine does not lose its whole `UpdateOrchestrator` tree. Windows hides those folders from
+non-elevated readers.
+
+**Cause.** The agent was started **unelevated** — typically by running `cronsole up` (or the exe
+directly) from an ordinary shell instead of letting `\Cronsole-Stack\CronsoleAgent` start it, which
+is registered `RunLevel Highest`. An unelevated agent enumerates a strictly smaller machine, the next
+sync compares that against what Cronsole tracks, and `reconcileMissingTasks` does exactly its job on
+a snapshot that is honest about what the agent saw and wrong about what exists.
+
+Nothing lies at any single layer. The agent reports what it can see; `getHealth` is right that the
+agent is connected and answering; the sync is right that those ids were absent from the snapshot.
+**MISSING is only as trustworthy as the agent's field of view, and nothing measures that.**
+
+**Confirm it in one command.** In an **elevated** PowerShell:
+
+```powershell
+(Get-ScheduledTask).Count
+```
+
+Compare with the same command unelevated, and with what the agent reports
+(`GET /api/tasks/folders`, summing `taskCount`). A real case: **371** elevated, **285** unelevated,
+**285** from the agent — 86 tasks invisible, plus 3 genuinely gone.
+
+> **Do not reconcile against `Get-ScheduledTask` in an unelevated shell and conclude the tasks are
+> gone.** That is the instrument sharing a failure mode with its subject
+> ([#41](#41-a-browser-verification-freezes-for-45s--the-tab-is-hidden-and-requestanimationframe-never-fires)'s
+> lesson). It agrees with the blinded agent perfectly, and the perfect agreement reads as proof.
+
+**Fix.**
+
+```powershell
+Stop-Process -Name Cronsole.Agent -Force
+Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleAgent'
+```
+
+Give it ~10s (the task runs `wscript.exe` → `run-hidden.vbs` → `Start-Cronsole.ps1`, so the process
+appears a beat after `Start-ScheduledTask` returns — it not being there immediately is not a
+failure). Then Sync. MISSING self-heals back to ACTIVE/DISABLED and **no data is lost**, because
+reconciliation only ever changed a status.
+
+**If you already clicked "Clear N missing":** nothing happened on the machine — that route makes no
+platform call and only drops Cronsole's own rows. It writes no `TaskExclusion` either, so the next
+sync re-imports everything as **new rows**. What does not come back is what hung off the old row id:
+stars (`TaskFavorite`), collection membership, per-job secrets, `ExecutionLog` history, and any
+rename or custom category. For a set of `\Microsoft\` tasks that is nothing; for your own folders it
+is not.
+
+**Two timestamp traps while diagnosing this.** Task rows carry **UTC** while Task Scheduler and
+`Get-Process` report **local time** — a flip at `02:03Z` and an agent started at `18:59` local are
+four minutes apart, not seven hours. And `updatedAt` on a MISSING row is the last *sync* that touched
+it, not the moment it flipped; `reconcileMissingTasks` skips rows already MISSING, so a whole block
+sharing one `updatedAt` does mean one event, but that event is the sync, not the disappearance.
 
 *First hit: 2026-08-23.*
 

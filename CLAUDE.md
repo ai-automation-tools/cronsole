@@ -262,6 +262,16 @@ Non-negotiable rules. **Every one has a reason recorded in
   signature (`folder`, `overwrite`, `createFolders`, and the restore XML's sha256).
 - **The agent gets no file-write verb** — it is elevated and local, so that would be a general
   arbitrary-file-write primitive reachable from the backend.
+- **A retirement verb requires a reader that could have seen everything.** The agent's enumeration is
+  bounded by its **token**, not by the machine: unelevated it cannot see `\Microsoft\Windows\TPM\`,
+  `\UpdateOrchestrator\`, `\Pluton\` and a dozen more ACL'd folders — 86 of 371 tasks on a real machine.
+  Every layer stayed honest and the product still asserted *"the platform no longer has this task"* for
+  86 tasks that were running fine. **Connected, answering and elevated are three facts**, and `getHealth`
+  only ever measured the first two. So an agent must report its integrity level, and `reconcileMissingTasks`
+  may **add and refresh rows on a narrowed view but never retire one** — the 50%-retention guard does not
+  cover this, because a systematically-blinded snapshot (285/374 = 76%) looks plausible, which is exactly
+  what makes it worse than a catastrophically partial one
+  ([#74](docs/troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy)).
 - **Cronsole creates only `\Cronsole`.** Two carve-outs (restore's `createFolders`, create's
   `createFolder`), both `false` by default, both signed, both naming every folder they created.
   `\Microsoft\` is refused in the backend *and* independently in the agent.

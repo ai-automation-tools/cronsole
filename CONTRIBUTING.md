@@ -119,9 +119,9 @@ npm run build
 
 ```bash
 cd frontend
+npm run lint      # first: CI lints before it tests, and a lint error skips both steps below
 npm test
 npm run build
-npm run lint
 ```
 
 ### Agent

@@ -79,12 +79,14 @@ which is why it sits first, not because it outranks the larger work below.
 
 <a id="requested-2026-08-25"></a>
 
-### 🔴 Requested 2026-08-25 — logs, agent extensibility, and one sync investigated
+### 🟢 Requested 2026-08-25 — logs shipped, extensibility researched, one sync investigated
 
-Three items from the first real session with Gemini API Triggers on live data. The first two are
-features. The third was reported as a defect and **investigated the same day**: the documented
-behaviour holds and every hypothesis was ruled out, so it is kept as a record of what was
-eliminated — plus the one missing number that would have answered it without a live repro.
+Three items from the first real session with Gemini API Triggers on live data, **all three closed
+the same day**. In-app failure logs shipped across every source that can answer. Agent
+extensibility was researched by driving the API — the answer is yes, with the product question
+written down rather than guessed. The third was reported as a defect and did not reproduce; it is
+kept as a record of what was eliminated, plus the one missing number that would have answered it
+without a live repro.
 
 <a id="in-app-logging"></a>
 
@@ -147,34 +149,86 @@ for capturing it at sync time. Do not build the store until a real retention win
 
 <a id="gemini-agent-extensibility"></a>
 
-#### 2. How to give a Gemini trigger MCP servers, skills, and tools
+#### 2. 🔬 Giving a Gemini trigger MCP servers and tools — researched 2026-08-25
 
-**The ask:** the trigger Cronsole creates runs a bare managed agent. How does a user give it more —
-MCP servers, skills, a network allowlist, credentials?
+**The question:** the trigger Cronsole creates runs a bare managed agent. Can a user give it more —
+MCP servers, skills, tools, a network allowlist?
 
-This one starts as **research, not implementation**, because two of the four rules Cronsole already
-holds point in opposite directions here:
+**Answered by driving the API**, because this connector's documentation has now disagreed with the
+wire five times (#82, #83, and three more below). The method is worth reusing: Google validates
+unknown parameter *names* before field *values*, so a request carrying a deliberately invalid
+schedule is a free oracle — an `Unknown parameter 'x'` answer proves a field is not accepted, any
+complaint about the schedule proves it is, and **nothing is created either way**.
 
-- **Cronsole creates the plainest environment the API accepts and never guesses one.** Gemini lets
-  a trigger declare a network allowlist *including domains carrying credentials in a header* —
-  widening what an autonomous agent may reach is explicitly not a default a task manager gets to
-  pick on someone's behalf. That is why `repositoryUrls` is never defaulted for Claude either.
-- **But a scheduled agent that can reach nothing is often the wrong tool for the job**, which the
-  2026-08-25 session demonstrated concretely: a trigger asked to email a report finished
-  `completed` having only written a file to an ephemeral sandbox, because there was no mailer and
-  no outbound path. The agent narrated the limitation; nothing in Cronsole did.
+**Yes — tools are fully supported on a trigger's interaction.** The API enumerates its own list when
+given a bogus type, which is a better source than any document:
 
-So the first deliverable is **finding out what the API actually supports** — whether the
-Interactions/Managed Agents preview accepts MCP server declarations, tool definitions or skill
-bundles on a trigger's `interaction`, and what the credential story is. Drive the API; the docs
-have already been wrong three times on this connector (troubleshooting #82, #83).
+```
+filesystem · file_search · google_maps · bash · computer_use · mcp_server
+url_context · code_execution · google_search · tool_search · function
+```
 
-**If it is supported**, the product question is the harder half: this would be the first place
-Cronsole hands an autonomous agent *reach* rather than a schedule. Likely shape — explicit,
-per-trigger, never inherited, never defaulted, and stated on the task where anyone can see it.
+**MCP is a first-class tool type**, exactly the thing that was asked for:
 
-**If it is not supported**, that is a finished answer and belongs in the Sources Guide beside the
-network-allowlist note: configure the agent in Google AI Studio, and Cronsole schedules it.
+```jsonc
+"interaction": {
+  "agent": "antigravity-preview-05-2026",
+  "input": "…",
+  "tools": [
+    { "type": "mcp_server", "name": "weather", "url": "https://example.com/mcp",
+      "headers": { "Authorization": "Bearer …" }, "allowed_tools": [ /* objects, not strings */ ] },
+    { "type": "function", "name": "f", "description": "…", "parameters": { … } }
+  ],
+  "environment": { "type": "remote", "network": { "allowlist": [ { "domain": "example.com" } ] } }
+}
+```
+
+**What the documentation gets wrong**, all three found by probing and all three the kind that fail at
+runtime rather than at review:
+
+| Docs say | The wire says |
+|:---|:---|
+| `environment.network.allowed_domains` | `Unknown parameter` — the field is **`allowlist`** |
+| `allowed_tools: ["tool1", "tool2"]` | *"Expected an object, got string"* |
+| `skills` are a concept | `Unknown parameter 'skills' at 'interaction'` — **there is no skills field** |
+
+**Still unknown:** the shape of an `allowed_tools` element. It is an object, and it is not `name`,
+`tool` or `tool_name`. One more probe settles it whenever this is built.
+
+---
+
+**So the technical answer is yes, and the product question is the hard half.** Two standing rules
+point in opposite directions here, and this is the first feature where they actually collide:
+
+- **Cronsole creates the plainest environment the API accepts and never guesses one.** Widening what
+  an autonomous agent may reach is explicitly not a default a task manager picks on someone's
+  behalf — the same rule that keeps `repositoryUrls` undefaulted for Claude.
+- **An agent that can reach nothing is often the wrong tool for the job**, demonstrated the same day:
+  a trigger asked to email a report finished `completed` having only written a file to a sandbox with
+  no mailer, and narrated the limitation in its own output. Nothing in Cronsole said so.
+
+**The credential problem is the one to solve first, and it is not new.** An MCP server's `headers`
+carry bearer tokens, so a tools editor is a form that accepts a secret — the shape
+[ADR 0003](adr/0003-per-job-secrets.md) already answers for native jobs: store a **reference**
+(`${secret.NAME}` → `TaskSecret`, AES-256-GCM, no read path), never the value, and never in
+`metadata`, an export or an archive.
+
+**With one difference that must be stated rather than designed around:** a Gemini trigger lives on
+*Google's* side, so the header value is sent to Google at create time and stored there. Cronsole can
+avoid holding the secret; it cannot avoid **handing it over**. Any UI for this has to say that
+plainly at the point of entry, because "Cronsole stores a reference" would otherwise read as "the
+token stays here", which is false.
+
+**Recommended shape when built** — explicit, per-trigger, never inherited, never defaulted, and
+visible on the task afterwards so nobody has to open Google's console to find out what an agent can
+reach. It is `updateAction`'s missing form, which is the verb currently absent for exactly this
+reason: an editable prompt, agent, tool list and allowlist are one form, and building half of it is
+worse than none.
+
+**Not scheduled.** The research is the deliverable; the build is a real product surface and should
+be its own decision.
+
+**The original ask, for the record:**
 
 <a id="sync-missed-a-new-task"></a>
 

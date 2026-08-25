@@ -647,12 +647,27 @@ for you and keeps the Cronsole task.
   filesystem and more), MCP servers by name and URL, and a separate list of domains the sandbox may
   contact. Leave it closed and the trigger gets the platform's plain environment, which is what every
   Cronsole-created trigger got before this existed.
-- **A token you type is sent to Gemini and kept nowhere here.** An MCP server's Authorization header
-  goes into the create call, and Gemini stores it with the trigger — because that is where the
-  trigger runs. Cronsole keeps no copy and cannot show it again. That is not a limitation to work
-  around; it is where the credential has to live for the agent to use it.
-- **Replace credentials recreates the trigger, and says so.** When a token rotates, use *Replace
-  credentials* on the task. Gemini cannot change a trigger in place, so Cronsole builds a replacement
+- **Save an MCP server once, use it in every trigger.** The Gemini source panel has a **Saved MCP
+  servers** section: a name, a URL and a token. After that the create form offers it as a checkbox,
+  and the task stores only the *name* — the credential stays on the connection, encrypted beside your
+  API key. Without one, every trigger needs its server and token typed in again, and again each time
+  you edit a prompt, because a Gemini trigger cannot be edited in place.
+- **Rotating a saved token is one gesture.** Edit the saved server, then press **Push this credential
+  to N triggers**. Each one is recreated with the new token — same schedule, prompt and agent, new id
+  on Gemini — and the result is reported **per task**, because each is a separate operation against
+  Google's API and some can fail while others succeed. Before saved servers this had no path at all:
+  you opened every task and retyped the token, with nothing on screen saying which tasks used it.
+- **A token typed directly into the create form is still kept nowhere.** It goes into the create call,
+  Gemini stores it with the trigger, and Cronsole keeps no copy — right for a one-off, and the reason
+  the form points you at a saved server for anything you will use twice.
+- **Duplicate is how you edit a prompt.** A trigger's prompt and schedule are fixed once it exists,
+  so changing either means making another one. **Duplicate** on the task opens the create form filled
+  in from it — name, schedule, prompt, tools and allowlist — with saved servers carried across as
+  references, so nothing secret is typed twice. A *hand-typed* MCP server is dropped rather than
+  copied hollow: Cronsole never read its token, and a server the new trigger cannot authenticate to
+  would fail later, on a schedule.
+- **Replace credentials recreates one trigger, and says so.** When a token rotates on a single task,
+  use *Replace credentials* on it. Gemini cannot change a trigger in place, so Cronsole builds a replacement
   with the same schedule, prompt and agent — creating the new one **before** removing the old, so a
   failure leaves the working trigger alone — and the task keeps its run history, favourite and
   collections even though the trigger gets a new id. A paused trigger stays paused. You will need to

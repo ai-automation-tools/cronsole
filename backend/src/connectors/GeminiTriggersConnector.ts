@@ -26,7 +26,7 @@ import {
   type GeminiTrigger,
   type GeminiExecution
 } from '../services/geminiApi.js';
-import { readConfig, GEMINI_CATEGORY } from '../services/geminiTriggers.js';
+import { readConfig, findPreset, GEMINI_CATEGORY, type GeminiConfig } from '../services/geminiTriggers.js';
 import { shiftCronToUtc } from '../utils/cron.js';
 
 /**
@@ -475,7 +475,8 @@ export class GeminiTriggersConnector implements PlatformConnector {
     config: any,
     options?: CreateTaskOptions
   ): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated?: string[] }> {
-    const { apiKey, agent } = readConfig(config);
+    const stored = readConfig(config);
+    const { apiKey, agent } = stored;
     if (!apiKey) {
       return { success: false, foldersCreated: [], message: 'No Gemini API key is stored for this connection.' };
     }
@@ -489,8 +490,18 @@ export class GeminiTriggersConnector implements PlatformConnector {
       };
     }
 
-    const tools = options?.agentTools ?? [];
+    // **Presets first, so every check below sees the real server.** A preset
+    // resolves to a url and headers, and the "an MCP server needs a URL" refusal
+    // further down must judge what will actually be sent rather than the
+    // reference standing in for it.
+    const requested = options?.agentTools ?? [];
     const allowlist = options?.agentAllowlist ?? [];
+
+    const resolvedTools = resolveToolPresets(requested, stored);
+    if (!resolvedTools.ok) {
+      return { success: false, foldersCreated: [], message: resolvedTools.message };
+    }
+    const tools = resolvedTools.tools;
 
     // **Refused here, with the list, rather than dropped.** An unrecognised type
     // silently removed would create a trigger with less reach than the form
@@ -587,8 +598,15 @@ export class GeminiTriggersConnector implements PlatformConnector {
     allowlist: string[],
     config: any
   ): Promise<{ success: boolean; newExternalId?: string; oldRemoved?: boolean; message?: string }> {
-    const { apiKey } = readConfig(config);
+    const stored = readConfig(config);
+    const { apiKey } = stored;
     if (!apiKey) return { success: false, message: 'No Gemini API key is stored for this connection.' };
+
+    // Resolved **before** anything is created, so a bad preset name costs
+    // nothing: the original trigger is still the only one that exists.
+    const resolved = resolveToolPresets(tools, stored);
+    if (!resolved.ok) return { success: false, message: resolved.message };
+    const sendTools = resolved.tools;
 
     const existing = await getTrigger(apiKey, externalId);
     if (!existing.ok) return { success: false, message: existing.message };
@@ -617,7 +635,7 @@ export class GeminiTriggersConnector implements PlatformConnector {
       agent: current.agent,
       input: current.input,
       ...(current.environmentType ? { environmentType: current.environmentType } : {}),
-      tools,
+      tools: sendTools,
       allowlist
     });
     if (!created.ok) {
@@ -857,6 +875,67 @@ function coverageNote(total: number, withHistory: number): string {
   if (total === 0) return 'Gemini API Triggers: read 0 triggers — this API key\'s project has none.';
   if (withHistory === total) return `Gemini API Triggers: read ${total} ${word}, with run history for each.`;
   return `Gemini API Triggers: read ${total} ${word}, with run history for ${withHistory}.`;
+}
+
+/**
+ * **Turn preset references into real MCP servers — the one definition.**
+ *
+ * Shared by `createTask` and `rotateCredentials` for the reason `buildNativeJob`
+ * is shared by create and edit (§9): a second copy is how a rotation sends a tool
+ * list the create path would have refused, and this one carries credentials.
+ *
+ * Three rules, each the same rule stated elsewhere in this connector:
+ *
+ * **A name with nothing behind it is refused, with the list.** Never dropped, and
+ * never passed through as a credential-less server — an agent that silently loses
+ * its authentication fails later, on a schedule, where the error is a 401 from
+ * somebody else's API rather than a sentence about a preset.
+ *
+ * **An explicit `url`/`headers` still wins.** A one-off server needs no preset,
+ * and a caller that supplied both is not ambiguous: `preset` is a way to *fill
+ * in* url and headers, so anything already filled in is left alone.
+ *
+ * **The reference does not survive the call.** What goes to Google is `url` +
+ * `headers`; `preset` is stripped, because it is Cronsole's word and means
+ * nothing on the wire.
+ */
+function resolveToolPresets(
+  tools: AgentToolInput[],
+  config: GeminiConfig
+): { ok: true; tools: AgentToolInput[] } | { ok: false; message: string } {
+  const resolved: AgentToolInput[] = [];
+
+  for (const tool of tools) {
+    if (!tool.preset) {
+      resolved.push(tool);
+      continue;
+    }
+
+    const preset = findPreset(config, tool.preset);
+    if (!preset) {
+      const known = (config.toolPresets ?? []).map(p => p.name);
+      return {
+        ok: false,
+        message:
+          `No saved MCP server called "${tool.preset}". ` +
+          (known.length
+            ? `Saved servers: ${known.join(', ')}.`
+            : 'This connection has no saved servers yet — add one on the Gemini source panel.')
+      };
+    }
+
+    // `preset` is deliberately absent from what comes out: it is a Cronsole
+    // reference, and everything downstream of here talks to Google.
+    const { preset: _reference, ...rest } = tool;
+    resolved.push({
+      ...rest,
+      name: rest.name ?? preset.name,
+      url: rest.url ?? preset.url,
+      ...(rest.headers ?? preset.headers ? { headers: rest.headers ?? preset.headers } : {})
+    });
+  }
+
+  return { ok: true, tools: resolved };
 }
 
 /**

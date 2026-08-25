@@ -21,6 +21,7 @@ import {
   nativeJobIncomplete,
   type NativeJobValues
 } from '../utils/taskEditing';
+import { useGeminiToolPresets } from '../hooks/useGeminiConnection';
 
 /**
  * The three things this modal can put on your dashboard — and one of them is
@@ -55,6 +56,26 @@ type CreatePlatform =
 
 interface CreateTaskModalProps {
   onClose: () => void;
+  /**
+   * Open the form already filled in — **Duplicate**, on a source whose tasks
+   * cannot be edited in place.
+   *
+   * A Gemini trigger is immutable, so "change the prompt" is really "make
+   * another one like this and delete the old". That was a retype of everything
+   * including the credential; with saved servers it is a prefilled form and a
+   * checkbox that is already ticked. There is no credential here — the tools
+   * arrive as **preset references**, and a hand-typed server arrives without its
+   * token, which is stated in the form rather than silently carried as blank.
+   */
+  initial?: {
+    platform?: CreatePlatform;
+    name?: string;
+    schedule?: string;
+    prompt?: string;
+    category?: string;
+    agentTools?: AgentToolDraft[];
+    agentAllowlist?: string[];
+  };
 }
 
 /**
@@ -64,16 +85,16 @@ interface CreateTaskModalProps {
  * - Windows — registered as a real Task Scheduler task under \Cronsole\ via the
  *   agent, with the cron converted to a native trigger (same path as templates).
  */
-export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
+export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [platform, setPlatform] = useState<CreatePlatform>('TASKHUB_NATIVE');
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('Cronsole');
+  const [platform, setPlatform] = useState<CreatePlatform>(initial?.platform ?? 'TASKHUB_NATIVE');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [category, setCategory] = useState(initial?.category ?? 'Cronsole');
   const zone = useScheduleZone();
   // Held in the user's zone; converted to UTC once, on submit. "0 8" now means
   // 8am where you are rather than 8am UTC.
-  const [schedule, setSchedule] = useState('0 8 * * *');
+  const [schedule, setSchedule] = useState(initial?.schedule ?? '0 8 * * *');
   const storedSchedule = zone.toUtc(schedule);
   // The native job spec, in the **same shape the edit modal uses**. It was six
   // separate `useState`s covering only HTTP and EXEC, which is how a create form
@@ -99,12 +120,16 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   const [command, setCommand] = useState('');
   // Gemini's target: the instruction its agent runs on the schedule. Deliberately
   // its own state rather than sharing `command` — see `CreatePlatform`.
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState(initial?.prompt ?? '');
   // What the agent may use and reach. Both start empty, which is the standing
   // rule: Cronsole never guesses an agent's reach, so a create that ignores this
   // section produces the plainest environment the API accepts.
-  const [agentTools, setAgentTools] = useState<AgentToolDraft[]>([]);
-  const [agentAllowlist, setAgentAllowlist] = useState<string[]>([]);
+  const [agentTools, setAgentTools] = useState<AgentToolDraft[]>(initial?.agentTools ?? []);
+  const [agentAllowlist, setAgentAllowlist] = useState<string[]>(initial?.agentAllowlist ?? []);
+  // Saved MCP servers, fetched only when the Gemini arm is showing: every other
+  // platform has nothing to do with them, and a query on every New Task click
+  // would ask the server about a source the user is not using.
+  const { data: presets } = useGeminiToolPresets(platform === 'GEMINI_TRIGGERS');
 
   /** See `reachPayload`: omitted entirely when nothing was granted. */
   const cleanReachForSubmit = () => reachPayload(agentTools, agentAllowlist);
@@ -628,6 +653,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                     onToolsChange={setAgentTools}
                     allowlist={agentAllowlist}
                     onAllowlistChange={setAgentAllowlist}
+                    presets={presets?.presets ?? []}
                   />
                 </div>
               </details>

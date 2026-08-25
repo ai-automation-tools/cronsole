@@ -619,6 +619,35 @@ task modal or **Sources › Claude**. Two things it also does, both stated in it
 - **It changes nothing at claude.ai.** The routine still exists and still runs on its own
   schedule. You are disconnecting Cronsole from it, not deleting it.
 
+### Changing a Gemini trigger — Duplicate and Replace credentials
+
+A Gemini trigger is **immutable once it exists**. Google's update endpoint takes a status and a
+display name and rejects everything else, so *Edit schedule* and *Edit action* both read
+**Unsupported** — a boundary of the preview API, not a missing feature. Two buttons exist because of
+it, and both say **recreate** rather than *save*.
+
+**Duplicate** opens the New Task form filled in from this trigger — name, schedule, prompt, tools and
+allowlist. It is how you change a prompt: duplicate, edit, delete the original. The schedule comes
+back in **your** timezone on the way in, so a duplicate of an 08:00 local trigger is not created at
+08:00 UTC.
+
+- A **saved MCP server** carries across as a reference, so nothing secret is typed twice.
+- A **hand-typed** MCP server is dropped rather than copied. Cronsole never read its token, and a
+  server the new trigger could not authenticate to would fail later, on a schedule, as somebody
+  else's 401 — so the row is left out and you add it deliberately.
+
+**Replace credentials** rebuilds **one** trigger with new tokens or a different tool list. The
+replacement is created *before* the original is removed, so a failure leaves the working trigger
+alone; a paused trigger stays paused; and the task keeps its run history, favourite and collections
+even though Gemini assigns a new trigger id. If the replacement is created and the original cannot be
+deleted, that is reported as a **failure**, not a note — that schedule now fires twice.
+
+> [!TIP]
+> To rotate one token across **every** trigger that uses it, don't use this button task by task. Save
+> the server once under **Sources › Gemini API Triggers › Saved MCP servers**, then edit it there and
+> press **Push this credential to N triggers**. Each is rebuilt and the result is reported per task.
+> See the [Sources Guide](Sources_Guide.md#gemini-api-triggers).
+
 > **Note on schedule times:** every clock time in the app — the Schedule panel, the cron fields you type into, the preset chips, and absolute next/last-run timestamps — follows **Settings → Behavior → Schedule timezone**. It defaults to **Pacific**; you can pick another zone, your machine's, or UTC.
 >
 > Schedules are still **stored** as UTC cron, which is what the API, the MCP tools and Windows Task Scheduler see, so each cron field prints the stored UTC expression beside it. Two cases are called out rather than guessed at: a schedule pinned to a specific date whose conversion crosses midnight can't be expressed in cron, so it stays in UTC and says so; and across a daylight-saving change a **Windows** task keeps its local clock time while a **Cronsole-native** task shifts by an hour, because Cronsole runs the stored UTC expression directly.

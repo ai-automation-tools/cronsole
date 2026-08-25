@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, KeyRound } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, KeyRound, Copy } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { PlatformRunHistory } from './PlatformRunHistory';
 import { RotateCredentialsModal } from './RotateCredentialsModal';
+import { CreateTaskModal } from './CreateTaskModal';
+import { useScheduleZone } from '../hooks/useScheduleZone';
+import type { AgentToolDraft } from '../utils/agentReach';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
@@ -137,6 +140,35 @@ function reachInfo(task: Task): { tools: { type: string; name: string | null; ur
   return { tools, domains };
 }
 
+/** The prompt a Gemini trigger runs, if the platform reported one. */
+function promptOf(task: Task): string | undefined {
+  return asText((task.metadata as Meta | null)?.prompt) ?? undefined;
+}
+
+/**
+ * A reported tool list, as the create form can accept it back.
+ *
+ * **A hand-typed MCP server does not survive a duplicate, and is dropped rather
+ * than copied hollow.** Cronsole never read its credential, so carrying the row
+ * across would produce a server the new trigger cannot authenticate to — the
+ * failure arriving later, on a schedule, as somebody else's 401. A *saved*
+ * server is different in exactly the way that matters: the name is the whole
+ * grant, and the credential is on the connection, so it copies intact.
+ *
+ * Matching a reported server to a saved one is the create form's job, not this
+ * one's: the name is carried as a `preset` reference and the backend refuses it
+ * with the list if nothing matches — the same refusal a create gets.
+ */
+function duplicableTools(
+  tools: { type: string; name: string | null; url: string | null }[]
+): AgentToolDraft[] {
+  return tools.map(t =>
+    t.type === 'mcp_server'
+      ? { type: t.type, ...(t.name ? { preset: t.name } : {}) }
+      : { type: t.type, ...(t.name ? { name: t.name } : {}) }
+  );
+}
+
 function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
   const meta = (task.metadata ?? {}) as Meta;
   const rows: DetailRow[] = [];
@@ -257,6 +289,11 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
   // list of platform names kept in this file.
   const { deletability } = usePlatformDeletability();
   const [rotating, setRotating] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  // The create form holds a cron in the user's zone and converts once on submit,
+  // so a stored UTC schedule has to come back the other way first — otherwise a
+  // duplicate of an 08:00 local trigger is created at 08:00 UTC.
+  const zone = useScheduleZone();
   // Optional-chained through `platforms` as well as the response: this modal
   // renders whatever the matrix query happens to hold, including a half-loaded
   // or shape-surprising payload, and a task's details must not go blank because
@@ -834,6 +871,23 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
             </button>
           )}
           {/*
+            **Duplicate, on the source where editing is impossible.**
+            A Gemini trigger cannot be changed in place, so iterating on a prompt
+            means building another one — which used to be a full retype of the
+            schedule, the prompt, every tool and every credential. The form opens
+            prefilled from what the platform reports, and a saved server arrives
+            as a reference, so nothing secret has to be typed twice.
+          */}
+          {task.platform === 'GEMINI_TRIGGERS' && (
+            <button
+              onClick={() => setDuplicating(true)}
+              className="bg-muted hover:bg-muted/80 text-foreground px-4 py-3 rounded-xl font-bold transition-all border border-border active:scale-95 text-sm flex items-center gap-2"
+              title="Open a new trigger form filled in from this one"
+            >
+              <Copy size={16} /> Duplicate
+            </button>
+          )}
+          {/*
             **Gated on the server's matrix, not on a list of platform literals.**
             The literals were `{TASKHUB_NATIVE, WINDOWS_TASK_SCHEDULER}`, so
             Gemini had no Delete control at all — although its connector
@@ -944,6 +998,24 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
         />
       )}
       {rotating && <RotateCredentialsModal task={task} onClose={() => setRotating(false)} />}
+      {duplicating && (
+        <CreateTaskModal
+          onClose={() => setDuplicating(false)}
+          initial={{
+            platform: 'GEMINI_TRIGGERS',
+            // Named as a copy rather than silently identical: two triggers with
+            // one display name are indistinguishable on Gemini's own list, and
+            // the platform does not refuse it.
+            name: `${task.name} (copy)`,
+            // Stored UTC, and the form holds the user's zone — the same
+            // conversion every other schedule field makes, at the browser's edge.
+            schedule: task.schedule ? zone.toZone(task.schedule).cron : undefined,
+            prompt: promptOf(task),
+            agentTools: duplicableTools(agentReach.tools),
+            agentAllowlist: agentReach.domains
+          }}
+        />
+      )}
     </>
   );
 };

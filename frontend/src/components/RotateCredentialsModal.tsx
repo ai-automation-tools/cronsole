@@ -7,6 +7,7 @@ import { useToast } from '../hooks/useToast';
 import { AgentReachEditor } from './AgentReachEditor';
 import { reachPayload, type AgentToolDraft } from '../utils/agentReach';
 import type { Task } from '../types';
+import { useGeminiToolPresets } from '../hooks/useGeminiConnection';
 
 /**
  * **Replace the credentials a hosted agent uses — by recreating the trigger.**
@@ -24,10 +25,17 @@ import type { Task } from '../types';
  * run history, favourite and collections — because the route rekeys it instead
  * of replacing it.
  *
- * **Every token must be retyped, and the dialog explains why rather than
- * apologising.** Cronsole never read the old ones: an MCP server's `headers` are
- * not parsed at all, so there is nothing to prefill and nothing that could have
- * leaked. The tool list itself *is* prefilled, from what the platform reports.
+ * **A hand-typed token must be retyped, and the dialog explains why rather than
+ * apologising.** Cronsole never read the old one: an MCP server's `headers` are
+ * not parsed off the platform at all, so there is nothing to prefill and nothing
+ * that could have leaked. The tool list itself *is* prefilled, from what the
+ * platform reports.
+ *
+ * **A saved server needs nothing retyped**, which is the point of saving one:
+ * the credential is on the connection, the trigger carries a reference, and the
+ * rebuild resolves it server-side. For a rotation across *every* trigger using
+ * that server, this dialog is the wrong tool — *Push this credential* on the
+ * Gemini source panel does the fan-out and reports per task.
  */
 export function RotateCredentialsModal({
   task,
@@ -57,6 +65,7 @@ export function RotateCredentialsModal({
       : []
   );
 
+  const { data: presets } = useGeminiToolPresets();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -109,8 +118,9 @@ export function RotateCredentialsModal({
         </div>
 
         <p className="text-[11px] text-subtle-foreground">
-          Tokens are not prefilled because Cronsole never read them — an MCP server&apos;s headers
-          are not stored here at all. Retype any that the agent needs.
+          A <b>saved server</b> needs nothing retyped — its credential lives on the Gemini source and
+          is resolved when the trigger is rebuilt. A hand-typed one is not prefilled, because Cronsole
+          never read that token off the platform; retype any the agent needs.
         </p>
 
         <AgentReachEditor
@@ -118,6 +128,7 @@ export function RotateCredentialsModal({
           onToolsChange={setTools}
           allowlist={allowlist}
           onAllowlistChange={setAllowlist}
+          presets={presets?.presets ?? []}
         />
 
         <div className="flex gap-2 pt-1">

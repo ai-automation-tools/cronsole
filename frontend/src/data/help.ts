@@ -580,12 +580,30 @@ const sourceGemini: HelpTopic = {
         'tools rather than the prompt.'
     },
     {
-      label: 'A token you type here is sent to Gemini and kept nowhere in Cronsole',
+      label: 'Save an MCP server once instead of typing it into every trigger',
       body:
-        'An MCP server\'s Authorization header goes into the create call and Gemini stores it with ' +
-        'the trigger, because that is where the trigger runs. Cronsole keeps no copy and cannot show ' +
-        'it again — not in the task, not in an export, not in a log. That is not a limitation to work ' +
-        'around; it is where the credential has to live for the agent to use it.'
+        'The Gemini source panel has a Saved MCP servers section — a name, a URL and a token. After ' +
+        'that the create form offers it as a checkbox and the task stores only the name, with the ' +
+        'credential kept encrypted on the connection beside your API key. Without one, every trigger ' +
+        'needs its server and token typed again, and again each time you change a prompt, because a ' +
+        'trigger cannot be edited in place.'
+    },
+    {
+      label: 'Rotating a saved token is one gesture, and it reports per task',
+      body:
+        'Edit the saved server, then press Push this credential to N triggers. Each is recreated with ' +
+        'the new token — same schedule, prompt and agent, new id on Gemini — and the result is ' +
+        'reported per task, because each is a separate operation against Google and some can fail ' +
+        'while others succeed. A trigger that also uses an unsaved server is skipped and says so: ' +
+        'Cronsole never read that token, so rebuilding it would drop the credential.'
+    },
+    {
+      label: 'A token typed straight into the form is still kept nowhere',
+      body:
+        'It goes into the create call and Gemini stores it with the trigger, because that is where ' +
+        'the trigger runs. Cronsole keeps no copy and cannot show it again — not in the task, not in ' +
+        'an export, not in a log. That is right for a one-off, and it is why the form points you at a ' +
+        'saved server for anything you will use twice.'
     },
     {
       label: 'Replace credentials recreates the trigger, and says so',
@@ -594,8 +612,9 @@ const sourceGemini: HelpTopic = {
         'place, so Cronsole builds a replacement with the same schedule, prompt and agent — creating ' +
         'the new one before removing the old, so a failure leaves the working trigger alone — and the ' +
         'task keeps its run history, favourite and collections even though the trigger gets a new id. ' +
-        'A paused trigger stays paused. Retype any tokens: Cronsole never read the old ones. This is ' +
-        'also the way to change which tools a trigger has.'
+        'A paused trigger stays paused. A saved server needs nothing retyped; a hand-typed one does, ' +
+        'because Cronsole never read that token off the platform. This is also the way to change ' +
+        'which tools one trigger has.'
     },
     {
       label: 'Run History has two lists, and the platform one is where the runs are',
@@ -618,10 +637,11 @@ const sourceGemini: HelpTopic = {
       body:
         'Edit schedule and Edit action both read Unsupported here, and that is the preview API\'s ' +
         'boundary rather than a missing feature: its update endpoint takes a trigger\'s status and ' +
-        'display name and rejects the schedule outright. To change either, delete and recreate — a ' +
-        'new trigger gets a new id, so Cronsole files it as a new task. Tools and credentials are ' +
-        'the exception: Replace credentials rebuilds the trigger and keeps the task. Run, pause, ' +
-        'resume, create and delete all work from here.'
+        'display name and rejects the schedule outright. Duplicate is the practical answer — it opens ' +
+        'the create form filled in from this trigger, so changing a prompt is an edit and a delete ' +
+        'rather than retyping everything. Tools and credentials have their own path: Replace ' +
+        'credentials rebuilds one trigger and keeps its task. Run, pause, resume, create and delete ' +
+        'all work from here.'
     }
   ],
   doc: { label: 'Sources Guide › Gemini API Triggers', url: sourcesGuide('gemini-api-triggers') }

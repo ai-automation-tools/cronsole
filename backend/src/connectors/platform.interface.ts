@@ -23,13 +23,33 @@ export interface AgentToolInput {
   /**
    * Headers the platform should send to that MCP server — **bearer tokens**.
    *
-   * Travels exactly as far as the create call. Cronsole does not store it, and
-   * cannot: the trigger lives on the platform, so the platform holds the
-   * credential from that moment on. That is a fact to state at the point of
-   * entry, not a limitation to design around — a UI implying the token stays
-   * local would be false.
+   * Travels exactly as far as the create call. The platform holds the credential
+   * from that moment on, because the trigger lives there — which is a fact to
+   * state at the point of entry rather than a limitation to design around.
+   *
+   * **Prefer {@link preset} over this.** A literal token here is still legal and
+   * still correct for a one-off, but it is the shape that has to be retyped for
+   * every trigger and again on every rotation.
    */
   headers?: Record<string, string>;
+  /**
+   * The name of a **saved MCP server** on the platform connection, resolved into
+   * `url` and `headers` by the connector at the moment of the call.
+   *
+   * A reference, never a value — [ADR 0003](../../../docs/adr/0003-per-job-secrets.md)'s
+   * `${secret.NAME}` rule one layer up, and for the same reason: everything that
+   * reads a task afterwards (metadata, an export, an archive, a log line, an MCP
+   * tool response) sees a name, so none of them can leak a credential that was
+   * never put there.
+   *
+   * **Resolution belongs to the connector**, not to the route, because which
+   * store a preset lives in is a fact about the platform — §9's "no
+   * platform-specific logic outside that layer". A name with nothing behind it is
+   * **refused with the list of what does exist**, never quietly dropped: a create
+   * that silently produced less reach than the form showed is the failure that
+   * rule exists to prevent.
+   */
+  preset?: string;
 }
 
 export interface CreateTaskOptions {

@@ -12,7 +12,7 @@
 import { Router, Request, Response } from 'express';
 import JSZip from 'jszip';
 import { z } from 'zod';
-import { ExecutionStatus, PlatformType, TaskStatus } from '@prisma/client';
+import { ExecutionStatus, PlatformType, TaskStatus, Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
@@ -64,7 +64,12 @@ import {
   looksLikeGeminiKey,
   keyInputSchema as geminiKeyInputSchema,
   agentInputSchema as geminiAgentInputSchema,
-  DEFAULT_GEMINI_AGENT
+  presetInputSchema as geminiPresetInputSchema,
+  redactPreset as redactGeminiPreset,
+  findPreset as findGeminiPreset,
+  MAX_TOOL_PRESETS,
+  DEFAULT_GEMINI_AGENT,
+  type AgentToolPreset
 } from '../services/geminiTriggers.js';
 import { listTriggers as listGeminiTriggers } from '../services/geminiApi.js';
 import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
@@ -2768,6 +2773,345 @@ router.put(
     res.json({ agent: typed || DEFAULT_GEMINI_AGENT, defaultAgent: DEFAULT_GEMINI_AGENT });
   }
 );
+
+
+/**
+ * **Saved MCP servers on the Gemini connection.**
+ *
+ * The store behind these four routes is `GeminiConfig.toolPresets` — inside the
+ * same AES-256-GCM blob as the API key, because a preset holds a credential and
+ * the key sitting beside it is the larger one.
+ *
+ * **No route here returns a header value.** `redactGeminiPreset` is the only
+ * shape that leaves, and it answers *whether* a credential is set. There is no
+ * reveal endpoint for the same reason there is none for the API key: the value
+ * exists to be sent to Gemini, and a user who needs to read it has the service
+ * that issued it.
+ *
+ * `usedBy` is counted by **URL**, not by name, and that is why two presets may
+ * not share one. A synced trigger reports its MCP servers as `{type, name, url}`
+ * and nothing more, so the URL is the only thing that survives the round trip
+ * and can identify the server a live trigger is pointed at.
+ */
+router.get('/platforms/gemini/tool-presets', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { config } = await loadGeminiConnection(userId);
+  const presets = config.toolPresets ?? [];
+
+  const usage = await countPresetUsage(userId, presets);
+
+  res.json({
+    presets: presets.map(p => ({ ...redactGeminiPreset(p), usedBy: usage.get(p.url) ?? 0 })),
+    max: MAX_TOOL_PRESETS
+  });
+});
+
+/**
+ * Save or update one preset.
+ *
+ * **Upsert by name**, so the same form creates and edits — there is nothing a
+ * separate create route would say differently, and two routes would be two
+ * places for the duplicate-URL rule to live.
+ *
+ * **Omitting `headers` on an existing preset keeps the stored ones.** That is
+ * what makes fixing a typo in a URL possible without retyping a token the user
+ * may not have to hand — the exact friction this whole feature exists to remove.
+ * Sending `{}` clears the credential explicitly, so both intents are sayable and
+ * neither is the accident of leaving a field blank.
+ */
+router.put(
+  '/platforms/gemini/tool-presets',
+  validateBody(geminiPresetInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const body = req.body as { name: string; url: string; headers?: Record<string, string> };
+    const name = body.name.trim();
+    const url = body.url.trim();
+
+    const { connection, config } = await loadGeminiConnection(userId);
+    if (!connection) {
+      throw new HttpError(400, 'Add a Gemini API key first — there is no connection to save a server on.');
+    }
+
+    const presets = [...(config.toolPresets ?? [])];
+    const existingIndex = presets.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+
+    // **Refused rather than silently allowed**, because a second preset on one
+    // URL cannot be told apart on a synced trigger — the platform reports a
+    // tool's URL and no reference to which stored credential built it. Allowing
+    // it would make "which triggers use this preset" unanswerable and a rotation
+    // would rebuild triggers belonging to the other one.
+    const urlClash = presets.findIndex(
+      (p, i) => i !== existingIndex && p.url.toLowerCase() === url.toLowerCase()
+    );
+    if (urlClash !== -1) {
+      throw new HttpError(
+        400,
+        `"${presets[urlClash]!.name}" already points at that URL. A trigger reports only its server's ` +
+          'URL, so two saved servers sharing one could not be told apart on a synced trigger — edit ' +
+          'that one instead, or give this a different endpoint.'
+      );
+    }
+
+    if (existingIndex === -1 && presets.length >= MAX_TOOL_PRESETS) {
+      throw new HttpError(400, `A connection may hold ${MAX_TOOL_PRESETS} saved servers.`);
+    }
+
+    const kept = existingIndex === -1 ? undefined : presets[existingIndex]!.headers;
+    const headers = body.headers ?? kept;
+    const preset: AgentToolPreset = {
+      name,
+      url,
+      ...(headers && Object.keys(headers).length ? { headers } : {})
+    };
+
+    if (existingIndex === -1) presets.push(preset);
+    else presets[existingIndex] = preset;
+
+    await saveGeminiConnection(userId, connection.id, { ...config, toolPresets: presets });
+
+    res.json({ preset: redactGeminiPreset(preset), created: existingIndex === -1 });
+  }
+);
+
+/**
+ * Forget a preset.
+ *
+ * **Triggers already built from it are untouched**, and the response says how
+ * many, because they keep running with the credential Gemini holds — deleting
+ * the Cronsole-side reference cannot reach into a trigger that already exists.
+ * What is lost is the ability to rotate them in one gesture, which is worth
+ * saying at the moment somebody removes it rather than discovering later.
+ */
+router.delete('/platforms/gemini/tool-presets/:name', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const name = String(req.params.name);
+
+  const { connection, config } = await loadGeminiConnection(userId);
+  const preset = connection ? findGeminiPreset(config, name) : undefined;
+  if (!connection || !preset) {
+    throw new HttpError(404, `No saved server called "${name}".`);
+  }
+
+  const usage = await countPresetUsage(userId, [preset]);
+  const usedBy = usage.get(preset.url) ?? 0;
+
+  await saveGeminiConnection(userId, connection.id, {
+    ...config,
+    toolPresets: (config.toolPresets ?? []).filter(p => p.name.toLowerCase() !== name.toLowerCase())
+  });
+
+  res.json({
+    removed: true,
+    usedBy,
+    message: usedBy
+      ? `Removed. ${usedBy} trigger${usedBy === 1 ? '' : 's'} still using that server keep running — ` +
+        'Gemini holds their credentials. They can no longer be rotated together.'
+      : 'Removed.'
+  });
+});
+
+/**
+ * **Re-apply a preset to every trigger that uses it — the rotation fan-out.**
+ *
+ * The reason the whole preset feature exists. Before it, rotating one MCP token
+ * meant opening every Gemini task and retyping the token into each, from memory,
+ * with nothing on any screen saying which tasks were affected — and a task missed
+ * fails silently, later, on a schedule.
+ *
+ * Three properties, each one already a rule somewhere else in this codebase:
+ *
+ * **It reports per task, never per batch** (§9). Partial success is the normal
+ * case here: each task is an independent create-then-delete against somebody
+ * else's API, and one verdict over the set would be a lie in one direction or
+ * the other. `bulkOutcome`'s vocabulary is deliberately not reused — this is not
+ * a bulk *operation* over a selection, it is one credential change fanning out to
+ * the tasks that reference it, and the caller needs the new external ids.
+ *
+ * **A surviving original is a failure, not a note.** `rotateCredentials` returns
+ * `oldRemoved: false` when the replacement exists and the old trigger could not
+ * be deleted, which means the schedule now fires twice. It is surfaced per task
+ * for exactly that reason.
+ *
+ * **Each task's other tools are preserved.** The tool list sent is rebuilt from
+ * what the platform reports for *that* trigger, with this preset's entry swapped
+ * in by URL. Sending only the preset would silently strip every other tool the
+ * trigger had, which is the "refused with the list, never narrowed" rule in the
+ * form it would actually take here.
+ */
+router.post('/platforms/gemini/tool-presets/:name/apply', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const name = String(req.params.name);
+
+  const { connection, config } = await loadGeminiConnection(userId);
+  const preset = connection ? findGeminiPreset(config, name) : undefined;
+  if (!connection || !preset) {
+    throw new HttpError(404, `No saved server called "${name}".`);
+  }
+
+  const connector = connectorRegistry.getConnector(PlatformType.GEMINI_TRIGGERS);
+  if (!connector?.rotateCredentials) {
+    throw new HttpError(400, 'This build cannot rebuild Gemini triggers.');
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.GEMINI_TRIGGERS }
+  });
+  const affected = tasks.filter(t => reachOf(t.metadata).tools.some(tool => sameUrl(tool.url, preset.url)));
+
+  if (!affected.length) {
+    res.json({
+      applied: [],
+      message: `No trigger uses "${preset.name}" yet, so there was nothing to rebuild.`
+    });
+    return;
+  }
+
+  const applied: {
+    taskId: string;
+    name: string;
+    ok: boolean;
+    oldRemoved: boolean;
+    message?: string;
+  }[] = [];
+
+  for (const task of affected) {
+    const reach = reachOf(task.metadata);
+    // The trigger's own tools, with this preset's entry replaced by a reference
+    // the connector resolves. Every other tool travels as the platform reported
+    // it — which for another MCP server means **without its credential**, because
+    // Cronsole never read one. That is stated in the result rather than hidden:
+    // a trigger carrying a second, unsaved MCP server cannot be rebuilt intact.
+    const others = reach.tools.filter(t => !sameUrl(t.url, preset.url));
+    const unsavable = others.filter(t => t.type === 'mcp_server' && !findGeminiPreset(config, t.name ?? ''));
+
+    if (unsavable.length) {
+      applied.push({
+        taskId: task.id,
+        name: task.name,
+        ok: false,
+        oldRemoved: true,
+        message:
+          `Skipped: this trigger also uses ${unsavable.map(t => t.name || t.url).join(', ')}, which is not ` +
+          'saved here, so rebuilding it would drop that credential. Save that server as a preset first, ' +
+          'or use Replace credentials on the task and retype both.'
+      });
+      continue;
+    }
+
+    const toolList = [
+      ...others.map(t => ({
+        type: t.type,
+        ...(t.name ? { name: t.name } : {}),
+        ...(t.url ? { url: t.url } : {}),
+        ...(t.type === 'mcp_server' && t.name ? { preset: t.name } : {})
+      })),
+      { type: 'mcp_server', preset: preset.name }
+    ];
+
+    const result = await connector.rotateCredentials(task.externalId, toolList, reach.allowlist, config);
+
+    if (!result.success || !result.newExternalId) {
+      applied.push({
+        taskId: task.id,
+        name: task.name,
+        ok: false,
+        oldRemoved: true,
+        message: result.message || 'The platform declined to rebuild this trigger.'
+      });
+      continue;
+    }
+
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { externalId: result.newExternalId, metadata: stripReachMetadata(task.metadata) }
+    });
+
+    applied.push({
+      taskId: task.id,
+      name: task.name,
+      ok: true,
+      oldRemoved: result.oldRemoved !== false,
+      ...(result.message ? { message: result.message } : {})
+    });
+  }
+
+  notifyTasksChanged(userId);
+
+  const ok = applied.filter(a => a.ok).length;
+  const doubled = applied.filter(a => a.ok && !a.oldRemoved).length;
+  res.json({
+    applied,
+    message:
+      `Rebuilt ${ok} of ${applied.length} trigger${applied.length === 1 ? '' : 's'} with the saved credential.` +
+      (doubled
+        ? ` ${doubled} left the original trigger in place on Gemini — those schedules now fire twice.`
+        : '')
+  });
+});
+
+/** Count how many tracked triggers point at each preset's URL. */
+async function countPresetUsage(userId: string, presets: AgentToolPreset[]) {
+  const counts = new Map<string, number>();
+  if (!presets.length) return counts;
+
+  const tasks = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.GEMINI_TRIGGERS },
+    select: { metadata: true }
+  });
+
+  for (const preset of presets) {
+    const n = tasks.filter(t => reachOf(t.metadata).tools.some(tool => sameUrl(tool.url, preset.url))).length;
+    counts.set(preset.url, n);
+  }
+  return counts;
+}
+
+/**
+ * The reach a sync recorded on a task.
+ *
+ * Read defensively: this is platform-reported JSON that a rotation deliberately
+ * *clears* until the next sync, so "absent" is a normal state rather than a
+ * corrupt one.
+ */
+function reachOf(metadata: unknown): {
+  tools: { type: string; name?: string; url?: string }[];
+  allowlist: string[];
+} {
+  const meta = (metadata && typeof metadata === 'object' ? metadata : {}) as Record<string, unknown>;
+  const tools = Array.isArray(meta.tools)
+    ? meta.tools.flatMap(raw => {
+        const t = (raw ?? {}) as { type?: unknown; name?: unknown; url?: unknown };
+        if (typeof t.type !== 'string') return [];
+        return [{
+          type: t.type,
+          ...(typeof t.name === 'string' ? { name: t.name } : {}),
+          ...(typeof t.url === 'string' ? { url: t.url } : {})
+        }];
+      })
+    : [];
+  const allowlist = Array.isArray(meta.networkAllowlist)
+    ? meta.networkAllowlist.filter((d): d is string => typeof d === 'string')
+    : [];
+  return { tools, allowlist };
+}
+
+/** URLs compared case-insensitively, trailing slash ignored. */
+function sameUrl(a: string | undefined, b: string): boolean {
+  if (!a) return false;
+  const norm = (u: string) => u.trim().toLowerCase().replace(/\/+$/, '');
+  return norm(a) === norm(b);
+}
+
+/** Metadata with platform-reported reach removed, pending the next sync. */
+function stripReachMetadata(metadata: unknown): Prisma.InputJsonValue {
+  const meta = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? { ...(metadata as Record<string, unknown>) }
+    : {};
+  delete meta.tools;
+  delete meta.networkAllowlist;
+  return meta as Prisma.InputJsonValue;
+}
 
 /**
  * Disconnect Gemini entirely — forget the key and the tracked triggers.

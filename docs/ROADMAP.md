@@ -35,11 +35,15 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(themes done 2026-08-24)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
-| **Sources** | 🟡 6 of ~9 built | POSIX agent (the big one) · Supabase observer |
+| **Sources** | 🟡 6 of ~9 built | Gemini usability *(A+B done 2026-08-25, C–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
-**Leading the queue as of 2026-08-24:** the
+**Leading the queue as of 2026-08-25:** [**Gemini usability**](#gemini-usability) — **A and B
+shipped the same day**: an MCP server is saved once on the connection and referenced by name, and a
+trigger can be duplicated instead of retyped. That required **changing a §9 invariant** whose stated
+reason ("the value is needed exactly once") live use falsified. Three of the five items remain, and
+the MCP run-history wrapper is the next self-contained one. Behind it, the
 [source-onboarding requests](#sources-onboarding) — **all five landed the same day.** The fifth,
 GitHub Actions' live verification, ran against a real repository and immediately earned its keep:
 it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)),
@@ -82,6 +86,131 @@ types — neither is scheduled.)*
 
 The short list. Everything here is small, known, and was found by hand rather than reported —
 which is why it sits first, not because it outranks the larger work below.
+
+<a id="gemini-usability"></a>
+
+### 🔴🔴 Top priority — requested 2026-08-25: Gemini is configurable but not usable
+
+Reported after the first week of real use: *"you have to manually configure MCP servers for each new
+task."* True, and the cause is not the form. It is a **premise in the invariant that live use
+falsified.**
+
+§9 says a credential Cronsole hands to a platform is *"used once and stored nowhere"*, and the
+recorded reason is **lifecycle rather than caution** — "the value is needed exactly once". That is
+true of one create and false of every workflow built on it. The value is needed once **per trigger**:
+
+| When | What has to be retyped |
+|---|---|
+| A second task using the same MCP server | name, URL, **token** |
+| **Any prompt edit** — which is the ordinary case, because a trigger is immutable | name, URL, **token** |
+| A token rotation | name, URL, token **× every trigger that used it**, from memory |
+
+The third is the one with no answer at all today. Rotate a Resend key and every Gemini task breaks
+**silently**; nothing on any screen says which tasks used that server, and the repair is one modal
+per task. The reporting session hit three prompt-shaped failures in a row, and each one cost a full
+re-entry of a credential Cronsole had deliberately forgotten.
+
+**The precedent that unblocks this already ships.** Cronsole *already* stores the **Gemini API key** —
+AES-256-GCM at the application layer, write-only, no reveal endpoint, last four characters only
+([`services/geminiTriggers.ts`](../backend/src/services/geminiTriggers.ts)). That key creates, runs,
+pauses and deletes **every trigger in the project**. It is strictly more dangerous than the MCP
+bearer token beside it. So the rule was never "Cronsole must not hold a credential for this
+platform" — it holds a bigger one. It was a lifecycle claim, and the lifecycle turned out to be
+wrong.
+
+> **The invariant changed rather than being deleted** *(done 2026-08-25)*. What survives is the part
+> that was always right: **no route returns a stored value**, and a task stores a **reference, never a
+> value** ([ADR 0003](adr/0003-per-job-secrets.md)'s rule one layer up). What went is "stored
+> nowhere" — and §9, the skill's invariants table, the Sources Guide, the UI guide, the help topic and
+> **the create form's own sentence** all moved in the same commit, because a form still promising the
+> token is kept nowhere must not survive one commit past the day it stopped being true. The form now
+> says both: typed inline it is kept nowhere, saved as a server it is stored here, and the second is
+> what it recommends for anything you will use twice.
+
+- [x] **A. Saved agent tools — presets on the connection** — **shipped 2026-08-25**. A named record
+      holding `{ name, url, headers }`, headers encrypted with the key already used for
+      `PlatformConnection.config`. The create form becomes a checkbox — `☑ resend` — instead of three
+      fields. **A task stores the preset's name, never its headers**, so every existing reader (task
+      metadata, export, archive, a log line, an MCP tool response) is unchanged and none of them can
+      leak a value that is not there. `toToolSummary` / `readAllowlist` keep refusing to parse
+      `headers` for exactly the reason they do now.
+
+      **The feature this is really for is rotation**, which today has no path at any price: edit the
+      preset once, and Cronsole lists every trigger that references it and recreates them — a
+      **fan-out that reports per task**, never one verdict over the batch (§9). A trigger whose
+      replacement was created while the original survives is a **failure**, as it already is in
+      `rotateCredentials`: the schedule now fires twice.
+
+      **Both open sub-questions settled by building it.** Storage is a field in the encrypted
+      `config` blob, not a row: it needs no migration, inherits the AES-256-GCM the API key already
+      has, and *"which triggers use this"* turned out not to need a query at all — it is a filter over
+      one user's Gemini tasks, which is a few dozen rows. A preset edit **does not** recreate eagerly;
+      *Push this credential* is a separate, confirmed gesture, because a save that silently rebuilt
+      every trigger would be the largest blast radius in the product hiding behind the smallest button.
+      One constraint the design added: **a preset's URL is unique**, because a synced trigger reports
+      `{type, name, url}` and nothing else — two presets on one URL would make the usage count
+      unanswerable and a rotation would rebuild the wrong triggers.
+
+- [x] **B. Duplicate a trigger** — **shipped 2026-08-25**. Cheap and immediate: reach is already read back into
+      `metadata.tools`, and `RotateCredentialsModal` already prefills a whole tool list from it. With
+      **A** in place, "another one like this" is two clicks and no credential at all — which is how
+      it shipped, on the same day. A *hand-typed* server is **dropped rather than copied hollow**:
+      Cronsole never read its token, and a server the new trigger cannot authenticate to fails later,
+      on a schedule, as somebody else's 401. The schedule is converted back to the user's zone on the
+      way in, or a duplicate of an 08:00 local trigger is created at 08:00 UTC.
+
+- [ ] **C. Generalize *Replace credentials* into *Recreate with changes*** *(after A)*. The machinery
+      exists; it currently carries only a tool list. Let it carry a **new prompt or schedule** and
+      Gemini's immutability stops being a wall for the case that actually hurts — iterating on a
+      prompt. **`updateAction` and `updateSchedule` stay honestly `unsupported`**: they mean *change
+      in place*, `PATCH` cannot do it, and a recreate is a different act that the UI names as one.
+      This is the same distinction `rotateCredentials` already draws, and the reason that modal says
+      *recreate* everywhere instead of *save*.
+
+- [ ] **D. A Gemini template family** *(after A)*. "Daily digest by email", "weekly repo report" —
+      target-agnostic, compiled at apply time, tools carried **by preset reference**. Save-as-template
+      already refuses a secret-bearing job, and that rule applies here unchanged and for the same
+      reason. Blocked on **A**, because without a reference there is nothing a template could carry
+      except a blank to fill in.
+
+- [ ] **E. Prompt preflight at create** *(lowest of the five, and earned)*. Three real failures in one
+      session, none of them a Cronsole defect and all of them catchable before the trigger exists:
+      a prompt that **asks the user a question** (an unattended agent stalls — nobody answers at
+      15:00 on the 1st), a prompt carrying **pasted gutter characters** (`▎`) that chopped the
+      instruction into fragments the agent ignored, and an **email instruction with no `from`/`to`**.
+      A warning, never a refusal: none of these is certainly wrong, and a task manager that refuses
+      a prompt it merely dislikes is worse than one that mentions it.
+
+**MCP server — one real gap, and one thing that must wait for A.**
+
+- [ ] **`list_platform_runs` + `get_run_output`** *(do this first; it is self-contained)*. The two
+      routes shipped 2026-08-25 with no wrapper. An agent asked *"why did my scheduled task fail?"*
+      can currently reach only `list_run_history` / `get_task_history`, which read `ExecutionLog` —
+      **runs Cronsole performed**, which on Gemini, GitHub Actions and Vercel is empty *by design*.
+      So the one question an assistant is most often asked about a scheduled task is the one it
+      cannot answer, on the sources where the runs actually happen. Read-only, no new logic, and it
+      is what the 2026-08-25 session had to drive by hand. Keep output **per opened run** — a
+      transcript is ~90KB — exactly as the route already does.
+- [ ] **`GEMINI_TRIGGERS` in `create_task`** — **blocked on A, deliberately.** With presets an agent
+      names a preset and the credential never crosses the MCP boundary, which is `${secret.NAME}`'s
+      shape one layer up. Without them it would mean an assistant handling a bearer token in a tool
+      call, which is worse than the friction this whole block is about. Note also that
+      `CREATABLE_PLATFORMS` (`mcp-server/src/tools.ts`) is a hardcoded pair, which is the shape the
+      comments 20 lines below it warn against — widen it *there*, and let the route refuse.
+- [x] **Not `rotate_credentials` over MCP** — decided 2026-08-25. It takes credential *values*. It
+      stays UI-only, and this line exists so the absence reads as a boundary rather than an oversight.
+
+**The skill — one gap, and it is the one that caused the failures above.**
+
+- [ ] **How to author a prompt for an unattended agent**, in
+      [`references/task-authoring.md`](../skills/cronsole/references/task-authoring.md), which is
+      today entirely Windows-command-centric and says nothing about the unit of work on a hosted
+      source. Three rules, all paid for on 2026-08-25: **never let the prompt offer a choice**
+      (a question becomes a stall when nobody is there to answer it — give the parameter or tell it
+      to pick); **always instruct it to report failure explicitly** (an agent that cannot finish a
+      step narrates success instead); and **read the step list, not the status** — `completed` means
+      the agent finished its turn, so a run that researched, wrote and never mailed anything is
+      `completed` too, and only the steps say so.
 
 <a id="requested-2026-08-25"></a>
 

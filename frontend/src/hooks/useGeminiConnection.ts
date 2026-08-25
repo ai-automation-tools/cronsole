@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
+import type { ToolPreset } from '../utils/agentReach';
 
 /**
  * The Gemini API Triggers connection — one API key, and the agent to create with.
@@ -137,5 +138,108 @@ export const useDisconnectGemini = () => {
       return data as { disconnected: boolean; tasksRemoved: number };
     },
     onSuccess: () => invalidateAll(qc)
+  });
+};
+
+/**
+ * **Saved MCP servers — the thing that made this source usable.**
+ *
+ * A preset is a name, a URL and a credential, stored once on the connection and
+ * referenced by every trigger that needs it. Before them, an MCP server had to be
+ * retyped — token included — for every new trigger, again on every prompt edit
+ * (a Gemini trigger is immutable, so editing means recreating), and again for
+ * every trigger that used a token you rotated.
+ *
+ * **The list never carries a credential.** `hasHeaders` says one is stored;
+ * there is no reveal endpoint and no masked field pretending to be one, for the
+ * same reason the API key has neither.
+ *
+ * `usedBy` is counted by URL, which is also why two presets may not share one: a
+ * synced trigger reports its servers as `{type, name, url}` and nothing else, so
+ * the URL is the only thing that can identify which stored credential a live
+ * trigger is pointed at.
+ */
+const PRESETS_KEY = ['gemini-tool-presets'];
+
+export const useGeminiToolPresets = (enabled = true) =>
+  useQuery({
+    queryKey: PRESETS_KEY,
+    enabled,
+    queryFn: async (): Promise<{ presets: ToolPreset[]; max: number }> => {
+      const { data } = await api.get('/tools/platforms/gemini/tool-presets');
+      return data;
+    }
+  });
+
+/**
+ * Save or update one server.
+ *
+ * **Omitting `headers` keeps the stored credential**, which is what makes fixing
+ * a typo in a URL possible without retyping a token you may not have to hand.
+ * Sending `{}` clears it explicitly, so both intents are expressible and neither
+ * is the accident of leaving a field blank.
+ */
+export const useSaveGeminiToolPreset = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (preset: { name: string; url: string; headers?: Record<string, string> }) => {
+      const { data } = await api.put('/tools/platforms/gemini/tool-presets', preset);
+      return data as { preset: ToolPreset; created: boolean };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PRESETS_KEY });
+    }
+  });
+};
+
+/**
+ * Forget a server.
+ *
+ * Triggers already built from it keep running — Gemini holds their credentials
+ * and nothing here can reach into a trigger that already exists. What is lost is
+ * rotating them together, and the response says how many that is.
+ */
+export const useDeleteGeminiToolPreset = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data } = await api.delete(`/tools/platforms/gemini/tool-presets/${encodeURIComponent(name)}`);
+      return data as { removed: boolean; usedBy: number; message: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PRESETS_KEY });
+    }
+  });
+};
+
+/**
+ * **Push a saved credential out to every trigger that uses it.**
+ *
+ * The reason presets exist. Gemini cannot edit a trigger in place, so each
+ * affected trigger is *recreated* — and because that is a fan-out over somebody
+ * else's API, the result **reports per task and never per batch** (§9): partial
+ * success is the normal case, and one verdict over the set would be a lie in one
+ * direction or the other.
+ *
+ * `oldRemoved: false` on any row is the outcome that must not read as success —
+ * the replacement is live and the original survived, so that schedule now fires
+ * twice.
+ */
+export const useApplyGeminiToolPreset = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data } = await api.post(
+        `/tools/platforms/gemini/tool-presets/${encodeURIComponent(name)}/apply`
+      );
+      return data as {
+        applied: { taskId: string; name: string; ok: boolean; oldRemoved: boolean; message?: string }[];
+        message: string;
+      };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PRESETS_KEY });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+    }
   });
 };

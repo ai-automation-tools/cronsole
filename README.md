@@ -62,7 +62,10 @@ Jenkins) are built for data engineers. Cronsole's angle is cross-domain unificat
 | **🪟 Windows Task Scheduler** | A lightweight local agent on your machine — outbound-only, never accepts incoming connections. | ✅ Functional |
 | **⚡ Cronsole-native** | Four kinds of job that Cronsole schedules and runs itself, with no OS task involved: **HTTP** calls, an **existing program**, a **script you write in Cronsole**, and **checks** that assert something is true. | ✅ Functional |
 | **🤖 Claude Code Routines** | Natural-language routines through the Anthropic API. | 🧪 Experimental |
-| **💬 ChatGPT · Gemini · Jules** | Quick links straight to their native scheduling screens. | 🔗 Quick links |
+| **✨ Gemini API Triggers** | Scheduled prompts on Google's managed agents. One API key, and Cronsole can run, pause, reschedule, create and delete them — plus read how their runs actually went. | 🧪 Experimental |
+| **🌿 GitHub Actions** | Scheduled workflows in the repositories you watch, read through a PAT. **Read-only by design** — Cronsole shows their crons and real run outcomes, and changes nothing. | 👁️ Observer |
+| **▲ Vercel Cron** | Cron jobs declared by the projects you watch. **Read-only by design**, and Vercel publishes no run history, so their health stays honestly unknown. | 👁️ Observer |
+| **💬 ChatGPT · Grok · Jules** | Quick links straight to their native scheduling screens — none of the three exposes a public scheduled-task API. | 🔗 Quick links |
 
 ## 🔍 How It Works
 

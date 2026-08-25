@@ -60,9 +60,10 @@ Three behaviours worth knowing:
 
 ## Choosing which sources you see
 
-A fresh install shows **two**: Windows Task Scheduler and Cronsole-native. Claude Code and
-GitHub Actions and Vercel Cron are supported, and are **not** shown until you ask for them — a first run
-listing four platforms of which two are real teaches you that half the product is broken.
+A fresh install shows **two**: Windows Task Scheduler and Cronsole-native. Claude Code, GitHub
+Actions, Vercel Cron and Gemini API Triggers are supported, and are **not** shown until you ask for
+them — a first run listing six platforms of which two are real teaches you that most of the product
+is broken.
 
 Both halves of that live on the **Sources** tab, and the sidebar's **Sources** section links
 straight into them:

@@ -439,9 +439,12 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 ## 🔷 Sources — where a task comes from
 
 > **The priority once *Next up* is clear** *(scoped 2026-08-12)*. The dashboard's first-level axis
-> is the **source** a task comes from. Cronsole ships with three — Windows Task Scheduler,
-> Cronsole-native (split into HTTP · Programs · Scripts · Checks) and Claude Code routines. This
-> section is the plan for the rest; the built ones are in [Part II](#completed--sources).
+> is the **source** a task comes from. **Six ship as of 2026-08-24** — Windows Task Scheduler,
+> Cronsole-native (split into HTTP · Programs · Scripts · Checks), Claude Code routines, GitHub
+> Actions, Vercel Cron and Gemini API Triggers. This section is the plan for the rest; the built
+> ones are marked `[x]` below or in [Part II](#completed--sources). *(This line said "ships with
+> three" until 2026-08-24, when it had been wrong for a day and a half — a count in prose goes
+> stale on every change, which is why `PLATFORM_DESCRIPTORS` is the thing to read.)*
 >
 > **Read the [guardrail change](#strategy-guardrails) first**: the capability matrix makes a
 > **read-only observer** an honest, complete product state, so a source no longer has to be fully

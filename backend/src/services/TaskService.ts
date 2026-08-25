@@ -2,6 +2,7 @@ import { PlatformType, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 import { repositoryFromExternalId } from './githubRepositories.js';
 import { projectFromExternalId } from './vercelProjects.js';
+import { GEMINI_CATEGORY } from './geminiTriggers.js';
 
 export interface NormalizedTask {
   externalId: string;
@@ -374,6 +375,20 @@ export class TaskService {
     // above: two copies of "how do you read a project out of an id" is #20a.
     if (platform === PlatformType.VERCEL_CRON) {
       return projectFromExternalId(externalId) ?? 'Uncategorized';
+    }
+
+    // A Gemini trigger has **nothing to derive a category from** — no repository,
+    // no project, no folder. An API key is scoped to one Google Cloud project and
+    // sees a flat list, so this is a constant for the same reason Claude's is:
+    // the platform has no hierarchy to reflect, and grouping by the agent id
+    // instead would put a dated preview string (`antigravity-preview-05-2026`)
+    // into the rail and into every saved view keyed on it.
+    //
+    // `Uncategorized` is the tempting fallback and is actively worse: Import is
+    // where a user picks which categories to track, and a source whose only
+    // category is the word for *no category* reads as a defect.
+    if (platform === PlatformType.GEMINI_TRIGGERS) {
+      return GEMINI_CATEGORY;
     }
 
     return 'Uncategorized';

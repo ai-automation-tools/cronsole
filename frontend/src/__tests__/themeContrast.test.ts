@@ -95,7 +95,8 @@ const TEXT_ROLES = [
   'claude-text',
   'chatgpt-text',
   'github-text',
-  'vercel-text'
+  'vercel-text',
+  'gemini-text'
 ] as const;
 
 /** `-foreground` is text ON a solid fill of that role — a different job to `-text`. */
@@ -120,7 +121,8 @@ const INDICATORS = [
   'claude',
   'chatgpt',
   'github',
-  'vercel'
+  'vercel',
+  'gemini'
 ] as const;
 
 const THEMES: [string, Record<string, Hsl>][] = [

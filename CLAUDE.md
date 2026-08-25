@@ -40,8 +40,9 @@ access, registry). Functional MVP: real-time agent↔backend sync, selective imp
 template catalog with an Apply modal, and a shipped MCP server.
 
 **Platforms:** Windows Task Scheduler (functional) · Cronsole-native jobs (functional) · Claude Code
-routines (two modes — see Connectors) · GitHub Actions and Vercel Cron (**read-only observers**) ·
-ChatGPT / Jules / Open Claw / Hermes = quick links only.
+routines (two modes — see Connectors) · Gemini API Triggers (the **first hosted controller**;
+`v1beta` preview) · GitHub Actions and Vercel Cron (**read-only observers**) ·
+ChatGPT / Grok / Jules / Open Claw / Hermes = quick links only.
 
 ---
 
@@ -192,6 +193,23 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **"Cannot" and "has not yet" are different cells.** `unsupportedVerbs` (a boundary) outranks every
   reachability rule and makes refusals a `400`, not a `502`. `declared` is a promise, `verified` is
   evidence, `unsupported` is a boundary.
+- **Hosted does not imply observer, and the first counter-example is the one that proves `access` is a
+  declaration rather than a tally.** `GEMINI_TRIGGERS` is a *controller* over somebody else's HTTP API:
+  every interface-mandated verb reaches a documented `v1beta` endpoint, so `unsupportedVerbs` is **empty**
+  — the only connector where it is. Its `run` is the real scheduled invocation (the same agent, prompt and
+  sandbox, on the platform's own execution list), which is exactly what GitHub's and Vercel's refused `run`
+  is *not*, so the three together are the argument that a verb is judged by what it does rather than by
+  whether an endpoint exists. `updateAction` is absent rather than declared unsupported: editing a
+  trigger's prompt is *not yet*, not *cannot*. **The tracked set is declared and constant** (`['Gemini']`)
+  because an API key is scoped to one Google Cloud project and sees a flat list — there is nothing to
+  name, so `extractCategory` returns a constant for the reason Claude's does. It **reports run outcomes**,
+  so it gets a real `scoreTask` arm plus one signal no observer can produce: a trigger the *platform*
+  paused after `max_consecutive_failures`, which is GitHub's silent auto-disable with the count published.
+  And it is the one platform that **stores a zone itself** — `{ schedule, time_zone }` against a 5-field
+  UTC contract — so `utils/cron.ts`'s `shiftCronToUtc` is the single server-side conversion in the repo:
+  everything Cronsole writes is `UTC` (exact round trip), everything it reads is normalized with the
+  platform's original pair kept in metadata, and an expression with no honest UTC equivalent is `null`
+  **with its reason**, never a guessed cron.
 - **A read-only observer is a finished connector, and its boundary is fixed rather than derived.**
   **Two of them ship** — GitHub Actions and Vercel Cron — and both refuse the same three verbs by
   different routes, which is the point: the boundary is a property of the *connector's design*, not

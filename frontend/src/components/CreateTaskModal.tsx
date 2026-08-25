@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Bot, Upload, KeyRound } from 'lucide-react';
+import { XCircle, Clock, Loader2, Zap, Info, Monitor, CheckCircle2, AlertTriangle, Terminal, Bot, Sparkles, Upload, KeyRound } from 'lucide-react';
 import { importTaskFile, TaskFileImportError } from '../utils/importTaskFile';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
@@ -32,7 +32,24 @@ import {
  * that quietly means something else for one option is how a user ends up
  * believing Cronsole made a routine that it did not.
  */
-type CreatePlatform = 'TASKHUB_NATIVE' | 'WINDOWS_TASK_SCHEDULER' | 'CLAUDE_CODE';
+type CreatePlatform =
+  | 'TASKHUB_NATIVE'
+  | 'WINDOWS_TASK_SCHEDULER'
+  | 'CLAUDE_CODE'
+  /**
+   * The fourth option, added 2026-08-24, and the one that stretches this form's
+   * vocabulary rather than reusing it.
+   *
+   * It belongs on the **created** side of the split above: Gemini is the first
+   * *hosted* platform Cronsole can create on, so unlike Claude this really does
+   * write a task that did not exist. What it does not share with Windows is the
+   * shape of the thing being created — a trigger's unit of work is a
+   * **prompt**, not a command line. So the target field is a prompt, with its
+   * own state and its own label, rather than a command box wearing new help
+   * text: the two are not the same kind of value, and a half-typed shell line
+   * left behind by switching platforms is a worse default than an empty box.
+   */
+  | 'GEMINI_TRIGGERS';
 
 interface CreateTaskModalProps {
   onClose: () => void;
@@ -78,6 +95,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   const executionHost = matrix?.platforms.find(p => p.platform === 'TASKHUB_NATIVE')?.executionHost ?? null;
   // Windows fields
   const [command, setCommand] = useState('');
+  // Gemini's target: the instruction its agent runs on the schedule. Deliberately
+  // its own state rather than sharing `command` — see `CreatePlatform`.
+  const [prompt, setPrompt] = useState('');
   const [preview, setPreview] = useState<{ score: number; warnings: string[] } | null>(null);
   // Claude fields. There is no schedule here on purpose — a routine's cadence
   // lives at claude.ai and is not readable through the one endpoint Anthropic
@@ -118,7 +138,11 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const isClaude = platform === 'CLAUDE_CODE';
-  const isNative = !isWindows && !isClaude;
+  const isGemini = platform === 'GEMINI_TRIGGERS';
+  // Native is what is left over, so a new platform has to be named above or it
+  // silently inherits the native job form — four job-type tabs over a platform
+  // that has none.
+  const isNative = !isWindows && !isClaude && !isGemini;
   /**
    * Which job types actually touch the backend's own filesystem, and so need the
    * execution-host disclosure below. `CHECK` is conditional on its probe: an
@@ -136,7 +160,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
     ? 'focus:border-primary'
     : isClaude
       ? 'focus:border-claude'
-      : 'focus:border-native';
+      : isGemini
+        ? 'focus:border-gemini'
+        : 'focus:border-native';
 
   const selectPlatform = (p: CreatePlatform) => {
     setPlatform(p);
@@ -186,6 +212,20 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           category: category.trim() || undefined,
           schedule: storedSchedule.cron,
           command
+        });
+      }
+      if (isGemini) {
+        // The same generic create route Windows uses, and `command` is the wire
+        // field every connector's `createTask` receives — this platform reads it
+        // as the prompt. **No category is sent**: every trigger is filed under
+        // "Gemini" server-side (TaskService.extractCategory), for the reason
+        // Claude's routines are, so a typed one would be a field the next sync
+        // corrects.
+        return api.post('/tasks', {
+          name,
+          platform,
+          schedule: storedSchedule.cron,
+          command: prompt
         });
       }
       return api.post('/tasks/native', {
@@ -246,7 +286,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
       toast(
         isWindows
           ? `Windows task "${name}" created under the \\Cronsole\\ scheduler folder.`
-          : `Cronsole task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
+          : isGemini
+            ? `Gemini trigger "${name}" created. Its agent has no network allowlist — add domains in Google AI Studio if the prompt needs them.`
+            : `Cronsole task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
         'success'
       );
       onClose();
@@ -265,7 +307,14 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
   // Native completeness is `nativeJobIncomplete` — the same check the edit form
   // uses — so a job cannot be submittable in one form and refused in the other.
-  const targetValid = isWindows ? !!command.trim() : !nativeJobIncomplete(job);
+  const targetValid = isWindows
+    ? !!command.trim()
+    : isGemini
+      ? // The prompt is the whole action here, so it is required for the reason
+        // a command is on Windows: a trigger with nothing to do is refused by
+        // the connector anyway, and refusing at the button is the cheaper place.
+        !!prompt.trim()
+      : !nativeJobIncomplete(job);
   // Claude asks for different things and fewer of them: the id and token are
   // required, the name is optional (it falls back to the id), and there is no
   // schedule to require because Cronsole does not set one.
@@ -276,7 +325,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   const platformButton = (p: CreatePlatform, label: string, Icon: typeof Zap, active: string) => (
     <button
       onClick={() => selectPlatform(p)}
-      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold border transition-all ${
+      className={`flex-1 min-w-[7.5rem] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold border transition-all ${
         platform === p ? active : 'bg-background border-border text-subtle-foreground hover:border-foreground/30'
       }`}
     >
@@ -294,9 +343,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
     >
         <header className="p-6 border-b border-border flex justify-between items-start bg-surface/50">
           <div>
-            <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : isClaude ? 'text-claude-text' : 'text-native-text'}`}>
-              {isWindows ? <Monitor size={11} /> : isClaude ? <Bot size={11} /> : <Zap size={11} />}
-              {isWindows ? 'Windows Task Scheduler' : isClaude ? 'Claude Code routine' : 'Cronsole-native task'}
+            <p className={`text-[10px] uppercase font-black tracking-widest mb-1 flex items-center gap-1.5 ${isWindows ? 'text-foreground' : isClaude ? 'text-claude-text' : isGemini ? 'text-gemini-text' : 'text-native-text'}`}>
+              {isWindows ? <Monitor size={11} /> : isClaude ? <Bot size={11} /> : isGemini ? <Sparkles size={11} /> : <Zap size={11} />}
+              {isWindows ? 'Windows Task Scheduler' : isClaude ? 'Claude Code routine' : isGemini ? 'Gemini API trigger' : 'Cronsole-native task'}
             </p>
             {/*
               The title changes for Claude because the action does. Cronsole
@@ -312,7 +361,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                 ? 'Registered as a real Windows scheduled task via the local agent — survives reboots, runs even when Cronsole is down.'
                 : isClaude
                   ? 'Adds a routine that already exists at claude.ai so you can trigger it from here. Cronsole cannot create, schedule or pause a routine — Anthropic exposes no API for any of those.'
-                  : 'Scheduled and executed by Cronsole itself — nothing is created in Windows Task Scheduler.'}
+                  : isGemini
+                    ? 'Created for real on the Gemini API — a managed agent runs your prompt on this schedule, in the cloud, whether or not Cronsole is up.'
+                    : 'Scheduled and executed by Cronsole itself — nothing is created in Windows Task Scheduler.'}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close new task" title="Close" className="p-2 hover:bg-muted rounded-full text-subtle-foreground transition-colors shrink-0">
@@ -332,10 +383,17 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               Platform
               <HelpButton topic={sourceTopicId(platform)} />
             </label>
-            <div className="flex gap-2">
+            {/*
+              `flex-wrap` and a min width, because this went from three chips to
+              four: at the modal's width four equal chips are under 90px each, and
+              the labels truncate rather than wrapping. Every page here passes a
+              <375px check, so the row wraps to two-up instead of shrinking.
+            */}
+            <div className="flex flex-wrap gap-2">
               {platformButton('TASKHUB_NATIVE', 'Cronsole', Zap, 'bg-native/10 border-native/40 text-native-text')}
               {platformButton('WINDOWS_TASK_SCHEDULER', 'Windows', Monitor, 'bg-primary/10 border-primary/40 text-foreground')}
               {platformButton('CLAUDE_CODE', 'Claude', Bot, 'bg-claude/10 border-claude/40 text-claude-text')}
+              {platformButton('GEMINI_TRIGGERS', 'Gemini', Sparkles, 'bg-gemini/10 border-gemini/40 text-gemini-text')}
             </div>
           </div>
 
@@ -448,7 +506,7 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
               as a group. Letting it be typed here would make the field a lie the
               next sync corrects.
             */}
-            {!isClaude && (
+            {!isClaude && !isGemini && (
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">Category</label>
                 <input
@@ -510,7 +568,34 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
 
           {/* Claude has no target field: the routine's prompt, repos and
               connectors are all defined at claude.ai and unreadable from here. */}
-          {isClaude ? null : isWindows ? (
+          {isClaude ? null : isGemini ? (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles size={11} /> Prompt <span className="text-danger-text">*</span>
+                <HelpButton topic={sourceTopicId('GEMINI_TRIGGERS')} />
+              </label>
+              {/*
+                Deliberately a prompt box rather than the command box above with
+                different help text. The unit of work on this platform is a
+                sentence for an agent, and typing a shell line into a field
+                labelled Command would produce a trigger that dutifully asks an
+                LLM to think about `powershell -File ...`.
+              */}
+              <textarea
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                rows={4}
+                aria-label="Prompt"
+                placeholder={'Check the open PRs in my-org/my-app and summarise anything that has been waiting more than three days.'}
+                className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs text-foreground outline-none focus:border-gemini transition-colors resize-y leading-relaxed"
+              />
+              <p className="text-[10px] text-subtle-foreground italic">
+                Runs on the managed agent set in the Sources tab. It gets{' '}
+                <span className="font-bold not-italic text-foreground">no network allowlist</span>, so it
+                can reach nothing outside its sandbox — add domains in Google AI Studio if it needs them.
+              </p>
+            </div>
+          ) : isWindows ? (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Terminal size={11} /> Command <span className="text-danger-text">*</span>
@@ -586,13 +671,15 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           )}
 
           <div className="text-[11px] text-subtle-foreground bg-background border border-border rounded-xl px-3 py-2 flex items-start gap-2">
-            <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : isClaude ? 'text-claude-text' : 'text-native-text'}`} />
+            <Info size={13} className={`shrink-0 mt-0.5 ${isWindows ? 'text-foreground' : isClaude ? 'text-claude-text' : isGemini ? 'text-gemini-text' : 'text-native-text'}`} />
             <span>
               {isWindows
                 ? 'Created under the \\Cronsole\\ folder in Task Scheduler, so Cronsole-made tasks stay identifiable. Requires the Windows agent to be online.'
                 : isClaude
                   ? 'The token is stored encrypted and never shown again. Running a routine from here starts a real Claude Code session that can use its repos and connectors — exactly as if it had fired on schedule.'
-                  : 'Runs only while the Cronsole backend is up. Use a Windows task instead for jobs that must survive Cronsole being offline.'}
+                  : isGemini
+                    ? 'Written to Gemini as UTC, so this schedule round-trips exactly. Gemini pauses a trigger itself after repeated failures — Cronsole shows that as its own warning rather than as an ordinary disabled task.'
+                    : 'Runs only while the Cronsole backend is up. Use a Windows task instead for jobs that must survive Cronsole being offline.'}
             </span>
           </div>
 
@@ -608,7 +695,9 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                 ? 'bg-primary hover:bg-primary-hover shadow-primary/20'
                 : isClaude
                   ? 'bg-claude hover:bg-claude/85 shadow-claude/20 text-white'
-                  : 'bg-native hover:bg-native/85 shadow-native/20'
+                  : isGemini
+                    ? 'bg-gemini hover:bg-gemini/85 shadow-gemini/20 text-white'
+                    : 'bg-native hover:bg-native/85 shadow-native/20'
             }`}
           >
             {/* "Connect", never "Create" — Cronsole did not make this routine
@@ -619,7 +708,12 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                 ? <><Monitor size={16} /> Create Windows Task</>
                 : isClaude
                   ? <><Bot size={16} /> Connect Routine</>
-                  : <><Zap size={16} /> Create Cronsole Task</>}
+                  : isGemini
+                    ? // "Create", not "Connect" — this one really does write a
+                      // trigger that did not exist, which is the whole reason
+                      // Gemini sits on the other side of the split from Claude.
+                      <><Sparkles size={16} /> Create Gemini Trigger</>
+                    : <><Zap size={16} /> Create Cronsole Task</>}
           </button>
         </footer>
     </Modal>

@@ -85,7 +85,8 @@ export const MATRIX_PLATFORMS: readonly PlatformType[] = [
   PlatformType.TASKHUB_NATIVE,
   PlatformType.CLAUDE_CODE,
   PlatformType.GITHUB_ACTIONS,
-  PlatformType.VERCEL_CRON
+  PlatformType.VERCEL_CRON,
+  PlatformType.GEMINI_TRIGGERS
 ] as const;
 
 /**
@@ -245,6 +246,30 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
     // nothing like Claude's dated beta headers. A connector is judged by whether
     // what it claims is true, not by how much of the interface it fills.
     maturity: 'functional'
+  },
+  [PlatformType.GEMINI_TRIGGERS]: {
+    platform: PlatformType.GEMINI_TRIGGERS,
+    label: 'Gemini API Triggers',
+    // **The first hosted controller**, and the field earns its keep in the other
+    // direction here. Two hosted sources ship as observers, so a reader who had
+    // learned "hosted means read-only" would carry that assumption onto this row
+    // and never press a button that works. `controller` says outright that this
+    // one acts.
+    access: 'controller',
+    // Leads with what Cronsole *does*, which is the opposite of the two rows
+    // above it — and then names the one boundary, because a controller with a
+    // missing verb is the case where a user is most likely to assume the button
+    // is broken rather than absent.
+    summary:
+      'Scheduled triggers on the Gemini API\'s managed agents. Cronsole lists, runs, pauses, ' +
+      'reschedules, creates and deletes them, and reads their real run outcomes. Editing a trigger\'s ' +
+      'prompt happens in Google AI Studio.',
+    // Experimental, and for the same reason Claude's row is: `v1beta` triggers
+    // are documented as a **preview** of the Managed Agents API and may change
+    // shape without notice. That is a statement about the API underneath, not
+    // about how much of this connector is finished — the two questions are
+    // deliberately separate fields.
+    maturity: 'experimental'
   }
 };
 

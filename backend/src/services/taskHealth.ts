@@ -271,6 +271,15 @@ export function scoreTask(task: HealthInputTask, now: Date): TaskHealth {
       "Vercel publishes no run history for cron jobs — their invocations appear only in the project's function logs"
     );
     return { ...base, tier: 'unknown', score: null, signals };
+  } else if (task.platform === PlatformType.GEMINI_TRIGGERS) {
+    // The first *hosted* platform with real run evidence, and the only one that
+    // also publishes the platform's own failure count. Same early return GitHub
+    // makes when the flag is false: `unknown` is the absence of a verdict about
+    // the runs, not a reason to withhold the auto-pause signal that was already
+    // added.
+    if (!scoreGeminiRuns(task, now, add, disabled)) {
+      return { ...base, tier: 'unknown', score: null, signals };
+    }
   } else if (task.platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
     const snapshot = readWindowsSnapshot(task.metadata);
 
@@ -474,6 +483,122 @@ function scoreGitHubRuns(
         WEIGHTS.failureStreak
       );
     }
+  }
+
+  return true;
+}
+
+/**
+ * Score a Gemini trigger from **real run outcomes and the platform's own count**.
+ *
+ * The first hosted source with either. GitHub reports a `conclusion` per run and
+ * that is scored one function up; Vercel reports nothing and is honestly
+ * `unknown`. Gemini reports both an execution list *and* a
+ * `consecutive_failure_count` maintained by the platform — and the second is the
+ * more reliable of the two, because it is the number the platform itself acts on
+ * when it decides to stop running the trigger.
+ *
+ * Three rules, and the first two are carried over unchanged because they are what
+ * stops a summary lying:
+ *
+ * **`reportsRunResult` is present-and-boolean, so absence is `unknown`.** A sync
+ * whose per-trigger execution read failed leaves the flag `false`, and that
+ * scores nothing at all rather than reading as "never ran". Flagging every
+ * trigger in an account because one rate-limited request came back empty is
+ * exactly the dashboard-scale wrongness this file exists to avoid.
+ *
+ * **A trigger somebody paused is not unhealthy**, for the reason a disabled task
+ * anywhere is not: parking something is the recommended safe action.
+ *
+ * **But a trigger the *platform* paused is a different fact, and outranks the
+ * generic note.** Gemini disables a trigger by itself after
+ * `max_consecutive_failures` consecutive failures — nobody chose it, which is why
+ * it is a `warn` rather than an `info`, exactly as GitHub's 60-day
+ * `disabled_inactivity` is. It is the single most useful thing this source
+ * surfaces: a nightly agent that has been dead for a week looks, from every other
+ * angle, like a trigger somebody deliberately parked.
+ */
+function scoreGeminiRuns(
+  task: HealthInputTask,
+  now: Date,
+  add: (c: string, s: HealthSignal['severity'], sum: string, ev: string, w?: number) => void,
+  disabled: boolean
+): boolean {
+  const m = (task.metadata && typeof task.metadata === 'object' ? task.metadata : {}) as Record<string, unknown>;
+  const asOf = `as of the sync at ${task.updatedAt.toISOString()}`;
+
+  const failures = typeof m.consecutiveFailureCount === 'number' ? m.consecutiveFailureCount : 0;
+  const ceiling = typeof m.maxConsecutiveFailures === 'number' ? m.maxConsecutiveFailures : null;
+
+  // Gemini turned it off on its own. Reported whether or not run evidence also
+  // arrived, because it is a fact about the trigger rather than about this sync.
+  if (disabled && m.platformStatus === 'disabled') {
+    add(
+      'trigger-auto-paused',
+      'warn',
+      'Gemini paused this trigger itself after consecutive failures.',
+      `Gemini reports status "disabled" after ${failures} consecutive failure${failures === 1 ? '' : 's'}` +
+        `${ceiling ? ` against a maximum of ${ceiling}` : ''} ${asOf}`,
+      WEIGHTS.missedRuns
+    );
+  }
+
+  if (m.reportsRunResult !== true) {
+    add(
+      'no-run-evidence',
+      'info',
+      'Cronsole has no run results for this trigger yet.',
+      'Gemini did not return an execution list on the last sync — sync again to check',
+      0
+    );
+    return false;
+  }
+
+  // The platform's own count, scored before the execution list. It is the number
+  // Gemini acts on, and it survives an execution page that has rolled over.
+  if (failures >= 3) {
+    add(
+      'failure-streak',
+      'critical',
+      `The last ${failures} runs all failed.`,
+      `Gemini reports a consecutive failure count of ${failures}` +
+        `${ceiling ? ` against a maximum of ${ceiling}, after which it pauses the trigger` : ''} ${asOf}`,
+      WEIGHTS.failureStreak
+    );
+  }
+
+  const runCount = typeof m.executionCount === 'number' ? m.executionCount : 0;
+  if (runCount === 0) {
+    if (!disabled) {
+      add(
+        'never-run',
+        'warn',
+        'This trigger has never completed a run.',
+        `Gemini reports no finished executions ${asOf}`,
+        WEIGHTS.neverRun
+      );
+    }
+    // Evidence, not silence: Gemini answered, and the answer was that there are
+    // no finished executions. That is a fact worth scoring.
+    return true;
+  }
+
+  const status = typeof m.lastStatus === 'string' ? m.lastStatus : null;
+  const lastRun = typeof m.lastRunTime === 'string' ? new Date(m.lastRunTime) : null;
+  const when = lastRun && !Number.isNaN(lastRun.getTime()) ? ago(lastRun, now) : 'at an unreported time';
+
+  // `succeeded` is the platform's word for a clean run. Anything else that is
+  // finished is worth naming — and `cancelled` is somebody's choice rather than
+  // breakage, which is the same split GitHub's conclusions get.
+  if (status && status !== 'succeeded') {
+    const chosen = status === 'cancelled';
+    add(
+      chosen ? 'run-terminated' : 'recent-failure',
+      chosen ? 'warn' : 'critical',
+      `The most recent run ${chosen ? 'was cancelled' : `ended as "${status}"`}.`,
+      `Gemini reports status "${status}" for the execution ${when}`,
+      chosen ? WEIGHTS.terminated : WEIGHTS.recentFailure
+    );
   }
 
   return true;

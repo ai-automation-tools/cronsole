@@ -104,7 +104,8 @@ pwsh .\scripts\cronsole.ps1 up
 
 > **Canonical: [`docs/contributing/Adding_A_Source.md`](../../../docs/contributing/Adding_A_Source.md).**
 > That doc is public-facing and has the reasoning, the contract and which connector to copy
-> (`VercelCronConnector` is the smallest complete one). What follows is the same order in short
+> (`VercelCronConnector` is the smallest complete observer; `GeminiTriggersConnector` is the one to
+> copy for a source you can actually *act* on). What follows is the same order in short
 > form — if the two ever disagree, **the doc wins and this list is what gets fixed.**
 
 1. Implement `PlatformConnector` in `backend/src/connectors/<Platform>Connector.ts`.
@@ -133,7 +134,15 @@ pwsh .\scripts\cronsole.ps1 up
    history (Vercel Cron), the honest answer is `unknown` **permanently**, with the reason naming the
    platform. Never score "configured, therefore healthy": *configured* and *working* are different
    claims.
-9. **Wire the frontend, or the source lands nameless.** None of this fails a test on its own — a
+9. **Does the platform store a time zone?** Cronsole stores 5-field UTC, so a platform that keeps
+   its own zone (Gemini API Triggers is the first: `{ schedule, time_zone }`) has to be reconciled
+   **on the server** — `utils/cron.ts`'s `shiftCronToUtc`, not the browser's `timezone.ts`, because
+   a sync, an MCP session and the rail all have to normalize the same schedule identically and none
+   of them has a browser. Write `UTC` on everything you create or edit so a round trip is exact;
+   normalize on read and keep the platform's original pair in metadata (a shifted field prints what
+   it was shifted from); and return **`null` with a reason** for any expression with no honest UTC
+   equivalent, never a plausible cron that fires on the wrong day ([#60](../../../docs/troubleshooting/README.md#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter)).
+10. **Wire the frontend, or the source lands nameless.** None of this fails a test on its own — a
    platform missing from these maps renders a grey globe and a raw `SCREAMING_ENUM`, and the suite
    stays green. In `frontend/src/platform.ts`: `platformLabel`, `platformSourceLabel`,
    `sourceDescription`, `platformBadgeClass`, `SOURCE_ICON`, `platformAccent`, and
@@ -144,8 +153,8 @@ pwsh .\scripts\cronsole.ps1 up
    from **both** `ConnectedSourceCard` and `UnconnectedSourceCards` (setting a source up and
    maintaining it later must be one surface), and reuse `sources/ConnectionField` rather than
    growing a third copy of it.
-10. **No platform-specific logic outside the connector layer.**
-11. **Then the mirror surfaces, in the same change** (CLAUDE.md §11a): a `HelpTopic` in
+11. **No platform-specific logic outside the connector layer.**
+12. **Then the mirror surfaces, in the same change** (CLAUDE.md §11a): a `HelpTopic` in
     `frontend/src/data/help.ts` pointing at a **new section in the Sources Guide** (`docsLinks.test.ts`
     checks the anchor resolves), the `ALL_PLATFORMS` enum and the platform sentences in
     `mcp-server/src/tools.ts`, the `list_tasks` / `list_platforms` rows in **both** MCP tool tables,

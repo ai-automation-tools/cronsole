@@ -6,6 +6,7 @@ import { timeAgo } from '../../utils/datetime';
 import { ClaudeRoutinesPanel } from '../ClaudeRoutinesPanel';
 import { GitHubReposPanel } from '../GitHubReposPanel';
 import { VercelProjectsPanel } from '../VercelProjectsPanel';
+import { GeminiTriggersPanel } from '../GeminiTriggersPanel';
 import { SidebarToggle, SourceHeading, SourceStatusPill, SourceTile, Stat } from './SourceIdentity';
 import { SUPPORT_STYLE } from './sourceStyles';
 
@@ -132,6 +133,15 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
         health however well they are running.
       */}
       {row.platform === 'VERCEL_CRON' && <VercelProjectsPanel />}
+
+      {/*
+        Gemini is the fourth hand-composed connection and the **first hosted one
+        that can act**, which is what its panel has to lead with: a reader who
+        has met GitHub and Vercel here has learned that a hosted source is
+        read-only, and would otherwise carry that assumption onto a row full of
+        buttons that work.
+      */}
+      {row.platform === 'GEMINI_TRIGGERS' && <GeminiTriggersPanel />}
 
       <button
         type="button"

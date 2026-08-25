@@ -2,7 +2,7 @@
 // styling. Cronsole-native tasks get a distinct violet identity so they're
 // immediately separable from platform-synced tasks (docs/resources/Native_Tasks.md).
 import {
-  Activity, Bot, Cpu, FileCode, GitBranch, Globe, Laptop, Monitor, Terminal, Triangle, Zap,
+  Activity, Bot, Cpu, FileCode, GitBranch, Globe, Laptop, Monitor, Sparkles, Terminal, Triangle, Zap,
   type LucideIcon
 } from 'lucide-react';
 
@@ -52,7 +52,8 @@ export const platformLabel = (p: string) =>
     HERMES: 'Hermes',
     TASKHUB_NATIVE: 'Cronsole',
     GITHUB_ACTIONS: 'GitHub',
-    VERCEL_CRON: 'Vercel'
+    VERCEL_CRON: 'Vercel',
+    GEMINI_TRIGGERS: 'Gemini'
   }[p] ?? asKey(p).split('_')[0]!);
 
 /**
@@ -78,7 +79,8 @@ export const platformSourceLabel = (p: string) =>
     HERMES: 'Hermes',
     TASKHUB_NATIVE: 'Cronsole (Native)',
     GITHUB_ACTIONS: 'GitHub Actions',
-    VERCEL_CRON: 'Vercel Cron'
+    VERCEL_CRON: 'Vercel Cron',
+    GEMINI_TRIGGERS: 'Gemini API Triggers'
   }[p] ?? platformLabel(p));
 
 /**
@@ -172,7 +174,13 @@ export const sourceDescription = (key: string): string | null => {
     // `unknown` health forever — a user comparing two read-only sources should
     // learn that here rather than infer it from a grey pill.
     VERCEL_CRON:
-      'Cron jobs declared by the Vercel projects you watch. Read-only, and Vercel publishes no run history for them — Cronsole shows their schedules, never how they went.'
+      'Cron jobs declared by the Vercel projects you watch. Read-only, and Vercel publishes no run history for them — Cronsole shows their schedules, never how they went.',
+    // The first hosted source whose sentence leads with what Cronsole *does*,
+    // which is the opposite of the two above it — and it has to, because a
+    // reader who has learned "hosted means read-only" from those two would
+    // carry that assumption here and never press a button that works.
+    GEMINI_TRIGGERS:
+      'Scheduled prompts Google runs on its own agents in the cloud. Cronsole runs, pauses, reschedules, creates and deletes them, and reads how their last runs actually went.'
   };
   return exact[key] ?? exact[sourcePlatform(key)] ?? null;
 };
@@ -184,7 +192,8 @@ export const platformBadgeClass = (p: string) =>
     CLAUDE_CODE: 'bg-claude/10 text-claude-text border-claude/20',
     CHATGPT: 'bg-chatgpt/10 text-chatgpt-text border-chatgpt/20',
     GITHUB_ACTIONS: 'bg-github/10 text-github-text border-github/30',
-    VERCEL_CRON: 'bg-vercel/10 text-vercel-text border-vercel/30'
+    VERCEL_CRON: 'bg-vercel/10 text-vercel-text border-vercel/30',
+    GEMINI_TRIGGERS: 'bg-gemini/10 text-gemini-text border-gemini/30'
   }[p] ?? 'bg-muted/10 text-muted-foreground border-border/20');
 
 export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';
@@ -240,7 +249,14 @@ const SOURCE_ICON: Record<string, LucideIcon> = {
   // platform rather than a second choice. Outline, not filled: the tile behind
   // it carries the identity colour, and a solid triangle at this size reads as
   // a warning sign.
-  VERCEL_CRON: Triangle
+  VERCEL_CRON: Triangle,
+  // A sparkle, which is Google's own glyph for Gemini across its products and
+  // the one shape a user already reads as "an AI did this on its own". It is
+  // deliberately not `Bot` — Claude Code holds that, and these two sources are
+  // the closest pair on the tab: both are prompts a cloud agent runs on a
+  // schedule, so a shared glyph would make the one real difference between them
+  // (which vendor) the only thing not shown.
+  GEMINI_TRIGGERS: Sparkles
 };
 
 export const sourceIcon = (key: string): LucideIcon =>
@@ -266,7 +282,8 @@ export const platformAccent = (p: string): { tile: string; rule: string } =>
     CLAUDE_CODE: { tile: 'bg-claude/10 text-claude-text', rule: 'bg-claude/40' },
     CHATGPT: { tile: 'bg-chatgpt/10 text-chatgpt-text', rule: 'bg-chatgpt/40' },
     GITHUB_ACTIONS: { tile: 'bg-github/10 text-github-text', rule: 'bg-github/40' },
-    VERCEL_CRON: { tile: 'bg-vercel/10 text-vercel-text', rule: 'bg-vercel/40' }
+    VERCEL_CRON: { tile: 'bg-vercel/10 text-vercel-text', rule: 'bg-vercel/40' },
+    GEMINI_TRIGGERS: { tile: 'bg-gemini/10 text-gemini-text', rule: 'bg-gemini/40' }
   }[p] ?? { tile: 'bg-muted text-muted-foreground', rule: 'bg-border' });
 
 /**
@@ -310,5 +327,13 @@ export const sourceSetupHint = (p: string): { hasPanel: boolean; hint: string } 
     VERCEL_CRON: {
       hasPanel: true,
       hint: 'Paste a Vercel access token and pick the projects to watch — Cronsole lists them for you, with how many cron jobs each has. Read-only: it changes nothing in the project.'
+    },
+    // The shortest hint of the three panelled sources, and the platform is the
+    // reason: a Gemini API key is scoped to one Google Cloud project and sees
+    // every trigger in it, so there is nothing to name, pick or watch. The
+    // sentence says so rather than leaving someone hunting for the second step.
+    GEMINI_TRIGGERS: {
+      hasPanel: true,
+      hint: 'Paste a Gemini API key. There is nothing else to pick — a key sees every trigger in its own Google Cloud project, and Cronsole can act on all of them.'
     }
   }[p] ?? { hasPanel: false, hint: 'Nothing to connect here yet.' });

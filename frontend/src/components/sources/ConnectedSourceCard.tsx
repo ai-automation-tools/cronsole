@@ -9,6 +9,7 @@ import { VercelProjectsPanel } from '../VercelProjectsPanel';
 import { GeminiTriggersPanel } from '../GeminiTriggersPanel';
 import { SidebarToggle, SourceHeading, SourceStatusPill, SourceTile, Stat } from './SourceIdentity';
 import { SUPPORT_STYLE } from './sourceStyles';
+import { SourceDocLink } from './SourceDocLink';
 
 /**
  * A source that is connected: what it can do, what it has actually done, and
@@ -231,6 +232,15 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
           </div>
         </div>
       )}
+
+      {/*
+        Outside the capability disclosure on purpose. Everything above answers
+        "what can this do"; this answers "how do I use it", which is the
+        question somebody has while the card is still collapsed.
+      */}
+      <div className="pt-4 border-t border-border">
+        <SourceDocLink platform={row.platform} label={row.label} />
+      </div>
     </article>
   );
 };

@@ -48,3 +48,39 @@ export const sourcesGuide = (anchor?: string) => docLink(`${GUIDES}/Sources_Guid
  * and the split is what lets each one stop hedging for the other.
  */
 export const addingASourceDoc = () => docLink('docs/contributing/Adding_A_Source.md');
+
+/**
+ * The per-source deep dive, one document per platform.
+ *
+ * **Separate from `sourcesGuide`, which is the comparison.** That guide is one
+ * page covering all six side by side — the right thing to read when you are
+ * choosing between them, and the wrong thing to land on when you have already
+ * chosen and want to know how to connect *this one*. Anchoring into it put a
+ * reader two-thirds of the way down a long page about five other sources, which
+ * is the same failure that moved `addingASourceDoc` off it.
+ *
+ * Keyed by `PlatformType` so a card can ask for its own document without
+ * knowing the filename. **A platform with no entry gets `null`** and the card
+ * renders no link — quick links have no connector and therefore nothing to
+ * document, and a dead button is worse than an absent one.
+ */
+const SOURCE_DOCS: Record<string, string> = {
+  WINDOWS_TASK_SCHEDULER: 'Windows_Task_Scheduler.md',
+  TASKHUB_NATIVE: 'Cronsole_Native.md',
+  CLAUDE_CODE: 'Claude_Code_Routines.md',
+  GEMINI_TRIGGERS: 'Gemini_API_Triggers.md',
+  GITHUB_ACTIONS: 'GitHub_Actions.md',
+  VERCEL_CRON: 'Vercel_Cron.md'
+};
+
+/** Where the per-source guides live, relative to the repo root. */
+export const SOURCE_GUIDES = 'docs/user-guides/sources';
+
+/** The deep-dive document for one platform, or `null` if it has none. */
+export const sourceDoc = (platform: string): string | null => {
+  const file = SOURCE_DOCS[platform];
+  return file ? docLink(`${SOURCE_GUIDES}/${file}`) : null;
+};
+
+/** The index of the per-source guides — every source, in one place. */
+export const sourceDocsIndex = () => docLink(`${SOURCE_GUIDES}/README.md`);

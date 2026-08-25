@@ -118,12 +118,14 @@ bearer token beside it. So the rule was never "Cronsole must not hold a credenti
 platform" — it holds a bigger one. It was a lifecycle claim, and the lifecycle turned out to be
 wrong.
 
-> **The invariant changes rather than being deleted.** What survives is the part that was always
-> right: **no route returns a stored value**, and a task stores a **reference, never a value**
-> ([ADR 0003](adr/0003-per-job-secrets.md)'s rule one layer up). What goes is "stored nowhere", and
-> §9, the Sources Guide and the create form's own sentence all have to change **in the same
-> change** — the form currently says the token is kept nowhere, and that must not survive one commit
-> past the day it stops being true.
+> **The invariant changed rather than being deleted** *(done 2026-08-25)*. What survives is the part
+> that was always right: **no route returns a stored value**, and a task stores a **reference, never a
+> value** ([ADR 0003](adr/0003-per-job-secrets.md)'s rule one layer up). What went is "stored
+> nowhere" — and §9, the skill's invariants table, the Sources Guide, the UI guide, the help topic and
+> **the create form's own sentence** all moved in the same commit, because a form still promising the
+> token is kept nowhere must not survive one commit past the day it stopped being true. The form now
+> says both: typed inline it is kept nowhere, saved as a server it is stored here, and the second is
+> what it recommends for anything you will use twice.
 
 - [x] **A. Saved agent tools — presets on the connection** — **shipped 2026-08-25**. A named record
       holding `{ name, url, headers }`, headers encrypted with the key already used for

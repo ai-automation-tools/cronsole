@@ -34,6 +34,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent through `\Cronsole-Stack\CronsoleAgent` (RunLevel `Highest`), then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
+| 80 | **CI is red on a commit whose tests and typecheck were both green locally.** Five of six jobs pass; **Frontend lint and build** fails, and it died before running any test — `react-hooks/set-state-in-effect`, or any other rule | **Lint is a separate gate and nothing you ran locally includes it.** `npm test` runs vitest, `tsc --noEmit` typechecks, and neither runs `eslint` — so the frontend job lints *before* testing, and one error means the suite and the build never ran either. The rule that caught it was right about a real defect: a field seeded from the server with `useState('')` + `useEffect(() => setX(stored), [stored])`, under a comment claiming it could not clobber an in-progress edit. It can — `stored` is exactly what a refetch changes, and the panel refetched on every mutation it made. **Derive the value** (`draft ?? stored`) rather than mirroring it. **The tell: an effect whose whole body is `setState(derivedFromProps)`.** Run what CI runs — the frontend `npm run lint` is the step that is easy to skip | [→](#80-ci-is-red-on-a-commit-whose-tests-and-typecheck-both-passed-locally) |
 | 79 | **A whole screen renders blank after adding a new platform**, with no server error and a green test suite. The console says `TypeError: Cannot read properties of undefined (reading 'split')` somewhere in presentation code that has nothing to do with what you changed | **A `PlatformType.X` that is `undefined` at runtime, because the generated Prisma client is older than the schema** — a backend process started before `prisma generate` finished, or a container built on a stale layer. Nothing catches it: TypeScript is happy (the *types* have the value), `MATRIX_PLATFORMS` holds the `undefined` quietly, and `PLATFORM_DESCRIPTORS[undefined]` **succeeds** — the computed key in that object literal also evaluated to `undefined` and became the string `"undefined"`, so the two agree with each other and disagree with reality. The matrix then serves a row with a label, a summary and ten capability cells and **no `platform` field at all**, since `JSON.stringify` drops an undefined value. **The tell: one row in `list_platforms` is missing a key every other row has.** Fixed 2026-08-24 — `MATRIX_PLATFORMS` is checked at boot and throws naming the value, and the `platform.ts` lookups are total so a bad row degrades to a globe instead of a white page | [→](#79-a-screen-goes-blank-after-adding-a-platform-and-nothing-logs-an-error) |
 | 78 | **The light theme is hard to read and nothing in it looks obviously wrong.** Panels sit flat on the page, field labels wash out, coloured status dots vanish — and every individual value looks defensible when you open `index.css` | **Colour fails silently, so it has to be measured rather than reviewed.** A role below the WCAG bar renders perfectly. Measuring every role against every *surface* (not just the page) found **26 pairs under AA across both themes**, and the structural fault: light ran `background 100% -> surface 95% -> raised 98%`, putting a *raised* panel at **1.04:1** against the page — flatter than the `surface` card it sits above (1.12) and effectively invisible. `muted` is the binding constraint in light, not `background`, which is why a pass that checked against white missed it. Fixed 2026-08-24: light is now the mirror of dark (1.07/1.14/1.25 vs 1.05/1.16/1.27) and `themeContrast.test.ts` measures every pair, so this cannot recur quietly. **If a colour looks wrong, run that test before opening a picker** | [→](#78-the-light-theme-is-hard-to-read-and-every-value-looks-defensible) |
 | 77 | **The Sources tab says a verb failed, and the reason is your own broken file.** Cronsole-native shows *"1 verb failed more recently than it succeeded — Run now: `D:/nope/missing.tar` does not exist (checked on the machine the backend runs on)"*. The platform is otherwise **HEALTHY**, every task runs, and the named file is one *you* pointed a check at | **A `CHECK` that correctly finds a problem was recorded as a failure of the platform's Run verb.** `runTask` returns `success` **and** `ran` because they are orthogonal; the row `success: false, ran: true` is a native job that *executed* and reported bad news — the check working. The route's response branch drew that line correctly (it is what #59 fixed) and the `recordCapability` call four lines above it still passed `result.success`, so one failing check marked Cronsole-native's own Run verb broken and kept the reason. **The tell: the reason names something on your disk rather than anything about Cronsole.** Capability failures do **not** age out — they clear when that verb next succeeds. Fixed 2026-08-24 (`runVerbSucceeded`); **restart the backend**, then run any native task once and the banner clears | [→](#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file) |
@@ -5382,6 +5383,85 @@ purpose:
 > enum value produces a key that matches nothing you meant and everything you did.** `obj[undefined]`
 > and `{[undefined]: x}` meet in the middle at `"undefined"`. If a lookup "works" for a value you
 > know is broken, that is the shape to suspect.
+
+## 80. CI is red on a commit whose tests and typecheck both passed locally
+
+**Symptom.** You ran the suites, they were green, `npx tsc --noEmit` was silent, you pushed — and CI
+fails. Five of the six jobs are green. The one that is not is **Frontend lint and build**, and it
+died before it ever reached the tests:
+
+```
+> eslint .
+
+frontend/src/components/GeminiTriggersPanel.tsx
+  67:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+  react-hooks/set-state-in-effect
+
+✖ 1 problem (1 error, 0 warnings)
+```
+
+**Cause, the boring half.** **Lint is its own gate, and nothing you ran locally includes it.**
+`npm test` runs vitest. `tsc --noEmit` typechecks. Neither one runs `eslint`, so a rule violation is
+invisible to the two commands it is most natural to trust — and the frontend job runs **lint before
+tests**, so one lint error also means the frontend suite and build never ran at all. A red CI with
+five green jobs looks like a flake and is not.
+
+**Cause, the half worth logging.** The rule caught a real defect wearing a comment that said it was
+safe. The panel seeded a text field from the server the obvious way:
+
+```tsx
+const [agent, setAgent] = useState('');
+// Seed the field from the server once it arrives, and never again — retyping over
+// what someone is editing because a background refetch landed is the failure mode
+// this effect exists to avoid, which is why it keys on the stored value rather
+// than on the query object.
+useEffect(() => { setAgent(storedAgent); }, [storedAgent]);
+```
+
+**That comment is wrong, and it is wrong in the direction that makes it convincing.** Keying on
+`storedAgent` rather than on the query object does not prevent the overwrite — `storedAgent` *is*
+what a refetch changes. And this panel invalidates its own connection query on every mutation it
+makes, so the refetch is routine rather than hypothetical: type a new agent id, save, and the
+response re-renders the field out from under any further typing.
+
+**The tell.** An effect whose only body is `setState(somethingDerivedFromProps)`. If the effect
+exists to copy server state into local state, the state should not be local.
+
+**Fix.** Derive the displayed value instead of mirroring it, and keep only the user's edit:
+
+```tsx
+// `null` until the user types. Before the first keystroke the field simply IS the
+// stored value; after it, the draft wins until it is saved.
+const [draft, setDraft] = useState<string | null>(null);
+const agent = draft ?? storedAgent;
+```
+
+Reset `draft` to `null` after a successful save, or the saved draft keeps winning forever — clearing
+the box to restore a default would then show an empty field after a save that correctly stored the
+default.
+
+**What stops it recurring.** Run what CI runs, not what is convenient. The full list, and the
+frontend lint is the one that is easy to skip:
+
+```bash
+cd frontend    && npm run lint && npx tsc --noEmit && npx vitest run && npm run build
+cd ../backend  && npx tsc --noEmit && npm test && npm run build
+cd ../mcp-server && npm test && npm run typecheck && npm run build
+node scripts/check-control-bytes.mjs && node scripts/check-ps1-ascii.mjs
+node scripts/check-doc-links.mjs && node scripts/check-tracked-env.mjs
+```
+
+> [!TIP]
+> The generalizable half: **a comment asserting that a piece of code is safe is not evidence that it
+> is.** This one named the exact failure mode it did not prevent, which made it read as considered
+> rather than as wrong — and a reviewer who trusts it stops looking. When a comment claims a hazard
+> is handled, check the mechanism it names, not the confidence it carries. The same shape appears
+> one entry over in [#77](#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file),
+> where the line four above the defect stated the correct rule.
+
+*First hit: 2026-08-25.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
 ---
 

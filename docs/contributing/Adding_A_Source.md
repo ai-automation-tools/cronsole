@@ -104,8 +104,9 @@ Every one of these has cost someone real time. They are not style preferences.
   *fires* the thing it is checking is not a health check. Having no verdict is `UNKNOWN`, which is
   not a synonym for healthy. Read back stored sync evidence rather than probing: `getHealth` runs
   every 45 seconds **per open browser tab**, and spending someone's API rate limit there answers a
-  question the next sync answers for free. **Sync is the user's probe** — all four connectors reached
-  that conclusion independently.
+  question the next sync answers for free. **Sync is the user's probe** — every connector that talks
+  to a remote platform has reached that conclusion independently, from a different direction each
+  time: a rate limit, a metered quota, an agent round trip.
 - **A sync that fails loudly.** If *every* source in a sync failed, **throw**. Returning an empty
   list reads as "the platform no longer has these tasks" and retires the lot. A partial failure
   returns what it got and sets `partial`, which suppresses retirement for that pass.
@@ -236,9 +237,15 @@ Then run the checks:
 
 ```bash
 cd backend    && npx tsc --noEmit && npx vitest run
-cd ../frontend && npx tsc --noEmit && npx vitest run
+cd ../frontend && npm run lint && npx tsc --noEmit && npx vitest run
 cd ../mcp-server && npm run build && npx vitest run
 ```
+
+**`npm run lint` is not optional and nothing else covers it.** It is its own CI gate — `npx vitest
+run` and `tsc --noEmit` both pass straight through an ESLint error — and the frontend job lints
+*before* it tests, so one violation means the suite and the build never ran either. A red CI with
+every other job green is usually this
+([#80](../troubleshooting/README.md#80-ci-is-red-on-a-commit-whose-tests-and-typecheck-both-passed-locally)).
 
 [`CONTRIBUTING.md`](../../CONTRIBUTING.md) has the rest — commit format, branch roles, and what a
 review looks at.

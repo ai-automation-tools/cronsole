@@ -561,12 +561,41 @@ const sourceGemini: HelpTopic = {
         'creates start failing, that field is the first thing to check.'
     },
     {
-      label: 'A trigger Cronsole creates can reach nothing outside its sandbox',
+      label: 'You choose what the agent can reach, and it starts with nothing',
       body:
-        'Gemini lets a trigger declare a network allowlist, including domains carrying credentials. ' +
-        'Cronsole creates the plainest environment the API accepts and never guesses one, because ' +
-        'widening what an autonomous agent may reach is not a default a task manager should pick ' +
-        'for you. Add domains in Google AI Studio.'
+        'The create form has a Tools and network access section: the built-in tools, MCP servers by ' +
+        'name and URL, and the domains the sandbox may contact. It starts empty and stays empty ' +
+        'unless you open it, so a trigger made without touching it gets the plainest environment the ' +
+        'API accepts — widening what an autonomous agent may reach is not a default a task manager ' +
+        'should pick for you.'
+    },
+    {
+      label: 'A tool the list offers is not always one your agent accepts',
+      body:
+        'The checkboxes come from the API\'s own supported list, but the managed agent behind your ' +
+        'triggers can refuse some of them — filesystem is the known case. Such a trigger is created ' +
+        'happily and then fails in about five seconds with the platform\'s own sentence, which shows ' +
+        'as the run\'s output marked Failed before the agent started. A run that fails faster than ' +
+        'the work could possibly take is a rejected configuration, not a failed attempt: look at the ' +
+        'tools rather than the prompt.'
+    },
+    {
+      label: 'A token you type here is sent to Gemini and kept nowhere in Cronsole',
+      body:
+        'An MCP server\'s Authorization header goes into the create call and Gemini stores it with ' +
+        'the trigger, because that is where the trigger runs. Cronsole keeps no copy and cannot show ' +
+        'it again — not in the task, not in an export, not in a log. That is not a limitation to work ' +
+        'around; it is where the credential has to live for the agent to use it.'
+    },
+    {
+      label: 'Replace credentials recreates the trigger, and says so',
+      body:
+        'When a token rotates, use Replace credentials on the task. Gemini cannot change a trigger in ' +
+        'place, so Cronsole builds a replacement with the same schedule, prompt and agent — creating ' +
+        'the new one before removing the old, so a failure leaves the working trigger alone — and the ' +
+        'task keeps its run history, favourite and collections even though the trigger gets a new id. ' +
+        'A paused trigger stays paused. Retype any tokens: Cronsole never read the old ones. This is ' +
+        'also the way to change which tools a trigger has.'
     },
     {
       label: 'Run History has two lists, and the platform one is where the runs are',
@@ -589,9 +618,10 @@ const sourceGemini: HelpTopic = {
       body:
         'Edit schedule and Edit action both read Unsupported here, and that is the preview API\'s ' +
         'boundary rather than a missing feature: its update endpoint takes a trigger\'s status and ' +
-        'display name and rejects the schedule outright. Change either in Google AI Studio, or ' +
-        'delete and recreate — a new trigger gets a new id, so Cronsole files it as a new task. ' +
-        'Run, pause, resume, create and delete all work from here.'
+        'display name and rejects the schedule outright. To change either, delete and recreate — a ' +
+        'new trigger gets a new id, so Cronsole files it as a new task. Tools and credentials are ' +
+        'the exception: Replace credentials rebuilds the trigger and keeps the task. Run, pause, ' +
+        'resume, create and delete all work from here.'
     }
   ],
   doc: { label: 'Sources Guide › Gemini API Triggers', url: sourcesGuide('gemini-api-triggers') }

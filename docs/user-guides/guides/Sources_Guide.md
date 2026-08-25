@@ -592,20 +592,24 @@ message says so, because a trigger that resumes and fails five more times is bac
 
 ### What Cronsole can do here
 
-**Sync · Run now · Enable / disable · Edit schedule · Create · Delete**, plus real run outcomes
-feeding task health. **Edit action** is the one thing it cannot do: a trigger's payload is an agent, a
-prompt, an environment and a network allowlist, and Cronsole has no form that can hold one honestly
-yet. It shows as *Unsupported* on the Sources tab — edit the prompt in Google AI Studio.
+**Sync · Run now · Enable / disable · Create (with tools, MCP servers and a network allowlist) ·
+Delete**, plus real run outcomes feeding task health. **Edit action** and **Edit schedule** are the
+two things it cannot do, and both are the preview API's boundary rather than missing features: its
+update endpoint takes a trigger's status and display name and rejects everything else. Both show as
+*Unsupported* on the Sources tab. To change a prompt or a schedule, delete the trigger and create it
+again; to change **tools or a credential**, use *Replace credentials*, which recreates the trigger
+for you and keeps the Cronsole task.
 
 ### Things that surprise people
 
 - **The action is a prompt, not a command.** The unit of work here is a sentence for an agent, so the
   create form asks for one. There is no executable to fall back on, and a create with no prompt is
   refused rather than sent.
-- **A trigger Cronsole creates can reach nothing outside its sandbox.** Gemini lets a trigger declare
-  a network allowlist, including domains carrying credentials in a header. Cronsole creates the
-  plainest environment the API accepts and never guesses one — widening what an autonomous agent may
-  reach is not a default a task manager gets to pick for you. Add domains in Google AI Studio.
+- **A trigger Cronsole creates reaches nothing you did not grant it.** The create form's *Tools and
+  network access* section starts empty and stays empty unless you open it, so a trigger made without
+  touching it gets the plainest environment the API accepts. Widening what an autonomous agent may
+  reach is not a default a task manager gets to pick for you — but it is a thing you can ask for,
+  which is what changed on 2026-08-25.
 - **The agent id is a setting, and it has a date in it.** `antigravity-preview-05-2026` is what
   Google's docs name today, and a preview id with a date is one that will be replaced. It lives in
   the connection panel rather than in Cronsole's source, so the day creates start failing the fix is

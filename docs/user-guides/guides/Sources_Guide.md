@@ -526,6 +526,34 @@ shows as *Unsupported* on the Sources tab — that tab stating a boundary, not w
 
 ---
 
+## Seeing why a task failed
+
+Every task's **Run History** tab has two lists. *Runs Cronsole performed* is Cronsole's own log —
+your **Run now** clicks, and native jobs it executed itself. *Runs on the platform* is read live
+from the source each time you open the tab, and it is where a task's own scheduled runs appear.
+
+**Click a run to see what it produced**, including why it failed. What you get depends on what the
+source publishes, and the differences are real rather than gaps in the product:
+
+| Source | What a failed run shows |
+|:---|:---|
+| **Windows Task Scheduler** | Task Scheduler's own messages, the exit code, and which action produced it. Requires the agent published on or after 2026-08-25 — Cronsole says so if yours is older |
+| **Cronsole-native** | The job's own output, already captured, with any `${secret.NAME}` values stripped out |
+| **Gemini API Triggers** | The agent's full output and the tools it used. There is no Google page for this — Cronsole is the only place to read it |
+| **GitHub Actions** | The failing step by name, plus a link to github.com for the raw console log |
+| **Vercel Cron** | Nothing. Vercel publishes no cron run history at all, so this section is absent rather than empty |
+
+> [!NOTE]
+> **Windows records task history only if it is switched on.** It is a machine-wide setting and it is
+> off by default on some installs. Cronsole tells you which — an empty list and a switched-off log
+> are different answers. Turn it on in Task Scheduler under **Action › Enable All Tasks History**.
+> It is not retroactive: runs from before you enabled it are gone.
+
+> [!TIP]
+> **Read the step list, not just the status.** A run can finish cleanly having skipped the part you
+> cared about — an agent asked to email a report will complete successfully having only written a
+> file, because its sandbox has no mail access. The status cannot show that; the steps can.
+
 ## Gemini API Triggers
 
 **Scheduled prompts Google runs on its own agents in the cloud.** Connect on the **Sources** tab:

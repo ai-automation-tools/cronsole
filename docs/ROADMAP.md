@@ -54,6 +54,12 @@ the field. Both fixed;
 API had appeared four weeks earlier, which is the argument for re-checking the quick-links list
 before every sources pass rather than once.
 
+**Three items were added 2026-08-25** from the first real session against live Gemini data —
+[in-app failure logs](#in-app-logging), [agent extensibility on Gemini](#gemini-agent-extensibility),
+and [a Sync reported as missing a new task](#sync-missed-a-new-task) — investigated the same day,
+**not reproduced**, with every hypothesis ruled out. The same session shipped five fixes and two
+features on the Gemini connector, all found by driving the live API rather than by any test.
+
 **The largest open item is now the POSIX agent.** *(The light theme and the `env` editor — the
 whole 2026-08-15 request block — both shipped 2026-08-24; the theme pass carved out one follow-up,
 `--border` needing a second token to meet WCAG 1.4.11.)* *(Per-job encrypted
@@ -70,6 +76,221 @@ types — neither is scheduled.)*
 
 The short list. Everything here is small, known, and was found by hand rather than reported —
 which is why it sits first, not because it outranks the larger work below.
+
+<a id="requested-2026-08-25"></a>
+
+### 🟢 Requested 2026-08-25 — logs shipped, extensibility researched, one sync investigated
+
+Three items from the first real session with Gemini API Triggers on live data, **all three closed
+the same day**. In-app failure logs shipped across every source that can answer. Agent
+extensibility was researched by driving the API — the answer is yes, with the product question
+written down rather than guessed. The third was reported as a defect and did not reproduce; it is
+kept as a record of what was eliminated, plus the one missing number that would have answered it
+without a live repro.
+
+<a id="in-app-logging"></a>
+
+#### 1. ✅ In-app logging — shipped 2026-08-25
+
+**Shipped the same day it was asked for.** Built as a per-connector capability on the run-history
+verbs rather than as one feature, because the failure detail lives somewhere different on every
+source — and on one of them, nowhere at all.
+
+| Source | Where the detail comes from now |
+|:---|:---|
+| Windows | **New `task:history` agent verb** reading `Microsoft-Windows-TaskScheduler/Operational` — Windows' own sentences, the exit code, and the action that produced it. Needs an agent republish |
+| Gemini | The interaction transcript (already shipped) |
+| GitHub Actions | The **jobs** endpoint — ordered steps and conclusions, so the failing step is named — plus a link to github.com for raw console output |
+| Cronsole-native | `ExecutionLog.log`, already in the app and already redacted at write time by `executeJob` |
+| Vercel | **Nothing, permanently.** It publishes no cron run history, and a source that cannot answer renders nothing rather than an empty box |
+
+Three rules it had to keep and did: two switches that make a healthy thing look dead each got a
+third state (`historyEnabled` true/false/null; an optional verb's timeout is not health evidence);
+`PlatformRunOutput.facts` is free-form and printed rather than parsed, so no source's vocabulary
+became the shape; and the redaction question was answered by **not storing anything** — Cronsole
+redacts what it writes, never what the platform already shows you, and storage is what would create
+new exposure.
+
+**The original ask, for the record:**
+
+| Source | Where the failure detail lives today |
+|:---|:---|
+| Cronsole-native | `ExecutionLog.log` — **already in the app**, on the Run History tab |
+| Windows | `lastTaskResult`, an exit code and nothing else. The real output is in Event Viewer |
+| Gemini | The interaction transcript, **now** reachable (shipped 2026-08-25) but only there |
+| GitHub Actions | The workflow run's logs, on github.com |
+| Vercel | Nothing — no cron run history is published at all |
+
+So this is not one feature, it is a **per-connector capability** and it should be built the way
+run history just was: an optional connector method, `unsupported` by absence, with the UI
+rendering nothing rather than an apology where a source cannot answer. `getRunOutput` is already
+that shape and is the natural place for it to live — a failed run's error output *is* what the run
+produced.
+
+**The rules it has to keep**, all of which already exist and all of which this is a chance to
+break:
+
+- **A source that cannot report failure output must say so, not show an empty box.** "This run
+  logged nothing" and "this platform never publishes logs" are different facts. Vercel is the
+  permanent case.
+- **Absence of evidence is `unknown`, never `ok`** — a failure with no retrievable detail is still
+  a failure, and the panel must not imply the run was fine because the log is empty.
+- **Never merge populations.** Cronsole's own `ExecutionLog` and a platform's log are two sources,
+  the way run history is two groups.
+- **Redaction is not optional.** `executeJob` already redacts `${secret.NAME}` values out of the
+  native log at the one point every job type funnels through; anything that surfaces a *platform's*
+  log has no such chokepoint, and a Windows task's stderr or an agent transcript can contain
+  whatever the user's script printed. Decide the redaction story before the render, not after.
+
+**Open question:** does this need a store at all? Run history proved that a live read per opened
+run is enough and avoids a second copy of somebody else's data going stale. Failure output is
+probably the same — except that a platform's log retention is finite, which is the one argument
+for capturing it at sync time. Do not build the store until a real retention window bites.
+
+<a id="gemini-agent-extensibility"></a>
+
+#### 2. 🔬 Giving a Gemini trigger MCP servers and tools — researched 2026-08-25
+
+**The question:** the trigger Cronsole creates runs a bare managed agent. Can a user give it more —
+MCP servers, skills, tools, a network allowlist?
+
+**Answered by driving the API**, because this connector's documentation has now disagreed with the
+wire five times (#82, #83, and three more below). The method is worth reusing: Google validates
+unknown parameter *names* before field *values*, so a request carrying a deliberately invalid
+schedule is a free oracle — an `Unknown parameter 'x'` answer proves a field is not accepted, any
+complaint about the schedule proves it is, and **nothing is created either way**.
+
+**Yes — tools are fully supported on a trigger's interaction.** The API enumerates its own list when
+given a bogus type, which is a better source than any document:
+
+```
+filesystem · file_search · google_maps · bash · computer_use · mcp_server
+url_context · code_execution · google_search · tool_search · function
+```
+
+**MCP is a first-class tool type**, exactly the thing that was asked for:
+
+```jsonc
+"interaction": {
+  "agent": "antigravity-preview-05-2026",
+  "input": "…",
+  "tools": [
+    { "type": "mcp_server", "name": "weather", "url": "https://example.com/mcp",
+      "headers": { "Authorization": "Bearer …" }, "allowed_tools": [ /* objects, not strings */ ] },
+    { "type": "function", "name": "f", "description": "…", "parameters": { … } }
+  ],
+  "environment": { "type": "remote", "network": { "allowlist": [ { "domain": "example.com" } ] } }
+}
+```
+
+**What the documentation gets wrong**, all three found by probing and all three the kind that fail at
+runtime rather than at review:
+
+| Docs say | The wire says |
+|:---|:---|
+| `environment.network.allowed_domains` | `Unknown parameter` — the field is **`allowlist`** |
+| `allowed_tools: ["tool1", "tool2"]` | *"Expected an object, got string"* |
+| `skills` are a concept | `Unknown parameter 'skills' at 'interaction'` — **there is no skills field** |
+
+**Still unknown:** the shape of an `allowed_tools` element. It is an object, and it is not `name`,
+`tool` or `tool_name`. One more probe settles it whenever this is built.
+
+---
+
+**So the technical answer is yes, and the product question is the hard half.** Two standing rules
+point in opposite directions here, and this is the first feature where they actually collide:
+
+- **Cronsole creates the plainest environment the API accepts and never guesses one.** Widening what
+  an autonomous agent may reach is explicitly not a default a task manager picks on someone's
+  behalf — the same rule that keeps `repositoryUrls` undefaulted for Claude.
+- **An agent that can reach nothing is often the wrong tool for the job**, demonstrated the same day:
+  a trigger asked to email a report finished `completed` having only written a file to a sandbox with
+  no mailer, and narrated the limitation in its own output. Nothing in Cronsole said so.
+
+**The credential problem is the one to solve first, and it is not new.** An MCP server's `headers`
+carry bearer tokens, so a tools editor is a form that accepts a secret — the shape
+[ADR 0003](adr/0003-per-job-secrets.md) already answers for native jobs: store a **reference**
+(`${secret.NAME}` → `TaskSecret`, AES-256-GCM, no read path), never the value, and never in
+`metadata`, an export or an archive.
+
+**With one difference that must be stated rather than designed around:** a Gemini trigger lives on
+*Google's* side, so the header value is sent to Google at create time and stored there. Cronsole can
+avoid holding the secret; it cannot avoid **handing it over**. Any UI for this has to say that
+plainly at the point of entry, because "Cronsole stores a reference" would otherwise read as "the
+token stays here", which is false.
+
+**Recommended shape when built** — explicit, per-trigger, never inherited, never defaulted, and
+visible on the task afterwards so nobody has to open Google's console to find out what an agent can
+reach. It is `updateAction`'s missing form, which is the verb currently absent for exactly this
+reason: an editable prompt, agent, tool list and allowlist are one form, and building half of it is
+worse than none.
+
+**Not scheduled.** The research is the deliverable; the build is a real product surface and should
+be its own decision.
+
+**The original ask, for the record:**
+
+<a id="sync-missed-a-new-task"></a>
+
+#### 3. 🔍 A Sync that appeared to miss a new task — investigated 2026-08-25, not reproduced
+
+**Reported 2026-08-25.** A new Windows task appeared in `\AI-Maintenance\` — a folder Cronsole
+already tracks — and pressing **Sync** did not bring it in. **Add tasks from this machine** (the
+discovery modal) did, immediately.
+
+**Investigated the same day. The documented behaviour holds and every hypothesis was ruled out**,
+so this is kept as a *record*, not as an open defect: if it recurs, start from here rather than
+from scratch.
+
+**The repro that did not reproduce it.** Tasks were registered from PowerShell — outside Cronsole
+entirely — then a plain `POST /tasks/sync {"scope":"tracked"}` was pressed once:
+
+| What was created | Result |
+|:---|:---|
+| Daily task at `\` | **Synced in** |
+| Daily task in `\AI-Maintenance\` | **Synced in** |
+| **Logon** task in `\AI-Maintenance\` (no cron at all) | **Synced in** — `schedule: null`, `trigger: null` |
+
+So a plain Sync adopts a new task in an already-tracked folder within seconds, **including one with
+no cron form**, which was the leading hypothesis and is wrong.
+
+**Ruled out, with the evidence:**
+
+- **The cron/trigger shape.** See the table — a logon-triggered task synced in fine.
+- **A `TaskExclusion`.** The only two on Windows are `\Cardstock\Cardstock Weekly Roadmap` and
+  `\Cronsole\Cronsole Roadmap Routine`, both from 2026-08-18.
+- **The folder not being tracked yet** — the case a plain Sync genuinely cannot handle.
+  `\AI-Maintenance\` has been tracked since **2026-07-15**, and picked up new tasks on 07-20, 07-27
+  and 08-21, so its include-set was never empty.
+- **A failed or partial sync.** `PlatformCapability` for `WINDOWS_TASK_SCHEDULER` / `sync` has
+  `lastFailureAt: null` — it has never failed.
+- **The include-set pipeline**, read end to end: the Sync button posts `{ scope: 'tracked' }`;
+  `trackedCategories` derives folder names from stored **paths** (not renameable `category`
+  labels); the filter matches on `extractCategory`; `upsertTasks` creates whatever survives,
+  cron or not.
+
+**What the data does show:** two rows share the timestamp `2026-08-25T17:18:25.188Z` —
+`Start Gods-Eye-View (logon)` *and* `Stop Gods-Eye-View (manual)`. One instant for both is the
+discovery modal writing them together.
+
+**The only explanation left consistent with all of the above is ordering** — the tasks did not yet
+exist on the machine when that Sync enumerated. Plausible, and unprovable after the fact. It is
+recorded as the surviving hypothesis, not as a finding.
+
+**The one change that would settle it next time**, and the reason this entry stays open at all:
+a sync reports `count` (rows upserted) and `untracked` (tasks outside the include-set), but never
+**how many tasks the platform reported in total**. Those three numbers together distinguish *"the
+agent never saw it"* from *"the filter dropped it"* from *"it was already there"* — and today the
+first two are indistinguishable from the outside, which is exactly why this took a live repro to
+answer instead of a log line. `SyncOutcome.notes` already exists for precisely this kind of
+coverage statement (#75), and the Windows connector is the one source that says nothing in it.
+
+**Also found while digging, and worth more than the original report:** Prisma's `startsWith`
+compiles to a Postgres `LIKE`, where **`\` is the escape character** — so
+`startsWith: '\\AI-Maintenance\\'` silently matches **nothing**. Every Windows `externalId` is a
+backslash path, so any query filtering them that way returns a confident empty set that looks
+exactly like a correct answer. The same shape as #83's empty array: the most dangerous successful
+response there is. Filter in JS, or match on a segment without separators.
 
 <a id="sources-onboarding"></a>
 

@@ -13,6 +13,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Every source that can say why a task failed now says it, in the app** (2026-08-25). Run History's *Runs on the platform* group grew from one source to four, and opening a run shows what it produced, what it did, and what the platform reports about it.
+
+  **Windows is the big one, and it needed a new agent verb.** A Windows task publishes an *exit code* and nothing else — a task failing nightly for a week showed a red badge and a number, and the detail was in Event Viewer. Task Scheduler does record it, in an operational log the task object knows nothing about, so the agent gained a read-only `task:history` verb. A run now shows Windows' own sentences, the exit code, and **which action** produced it. Several events make up one run (started / action completed / task completed), so they are grouped rather than listed — otherwise three nights would read as twelve runs.
+
+  **That history can be switched off machine-wide**, and a disabled log looks exactly like a task that has never run: both are zero events. Cronsole asks the log whether it is collecting and says which — including that turning it on is **not retroactive**, so the run you came to read is gone either way.
+
+  **GitHub Actions names the failing step.** Not by downloading logs: those are a zip behind a redirect, and megabytes to surface one red step is the wrong trade. The jobs endpoint gives the ordered steps and each conclusion as plain data, so the panel says *"Failed at: windows › Run tests"* and links to github.com for the raw console output — which stays where it already lives rather than being copied here.
+
+  **Vercel Cron gets nothing, and that is the honest answer**: it publishes no cron run history at all. Sources that cannot answer render nothing rather than an empty box.
+
+  **Requires republishing the agent** for the Windows half (`scripts/Republish-Agent.ps1`). Until then Cronsole says so by name instead of blaming the agent — a verb an older build has never heard of no longer counts as the agent being unresponsive, which would otherwise have held Windows at DEGRADED for fifteen minutes because someone opened a tab.
 - **`/doctor` checks the database schema now** (2026-08-25). `scripts/check-migrations-applied.mjs`, wired in as check 2b. A committed-but-unapplied migration is **the fifth thing that runs stale** and the only one the repo cannot see: `schema.prisma`, the generated Prisma client and the entire test suite all hold the new value, so everything is green while the database alone disagrees — and a new enum value then 500s **every** route naming it, reads included, with a bare *"Internal server error"*. That is how the Gemini source presented on the day it was added, which made a perfectly valid API key look like the problem. `UNKNOWN` (no database reachable) is reported separately from `OK`, because "could not ask" and "up to date" must never render the same.
 - **Run History now shows what the platform did, and what it produced** (2026-08-25). A task's Run History tab had one list — runs *Cronsole* performed — which is correct and, on a source that runs work by itself, almost always empty. A Gemini trigger firing on its own schedule writes nothing there by design, so the tab said *"no recorded runs yet"* over a trigger that had been working for days.
 
@@ -75,6 +86,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 
 ### Fixed
+- **A Gemini task shows its prompt, and stops telling you to update the Windows agent** (2026-08-25). The Action panel read `command`, `job` and `actions` — none of which a Gemini trigger has. Its prompt is stored under `prompt`, so every synced trigger showed an empty panel carrying the fallback advice: *"Update the Windows agent to surface the command it runs."* On a platform with no agent, about a task whose action was sitting in the record two fields over.
+
+  The panel now reads the prompt, and the fallback names the actual source instead of a component the platform does not have. Republishing the agent is the fix on exactly one source, and printing it on the others is the same wrong-platform blame as the Sources tab naming your own broken file.
 - **A Gemini task can be deleted from the dashboard now** (2026-08-25). The Delete button was gated on a hardcoded pair of platforms, so a Gemini trigger had no delete control at all — the only removal on screen was *Remove from Cronsole*, which leaves it running on the platform. The capability was already there: the connector implements it, the route calls it, and the Sources tab reported the verb working. Only the button was missing, so the actual path to deleting a trigger was `curl`.
 
   It now follows **the server's capability matrix** rather than a list of platform names kept in the browser, which means the next source to support deletion gets the button without anyone remembering to widen a list. Its confirmation names the source (*"Delete from Gemini API Triggers?"*), says the trigger will stop existing there, and points at *Remove from Cronsole* as the reversible alternative — on a hosted source those two sit one button apart and only one can be undone.

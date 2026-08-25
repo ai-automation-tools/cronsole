@@ -589,7 +589,26 @@ export class GeminiTriggersConnector implements PlatformConnector {
     }
 
     const output = await getInteraction(apiKey, run.interactionId);
-    return output.ok ? { success: true, output: output.data } : { success: false, message: output.message };
+    if (!output.ok) return { success: false, message: output.message };
+
+    return {
+      success: true,
+      output: {
+        text: output.data.text,
+        steps: output.data.steps,
+        // Stated only when the platform actually reported it. An absent fact is
+        // omitted rather than sent as "unknown" — the panel prints what it is
+        // given, so a placeholder would render as a measurement.
+        facts: output.data.totalTokens !== null
+          ? [{ label: 'Tokens', value: output.data.totalTokens.toLocaleString('en-US') }]
+          : [],
+        // **Null, and that is the point of this whole feature on this source.**
+        // Gemini publishes no web UI for triggers — its documentation is entirely
+        // programmatic — so there is nowhere to send the user. Cronsole is the
+        // only place this output can be read.
+        url: null
+      }
+    };
   }
 
   /**

@@ -508,8 +508,32 @@ export interface PlatformRunOutput {
    * The status cannot show that. The steps can.
    */
   steps: string[];
-  /** What the run cost, where the platform reports it. */
-  totalTokens: number | null;
+  /**
+   * Whatever else this platform reports about the run, as label/value pairs.
+   *
+   * Replaced a `totalTokens: number | null` field the day a second and third
+   * connector implemented this. That field was **Gemini's fact wearing a
+   * general name**: GitHub reports an attempt number and a duration, Windows
+   * reports an exit code and an event id, and none of them has tokens. Adding a
+   * nullable column per platform would have made the shape a union of every
+   * source's vocabulary, with each connector returning null for everyone else's.
+   *
+   * Free-form on purpose, and **never parsed** — the UI prints these, so a
+   * platform can report something Cronsole has never heard of without a schema
+   * change. A connector states only what it actually knows: an absent fact is
+   * omitted, never sent as `"unknown"`.
+   */
+  facts: { label: string; value: string }[];
+  /**
+   * Where to see this run on the platform, when the platform has such a page.
+   *
+   * Null is the common case and an honest one. GitHub has a real run URL and it
+   * is the only route to the full logs, which are a zip behind a redirect and
+   * deliberately not fetched here. Gemini has **no web UI for triggers at all**
+   * — its documentation is entirely programmatic — so this is null there, which
+   * is exactly why Cronsole showing the output matters more on that source.
+   */
+  url: string | null;
 }
 
 export interface PlatformRunOutputResult {

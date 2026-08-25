@@ -176,15 +176,26 @@ const sourceWindows: HelpTopic = {
     {
       label: '"Ran successfully" means "the agent accepted the start"',
       body:
-        'Cronsole fires the task and Windows takes over. The real outcome is Windows\' own ' +
-        'result code, which is what Task health reads — use that, not Run History, to ask ' +
-        'whether it worked.'
+        'Cronsole fires the task and Windows takes over, so that row says a start was accepted, ' +
+        'not that the work succeeded. The outcome is Windows\' own result code, which is what ' +
+        'Task health reads — and Runs on the platform, below it, is where the run itself appears.'
     },
     {
-      label: 'A scheduled run leaves no row',
+      label: 'A scheduled run appears under Runs on the platform',
       body:
-        'Run history covers runs Cronsole performed. A task firing at 3am on its own is not ' +
-        'recorded, so an empty history means Cronsole triggered nothing — not that nothing ran.'
+        'Runs Cronsole performed covers only what Cronsole triggered, so a task firing at 3am on ' +
+        'its own leaves nothing there. Runs on the platform is read from Task Scheduler itself ' +
+        'and does show it — open one for Windows\' own messages, the exit code, and which action ' +
+        'produced it.'
+    },
+    {
+      label: 'Task history has to be switched on, and it is machine-wide',
+      body:
+        'Windows records per-task history only if it is enabled, and it is off by default on ' +
+        'some installs — in which case there is nothing for Cronsole to read, which it says ' +
+        'rather than showing an empty list. Turn it on in Task Scheduler under Action, Enable ' +
+        'All Tasks History. It is not retroactive, so runs from before then are gone. Reading ' +
+        'the detail also needs an agent published on or after 2026-08-25.'
     },
     {
       label: 'Cronsole creates only \\Cronsole',

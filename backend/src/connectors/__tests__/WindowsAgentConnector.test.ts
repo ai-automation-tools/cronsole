@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { WindowsAgentConnector, UNRESPONSIVE_EVIDENCE_TTL_MS } from '../WindowsAgentConnector.js';
+import { WindowsAgentConnector, UNRESPONSIVE_EVIDENCE_TTL_MS, AGENT_REQUEST_TIMEOUT_MS } from '../WindowsAgentConnector.js';
 import { agentManager } from '../../ws/AgentManager.js';
 import { signCommand, type SignableCommand } from '../../ws/agentAuth.js';
 
@@ -1022,5 +1022,148 @@ describe('a successful agent request cancels its own deadline', () => {
     expect(agentManager.markUnresponsive).not.toHaveBeenCalled();
     // And the listener is released rather than accumulating one per request.
     expect(socket.off).toHaveBeenCalledWith(responseEvent, expect.any(Function));
+  });
+});
+
+describe('platform run history — the detail Windows publishes nowhere else', () => {
+  const config = { userId: 'test_user' };
+  let connector: WindowsAgentConnector;
+  let socket: any;
+
+  beforeEach(() => {
+    connector = new WindowsAgentConnector();
+    socket = { emit: vi.fn(), on: vi.fn(), off: vi.fn(), data: { sessionKey: SESSION_KEY } };
+    vi.mocked(agentManager.getSocket).mockReturnValue(socket);
+  });
+
+  afterEach(() => vi.clearAllMocks());
+
+  /** Answer the agent's `task:history` request with a canned payload. */
+  const answerHistory = (payload: Record<string, unknown>) => {
+    socket.emit.mockImplementation((event: string) => {
+      if (event !== 'task:history') return;
+      const handler = socket.on.mock.calls.find((c: any[]) => c[0] === 'task:history_list')?.[1];
+      handler?.({ taskExternalId: '\Folder\Task', success: true, ...payload });
+    });
+  };
+
+  const evt = (eventId: number, timeCreated: string, message = '', level: number | null = 4) =>
+    ({ eventId, level, timeCreated, message });
+
+  it('says history is switched off rather than reporting no runs', async () => {
+    // The distinction the whole agent-side reader exists for: a disabled log and
+    // a task that has never run are both zero events. Reporting them the same way
+    // tells a user their nightly task has never run.
+    answerHistory({ historyEnabled: false, events: [] });
+    const result = await connector.listPlatformRuns!('\Folder\Task', config);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/not recording task history/i);
+    // And it says the fix is not retroactive, because turning it on will not
+    // bring back the run the user is looking for.
+    expect(result.message).toMatch(/not retroactive/i);
+  });
+
+  it('groups several events into one run, not one run per event', async () => {
+    // Task Scheduler writes started / action-completed / completed per run, so a
+    // raw list would show "3 runs" for one night.
+    answerHistory({
+      historyEnabled: true,
+      events: [
+        evt(102, '2026-08-25T03:00:09Z', 'Task completed'),
+        evt(201, '2026-08-25T03:00:08Z', 'Action "C:\backup.cmd" completed with return code 0'),
+        evt(100, '2026-08-25T03:00:00Z', 'Task started')
+      ]
+    });
+
+    const result = await connector.listPlatformRuns!('\Folder\Task', config);
+    expect(result.runs).toHaveLength(1);
+    expect(result.runs![0]).toMatchObject({ id: '2026-08-25T03:00:00Z', status: 'completed' });
+  });
+
+  it('reports a run Windows flagged as an error as failed', async () => {
+    answerHistory({
+      historyEnabled: true,
+      events: [
+        evt(103, '2026-08-25T03:00:02Z', 'Action failed to start', 2),
+        evt(100, '2026-08-25T03:00:00Z', 'Task started')
+      ]
+    });
+    const result = await connector.listPlatformRuns!('\Folder\Task', config);
+    expect(result.runs![0]!.status).toBe('failed');
+  });
+
+  it('keeps two nights apart, newest first', async () => {
+    answerHistory({
+      historyEnabled: true,
+      events: [
+        evt(102, '2026-08-25T03:00:05Z'),
+        evt(100, '2026-08-25T03:00:00Z'),
+        evt(102, '2026-08-24T03:00:05Z'),
+        evt(100, '2026-08-24T03:00:00Z')
+      ]
+    });
+    const result = await connector.listPlatformRuns!('\Folder\Task', config);
+    expect(result.runs).toHaveLength(2);
+    expect(result.runs![0]!.id).toBe('2026-08-25T03:00:00Z');
+  });
+
+  it('surfaces the exit code and the action beside the events', async () => {
+    // The exit code is what the task card already shows as a bare number.
+    // Opening the run is how you find out which action produced it.
+    answerHistory({
+      historyEnabled: true,
+      events: [
+        evt(201, '2026-08-25T03:00:08Z', 'Action "C:\backup.cmd" completed with return code 2147942401'),
+        evt(100, '2026-08-25T03:00:00Z', 'Task started')
+      ]
+    });
+
+    const result = await connector.getRunOutput!('\Folder\Task', '2026-08-25T03:00:00Z', config);
+    expect(result.success).toBe(true);
+    expect(result.output!.facts).toContainEqual({ label: 'Exit code', value: '2147942401' });
+    expect(result.output!.facts).toContainEqual({ label: 'Action', value: 'C:\backup.cmd' });
+    // Windows' own sentence kept verbatim — rewriting it would put a translation
+    // between the user and the only detail this platform gives.
+    expect(result.output!.text).toContain('return code 2147942401');
+    // Task Scheduler is an MMC snap-in, not a web page.
+    expect(result.output!.url).toBeNull();
+  });
+
+  it('explains a run that has aged out of the ring buffer', async () => {
+    answerHistory({ historyEnabled: true, events: [] });
+    const result = await connector.getRunOutput!('\Folder\Task', 'gone', config);
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/no longer has an entry/i);
+  });
+
+  it('refuses without an agent rather than reporting an empty history', async () => {
+    vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
+    expect(await connector.listPlatformRuns!('\Folder\Task', config)).toMatchObject({
+      success: false,
+      message: 'Agent offline'
+    });
+  });
+});
+
+describe('an optional verb an old agent lacks is not evidence of a sick agent', () => {
+  it('does not mark the agent unresponsive when a history request times out', async () => {
+    // A published agent from before 2026-08-25 has no `task:history` handler, so
+    // it will never answer. Recording that as a timeout would hold the whole
+    // Windows platform at DEGRADED for fifteen minutes because someone opened a
+    // tab — #62's shape, manufactured by something that is not a health check.
+    vi.useFakeTimers();
+    const connector = new WindowsAgentConnector();
+    const socket = { emit: vi.fn(), on: vi.fn(), off: vi.fn(), data: { sessionKey: SESSION_KEY } };
+    vi.mocked(agentManager.getSocket).mockReturnValue(socket as any);
+
+    const pending = connector.listPlatformRuns!('\Folder\Task', { userId: 'test_user' });
+    await vi.advanceTimersByTimeAsync(AGENT_REQUEST_TIMEOUT_MS + 100);
+    const result = await pending;
+
+    expect(agentManager.markUnresponsive).not.toHaveBeenCalled();
+    // And the message names the actual likely cause rather than blaming the agent.
+    expect(result.message).toMatch(/republish/i);
+    vi.useRealTimers();
   });
 });

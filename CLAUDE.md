@@ -487,6 +487,30 @@ Non-negotiable rules. **Every one has a reason recorded in
   refusals carry a reason: "still running", "produced nothing" and "aged out of the list" are three
   different facts. **The step list is part of the answer, not decoration** — an agent asked to email
   a report finishes `completed` having only called `write_file`, and no status can show that.
+  `PlatformRunOutput` is `{ text, steps, facts, url }`: `facts` is free-form label/value pairs and is
+  **printed, never parsed** (every source counts something different — tokens, jobs, an exit code — so
+  a field per platform would make the shape a union of every vocabulary), and `url` is null wherever
+  the platform has no page, which is the case on Gemini and Windows and precisely why the panel
+  matters most there.
+- **Cronsole redacts what it *writes*; it never redacts what the platform already shows you.**
+  `executeJob` strips `${secret.NAME}` values out of a native job's log at the one point every job
+  type funnels through, because Cronsole **stores** that log. A platform's own log is different in
+  the way that matters: it is the user's own output on a system they can already read, and it is
+  **never stored here** — no row, no export, no archive, fetched per opened run and gone. Storage is
+  what creates new exposure, so a live read needs no chokepoint; the day any of this is captured at
+  sync time, it needs one first.
+- **A verb the agent gained later must not report an old agent as unresponsive.** `agentRequest`
+  takes `timeoutIsHealthEvidence`, false for optional reads added after a published build: silence
+  from an agent that predates the verb means *"does not know this word"*, not *"not answering"*, and
+  recording it would hold the whole platform at DEGRADED for 15 minutes because someone opened a tab
+  — [#62](docs/troubleshooting/README.md#62-windows-reports-not-responding-15-seconds-after-every-successful-request)'s
+  shape, manufactured by something that is not a health check. The refusal names the republish.
+- **A platform that records history can be told not to.** Windows Task Scheduler's per-task history
+  is a machine-wide switch, off by default on some installs, and a disabled log returns **zero events
+  — identical to a task that has never run**. The agent reports `historyEnabled` as a third state
+  (`true` / `false` / `null` = could not tell) so the two never render as one sentence, and the
+  refusal says the setting is **not retroactive**: turning it on will not bring back the run the user
+  came to read.
 - **Absence of evidence is `unknown`, never `ok`**, and a claim never travels without its source.
   Disabled is not unhealthy. Never mix populations in one summary.
 - **A diagnostic reports; it does not repair** — three of four agent-health incidents were the readout

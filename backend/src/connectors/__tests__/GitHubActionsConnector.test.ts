@@ -7,16 +7,18 @@ vi.mock('../../db.js', () => ({
 vi.mock('../../services/githubActions.js', () => ({
   listWorkflows: vi.fn(),
   listWorkflowRuns: vi.fn(),
+  listRunJobs: vi.fn(),
   workflowSchedules: vi.fn()
 }));
 
 import { GitHubActionsConnector } from '../GitHubActionsConnector.js';
 import { prisma } from '../../db.js';
-import { listWorkflows, listWorkflowRuns, workflowSchedules } from '../../services/githubActions.js';
+import { listWorkflows, listWorkflowRuns, listRunJobs, workflowSchedules } from '../../services/githubActions.js';
 
 const listWorkflowsMock = vi.mocked(listWorkflows);
 const listRunsMock = vi.mocked(listWorkflowRuns);
 const schedulesMock = vi.mocked(workflowSchedules);
+const listJobsMock = vi.mocked(listRunJobs);
 const findFirst = vi.mocked(prisma.platformCapability.findFirst);
 
 import { PlatformType } from '@prisma/client';
@@ -463,5 +465,95 @@ describe('what the sync says it covered', () => {
     // workflow was deleted" by `reconcileMissingTasks`.
     listWorkflowsMock.mockResolvedValue({ ok: false, status: 500, message: 'GitHub server error.' } as never);
     await expect(connector.syncTasks(config())).rejects.toThrow(/GitHub server error/);
+  });
+});
+
+describe('an observer reads its own run history without softening its boundary', () => {
+  const config = { token: 'ghp_x', repositories: [{ owner: 'acme', repo: 'site' }] };
+  const connector = new GitHubActionsConnector();
+  const id = 'acme/site#42';
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('still refuses every write verb', () => {
+    // Implementing a READ verb must not read as the observer growing writes.
+    expect(connector.unsupportedVerbs).toEqual(['run', 'create', 'setStatus']);
+  });
+
+  it('lists scheduled runs and marks the settled ones openable', async () => {
+    listRunsMock.mockResolvedValue({
+      ok: true,
+      data: [
+        { id: 7, runAttempt: 1, conclusion: 'failure', status: 'completed', run_started_at: '2026-08-25T03:00:00Z', updated_at: '2026-08-25T03:04:00Z', html_url: 'u', event: 'schedule' },
+        // Still running: no conclusion yet, so there are no step outcomes to open.
+        { id: 8, runAttempt: 1, conclusion: null, status: 'in_progress', run_started_at: '2026-08-25T04:00:00Z', updated_at: null, html_url: 'u', event: 'schedule' }
+      ]
+    } as never);
+
+    const result = await connector.listPlatformRuns!(id, config);
+    expect(result.runs![0]).toMatchObject({ id: '7', status: 'failure', outputAvailable: true });
+    expect(result.runs![1]).toMatchObject({ id: '8', status: 'in_progress', outputAvailable: false });
+  });
+
+  it('names the failing step, which is the whole reason to open a run', async () => {
+    listRunsMock.mockResolvedValue({
+      ok: true,
+      data: [{ id: 7, runAttempt: 1, conclusion: 'failure', status: 'completed', run_started_at: null, updated_at: null, html_url: 'u', event: 'schedule' }]
+    } as never);
+    listJobsMock.mockResolvedValue({
+      ok: true,
+      data: [{
+        name: 'build',
+        conclusion: 'failure',
+        steps: [
+          { name: 'Checkout', conclusion: 'success' },
+          { name: 'Run tests', conclusion: 'failure' }
+        ]
+      }]
+    } as never);
+
+    const result = await connector.getRunOutput!(id, '7', config);
+    expect(result.output!.text).toContain('Run tests');
+    expect(result.output!.steps).toEqual(['Checkout', 'Run tests']);
+    // The full console log is a zip behind a redirect on github.com. Cronsole
+    // links to it rather than pretending to own a copy it cannot redact.
+    expect(result.output!.url).toBe('https://github.com/acme/site/actions/runs/7');
+  });
+
+  it('qualifies step names with their job when a run has more than one', async () => {
+    // Two matrix jobs routinely share step names, and an unqualified "Run tests"
+    // appearing twice reads as a repeat rather than as two machines.
+    listRunsMock.mockResolvedValue({
+      ok: true,
+      data: [{ id: 7, runAttempt: 1, conclusion: 'failure', status: 'completed', run_started_at: null, updated_at: null, html_url: 'u', event: 'schedule' }]
+    } as never);
+    listJobsMock.mockResolvedValue({
+      ok: true,
+      data: [
+        { name: 'linux', conclusion: 'success', steps: [{ name: 'Run tests', conclusion: 'success' }] },
+        { name: 'windows', conclusion: 'failure', steps: [{ name: 'Run tests', conclusion: 'failure' }] }
+      ]
+    } as never);
+
+    const result = await connector.getRunOutput!(id, '7', config);
+    expect(result.output!.steps).toEqual(['linux › Run tests', 'windows › Run tests']);
+    expect(result.output!.text).toContain('windows › Run tests');
+  });
+
+  it('explains a run that never started a job instead of showing nothing', async () => {
+    listRunsMock.mockResolvedValue({
+      ok: true,
+      data: [{ id: 7, runAttempt: 1, conclusion: 'cancelled', status: 'completed', run_started_at: null, updated_at: null, html_url: 'u', event: 'schedule' }]
+    } as never);
+    listJobsMock.mockResolvedValue({ ok: true, data: [] } as never);
+
+    const result = await connector.getRunOutput!(id, '7', config);
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/no jobs/i);
+  });
+
+  it('refuses an externalId it cannot parse rather than calling GitHub', async () => {
+    expect(await connector.listPlatformRuns!('not-an-id', config)).toMatchObject({ success: false });
+    expect(listRunsMock).not.toHaveBeenCalled();
   });
 });

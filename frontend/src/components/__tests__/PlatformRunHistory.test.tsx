@@ -82,7 +82,7 @@ describe('PlatformRunHistory', () => {
     getMock.mockImplementation((url: string) =>
       Promise.resolve(
         url.includes('/output')
-          ? { data: { available: true, output: { text: 'The digest', steps: ['google_search_call', 'write_file'], totalTokens: 199063 } } }
+          ? { data: { available: true, output: { text: 'The digest', steps: ['google_search_call', 'write_file'], facts: [{ label: 'Tokens', value: '199,063' }], url: null } } }
           : { data: { runs: [run()] } }
       ) as never
     );
@@ -94,7 +94,28 @@ describe('PlatformRunHistory', () => {
     // agent told to email a report finishes `completed` having only written a
     // file, and the status alone can never show that.
     expect(screen.getByText('write_file')).toBeInTheDocument();
-    expect(screen.getByText(/199,063 tokens/)).toBeInTheDocument();
+    // Facts are printed, never interpreted — the label comes from the connector,
+    // so a source can report something this bundle has never heard of.
+    expect(screen.getByText(/199,063/)).toBeInTheDocument();
+    expect(screen.getByText(/Tokens/)).toBeInTheDocument();
+    // No platform page for a Gemini trigger, so no link is offered.
+    expect(screen.queryByText(/Open this run on the platform/i)).not.toBeInTheDocument();
+  });
+
+  it('links out only when the platform has a page for the run', async () => {
+    // GitHub keeps the full console log as a zip behind a redirect; the honest
+    // move is a link rather than a copy Cronsole would have to own and redact.
+    getMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.includes('/output')
+          ? { data: { available: true, output: { text: 'Failed at: Run tests', steps: ['Run tests'], facts: [], url: 'https://github.com/acme/site/actions/runs/42' } } }
+          : { data: { runs: [run()] } }
+      ) as never
+    );
+    show();
+    fireEvent.click(await screen.findByText('completed'));
+    const link = await screen.findByText(/Open this run on the platform/i);
+    expect(link.closest('a')).toHaveAttribute('href', 'https://github.com/acme/site/actions/runs/42');
   });
 
   it('gives the reason when a run has no readable output', async () => {

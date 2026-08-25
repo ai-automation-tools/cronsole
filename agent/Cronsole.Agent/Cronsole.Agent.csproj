@@ -10,6 +10,10 @@
   <ItemGroup>
     <PackageReference Include="SocketIOClient" Version="4.0.4" />
     <PackageReference Include="TaskScheduler" Version="2.12.2" />
+    <!-- Reads Microsoft-Windows-TaskScheduler/Operational, the only place a
+         Windows task says WHY it failed. The task object itself carries an
+         exit code and nothing else. See TaskHistoryReader. -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.0" />
   </ItemGroup>
 
   <!-- Copy config beside the exe so AppContext.BaseDirectory lookup works for a

@@ -89,11 +89,16 @@ which is why it sits first, not because it outranks the larger work below.
 
 <a id="gemini-usability"></a>
 
-### 🔴🔴 Top priority — requested 2026-08-25: Gemini is configurable but not usable
+### 🔴🔴 Top priority — requested 2026-08-25: Gemini usability
 
 Reported after the first week of real use: *"you have to manually configure MCP servers for each new
-task."* True, and the cause is not the form. It is a **premise in the invariant that live use
+task."* True, and the cause was not the form. It was a **premise in the invariant that live use
 falsified.**
+
+> **A and B shipped 2026-08-25** — saved MCP servers with a one-gesture rotation, and Duplicate.
+> **C, D and E are open**, and so are the two MCP items and the skill gap below. The diagnosis that
+> follows is kept rather than trimmed: it is the reasoning that changed a §9 invariant, and the next
+> rule whose stated reason is a lifecycle claim should be re-read the same way.
 
 §9 says a credential Cronsole hands to a platform is *"used once and stored nowhere"*, and the
 recorded reason is **lifecycle rather than caution** — "the value is needed exactly once". That is
@@ -191,10 +196,11 @@ wrong.
       cannot answer, on the sources where the runs actually happen. Read-only, no new logic, and it
       is what the 2026-08-25 session had to drive by hand. Keep output **per opened run** — a
       transcript is ~90KB — exactly as the route already does.
-- [ ] **`GEMINI_TRIGGERS` in `create_task`** — **blocked on A, deliberately.** With presets an agent
-      names a preset and the credential never crosses the MCP boundary, which is `${secret.NAME}`'s
-      shape one layer up. Without them it would mean an assistant handling a bearer token in a tool
-      call, which is worse than the friction this whole block is about. Note also that
+- [ ] **`GEMINI_TRIGGERS` in `create_task`** — **unblocked 2026-08-25 when A shipped.** It was held
+      back deliberately until presets existed, and now they do: an agent names a preset and the
+      credential never crosses the MCP boundary, which is `${secret.NAME}`'s shape one layer up.
+      Without them this would have meant an assistant handling a bearer token in a tool call, which
+      is worse than the friction that block was about. Note also that
       `CREATABLE_PLATFORMS` (`mcp-server/src/tools.ts`) is a hardcoded pair, which is the shape the
       comments 20 lines below it warn against — widen it *there*, and let the route refuse.
 - [x] **Not `rotate_credentials` over MCP** — decided 2026-08-25. It takes credential *values*. It
@@ -214,239 +220,13 @@ wrong.
 
 <a id="requested-2026-08-25"></a>
 
-### 🟢 Requested 2026-08-25 — logs shipped, extensibility researched, one sync investigated
+### 🟢 Requested 2026-08-25 — all three closed the same day
 
-Three items from the first real session with Gemini API Triggers on live data, **all three closed
-the same day**. In-app failure logs shipped across every source that can answer. Agent
-extensibility was researched by driving the API — the answer is yes, with the product question
-written down rather than guessed. The third was reported as a defect and did not reproduce; it is
-kept as a record of what was eliminated, plus the one missing number that would have answered it
-without a live repro.
-
-<a id="in-app-logging"></a>
-
-#### 1. ✅ In-app logging — shipped 2026-08-25
-
-**Shipped the same day it was asked for.** Built as a per-connector capability on the run-history
-verbs rather than as one feature, because the failure detail lives somewhere different on every
-source — and on one of them, nowhere at all.
-
-| Source | Where the detail comes from now |
-|:---|:---|
-| Windows | **New `task:history` agent verb** reading `Microsoft-Windows-TaskScheduler/Operational` — Windows' own sentences, the exit code, and the action that produced it. Needs an agent republish |
-| Gemini | The interaction transcript (already shipped) |
-| GitHub Actions | The **jobs** endpoint — ordered steps and conclusions, so the failing step is named — plus a link to github.com for raw console output |
-| Cronsole-native | `ExecutionLog.log`, already in the app and already redacted at write time by `executeJob` |
-| Vercel | **Nothing, permanently.** It publishes no cron run history, and a source that cannot answer renders nothing rather than an empty box |
-
-Three rules it had to keep and did: two switches that make a healthy thing look dead each got a
-third state (`historyEnabled` true/false/null; an optional verb's timeout is not health evidence);
-`PlatformRunOutput.facts` is free-form and printed rather than parsed, so no source's vocabulary
-became the shape; and the redaction question was answered by **not storing anything** — Cronsole
-redacts what it writes, never what the platform already shows you, and storage is what would create
-new exposure.
-
-**The original ask, for the record:**
-
-| Source | Where the failure detail lives today |
-|:---|:---|
-| Cronsole-native | `ExecutionLog.log` — **already in the app**, on the Run History tab |
-| Windows | `lastTaskResult`, an exit code and nothing else. The real output is in Event Viewer |
-| Gemini | The interaction transcript, **now** reachable (shipped 2026-08-25) but only there |
-| GitHub Actions | The workflow run's logs, on github.com |
-| Vercel | Nothing — no cron run history is published at all |
-
-So this is not one feature, it is a **per-connector capability** and it should be built the way
-run history just was: an optional connector method, `unsupported` by absence, with the UI
-rendering nothing rather than an apology where a source cannot answer. `getRunOutput` is already
-that shape and is the natural place for it to live — a failed run's error output *is* what the run
-produced.
-
-**The rules it has to keep**, all of which already exist and all of which this is a chance to
-break:
-
-- **A source that cannot report failure output must say so, not show an empty box.** "This run
-  logged nothing" and "this platform never publishes logs" are different facts. Vercel is the
-  permanent case.
-- **Absence of evidence is `unknown`, never `ok`** — a failure with no retrievable detail is still
-  a failure, and the panel must not imply the run was fine because the log is empty.
-- **Never merge populations.** Cronsole's own `ExecutionLog` and a platform's log are two sources,
-  the way run history is two groups.
-- **Redaction is not optional.** `executeJob` already redacts `${secret.NAME}` values out of the
-  native log at the one point every job type funnels through; anything that surfaces a *platform's*
-  log has no such chokepoint, and a Windows task's stderr or an agent transcript can contain
-  whatever the user's script printed. Decide the redaction story before the render, not after.
-
-**Open question:** does this need a store at all? Run history proved that a live read per opened
-run is enough and avoids a second copy of somebody else's data going stale. Failure output is
-probably the same — except that a platform's log retention is finite, which is the one argument
-for capturing it at sync time. Do not build the store until a real retention window bites.
-
-<a id="gemini-agent-extensibility"></a>
-
-#### 2. 🔬 Giving a Gemini trigger MCP servers and tools — researched, reading shipped 2026-08-25
-
-**The question:** the trigger Cronsole creates runs a bare managed agent. Can a user give it more —
-MCP servers, skills, tools, a network allowlist?
-
-**Answered by driving the API**, because this connector's documentation has now disagreed with the
-wire five times (#82, #83, and three more below). The method is worth reusing: Google validates
-unknown parameter *names* before field *values*, so a request carrying a deliberately invalid
-schedule is a free oracle — an `Unknown parameter 'x'` answer proves a field is not accepted, any
-complaint about the schedule proves it is, and **nothing is created either way**.
-
-**Yes — tools are fully supported on a trigger's interaction.** The API enumerates its own list when
-given a bogus type, which is a better source than any document:
-
-```
-filesystem · file_search · google_maps · bash · computer_use · mcp_server
-url_context · code_execution · google_search · tool_search · function
-```
-
-**MCP is a first-class tool type**, exactly the thing that was asked for:
-
-```jsonc
-"interaction": {
-  "agent": "antigravity-preview-05-2026",
-  "input": "…",
-  "tools": [
-    { "type": "mcp_server", "name": "weather", "url": "https://example.com/mcp",
-      "headers": { "Authorization": "Bearer …" }, "allowed_tools": [ /* objects, not strings */ ] },
-    { "type": "function", "name": "f", "description": "…", "parameters": { … } }
-  ],
-  "environment": { "type": "remote", "network": { "allowlist": [ { "domain": "example.com" } ] } }
-}
-```
-
-**What the documentation gets wrong**, all three found by probing and all three the kind that fail at
-runtime rather than at review:
-
-| Docs say | The wire says |
-|:---|:---|
-| `environment.network.allowed_domains` | `Unknown parameter` — the field is **`allowlist`** |
-| `allowed_tools: ["tool1", "tool2"]` | *"Expected an object, got string"* |
-| `skills` are a concept | `Unknown parameter 'skills' at 'interaction'` — **there is no skills field** |
-
-**Still unknown:** the shape of an `allowed_tools` element. It is an object, and it is not `name`,
-`tool` or `tool_name`. One more probe settles it whenever this is built.
-
----
-
-**So the technical answer is yes, and the product question is the hard half.** Two standing rules
-point in opposite directions here, and this is the first feature where they actually collide:
-
-- **Cronsole creates the plainest environment the API accepts and never guesses one.** Widening what
-  an autonomous agent may reach is explicitly not a default a task manager picks on someone's
-  behalf — the same rule that keeps `repositoryUrls` undefaulted for Claude.
-- **An agent that can reach nothing is often the wrong tool for the job**, demonstrated the same day:
-  a trigger asked to email a report finished `completed` having only written a file to a sandbox with
-  no mailer, and narrated the limitation in its own output. Nothing in Cronsole said so.
-
-**The credential problem is the one to solve first, and it is not new.** An MCP server's `headers`
-carry bearer tokens, so a tools editor is a form that accepts a secret — the shape
-[ADR 0003](adr/0003-per-job-secrets.md) already answers for native jobs: store a **reference**
-(`${secret.NAME}` → `TaskSecret`, AES-256-GCM, no read path), never the value, and never in
-`metadata`, an export or an archive.
-
-**With one difference that must be stated rather than designed around:** a Gemini trigger lives on
-*Google's* side, so the header value is sent to Google at create time and stored there. Cronsole can
-avoid holding the secret; it cannot avoid **handing it over**. Any UI for this has to say that
-plainly at the point of entry, because "Cronsole stores a reference" would otherwise read as "the
-token stays here", which is false.
-
-**Recommended shape when built** — explicit, per-trigger, never inherited, never defaulted, and
-visible on the task afterwards so nobody has to open Google's console to find out what an agent can
-reach. It is `updateAction`'s missing form, which is the verb currently absent for exactly this
-reason: an editable prompt, agent, tool list and allowlist are one form, and building half of it is
-worse than none.
-
-**Read-only surfacing shipped 2026-08-25.** A Gemini task now shows a **What this agent can reach**
-section — the tool list and, separately, the network allowlist — so a trigger carrying a shell and
-three MCP servers no longer renders identically to one that can only think. Credentials cannot appear
-there: an MCP server's `headers` are never read, so the token is absent from the parsed object rather
-than removed from it later.
-
-**Creating with tools shipped 2026-08-25, with rotation.** The New Task form's Gemini arm has a
-collapsed *Tools and network access* section — the nine built-in tools, MCP server rows, and a
-separate domain allowlist — and nothing is selected by default, so a trigger created without opening
-it is byte-identical to one made before.
-
-The credential decision landed as **use once, store nowhere**: the token goes into the create call
-and Gemini holds it from there, which the form states where it is typed. `TaskSecret` was the
-alternative and was rejected on lifecycle rather than caution — the value is needed exactly once, so
-storing it would mean holding a credential Cronsole has no further use for.
-
-**Rotation is therefore a recreate**, and is named that everywhere: `rotateCredentials` builds the
-replacement before removing the original, inherits a paused status, and the route rekeys the existing
-row so run history, favourites and collections survive the new platform id.
-
-**Still not built: editing a trigger's prompt or schedule** — `updateAction` and `updateSchedule`
-remain absent for the same API reason, and the rotation path is the shape any future edit would have
-to take.
-
-**The original ask, for the record:**
-
-<a id="sync-missed-a-new-task"></a>
-
-#### 3. 🔍 A Sync that appeared to miss a new task — investigated 2026-08-25, not reproduced
-
-**Reported 2026-08-25.** A new Windows task appeared in `\AI-Maintenance\` — a folder Cronsole
-already tracks — and pressing **Sync** did not bring it in. **Add tasks from this machine** (the
-discovery modal) did, immediately.
-
-**Investigated the same day. The documented behaviour holds and every hypothesis was ruled out**,
-so this is kept as a *record*, not as an open defect: if it recurs, start from here rather than
-from scratch.
-
-**The repro that did not reproduce it.** Tasks were registered from PowerShell — outside Cronsole
-entirely — then a plain `POST /tasks/sync {"scope":"tracked"}` was pressed once:
-
-| What was created | Result |
-|:---|:---|
-| Daily task at `\` | **Synced in** |
-| Daily task in `\AI-Maintenance\` | **Synced in** |
-| **Logon** task in `\AI-Maintenance\` (no cron at all) | **Synced in** — `schedule: null`, `trigger: null` |
-
-So a plain Sync adopts a new task in an already-tracked folder within seconds, **including one with
-no cron form**, which was the leading hypothesis and is wrong.
-
-**Ruled out, with the evidence:**
-
-- **The cron/trigger shape.** See the table — a logon-triggered task synced in fine.
-- **A `TaskExclusion`.** The only two on Windows are `\Cardstock\Cardstock Weekly Roadmap` and
-  `\Cronsole\Cronsole Roadmap Routine`, both from 2026-08-18.
-- **The folder not being tracked yet** — the case a plain Sync genuinely cannot handle.
-  `\AI-Maintenance\` has been tracked since **2026-07-15**, and picked up new tasks on 07-20, 07-27
-  and 08-21, so its include-set was never empty.
-- **A failed or partial sync.** `PlatformCapability` for `WINDOWS_TASK_SCHEDULER` / `sync` has
-  `lastFailureAt: null` — it has never failed.
-- **The include-set pipeline**, read end to end: the Sync button posts `{ scope: 'tracked' }`;
-  `trackedCategories` derives folder names from stored **paths** (not renameable `category`
-  labels); the filter matches on `extractCategory`; `upsertTasks` creates whatever survives,
-  cron or not.
-
-**What the data does show:** two rows share the timestamp `2026-08-25T17:18:25.188Z` —
-`Start Gods-Eye-View (logon)` *and* `Stop Gods-Eye-View (manual)`. One instant for both is the
-discovery modal writing them together.
-
-**The only explanation left consistent with all of the above is ordering** — the tasks did not yet
-exist on the machine when that Sync enumerated. Plausible, and unprovable after the fact. It is
-recorded as the surviving hypothesis, not as a finding.
-
-**The one change that would settle it next time**, and the reason this entry stays open at all:
-a sync reports `count` (rows upserted) and `untracked` (tasks outside the include-set), but never
-**how many tasks the platform reported in total**. Those three numbers together distinguish *"the
-agent never saw it"* from *"the filter dropped it"* from *"it was already there"* — and today the
-first two are indistinguishable from the outside, which is exactly why this took a live repro to
-answer instead of a log line. `SyncOutcome.notes` already exists for precisely this kind of
-coverage statement (#75), and the Windows connector is the one source that says nothing in it.
-
-**Also found while digging, and worth more than the original report:** Prisma's `startsWith`
-compiles to a Postgres `LIKE`, where **`\` is the escape character** — so
-`startsWith: '\\AI-Maintenance\\'` silently matches **nothing**. Every Windows `externalId` is a
-backslash path, so any query filtering them that way returns a confident empty set that looks
-exactly like a correct answer. The same shape as #83's empty array: the most dangerous successful
-response there is. Filter in JS, or match on a segment without separators.
+In-app failure logs, Gemini agent extensibility, and a Sync reported as missing a task. **Closed
+the day they were asked** — the first shipped, the second was researched by driving the API and
+then built out over the block above, and the third did not reproduce. The full record, including
+what was eliminated on the one that did not reproduce, is in
+[Part II](#shipped-2026-08-25--logs-extensibility-and-one-investigation).
 
 <a id="sources-onboarding"></a>
 
@@ -490,75 +270,14 @@ was built and these are the record of why it took that shape:**
 
 <a id="native-job-types"></a>
 
-### 🔴🔴 Top priority — requested 2026-08-15
+### 🔴🔴 Top priority — requested 2026-08-15 — closed
 
-Four items were requested directly after the dashboard IA redesign landed. **Three shipped** —
-collections, the native job types, and the phone verification (see
-[Part II](#shipped-2026-08-15--2026-08-17)); the fourth, per-job encrypted fields, shipped
-2026-08-21 as [ADR 0003](adr/0003-per-job-secrets.md), and the `env`-editor remainder that work
-carved out shipped 2026-08-24. **The themes shipped the same day, so this block is closed** — see
-the two entries below for what measuring them turned up.
-
-- [x] **An `env` editor for `EXEC` and `SCRIPT` jobs** — shipped 2026-08-24 *(carved out of per-job
-      secrets, 2026-08-21)*. One **Environment** control shared by both types, `NAME=value` per line
-      or JSON, `#` and blank lines dropped so a pasted `.env` block works. Backend needed nothing:
-      `buildNativeJob` and `validateEnv` already carried `env`, and `secretRefsIn` already read
-      `payload.env` — the field was reachable through the API and MCP the whole time and had no
-      control in the app. `${secret.…}` is legal in a value and **unrepresentable** in a name
-      (the parser mirrors `SECRET_NAME_RE`, so the illegal case cannot be typed rather than being
-      typed and refused at 3am). `discardedByTypeSwitch` now reads the *target* type too, because
-      `env` is the one field EXEC and SCRIPT agree about and so survives that pair's conversion
-      and no other.
-      **What building it found**, both the [#20a](troubleshooting/README.md) second-definition
-      shape: `EditTaskModal` carried its own completeness check that knew two job types, so
-      **every edit to a script or check task was blocked by "A command is required."** over a
-      field those types do not have; and the null-payload refusal was hard-coded to the headers,
-      so an unreadable env on a script job reported a headers problem on a type with no headers
-      ([#76](troubleshooting/README.md#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist)).
-      Both now go through the shared `nativeJobIncomplete` / `nativeJobUnreadable` pair — which
-      also closed the create form's half (unreadable headers posted a literal `job: null`) and a
-      third disagreement it exposed: the browser refused a `${secret.WEBHOOK_URL}` URL the API
-      accepts and the guide recommends.
-      **Verified live, not only in the suite** — `frontend/tests/e2e/native-job-env.spec.ts` drives
-      the real form against a real backend and reads the stored job back, on both the create and
-      the edit path. The unit suite could never have caught the gap this closed: `buildNativeJob`
-      handled `env` the whole time and nothing in the browser sent it, which is green from both
-      sides.
-
-- [x] **Fix the themes — light first** — shipped 2026-08-24. The hypothesis recorded here was
-      right, and measuring first is what found the rest: **26 pairs were below the WCAG AA bar
-      across both themes**, not only in light.
-      **The structural fault was the one predicted.** Light ran `background 100% → surface 95% →
-      raised 98%`, putting a *raised* panel at 1.04 against the page — flatter than the `surface`
-      card it sits above (1.12) and very nearly invisible. Light is now the **mirror** of dark:
-      the same separations, in the only direction available when the page is white. Dark
-      1.05/1.16/1.27, light 1.07/1.14/1.25. The old comment defended the inversion as "lifted
-      rather than sunken", which is a real concern and the wrong trade — on a white page every
-      step away from the background is darker, so "lifted" cannot be expressed as "lighter" and
-      the honest choice is a step you can see.
-      **What measuring found that guessing would not:** `subtle-foreground` — the 10px uppercase
-      label above every form field, 338 sites — failed AA on *every* surface in **both** themes
-      (3.27 dark, 2.89 light). White on the green **Run now** fill was 2.59 and white on the red
-      destructive-confirm fill 3.78. Amber and sky were invisible as *dots* in light (2.14, 2.85)
-      — a status dot has no text beside it, so it is non-text UI at 3:1. `muted-foreground` had to
-      move with `subtle-foreground` in light or the two collapsed to one weight.
-      **The bars are now a test, not a review** (`frontend/src/__tests__/themeContrast.test.ts`,
-      65 assertions): it parses `index.css` and measures every pair, so a future value cannot
-      regress quietly. It also pins `:root === .dark`, because a drift there flashes the wrong
-      palette before hydration on every cold load and nothing fails. Baselines regenerated; the
-      `-text` / accent split and "a shared hue is not a shared role" both held throughout — no
-      component changed, exactly as scoped.
-
-- [ ] **`--border` does not meet WCAG 1.4.11, and needs a second token** *(carved out of the theme
-      pass, 2026-08-24)*. It measures **1.61:1** in light and **1.69:1** dark against the page,
-      against a 3:1 bar for non-text UI. It was raised from 1.41/1.40 as far as one token can go,
-      and the test pins that floor so it cannot slip back — but the gap cannot be closed by a
-      value. `--border` does two jobs: separating cards (decorative, *exempt* from 1.4.11) and
-      drawing the boundary of a text input (in scope, not exempt). Reaching 3:1 needs `L=58%` in
-      light and `L=37%` in dark, which would turn every hairline into a heavy rule at all **313**
-      call sites, including the ~260 the rule does not apply to. The fix is `--border` plus
-      `--border-strong` and a sweep of the *controls* only — a component change, which is why it
-      is not in the palette pass. The test says so and will fail if someone closes it by value.
+Four items requested after the dashboard IA redesign landed, plus two the theme work carved out.
+**All shipped**: collections, the native job types and the phone verification
+([Part II](#shipped-2026-08-15--2026-08-17)); per-job encrypted fields as
+[ADR 0003](adr/0003-per-job-secrets.md) on 2026-08-21; the `env` editor and the themes on
+2026-08-24. One thing measuring the themes turned up could not be closed by a palette value and
+moved to [P2](#open--ui--product): `--border` needs a second token.
 
 <a id="import-sync-split"></a>
 
@@ -786,6 +505,17 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       verification is automated in `tests/e2e/layout.spec.ts`)*. **Left:** `--raised` exists and is
       applied to exactly one panel, the filter zone. Spending it across the app to build real
       hierarchy is the half of this item that has not been done.
+- [ ] **`--border` does not meet WCAG 1.4.11, and needs a second token** *(carved out of the theme
+      pass, 2026-08-24)*. It measures **1.61:1** in light and **1.69:1** dark against the page,
+      against a 3:1 bar for non-text UI. It was raised from 1.41/1.40 as far as one token can go,
+      and the test pins that floor so it cannot slip back — but the gap cannot be closed by a
+      value. `--border` does two jobs: separating cards (decorative, *exempt* from 1.4.11) and
+      drawing the boundary of a text input (in scope, not exempt). Reaching 3:1 needs `L=58%` in
+      light and `L=37%` in dark, which would turn every hairline into a heavy rule at all **313**
+      call sites, including the ~260 the rule does not apply to. The fix is `--border` plus
+      `--border-strong` and a sweep of the *controls* only — a component change, which is why it
+      is not in the palette pass. The test says so and will fail if someone closes it by value.
+
 - [ ] **Two Settings toggles are now vestigial** *(logged 2026-08-12, created by the same change)*.
       The dashboard opens on **All**, which hard-sets `status: any` and `system: include` — exactly
       what *Show disabled tasks* and the persisted system lens control, so neither affects the
@@ -814,8 +544,10 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       Platforms too, and clears only on an explicit click. Auto-retire it once the user has
       imported, created or starred; replace it with per-tab first-use cards, which is where the
       advice is actually actionable.
-- [ ] **Console noise in user-facing flows**: **37 backend + 3 frontend** `console.*` calls
-      *(counted 2026-08-12)*, the worst carrying task names, native paths and full command lines —
+- [ ] **Console noise in user-facing flows**: the worst calls carry task names, native paths and
+      full command lines — `grep -rn "console\." backend/src frontend/src` for the current set,
+      because the count written here (37 + 3, on 2026-08-12) had drifted to 45 + 4 by 2026-08-25
+      with nobody noticing, which is the argument for not writing counts into prose at all. Mostly —
       `routes/tasks.ts`, `WindowsAgentConnector.ts`, `NativeScheduler.ts`, `TaskService.ts`,
       `AgentManager.ts`, `Dashboard.tsx`. Do it with the structured-logging work under *Production
       operations*: levels + redaction, with full command lines behind an explicit diagnostics
@@ -1244,6 +976,304 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 <a id="shipped-2026-08-15--2026-08-17"></a>
 
 ## Shipped 2026-08-15 → 2026-08-18 — the current sprint
+
+### Shipped 2026-08-25 — logs, extensibility, and one investigation
+
+#### 🟢 Requested 2026-08-25 — logs shipped, extensibility researched, one sync investigated
+
+Three items from the first real session with Gemini API Triggers on live data, **all three closed
+the same day**. In-app failure logs shipped across every source that can answer. Agent
+extensibility was researched by driving the API — the answer is yes, with the product question
+written down rather than guessed. The third was reported as a defect and did not reproduce; it is
+kept as a record of what was eliminated, plus the one missing number that would have answered it
+without a live repro.
+
+<a id="in-app-logging"></a>
+
+##### 1. ✅ In-app logging — shipped 2026-08-25
+
+**Shipped the same day it was asked for.** Built as a per-connector capability on the run-history
+verbs rather than as one feature, because the failure detail lives somewhere different on every
+source — and on one of them, nowhere at all.
+
+| Source | Where the detail comes from now |
+|:---|:---|
+| Windows | **New `task:history` agent verb** reading `Microsoft-Windows-TaskScheduler/Operational` — Windows' own sentences, the exit code, and the action that produced it. Needs an agent republish |
+| Gemini | The interaction transcript (already shipped) |
+| GitHub Actions | The **jobs** endpoint — ordered steps and conclusions, so the failing step is named — plus a link to github.com for raw console output |
+| Cronsole-native | `ExecutionLog.log`, already in the app and already redacted at write time by `executeJob` |
+| Vercel | **Nothing, permanently.** It publishes no cron run history, and a source that cannot answer renders nothing rather than an empty box |
+
+Three rules it had to keep and did: two switches that make a healthy thing look dead each got a
+third state (`historyEnabled` true/false/null; an optional verb's timeout is not health evidence);
+`PlatformRunOutput.facts` is free-form and printed rather than parsed, so no source's vocabulary
+became the shape; and the redaction question was answered by **not storing anything** — Cronsole
+redacts what it writes, never what the platform already shows you, and storage is what would create
+new exposure.
+
+**The original ask, for the record:**
+
+| Source | Where the failure detail lives today |
+|:---|:---|
+| Cronsole-native | `ExecutionLog.log` — **already in the app**, on the Run History tab |
+| Windows | `lastTaskResult`, an exit code and nothing else. The real output is in Event Viewer |
+| Gemini | The interaction transcript, **now** reachable (shipped 2026-08-25) but only there |
+| GitHub Actions | The workflow run's logs, on github.com |
+| Vercel | Nothing — no cron run history is published at all |
+
+So this is not one feature, it is a **per-connector capability** and it should be built the way
+run history just was: an optional connector method, `unsupported` by absence, with the UI
+rendering nothing rather than an apology where a source cannot answer. `getRunOutput` is already
+that shape and is the natural place for it to live — a failed run's error output *is* what the run
+produced.
+
+**The rules it has to keep**, all of which already exist and all of which this is a chance to
+break:
+
+- **A source that cannot report failure output must say so, not show an empty box.** "This run
+  logged nothing" and "this platform never publishes logs" are different facts. Vercel is the
+  permanent case.
+- **Absence of evidence is `unknown`, never `ok`** — a failure with no retrievable detail is still
+  a failure, and the panel must not imply the run was fine because the log is empty.
+- **Never merge populations.** Cronsole's own `ExecutionLog` and a platform's log are two sources,
+  the way run history is two groups.
+- **Redaction is not optional.** `executeJob` already redacts `${secret.NAME}` values out of the
+  native log at the one point every job type funnels through; anything that surfaces a *platform's*
+  log has no such chokepoint, and a Windows task's stderr or an agent transcript can contain
+  whatever the user's script printed. Decide the redaction story before the render, not after.
+
+**Open question:** does this need a store at all? Run history proved that a live read per opened
+run is enough and avoids a second copy of somebody else's data going stale. Failure output is
+probably the same — except that a platform's log retention is finite, which is the one argument
+for capturing it at sync time. Do not build the store until a real retention window bites.
+
+<a id="gemini-agent-extensibility"></a>
+
+##### 2. 🔬 Giving a Gemini trigger MCP servers and tools — researched, reading shipped 2026-08-25
+
+**The question:** the trigger Cronsole creates runs a bare managed agent. Can a user give it more —
+MCP servers, skills, tools, a network allowlist?
+
+**Answered by driving the API**, because this connector's documentation has now disagreed with the
+wire five times (#82, #83, and three more below). The method is worth reusing: Google validates
+unknown parameter *names* before field *values*, so a request carrying a deliberately invalid
+schedule is a free oracle — an `Unknown parameter 'x'` answer proves a field is not accepted, any
+complaint about the schedule proves it is, and **nothing is created either way**.
+
+**Yes — tools are fully supported on a trigger's interaction.** The API enumerates its own list when
+given a bogus type, which is a better source than any document:
+
+```
+filesystem · file_search · google_maps · bash · computer_use · mcp_server
+url_context · code_execution · google_search · tool_search · function
+```
+
+**MCP is a first-class tool type**, exactly the thing that was asked for:
+
+```jsonc
+"interaction": {
+  "agent": "antigravity-preview-05-2026",
+  "input": "…",
+  "tools": [
+    { "type": "mcp_server", "name": "weather", "url": "https://example.com/mcp",
+      "headers": { "Authorization": "Bearer …" }, "allowed_tools": [ /* objects, not strings */ ] },
+    { "type": "function", "name": "f", "description": "…", "parameters": { … } }
+  ],
+  "environment": { "type": "remote", "network": { "allowlist": [ { "domain": "example.com" } ] } }
+}
+```
+
+**What the documentation gets wrong**, all three found by probing and all three the kind that fail at
+runtime rather than at review:
+
+| Docs say | The wire says |
+|:---|:---|
+| `environment.network.allowed_domains` | `Unknown parameter` — the field is **`allowlist`** |
+| `allowed_tools: ["tool1", "tool2"]` | *"Expected an object, got string"* |
+| `skills` are a concept | `Unknown parameter 'skills' at 'interaction'` — **there is no skills field** |
+
+**Still unknown:** the shape of an `allowed_tools` element. It is an object, and it is not `name`,
+`tool` or `tool_name`. One more probe settles it whenever this is built.
+
+---
+
+**So the technical answer is yes, and the product question is the hard half.** Two standing rules
+point in opposite directions here, and this is the first feature where they actually collide:
+
+- **Cronsole creates the plainest environment the API accepts and never guesses one.** Widening what
+  an autonomous agent may reach is explicitly not a default a task manager picks on someone's
+  behalf — the same rule that keeps `repositoryUrls` undefaulted for Claude.
+- **An agent that can reach nothing is often the wrong tool for the job**, demonstrated the same day:
+  a trigger asked to email a report finished `completed` having only written a file to a sandbox with
+  no mailer, and narrated the limitation in its own output. Nothing in Cronsole said so.
+
+**The credential problem is the one to solve first, and it is not new.** An MCP server's `headers`
+carry bearer tokens, so a tools editor is a form that accepts a secret — the shape
+[ADR 0003](adr/0003-per-job-secrets.md) already answers for native jobs: store a **reference**
+(`${secret.NAME}` → `TaskSecret`, AES-256-GCM, no read path), never the value, and never in
+`metadata`, an export or an archive.
+
+**With one difference that must be stated rather than designed around:** a Gemini trigger lives on
+*Google's* side, so the header value is sent to Google at create time and stored there. Cronsole can
+avoid holding the secret; it cannot avoid **handing it over**. Any UI for this has to say that
+plainly at the point of entry, because "Cronsole stores a reference" would otherwise read as "the
+token stays here", which is false.
+
+**Recommended shape when built** — explicit, per-trigger, never inherited, never defaulted, and
+visible on the task afterwards so nobody has to open Google's console to find out what an agent can
+reach. It is `updateAction`'s missing form, which is the verb currently absent for exactly this
+reason: an editable prompt, agent, tool list and allowlist are one form, and building half of it is
+worse than none.
+
+**Read-only surfacing shipped 2026-08-25.** A Gemini task now shows a **What this agent can reach**
+section — the tool list and, separately, the network allowlist — so a trigger carrying a shell and
+three MCP servers no longer renders identically to one that can only think. Credentials cannot appear
+there: an MCP server's `headers` are never read, so the token is absent from the parsed object rather
+than removed from it later.
+
+**Creating with tools shipped 2026-08-25, with rotation.** The New Task form's Gemini arm has a
+collapsed *Tools and network access* section — the nine built-in tools, MCP server rows, and a
+separate domain allowlist — and nothing is selected by default, so a trigger created without opening
+it is byte-identical to one made before.
+
+The credential decision landed as **use once, store nowhere**: the token goes into the create call
+and Gemini holds it from there, which the form states where it is typed. `TaskSecret` was the
+alternative and was rejected on lifecycle rather than caution — the value is needed exactly once, so
+storing it would mean holding a credential Cronsole has no further use for.
+
+**Rotation is therefore a recreate**, and is named that everywhere: `rotateCredentials` builds the
+replacement before removing the original, inherits a paused status, and the route rekeys the existing
+row so run history, favourites and collections survive the new platform id.
+
+**Still not built: editing a trigger's prompt or schedule** — `updateAction` and `updateSchedule`
+remain absent for the same API reason, and the rotation path is the shape any future edit would have
+to take.
+
+**The original ask, for the record:**
+
+<a id="sync-missed-a-new-task"></a>
+
+##### 3. 🔍 A Sync that appeared to miss a new task — investigated 2026-08-25, not reproduced
+
+**Reported 2026-08-25.** A new Windows task appeared in `\AI-Maintenance\` — a folder Cronsole
+already tracks — and pressing **Sync** did not bring it in. **Add tasks from this machine** (the
+discovery modal) did, immediately.
+
+**Investigated the same day. The documented behaviour holds and every hypothesis was ruled out**,
+so this is kept as a *record*, not as an open defect: if it recurs, start from here rather than
+from scratch.
+
+**The repro that did not reproduce it.** Tasks were registered from PowerShell — outside Cronsole
+entirely — then a plain `POST /tasks/sync {"scope":"tracked"}` was pressed once:
+
+| What was created | Result |
+|:---|:---|
+| Daily task at `\` | **Synced in** |
+| Daily task in `\AI-Maintenance\` | **Synced in** |
+| **Logon** task in `\AI-Maintenance\` (no cron at all) | **Synced in** — `schedule: null`, `trigger: null` |
+
+So a plain Sync adopts a new task in an already-tracked folder within seconds, **including one with
+no cron form**, which was the leading hypothesis and is wrong.
+
+**Ruled out, with the evidence:**
+
+- **The cron/trigger shape.** See the table — a logon-triggered task synced in fine.
+- **A `TaskExclusion`.** The only two on Windows are `\Cardstock\Cardstock Weekly Roadmap` and
+  `\Cronsole\Cronsole Roadmap Routine`, both from 2026-08-18.
+- **The folder not being tracked yet** — the case a plain Sync genuinely cannot handle.
+  `\AI-Maintenance\` has been tracked since **2026-07-15**, and picked up new tasks on 07-20, 07-27
+  and 08-21, so its include-set was never empty.
+- **A failed or partial sync.** `PlatformCapability` for `WINDOWS_TASK_SCHEDULER` / `sync` has
+  `lastFailureAt: null` — it has never failed.
+- **The include-set pipeline**, read end to end: the Sync button posts `{ scope: 'tracked' }`;
+  `trackedCategories` derives folder names from stored **paths** (not renameable `category`
+  labels); the filter matches on `extractCategory`; `upsertTasks` creates whatever survives,
+  cron or not.
+
+**What the data does show:** two rows share the timestamp `2026-08-25T17:18:25.188Z` —
+`Start Gods-Eye-View (logon)` *and* `Stop Gods-Eye-View (manual)`. One instant for both is the
+discovery modal writing them together.
+
+**The only explanation left consistent with all of the above is ordering** — the tasks did not yet
+exist on the machine when that Sync enumerated. Plausible, and unprovable after the fact. It is
+recorded as the surviving hypothesis, not as a finding.
+
+**The one change that would settle it next time**, and the reason this entry stays open at all:
+a sync reports `count` (rows upserted) and `untracked` (tasks outside the include-set), but never
+**how many tasks the platform reported in total**. Those three numbers together distinguish *"the
+agent never saw it"* from *"the filter dropped it"* from *"it was already there"* — and today the
+first two are indistinguishable from the outside, which is exactly why this took a live repro to
+answer instead of a log line. `SyncOutcome.notes` already exists for precisely this kind of
+coverage statement (#75), and the Windows connector is the one source that says nothing in it.
+
+**Also found while digging, and worth more than the original report:** Prisma's `startsWith`
+compiles to a Postgres `LIKE`, where **`\` is the escape character** — so
+`startsWith: '\\AI-Maintenance\\'` silently matches **nothing**. Every Windows `externalId` is a
+backslash path, so any query filtering them that way returns a confident empty set that looks
+exactly like a correct answer. The same shape as #83's empty array: the most dangerous successful
+response there is. Filter in JS, or match on a segment without separators.
+
+
+#### 🔴🔴 Top priority — requested 2026-08-15
+
+Four items were requested directly after the dashboard IA redesign landed. **Three shipped** —
+collections, the native job types, and the phone verification (see
+[Part II](#shipped-2026-08-15--2026-08-17)); the fourth, per-job encrypted fields, shipped
+2026-08-21 as [ADR 0003](adr/0003-per-job-secrets.md), and the `env`-editor remainder that work
+carved out shipped 2026-08-24. **The themes shipped the same day, so this block is closed** — see
+the two entries below for what measuring them turned up.
+
+- [x] **An `env` editor for `EXEC` and `SCRIPT` jobs** — shipped 2026-08-24 *(carved out of per-job
+      secrets, 2026-08-21)*. One **Environment** control shared by both types, `NAME=value` per line
+      or JSON, `#` and blank lines dropped so a pasted `.env` block works. Backend needed nothing:
+      `buildNativeJob` and `validateEnv` already carried `env`, and `secretRefsIn` already read
+      `payload.env` — the field was reachable through the API and MCP the whole time and had no
+      control in the app. `${secret.…}` is legal in a value and **unrepresentable** in a name
+      (the parser mirrors `SECRET_NAME_RE`, so the illegal case cannot be typed rather than being
+      typed and refused at 3am). `discardedByTypeSwitch` now reads the *target* type too, because
+      `env` is the one field EXEC and SCRIPT agree about and so survives that pair's conversion
+      and no other.
+      **What building it found**, both the [#20a](troubleshooting/README.md) second-definition
+      shape: `EditTaskModal` carried its own completeness check that knew two job types, so
+      **every edit to a script or check task was blocked by "A command is required."** over a
+      field those types do not have; and the null-payload refusal was hard-coded to the headers,
+      so an unreadable env on a script job reported a headers problem on a type with no headers
+      ([#76](troubleshooting/README.md#76-save-is-blocked-on-a-script-task-over-a-command-field-that-does-not-exist)).
+      Both now go through the shared `nativeJobIncomplete` / `nativeJobUnreadable` pair — which
+      also closed the create form's half (unreadable headers posted a literal `job: null`) and a
+      third disagreement it exposed: the browser refused a `${secret.WEBHOOK_URL}` URL the API
+      accepts and the guide recommends.
+      **Verified live, not only in the suite** — `frontend/tests/e2e/native-job-env.spec.ts` drives
+      the real form against a real backend and reads the stored job back, on both the create and
+      the edit path. The unit suite could never have caught the gap this closed: `buildNativeJob`
+      handled `env` the whole time and nothing in the browser sent it, which is green from both
+      sides.
+
+- [x] **Fix the themes — light first** — shipped 2026-08-24. The hypothesis recorded here was
+      right, and measuring first is what found the rest: **26 pairs were below the WCAG AA bar
+      across both themes**, not only in light.
+      **The structural fault was the one predicted.** Light ran `background 100% → surface 95% →
+      raised 98%`, putting a *raised* panel at 1.04 against the page — flatter than the `surface`
+      card it sits above (1.12) and very nearly invisible. Light is now the **mirror** of dark:
+      the same separations, in the only direction available when the page is white. Dark
+      1.05/1.16/1.27, light 1.07/1.14/1.25. The old comment defended the inversion as "lifted
+      rather than sunken", which is a real concern and the wrong trade — on a white page every
+      step away from the background is darker, so "lifted" cannot be expressed as "lighter" and
+      the honest choice is a step you can see.
+      **What measuring found that guessing would not:** `subtle-foreground` — the 10px uppercase
+      label above every form field, 338 sites — failed AA on *every* surface in **both** themes
+      (3.27 dark, 2.89 light). White on the green **Run now** fill was 2.59 and white on the red
+      destructive-confirm fill 3.78. Amber and sky were invisible as *dots* in light (2.14, 2.85)
+      — a status dot has no text beside it, so it is non-text UI at 3:1. `muted-foreground` had to
+      move with `subtle-foreground` in light or the two collapsed to one weight.
+      **The bars are now a test, not a review** (`frontend/src/__tests__/themeContrast.test.ts`,
+      65 assertions): it parses `index.css` and measures every pair, so a future value cannot
+      regress quietly. It also pins `:root === .dark`, because a drift there flashes the wrong
+      palette before hydration on every cold load and nothing fails. Baselines regenerated; the
+      `-text` / accent split and "a shared hue is not a shared role" both held throughout — no
+      component changed, exactly as scoped.
+
+
 
 ### Shipped 2026-08-24 — source onboarding
 

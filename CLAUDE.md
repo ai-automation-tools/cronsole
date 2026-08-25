@@ -357,6 +357,22 @@ Non-negotiable rules. **Every one has a reason recorded in
   as a failure marked a healthy platform broken on the Sources tab and blamed it for a fact about
   the user's disk — #59's shape one layer up, in a line whose own comment stated the right rule
   ([#77](docs/troubleshooting/README.md#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file)).
+- **`createTask` returns `refusedBeforeCalling` — the same split, on the create path.** A create can
+  fail because the *caller* asked for something impossible (an unknown tool type, a saved MCP server
+  that does not exist, a missing prompt) or because the *platform* declined, and one status code
+  cannot serve both: a `500` means **retry**, and retrying an identical bad request never helps. Set
+  it on any refusal the connector reaches **without contacting the platform**; the route then answers
+  `400` and the message names what to change. Absent means "we called out and it went wrong", which
+  is the safe default for a connector that has not thought about it. Found by driving the new MCP
+  create: *"No saved MCP server called X. Saved servers: resend."* — a message carrying its own fix —
+  was arriving as a 500.
+- **A connector's success message is the caller's answer, and the route may not overwrite it.**
+  `describeGrant` states what a Gemini create actually granted (the tools, the domains, and that a
+  supplied credential now lives on the platform), §9 requires that confirmation because **reach is
+  the consequential half of creating an autonomous task** — and the route replaced it with
+  `'Task created successfully'` for every caller, so it reached nobody. `result.message ||` default,
+  not a constant. [#65](docs/troubleshooting/README.md#65-an-exported-task-file-has-nowhere-to-go--and-restore-refuses-it)'s
+  shape: grep what you produce, and if every hit writes it, the feature is half-built.
 - **`buildNativeJob` / `validateJob` have one definition**, shared by create, edit and the connector —
   a second definition is how an edit produces a spec creation would have refused.
 - Prefer the connector that unlocks several sources (one POSIX agent → launchd + cron + systemd) over
@@ -671,6 +687,7 @@ three weeks — confidently doing the wrong thing.
 | A capability or claim the public gallery states | [`registry-site/index.html`](registry-site/README.md) — merging to `main` publishes it to **both** hosts (`publish-registry.yml` + `publish-frontdoor.yml`), and **Front door drift** checks both daily. One page, two hosts, so a fix that reaches one and not the other is the failure to look for |
 | A field on a probe or action shape | The gallery's renderer — a *partial* reading is worse than raw JSON; absent and malformed are different facts |
 | A new platform / connector / catalog rule | §9 here + `SKILL.md` + the relevant `skills/cronsole/references/*.md` |
+| **A new source on the Sources tab** | Its own guide in [`docs/user-guides/sources/`](docs/user-guides/sources/README.md), registered in `SOURCE_DOCS` (`frontend/src/data/docs.ts`) so the card carries its **Read: using X** link, and listed in that folder's `README.md`. `docsLinks.test.ts` pins the count to the number of sources, so this one **fails loudly** — the only mirror surface that does |
 | Renamed or removed a doc heading the app deep-links to | The matching `HelpTopic.doc` / `more` anchor in [`frontend/src/data/help.ts`](frontend/src/data/help.ts) (`docsLinks.test.ts` catches this) |
 | A new user-facing control worth explaining | A topic in `help.ts` **and** the guide section it links to — the doc comes first |
 | **Any user-visible change** | [`docs/CHANGELOG.md`](docs/CHANGELOG.md), under the right `[Unreleased]` heading, dated |

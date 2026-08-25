@@ -414,7 +414,22 @@ export interface PlatformConnector {
    * silent. Reported on failure too: a chain can be created and the
    * registration then fail, which leaves a real folder behind.
    */
-  createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated?: string[] }>;
+  /**
+   * Create a task on the platform.
+   *
+   * **`refusedBeforeCalling` is the create-path twin of `runTask`'s `ran`.** A
+   * failure here has two very different causes and one status code cannot serve
+   * both: the caller asked for something impossible (an unknown tool type, a
+   * saved server that does not exist, a missing prompt), or the platform itself
+   * declined. The first is a **400** — retrying the identical request cannot
+   * help, and the message names what to change. The second is a 500/502, where
+   * retrying is exactly the right move.
+   *
+   * Set it on any refusal the connector reaches **without contacting the
+   * platform**. Absent means "we called out and it went wrong", which is the
+   * safe default for a connector that has not thought about it.
+   */
+  createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated?: string[]; refusedBeforeCalling?: boolean }>;
 
   /**
    * Change the schedule (trigger) of an existing platform task, leaving its

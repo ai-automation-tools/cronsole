@@ -13,6 +13,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **An assistant can create a Gemini trigger now** (2026-08-25). New MCP tool **`create_gemini_trigger`** — its own tool rather than a platform on `create_task`, because the unit of work here is a **prompt for an agent**, not a command: no executable, no shell, no tokenization, and none of that tool's guidance applies.
+
+  **It waited for saved MCP servers to exist, deliberately.** Before them, creating a trigger with an MCP server would have meant passing a bearer token as a tool parameter — through the assistant's context, its transcript, and whatever the host logs. Now the tool names a saved server and the credential is resolved on the server, so it never enters the conversation. There is no field for a raw token, and a test pins that.
+
+  Because it creates something that runs unattended, the tool's own description carries the three prompt rules rather than assuming the caller knows them: never let a prompt offer a choice (a question stalls forever when nobody is there to answer), always instruct it to report failure explicitly, and grant only the tools the task needs. It also says plainly that a trigger **cannot be edited** — changing a prompt means create-then-delete — because the most expensive thing an assistant can believe about this platform is that it can fix it later.
+
+- **An AI assistant can read the runs a platform recorded itself** (2026-08-25). Two new MCP tools: **`list_platform_runs`** and **`get_run_output`**.
+
+  Ask an assistant *"why did my scheduled task fail?"* and until now it could only reach `get_task_history`, which reads Cronsole's own log — **runs Cronsole performed**. On Gemini API Triggers, GitHub Actions, Vercel Cron and Windows, a task firing on its own schedule writes nothing there by design, so the one question people ask most was the one an assistant could not answer, on exactly the sources where the runs actually happen. The two lists stay separate for the same reason the Run History tab keeps them apart: folding them together turns a table meaning "Cronsole did this" into one meaning nothing.
+
+  **`get_run_output` returns the step list, and that is the point.** A status of `completed` means an agent finished its turn, not that it did the job — a trigger asked to email a report finishes cleanly having only written a file. One run per call, because a transcript runs to ~90KB, and long output is truncated with the cut announced rather than returned short and looking complete.
+
+  **A platform that publishes no run history answers as a fact, not an error.** Vercel Cron is the permanent case, and reporting that as a failure would have an assistant call a working source broken.
+
 - **Save an MCP server once, and rotate its token everywhere in one gesture** (2026-08-25). The Gemini source panel has a new **Saved MCP servers** section: a name, a URL, a token. After that the create form offers it as a checkbox, and the task stores only the *name* — the credential lives on the connection, encrypted beside your API key.
 
   **What this replaces was a rule built on a claim that turned out to be false.** A token handed to Gemini was "used once and stored nowhere", and the reason recorded for it was lifecycle rather than caution: the value is needed exactly once. A week of real use showed it is needed once **per trigger** — again for the second task using the same server, again on every prompt edit (a Gemini trigger cannot be edited in place, so editing means recreating), and again for every trigger that used a token you rotated.
@@ -114,6 +128,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 
 ### Fixed
+- **Creating a task tells you what it granted** (2026-08-25). A Gemini create builds a sentence naming the tools, the domains and where a supplied credential now lives — and the API was **overwriting it** with *"Task created successfully"*, so it reached nobody. Every caller now sees it, which matters most for the one that is an AI assistant creating an autonomous agent on your behalf.
+- **A create refused for a fixable reason is no longer reported as a server error** (2026-08-25). Naming a saved MCP server that does not exist, or a tool type Gemini does not offer, returned **HTTP 500** — the code that means "retry, the gateway had a problem" — over a message that already told you exactly what to change. Those are **400**s now. Only a failure where Cronsole actually reached the platform stays a 500, which is the same `ran`-beside-`success` distinction run history has had since August.
+
 - **A Gemini run that fails before it starts now says why** (2026-08-25). A trigger whose configuration the platform rejects fails in seconds with no transcript — there is no agent run to record — and Cronsole reported *"there is nothing to read"* while the exact reason sat one field over in the same response. The execution carries an `error`, and it was not being read.
 
   It is now the run's output, labelled **Failed before the agent started**. The case that surfaced it: *"Tool 'filesystem' is not allowed when interacting with this agent"* — a tool the API's own supported list contains, refused by the specific agent it was given to. A capability list is not a permission list, and that narrower restriction is published nowhere Cronsole can read, so the platform's sentence is the only thing that explains it. See [troubleshooting #84](troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read).

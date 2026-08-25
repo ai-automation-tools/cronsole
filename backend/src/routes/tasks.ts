@@ -652,7 +652,13 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     // caller will ever see must say so rather than reporting a clean failure.
     // Same split as setStatus: a platform with no create API at all is a 400,
     // not a 500. Claude routines are made at claude.ai and nowhere else.
-    return res.status(verbDeclaredUnsupported(platform, 'create') ? 400 : 500).json({
+    // **A refusal the connector reached without calling out is a 400.** It was
+    // a flat 500 for anything on a platform that declares `create`, which put
+    // "you named a saved server that does not exist" — a mistake with the fix in
+    // the message — in the same register as "the platform is down". A 500 tells
+    // the caller to retry, and retrying an identical bad request never helps.
+    const clientMistake = verbDeclaredUnsupported(platform, 'create') || result.refusedBeforeCalling === true;
+    return res.status(clientMistake ? 400 : 500).json({
       error: result.message || 'Failed to create task',
       ...(result.foldersCreated?.length ? { foldersCreated: result.foldersCreated } : {})
     });
@@ -710,7 +716,16 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
 
   notifyTasksChanged(userId);
   res.json({
-    message: 'Task created successfully',
+    // **The connector's own sentence wins when it has one.** `describeGrant`
+    // states what a Gemini create actually granted — the tools, the domains, and
+    // where a supplied credential now lives — and §9 requires the confirmation to
+    // say it, because reach is the consequential half of creating an autonomous
+    // task and this is the last moment anyone reads before it starts running on a
+    // schedule. It was being built and then overwritten with the line below:
+    // every caller saw "Task created successfully" and the grant reached nobody.
+    // #65's shape — grep the thing you produce, and if every hit writes it, the
+    // feature is half-built however green the suite is.
+    message: result.message || 'Task created successfully',
     task: upserted[0],
     conversion: { warnings: conversionWarnings, lossy: conversionLossy },
     // Always present (empty array when nothing was created), never conditional:

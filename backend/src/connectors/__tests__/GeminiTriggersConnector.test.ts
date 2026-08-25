@@ -855,3 +855,42 @@ describe('a saved MCP server is referenced by name, never retyped', () => {
     expect(deleteTriggerMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * **A refusal reached without calling out is the caller's mistake, not the platform's.**
+ *
+ * `runTask` learned this once already: `ran` exists beside `success` because
+ * "the job failed" and "the job could not start" need different answers.
+ * `refusedBeforeCalling` is the same split on the create path, and it decides
+ * whether the route says 400 (fix your request) or 500 (retry).
+ */
+describe('a create refused before the platform is contacted says so', () => {
+  const withPresets = () =>
+    config({ toolPresets: [{ name: 'resend', url: 'https://mcp.resend.com/mcp' }] });
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each([
+    ['an empty prompt', '   ', {}],
+    ['an unknown tool type', 'p', { agentTools: [{ type: 'quantum_thing' }] }],
+    ['an MCP server with no URL', 'p', { agentTools: [{ type: 'mcp_server', name: 'half' }] }],
+    ['an unknown preset', 'p', { agentTools: [{ type: 'mcp_server', preset: 'sendgrid' }] }]
+  ])('flags %s', async (_label, prompt, options) => {
+    const result = await connector.createTask('n', '0 3 * * *', prompt, withPresets(), options);
+    expect(result.success).toBe(false);
+    expect(result.refusedBeforeCalling).toBe(true);
+    // The point of the flag: nothing was sent, so retrying the identical request
+    // cannot help and the message names what to change instead.
+    expect(createTriggerMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT flag a failure the platform itself returned', async () => {
+    // Here Cronsole did call out and Google declined. Retrying is exactly the
+    // right move, so this must stay a 500 rather than becoming a 400.
+    createTriggerMock.mockResolvedValue({ ok: false, message: 'Service unavailable' } as never);
+    const result = await connector.createTask('n', '0 3 * * *', 'p', withPresets());
+    expect(result.success).toBe(false);
+    expect(result.refusedBeforeCalling).toBeUndefined();
+    expect(createTriggerMock).toHaveBeenCalled();
+  });
+});

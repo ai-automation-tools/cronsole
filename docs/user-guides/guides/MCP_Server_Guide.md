@@ -46,7 +46,10 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`create_native_script_task`** | "Write me a script that prunes old logs and run it nightly" | `POST /api/tasks/native` |
 | **`create_native_check_task`** | "Check every 5 minutes that my API returns healthy, and alert me if not" | `POST /api/tasks/native` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |
-| **`get_task_history`** | "Did last night's backup work?", "why did the report task fail?" | `GET /api/tasks/:id/executions` |
+| **`get_task_history`** | "Did last night's backup work?" — runs **Cronsole** performed | `GET /api/tasks/:id/executions` |
+| **`create_gemini_trigger`** | "Every Monday, summarise my repos and email me" — creates a scheduled Gemini agent | `POST /api/tasks` |
+| **`list_platform_runs`** | "Why did my scheduled task fail?" — runs the **platform** recorded, which on Gemini, GitHub, Vercel and Windows is where they all are | `GET /api/tasks/:id/platform-runs` |
+| **`get_run_output`** | "What did that run actually do?" — the output and the **step list**, one run at a time | `GET /api/tasks/:id/platform-runs/:runId/output` |
 | **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" — or **"set this task up on my other machine"**, which asks for the *portable* format instead. Two formats: `native` (default — Task Scheduler XML, or Cronsole JSON) is the faithful backup; `format: 'template'` is portable, **drops platform-specific settings so it is not a backup**, and is the only one that works with the agent offline or on a **Claude routine** | `GET /api/tasks/:id/export[?format=]` |
 | **`import_task`** | "Set that task up on this machine too" — recreates a **Cronsole-native** task from a `.json` you exported. Windows tasks are `.xml` and go through Tools → Restore in the app | `POST /api/tasks/import` |
 | **`list_task_archives`** | "What have I deleted recently?" — the definitions Cronsole kept when tasks were deleted, and whether each can be rebuilt | `GET /api/tools/task-archives` |
@@ -178,7 +181,7 @@ writable* rather than hidden, so you get "that one's refused" instead of a confu
 
 > [!IMPORTANT]
 > **What's safe, what's real, and what's off by default.**
-> - **Read-only, call freely:** `list_*`, `get_task_history`, `export_task`, `convert_schedule`.
+> - **Read-only, call freely:** `list_*`, `get_task_history`, `list_platform_runs`, `get_run_output`, `export_task`, `convert_schedule`.
 > - **`import_task` and `restore_task_archive` create a task, and both are on by default.** That is
 >   the mirror of the rule below: deleting is behind a flag, undoing a delete is not — a switch that
 >   protects you from a bad delete should not also stop you fixing one. Each makes a **new** task

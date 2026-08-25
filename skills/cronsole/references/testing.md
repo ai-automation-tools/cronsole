@@ -166,8 +166,10 @@ mcp-server/src/__tests__/       unit (vitest) — tools via a real MCP client
    `test applyTemplate`.
 2. **Test the error path.** Most Cronsole bugs are *honesty* bugs — the feature "works" but
    lies when it fails. Assert what the user is **told**.
-3. **Prefer invariant guards over example tests.** One test covering all 55 templates forever
-   beats 55 tests.
+3. **Prefer invariant guards over example tests.** One test that holds for **every** template
+   forever beats one test per template — and it keeps holding as the catalog grows, which is the
+   half that matters. (This line said "all 55 templates" until 2026-08-25, when there were 82. A
+   number in prose ages badly even inside advice about not writing brittle tests.)
 4. **A bug fix ships with a test that failed before the fix.** Write it first so you know it
    catches the bug.
 5. **Every `docs/troubleshooting/` entry is a candidate** — each is a *proven* escape, not a

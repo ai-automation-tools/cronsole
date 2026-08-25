@@ -125,6 +125,7 @@ describe('the tool surface', () => {
       'connect_claude_routine',
       'convert_schedule',
       'create_claude_routine',
+      'create_gemini_trigger',
       'create_native_check_task',
       'create_native_program_task',
       'create_native_script_task',
@@ -135,11 +136,13 @@ describe('the tool surface', () => {
       'edit_claude_routine',
       'export_task',
       'get_diagnostics',
+      'get_run_output',
       'get_task_health',
       'get_task_history',
       'import_task',
       'list_claude_routines',
       'list_folders',
+      'list_platform_runs',
       'list_platforms',
       'list_run_history',
       'list_task_archives',
@@ -1315,6 +1318,305 @@ describe('get_task_history', () => {
   });
 });
 
+/**
+ * **The two populations must not read as one.**
+ *
+ * `get_task_history` is what Cronsole *did*; this is what the platform *did*.
+ * The whole reason these are separate tools is that folding them together turns
+ * a list with a precise meaning into one with none — and on three of six sources
+ * the Cronsole log is empty by design, which is the case an assistant is most
+ * likely to misread as "it never ran".
+ */
+/**
+ * **Creating an autonomous agent from a tool call.**
+ *
+ * The thing this tool must never do is carry a credential, and the thing it must
+ * never imply is that the result can be edited. Both are asserted here rather
+ * than left to the description, because a description is advice and a test is a
+ * boundary.
+ */
+describe('create_gemini_trigger', () => {
+  const created = { message: 'Task created successfully', task: { id: 't1', name: 'n' } };
+
+  it('sends the prompt as the route\'s command field, on the Gemini platform', async () => {
+    // The route calls it `command` for every platform; on this one it carries a
+    // prompt. The wrapper does that translation so the tool's own surface can
+    // use the word that is true here.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_gemini_trigger', {
+      name: 'Nightly digest',
+      prompt: 'Compile the list and email it to a@b.com. Say so explicitly if the send fails.',
+      schedule: '0 3 * * *'
+    });
+    expect(calls[0].body).toMatchObject({
+      platform: 'GEMINI_TRIGGERS',
+      command: 'Compile the list and email it to a@b.com. Say so explicitly if the send fails.',
+      schedule: '0 3 * * *'
+    });
+  });
+
+  it('omits agentTools entirely when nothing was granted', async () => {
+    // Not `agentTools: []`. The platform reads `tools` as a RESTRICTION of its
+    // defaults, so an empty array is a different request from no key — and a
+    // create that granted nothing must be byte-identical to one made before this
+    // tool could grant anything.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_gemini_trigger', { name: 'n', prompt: 'p', schedule: '0 3 * * *' });
+    expect(calls[0].body).not.toHaveProperty('agentTools');
+    expect(calls[0].body).not.toHaveProperty('agentAllowlist');
+  });
+
+  it('sends a saved server as a reference and never as a credential', async () => {
+    // The whole reason this tool was blocked until presets existed: a bearer
+    // token in a tool call passes through the assistant's context and the host's
+    // transcript. There is no field for one here, and this pins that.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_gemini_trigger', {
+      name: 'n',
+      prompt: 'p',
+      schedule: '0 3 * * *',
+      presets: ['resend'],
+      tools: ['google_search'],
+      allowlist: ['mcp.resend.com']
+    });
+    const body = calls[0].body as { agentTools: unknown[]; agentAllowlist: string[] };
+    expect(body.agentTools).toEqual([
+      { type: 'google_search' },
+      { type: 'mcp_server', preset: 'resend' }
+    ]);
+    expect(body.agentAllowlist).toEqual(['mcp.resend.com']);
+    // At any depth: nothing on this wire can be a token.
+    expect(JSON.stringify(body)).not.toMatch(/authorization|bearer|headers/i);
+  });
+
+  it('refuses a raw credential by having nowhere to put one', async () => {
+    // An unknown key is dropped by the schema rather than forwarded, so an
+    // assistant that tries to pass a token cannot succeed by accident.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_gemini_trigger', {
+      name: 'n',
+      prompt: 'p',
+      schedule: '0 3 * * *',
+      headers: { Authorization: 'Bearer re_live_leak' }
+    } as Record<string, unknown>);
+    expect(JSON.stringify(calls[0]?.body ?? {})).not.toContain('re_live_leak');
+  });
+
+  it('leads with what the create actually granted, not with "created"', async () => {
+    // `describeGrant` is the connector's sentence and it states where a supplied
+    // credential now lives. It was being built and overwritten by the route
+    // until 2026-08-25; this asserts the caller sees it.
+    const { client } = stubClient({
+      'POST /tasks': {
+        message: 'Created with 1 tool: mcp_server (resend). The sandbox may reach mcp.resend.com.',
+        task: { id: 't1' }
+      }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'create_gemini_trigger', {
+      name: 'n', prompt: 'p', schedule: '0 3 * * *', presets: ['resend']
+    }));
+    expect(out).toMatch(/Created with 1 tool: mcp_server \(resend\)/);
+  });
+
+  it('says the trigger cannot be edited', async () => {
+    // The most expensive thing an assistant can believe about this platform is
+    // that it can fix a prompt later. It cannot: Gemini takes only a status and
+    // a display name on update.
+    const { client } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'create_gemini_trigger', {
+      name: 'n', prompt: 'p', schedule: '0 3 * * *'
+    }));
+    expect(out).toMatch(/cannot be edited/i);
+    expect(out).toMatch(/create a replacement and delete this one/i);
+  });
+
+  it('points at the step list rather than the status for verification', async () => {
+    const { client } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'create_gemini_trigger', {
+      name: 'n', prompt: 'p', schedule: '0 3 * * *'
+    }));
+    expect(out).toMatch(/list_platform_runs/);
+    expect(out).toMatch(/STEP LIST|step list/);
+  });
+
+  it('carries the backend refusal for an unknown preset', async () => {
+    // The connector refuses with the list of what exists, so a wrong guess costs
+    // one call and teaches the caller the right name.
+    const { client } = stubClient({
+      'POST /tasks': () =>
+        new CronsoleApiError('No saved MCP server called "sendgrid". Saved servers: resend.', 400)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'create_gemini_trigger', {
+      name: 'n', prompt: 'p', schedule: '0 3 * * *', presets: ['sendgrid']
+    });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/Saved servers: resend/);
+  });
+});
+
+
+describe('list_platform_runs', () => {
+  const run = (over: Record<string, unknown> = {}) => ({
+    id: 'r1',
+    status: 'completed',
+    startedAt: '2026-08-25T03:00:00.000Z',
+    endedAt: '2026-08-25T03:04:00.000Z',
+    outputAvailable: true,
+    ...over
+  });
+
+  it('reads the platform-runs route, not the executions one', async () => {
+    const { client, calls } = stubClient({ 'GET /tasks/id1/platform-runs': { runs: [run()] } });
+    const mcp = await connect(client);
+    await call(mcp, 'list_platform_runs', { taskId: 'id1' });
+    expect(calls.map(c => c.path)).toContain('/tasks/id1/platform-runs');
+    expect(calls.map(c => c.path)).not.toContain('/tasks/id1/executions');
+  });
+
+  it('prints the platform status verbatim rather than mapping it', async () => {
+    // Mapping `completed` onto SUCCESS would be a second judgement about an
+    // outcome the platform already named, in a vocabulary that is preview-era
+    // on at least one source.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs': { runs: [run({ status: 'in_progress' })] }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'list_platform_runs', { taskId: 'id1' }));
+    expect(out).toMatch(/in_progress/);
+    expect(out).not.toMatch(/SUCCESS|RUNNING/);
+  });
+
+  it('says which kind of empty an empty list is', async () => {
+    // "Found nothing" and "could not look" render identically otherwise, and
+    // that ambiguity is the thing this feature exists to close.
+    const { client } = stubClient({ 'GET /tasks/id1/platform-runs': { runs: [] } });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'list_platform_runs', { taskId: 'id1' }));
+    expect(out).toMatch(/was asked and had nothing to give/i);
+  });
+
+  it('answers a 400 as a fact about the platform, not as a tool error', async () => {
+    // A source with no published run history is working exactly as designed.
+    // Returning isError here would have an assistant report a broken
+    // integration over Vercel Cron, which permanently publishes none.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs': () =>
+        new CronsoleApiError('VERCEL_CRON does not publish its own run history.', 400)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_platform_runs', { taskId: 'id1' });
+    expect(r.isError).toBeFalsy();
+    expect(text(r)).toMatch(/does not publish its own run history/);
+    expect(text(r)).toMatch(/not a fault/i);
+  });
+
+  it('flags which runs have something to fetch', async () => {
+    // `outputAvailable: false` is a run still in flight or a platform that
+    // records the run and not its result. Either way a get_run_output call
+    // would be wasted, so the list says so up front.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs': {
+        runs: [run({ id: 'r1' }), run({ id: 'r2', outputAvailable: false })]
+      }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'list_platform_runs', { taskId: 'id1' }));
+    expect(out).toMatch(/id r1 \(output available\)/);
+    expect(out).not.toMatch(/id r2 \(output available\)/);
+  });
+});
+
+describe('get_run_output', () => {
+  const output = (over: Record<string, unknown> = {}) => ({
+    text: 'Report sent.',
+    steps: ['google_search', 'write_file', 'resend:send-email'],
+    facts: [{ label: 'Tokens', value: '12,400' }],
+    url: null,
+    ...over
+  });
+
+  it('leads with the steps, because the status cannot show what was skipped', async () => {
+    // A trigger asked to email a report finishes `completed` having only called
+    // write_file. The step list is the only thing that shows that, which is why
+    // it is printed first and labelled.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': { available: true, output: output() }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1' }));
+    expect(out).toMatch(/What it did, in order \(3 step\(s\)\)/);
+    expect(out.indexOf('resend:send-email')).toBeLessThan(out.indexOf('Report sent.'));
+  });
+
+  it('carries a refusal reason instead of erroring', async () => {
+    // "Still running", "produced nothing" and "aged out" are three different
+    // facts and none of them is a failure of the call.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': {
+        available: false,
+        reason: 'This run is still in progress.'
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1' });
+    expect(r.isError).toBeFalsy();
+    expect(text(r)).toMatch(/still in progress/);
+  });
+
+  it('truncates a long transcript and says that it did', async () => {
+    // ~90KB is a normal agent transcript. Returning it whole would flood the
+    // context, and returning it silently short would be worse than either.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': {
+        available: true,
+        output: output({ text: 'x'.repeat(9000) })
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1', maxChars: 500 });
+    expect(text(r)).toMatch(/truncated at 500 of 9000 characters/);
+    expect((r.structuredContent as { truncated: boolean }).truncated).toBe(true);
+  });
+
+  it('prints facts without parsing them', async () => {
+    // Every source counts something different — tokens, an attempt number, an
+    // exit code — so these are label/value pairs and a platform can report
+    // something Cronsole has never heard of without a schema change.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': {
+        available: true,
+        output: output({ facts: [{ label: 'Exit code', value: '267009' }] })
+      }
+    });
+    const mcp = await connect(client);
+    expect(text(await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1' })))
+      .toMatch(/Exit code: 267009/);
+  });
+
+  it('says so when a run produced no final text', async () => {
+    // A run that did work and returned nothing is not the same as one that
+    // failed, and an empty Output block would read as the second.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': {
+        available: true,
+        output: output({ text: null })
+      }
+    });
+    const mcp = await connect(client);
+    expect(text(await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1' })))
+      .toMatch(/produced no final text/);
+  });
+});
+
+
 describe('export_task', () => {
   // A Windows export arrives as UTF-16 LE + BOM bytes — the only encoding
   // Windows re-imports. Decoding it as UTF-8 yields mojibake, so these fixtures
@@ -1758,6 +2060,8 @@ describe('error handling across the surface', () => {
       'POST /tasks/import': boom,
       'GET /tools/task-archives': boom,
       'GET /tasks/x/secrets': boom,
+      'GET /tasks/x/platform-runs': boom,
+      'GET /tasks/x/platform-runs/r/output': boom,
       'POST /tools/task-archives/arc_1/restore': boom
     });
     const mcp = await connect(client, true);
@@ -1774,7 +2078,10 @@ describe('error handling across the surface', () => {
       ['convert_schedule', { schedule: '0 9 * * *' }],
       ['create_claude_routine', { name: 'n', prompt: 'p', schedule: '0 9 * * *' }],
       ['create_task_from_template', { templateId: 't' }],
+      ['create_gemini_trigger', { name: 'n', prompt: 'p', schedule: '0 9 * * *' }],
       ['get_task_history', { taskId: 'x' }],
+      ['list_platform_runs', { taskId: 'x' }],
+      ['get_run_output', { taskId: 'x', runId: 'r' }],
       ['export_task', { taskId: 'x' }],
       ['set_task_status', { taskId: 'x', status: 'DISABLED' }],
       ['update_task_schedule', { taskId: 'x', schedule: '0 9 * * *' }],

@@ -13,6 +13,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Create a Gemini trigger with tools and MCP servers, and replace its credentials later** (2026-08-25). The New Task form's Gemini arm gained a collapsed **Tools and network access** section: checkboxes for the nine built-in tools, rows for MCP servers (name, URL, optional Authorization header), and a separate domain allowlist. Nothing is selected by default, so a trigger created without opening it gets the same plain sandbox as before.
+
+  **A token you type is used once and kept nowhere.** It goes into the create call and Gemini stores it with the trigger — because that is where the trigger runs. Cronsole holds no copy and cannot show it again, and the form says so at the point of entry rather than in a confirmation afterwards. A password field that implied the token stayed local would be a lie told by a UI convention.
+
+  **Which is why Replace credentials exists.** Gemini cannot change a trigger in place — `PATCH` takes a status and a display name, and the token lives inside the interaction — so a rotated token would otherwise strand the trigger permanently. The action **recreates** it: same schedule, prompt and agent, new credentials, and the replacement is created *before* the original is removed so a failure leaves the working trigger alone. It inherits a paused status, because rotating a token on a parked trigger must not quietly start it running.
+
+  The trigger gets a new id on Gemini, but the **Cronsole row is rekeyed rather than replaced**, so run history, favourites and collections survive. If the replacement is created and the original cannot be deleted, that is reported as a failure and says the schedule now fires twice — never folded into a success.
+
+  An unknown tool type is **refused with the supported list**, not silently dropped: a security-relevant field that quietly does nothing is worse than an error.
 - **A Gemini task shows what its agent can reach** (2026-08-25). Cronsole creates triggers with no tools at all, but one made in AI Studio or through the API can carry a shell, `computer_use`, MCP servers and a network allowlist — and until now it rendered **identically** to one that could only think. For a scheduled autonomous task, its reach is the most consequential thing about it.
 
   A **What this agent can reach** section now lists the tools and, separately and in amber, the domains the sandbox is allowed to contact. It appears only when the platform reports something, so the common case — including every trigger Cronsole itself creates — shows nothing rather than a permanent *None* the eye learns to skip.

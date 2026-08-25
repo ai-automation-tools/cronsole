@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, KeyRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { PlatformRunHistory } from './PlatformRunHistory';
+import { RotateCredentialsModal } from './RotateCredentialsModal';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
@@ -255,6 +256,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
   // Which removals this platform actually supports — the server's answer, not a
   // list of platform names kept in this file.
   const { deletability } = usePlatformDeletability();
+  const [rotating, setRotating] = useState(false);
   // Optional-chained through `platforms` as well as the response: this modal
   // renders whatever the matrix query happens to hold, including a half-loaded
   // or shape-surprising payload, and a task's details must not go blank because
@@ -817,6 +819,21 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
             </button>
           )}
           {/*
+            Offered only where there is a credential to replace — a Gemini task
+            carrying at least one tool. The verb recreates the trigger, so it is
+            not a maintenance nicety to show on every task: it is a deliberate
+            action with a new platform id at the end of it.
+          */}
+          {task.platform === 'GEMINI_TRIGGERS' && agentReach.tools.length > 0 && (
+            <button
+              onClick={() => setRotating(true)}
+              className="bg-gemini/10 hover:bg-gemini/20 text-gemini-text px-4 py-3 rounded-xl font-bold transition-all border border-gemini/30 active:scale-95 text-sm flex items-center gap-2"
+              title="Recreate this trigger with new agent credentials"
+            >
+              <KeyRound size={16} /> Replace credentials
+            </button>
+          )}
+          {/*
             **Gated on the server's matrix, not on a list of platform literals.**
             The literals were `{TASKHUB_NATIVE, WINDOWS_TASK_SCHEDULER}`, so
             Gemini had no Delete control at all — although its connector
@@ -926,6 +943,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
           onClose={() => setShowEditor(false)}
         />
       )}
+      {rotating && <RotateCredentialsModal task={task} onClose={() => setRotating(false)} />}
     </>
   );
 };

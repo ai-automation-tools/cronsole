@@ -104,6 +104,42 @@ export type GeminiTriggerStatus = 'active' | 'paused' | 'disabled' | 'unknown';
  * So they never enter the object. This is `TaskSecret`'s rule pointed the other
  * way: there, no route returns a stored value; here, no parse produces one.
  */
+/**
+ * The tool types the platform accepts, **taken from the API rather than the docs**.
+ *
+ * Obtained by sending a bogus type and reading the refusal, which enumerates the
+ * supported set — a better source than any document, and this connector's
+ * documentation has disagreed with the wire five times. Validated before the
+ * create so a typo is refused by Cronsole with a list, rather than by Google
+ * with a sentence about a field the user did not know they were setting.
+ *
+ * It will grow. An unknown type is refused *here* rather than silently dropped,
+ * because dropping one would create a trigger with less reach than the form
+ * showed — and a security-relevant field that quietly does nothing is worse than
+ * an error.
+ */
+export const GEMINI_TOOL_TYPES = [
+  'filesystem',
+  'file_search',
+  'google_maps',
+  'bash',
+  'computer_use',
+  'mcp_server',
+  'url_context',
+  'code_execution',
+  'google_search',
+  'tool_search',
+  'function'
+] as const;
+
+/** A tool as it goes *in*. Distinct from {@link GeminiToolSummary}: this one has headers. */
+export interface GeminiToolInput {
+  type: string;
+  name?: string;
+  url?: string;
+  headers?: Record<string, string>;
+}
+
 export interface GeminiToolSummary {
   /** `mcp_server`, `bash`, `google_search`, … — the platform's own word. */
   type: string;
@@ -486,8 +522,36 @@ export async function patchTrigger(
  */
 export async function createTrigger(
   apiKey: string,
-  spec: { schedule: string; displayName: string; agent: string; input: string; environmentType?: string }
+  spec: {
+    schedule: string;
+    displayName: string;
+    agent: string;
+    input: string;
+    environmentType?: string;
+    /** Tools to grant. Omitted entirely when empty — see `GEMINI_TOOL_TYPES`. */
+    tools?: GeminiToolInput[];
+    /** Domains the sandbox may reach. Omitted entirely when empty. */
+    allowlist?: string[];
+  }
 ): Promise<GeminiResult<GeminiTrigger>> {
+  // **Both omitted when empty, never sent as `[]`.** An empty `tools` array is
+  // not the same request as no `tools` key: the API documents the field as the
+  // way to *restrict* the default set, so sending `[]` could plausibly mean "no
+  // tools at all" rather than "use the defaults". Cronsole's create has always
+  // meant the latter, and an empty form must not silently change what a trigger
+  // can do.
+  const tools = (spec.tools ?? []).map(tool => ({
+    type: tool.type,
+    ...(tool.name ? { name: tool.name } : {}),
+    ...(tool.url ? { url: tool.url } : {}),
+    // The one credential on this path. It goes into the request body and
+    // nowhere else — not into a log line, not into the returned trigger, not
+    // into task metadata. `toTrigger` cannot read it back even if it wanted to.
+    ...(tool.headers && Object.keys(tool.headers).length ? { headers: tool.headers } : {})
+  }));
+
+  const allowlist = (spec.allowlist ?? []).filter(Boolean);
+
   const body = {
     schedule: spec.schedule,
     time_zone: 'UTC',
@@ -495,7 +559,13 @@ export async function createTrigger(
     interaction: {
       agent: spec.agent,
       input: spec.input,
-      environment: { type: spec.environmentType || 'remote' }
+      ...(tools.length ? { tools } : {}),
+      environment: {
+        type: spec.environmentType || 'remote',
+        // `allowlist`, with `{ domain }` entries — **not** the `allowed_domains`
+        // the documentation names, which the API rejects outright.
+        ...(allowlist.length ? { network: { allowlist: allowlist.map(domain => ({ domain })) } } : {})
+      }
     }
   };
 

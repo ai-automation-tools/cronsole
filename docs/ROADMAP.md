@@ -231,11 +231,23 @@ three MCP servers no longer renders identically to one that can only think. Cred
 there: an MCP server's `headers` are never read, so the token is absent from the parsed object rather
 than removed from it later.
 
-**Still not built: creating or editing tools from Cronsole.** That is the half with the credential
-decision attached, and the constraint to design around is stated above — a trigger lives on Google's
-side, so Cronsole would hand the token over even while storing only a reference. It is also
-`updateAction`'s missing form, and the same API limit that killed reschedule applies: `PATCH` takes
-only `status` and `display_name`, so "editing" means delete-and-recreate with a new id.
+**Creating with tools shipped 2026-08-25, with rotation.** The New Task form's Gemini arm has a
+collapsed *Tools and network access* section — the nine built-in tools, MCP server rows, and a
+separate domain allowlist — and nothing is selected by default, so a trigger created without opening
+it is byte-identical to one made before.
+
+The credential decision landed as **use once, store nowhere**: the token goes into the create call
+and Gemini holds it from there, which the form states where it is typed. `TaskSecret` was the
+alternative and was rejected on lifecycle rather than caution — the value is needed exactly once, so
+storing it would mean holding a credential Cronsole has no further use for.
+
+**Rotation is therefore a recreate**, and is named that everywhere: `rotateCredentials` builds the
+replacement before removing the original, inherits a paused status, and the route rekeys the existing
+row so run history, favourites and collections survive the new platform id.
+
+**Still not built: editing a trigger's prompt or schedule** — `updateAction` and `updateSchedule`
+remain absent for the same API reason, and the rotation path is the shape any future edit would have
+to take.
 
 **The original ask, for the record:**
 

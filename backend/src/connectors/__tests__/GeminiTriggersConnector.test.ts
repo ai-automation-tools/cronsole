@@ -371,7 +371,14 @@ describe('createTask writes a trigger, and never guesses its reach', () => {
       // The default, because the config named none. It is a preview id with a
       // date in it, so it is configuration rather than a constant.
       agent: 'antigravity-preview-05-2026',
-      input: 'Summarise yesterday'
+      input: 'Summarise yesterday',
+      // Empty when the caller granted nothing, which is still the default. The
+      // API layer drops both from the request body rather than sending `[]` —
+      // an empty `tools` array could plausibly mean "no tools at all" rather
+      // than "use the defaults", and a create must not silently change what a
+      // trigger can do.
+      tools: [],
+      allowlist: []
     });
   });
 
@@ -574,5 +581,72 @@ describe('a dispatch timeout is answered with evidence, not with a verdict', () 
     const result = await connector.runTask('trg_1', config());
     expect(result.success).toBe(false);
     expect(listExecutionsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('creating a trigger with tools grants reach deliberately', () => {
+  const config = () => ({ apiKey: 'AIzaKEY', userId: 'u1' });
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('passes tools and the allowlist through', async () => {
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+    await connector.createTask('nightly', '0 3 * * *', 'Do it', config(), {
+      agentTools: [{ type: 'bash' }, { type: 'mcp_server', name: 'weather', url: 'https://e.com/mcp' }],
+      agentAllowlist: ['e.com']
+    });
+
+    expect(createTriggerMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      tools: [{ type: 'bash' }, { type: 'mcp_server', name: 'weather', url: 'https://e.com/mcp' }],
+      allowlist: ['e.com']
+    }));
+  });
+
+  it('refuses an unknown tool type with the list, instead of dropping it', async () => {
+    // Dropping it would create a trigger with LESS reach than the form showed.
+    // A security-relevant field that silently does nothing is worse than an error.
+    const result = await connector.createTask('x', '0 3 * * *', 'Do it', config(), {
+      agentTools: [{ type: 'bash' }, { type: 'quantum_thing' }]
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('quantum_thing');
+    expect(result.message).toContain('mcp_server');
+    expect(createTriggerMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses an MCP server with no URL', async () => {
+    const result = await connector.createTask('x', '0 3 * * *', 'Do it', config(), {
+      agentTools: [{ type: 'mcp_server', name: 'weather' }]
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/needs a URL/i);
+    expect(createTriggerMock).not.toHaveBeenCalled();
+  });
+
+  it('says what was granted, not only what was withheld', async () => {
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+    const result = await connector.createTask('x', '0 3 * * *', 'Do it', config(), {
+      agentTools: [{ type: 'bash' }],
+      agentAllowlist: ['api.example.com']
+    });
+    expect(result.message).toContain('bash');
+    expect(result.message).toContain('api.example.com');
+  });
+
+  it('says where a supplied credential now lives, because Cronsole no longer has it', async () => {
+    // The last thing anyone reads before an autonomous agent starts running on a
+    // schedule. A message implying the token stayed local would be false.
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+    const result = await connector.createTask('x', '0 3 * * *', 'Do it', config(), {
+      agentTools: [{ type: 'mcp_server', name: 'w', url: 'https://e.com/mcp', headers: { Authorization: 'Bearer x' } }]
+    });
+    expect(result.message).toMatch(/Cronsole keeps no copy/i);
+  });
+
+  it('still describes the plain default when nothing was granted', async () => {
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+    const result = await connector.createTask('x', '0 3 * * *', 'Do it', config());
+    expect(result.message).toMatch(/reach nothing outside its sandbox/i);
   });
 });

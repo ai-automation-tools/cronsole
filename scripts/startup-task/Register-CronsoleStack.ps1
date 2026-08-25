@@ -88,9 +88,26 @@ $stackTrigger = New-ScheduledTaskTrigger -AtLogOn
 $stackTrigger.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
     -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)).Repetition
 
+# The description is what someone reads in taskschd.msc before deciding what this does, so it
+# states the two facts that are NOT visible there: what `up` actually starts, and that Ready is
+# the correct resting state (troubleshooting #86 - a task in this folder never reads Running,
+# and reading its State or LastTaskResult as a claim about the stack is how this folder went
+# wrong the first time).
+$stackDescription = @"
+KEEPS THE LOCAL CRONSOLE STACK UP. Runs scripts\cronsole.ps1 up at logon and every $IntervalMinutes minutes.
+
+Starts whatever is currently DOWN and leaves what is up alone (idempotent, so it never spawns duplicates): the Docker engine, Postgres + Redis, the backend (:3000), the frontend (:7373), the Windows agent, and the reverse proxy on machines that ran 'cronsole remote on'.
+
+STATE READS 'READY', NEVER 'RUNNING' - THAT IS CORRECT. This task launches fire-and-forget through run-hidden.vbs, so the instance ends within a second while what it started runs on independently. Its State and LastTaskResult describe the launcher shim, never the stack. To ask whether the stack is up:  pwsh scripts\cronsole.ps1 status
+
+Do not use Stop-ScheduledTask on this task to stop the stack - it stops nothing. Use 'cronsole.ps1 down' (elevated), and disable this task first or it will restart everything within $IntervalMinutes minutes.
+
+Registered by scripts\startup-task\Register-CronsoleStack.ps1. Runs as the interactive user at RunLevel Highest - the agent needs elevation to enumerate ACL'd Task Scheduler folders (troubleshooting #74).
+"@
+
 Register-ScheduledTask -TaskName 'CronsoleStack' -TaskPath '\Cronsole-Stack\' `
     -Action $stackAction -Trigger $stackTrigger -Settings $settings -Principal $principal `
-    -Description "Self-heals the local Cronsole stack via scripts\cronsole.ps1 up (at logon + every $IntervalMinutes min), launched hidden via run-hidden.vbs." `
+    -Description $stackDescription `
     -Force | Out-Null
 
 $t = Get-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleStack'

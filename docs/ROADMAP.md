@@ -56,9 +56,9 @@ before every sources pass rather than once.
 
 **Three items were added 2026-08-25** from the first real session against live Gemini data —
 [in-app failure logs](#in-app-logging), [agent extensibility on Gemini](#gemini-agent-extensibility),
-and [a Sync that missed a new task in an already-tracked folder](#sync-missed-a-new-task). The
-third is a **defect with evidence and no cause yet**; the same session shipped five fixes and two
-features on that connector, all of which were found by driving the live API rather than by any test.
+and [a Sync reported as missing a new task](#sync-missed-a-new-task) — investigated the same day,
+**not reproduced**, with every hypothesis ruled out. The same session shipped five fixes and two
+features on the Gemini connector, all found by driving the live API rather than by any test.
 
 **The largest open item is now the POSIX agent.** *(The light theme and the `env` editor — the
 whole 2026-08-15 request block — both shipped 2026-08-24; the theme pass carved out one follow-up,
@@ -79,11 +79,12 @@ which is why it sits first, not because it outranks the larger work below.
 
 <a id="requested-2026-08-25"></a>
 
-### 🔴 Requested 2026-08-25 — logs, agent extensibility, and a sync that missed one
+### 🔴 Requested 2026-08-25 — logs, agent extensibility, and one sync investigated
 
 Three items from the first real session with Gemini API Triggers on live data. The first two are
-features; the third is a **defect with evidence and no cause yet**, written down before the shape
-of it is lost.
+features. The third was reported as a defect and **investigated the same day**: the documented
+behaviour holds and every hypothesis was ruled out, so it is kept as a record of what was
+eliminated — plus the one missing number that would have answered it without a live repro.
 
 <a id="in-app-logging"></a>
 
@@ -159,46 +160,65 @@ network-allowlist note: configure the agent in Google AI Studio, and Cronsole sc
 
 <a id="sync-missed-a-new-task"></a>
 
-#### 3. 🐞 A regular Sync did not pick up a new task in an already-tracked folder
+#### 3. 🔍 A Sync that appeared to miss a new task — investigated 2026-08-25, not reproduced
 
 **Reported 2026-08-25.** A new Windows task appeared in `\AI-Maintenance\` — a folder Cronsole
 already tracks — and pressing **Sync** did not bring it in. **Add tasks from this machine** (the
 discovery modal) did, immediately.
 
-**This contradicts a documented invariant**, which is why it is written down rather than shrugged
-off: *"A refresh still creates rows for new tasks inside folders already tracked; what it cannot do
-is adopt a new folder."* If that holds, Sync should have created this row.
+**Investigated the same day. The documented behaviour holds and every hypothesis was ruled out**,
+so this is kept as a *record*, not as an open defect: if it recurs, start from here rather than
+from scratch.
 
-**What was verified** (2026-08-25, after the fact):
+**The repro that did not reproduce it.** Tasks were registered from PowerShell — outside Cronsole
+entirely — then a plain `POST /tasks/sync {"scope":"tracked"}` was pressed once:
 
-- Task: `\AI-Maintenance\Start Gods-Eye-View (logon)`, category `AI-Maintenance`.
-- The folder was already tracked — **12 rows** in it before this one.
-- **No `TaskExclusion`** exists for it, so a prior untrack is not the explanation.
-- It is **logon-triggered, so `schedule` is `null`** — it has no cron form at all.
+| What was created | Result |
+|:---|:---|
+| Daily task at `\` | **Synced in** |
+| Daily task in `\AI-Maintenance\` | **Synced in** |
+| **Logon** task in `\AI-Maintenance\` (no cron at all) | **Synced in** — `schedule: null`, `trigger: null` |
 
-**The strongest hypothesis, and it is only that:** something on the create path filters a task with
-no cron. Note the counter-evidence before chasing it — the dashboard is full of schedule-less
-Windows tasks (`Tpm-PreAttestationHealthCheck` and friends read "No cron schedule"), so a blanket
-filter cannot be right. The difference may be *newly seen* versus *already stored*.
+So a plain Sync adopts a new task in an already-tracked folder within seconds, **including one with
+no cron form**, which was the leading hypothesis and is wrong.
 
-**Other candidates worth eliminating in order:**
+**Ruled out, with the evidence:**
 
-1. The Sync button's request shape. `{ scope: 'tracked' }` and `{ categories }` are deliberately
-   different requests — the second clears exclusions inside those folders, the first must never —
-   and the include-set they produce is where a new task could fall out.
-2. `TaskService.trackedCategories` reads **stored rows** for Windows. That is correct there (rows
-   are the only trace of a folder you picked), but it means the include-set is built from what is
-   already known, and a new *task* in a known folder must survive that filter.
-3. Agent enumeration bounds (#74) — unlikely for a user folder, but the agent's view is bounded by
-   its token, and a narrowed view is exactly what #74 exists to make visible.
+- **The cron/trigger shape.** See the table — a logon-triggered task synced in fine.
+- **A `TaskExclusion`.** The only two on Windows are `\Cardstock\Cardstock Weekly Roadmap` and
+  `\Cronsole\Cronsole Roadmap Routine`, both from 2026-08-18.
+- **The folder not being tracked yet** — the case a plain Sync genuinely cannot handle.
+  `\AI-Maintenance\` has been tracked since **2026-07-15**, and picked up new tasks on 07-20, 07-27
+  and 08-21, so its include-set was never empty.
+- **A failed or partial sync.** `PlatformCapability` for `WINDOWS_TASK_SCHEDULER` / `sync` has
+  `lastFailureAt: null` — it has never failed.
+- **The include-set pipeline**, read end to end: the Sync button posts `{ scope: 'tracked' }`;
+  `trackedCategories` derives folder names from stored **paths** (not renameable `category`
+  labels); the filter matches on `extractCategory`; `upsertTasks` creates whatever survives,
+  cron or not.
 
-**Why it matters more than one missed row:** the discovery modal is a *different gesture* from
-Sync, and a user who does not know that has a dashboard quietly missing tasks with no indication
-anything was skipped. That is the same failure class as #75 — Sync reporting success over nothing —
-which cost this repo an afternoon and produced the `notes` / `warnings` fields on `SyncOutcome`
-precisely so a sync could say what it looked at. Whatever the cause turns out to be, **the fix has
-to include the sync saying it**, not only creating the row.
+**What the data does show:** two rows share the timestamp `2026-08-25T17:18:25.188Z` —
+`Start Gods-Eye-View (logon)` *and* `Stop Gods-Eye-View (manual)`. One instant for both is the
+discovery modal writing them together.
 
+**The only explanation left consistent with all of the above is ordering** — the tasks did not yet
+exist on the machine when that Sync enumerated. Plausible, and unprovable after the fact. It is
+recorded as the surviving hypothesis, not as a finding.
+
+**The one change that would settle it next time**, and the reason this entry stays open at all:
+a sync reports `count` (rows upserted) and `untracked` (tasks outside the include-set), but never
+**how many tasks the platform reported in total**. Those three numbers together distinguish *"the
+agent never saw it"* from *"the filter dropped it"* from *"it was already there"* — and today the
+first two are indistinguishable from the outside, which is exactly why this took a live repro to
+answer instead of a log line. `SyncOutcome.notes` already exists for precisely this kind of
+coverage statement (#75), and the Windows connector is the one source that says nothing in it.
+
+**Also found while digging, and worth more than the original report:** Prisma's `startsWith`
+compiles to a Postgres `LIKE`, where **`\` is the escape character** — so
+`startsWith: '\\AI-Maintenance\\'` silently matches **nothing**. Every Windows `externalId` is a
+backslash path, so any query filtering them that way returns a confident empty set that looks
+exactly like a correct answer. The same shape as #83's empty array: the most dangerous successful
+response there is. Filter in JS, or match on a segment without separators.
 
 <a id="sources-onboarding"></a>
 

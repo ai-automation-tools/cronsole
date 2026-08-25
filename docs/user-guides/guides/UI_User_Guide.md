@@ -180,7 +180,7 @@ about the ones you could:
 
 **A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code,
 GitHub Actions, Vercel Cron and Gemini API Triggers are shown once you add them from *Explore*, which
-is why the button is there rather than a first run listing five platforms of which two are real. Two rules make hiding safe: **a
+is why the button is there rather than a first run listing six platforms of which two are real. Two rules make hiding safe: **a
 source holding tasks is never hidden**, and **connecting one shows it**.
 
 The **?** beside the *Sources* heading opens the same breakdown in the app, for the source you are

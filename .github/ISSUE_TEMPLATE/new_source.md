@@ -24,6 +24,8 @@ not a gate.
 Pick one. Getting this wrong is the usual reason a connector stalls half-built.
 
 - Controller — the API can read AND change scheduled work (run, enable/disable, edit, delete).
+               Hosted does not rule this out: Gemini API Triggers is a hosted controller.
+               Ask what each write verb would actually DO, not where the platform runs.
 - Observer   — it can be read, but should not be written or cannot be. A FINISHED state, not a
                stalled one. The right default for a hosted platform.
 - Quick link — no public API for scheduled work exists. This needs no PR at all: add it from the

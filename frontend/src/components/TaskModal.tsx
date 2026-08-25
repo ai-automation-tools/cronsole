@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
+import { PlatformRunHistory } from './PlatformRunHistory';
 import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
@@ -17,7 +18,8 @@ import { TaskFavoriteStar } from './TaskFavoriteStar';
 import { TaskCollectionMenu } from './TaskCollectionMenu';
 import { EditTaskModal } from './EditTaskModal';
 import { platformName } from '../utils/taskEditing';
-import { usePlatformMatrix } from '../hooks/usePlatformMatrix';
+import { usePlatformMatrix, usePlatformDeletability } from '../hooks/usePlatformMatrix';
+import { platformSourceLabel } from '../platform';
 import { HelpButton } from './HelpButton';
 
 interface TaskModalProps {
@@ -224,6 +226,9 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
   // inside the container — so an EXEC path is resolved against a filesystem that
   // is not the user's. The server decides which; the editor says so.
   const { data: platformMatrix } = usePlatformMatrix();
+  // Which removals this platform actually supports — the server's answer, not a
+  // list of platform names kept in this file.
+  const { deletability } = usePlatformDeletability();
   // Optional-chained through `platforms` as well as the response: this modal
   // renders whatever the matrix query happens to hold, including a half-loaded
   // or shape-surprising payload, and a task's details must not go blank because
@@ -482,7 +487,16 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
         </div>
 
         {activeTab === 'runs' && (
-          <div className="p-6 overflow-y-auto flex-1 text-foreground space-y-3">
+          <div className="p-6 overflow-y-auto flex-1 text-foreground space-y-6">
+            <section className="space-y-3">
+              {/* Two groups, never one list. `ExecutionLog` is what Cronsole did;
+                  the section below is what the platform did. Summing them would
+                  mix populations in exactly the place the difference matters. */}
+              <header className="flex items-center gap-2">
+                <History size={13} className="text-subtle-foreground" />
+                <h3 className="text-[11px] uppercase font-black tracking-widest text-foreground">Runs Cronsole performed</h3>
+              </header>
+              <div className="space-y-3">
             {executionsLoading ? (
               <div className="flex items-center justify-center py-16 text-subtle-foreground gap-2 text-sm">
                 <Loader2 size={18} className="animate-spin" /> Loading run history…
@@ -495,7 +509,10 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               <div className="flex flex-col items-center justify-center py-16 text-subtle-foreground gap-2">
                 <History size={32} className="opacity-30" />
                 <p className="text-sm font-medium">No recorded runs yet</p>
-                <p className="text-xs text-subtle-foreground">Manual runs and Cronsole-scheduled fires will appear here.</p>
+                <p className="text-xs text-subtle-foreground">
+                  Manual runs and Cronsole-scheduled fires appear here. A task running on its own
+                  schedule elsewhere writes nothing to this list — look below for those.
+                </p>
               </div>
             ) : (
               executions.map(run => (
@@ -519,6 +536,13 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
                 </div>
               ))
             )}
+              </div>
+            </section>
+
+            {/* Renders nothing at all when the platform publishes no run history —
+                the 400-by-absence convention, so five of six sources do not carry
+                a permanent apology where their history would go. */}
+            <PlatformRunHistory taskId={task.id} enabled={activeTab === 'runs'} />
           </div>
         )}
 
@@ -713,18 +737,41 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               {untrackMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <EyeOff size={16} />} Remove from Cronsole
             </button>
           )}
-          {(task.platform === 'TASKHUB_NATIVE' || task.platform === 'WINDOWS_TASK_SCHEDULER') && (() => {
+          {/*
+            **Gated on the server's matrix, not on a list of platform literals.**
+            The literals were `{TASKHUB_NATIVE, WINDOWS_TASK_SCHEDULER}`, so
+            Gemini had no Delete control at all — although its connector
+            implements `deleteTask`, `DELETE /api/tasks/:id` calls it, and its
+            matrix cell reads `verified`. The only removal on screen was the one
+            that leaves the trigger running on the platform.
+
+            `!== 'no'` rather than `=== 'yes'`: while the matrix is in flight the
+            answer is `unknown`, and hiding a destructive control someone is
+            reaching for because a request has not landed yet is worse than
+            showing one the route would refuse with a sentence. Claude is excluded
+            by name — it has its own third verb above (disconnect), because
+            neither removal is true for a routine Cronsole cannot delete.
+          */}
+          {deletability(task.platform) !== 'no' && task.platform !== 'CLAUDE_CODE' && (() => {
             const isWindowsTask = task.platform === 'WINDOWS_TASK_SCHEDULER';
+            const isNativeTask = task.platform === 'TASKHUB_NATIVE';
+            // "Windows" reads better than the full source label in a button, and
+            // is the one platform whose short name everyone already uses.
+            const where = isWindowsTask ? 'Windows' : platformSourceLabel(task.platform);
             return (
               <button
                 onClick={async () => {
-                  const scope = isWindowsTask
-                    ? `"${task.name}" will be deleted from Windows Task Scheduler itself, along with its Cronsole run history. The scheduled task will stop existing and will never run again.\n\nThis cannot be undone. To keep the task and only stop tracking it here, use "Remove from Cronsole" instead.`
-                    : `Delete "${task.name}" and its run history? This task exists only inside Cronsole, so this cannot be undone.`;
+                  // Every message names what SURVIVES and points at the softer
+                  // control by name. On a hosted source the platform's object *is*
+                  // the task, so Delete and Remove from Cronsole sit one button
+                  // apart and only one of them can be undone.
+                  const scope = isNativeTask
+                    ? `Delete "${task.name}" and its run history? This task exists only inside Cronsole, so this cannot be undone.`
+                    : `"${task.name}" will be deleted from ${isWindowsTask ? 'Windows Task Scheduler' : where} itself, along with its Cronsole run history. It will stop existing there and will never run again.\n\nThis cannot be undone. To keep it running and only stop tracking it here, use "Remove from Cronsole" instead.`;
                   const ok = await confirm({
-                    title: isWindowsTask ? 'Delete from Windows?' : 'Delete task?',
+                    title: isNativeTask ? 'Delete task?' : `Delete from ${where}?`,
                     message: scope,
-                    confirmText: isWindowsTask ? 'Delete from Windows' : 'Delete',
+                    confirmText: isNativeTask ? 'Delete' : `Delete from ${where}`,
                     tone: 'danger'
                   });
                   if (ok) {
@@ -735,10 +782,12 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
                 className="bg-danger/10 hover:bg-danger/20 text-danger-text px-4 py-3 rounded-xl font-bold transition-all border border-danger/30 active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
                 title={isWindowsTask
                   ? 'Permanently delete this task from Windows Task Scheduler (via the agent)'
-                  : 'Delete this Cronsole-native task'}
+                  : isNativeTask
+                    ? 'Delete this Cronsole-native task'
+                    : `Permanently delete this task from ${where}`}
               >
                 {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                {isWindowsTask ? 'Delete from Windows' : 'Delete'}
+                {isNativeTask ? 'Delete' : `Delete from ${where}`}
               </button>
             );
           })()}

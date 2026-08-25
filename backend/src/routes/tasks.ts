@@ -319,7 +319,7 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
 
   const connector = connectorRegistry.getConnector(task.platform);
   if (!connector?.updateSchedule) {
-    throw new HttpError(400, `Editing schedules is not supported for ${task.platform} yet.`);
+    throw new HttpError(400, `Editing schedules is not supported for ${task.platform}.`);
   }
 
   // Converted for the platforms that register a native trigger, and passed as an
@@ -346,9 +346,16 @@ router.patch('/:id/schedule', validateBody(patchTaskScheduleSchema), async (req:
     // `clientError` distinguishes "this request can never work" from "the
     // platform failed" — a 502 tells the user to retry something that will
     // refuse identically every time.
+    // The warnings describe what the *Windows* conversion had to give up, so
+    // they only travel to the platform that consumes that trigger. Attaching
+    // them everywhere told a Gemini user their cron would be "REPLACED with a
+    // fixed hourly trigger" — a sentence about a platform not in the request,
+    // beside a refusal that had nothing to do with fidelity.
     throw result.clientError
       ? new HttpError(400, result.message || 'The schedule cannot be used on this platform', {
-          warnings: conversion.warnings
+          ...(task.platform === PlatformType.WINDOWS_TASK_SCHEDULER && conversion.warnings.length
+            ? { warnings: conversion.warnings }
+            : {})
         })
       : new HttpError(502, result.message || 'The platform failed to update the schedule');
   }
@@ -407,7 +414,7 @@ router.patch('/:id/actions', validateBody(patchTaskActionsSchema), async (req: R
 
   const connector = connectorRegistry.getConnector(task.platform);
   if (!connector?.updateActions) {
-    throw new HttpError(400, `Editing actions is not supported for ${task.platform} yet.`);
+    throw new HttpError(400, `Editing actions is not supported for ${task.platform}.`);
   }
 
   // Structure the command server-side (no shell) so a value can never split
@@ -1488,7 +1495,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   if (task.platform !== PlatformType.TASKHUB_NATIVE) {
     const connector = connectorRegistry.getConnector(task.platform);
     if (!connector?.deleteTask) {
-      throw new HttpError(400, `Deleting tasks is not supported for ${task.platform} yet. Remove the task on its own platform instead.`);
+      throw new HttpError(400, `Deleting tasks is not supported for ${task.platform}. Remove the task on its own platform instead.`);
     }
 
     const connection = await prisma.platformConnection.findUnique({
@@ -1645,6 +1652,94 @@ router.get('/:id/executions', async (req: Request, res: Response) => {
   res.json(executions);
 });
 
+/**
+ * Load a task the caller owns, plus its connector and decrypted config.
+ *
+ * The three lines every platform-run route repeats, in one place — the
+ * ownership check most of all: run history and run *output* are the two things
+ * on a task most worth an IDOR, since the second is whatever an agent was told
+ * to produce.
+ */
+async function ownedTaskWithConnector(id: string, userId: string) {
+  const task = await prisma.task.findFirst({ where: { id, userId } });
+  if (!task) throw new HttpError(404, 'Task not found');
+
+  const connector = connectorRegistry.getConnector(task.platform);
+  const connection = await prisma.platformConnection.findUnique({
+    where: { userId_platform: { userId, platform: task.platform } }
+  });
+  // Config is encrypted at rest (AES-256-GCM); decrypt before use.
+  return { task, connector, config: { ...deserializeConfig(connection?.config), userId } };
+}
+
+/**
+ * Runs the **platform** performed — read live, never stored.
+ *
+ * Deliberately a second endpoint rather than more rows on `/:id/executions`.
+ * That one serves `ExecutionLog`, which holds only what *Cronsole* did, and the
+ * separation is load-bearing: a Windows task firing on its own schedule writes
+ * nothing there on purpose, so merging a platform's own history into it would
+ * quietly turn a table with a precise meaning into one with none.
+ *
+ * Keeping them apart also keeps them honest about failure. This can be offline,
+ * rate-limited, or refused by a revoked credential while Cronsole's own log is
+ * perfectly readable — and the tab has to be able to show one and say why the
+ * other is missing, rather than rendering a short list as a complete one.
+ *
+ * A platform that cannot serve this gets a **400 by absence**, the convention
+ * every optional verb already follows.
+ */
+router.get('/:id/platform-runs', async (req: Request, res: Response) => {
+  const { task, connector, config } = await ownedTaskWithConnector(
+    req.params.id as string,
+    (req as AuthRequest).user!.id
+  );
+
+  if (!connector?.listPlatformRuns) {
+    throw new HttpError(400, `${task.platform} does not publish its own run history.`);
+  }
+
+  const result = await connector.listPlatformRuns(task.externalId, config);
+  if (!result.success) {
+    // The platform declining to answer is a gateway problem, not a bad request:
+    // the same call may well work in a minute, which is the distinction a status
+    // code is for.
+    throw new HttpError(502, result.message || 'The platform could not be asked for its run history.');
+  }
+  res.json({ runs: result.runs ?? [] });
+});
+
+/**
+ * What one platform run produced.
+ *
+ * Its own request because the payload is large and almost always unwanted — the
+ * list says which runs have something to read, and this fetches the one that was
+ * clicked. See `PlatformConnector.getRunOutput`.
+ *
+ * **A run with no readable output is a `200` carrying the reason, not a `404`.**
+ * "Still running", "failed before producing anything" and "aged out of the
+ * platform's list" are three different true statements, and each is worth more
+ * to the person reading it than an error code that flattens all three into
+ * *not found*.
+ */
+router.get('/:id/platform-runs/:runId/output', async (req: Request, res: Response) => {
+  const { task, connector, config } = await ownedTaskWithConnector(
+    req.params.id as string,
+    (req as AuthRequest).user!.id
+  );
+
+  if (!connector?.getRunOutput) {
+    throw new HttpError(400, `${task.platform} does not publish what a run produced.`);
+  }
+
+  const result = await connector.getRunOutput(task.externalId, req.params.runId as string, config);
+  res.json(
+    result.success
+      ? { available: true, output: result.output }
+      : { available: false, reason: result.message ?? 'This run has no readable output.' }
+  );
+});
+
 const saveAsTemplateSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(1000).optional(),
@@ -1767,7 +1862,7 @@ router.get('/:id/export', async (req: Request, res: Response) => {
   if (task.platform === PlatformType.WINDOWS_TASK_SCHEDULER) {
     const connector = connectorRegistry.getConnector(task.platform);
     if (!connector?.exportTask) {
-      throw new HttpError(400, `Exporting is not supported for ${task.platform} yet.`);
+      throw new HttpError(400, `Exporting is not supported for ${task.platform}.`);
     }
     const connection = await prisma.platformConnection.findUnique({
       where: { userId_platform: { userId, platform: task.platform } }

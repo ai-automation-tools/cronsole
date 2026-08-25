@@ -425,6 +425,97 @@ export interface PlatformConnector {
     options: { overwrite: boolean; createFolders: boolean },
     config: any
   ): Promise<ImportTaskResult>;
+
+  /**
+   * Runs that **happened on the platform**, read live.
+   *
+   * The counterpart to `ExecutionLog`, and deliberately not the same thing.
+   * `ExecutionLog` records runs *Cronsole performed* — a task firing on its own
+   * schedule writes nothing there, by design, because Cronsole did not do it and
+   * claiming otherwise is the kind of confident lie this project exists to
+   * avoid. That leaves a real gap on a platform that runs work on its own and
+   * publishes the outcome: the run history tab correctly says *"no recorded
+   * runs"* over a source with a week of them.
+   *
+   * This closes it without merging the two. Nothing here is stored: it is a
+   * read of the platform's own record, fetched when a user opens the tab, and it
+   * renders in its own group so *what Cronsole did* and *what happened* are
+   * never summed into one list.
+   *
+   * Optional, and **unsupported by absence** like every other optional verb.
+   * Most platforms genuinely have nothing to serve here (Vercel publishes no
+   * cron run history at all), and a platform that reports run *outcomes* on the
+   * task — `metadata.reportsRunResult` — does not necessarily expose the runs
+   * themselves.
+   */
+  listPlatformRuns?(externalId: string, config: any): Promise<PlatformRunsResult>;
+
+  /**
+   * What one of those runs actually produced.
+   *
+   * Separate from `listPlatformRuns` because it is **expensive and usually
+   * unwanted**: on Gemini the transcript behind a two-minute run is ~90KB, and
+   * listing ten runs would mean a megabyte to render four timestamps. So the
+   * list carries `outputAvailable` and this is called for the one run somebody
+   * clicked.
+   *
+   * A run whose output cannot be read is not a failed run — say so with a
+   * message rather than returning empty output, or "the agent produced nothing"
+   * and "we could not fetch what it produced" become the same sentence.
+   */
+  getRunOutput?(externalId: string, runId: string, config: any): Promise<PlatformRunOutputResult>;
+}
+
+/** One run as the platform itself records it. */
+export interface PlatformRun {
+  /** The platform's own id for the run. */
+  id: string;
+  /**
+   * The platform's own word for how it went — `completed`, `failed`,
+   * `in_progress`, … **Not mapped** onto Cronsole's `ExecutionStatus`: that
+   * would be a second judgement about an outcome the platform already named,
+   * and the vocabulary is preview-era on at least one source. The UI styles
+   * what it recognises and prints what it does not.
+   */
+  status: string;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  /**
+   * Whether {@link PlatformConnector.getRunOutput} has something to fetch.
+   *
+   * False for a run still in flight, and false where the platform records the
+   * run but not its result — which keeps "nothing to show yet" and "this
+   * platform never shows output" from both rendering as a dead click.
+   */
+  outputAvailable: boolean;
+}
+
+export interface PlatformRunsResult {
+  success: boolean;
+  runs?: PlatformRun[];
+  message?: string;
+}
+
+/** One run's product, reduced to what a person reads. */
+export interface PlatformRunOutput {
+  /** The final result the run produced, or null if it never got that far. */
+  text: string | null;
+  /**
+   * What the run actually did, in order — tool names where the platform gives
+   * them. This is the field that catches an agent which **succeeded at finishing
+   * and failed at the job**: a trigger asked to email a report completes with a
+   * clean status having only written a file, because its sandbox has no mailer.
+   * The status cannot show that. The steps can.
+   */
+  steps: string[];
+  /** What the run cost, where the platform reports it. */
+  totalTokens: number | null;
+}
+
+export interface PlatformRunOutputResult {
+  success: boolean;
+  output?: PlatformRunOutput;
+  message?: string;
 }
 
 /**

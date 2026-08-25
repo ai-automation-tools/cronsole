@@ -129,19 +129,29 @@ skip it.
 2. **Register it** in `backend/src/connectors/registry.ts`.
 3. **Only implement the optional methods you can honestly do.** Leaving `deleteTask?` undefined *is*
    the design — a stub returning `{ success: true }` converts a missing capability into a lie.
-4. **Add the `PlatformType` value** to `backend/prisma/schema.prisma`, with a migration. A new
+4. **If the platform publishes its own run history, implement `listPlatformRuns` — and
+   `getRunOutput` if it publishes what a run produced.** Optional, unsupported by absence, and worth
+   more than it looks on any source that runs work by itself: `ExecutionLog` records only runs
+   *Cronsole* performed, so without these the Run History tab honestly reports *"no recorded runs"*
+   over a platform with a week of them. Do **not** solve that by writing the platform's runs into
+   `ExecutionLog` — the two populations render as separate groups and are never summed. Keep output
+   behind `getRunOutput` rather than inlining it in the list: one transcript can be ~90KB, and the
+   list is usually opened to read four timestamps. Where the platform names the tools a run used,
+   return them in `steps` — an agent can finish `completed` having skipped the part the user asked
+   for, and the step list is the only place that shows.
+5. **Add the `PlatformType` value** to `backend/prisma/schema.prisma`, with a migration. A new
    platform value needs no table, no column and no backfill: `PlatformConnection`, `Task`,
    `TaskExclusion` and `PlatformCapability` are all keyed on the enum and gain it for free.
-5. **Declare `access`** in `PLATFORM_DESCRIPTORS` (`backend/src/services/platformCapabilities.ts`),
+6. **Declare `access`** in `PLATFORM_DESCRIPTORS` (`backend/src/services/platformCapabilities.ts`),
    and add the platform to `MATRIX_PLATFORMS`. Declared, **never counted from the cells**: a finished
    read-only connector and one whose write verbs are merely unbuilt produce an identical row of
    refusals, and only one of them is worth waiting for.
-6. **Is your tracked set declared or observed?** If the user names what to watch in the connection
+7. **Is your tracked set declared or observed?** If the user names what to watch in the connection
    config — repositories, projects, accounts — rather than by picking folders off a machine,
    implement **`trackedCategories(config)`**. Otherwise a plain Sync filters out everything you just
    read and reports success, forever, with no second gesture to reach for
    ([#75](../troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)).
-7. **Can the platform report run outcomes?** Put `reportsRunResult` in every task's metadata —
+8. **Can the platform report run outcomes?** Put `reportsRunResult` in every task's metadata —
    **present-and-`false`**, never absent, because `services/taskHealth.ts` reads an absent key as
    *"Cronsole never asked"* rather than *"the platform has nothing to say"*. Then give the platform
    its own arm in `scoreTask`. There is deliberately **no fallback arm**. If the platform publishes
@@ -151,15 +161,15 @@ skip it.
 
 ### The frontend
 
-8. **`frontend/src/platform.ts`** — `platformLabel`, `platformSourceLabel`, `sourceDescription`,
+9. **`frontend/src/platform.ts`** — `platformLabel`, `platformSourceLabel`, `sourceDescription`,
    `platformBadgeClass`, `SOURCE_ICON`, `platformAccent`, and **`sourceSetupHint`** (whose `hasPanel`
    decides whether an unconnected card offers a *Set up* button or just a sentence explaining that
    the source connects itself).
-9. **`frontend/src/index.css`** — an identity pair `--x` / `--x-text` in **all three** blocks
+10. **`frontend/src/index.css`** — an identity pair `--x` / `--x-text` in **all three** blocks
    (`:root`, `.dark`, `.light`) plus the `@theme` exports. Then add both to
    `__tests__/themeContrast.test.ts`, because **the palette is measured, not reviewed**: colour is
    the one thing that breaks silently, since a failing role still renders perfectly.
-10. **If the connection is composed by hand**, render its panel from **both** `ConnectedSourceCard`
+11. **If the connection is composed by hand**, render its panel from **both** `ConnectedSourceCard`
     and `UnconnectedSourceCards` — setting a source up and maintaining it later must be one surface,
     not two that drift. Reuse `components/sources/ConnectionField` for credential inputs rather than
     writing a third copy of a `type="password"` field.

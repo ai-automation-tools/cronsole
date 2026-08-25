@@ -1,7 +1,7 @@
 ---
 allowed-tools: Read, Bash, Grep, Glob
-argument-hint: (no args) | --stale | --agent | --mcp | --dist | --fix
-description: Diagnose a Cronsole stack that builds but misbehaves — the four things that run stale (incl. the proxied frontend bundle), agent connectivity, and MCP token expansion
+argument-hint: (no args) | --stale | --agent | --mcp | --dist | --db | --fix
+description: Diagnose a Cronsole stack that builds but misbehaves — the five things that run stale (incl. the database schema and the proxied frontend bundle), agent connectivity, and MCP token expansion
 ---
 
 # Cronsole Doctor
@@ -10,15 +10,16 @@ Run **before** debugging your own code when live behavior contradicts the source
 
 ## Why this exists
 
-Cronsole has **four things that run stale**, and each one presents as a bug in your logic
-rather than a stale process. The first three are always live; the fourth only matters while the
-reverse proxy is running:
+Cronsole has **five things that run stale**, and each one presents as a bug in your logic
+rather than a stale process. Four are always live; the last only matters while the reverse
+proxy is running:
 
 | Stale thing | Presents as | Because |
 |:---|:---|:---|
 | **Dockerized backend** | New route 404s; live request disagrees with source; offline tests pass | Windows→Linux bind mounts do not propagate inotify, so `tsx watch` never fires |
 | **Published .NET agent** | New agent command 502s "Agent … timeout" after ~15s; DB-only paths work | It is a host process running a published exe; it never hot-reloads |
 | **`mcp-server/dist/`** | Tool behaves like the old code | The host runs `dist/`, not `src/` — an unbuilt change is invisible |
+| **The database schema** | A whole feature 500s with a bare *"Internal server error"* — every route, including reads | A committed migration was never applied. `schema.prisma`, the client and the tests all agree; only the database disagrees, so nothing else can see it |
 | **`frontend/dist/`** *(only while the proxy runs)* | The proxied page works perfectly and is **from another day**; `:7373` is current | Nothing rebuilds it — `cronsole up` starts the proxy but never runs a build |
 
 Most "impossible" behavior is one of these. Check them before suspecting your own code.
@@ -47,6 +48,24 @@ handler's** error. If a route you just wrote 404s:
 ```bash
 docker restart taskhub-backend-1
 ```
+
+### 2b. Is the **database** on this checkout's schema?
+
+```bash
+node scripts/check-migrations-applied.mjs
+```
+
+Run this early, and **run it before reading any application code**, whenever a newly added
+platform, status or job type misbehaves. It is the only check here that asks the database
+rather than the working tree, and it is the one failure that leaves no other trace:
+`schema.prisma` has the value, the generated client has the value, `tsc` passes and the suite
+is green — the database is the single place it is missing, and Postgres answers `invalid input
+value for enum`, which surfaces as a bare 500.
+
+The tell: a feature that fails **uniformly and instantly**, on read routes as well as writes,
+with no message. `PENDING` → `cd backend && npx prisma migrate deploy`. `UNKNOWN` means no
+database was reachable, which is a different answer from "up to date" — start the stack and
+ask again ([#81](../../docs/troubleshooting/README.md#81-a-brand-new-source-returns-internal-server-error-the-moment-you-open-it)).
 
 ### 3. Is the agent connected, and is it the build you think?
 
@@ -175,12 +194,15 @@ a failure to find something.
 
 ## Arguments
 
-- `--stale` — only the three stale-prone processes (checks 2–4)
+- `--stale` — only the stale-prone processes (checks 2, 2b, 3, 4)
+- `--db` — only the migration-status check (check 2b)
 - `--agent` — only agent connectivity and build currency (check 3)
 - `--mcp` — only the MCP server and token (check 4)
 - `--dist` — only the proxied-bundle freshness check (check 7)
 - `--fix` — apply the safe fixes (`docker restart`, `npm run build` in `mcp-server/` and, when
-  check 7 reports `STALE`, in `frontend/`). **Never** auto-run the agent republish: it needs
+  check 7 reports `STALE`, in `frontend/`). **`prisma migrate deploy` is included**: it applies
+  only migrations already committed to this checkout, which is the state the rest of the repo
+  already assumes. It is still reported before it is run. **Never** auto-run the agent republish: it needs
   elevation and would kill a running agent. Plain `npm run build` is correct in `frontend/`
   since the 2026-08-17 fold — see check 7.
 

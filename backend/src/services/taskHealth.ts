@@ -34,6 +34,7 @@
 
 import { PlatformType, TaskStatus, ExecutionStatus } from '@prisma/client';
 import { TaskService } from './TaskService.js';
+import { isSuccessStatus, isPendingStatus } from './geminiApi.js';
 
 export type HealthTier = 'ok' | 'attention' | 'critical' | 'unknown';
 
@@ -587,10 +588,18 @@ function scoreGeminiRuns(
   const lastRun = typeof m.lastRunTime === 'string' ? new Date(m.lastRunTime) : null;
   const when = lastRun && !Number.isNaN(lastRun.getTime()) ? ago(lastRun, now) : 'at an unreported time';
 
-  // `succeeded` is the platform's word for a clean run. Anything else that is
-  // finished is worth naming — and `cancelled` is somebody's choice rather than
-  // breakage, which is the same split GitHub's conclusions get.
-  if (status && status !== 'succeeded') {
+  // **`completed` is the platform's word for a clean run**, and `succeeded` is
+  // the docs' — `isSuccessStatus` holds both, in one definition shared with the
+  // connector. Hard-coding `succeeded` here scored every healthy Gemini task
+  // **critical** and reported *"the most recent run ended as \"completed\""*,
+  // which reads as a bug in Cronsole rather than a claim about the task.
+  //
+  // A run still in progress reaches this at all only if something upstream let
+  // it through, so it is excluded here too rather than trusted: an unfinished
+  // run is not an outcome, and scoring one as a failure is the same mistake in a
+  // second place.
+  // ([#83](../troubleshooting/README.md))
+  if (status && !isSuccessStatus(status) && !isPendingStatus(status)) {
     const chosen = status === 'cancelled';
     add(
       chosen ? 'run-terminated' : 'recent-failure',

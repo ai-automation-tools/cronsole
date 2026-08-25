@@ -1980,8 +1980,10 @@ Next run: ${task.nextRunTime}` : '')
         'the scheduled invocation). Do not plan around an observer gaining write verbs. ' +
         'Hosted does NOT imply observer: Gemini API Triggers is a `controller` — running one there IS the ' +
         'scheduled invocation (the same agent, prompt and sandbox, on the same execution list), so do not ' +
-        'carry the GitHub/Vercel assumption onto it. Its one refusal is `updateAction`, which is absent ' +
-        'rather than declared unsupported: editing a trigger\'s prompt happens in Google AI Studio. ' +
+        'carry the GitHub/Vercel assumption onto it. What it refuses is CHANGING a trigger that already ' +
+        'exists: `updateAction` and `updateSchedule` are both unsupported, because the preview API\'s update ' +
+        'endpoint takes only a trigger\'s status and display name. Edit either in Google AI Studio, or ' +
+        'delete and recreate — which yields a NEW task, not the same one changed. ' +
         'What a platform reports also depends on the install: Claude Code supports `create` and ' +
         '`setStatus` when Cronsole can read your Claude Code session, and refuses both when it cannot — ' +
         'which is exactly why this matrix is worth calling rather than assumed. ' +

@@ -247,7 +247,7 @@ router.post('/export/tasks', validateBody(exportTasksSchema), async (req: Reques
 
   const connector = connectorRegistry.getConnector(platform);
   if (!connector?.exportTask) {
-    throw new HttpError(400, `Exporting is not supported for ${platform} yet.`);
+    throw new HttpError(400, `Exporting is not supported for ${platform}.`);
   }
 
   const config = { ...deserializeConfig(connection.config), userId };
@@ -439,7 +439,7 @@ router.post('/restore/tasks', validateBody(restoreTasksSchema), async (req: Requ
 
   const connector = connectorRegistry.getConnector(platform);
   if (!connector?.importTask || !connector.listFolders) {
-    throw new HttpError(400, `Restoring is not supported for ${platform} yet.`);
+    throw new HttpError(400, `Restoring is not supported for ${platform}.`);
   }
 
   const config = { ...deserializeConfig(connection.config), userId };

@@ -261,9 +261,9 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
     // missing verb is the case where a user is most likely to assume the button
     // is broken rather than absent.
     summary:
-      'Scheduled triggers on the Gemini API\'s managed agents. Cronsole lists, runs, pauses, ' +
-      'reschedules, creates and deletes them, and reads their real run outcomes. Editing a trigger\'s ' +
-      'prompt happens in Google AI Studio.',
+      'Scheduled triggers on the Gemini API\'s managed agents. Cronsole lists, runs, pauses, creates ' +
+      'and deletes them, and reads their real run outcomes. A trigger\'s schedule and prompt are fixed ' +
+      'once it exists — the preview API can change neither — so both are edited in Google AI Studio.',
     // Experimental, and for the same reason Claude's row is: `v1beta` triggers
     // are documented as a **preview** of the Managed Agents API and may change
     // shape without notice. That is a statement about the API underneath, not

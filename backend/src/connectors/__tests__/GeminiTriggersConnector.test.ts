@@ -67,6 +67,12 @@ const trigger = (over: Record<string, unknown> = {}) => ({
   input: 'Review open PRs',
   environmentType: 'remote',
   executionTimeoutSeconds: 600,
+  // A trigger Cronsole created: no tools, no allowlist. Both are always present
+  // on a `GeminiTrigger` — `toTrigger` and `emptyTrigger` each supply them — so
+  // the fixture supplies them too rather than the connector defending against an
+  // absence the type rules out.
+  tools: [] as { type: string; name: string | null; url: string | null; restricted: boolean }[],
+  networkAllowlist: [] as string[],
   ...over
 });
 

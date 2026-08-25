@@ -492,6 +492,14 @@ Non-negotiable rules. **Every one has a reason recorded in
   a field per platform would make the shape a union of every vocabulary), and `url` is null wherever
   the platform has no page, which is the case on Gemini and Windows and precisely why the panel
   matters most there.
+- **A credential is dropped at the parse, never filtered downstream.** A Gemini trigger's `tools` can
+  carry an MCP server whose `headers` are bearer tokens, and an allowlist entry can carry header
+  transforms that are the same thing by another name. `toToolSummary` / `readAllowlist` **never read
+  those fields**, so no `GeminiTrigger` has ever held one — rather than parsing them and removing them
+  later, which would leave every future reader (task metadata, an export, an archive, a log line, an
+  MCP tool response) one forgotten `delete` from publishing somebody's token. `TaskSecret`'s rule
+  pointed the other way: there no route *returns* a stored value, here no parse *produces* one.
+  **What an agent can reach is shown; what lets it reach is not.**
 - **Cronsole redacts what it *writes*; it never redacts what the platform already shows you.**
   `executeJob` strips `${secret.NAME}` values out of a native job's log at the one point every job
   type funnels through, because Cronsole **stores** that log. A platform's own log is different in

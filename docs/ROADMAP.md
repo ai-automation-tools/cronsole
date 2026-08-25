@@ -149,7 +149,7 @@ for capturing it at sync time. Do not build the store until a real retention win
 
 <a id="gemini-agent-extensibility"></a>
 
-#### 2. 🔬 Giving a Gemini trigger MCP servers and tools — researched 2026-08-25
+#### 2. 🔬 Giving a Gemini trigger MCP servers and tools — researched, reading shipped 2026-08-25
 
 **The question:** the trigger Cronsole creates runs a bare managed agent. Can a user give it more —
 MCP servers, skills, tools, a network allowlist?
@@ -225,8 +225,17 @@ reach. It is `updateAction`'s missing form, which is the verb currently absent f
 reason: an editable prompt, agent, tool list and allowlist are one form, and building half of it is
 worse than none.
 
-**Not scheduled.** The research is the deliverable; the build is a real product surface and should
-be its own decision.
+**Read-only surfacing shipped 2026-08-25.** A Gemini task now shows a **What this agent can reach**
+section — the tool list and, separately, the network allowlist — so a trigger carrying a shell and
+three MCP servers no longer renders identically to one that can only think. Credentials cannot appear
+there: an MCP server's `headers` are never read, so the token is absent from the parsed object rather
+than removed from it later.
+
+**Still not built: creating or editing tools from Cronsole.** That is the half with the credential
+decision attached, and the constraint to design around is stated above — a trigger lives on Google's
+side, so Cronsole would hand the token over even while storing only a reference. It is also
+`updateAction`'s missing form, and the same API limit that killed reschedule applies: `PATCH` takes
+only `status` and `display_name`, so "editing" means delete-and-recreate with a new id.
 
 **The original ask, for the record:**
 

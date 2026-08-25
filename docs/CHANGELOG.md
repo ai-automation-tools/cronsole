@@ -13,6 +13,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **A Gemini task shows what its agent can reach** (2026-08-25). Cronsole creates triggers with no tools at all, but one made in AI Studio or through the API can carry a shell, `computer_use`, MCP servers and a network allowlist — and until now it rendered **identically** to one that could only think. For a scheduled autonomous task, its reach is the most consequential thing about it.
+
+  A **What this agent can reach** section now lists the tools and, separately and in amber, the domains the sandbox is allowed to contact. It appears only when the platform reports something, so the common case — including every trigger Cronsole itself creates — shows nothing rather than a permanent *None* the eye learns to skip.
+
+  **No credential can appear there.** An MCP server's `headers` carry bearer tokens, and Cronsole never reads that field in the first place — the token is absent from the parsed object rather than removed from it later. Verified against a real trigger carrying a sentinel token: the reach showed, the token appeared nowhere.
+
+  This is read-only. Cronsole still cannot *create* a trigger with tools or edit one that has them — see the roadmap for what that needs, and why the credential question has to be answered before it.
 - **Every source that can say why a task failed now says it, in the app** (2026-08-25). Run History's *Runs on the platform* group grew from one source to four, and opening a run shows what it produced, what it did, and what the platform reports about it.
 
   **Windows is the big one, and it needed a new agent verb.** A Windows task publishes an *exit code* and nothing else — a task failing nightly for a week showed a red badge and a number, and the detail was in Event Viewer. Task Scheduler does record it, in an operational log the task object knows nothing about, so the agent gained a read-only `task:history` verb. A run now shows Windows' own sentences, the exit code, and **which action** produced it. Several events make up one run (started / action completed / task completed), so they are grouped rather than listed — otherwise three nights would read as twelve runs.

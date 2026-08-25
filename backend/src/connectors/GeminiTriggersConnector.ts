@@ -283,6 +283,18 @@ export class GeminiTriggersConnector implements PlatformConnector {
         ...(trigger.agent ? { agent: trigger.agent } : {}),
         ...(trigger.input ? { prompt: trigger.input } : {}),
         ...(trigger.environmentType ? { environmentType: trigger.environmentType } : {}),
+        // **What this agent can reach**, which is the most consequential fact
+        // about an autonomous task and was invisible until now: Cronsole creates
+        // triggers with no tools, but one made in AI Studio can carry a shell,
+        // `computer_use` and three MCP servers, and it rendered identically.
+        //
+        // Present only when non-empty — an absent key means "this trigger
+        // declares none", which is the default and the common case, and a
+        // permanent empty array on every task would be noise the eye learns to
+        // skip. Credentials are already gone: `toToolSummary` never reads
+        // `headers`, so there is nothing here to filter.
+        ...(trigger.tools.length ? { tools: trigger.tools } : {}),
+        ...(trigger.networkAllowlist.length ? { networkAllowlist: trigger.networkAllowlist } : {}),
         ...(trigger.executionTimeoutSeconds
           ? { executionTimeoutSeconds: trigger.executionTimeoutSeconds }
           : {}),

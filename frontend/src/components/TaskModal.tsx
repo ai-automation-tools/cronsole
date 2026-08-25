@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { PlatformRunHistory } from './PlatformRunHistory';
@@ -119,6 +119,21 @@ function scheduleInfo(task: Task, tz: TimezoneMode): { cron: string | null; huma
     }
   }
   return { cron, human, rows };
+}
+
+/**
+ * The tools and domains a hosted agent may use, as the platform reported them.
+ *
+ * Read from metadata rather than re-derived: the connector already decided what
+ * is safe to show, and — critically — what is not. An MCP server's `headers`
+ * never reach this file because they never reach the parse, so nothing here has
+ * to remember to filter a credential out.
+ */
+function reachInfo(task: Task): { tools: { type: string; name: string | null; url: string | null; restricted: boolean }[]; domains: string[] } {
+  const meta = (task.metadata ?? {}) as Meta;
+  const tools = Array.isArray(meta.tools) ? meta.tools as { type: string; name: string | null; url: string | null; restricted: boolean }[] : [];
+  const domains = Array.isArray(meta.networkAllowlist) ? meta.networkAllowlist.filter((d): d is string => typeof d === 'string') : [];
+  return { tools, domains };
 }
 
 function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
@@ -409,6 +424,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
   const meta = (task.metadata ?? {}) as Meta;
   const sched = scheduleInfo(task, prefs.timezone);
   const actions = actionInfo(task);
+  const agentReach = reachInfo(task);
   const settings = settingsRows(task);
   const nextRun = asText(meta.nextRunTime);
   const lastRun = task.lastRunAt ?? asText(meta.lastRunTime) ?? null;
@@ -644,6 +660,53 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
               </div>
             )}
           </DetailSection>
+
+          {/*
+            **What this agent can reach.** Rendered only when the platform
+            reports something, so the common case — including every trigger
+            Cronsole creates, which declares no tools at all — shows nothing
+            rather than a permanent "None" that the eye learns to skip.
+
+            This is the most consequential fact about a scheduled autonomous
+            task and it was invisible until now: a trigger with a shell and
+            three MCP servers rendered identically to one that could only think.
+            No credentials can appear here — the connector never parses an MCP
+            server's `headers` in the first place.
+          */}
+          {(agentReach.tools.length > 0 || agentReach.domains.length > 0) && (
+            <DetailSection icon={Wrench} title="What this agent can reach">
+              <div className="space-y-3">
+                {agentReach.tools.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {agentReach.tools.map((tool, i) => (
+                      <span
+                        key={`${tool.type}-${tool.name ?? i}`}
+                        className="text-[11px] font-mono px-2 py-1 rounded-lg border border-border bg-background text-muted-foreground"
+                        title={tool.url ?? undefined}
+                      >
+                        {tool.name ? `${tool.type}: ${tool.name}` : tool.type}
+                        {tool.restricted && <span className="text-subtle-foreground"> (restricted)</span>}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {agentReach.domains.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] uppercase font-black tracking-widest text-subtle-foreground">
+                      Network allowlist
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {agentReach.domains.map(domain => (
+                        <span key={domain} className="text-[11px] font-mono px-2 py-1 rounded-lg border border-warning/30 bg-warning/5 text-warning-text">
+                          {domain}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DetailSection>
+          )}
 
           {/* Settings (only when the agent reports them) */}
           {settings.length > 0 && (

@@ -107,15 +107,20 @@ health however well they are running. Read that as *no evidence*, not as a probl
 suggest a sync or a reconnect to "fix" it, because nothing will.
 
 **`platform` also accepts `GEMINI_TRIGGERS`** (2026-08-24), and it is the opposite case in every
-respect — the **only hosted source that is not read-only**. Run, pause, reschedule, create and
-delete all reach real endpoints there, so an assistant that has learned "hosted means read-only"
-from the two above will be wrong about this one. It reports real run outcomes too.
+respect — the **only hosted source that is not read-only**. Run, pause, create and delete all reach
+real endpoints there, so an assistant that has learned "hosted means read-only" from the two above
+will be wrong about this one. It reports real run outcomes too.
 
-Two things about it are worth an assistant knowing before it explains a screen:
+Three things about it are worth an assistant knowing before it explains a screen:
 
 - **A `DISABLED` Gemini trigger may not have been disabled by a person.** Gemini pauses a trigger
   itself after repeated consecutive failures. `get_task_health` says which, and resuming it with
   `set_task_status` clears the pause and not the cause.
+- **A trigger cannot be changed once it exists.** `update_task_schedule` and `update_task_action`
+  are both refused with a 400: the preview API's update endpoint takes a trigger's status and
+  display name and nothing else, so a schedule is fixed at the moment of creation. Do not offer to
+  move one — the only path is `delete_task` plus a fresh `create_task`, and that produces a **new**
+  task rather than the same one rescheduled. Say that plainly rather than quietly recreating.
 - **Creating one takes a prompt, not a command.** `create_task` with `platform: "GEMINI_TRIGGERS"`
   reads `command` as the instruction the agent runs. The trigger is created with **no network
   allowlist**, so its agent can reach nothing outside its sandbox — say so rather than letting

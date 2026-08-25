@@ -117,19 +117,51 @@ export function usePlatformCreatability(): {
 } {
   const { data, isLoading } = usePlatformMatrix();
 
-  const creatability = (platform: string): Creatability => {
-    if (!data) return 'unknown';
-    const row = data.platforms.find(r => r.platform === platform);
-    // Absent from the matrix is a real verdict, not a gap: the matrix covers
-    // every platform with a connector, so anything missing (ChatGPT, Jules, and
-    // for now macOS) is link-only and has nothing that could create a task.
-    if (!row) return 'no';
-    const cell = row.capabilities.find(c => c.verb === 'create');
-    if (!cell) return 'no';
-    return cell.support === 'unsupported' ? 'no' : 'yes';
-  };
+  return { creatability: (platform: string) => verbSupport(data, platform, 'create'), isLoading };
+}
 
-  return { creatability, isLoading };
+/**
+ * Can Cronsole **delete** the real task on this platform?
+ *
+ * The same question as creatability, one verb over, and it exists for the same
+ * reason: the Delete button was gated on a hardcoded pair of platform literals,
+ * so Gemini — whose connector implements `deleteTask`, whose route calls it, and
+ * whose matrix cell reads `verified` — had **no delete control at all**. The only
+ * removal on screen was *Remove from Cronsole*, which leaves the trigger running,
+ * and a user who wanted it gone had no path that did not involve `curl`.
+ *
+ * Reading the matrix instead means the next connector to implement `deleteTask`
+ * gets the button without anyone remembering to widen a list — which is the
+ * whole argument against browser-side copies of a server judgement.
+ */
+export function usePlatformDeletability(): {
+  deletability: (platform: string) => Creatability;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = usePlatformMatrix();
+  return { deletability: (platform: string) => verbSupport(data, platform, 'delete'), isLoading };
+}
+
+/** One definition of "what does the matrix say about this verb here?". Exported for its own test. */
+export function verbSupport(
+  data: { platforms: PlatformMatrixRow[] } | undefined,
+  platform: string,
+  verb: string
+): Creatability {
+  // Optional-chained through `platforms` as well as the response, for the reason
+  // `TaskModal` already states about the same payload: this runs against
+  // whatever the matrix query happens to hold, including a half-loaded or
+  // shape-surprising body, and a thrown TypeError here blanks the whole task
+  // modal rather than dimming one button.
+  if (!data?.platforms) return 'unknown';
+  const row = data.platforms.find(r => r.platform === platform);
+  // Absent from the matrix is a real verdict, not a gap: the matrix covers
+  // every platform with a connector, so anything missing (ChatGPT, Jules, and
+  // for now macOS) is link-only and has nothing that could create a task.
+  if (!row) return 'no';
+  const cell = row.capabilities.find(c => c.verb === verb);
+  if (!cell) return 'no';
+  return cell.support === 'unsupported' ? 'no' : 'yes';
 }
 
 /** One thing Cronsole asked a platform to do, and how it went. */

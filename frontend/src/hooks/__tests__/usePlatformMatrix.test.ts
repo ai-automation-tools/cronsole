@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { newestOutcome, type CapabilityCell, type PlatformMatrixRow } from '../usePlatformMatrix';
+import { newestOutcome, verbSupport, type CapabilityCell, type PlatformMatrixRow } from '../usePlatformMatrix';
 
 /**
  * The health strip's one derived value, pinned — because its whole job is to be
@@ -92,5 +92,44 @@ describe('newestOutcome', () => {
     ]);
     expect(result?.platformLabel).toBe('Cronsole-native');
     expect(result?.verbLabel).toBe('Create');
+  });
+});
+
+/**
+ * The gate behind every capability-driven control, pinned — because getting it
+ * wrong is silent in both directions: a missing button looks like a feature that
+ * was never built, and a present one looks like a bug only after the click.
+ */
+describe('verbSupport', () => {
+  const matrix = (platform: string, verb: string, support: CapabilityCell['support']) => ({
+    platforms: [{ ...row('X', [cell({ verb, support })]), platform }]
+  });
+
+  it('says yes for a verb the platform supports', () => {
+    expect(verbSupport(matrix('GEMINI_TRIGGERS', 'delete', 'verified'), 'GEMINI_TRIGGERS', 'delete')).toBe('yes');
+    // `declared` is a promise the connector made and nothing has exercised yet —
+    // still a yes, or a control would be withheld until it had already worked.
+    expect(verbSupport(matrix('GEMINI_TRIGGERS', 'delete', 'declared'), 'GEMINI_TRIGGERS', 'delete')).toBe('yes');
+  });
+
+  it('says no for a boundary and for a platform with no row', () => {
+    expect(verbSupport(matrix('VERCEL_CRON', 'delete', 'unsupported'), 'VERCEL_CRON', 'delete')).toBe('no');
+    // Absent from the matrix is a verdict: it covers every platform with a
+    // connector, so anything missing is link-only.
+    expect(verbSupport(matrix('GEMINI_TRIGGERS', 'delete', 'verified'), 'CHATGPT', 'delete')).toBe('no');
+  });
+
+  it('says no when the row exists without that cell', () => {
+    expect(verbSupport(matrix('GEMINI_TRIGGERS', 'run', 'verified'), 'GEMINI_TRIGGERS', 'delete')).toBe('no');
+  });
+
+  it('says unknown while the matrix is in flight, never no', () => {
+    // A destructive control must not vanish because a request has not landed.
+    expect(verbSupport(undefined, 'GEMINI_TRIGGERS', 'delete')).toBe('unknown');
+  });
+
+  it('says unknown rather than throwing on a shape-surprising body', () => {
+    // This runs inside the task modal; a TypeError here blanks the whole modal.
+    expect(verbSupport({} as never, 'GEMINI_TRIGGERS', 'delete')).toBe('unknown');
   });
 });

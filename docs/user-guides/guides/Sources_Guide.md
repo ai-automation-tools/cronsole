@@ -535,8 +535,9 @@ arrives on the first sync under a single **Gemini** category.
 
 **This is the first hosted source Cronsole can act on rather than only read**, and that is worth
 saying out loud, because the two hosted sources before it are read-only and it would be reasonable to
-assume the pattern holds. It does not. Cronsole runs, pauses, resumes, reschedules, creates and
-deletes triggers here, and reads how their runs actually went.
+assume the pattern holds. It does not. Cronsole runs, pauses, resumes, creates and deletes triggers
+here, and reads how their runs actually went. The one thing it cannot do is **change an existing
+trigger** — see *A trigger's schedule is fixed once it exists* below.
 
 ### Why *Run now* works here and is refused on the other two
 
@@ -592,6 +593,23 @@ yet. It shows as *Unsupported* on the Sources tab — edit the prompt in Google 
 - **Zones that observe DST are converted at today's offset.** A 09:00 New York trigger is 13:00 UTC
   in summer and 14:00 in winter, and no single cron says both. Cronsole stores the current one — the
   same bargain it already makes when you type a schedule in your own zone.
+- **Run history lives in two lists, and the second one is the real one here.** A task's **Run
+  History** tab shows *Runs Cronsole performed* — which on this source is usually just your own
+  *Run now* clicks — and below it *Runs on the platform*, read live from Gemini each time you open
+  the tab. A trigger firing on its own schedule appears only in the second. Click a run to see the
+  agent's output, what it cost, and **what it actually did**: the tools it reached for, in order.
+  That last list is worth reading, because a run can finish cleanly having skipped the part you
+  cared about — an agent asked to email a report completes `completed` having only written a file,
+  since its sandbox has no mailer, and it will say so in its own output rather than failing.
+- **There is no Google web page for any of this.** Gemini API Triggers are managed entirely through
+  the API; Google's own documentation for them is programmatic only, and the Gemini app's
+  scheduled-actions page is a different product. Cronsole is where you see them.
+- **A trigger's schedule is fixed once it exists.** *Edit schedule* is unavailable on a Gemini task,
+  and that is the preview API's boundary rather than a missing feature: its update endpoint accepts a
+  trigger's status and display name and rejects the schedule outright. To move a trigger, change it
+  in Google AI Studio, or delete it here and create it again — a new trigger gets a new id, so
+  Cronsole treats it as a new task rather than the same one on a new schedule. The same is true of
+  the prompt, which is why *Edit action* is unavailable too.
 - **Deleting is real, and disconnecting is not.** *Delete* on a task removes the trigger from Gemini.
   *Disconnect* on the source forgets the key and the tracked rows, and leaves every trigger running
   exactly as before.

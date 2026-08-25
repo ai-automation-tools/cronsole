@@ -46,8 +46,11 @@ it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-g
 which is the argument for doing this on every connector rather than trusting a green suite.
 
 **Gemini API Triggers shipped 2026-08-24** — the sixth source, and the **first hosted controller**:
-run, pause, reschedule, create and delete all reach real endpoints, and it reports real run
-outcomes. It jumped the Sources queue ahead of a third observer because a live re-check found the
+run, pause, create and delete all reach real endpoints, and it reports real run outcomes. *(A
+2026-08-25 smoke test against a live project found two things no stubbed test could: the prompt was
+dropped on every read, and `updateSchedule` is impossible on `v1beta` — the update endpoint rejects
+the field. Both fixed;
+[#82](troubleshooting/README.md#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word).)* It jumped the Sources queue ahead of a third observer because a live re-check found the
 API had appeared four weeks earlier, which is the argument for re-checking the quick-links list
 before every sources pass rather than once.
 
@@ -551,6 +554,24 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       target field is a **prompt** rather than a command, the `--gemini` identity pair measured
       against every surface, a `HelpTopic`, a Sources Guide section, and `GEMINI_TRIGGERS` on the MCP
       filter enum. 69 new tests; backend 1040, frontend 887, MCP 193 all green.
+
+      **Run history and run output shipped 2026-08-25.** `listPlatformRuns` / `getRunOutput` on the
+      connector interface, two routes, and a second group in the Run History tab — because
+      `ExecutionLog` holds only what Cronsole did, which on this source is almost nothing. It is
+      also the answer to "where do I read the output": there is **no Google web UI for triggers at
+      all** (their docs are entirely programmatic), so Cronsole is the only place this is visible.
+      Gemini is the first implementer; GitHub Actions is the obvious second.
+
+      **A gap this exposed and did not close:** the UI's Delete button is gated to native and
+      Windows, so there is no user-facing way to delete a Gemini trigger — `DELETE /api/tasks/:id`
+      supports it, and MCP's `delete_task` is native-only by design. Small fix, not yet made.
+
+      **A boundary found afterwards, 2026-08-25**: `updateSchedule` is *cannot*, not *not yet*.
+      `PATCH /v1beta/triggers/{id}` takes `status` and `display_name` and answers `400 Unknown
+      parameter 'schedule'` — no `PUT`, no field mask — so a trigger's *when* is fixed at create
+      time. The method is removed and the boundary is stated by absence, like every other optional
+      verb. Worth carrying into the next connector: **an endpoint existing is not the endpoint doing
+      what the verb says**, and only driving it says which.
 
       **Two follow-ups it deliberately left**, both *not yet* rather than *cannot*:
       - **`updateAction`** — an editable prompt, which needs the form described above. Until then

@@ -12,9 +12,12 @@ import axios, { type AxiosInstance } from 'axios';
  * Four facts about the platform shape everything below.
  *
  * **A trigger is a first-class resource with a verb per endpoint.** `GET
- * /v1beta/triggers` lists, `PATCH …/{id}` reschedules and pauses, `DELETE …/{id}`
+ * /v1beta/triggers` lists, `PATCH …/{id}` pauses and renames, `DELETE …/{id}`
  * removes, `POST /v1beta/triggers` creates, and `POST …/{id}/executions` runs one
- * now. Nothing here is a lookalike wearing a verb's name: Google's own
+ * now. `PATCH` is the one that does **less** than its name suggests: it accepts
+ * `status` and `display_name` and answers `400 Unknown parameter 'schedule'` to
+ * a reschedule, so a trigger's *when* is fixed at create time on `v1beta`.
+ * Otherwise nothing here is a lookalike wearing a verb's name: Google's own
  * documentation notes that pausing a trigger stops its *scheduled* executions
  * while leaving manual ones alone, which is the platform saying outright that
  * the two travel the same machinery.
@@ -115,10 +118,52 @@ export interface GeminiTrigger {
 /** One run of a trigger, as `GET …/{id}/executions` reports it. */
 export interface GeminiExecution {
   id: string;
-  /** The platform's own word — `succeeded`, `failed`, `running`, … */
+  /** The platform's own word — `completed`, `failed`, `in_progress`, … */
   status: string;
   startTime: Date | null;
   endTime: Date | null;
+  /**
+   * The interaction this run produced, which is **where the output lives**.
+   *
+   * An execution row carries the run's *shape* — when, how long, what state —
+   * and none of its content. The agent's actual work is a separate resource at
+   * `GET /v1beta/interactions/{id}`, reachable only through this id, and there
+   * is no Google web UI that renders it: their trigger documentation is entirely
+   * programmatic. So this field is the only route a user has to what their agent
+   * actually produced, and dropping it would leave run history able to say a run
+   * succeeded and never what it did.
+   *
+   * Null on a run still in progress — the interaction exists but is not yet
+   * worth reading, and absent is more honest than a half-written transcript.
+   */
+  interactionId: string | null;
+}
+
+/**
+ * What an agent actually produced on one run.
+ *
+ * Deliberately **not** the raw interaction. That document is ~90KB for a
+ * two-minute run — search grounding blobs, per-step tool arguments, encoded
+ * environment state — and almost all of it is machinery rather than result.
+ * What a person opening run history wants is the answer, plus enough shape to
+ * trust it.
+ */
+export interface GeminiRunOutput {
+  /** The agent's final message — the thing it produced. Null if it never got there. */
+  text: string | null;
+  /**
+   * The tools it reached for, in order, deduplicated to type names.
+   *
+   * This is the field that answers *"did it actually do what I asked?"*, and it
+   * earns its place because the honest answer is often no: a trigger told to
+   * email a report **completes successfully** having only called `write_file`,
+   * because the sandbox has no mailer and the agent narrates around what it
+   * cannot do. The status says `completed`; only the step list says what
+   * happened.
+   */
+  steps: string[];
+  /** Total tokens the run cost, when the platform reports it. */
+  totalTokens: number | null;
 }
 
 /**
@@ -130,7 +175,6 @@ export interface GeminiExecution {
  * own zone and is normalized on the way in.
  */
 export interface GeminiTriggerWrite {
-  schedule?: string;
   displayName?: string;
   status?: 'active' | 'paused';
   agent?: string;
@@ -286,8 +330,17 @@ export async function listExecutions(
         params: { pageSize: EXECUTION_PAGE_SIZE }
       }),
     data => {
-      const body = (data ?? {}) as { executions?: unknown };
-      const rows = Array.isArray(body.executions) ? body.executions : [];
+      // **`trigger_executions`, not `executions`.** The list endpoint names its
+      // array after the resource rather than after the path, unlike
+      // `GET /triggers` (which really does answer `{ triggers: [...] }`). Reading
+      // the obvious key returned `[]` for every trigger forever — and `[]` is not
+      // an error here, it is the platform's own way of saying "this has never
+      // run", so a source that reported run outcomes reported *none* and looked
+      // exactly like a set of brand-new triggers
+      // ([#83](../../../docs/troubleshooting/README.md#83-a-gemini-trigger-runs-fine-and-cronsole-shows-no-run-history-then-calls-a-good-run-a-failure)).
+      const body = (data ?? {}) as { trigger_executions?: unknown; triggerExecutions?: unknown; executions?: unknown };
+      const raw = body.trigger_executions ?? body.triggerExecutions ?? body.executions;
+      const rows = Array.isArray(raw) ? raw : [];
       return rows.map(toExecution).filter((e): e is GeminiExecution => e !== null);
     }
   );
@@ -305,7 +358,15 @@ export async function listExecutions(
  *
  * `ran` is deliberately **not** set by the caller for this: creating an execution
  * starts an agent that will work for minutes, so what Cronsole gets back is an
- * accepted dispatch, exactly like a Windows start. Only Cronsole-native can say
+ * accepted dispatch, exactly like a Windows start.
+ *
+ * **It routinely times out, and that is not a failure.** This endpoint does not
+ * answer when the run is accepted — it holds the connection while the agent
+ * works, far past {@link REQUEST_TIMEOUT_MS}. The timeout is deliberately *not*
+ * raised to cover it: the ceiling would have to be the agent's whole runtime
+ * (minutes), which means an HTTP request of Cronsole's own hanging that long for
+ * a dispatch that was accepted in the first second. The connector answers the
+ * timeout with a read instead — see `executionStartedSince`. Only Cronsole-native can say
  * `ran: true`, and for the reason in the interface — dispatch and execution are
  * the same act only where Cronsole is the executor.
  */
@@ -324,19 +385,17 @@ export async function runTrigger(
 }
 
 /**
- * Patch a trigger — the one write path for pause, resume and reschedule.
+ * Patch a trigger — the one write path for pause, resume and rename.
  *
- * One function rather than three, because the platform has one endpoint and
- * splitting it here would invent a distinction the API does not make. The
- * connector's three methods each build their own body, so the *verbs* stay
- * separate where users see them and the transport stays single where the
- * platform defines it.
+ * One function rather than two, because the platform has one endpoint and
+ * splitting it here would invent a distinction the API does not make. Each
+ * connector method builds its own body, so the *verbs* stay separate where users
+ * see them and the transport stays single where the platform defines it.
  *
- * **`time_zone` travels with any schedule change, always as `UTC`.** Omitting it
- * would leave a rescheduled trigger carrying whatever zone it had, so a cron
- * Cronsole computed in UTC would be interpreted in Buenos Aires — a silent
- * several-hour shift with a successful-looking response, which is #60's shape
- * arriving through a write instead of a read.
+ * **There is no schedule here, and that is the platform's boundary rather than
+ * an omission.** `PATCH` rejects `schedule` outright (`400 Unknown parameter`),
+ * with no `PUT` and no field mask that changes it, so `createTrigger` is the only
+ * place a schedule — and its mandatory `time_zone: "UTC"` — is ever written.
  */
 export async function patchTrigger(
   apiKey: string,
@@ -344,10 +403,6 @@ export async function patchTrigger(
   patch: GeminiTriggerWrite
 ): Promise<GeminiResult<GeminiTrigger>> {
   const body: Record<string, unknown> = {};
-  if (patch.schedule !== undefined) {
-    body.schedule = patch.schedule;
-    body.time_zone = 'UTC';
-  }
   if (patch.displayName !== undefined) body.display_name = patch.displayName;
   if (patch.status !== undefined) body.status = patch.status;
 
@@ -451,11 +506,38 @@ export function toTrigger(raw: unknown): GeminiTrigger | null {
     // whose real ceiling is 20.
     maxConsecutiveFailures: num(t.max_consecutive_failures ?? t.maxConsecutiveFailures),
     agent: str(interaction.agent),
-    input: str(interaction.input),
+    input: readInput(interaction.input),
     environmentType: str(environment.type),
     executionTimeoutSeconds: num(t.execution_timeout_seconds ?? t.executionTimeoutSeconds)
   };
 }
+
+/**
+ * **The platform's word for a clean run is `completed`, not `succeeded`.**
+ *
+ * Both are accepted because the docs use the second and the API returns the
+ * first, and getting this wrong is not a cosmetic mismatch: `scoreTask` treats
+ * any finished status that is not a success as a **critical** run failure, so a
+ * perfect run reported as `completed` scored the task *broken* and told the user
+ * *"the most recent run ended as \\"completed\\""* — a sentence that reads as a
+ * bug report about Cronsole itself.
+ *
+ * One definition, exported, because the connector and the health scorer both ask
+ * this question and a second copy is how they end up disagreeing about a run
+ * neither of them can see twice.
+ */
+export const isSuccessStatus = (status: string): boolean =>
+  status === 'completed' || status === 'succeeded';
+
+/**
+ * Is this run still going? `in_progress` is the platform's word.
+ *
+ * Kept separate from success because an unfinished run is **not evidence of
+ * anything** — counting one as finished makes `lastStatus: "in_progress"` the
+ * newest outcome, which the scorer then reads as a failure that is not one.
+ */
+export const isPendingStatus = (status: string): boolean =>
+  status === 'in_progress' || status === 'running' || status === 'pending' || status === 'queued';
 
 /** A raw execution as Cronsole reads it — exported for its own test. */
 export function toExecution(raw: unknown): GeminiExecution | null {
@@ -469,8 +551,60 @@ export function toExecution(raw: unknown): GeminiExecution | null {
     // be a second judgement about an outcome the platform already named.
     status: (str(e.status) ?? 'unknown').toLowerCase(),
     startTime: toDate(str(e.start_time) ?? str(e.startTime)),
-    endTime: toDate(str(e.end_time) ?? str(e.endTime))
+    endTime: toDate(str(e.end_time) ?? str(e.endTime)),
+    interactionId: str(e.interaction_id) ?? str(e.interactionId)
   };
+}
+
+/**
+ * One run's interaction — the transcript, reduced to what a person can use.
+ *
+ * The reduction happens **here rather than in the route**, for the reason every
+ * other parse in this module does: the shape is the platform's, so the knowledge
+ * of it stays behind the connector boundary and one caller cannot start reading
+ * `steps[]` differently from another.
+ *
+ * A missing final message is `null`, never `''`. A run that failed mid-way has
+ * real steps and no answer, and those two facts have to stay separately visible
+ * or "it produced nothing" and "it produced an empty string" render the same.
+ */
+export async function getInteraction(
+  apiKey: string,
+  interactionId: string
+): Promise<GeminiResult<GeminiRunOutput>> {
+  return attempt(
+    `the output of interaction ${interactionId}`,
+    () => client(apiKey).get(`/v1beta/interactions/${encodeURIComponent(interactionId)}`),
+    data => {
+      const body = (data ?? {}) as { steps?: unknown; usage?: unknown };
+      const steps = Array.isArray(body.steps) ? body.steps : [];
+
+      // The LAST `model_output`, not the first: an agent that hits a tool error
+      // and recovers emits more than one, and the earlier ones are its working.
+      const finals = steps.filter(s => (s as { type?: unknown })?.type === 'model_output');
+      const last = finals[finals.length - 1] as { content?: unknown } | undefined;
+      const content = Array.isArray(last?.content) ? last.content : [];
+      const text = content
+        .map(c => str((c as { text?: unknown })?.text))
+        .filter((t): t is string => Boolean(t))
+        .join('\n');
+
+      // Order preserved, immediate repeats collapsed: "search, search, search"
+      // is one action taken three times and reads as noise, but a second write
+      // after a read is a different thing happening and must stay visible.
+      const kinds: string[] = [];
+      for (const step of steps) {
+        const raw = (step as { type?: unknown; name?: unknown }) ?? {};
+        // A function call names the *tool* — `write_file` is the useful word,
+        // `function_call` is not.
+        const kind = str(raw.name) ?? str(raw.type);
+        if (kind && kind !== kinds[kinds.length - 1]) kinds.push(kind);
+      }
+
+      const usage = (body.usage ?? {}) as Record<string, unknown>;
+      return { text: text || null, steps: kinds, totalTokens: num(usage.total_tokens) };
+    }
+  );
 }
 
 /**
@@ -497,6 +631,38 @@ function emptyTrigger(id: string): GeminiTrigger {
     environmentType: null,
     executionTimeoutSeconds: null
   };
+}
+
+/**
+ * The prompt an agent is given, from either shape the API uses.
+ *
+ * **A create sends a plain string and a read gets a structured array back.**
+ * `POST /v1beta/triggers` accepts `interaction.input: "do the thing"`, and the
+ * very same trigger comes back from `GET` as
+ * `[{ type: 'user_input', content: [{ type: 'text', text: 'do the thing' }] }]`.
+ * Reading only the string spelling returned `null` for every trigger on the
+ * platform, so the prompt vanished from a task the first time it was synced —
+ * including one Cronsole itself had just created with that prompt
+ * ([#82](../../../docs/troubleshooting/README.md#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)).
+ *
+ * Non-text parts are skipped rather than stringified: this value is displayed as
+ * the task's action, and `[object Object]` on screen is worse than a shorter
+ * true sentence.
+ */
+function readInput(raw: unknown): string | null {
+  if (typeof raw === 'string') return raw || null;
+  if (!Array.isArray(raw)) return null;
+
+  const text = raw
+    .flatMap(part => {
+      const content = (part as { content?: unknown })?.content;
+      const parts = Array.isArray(content) ? content : [content];
+      return parts.map(c => str((c as { text?: unknown })?.text));
+    })
+    .filter((t): t is string => Boolean(t))
+    .join('\n');
+
+  return text || null;
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);

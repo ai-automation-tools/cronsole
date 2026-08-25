@@ -7,7 +7,9 @@ import {
   CapabilityVerb,
   SyncOutcome,
   CreateTaskOptions,
-  UpdateScheduleOptions
+  UpdateScheduleOptions,
+  PlatformRunsResult,
+  PlatformRunOutputResult
 } from './platform.interface.js';
 import {
   listTriggers,
@@ -16,6 +18,8 @@ import {
   patchTrigger,
   createTrigger,
   deleteTrigger,
+  getInteraction,
+  isPendingStatus,
   type GeminiTrigger,
   type GeminiExecution
 } from '../services/geminiApi.js';
@@ -71,16 +75,26 @@ import { shiftCronToUtc } from '../utils/cron.js';
  *
  * ## What is deliberately not here
  *
- * `updateActions`, `exportTask`, `importTask` and `listFolders` are absent, so
- * `verbReachability` reports them `unsupported` from their absence — one
- * statement of each boundary, as the interface intends.
+ * `updateSchedule`, `updateActions`, `exportTask`, `importTask` and `listFolders`
+ * are absent, so `verbReachability` reports them `unsupported` from their absence
+ * — one statement of each boundary, as the interface intends.
+ *
+ * **`updateSchedule` is a boundary rather than a gap, and it was found by driving
+ * the API rather than by reading it.** `PATCH /v1beta/triggers/{id}` is documented
+ * as the update endpoint and it is real — it takes `status` and `display_name` —
+ * but it answers `400 Unknown parameter 'schedule'` to the one field a reschedule
+ * is made of, and there is no `PUT` and no field mask that changes that. So a
+ * trigger's *when* is fixed at create time on `v1beta`: the honest paths are
+ * delete-and-recreate (a new `externalId`, so not a reschedule) or Google's own
+ * console. Declaring the verb bought nothing but a failure that handed Google's
+ * word `schedule` back to a user who never typed it.
  *
  * `unsupportedVerbs` is **empty**, and that is the point of the whole platform:
- * every verb the interface mandates is reachable here. Editing a trigger's
- * *action* — its prompt, agent, environment and network allowlist — is the one
- * verb that is genuinely *not yet* rather than *cannot*, and it is absent rather
- * than declared, so the cell can change when Cronsole grows a form that can hold
- * one.
+ * every verb the interface mandates is reachable here — and `updateSchedule`,
+ * which is optional, is not one of them. Editing a trigger's *action* — its
+ * prompt, agent, environment and network allowlist — is the one verb that is
+ * genuinely *not yet* rather than *cannot*, and it is absent rather than
+ * declared, so the cell can change when Cronsole grows a form that can hold one.
  */
 export class GeminiTriggersConnector implements PlatformConnector {
   platform = PlatformType.GEMINI_TRIGGERS;
@@ -94,6 +108,11 @@ export class GeminiTriggersConnector implements PlatformConnector {
    * says. Leaving the array off entirely would have read the same to
    * `verbReachability`, and it is written out so the difference between "no
    * boundaries" and "nobody thought about boundaries" is on the page.
+   *
+   * It stays empty now that `updateSchedule` has turned out to be impossible,
+   * because that verb is **optional** on the interface and an optional boundary is
+   * stated by absence — the same rule GitHub's connector follows in the other
+   * direction, naming only the three *mandated* verbs it must refuse out loud.
    */
   readonly unsupportedVerbs: readonly CapabilityVerb[] = [];
 
@@ -230,8 +249,15 @@ export class GeminiTriggersConnector implements PlatformConnector {
     // failures demand opposite actions.
     const active = trigger.status === 'active' || trigger.status === 'unknown';
 
-    const latest = runs && runs.length > 0 ? runs[0]! : null;
-    const finished = (runs ?? []).filter(r => r.status !== 'running' && r.status !== 'pending');
+    // The newest **finished** run, not the newest run. An execution that is still
+    // in progress says nothing about health yet, and reporting it as the last
+    // outcome hides the real one underneath it.
+    const latest = (runs ?? []).find(r => !isPendingStatus(r.status)) ?? null;
+    // `isPendingStatus`, not a local list of words: the platform says
+    // `in_progress`, and a run still going is not an outcome. Counting one as
+    // finished made it the newest `lastStatus`, which the scorer read as a
+    // failure it was not.
+    const finished = (runs ?? []).filter(r => !isPendingStatus(r.status));
 
     return {
       externalId: trigger.id,
@@ -304,8 +330,42 @@ export class GeminiTriggersConnector implements PlatformConnector {
       return { success: false, ran: false, message: 'No Gemini API key is stored for this connection.' };
     }
 
+    // Noted **before** the request, so a timeout can be answered with evidence
+    // rather than with an assumption. One second of slack absorbs clock skew
+    // between this process and Google's.
+    const dispatchedAt = new Date(Date.now() - 1000);
+
     const result = await runTrigger(apiKey, externalId);
-    if (!result.ok) return { success: false, ran: false, message: result.message };
+
+    if (!result.ok) {
+      // **A transport timeout is not a failed dispatch, and here it is usually a
+      // successful one.** `POST /executions` does not return when the run is
+      // accepted — it holds the connection well past the 20-second client
+      // timeout while the agent works, so a manual run of a task that behaves
+      // perfectly was reported to the user as *"Run now failed"*, written to
+      // `ExecutionLog` as a FAILURE, and shown on the dashboard banner. The
+      // platform's own history said `completed` in the same modal.
+      //
+      // So on a timeout — and only a timeout, `status === null` — ask the
+      // platform what actually happened. A new execution started since the
+      // request went out is the dispatch, observed rather than assumed. This is
+      // the `getHealth` rule applied to a write: report evidence, and where
+      // there is none, say so.
+      if (result.status === null) {
+        const started = await this.executionStartedSince(apiKey, externalId, dispatchedAt);
+        if (started) {
+          return {
+            success: true,
+            ran: false,
+            platformRunId: started,
+            message:
+              'Gemini did not answer within the request timeout, but a run started on the platform ' +
+              'and is in progress. Its outcome appears in Run History.'
+          };
+        }
+      }
+      return { success: false, ran: false, message: result.message };
+    }
 
     return {
       success: true,
@@ -313,6 +373,26 @@ export class GeminiTriggersConnector implements PlatformConnector {
       ...(result.data.executionId ? { platformRunId: result.data.executionId } : {}),
       message: 'Gemini accepted the run. The agent works in the background — its outcome appears on the next sync.'
     };
+  }
+
+  /**
+   * Did a run start on the platform since this moment? Returns its id.
+   *
+   * The corroborating read behind the timeout branch above. **Silent on its own
+   * failure** — this runs only when something has already gone wrong, and a
+   * second error message about the check would replace the first one, which is
+   * the one that describes what the user did.
+   */
+  private async executionStartedSince(
+    apiKey: string,
+    externalId: string,
+    since: Date
+  ): Promise<string | null> {
+    const runs = await listExecutions(apiKey, externalId);
+    if (!runs.ok) return null;
+
+    const started = runs.data.find(r => r.startTime !== null && r.startTime >= since);
+    return started?.id ?? null;
   }
 
   /**
@@ -349,49 +429,6 @@ export class GeminiTriggersConnector implements PlatformConnector {
           }
         : {})
     };
-  }
-
-  /**
-   * Change when a trigger runs.
-   *
-   * **Takes the cron, not a Windows trigger.** `options.trigger` is ignored here
-   * for the reason the interface documents: a platform that stores a cron
-   * natively must not be blocked by a conversion it never uses, and converting
-   * to a Windows trigger and back could only lose what the cron already said
-   * exactly.
-   *
-   * `time_zone: "UTC"` travels with it, in `patchTrigger`, always. Sending a
-   * schedule without one would leave a trigger created in Buenos Aires
-   * interpreting Cronsole's UTC cron as local time — a silent several-hour shift
-   * behind a 200.
-   */
-  async updateSchedule(
-    externalId: string,
-    cron: string,
-    config: any,
-    _options?: UpdateScheduleOptions
-  ): Promise<{ success: boolean; message?: string; clientError?: boolean }> {
-    const { apiKey } = readConfig(config);
-    if (!apiKey) return { success: false, message: 'No Gemini API key is stored for this connection.' };
-
-    const fields = cron.trim().split(/\s+/);
-    if (fields.length !== 5) {
-      // The request is wrong, not the platform — a `400`, not a `502`. Retrying
-      // the same expression cannot help.
-      return { success: false, clientError: true, message: `Not a 5-field cron expression: "${cron}"` };
-    }
-
-    const result = await patchTrigger(apiKey, externalId, { schedule: fields.join(' ') });
-    if (!result.ok) {
-      return {
-        success: false,
-        // Gemini's own 400 is about the expression the caller sent, so it is a
-        // client error too — the distinction the route uses to pick a status code.
-        ...(result.status === 400 ? { clientError: true } : {}),
-        message: result.message
-      };
-    }
-    return { success: true };
   }
 
   /**
@@ -472,6 +509,87 @@ export class GeminiTriggersConnector implements PlatformConnector {
 
     const result = await deleteTrigger(apiKey, externalId);
     return result.ok ? { success: true } : { success: false, message: result.message };
+  }
+
+  /**
+   * The runs Gemini itself performed for this trigger.
+   *
+   * **The first implementation of this verb in the repo, and the platform that
+   * makes the case for it.** Cronsole's `ExecutionLog` holds only runs Cronsole
+   * performed, which is right — but here almost every run is one the platform
+   * did on its own schedule, so the run history tab was correctly reporting
+   * *"no recorded runs"* over a trigger that had been working for a week. This
+   * reads the platform's own list instead, live, and the UI keeps the two apart.
+   *
+   * `outputAvailable` is gated on **both** an interaction id and a finished run:
+   * an execution in flight has no transcript worth opening, and offering the
+   * click anyway spends a request to render nothing.
+   */
+  async listPlatformRuns(externalId: string, config: any): Promise<PlatformRunsResult> {
+    const { apiKey } = readConfig(config);
+    if (!apiKey) return { success: false, message: 'No Gemini API key is stored for this connection.' };
+
+    const result = await listExecutions(apiKey, externalId);
+    if (!result.ok) return { success: false, message: result.message };
+
+    return {
+      success: true,
+      runs: result.data.map(run => ({
+        id: run.id,
+        status: run.status,
+        startedAt: run.startTime,
+        endedAt: run.endTime,
+        outputAvailable: Boolean(run.interactionId) && !isPendingStatus(run.status)
+      }))
+    };
+  }
+
+  /**
+   * What one run produced.
+   *
+   * **Two requests, and the first one is not redundant.** The output lives on an
+   * *interaction*, and the only place its id is published is the execution row —
+   * there is no `GET /triggers/{id}/executions/{runId}` (it 404s), so the list
+   * has to be re-read to resolve one run's id. Caching it on the task was the
+   * alternative and it is worse: a stored id is a claim about a resource this
+   * connector does not own, and the whole point of this path is that it reads
+   * the platform rather than Cronsole's memory of it.
+   *
+   * A run that exists but has no interaction is **not** an error — it is a run
+   * still in flight, or one that failed before producing anything, and both are
+   * facts worth stating in their own words.
+   */
+  async getRunOutput(
+    externalId: string,
+    runId: string,
+    config: any
+  ): Promise<PlatformRunOutputResult> {
+    const { apiKey } = readConfig(config);
+    if (!apiKey) return { success: false, message: 'No Gemini API key is stored for this connection.' };
+
+    const runs = await listExecutions(apiKey, externalId);
+    if (!runs.ok) return { success: false, message: runs.message };
+
+    const run = runs.data.find(r => r.id === runId);
+    if (!run) {
+      return {
+        success: false,
+        message:
+          'Gemini no longer lists that run. Its execution history is bounded, so a run can age out ' +
+          'of the list while the task it belongs to is perfectly healthy.'
+      };
+    }
+    if (!run.interactionId) {
+      return {
+        success: false,
+        message: isPendingStatus(run.status)
+          ? 'This run is still going. Its output exists once the agent finishes.'
+          : `Gemini recorded this run as "${run.status}" but attached no interaction to it, so there is nothing to read.`
+      };
+    }
+
+    const output = await getInteraction(apiKey, run.interactionId);
+    return output.ok ? { success: true, output: output.data } : { success: false, message: output.message };
   }
 
   /**

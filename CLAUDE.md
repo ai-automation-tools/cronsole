@@ -87,7 +87,13 @@ published agent (`agent/publish/`), and `mcp-server/dist/`. A fourth — `fronte
 the `proxy` profile is running, and it is the one with **no keeper**: `cronsole up` starts the proxy
 and never rebuilds it, so the proxied page can be a complete, working dashboard from another day
 while `:7373` is current (`node scripts/check-dist-fresh.mjs`, which omits itself when the proxy is
-down). Run **`/doctor`** before debugging your own code.
+down). **The fifth is the database schema**, and it is the one the repo cannot see at all: an
+unapplied migration makes a whole feature 500 with a bare *"Internal server error"* on **every** route
+including reads, while `schema.prisma`, the generated client and the whole test suite hold the new
+value — only the DB does not, so nothing reddens
+(`node scripts/check-migrations-applied.mjs`,
+[#81](docs/troubleshooting/README.md#81-a-brand-new-source-returns-internal-server-error-the-moment-you-open-it)).
+Run **`/doctor`** before debugging your own code.
 
 ---
 
@@ -200,9 +206,29 @@ Non-negotiable rules. **Every one has a reason recorded in
   sandbox, on the platform's own execution list), which is exactly what GitHub's and Vercel's refused `run`
   is *not*, so the three together are the argument that a verb is judged by what it does rather than by
   whether an endpoint exists. `updateAction` is absent rather than declared unsupported: editing a
-  trigger's prompt is *not yet*, not *cannot*. **The tracked set is declared and constant** (`['Gemini']`)
+  trigger's prompt is *not yet*, not *cannot*. **`updateSchedule` is absent for the opposite reason,
+  and it was found by driving the API rather than by reading it**: `PATCH …/{id}` is the documented
+  update endpoint, it takes `status` and `display_name`, and it answers `400 Unknown parameter
+  'schedule'` — no `PUT`, no field mask — so a trigger's *when* is fixed at create time on `v1beta`.
+  An **optional** verb's boundary is stated by absence (GitHub's rule in reverse: it names only the
+  *mandated* verbs it refuses), which is why the empty `unsupportedVerbs` above still holds.
+  Declaring it bought exactly one thing: a `declared` cell that could only ever fail, handing Google's
+  word `schedule` back to a user who never typed it. **And `interaction.input` is written as a string
+  but read back as a structured array**, so reading only the write spelling dropped the prompt from
+  every synced trigger — including one Cronsole had just created *with* that prompt
+  ([#82](docs/troubleshooting/README.md#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)).
+  **The tracked set is declared and constant** (`['Gemini']`)
   because an API key is scoped to one Google Cloud project and sees a flat list — there is nothing to
-  name, so `extractCategory` returns a constant for the reason Claude's does. It **reports run outcomes**,
+  name, so `extractCategory` returns a constant for the reason Claude's does.
+  **Its run evidence is read in the platform's own vocabulary, checked against the wire
+  rather than the docs** — the executions array is `trigger_executions` (not `executions`, though the
+  sibling `GET /triggers` really is `triggers`), the success word is `completed` (the docs say
+  `succeeded`), and in-flight is `in_progress`. `isSuccessStatus` / `isPendingStatus` are one
+  definition shared by the connector and `taskHealth`. The first bug hid the second — an always-empty
+  list meant the wrong success word could never fire, so a partial fix would have flipped every
+  healthy trigger to `critical`
+  ([#83](docs/troubleshooting/README.md#83-a-gemini-trigger-runs-fine-cronsole-shows-no-run-history--then-calls-a-good-run-a-failure)).
+  It **reports run outcomes**,
   so it gets a real `scoreTask` arm plus one signal no observer can produce: a trigger the *platform*
   paused after `max_consecutive_failures`, which is GitHub's silent auto-disable with the count published.
   And it is the one platform that **stores a zone itself** — `{ schedule, time_zone }` against a 5-field
@@ -315,6 +341,13 @@ Non-negotiable rules. **Every one has a reason recorded in
   referenced-but-unset secret is a **run-time** refusal (`ran: false`), never a create-time one:
   import, restore and template-apply all legitimately produce one, so every write reports
   `missingSecrets`. Save-as-template refuses a secret-bearing job outright.
+- **A dispatch timeout is not a failed dispatch — answer it with evidence.** Gemini's
+  `POST /executions` holds the connection while the agent works, past every sane client timeout, so
+  a manual run of a healthy task was reported *"Run now failed"*, written to `ExecutionLog` as a
+  FAILURE and put on the dashboard banner while the platform's own history showed it completing.
+  Raising the timeout is the wrong fix (the ceiling is the agent's whole runtime); on a **transport**
+  timeout only, re-read the platform and look for a run started since the request. The check must be
+  able to say no, or it is just a way of never reporting a failure.
 - **`runTask` returns `ran` alongside `success`.** A job that ran and failed is a `200` with
   `success: false`; only "could not start" is a `502`
   ([#59](docs/troubleshooting/README.md#59-a-check-that-correctly-finds-a-problem-is-reported-as-could-not-run-the-check)).
@@ -406,8 +439,13 @@ Non-negotiable rules. **Every one has a reason recorded in
 - **A count beside a control describes the population that control governs** —
   `applyTaskFiltersExcept`, with the hidden count derived, not counted separately.
 - **A judgement has one definition and it is the server's** — `isSystem`, health tier, task source
-  (`services/taskSource.ts`), creatability (`usePlatformCreatability`, three answers incl.
-  `unknown`). Re-deriving one in the browser is the [#20a](docs/troubleshooting/README.md) shape.
+  (`services/taskSource.ts`), creatability and **deletability** (`usePlatformCreatability` /
+  `usePlatformDeletability` over one `verbSupport`, three answers incl. `unknown`). Re-deriving one
+  in the browser is the [#20a](docs/troubleshooting/README.md) shape, and it cuts both ways: the
+  Delete button's hardcoded `{native, Windows}` pair meant a connector that *could* delete had **no
+  delete control**, so the only removal on screen left the task running on its platform. A
+  capability-gated control reads `unknown` as *show it* — hiding a destructive button because a
+  request has not landed is worse than one the route refuses with a sentence.
 - **A status readout may not change its own geometry** (masking hides colour, not layout —
   [#43](docs/troubleshooting/README.md#43-a-visual-regression-baseline-fails-on-one-pixel-or-on-a-layout-that-moved-by-itself)).
 - **In-app help summarises a doc and links to it**; `HelpTopic.doc` is required and every link is
@@ -438,6 +476,17 @@ Non-negotiable rules. **Every one has a reason recorded in
   firing on its own schedule writes nothing, and a manual Windows `SUCCESS` means "the agent accepted
   the start". Windows outcomes live in `lastTaskResult`. `runKind` is derived at read time, only on
   `/api/tools/history`.
+- **A platform's own run history is a *live read*, never a second writer of `ExecutionLog`.**
+  `PlatformConnector.listPlatformRuns` / `getRunOutput` (both optional, both `unsupported` by
+  absence, `GET /api/tasks/:id/platform-runs[/:runId/output]`) exist because the rule above leaves a
+  real hole: on a source that runs work by itself, the tab correctly said *"no recorded runs"* over a
+  week of them. The two populations **render as two groups and are never summed** — folding one into
+  the other would turn a table meaning "Cronsole did this" into one meaning nothing. Nothing is
+  stored, so the platform half can fail alone and must say so rather than showing a short list as a
+  complete one. **Output is fetched per opened run, never per list** (~90KB a transcript), and its
+  refusals carry a reason: "still running", "produced nothing" and "aged out of the list" are three
+  different facts. **The step list is part of the answer, not decoration** — an agent asked to email
+  a report finishes `completed` having only called `write_file`, and no status can show that.
 - **Absence of evidence is `unknown`, never `ok`**, and a claim never travels without its source.
   Disabled is not unhealthy. Never mix populations in one summary.
 - **A diagnostic reports; it does not repair** — three of four agent-health incidents were the readout

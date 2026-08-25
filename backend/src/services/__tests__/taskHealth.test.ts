@@ -59,6 +59,20 @@ const githubTask = (metadata: Record<string, unknown>, overrides: Partial<Health
   ...overrides
 });
 
+const geminiTask = (metadata: Record<string, unknown>): HealthInputTask => ({
+  id: 'gem1',
+  name: 'Daily digest',
+  externalId: 'a86122f2-753f-4093-883e-b0413ada3172',
+  platform: PlatformType.GEMINI_TRIGGERS,
+  category: 'Gemini',
+  status: TaskStatus.ACTIVE,
+  schedule: '0 15 * * *',
+  nextRunTime: null,
+  updatedAt: hoursAgo(1),
+  metadata: { reportsRunResult: true, executionCount: 3, lastRunTime: hoursAgo(2).toISOString(), ...metadata },
+  executions: []
+});
+
 const run = (status: ExecutionStatus, hours: number, durationMs: number | null = 1000) => ({
   status,
   triggeredAt: hoursAgo(hours),
@@ -500,5 +514,36 @@ describe('summarizeHealth', () => {
       scoreTask(windowsTask({}, { metadata: {} }), NOW)
     ];
     expect(summarizeHealth(results)).toEqual({ tasks: 4, critical: 1, attention: 1, unknown: 1, ok: 1 });
+  });
+});
+
+describe('Gemini run outcomes use the platform vocabulary', () => {
+  // The API says `completed`; the docs say `succeeded`. Scoring only the second
+  // called every healthy trigger CRITICAL and printed *"the most recent run
+  // ended as completed"* — a sentence that reads as a bug in Cronsole
+  // rather than a claim about the task (#83).
+  it('treats the API own success word as a success', () => {
+    expect(codes(scoreTask(geminiTask({ lastStatus: 'completed' }), NOW))).not.toContain('recent-failure');
+  });
+
+  it('treats the documented success word as a success too', () => {
+    expect(codes(scoreTask(geminiTask({ lastStatus: 'succeeded' }), NOW))).not.toContain('recent-failure');
+  });
+
+  it('still reports a real failure', () => {
+    expect(codes(scoreTask(geminiTask({ lastStatus: 'failed' }), NOW))).toContain('recent-failure');
+  });
+
+  it('does not score a run that is still going', () => {
+    // An unfinished run is not an outcome. Reading `in_progress` as a failure is
+    // the same mistake one word over, and it would fire on every manual run for
+    // as long as the agent is working.
+    const health = scoreTask(geminiTask({ lastStatus: 'in_progress' }), NOW);
+    expect(codes(health)).not.toContain('recent-failure');
+    expect(codes(health)).not.toContain('run-terminated');
+  });
+
+  it('keeps cancelled as a choice rather than breakage', () => {
+    expect(codes(scoreTask(geminiTask({ lastStatus: 'cancelled' }), NOW))).toContain('run-terminated');
   });
 });

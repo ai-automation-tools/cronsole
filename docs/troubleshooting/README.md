@@ -5465,6 +5465,176 @@ node scripts/check-doc-links.mjs && node scripts/check-tracked-env.mjs
 
 ---
 
+## 81. A brand-new source returns "Internal server error" the moment you open it
+
+**Symptom.** Gemini API Triggers had just shipped. Adding the source and pasting a key answered
+*Internal server error*, and so did the Sources card behind it. The key was fine, the backend was
+running the current code, every test was green, and the same build worked for every other platform.
+
+**Cause.** `prisma migrate deploy` had never been run against the running database. The migration
+adding `GEMINI_TRIGGERS` to the `PlatformType` enum was committed with the connector and applied to
+nothing, so the *first* query naming that value — `PlatformConnection.findFirst({ platform:
+GEMINI_TRIGGERS })`, which every Gemini route begins with — failed in Postgres with `invalid input
+value for enum "PlatformType"`. Prisma raises that as an unhandled error, and the error handler
+turns an unhandled error into a 500.
+
+**Why it reads as a code bug.** Nothing in the repo can see it. The schema has the value, the
+generated Prisma client has the value, the TypeScript compiles, and the tests stub the client — so
+the only place the enum is *missing* is the one place no check looks. And because the failure lands
+on the very first query, it takes out the read routes too: the panel 500s before it can tell you a
+key was ever stored, which points the finger at the credential you just pasted.
+
+**Fix.**
+
+```bash
+cd backend && npx prisma migrate deploy
+```
+
+**How to recognize it in general.** A platform, status, or job **type** added in the same change as
+a migration, failing on *every* route including the read ones, with a 500 rather than a message. If
+a feature is broken uniformly and instantly and the code is current, ask what the database knows
+before reading the code again. `psql` answers it in one line:
+
+```sql
+select enumlabel from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'PlatformType';
+```
+
+> [!TIP]
+> **A pending migration is silent, and it looks exactly like a bug in the code you just wrote.**
+> Every other stale-thing in this repo has a keeper — `/doctor` checks the Dockerized backend, the
+> published agent, `mcp-server/dist/` and the proxied bundle. The database schema had none, and it
+> is the one whose failure surfaces as a generic 500 with no clue in it.
+
+*First hit: 2026-08-25.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 82. A Gemini trigger loses its prompt on the first sync, and Edit schedule fails with Google's word
+
+**Symptom.** Two things, found in the same smoke test of a freshly connected Gemini source.
+
+1. Create a trigger from Cronsole and the task shows its prompt. Sync once — the ordinary 45-second
+   dashboard sync is enough — and the prompt is **gone**, from a task Cronsole itself had just
+   written with that prompt. Nothing errors and the task is otherwise perfect.
+2. *Edit schedule* on any Gemini task answers **400 `Gemini rejected the request (400): Unknown
+   parameter 'schedule'`** — Google's word, handed back to a user who never typed it — with a
+   warning attached about a *Windows* trigger being replaced by an hourly one.
+
+**Cause 1 — the API writes a string and reads back a tree.** `POST /v1beta/triggers` accepts
+`interaction.input: "Summarise yesterday"`. `GET` returns that same trigger as:
+
+```json
+"input": [{ "type": "user_input", "content": [{ "type": "text", "text": "Summarise yesterday" }] }]
+```
+
+`toTrigger` read it with the string helper, got `null`, and `syncTasks` omits `metadata.prompt` when
+the input is null — so the prompt was dropped on every read while looking like a display bug. The
+module's own header already warned about exactly this ("reading one spelling and silently getting
+`null` for the other"), one field over.
+
+**Cause 2 — `PATCH` does less than its name.** The endpoint is real and documented as the update
+verb, and it takes `status` and `display_name`. It rejects `schedule` outright, in every spelling,
+with and without a field mask; there is no `PUT`. So **a trigger's schedule is fixed at create time
+on `v1beta`**, and `updateSchedule` was a `declared` cell on the matrix that could only ever fail.
+The connector now omits the method, so the boundary is stated by absence like every other optional
+verb, and the refusal is Cronsole's own sentence.
+
+**Cause 2b — the Windows warning rode along.** `PATCH /tasks/:id/schedule` attached
+`convertCronToWindowsTrigger(...).warnings` to *every* platform's 400. On a Gemini refusal that
+printed a paragraph about the expression being *"REPLACED with a fixed hourly trigger"* — a claim
+about a platform not in the request, beside a refusal that had nothing to do with cron fidelity.
+The warnings now travel only to the platform that consumes that trigger.
+
+**Fix.** `readInput` in `services/geminiApi.ts` reads both shapes; `updateSchedule` and the
+`schedule` field of `patchTrigger` are gone; the warnings are gated on
+`WINDOWS_TASK_SCHEDULER`. The shared refusal messages lost the word *"yet"* at the same time — three
+shipped connectors have no `updateSchedule` and never will, so *"not supported for X yet"* was a
+promise none of them can keep.
+
+**How to recognize it in general.** A field that is **fine at create time and empty after the first
+sync** is a read-shape bug, not a write bug — the create knows the value locally and never has to
+parse it back. And a verb whose only failure message is the platform's own vocabulary is a verb that
+should not have been declared: an endpoint existing is not the same as the endpoint doing what the
+verb says, which is the rule GitHub's and Vercel's refused `run` already established.
+
+> [!TIP]
+> **Neither of these could be caught by reading the docs, and neither could be caught by the suite.**
+> The tests stub the HTTP client, so they assert Cronsole's belief about the API's shape against
+> itself. The only thing that found both was creating one real trigger and reading it back. Do that
+> once per connector before believing the matrix.
+
+*First hit: 2026-08-25.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 83. A Gemini trigger runs fine, Cronsole shows no run history — then calls a good run a failure
+
+**Symptom.** A trigger that has been running for days shows **no run history at all**, on a source
+whose own descriptor claims it reports run outcomes. `metadata.reportsRunResult` is `true`,
+`executionCount` is absent, health is `UNKNOWN`, and every trigger in the project looks brand new.
+Fix that and a second symptom appears immediately: every **successful** run scores `critical`, with
+*"The most recent run ended as `completed`"* — a sentence that reads as a bug report about Cronsole.
+
+**Cause 1 — the array is named after the resource, not the path.** `GET /v1beta/triggers/{id}/executions`
+answers:
+
+```json
+{ "trigger_executions": [ { "id": "…", "status": "completed", "interaction_id": "…" } ] }
+```
+
+`listExecutions` read `body.executions`, got `undefined`, and fell back to `[]`. **`[]` is not an
+error here** — it is the platform's own way of saying *"this trigger has never run"*, and the
+connector faithfully carried that non-answer forward as evidence. The sibling endpoint makes it
+worse by being consistent the *other* way: `GET /v1beta/triggers` really does answer
+`{ "triggers": [...] }`, so the obvious key is correct one call over.
+
+**Cause 2 — the documented success word is not the one the API returns.** Google's docs say
+`succeeded`; the API says `completed`. `scoreTask` treated any finished status that was not
+`succeeded` as a **critical** run failure, so fixing cause 1 alone would have flipped every healthy
+trigger to broken. `in_progress` had the same problem from the other end: it is not `running` or
+`pending`, so an unfinished run counted as the newest finished outcome and scored as a failure that
+had not happened.
+
+**The two hid each other, and that is the part worth remembering.** Cause 1 kept `lastStatus` unset,
+so cause 2 could never fire. A partial fix would have been worse than no fix: run history would have
+appeared, and every task on the source would have gone red the same minute.
+
+**Fix.** `listExecutions` reads `trigger_executions` (with `triggerExecutions` and `executions`
+tolerated). The status vocabulary has one definition — `isSuccessStatus` / `isPendingStatus` in
+`services/geminiApi.ts` — shared by the connector and `taskHealth.ts`, because a second copy is how
+a scorer and a connector end up disagreeing about a run neither can see twice.
+
+**How to recognize it in general.**
+
+- **A response key is a guess until something has read a real one.** Both bugs are the same shape as
+  [#82](#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)'s
+  prompt loss, found the same afternoon on the same connector: a field written one way and read back
+  another. Three in one integration is not bad luck, it is what stubbed tests cannot see.
+- **An empty list is the most dangerous successful response there is.** It renders identically to
+  the truth, needs no error handling, and is *correct* often enough to look normal. Whenever `[]` is
+  a legal answer, ask what would produce it wrongly.
+- **Check a vocabulary against the wire, not the docs.** A status string is an API's most
+  copy-pasted, least-verified surface, and a preview API will disagree with its own documentation.
+
+> [!TIP]
+> **The test suite could not have caught any of this, and its green run is what made it look
+> impossible.** The connector tests stub the HTTP client, so they assert Cronsole's *belief* about
+> the API's shape against itself — a belief that was wrong three times in the same module still
+> produced 38 passing tests. What found it was creating one real trigger, running it, and reading
+> the response by hand. **Do that once per connector before trusting its matrix row**, and keep the
+> pure helpers real when mocking a module: `vi.mock` with `importOriginal` so a vocabulary predicate
+> cannot be stubbed into agreeing with itself.
+
+*First hit: 2026-08-25.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
 <p align="center">
   <a href="../README.md">Docs Home</a> ·
   <a href="../setup/README.md">Setup</a> ·

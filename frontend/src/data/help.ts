@@ -536,8 +536,8 @@ const sourceGemini: HelpTopic = {
     {
       label: 'Gemini stores a time zone; Cronsole stores UTC',
       body:
-        'A trigger carries a cron and an IANA zone. Anything Cronsole creates or reschedules is ' +
-        'written as UTC, so the round trip is exact. A trigger made elsewhere in a real zone is ' +
+        'A trigger carries a cron and an IANA zone. Anything Cronsole creates is written as UTC, ' +
+        'so the round trip is exact. A trigger made elsewhere in a real zone is ' +
         'converted on the way in, with the platform\'s original pair shown beside it — and where ' +
         'the conversion has no honest answer, the schedule reads as unavailable with the reason, ' +
         'never as a guess.'
@@ -558,10 +558,29 @@ const sourceGemini: HelpTopic = {
         'for you. Add domains in Google AI Studio.'
     },
     {
-      label: 'Editing the prompt happens in Google AI Studio',
+      label: 'Run History has two lists, and the platform one is where the runs are',
       body:
-        'Edit action reads Unsupported for this source. Everything else — run, pause, reschedule, ' +
-        'create, delete — works from Cronsole.'
+        'Runs Cronsole performed are usually just your own Run now clicks. Below them, Runs on the ' +
+        'platform is read live from Gemini and includes every scheduled run Cronsole never ' +
+        'triggered. Click one for the output, what it cost, and what it actually did — the ' +
+        'tools it used, in order. Read that list: a run can finish cleanly having skipped the part ' +
+        'you wanted, because its sandbox could not do it.'
+    },
+    {
+      label: 'There is no Google web page for these triggers',
+      body:
+        'Gemini API Triggers are managed entirely through the API — Google documents no ' +
+        'console or dashboard for them, and the Gemini app’s scheduled actions are a ' +
+        'different product with no API at all. This dashboard is where you see them.'
+    },
+    {
+      label: 'A trigger is fixed once it exists — schedule and prompt both',
+      body:
+        'Edit schedule and Edit action both read Unsupported here, and that is the preview API\'s ' +
+        'boundary rather than a missing feature: its update endpoint takes a trigger\'s status and ' +
+        'display name and rejects the schedule outright. Change either in Google AI Studio, or ' +
+        'delete and recreate — a new trigger gets a new id, so Cronsole files it as a new task. ' +
+        'Run, pause, resume, create and delete all work from here.'
     }
   ],
   doc: { label: 'Sources Guide › Gemini API Triggers', url: sourcesGuide('gemini-api-triggers') }

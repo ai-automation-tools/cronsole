@@ -57,6 +57,39 @@ export interface ExecutionLogEntry {
   platformRunId?: string | null;
 }
 
+/**
+ * One run the **platform** performed, read live from it.
+ *
+ * Not an `ExecutionLogEntry`, and the two are never merged in the UI:
+ * `ExecutionLogEntry` is a row Cronsole wrote about something Cronsole did,
+ * while this is the platform's own record of a run that simply happened. A task
+ * can legitimately have a week of these and zero of those.
+ */
+export interface PlatformRun {
+  id: string;
+  /** The platform's own word — `completed`, `failed`, `in_progress`, … */
+  status: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  /** Whether there is a transcript to fetch. False while a run is still going. */
+  outputAvailable: boolean;
+}
+
+/** What one platform run produced. */
+export interface PlatformRunOutput {
+  text: string | null;
+  /** The tools the run reached for, in order — what it actually did. */
+  steps: string[];
+  totalTokens: number | null;
+}
+
+/** `available: false` carries a reason, because "why not" is the useful half. */
+export interface PlatformRunOutputResponse {
+  available: boolean;
+  output?: PlatformRunOutput;
+  reason?: string;
+}
+
 export interface TemplateParameter {
   key: string;
   label: string;

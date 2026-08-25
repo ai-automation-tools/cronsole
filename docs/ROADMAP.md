@@ -54,6 +54,12 @@ the field. Both fixed;
 API had appeared four weeks earlier, which is the argument for re-checking the quick-links list
 before every sources pass rather than once.
 
+**Three items were added 2026-08-25** from the first real session against live Gemini data —
+[in-app failure logs](#in-app-logging), [agent extensibility on Gemini](#gemini-agent-extensibility),
+and [a Sync that missed a new task in an already-tracked folder](#sync-missed-a-new-task). The
+third is a **defect with evidence and no cause yet**; the same session shipped five fixes and two
+features on that connector, all of which were found by driving the live API rather than by any test.
+
 **The largest open item is now the POSIX agent.** *(The light theme and the `env` editor — the
 whole 2026-08-15 request block — both shipped 2026-08-24; the theme pass carved out one follow-up,
 `--border` needing a second token to meet WCAG 1.4.11.)* *(Per-job encrypted
@@ -70,6 +76,129 @@ types — neither is scheduled.)*
 
 The short list. Everything here is small, known, and was found by hand rather than reported —
 which is why it sits first, not because it outranks the larger work below.
+
+<a id="requested-2026-08-25"></a>
+
+### 🔴 Requested 2026-08-25 — logs, agent extensibility, and a sync that missed one
+
+Three items from the first real session with Gemini API Triggers on live data. The first two are
+features; the third is a **defect with evidence and no cause yet**, written down before the shape
+of it is lost.
+
+<a id="in-app-logging"></a>
+
+#### 1. In-app logging — see the error output behind any source's task failure
+
+**The ask:** when a task fails on *any* source, show what it actually said. Today the answer
+depends entirely on which source it was, and none of the paths are in the app:
+
+| Source | Where the failure detail lives today |
+|:---|:---|
+| Cronsole-native | `ExecutionLog.log` — **already in the app**, on the Run History tab |
+| Windows | `lastTaskResult`, an exit code and nothing else. The real output is in Event Viewer |
+| Gemini | The interaction transcript, **now** reachable (shipped 2026-08-25) but only there |
+| GitHub Actions | The workflow run's logs, on github.com |
+| Vercel | Nothing — no cron run history is published at all |
+
+So this is not one feature, it is a **per-connector capability** and it should be built the way
+run history just was: an optional connector method, `unsupported` by absence, with the UI
+rendering nothing rather than an apology where a source cannot answer. `getRunOutput` is already
+that shape and is the natural place for it to live — a failed run's error output *is* what the run
+produced.
+
+**The rules it has to keep**, all of which already exist and all of which this is a chance to
+break:
+
+- **A source that cannot report failure output must say so, not show an empty box.** "This run
+  logged nothing" and "this platform never publishes logs" are different facts. Vercel is the
+  permanent case.
+- **Absence of evidence is `unknown`, never `ok`** — a failure with no retrievable detail is still
+  a failure, and the panel must not imply the run was fine because the log is empty.
+- **Never merge populations.** Cronsole's own `ExecutionLog` and a platform's log are two sources,
+  the way run history is two groups.
+- **Redaction is not optional.** `executeJob` already redacts `${secret.NAME}` values out of the
+  native log at the one point every job type funnels through; anything that surfaces a *platform's*
+  log has no such chokepoint, and a Windows task's stderr or an agent transcript can contain
+  whatever the user's script printed. Decide the redaction story before the render, not after.
+
+**Open question:** does this need a store at all? Run history proved that a live read per opened
+run is enough and avoids a second copy of somebody else's data going stale. Failure output is
+probably the same — except that a platform's log retention is finite, which is the one argument
+for capturing it at sync time. Do not build the store until a real retention window bites.
+
+<a id="gemini-agent-extensibility"></a>
+
+#### 2. How to give a Gemini trigger MCP servers, skills, and tools
+
+**The ask:** the trigger Cronsole creates runs a bare managed agent. How does a user give it more —
+MCP servers, skills, a network allowlist, credentials?
+
+This one starts as **research, not implementation**, because two of the four rules Cronsole already
+holds point in opposite directions here:
+
+- **Cronsole creates the plainest environment the API accepts and never guesses one.** Gemini lets
+  a trigger declare a network allowlist *including domains carrying credentials in a header* —
+  widening what an autonomous agent may reach is explicitly not a default a task manager gets to
+  pick on someone's behalf. That is why `repositoryUrls` is never defaulted for Claude either.
+- **But a scheduled agent that can reach nothing is often the wrong tool for the job**, which the
+  2026-08-25 session demonstrated concretely: a trigger asked to email a report finished
+  `completed` having only written a file to an ephemeral sandbox, because there was no mailer and
+  no outbound path. The agent narrated the limitation; nothing in Cronsole did.
+
+So the first deliverable is **finding out what the API actually supports** — whether the
+Interactions/Managed Agents preview accepts MCP server declarations, tool definitions or skill
+bundles on a trigger's `interaction`, and what the credential story is. Drive the API; the docs
+have already been wrong three times on this connector (troubleshooting #82, #83).
+
+**If it is supported**, the product question is the harder half: this would be the first place
+Cronsole hands an autonomous agent *reach* rather than a schedule. Likely shape — explicit,
+per-trigger, never inherited, never defaulted, and stated on the task where anyone can see it.
+
+**If it is not supported**, that is a finished answer and belongs in the Sources Guide beside the
+network-allowlist note: configure the agent in Google AI Studio, and Cronsole schedules it.
+
+<a id="sync-missed-a-new-task"></a>
+
+#### 3. 🐞 A regular Sync did not pick up a new task in an already-tracked folder
+
+**Reported 2026-08-25.** A new Windows task appeared in `\AI-Maintenance\` — a folder Cronsole
+already tracks — and pressing **Sync** did not bring it in. **Add tasks from this machine** (the
+discovery modal) did, immediately.
+
+**This contradicts a documented invariant**, which is why it is written down rather than shrugged
+off: *"A refresh still creates rows for new tasks inside folders already tracked; what it cannot do
+is adopt a new folder."* If that holds, Sync should have created this row.
+
+**What was verified** (2026-08-25, after the fact):
+
+- Task: `\AI-Maintenance\Start Gods-Eye-View (logon)`, category `AI-Maintenance`.
+- The folder was already tracked — **12 rows** in it before this one.
+- **No `TaskExclusion`** exists for it, so a prior untrack is not the explanation.
+- It is **logon-triggered, so `schedule` is `null`** — it has no cron form at all.
+
+**The strongest hypothesis, and it is only that:** something on the create path filters a task with
+no cron. Note the counter-evidence before chasing it — the dashboard is full of schedule-less
+Windows tasks (`Tpm-PreAttestationHealthCheck` and friends read "No cron schedule"), so a blanket
+filter cannot be right. The difference may be *newly seen* versus *already stored*.
+
+**Other candidates worth eliminating in order:**
+
+1. The Sync button's request shape. `{ scope: 'tracked' }` and `{ categories }` are deliberately
+   different requests — the second clears exclusions inside those folders, the first must never —
+   and the include-set they produce is where a new task could fall out.
+2. `TaskService.trackedCategories` reads **stored rows** for Windows. That is correct there (rows
+   are the only trace of a folder you picked), but it means the include-set is built from what is
+   already known, and a new *task* in a known folder must survive that filter.
+3. Agent enumeration bounds (#74) — unlikely for a user folder, but the agent's view is bounded by
+   its token, and a narrowed view is exactly what #74 exists to make visible.
+
+**Why it matters more than one missed row:** the discovery modal is a *different gesture* from
+Sync, and a user who does not know that has a dashboard quietly missing tasks with no indication
+anything was skipped. That is the same failure class as #75 — Sync reporting success over nothing —
+which cost this repo an afternoon and produced the `notes` / `warnings` fields on `SyncOutcome`
+precisely so a sync could say what it looked at. Whatever the cause turns out to be, **the fix has
+to include the sync saying it**, not only creating the row.
+
 
 <a id="sources-onboarding"></a>
 

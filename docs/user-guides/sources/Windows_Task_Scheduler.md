@@ -35,7 +35,7 @@ There is nothing to paste. Windows connects when the agent dials in, which is wh
 > folders — `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\` and a
 > dozen more. On a real machine that is around 86 of 371 tasks, invisible with nothing erroring.
 > Cronsole will not retire tasks it cannot see, so nothing breaks — but you are looking at a smaller
-> machine than you have. `\Cronsole-Stack\CronsoleAgent` registers it at `RunLevel: Highest`.
+> machine than you have. `\Cronsole-Stack\CronsoleStack` starts it at `RunLevel: Highest`.
 
 ## 📥 Getting your tasks in
 

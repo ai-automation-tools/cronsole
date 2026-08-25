@@ -9,7 +9,7 @@
     launcher passes run-hidden.vbs and the target script, both fully qualified:
 
       wscript.exe "<repo>\scripts\startup-task\run-hidden.vbs"
-                  "<repo>\scripts\startup-task\Start-Cronsole.ps1"
+                  "<repo>\scripts\cronsole.ps1" up
 
     So renaming the folder without repointing them breaks logon start, and it
     breaks it SILENTLY: wscript.exe launching a missing .ps1 opens no window and
@@ -82,7 +82,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $TaskPath  = '\Cronsole-Stack\'
-$TaskNames = @('CronsoleAgent', 'CronsoleRepublish', 'CronsoleStack')
+$TaskNames = @('CronsoleRepublish', 'CronsoleRestart', 'CronsoleStack')
 
 function Test-Elevated {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -170,7 +170,10 @@ $down = Join-Path $OldRoot 'scripts\cronsole.ps1'
 if (Test-Path $down) {
     & pwsh -NoProfile -File $down down 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
 }
-Stop-ScheduledTask -TaskPath $TaskPath -TaskName 'CronsoleAgent' -ErrorAction SilentlyContinue
+# No Stop-ScheduledTask here on purpose. Every task in this folder launches through
+# run-hidden.vbs, which is fire-and-forget, so the task instance is gone within a
+# second while the processes it started run on independently. Stopping the task stops
+# nothing; the Stop-Process below is what actually releases the handles.
 
 # Stop the agent under BOTH names. An agent that started before the 2026-07-31 exe
 # rename is still called TaskHub.Agent, holds the same handles inside agent\publish,

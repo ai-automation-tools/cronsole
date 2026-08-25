@@ -106,7 +106,7 @@ the suite; the count that *does* obligate something is the MCP tool census, and 
 > the **live** stack, and `tests/e2e/helpers/mockAgent.ts` authenticates with the same pairing
 > secret — so it registers as the same user, and `AgentManager` holds **one socket per user**. The
 > mock evicts the real agent, then unregisters on exit, leaving none; the real agent cannot observe
-> that it was displaced, so it never reconnects. **Restart `\Cronsole-Stack\CronsoleAgent` after
+> that it was displaced, so it never reconnects. **Restart the stack (`Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'`) after
 > every E2E run**, then Sync. The tell is `grep "Agent connected" logs/backend.out.log | tail -1`
 > naming `e2e-agent-<ts>` instead of your machine.
 > ([#5a](../../../docs/troubleshooting/README.md#5a-and-the-transient-agent-is-the-e2e-suite))

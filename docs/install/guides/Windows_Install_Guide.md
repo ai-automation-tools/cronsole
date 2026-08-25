@@ -48,16 +48,36 @@ cd agent
 Set-ExecutionPolicy Bypass -Scope Process -Force; .\setup-agent-startup.ps1
 ```
 
-This compiles the agent headlessly (Release, `win-x64`), registers it under the
-`\Cronsole-Stack\` Task Scheduler folder to launch on logon, and starts it. Full details,
-verification steps, and troubleshooting are in the
+This compiles the agent headlessly (Release, `win-x64`) and starts the stack, agent included.
+Full details, verification steps, and troubleshooting are in the
 [**🤖 Windows Agent Setup Guide**](../../user-guides/guides/Agent_Setup_Guide.md).
 
-## 3. (Optional) Auto-start the whole stack at logon
+> [!NOTE]
+> **The agent is not its own scheduled task** (changed 2026-08-25). It is started by
+> `\Cronsole-Stack\CronsoleStack`, which runs `cronsole.ps1 up` at logon and every 5 minutes — so
+> starting the agent is one of the things that task does, and step 3 is what registers it. Until
+> you do step 3, nothing starts the agent at logon.
 
-To have Docker, the backend, the frontend, *and* the agent come up automatically when you
-sign in — not just the agent — use the
-[**🔧 logon launcher**](../../../scripts/startup-task/README.md).
+## 3. Auto-start the stack at logon
+
+This registers `\Cronsole-Stack\CronsoleStack`, which brings up Docker, Postgres, Redis, the
+backend, the frontend **and the agent** at logon, then re-checks every 5 minutes and restarts
+whatever died. From an **Administrator** PowerShell, once:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\startup-task\Register-CronsoleStack.ps1
+```
+
+Two on-demand companions are worth registering at the same time — both run elevated, so
+afterwards you can rebuild or restart the stack from an ordinary prompt with no UAC prompt:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\startup-task\Register-RepublishTask.ps1
+powershell -ExecutionPolicy Bypass -File scripts\startup-task\Register-RestartTask.ps1
+```
+
+Details, the security trade behind those two, and how to verify are in the
+[**🔧 launcher tasks guide**](../../../scripts/startup-task/README.md).
 
 ## 4. Verify
 

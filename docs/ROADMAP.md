@@ -998,6 +998,12 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 
 ### Shipped 2026-08-25 — logs, extensibility, and one investigation
 
+#### 🟢 Launcher tasks audited — one removed, one added *(2026-08-25)*
+
+A read-through of the three `\Cronsole-Stack\` scheduled tasks, prompted by a plain *"are these still relevant?"*. Two were fine. The third, **`CronsoleAgent`**, was doing something different from what its name, its description and two docs all said — and the agent-restart gesture those docs prescribed was **a no-op that reported success**, verified by running it (same pid before and after both halves).
+
+Removed it; moved its one unique job (starting the Docker engine) into `cronsole.ps1 up`, which is the thing that runs every 5 minutes rather than only at logon; and added **`CronsoleRestart`**, an on-demand elevated `cronsole.ps1 restart`. Net one fewer task, a Docker engine that now self-heals, and a restart path that exists. Verified end to end: the old gesture left the agent on pid `40700` through both halves, the new task moved it to `6428`, and the restarted agent enumerates **375** tasks against **289** from an unelevated shell — so the #74 case it was always supposed to fix now actually is fixed. Root cause was **two registrars owning one task name** with incompatible actions; the standing rule is one owner per task name, and read a task's *action* rather than its description. ([#86](troubleshooting/README.md#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing), [startup-task README](../scripts/startup-task/README.md))
+
 #### 🟢 Requested 2026-08-25 — logs shipped, extensibility researched, one sync investigated
 
 Three items from the first real session with Gemini API Triggers on live data, **all three closed

@@ -5,11 +5,14 @@ import {
   TaskInfo,
   ConnectorHealth,
   CapabilityVerb,
-  SyncOutcome
+  SyncOutcome,
+  PlatformRunsResult,
+  PlatformRunOutputResult
 } from './platform.interface.js';
 import {
   listWorkflows,
   listWorkflowRuns,
+  listRunJobs,
   workflowSchedules,
   type GitHubRun,
   type GitHubWorkflow
@@ -17,7 +20,9 @@ import {
 import {
   readConfig,
   repoFullName,
+  repositoryFromExternalId,
   workflowExternalId,
+  WORKFLOW_SEP,
   type StoredRepository
 } from '../services/githubRepositories.js';
 
@@ -393,6 +398,159 @@ export class GitHubActionsConnector implements PlatformConnector {
     }
 
     return { state: HealthState.HEALTHY, lastContactAt: succeeded ?? undefined };
+  }
+
+  /**
+   * The scheduled runs GitHub performed for this workflow.
+   *
+   * **A read-only observer implementing a read verb, which is the shape working
+   * as intended.** `listPlatformRuns` is not a write and does not soften this
+   * connector's boundary: `run`, `create` and `setStatus` stay refused. What it
+   * does is close the gap the observers have always had — a workflow that has
+   * been running nightly for a month shows nothing under *Runs Cronsole
+   * performed*, correctly, because Cronsole performed none of them.
+   *
+   * Filtered to `event: schedule` by the same reasoning `listWorkflowRuns` uses
+   * for health: a workflow that also runs on push would otherwise show whatever
+   * someone last pushed, which is a different question with a healthier-looking
+   * answer.
+   */
+  async listPlatformRuns(externalId: string, config: any): Promise<PlatformRunsResult> {
+    const target = this.resolveWorkflow(externalId, config);
+    if ('message' in target) return { success: false, message: target.message };
+
+    const runs = await listWorkflowRuns(target.token, target.owner, target.repo, target.workflowId, 10);
+    if (!runs.ok) return { success: false, message: runs.message };
+
+    return {
+      success: true,
+      runs: runs.data.map(run => ({
+        // The run id doubles as the key the output call resolves back. A run
+        // GitHub reported without one is still a real outcome worth showing; it
+        // simply cannot be opened, which `outputAvailable` says.
+        id: run.id !== null ? String(run.id) : (run.html_url || 'unknown'),
+        // GitHub splits this across two fields: `status` while a run is alive,
+        // `conclusion` once it settles. Reported as one word the way every other
+        // connector does, without inventing a vocabulary — `in_progress` and
+        // `failure` are both GitHub's own.
+        status: run.conclusion ?? run.status ?? 'unknown',
+        startedAt: run.run_started_at ? new Date(run.run_started_at) : null,
+        endedAt: run.conclusion && run.updated_at ? new Date(run.updated_at) : null,
+        outputAvailable: run.id !== null && run.conclusion !== null
+      }))
+    };
+  }
+
+  /**
+   * What one run did, step by step — and which step failed.
+   *
+   * **Not the logs.** `GET /actions/runs/{id}/logs` answers a redirect to a zip
+   * of every job's console output; fetching and unpacking megabytes to surface
+   * one red step would be the wrong trade, and raw console output is the one
+   * class of data this repo has no chokepoint to redact. The jobs endpoint gives
+   * the ordered step names and each conclusion as plain JSON, which names the
+   * failure, and `url` sends anyone who needs the raw output to github.com —
+   * where it already lives and where Cronsole should not pretend to own a copy.
+   */
+  async getRunOutput(
+    externalId: string,
+    runId: string,
+    config: any
+  ): Promise<PlatformRunOutputResult> {
+    const target = this.resolveWorkflow(externalId, config);
+    if ('message' in target) return { success: false, message: target.message };
+
+    const id = Number(runId);
+    if (!Number.isFinite(id)) {
+      return { success: false, message: 'GitHub reported this run without an id, so its steps cannot be read.' };
+    }
+
+    const jobs = await listRunJobs(target.token, target.owner, target.repo, id);
+    if (!jobs.ok) return { success: false, message: jobs.message };
+    if (jobs.data.length === 0) {
+      return {
+        success: false,
+        message:
+          'GitHub lists no jobs for this run. A run that never started a job — cancelled at the queue, ' +
+          'or blocked by a required approval — has no steps to show.'
+      };
+    }
+
+    // Steps prefixed with their job when there is more than one, because two
+    // jobs in a matrix routinely share step names and an unqualified "Run tests"
+    // appearing twice reads as a repeat rather than as two different machines.
+    const multi = jobs.data.length > 1;
+    const steps = jobs.data.flatMap(job =>
+      job.steps
+        .filter(s => s.name)
+        .map(s => (multi && job.name ? `${job.name} › ${s.name}` : String(s.name)))
+    );
+
+    // The failing step, named. This is the whole reason someone opened this.
+    const failedIn = jobs.data.flatMap(job =>
+      job.steps
+        .filter(s => s.conclusion === 'failure' || s.conclusion === 'timed_out')
+        .map(s => (job.name ? `${job.name} › ${s.name}` : String(s.name)))
+    );
+    const failedJobs = jobs.data.filter(j => j.conclusion === 'failure' || j.conclusion === 'timed_out');
+
+    const text = failedIn.length
+      ? `Failed at: ${failedIn.join(', ')}\n\nGitHub keeps the console output for this run; open it on ` +
+        'github.com for the full log.'
+      : failedJobs.length
+        ? `${failedJobs.length} job(s) failed without naming a step. Open the run on github.com for the log.`
+        : null;
+
+    return {
+      success: true,
+      output: {
+        text,
+        steps,
+        facts: [
+          { label: 'Jobs', value: String(jobs.data.length) },
+          ...(failedIn.length ? [{ label: 'Failed steps', value: String(failedIn.length) }] : [])
+        ],
+        // The one connector where this is not null, and the reason the field
+        // exists: the full console output is a zip on github.com, so the honest
+        // move is a link rather than a copy.
+        url: target.htmlUrlFor(id)
+      }
+    };
+  }
+
+  /**
+   * Resolve an `externalId` to the repository, workflow and token behind it.
+   *
+   * Shared by the two methods above rather than repeated: reading a repository
+   * out of an id has **one definition** (`repositoryFromExternalId`), and a
+   * second copy of that parse is the shape that silently took a folder out of
+   * every sync (#20a).
+   */
+  private resolveWorkflow(
+    externalId: string,
+    config: any
+  ):
+    | { token: string; owner: string; repo: string; workflowId: number; htmlUrlFor: (runId: number) => string }
+    | { message: string } {
+    const { token } = readConfig(config);
+    if (!token) return { message: 'No GitHub token is stored for this connection.' };
+
+    const full = repositoryFromExternalId(externalId);
+    const workflowId = Number(externalId.slice(externalId.indexOf(WORKFLOW_SEP) + 1));
+    if (!full || !Number.isFinite(workflowId)) {
+      return { message: `Not a GitHub workflow id: "${externalId}".` };
+    }
+
+    const [owner, repo] = full.split('/');
+    if (!owner || !repo) return { message: `Not a GitHub repository: "${full}".` };
+
+    return {
+      token,
+      owner,
+      repo,
+      workflowId,
+      htmlUrlFor: (runId: number) => `https://github.com/${owner}/${repo}/actions/runs/${runId}`
+    };
   }
 
   // deleteTask, exportTask, importTask, updateSchedule, updateActions and

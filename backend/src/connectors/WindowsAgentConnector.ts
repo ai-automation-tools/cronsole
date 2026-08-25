@@ -1,6 +1,6 @@
 import type { Socket } from 'socket.io';
 import { PlatformType, HealthState } from '@prisma/client';
-import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, UpdateScheduleOptions, PlatformFolder, ImportTaskResult } from './platform.interface.js';
+import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, UpdateScheduleOptions, PlatformFolder, ImportTaskResult, PlatformRun, PlatformRunOutput, PlatformRunsResult, PlatformRunOutputResult } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { emitSignedCommand } from '../ws/agentAuth.js';
 import { toStructuredAction } from '../utils/commandParser.js';
@@ -85,7 +85,22 @@ function agentRequest<T>(
   responseEvent: string,
   send: () => void,
   onResponse: (payload: any, settle: Settle<T>) => void,
-  onTimeout: (settle: Settle<T>) => void
+  onTimeout: (settle: Settle<T>) => void,
+  /**
+   * Whether a timeout on this verb is evidence about the **agent's health**.
+   *
+   * True for every verb the agent has always had: silence there means it is not
+   * answering. False for a verb introduced later, where silence far more likely
+   * means *this published agent predates the verb* — a healthy agent that simply
+   * does not know the word.
+   *
+   * Without this, opening Run History on a Windows task against an older agent
+   * would mark it unresponsive and hold the whole platform at DEGRADED for
+   * fifteen minutes, over an optional read the user merely clicked. That is #62's
+   * shape exactly: a health verdict manufactured by something that was not a
+   * health check.
+   */
+  timeoutIsHealthEvidence = true
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let settled = false;
@@ -117,8 +132,10 @@ function agentRequest<T>(
     const timer = setTimeout(() => {
       if (settled) return;
       // The only place a timeout is ever recorded. Reached only when the agent
-      // really did not answer within the window.
-      agentManager.markUnresponsive(userId, verb);
+      // really did not answer within the window — and skipped entirely for a verb
+      // an older agent build would not recognise, because "does not know this
+      // word" is not "not responding".
+      if (timeoutIsHealthEvidence) agentManager.markUnresponsive(userId, verb);
       onTimeout(settle);
     }, AGENT_REQUEST_TIMEOUT_MS);
 
@@ -264,6 +281,114 @@ export class WindowsAgentConnector implements PlatformConnector {
         }
       },
       settle => settle.resolve({ success: false, message: 'Agent export timeout' })
+    );
+  }
+
+  /**
+   * The runs **Windows** performed, and why they went the way they did.
+   *
+   * The gap this closes is the widest of any source. `ExecutionLog` holds runs
+   * *Cronsole* performed, which for a Windows task is only the times somebody
+   * pressed Run now — and even those record "the agent accepted the start",
+   * not an outcome. So a task that has fired nightly for a month, failing every
+   * time, shows an empty Run History and a red badge whose entire content is an
+   * exit code.
+   *
+   * Task Scheduler does record the detail; it is in an event log the task object
+   * knows nothing about, which is why this needs an agent verb rather than a
+   * field on `task:list`.
+   *
+   * **The two facts kept separate here** — both from `TaskHistoryReader`, both
+   * losable by a careless read:
+   *
+   * - **History can be switched off machine-wide.** A disabled log returns zero
+   *   events, exactly like a task that has never run. Reporting them the same
+   *   way tells a user their nightly task has never run. The agent answers
+   *   `historyEnabled` so the two stay different sentences.
+   * - **An event is not a run.** Task Scheduler writes several events per run
+   *   (started, action started, action completed, task completed), so they are
+   *   grouped into runs by their start event rather than listed raw — a modal
+   *   showing "12 runs" for three nights would be worse than showing nothing.
+   */
+  async listPlatformRuns(externalId: string, config: any): Promise<PlatformRunsResult> {
+    const history = await this.readHistory(externalId, config, 60);
+    if ('message' in history) return { success: false, message: history.message };
+
+    if (history.historyEnabled === false) {
+      return {
+        success: false,
+        message:
+          'Windows is not recording task history on this machine, so there is nothing to read. ' +
+          'Turn it on in Task Scheduler (Action › Enable All Tasks History) and future runs will appear here. ' +
+          'Past runs are gone — the setting is not retroactive.'
+      };
+    }
+
+    return { success: true, runs: groupHistoryIntoRuns(history.events).map(g => g.run) };
+  }
+
+  /**
+   * What one Windows run actually said.
+   *
+   * Re-reads the log rather than caching the previous listing, for the reason the
+   * Gemini connector re-lists executions: a cached id is a claim about a resource
+   * this connector does not own, and the whole point of this path is that it reads
+   * the machine rather than Cronsole's memory of it.
+   */
+  async getRunOutput(
+    externalId: string,
+    runId: string,
+    config: any
+  ): Promise<PlatformRunOutputResult> {
+    const history = await this.readHistory(externalId, config, 60);
+    if ('message' in history) return { success: false, message: history.message };
+
+    const group = groupHistoryIntoRuns(history.events).find(g => g.run.id === runId);
+    if (!group) {
+      return {
+        success: false,
+        message:
+          'Windows no longer has an entry for that run. The task history log is a ring buffer, so ' +
+          'an old run ages out while the task it belongs to is perfectly healthy.'
+      };
+    }
+
+    return { success: true, output: describeWindowsRun(group.events) };
+  }
+
+  /** One definition of "ask the agent for this task's history". */
+  private async readHistory(
+    externalId: string,
+    config: any,
+    limit: number
+  ): Promise<{ historyEnabled: boolean | null; events: WindowsHistoryEvent[] } | { message: string }> {
+    const userId = config.userId;
+    const socket = agentManager.getSocket(userId);
+    if (!socket) return { message: 'Agent offline' };
+
+    return agentRequest<{ historyEnabled: boolean | null; events: WindowsHistoryEvent[] } | { message: string }>(
+      socket, userId, 'task:history', 'task:history_list',
+      () => socket.emit('task:history', { taskPath: externalId, limit }),
+      (payload, settle) => {
+        if (payload.taskExternalId !== externalId) return;
+        if (!payload.success) {
+          settle.resolve({ message: payload.message || 'The agent could not read this task history.' });
+          return;
+        }
+        settle.resolve({
+          historyEnabled: payload.historyEnabled ?? null,
+          events: Array.isArray(payload.events) ? payload.events : []
+        });
+      },
+      settle => settle.resolve({
+        message:
+          'The agent did not answer a history request. Task history was added to the agent on ' +
+          '2026-08-25 — if this agent was published before then, republish it ' +
+          '(scripts/Republish-Agent.ps1) and the run detail will appear.'
+      }),
+      // A timeout here says nothing about the agent's health: an agent published
+      // before this verb existed will never answer it, and it is otherwise fine.
+      false
     );
   }
 
@@ -563,4 +688,152 @@ export class WindowsAgentConnector implements PlatformConnector {
       settle => settle.resolve({ success: false, message: 'Agent creation timeout', foldersCreated: [] })
     );
   }
+}
+
+/** One Task Scheduler event as the agent reports it. */
+interface WindowsHistoryEvent {
+  eventId: number;
+  level: number | null;
+  timeCreated: string | null;
+  message: string;
+}
+
+/**
+ * Task Scheduler's event ids, in the terms a person uses.
+ *
+ * **Only the ones Cronsole actually acts on are named.** The log has dozens, and
+ * mapping every one would be inventing a vocabulary for events nobody reads;
+ * anything unnamed keeps its number and its own message, which is the same rule
+ * `toStatus` follows for a platform status Cronsole has not seen before.
+ */
+const TASK_STARTED = 100;
+const TASK_COMPLETED = 102;
+const ACTION_COMPLETED = 201;
+/** Every id that means "this run did not go well" — start refused, action failed, terminated. */
+const FAILURE_EVENTS = new Set([101, 103, 111, 203, 329, 332]);
+
+/**
+ * Group a flat event list into runs, newest first, each carrying its own events.
+ *
+ * **One pure function returning both, rather than a grouping plus a lookup.**
+ * The first version kept the "current run" in a module-level variable that a
+ * second helper read back — which works for one caller at a time and silently
+ * interleaves the moment two browser tabs open two tasks, producing a run made
+ * of another task's events. Shared mutable state across an async boundary is not
+ * a shortcut worth taking for a grouping this small.
+ *
+ * Task Scheduler writes **several events per run** — task started, action
+ * started, action completed, task completed — so listing them raw would show
+ * "12 runs" for three nights.
+ *
+ * Runs are keyed by the timestamp of the start event that opens them: stable
+ * across re-reads (unlike an index), unique in practice (a task does not start
+ * twice in the same millisecond), and requiring nothing to be stored.
+ *
+ * A run whose start event has aged out of the ring buffer while its completion
+ * survives is **kept**, under its first event's own time. Dropping it would
+ * shorten the history exactly at the oldest end — which is where someone
+ * investigating a long-running failure is looking.
+ */
+function groupHistoryIntoRuns(
+  events: WindowsHistoryEvent[]
+): { run: PlatformRun; events: WindowsHistoryEvent[] }[] {
+  type Bucket = {
+    startedAt: Date | null;
+    endedAt: Date | null;
+    failed: boolean;
+    completed: boolean;
+    events: WindowsHistoryEvent[];
+  };
+  const buckets = new Map<string, Bucket>();
+  let key: string | null = null;
+
+  // The agent answers newest-first; walking in reverse means each run's start is
+  // seen before its outcome.
+  for (const event of [...events].reverse()) {
+    if (event.eventId === TASK_STARTED && event.timeCreated) key = event.timeCreated;
+    // An orphan: its start is older than the buffer. Keyed by its own time so it
+    // is still shown rather than silently folded into the run after it.
+    const id = key ?? event.timeCreated ?? 'unknown';
+
+    const at = event.timeCreated ? new Date(event.timeCreated) : null;
+    const bucket: Bucket = buckets.get(id)
+      ?? { startedAt: null, endedAt: null, failed: false, completed: false, events: [] };
+
+    if (event.eventId === TASK_STARTED) bucket.startedAt = at;
+    if (event.eventId === TASK_COMPLETED) {
+      bucket.endedAt = at;
+      bucket.completed = true;
+    }
+    if (event.eventId === ACTION_COMPLETED && !bucket.endedAt) bucket.endedAt = at;
+    // Level 2 is Error in this log. Trusted alongside the id list, so an event id
+    // Cronsole has never seen still registers as a failure when Windows flagged
+    // it as one — the same reason an unrecognised platform status is `unknown`
+    // rather than assumed healthy.
+    if (FAILURE_EVENTS.has(event.eventId) || event.level === 2) bucket.failed = true;
+
+    bucket.events.push(event);
+    buckets.set(id, bucket);
+  }
+
+  return [...buckets.entries()]
+    .map(([id, b]) => ({
+      run: {
+        id,
+        // **"completed" is not "succeeded"**, and the difference is real: a
+        // Windows task completes whatever its action returned. The exit code is
+        // surfaced by `describeWindowsRun` from the action-completed event, so
+        // this word describes the run's lifecycle and the detail names the
+        // outcome.
+        status: b.failed ? 'failed' : b.completed ? 'completed' : b.startedAt ? 'in_progress' : 'unknown',
+        startedAt: b.startedAt,
+        endedAt: b.endedAt,
+        // Always openable: for Windows the "output" IS the event text, and every
+        // run in this list has at least the event that created it.
+        outputAvailable: true
+      },
+      events: b.events
+    }))
+    .reverse();
+}
+
+/**
+ * One run's events, rendered as something a person can act on.
+ *
+ * Windows' own words are kept verbatim — `FormatDescription()` already produces
+ * a sentence naming the action and its return code, and rewriting it would put
+ * a translation layer between the user and the only detail this platform gives.
+ */
+function describeWindowsRun(events: WindowsHistoryEvent[]): PlatformRunOutput {
+  // Already oldest-first: `groupHistoryIntoRuns` fills each bucket while walking
+  // the log in reverse. That is the order a run reads in — started, action ran,
+  // action returned, task completed — and flipping it would put the ending first.
+  const ordered = events;
+
+  // The exit code, pulled out of the action-completed event where Windows states
+  // it. This is the number `lastTaskResult` shows on the card, here beside the
+  // action that produced it — which is the whole point of opening a run.
+  const facts: { label: string; value: string }[] = [];
+  for (const event of ordered) {
+    if (event.eventId !== ACTION_COMPLETED) continue;
+    const code = /return code (-?\d+)/i.exec(event.message)?.[1];
+    if (code) facts.push({ label: 'Exit code', value: code });
+    const action = /action "([^"]+)"/i.exec(event.message)?.[1];
+    if (action) facts.push({ label: 'Action', value: action });
+    break;
+  }
+
+  const text = ordered
+    .map(e => `[${e.timeCreated ? new Date(e.timeCreated).toLocaleString() : 'time not recorded'}] ${e.message || `Event ${e.eventId}`}`)
+    .join('\n\n');
+
+  return {
+    text: text || null,
+    // The event ids in order — Windows' own vocabulary for what happened, the
+    // way Gemini's step list is its own.
+    steps: ordered.map(e => `Event ${e.eventId}`),
+    facts,
+    // No web page to link to: Task Scheduler is a local MMC snap-in, not a URL.
+    url: null
+  };
 }

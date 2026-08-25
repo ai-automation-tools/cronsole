@@ -81,6 +81,15 @@ export interface GitHubWorkflow {
 }
 
 export interface GitHubRun {
+  /**
+   * The run's own id — needed to ask for its jobs, which is where the failing
+   * step is named. Nullable because this type is also built from responses that
+   * predate the field being read, and a run with no id is still a usable outcome
+   * for health scoring; it simply cannot be opened.
+   */
+  id: number | null;
+  /** Which attempt this is. A rerun that passed is a different fact from a first pass. */
+  runAttempt: number | null;
   conclusion: string | null;
   status: string | null;
   run_started_at: string | null;
@@ -417,7 +426,10 @@ export async function listWorkflowRuns(
 function toRun(raw: unknown): GitHubRun {
   const r = (raw ?? {}) as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === 'string' ? v : null);
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   return {
+    id: num(r.id),
+    runAttempt: num(r.run_attempt),
     conclusion: str(r.conclusion),
     status: str(r.status),
     run_started_at: str(r.run_started_at),
@@ -425,4 +437,65 @@ function toRun(raw: unknown): GitHubRun {
     html_url: str(r.html_url) ?? '',
     event: str(r.event)
   };
+}
+
+/**
+ * One job of a workflow run, with the steps it went through.
+ *
+ * **The steps are the point.** A failed workflow's `conclusion` is the word
+ * `failure` and nothing more; what a person actually wants is *which step*
+ * failed, and that is published here as ordinary JSON.
+ */
+export interface GitHubJob {
+  name: string | null;
+  conclusion: string | null;
+  steps: { name: string | null; conclusion: string | null }[];
+}
+
+/**
+ * The jobs of one run — **used instead of downloading the logs**, deliberately.
+ *
+ * `GET /actions/runs/{id}/logs` is the obvious endpoint and the wrong one: it
+ * answers a 302 to a **zip archive** of every job's console output, which would
+ * mean fetching, unzipping and streaming megabytes into a modal to surface one
+ * red step. It is also a different class of data — raw console output that this
+ * repo has no chokepoint to redact, unlike a native job's log, which
+ * `executeJob` redacts at the single point every job type funnels through.
+ *
+ * The jobs endpoint gives the useful 90% as structured data: the ordered step
+ * names and each one's conclusion, so the failing step is named. Whoever needs
+ * the raw console output has `html_url`, which is the honest place to send them
+ * — the full logs live on github.com and Cronsole should not pretend to own a
+ * copy.
+ */
+export async function listRunJobs(
+  token: string,
+  owner: string,
+  repo: string,
+  runId: number
+): Promise<GitHubResult<GitHubJob[]>> {
+  return attempt(
+    `jobs of run ${runId} in ${owner}/${repo}`,
+    () =>
+      client(token).get(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/jobs`,
+        { params: { per_page: 20 } }
+      ),
+    data => {
+      const rows = (data as { jobs?: unknown })?.jobs;
+      const str = (v: unknown) => (typeof v === 'string' ? v : null);
+      return (Array.isArray(rows) ? rows : []).map(raw => {
+        const j = (raw ?? {}) as Record<string, unknown>;
+        const steps = Array.isArray(j.steps) ? j.steps : [];
+        return {
+          name: str(j.name),
+          conclusion: str(j.conclusion),
+          steps: steps.map(sraw => {
+            const st = (sraw ?? {}) as Record<string, unknown>;
+            return { name: str(st.name), conclusion: str(st.conclusion) };
+          })
+        };
+      });
+    }
+  );
 }

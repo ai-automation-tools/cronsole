@@ -88,10 +88,28 @@ eliminated — plus the one missing number that would have answered it without a
 
 <a id="in-app-logging"></a>
 
-#### 1. In-app logging — see the error output behind any source's task failure
+#### 1. ✅ In-app logging — shipped 2026-08-25
 
-**The ask:** when a task fails on *any* source, show what it actually said. Today the answer
-depends entirely on which source it was, and none of the paths are in the app:
+**Shipped the same day it was asked for.** Built as a per-connector capability on the run-history
+verbs rather than as one feature, because the failure detail lives somewhere different on every
+source — and on one of them, nowhere at all.
+
+| Source | Where the detail comes from now |
+|:---|:---|
+| Windows | **New `task:history` agent verb** reading `Microsoft-Windows-TaskScheduler/Operational` — Windows' own sentences, the exit code, and the action that produced it. Needs an agent republish |
+| Gemini | The interaction transcript (already shipped) |
+| GitHub Actions | The **jobs** endpoint — ordered steps and conclusions, so the failing step is named — plus a link to github.com for raw console output |
+| Cronsole-native | `ExecutionLog.log`, already in the app and already redacted at write time by `executeJob` |
+| Vercel | **Nothing, permanently.** It publishes no cron run history, and a source that cannot answer renders nothing rather than an empty box |
+
+Three rules it had to keep and did: two switches that make a healthy thing look dead each got a
+third state (`historyEnabled` true/false/null; an optional verb's timeout is not health evidence);
+`PlatformRunOutput.facts` is free-form and printed rather than parsed, so no source's vocabulary
+became the shape; and the redaction question was answered by **not storing anything** — Cronsole
+redacts what it writes, never what the platform already shows you, and storage is what would create
+new exposure.
+
+**The original ask, for the record:**
 
 | Source | Where the failure detail lives today |
 |:---|:---|

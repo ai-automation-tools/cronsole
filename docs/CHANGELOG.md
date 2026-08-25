@@ -13,6 +13,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Every source that can say why a task failed now says it, in the app** (2026-08-25). Run History's *Runs on the platform* group grew from one source to four, and opening a run shows what it produced, what it did, and what the platform reports about it.
+
+  **Windows is the big one, and it needed a new agent verb.** A Windows task publishes an *exit code* and nothing else — a task failing nightly for a week showed a red badge and a number, and the detail was in Event Viewer. Task Scheduler does record it, in an operational log the task object knows nothing about, so the agent gained a read-only `task:history` verb. A run now shows Windows' own sentences, the exit code, and **which action** produced it. Several events make up one run (started / action completed / task completed), so they are grouped rather than listed — otherwise three nights would read as twelve runs.
+
+  **That history can be switched off machine-wide**, and a disabled log looks exactly like a task that has never run: both are zero events. Cronsole asks the log whether it is collecting and says which — including that turning it on is **not retroactive**, so the run you came to read is gone either way.
+
+  **GitHub Actions names the failing step.** Not by downloading logs: those are a zip behind a redirect, and megabytes to surface one red step is the wrong trade. The jobs endpoint gives the ordered steps and each conclusion as plain data, so the panel says *"Failed at: windows › Run tests"* and links to github.com for the raw console output — which stays where it already lives rather than being copied here.
+
+  **Vercel Cron gets nothing, and that is the honest answer**: it publishes no cron run history at all. Sources that cannot answer render nothing rather than an empty box.
+
+  **Requires republishing the agent** for the Windows half (`scripts/Republish-Agent.ps1`). Until then Cronsole says so by name instead of blaming the agent — a verb an older build has never heard of no longer counts as the agent being unresponsive, which would otherwise have held Windows at DEGRADED for fifteen minutes because someone opened a tab.
 - **`/doctor` checks the database schema now** (2026-08-25). `scripts/check-migrations-applied.mjs`, wired in as check 2b. A committed-but-unapplied migration is **the fifth thing that runs stale** and the only one the repo cannot see: `schema.prisma`, the generated Prisma client and the entire test suite all hold the new value, so everything is green while the database alone disagrees — and a new enum value then 500s **every** route naming it, reads included, with a bare *"Internal server error"*. That is how the Gemini source presented on the day it was added, which made a perfectly valid API key look like the problem. `UNKNOWN` (no database reachable) is reported separately from `OK`, because "could not ask" and "up to date" must never render the same.
 - **Run History now shows what the platform did, and what it produced** (2026-08-25). A task's Run History tab had one list — runs *Cronsole* performed — which is correct and, on a source that runs work by itself, almost always empty. A Gemini trigger firing on its own schedule writes nothing there by design, so the tab said *"no recorded runs yet"* over a trigger that had been working for days.
 

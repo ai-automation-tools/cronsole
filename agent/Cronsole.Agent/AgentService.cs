@@ -289,6 +289,70 @@ namespace Cronsole.Agent
                 }
             });
 
+            // Event: task:history (Server requested WHY a task's runs went the way
+            // they did. Read-only, so no per-command signature, mirroring task:list
+            // and task:folders.)
+            //
+            // This is the only path by which a Windows task can say anything beyond
+            // its exit code. Everything else on the dashboard publishes a real
+            // outcome; Windows publishes an integer, and the detail lives in an
+            // event log the task object knows nothing about.
+            _socket.On("task:history", async response =>
+            {
+                var taskPath = "";
+                try
+                {
+                    var data = response.GetValue<JsonElement>(0);
+                    taskPath = data.TryGetProperty("taskPath", out var tp) ? tp.GetString() ?? "" : "";
+
+                    // Clamped here as well as server-side. This process reads an
+                    // event log that can hold hundreds of thousands of records for a
+                    // task running every minute, and it must not trust a caller to
+                    // have bounded that - the same reason folder paths are validated
+                    // on both sides.
+                    var limit = 20;
+                    if (data.TryGetProperty("limit", out var lim) && lim.TryGetInt32(out var parsed))
+                    {
+                        limit = Math.Clamp(parsed, 1, 100);
+                    }
+
+                    var history = TaskHistoryReader.Read(taskPath, limit);
+                    Console.WriteLine($"Server requested task:history -> {taskPath} ({history.Events.Count} events, enabled={history.HistoryEnabled})");
+
+                    // Explicit lowercase names: the socket serializer does NOT
+                    // camelCase, so emitting the objects directly would put
+                    // EventId/TimeCreated on the wire and the backend would read
+                    // undefined for every field.
+                    await _socket.EmitAsync("task:history_list", new[] { new {
+                        taskExternalId = taskPath,
+                        success = history.Unavailable == null,
+                        historyEnabled = history.HistoryEnabled,
+                        events = history.Events.Select(e => new {
+                            eventId = e.EventId,
+                            level = e.Level,
+                            timeCreated = e.TimeCreated,
+                            message = e.Message
+                        }).ToList(),
+                        message = history.Unavailable ?? "OK"
+                    }});
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error reading task history: {ex.Message}");
+                    try
+                    {
+                        await _socket.EmitAsync("task:history_list", new[] { new {
+                            taskExternalId = taskPath,
+                            success = false,
+                            historyEnabled = (bool?)null,
+                            events = Array.Empty<object>(),
+                            message = ex.Message
+                        }});
+                    }
+                    catch { /* socket gone — server's timeout covers it */ }
+                }
+            });
+
             // Event: task:export (Server requested a task's native XML — read-only,
             // so no per-command signature, mirroring task:list).
             _socket.On("task:export", async response =>

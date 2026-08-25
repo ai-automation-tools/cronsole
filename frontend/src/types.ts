@@ -78,9 +78,19 @@ export interface PlatformRun {
 /** What one platform run produced. */
 export interface PlatformRunOutput {
   text: string | null;
-  /** The tools the run reached for, in order — what it actually did. */
+  /** What the run reached for, in order — the tools, steps or events it went through. */
   steps: string[];
-  totalTokens: number | null;
+  /**
+   * Whatever else the platform reports, as label/value pairs — **never parsed**.
+   *
+   * Free-form because every source counts something different: Gemini reports
+   * tokens, GitHub jobs and failed steps, Windows an exit code and the action
+   * that produced it. A field per platform would make this shape the union of
+   * every vocabulary, with each source sending null for the others'.
+   */
+  facts: { label: string; value: string }[];
+  /** Where to see this run on the platform. Null where there is no such page. */
+  url: string | null;
 }
 
 /** `available: false` carries a reason, because "why not" is the useful half. */

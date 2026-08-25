@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Cloud, Loader2, ChevronRight, FileText } from 'lucide-react';
+import { Cloud, Loader2, ChevronRight, FileText, ExternalLink } from 'lucide-react';
 import { api } from '../api';
 import type { PlatformRun, PlatformRunOutputResponse } from '../types';
 
@@ -205,11 +205,16 @@ function PlatformRunRow({
                   <span className="text-[10px] uppercase font-black tracking-widest text-subtle-foreground flex items-center gap-1.5">
                     <FileText size={11} /> Output
                   </span>
-                  {data.output?.totalTokens != null && (
-                    <span className="text-[10px] text-subtle-foreground font-mono">
-                      {data.output.totalTokens.toLocaleString()} tokens
-                    </span>
-                  )}
+                  {/* Printed, never interpreted. Every source counts something
+                      different — tokens, jobs, an exit code — so a platform can
+                      report a fact this bundle has never heard of. */}
+                  <span className="flex items-center gap-2 flex-wrap justify-end">
+                    {data.output?.facts?.map(fact => (
+                      <span key={fact.label} className="text-[10px] text-subtle-foreground font-mono">
+                        {fact.label}: <span className="text-muted-foreground">{fact.value}</span>
+                      </span>
+                    ))}
+                  </span>
                 </div>
                 {data.output?.text ? (
                   <pre className="text-[11px] text-foreground font-mono whitespace-pre-wrap break-words bg-surface/60 rounded-lg p-3 border border-border/60 max-h-96 overflow-y-auto">
@@ -219,6 +224,20 @@ function PlatformRunRow({
                   <p className="text-xs text-subtle-foreground">
                     This run finished without producing a final message.
                   </p>
+                )}
+                {/* The honest exit for a platform that keeps its full output
+                    somewhere Cronsole should not copy — GitHub's console log is a
+                    zip on github.com. Absent where there is no such page, which is
+                    the case on the source that needs this panel most. */}
+                {data.output?.url && (
+                  <a
+                    href={data.output.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center gap-1.5 text-[11px] text-primary hover:underline"
+                  >
+                    <ExternalLink size={11} /> Open this run on the platform
+                  </a>
                 )}
               </div>
             </>

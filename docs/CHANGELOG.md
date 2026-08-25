@@ -13,6 +13,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **An AI assistant can read the runs a platform recorded itself** (2026-08-25). Two new MCP tools: **`list_platform_runs`** and **`get_run_output`**.
+
+  Ask an assistant *"why did my scheduled task fail?"* and until now it could only reach `get_task_history`, which reads Cronsole's own log — **runs Cronsole performed**. On Gemini API Triggers, GitHub Actions, Vercel Cron and Windows, a task firing on its own schedule writes nothing there by design, so the one question people ask most was the one an assistant could not answer, on exactly the sources where the runs actually happen. The two lists stay separate for the same reason the Run History tab keeps them apart: folding them together turns a table meaning "Cronsole did this" into one meaning nothing.
+
+  **`get_run_output` returns the step list, and that is the point.** A status of `completed` means an agent finished its turn, not that it did the job — a trigger asked to email a report finishes cleanly having only written a file. One run per call, because a transcript runs to ~90KB, and long output is truncated with the cut announced rather than returned short and looking complete.
+
+  **A platform that publishes no run history answers as a fact, not an error.** Vercel Cron is the permanent case, and reporting that as a failure would have an assistant call a working source broken.
+
 - **Save an MCP server once, and rotate its token everywhere in one gesture** (2026-08-25). The Gemini source panel has a new **Saved MCP servers** section: a name, a URL, a token. After that the create form offers it as a checkbox, and the task stores only the *name* — the credential lives on the connection, encrypted beside your API key.
 
   **What this replaces was a rule built on a claim that turned out to be false.** A token handed to Gemini was "used once and stored nowhere", and the reason recorded for it was lifecycle rather than caution: the value is needed exactly once. A week of real use showed it is needed once **per trigger** — again for the second task using the same server, again on every prompt edit (a Gemini trigger cannot be edited in place, so editing means recreating), and again for every trigger that used a token you rotated.

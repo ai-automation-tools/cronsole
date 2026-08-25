@@ -135,11 +135,13 @@ describe('the tool surface', () => {
       'edit_claude_routine',
       'export_task',
       'get_diagnostics',
+      'get_run_output',
       'get_task_health',
       'get_task_history',
       'import_task',
       'list_claude_routines',
       'list_folders',
+      'list_platform_runs',
       'list_platforms',
       'list_run_history',
       'list_task_archives',
@@ -1315,6 +1317,169 @@ describe('get_task_history', () => {
   });
 });
 
+/**
+ * **The two populations must not read as one.**
+ *
+ * `get_task_history` is what Cronsole *did*; this is what the platform *did*.
+ * The whole reason these are separate tools is that folding them together turns
+ * a list with a precise meaning into one with none — and on three of six sources
+ * the Cronsole log is empty by design, which is the case an assistant is most
+ * likely to misread as "it never ran".
+ */
+describe('list_platform_runs', () => {
+  const run = (over: Record<string, unknown> = {}) => ({
+    id: 'r1',
+    status: 'completed',
+    startedAt: '2026-08-25T03:00:00.000Z',
+    endedAt: '2026-08-25T03:04:00.000Z',
+    outputAvailable: true,
+    ...over
+  });
+
+  it('reads the platform-runs route, not the executions one', async () => {
+    const { client, calls } = stubClient({ 'GET /tasks/id1/platform-runs': { runs: [run()] } });
+    const mcp = await connect(client);
+    await call(mcp, 'list_platform_runs', { taskId: 'id1' });
+    expect(calls.map(c => c.path)).toContain('/tasks/id1/platform-runs');
+    expect(calls.map(c => c.path)).not.toContain('/tasks/id1/executions');
+  });
+
+  it('prints the platform status verbatim rather than mapping it', async () => {
+    // Mapping `completed` onto SUCCESS would be a second judgement about an
+    // outcome the platform already named, in a vocabulary that is preview-era
+    // on at least one source.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs': { runs: [run({ status: 'in_progress' })] }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'list_platform_runs', { taskId: 'id1' }));
+    expect(out).toMatch(/in_progress/);
+    expect(out).not.toMatch(/SUCCESS|RUNNING/);
+  });
+
+  it('says which kind of empty an empty list is', async () => {
+    // "Found nothing" and "could not look" render identically otherwise, and
+    // that ambiguity is the thing this feature exists to close.
+    const { client } = stubClient({ 'GET /tasks/id1/platform-runs': { runs: [] } });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'list_platform_runs', { taskId: 'id1' }));
+    expect(out).toMatch(/was asked and had nothing to give/i);
+  });
+
+  it('answers a 400 as a fact about the platform, not as a tool error', async () => {
+    // A source with no published run history is working exactly as designed.
+    // Returning isError here would have an assistant report a broken
+    // integration over Vercel Cron, which permanently publishes none.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs': () =>
+        new CronsoleApiError('VERCEL_CRON does not publish its own run history.', 400)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'list_platform_runs', { taskId: 'id1' });
+    expect(r.isError).toBeFalsy();
+    expect(text(r)).toMatch(/does not publish its own run history/);
+    expect(text(r)).toMatch(/not a fault/i);
+  });
+
+  it('flags which runs have something to fetch', async () => {
+    // `outputAvailable: false` is a run still in flight or a platform that
+    // records the run and not its result. Either way a get_run_output call
+    // would be wasted, so the list says so up front.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs': {
+        runs: [run({ id: 'r1' }), run({ id: 'r2', outputAvailable: false })]
+      }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'list_platform_runs', { taskId: 'id1' }));
+    expect(out).toMatch(/id r1 \(output available\)/);
+    expect(out).not.toMatch(/id r2 \(output available\)/);
+  });
+});
+
+describe('get_run_output', () => {
+  const output = (over: Record<string, unknown> = {}) => ({
+    text: 'Report sent.',
+    steps: ['google_search', 'write_file', 'resend:send-email'],
+    facts: [{ label: 'Tokens', value: '12,400' }],
+    url: null,
+    ...over
+  });
+
+  it('leads with the steps, because the status cannot show what was skipped', async () => {
+    // A trigger asked to email a report finishes `completed` having only called
+    // write_file. The step list is the only thing that shows that, which is why
+    // it is printed first and labelled.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': { available: true, output: output() }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1' }));
+    expect(out).toMatch(/What it did, in order \(3 step\(s\)\)/);
+    expect(out.indexOf('resend:send-email')).toBeLessThan(out.indexOf('Report sent.'));
+  });
+
+  it('carries a refusal reason instead of erroring', async () => {
+    // "Still running", "produced nothing" and "aged out" are three different
+    // facts and none of them is a failure of the call.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': {
+        available: false,
+        reason: 'This run is still in progress.'
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1' });
+    expect(r.isError).toBeFalsy();
+    expect(text(r)).toMatch(/still in progress/);
+  });
+
+  it('truncates a long transcript and says that it did', async () => {
+    // ~90KB is a normal agent transcript. Returning it whole would flood the
+    // context, and returning it silently short would be worse than either.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': {
+        available: true,
+        output: output({ text: 'x'.repeat(9000) })
+      }
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1', maxChars: 500 });
+    expect(text(r)).toMatch(/truncated at 500 of 9000 characters/);
+    expect((r.structuredContent as { truncated: boolean }).truncated).toBe(true);
+  });
+
+  it('prints facts without parsing them', async () => {
+    // Every source counts something different — tokens, an attempt number, an
+    // exit code — so these are label/value pairs and a platform can report
+    // something Cronsole has never heard of without a schema change.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': {
+        available: true,
+        output: output({ facts: [{ label: 'Exit code', value: '267009' }] })
+      }
+    });
+    const mcp = await connect(client);
+    expect(text(await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1' })))
+      .toMatch(/Exit code: 267009/);
+  });
+
+  it('says so when a run produced no final text', async () => {
+    // A run that did work and returned nothing is not the same as one that
+    // failed, and an empty Output block would read as the second.
+    const { client } = stubClient({
+      'GET /tasks/id1/platform-runs/r1/output': {
+        available: true,
+        output: output({ text: null })
+      }
+    });
+    const mcp = await connect(client);
+    expect(text(await call(mcp, 'get_run_output', { taskId: 'id1', runId: 'r1' })))
+      .toMatch(/produced no final text/);
+  });
+});
+
+
 describe('export_task', () => {
   // A Windows export arrives as UTF-16 LE + BOM bytes — the only encoding
   // Windows re-imports. Decoding it as UTF-8 yields mojibake, so these fixtures
@@ -1758,6 +1923,8 @@ describe('error handling across the surface', () => {
       'POST /tasks/import': boom,
       'GET /tools/task-archives': boom,
       'GET /tasks/x/secrets': boom,
+      'GET /tasks/x/platform-runs': boom,
+      'GET /tasks/x/platform-runs/r/output': boom,
       'POST /tools/task-archives/arc_1/restore': boom
     });
     const mcp = await connect(client, true);
@@ -1775,6 +1942,8 @@ describe('error handling across the surface', () => {
       ['create_claude_routine', { name: 'n', prompt: 'p', schedule: '0 9 * * *' }],
       ['create_task_from_template', { templateId: 't' }],
       ['get_task_history', { taskId: 'x' }],
+      ['list_platform_runs', { taskId: 'x' }],
+      ['get_run_output', { taskId: 'x', runId: 'r' }],
       ['export_task', { taskId: 'x' }],
       ['set_task_status', { taskId: 'x', status: 'DISABLED' }],
       ['update_task_schedule', { taskId: 'x', schedule: '0 9 * * *' }],

@@ -188,14 +188,23 @@ wrong.
 
 **MCP server — one real gap, and one thing that must wait for A.**
 
-- [ ] **`list_platform_runs` + `get_run_output`** *(do this first; it is self-contained)*. The two
+- [x] **`list_platform_runs` + `get_run_output`** — **shipped 2026-08-25.** The two
       routes shipped 2026-08-25 with no wrapper. An agent asked *"why did my scheduled task fail?"*
       can currently reach only `list_run_history` / `get_task_history`, which read `ExecutionLog` —
       **runs Cronsole performed**, which on Gemini, GitHub Actions and Vercel is empty *by design*.
       So the one question an assistant is most often asked about a scheduled task is the one it
       cannot answer, on the sources where the runs actually happen. Read-only, no new logic, and it
-      is what the 2026-08-25 session had to drive by hand. Keep output **per opened run** — a
-      transcript is ~90KB — exactly as the route already does.
+      is what the 2026-08-25 session had to drive by hand. Output stays **per opened run** — a
+      transcript is ~90KB — and the tool truncates at 4000 characters by default, announcing the cut
+      rather than returning a short answer that reads as a complete one.
+
+      **Driven live against a real Gemini trigger before shipping**, because the tool suite stubs the
+      HTTP client and so can only prove the wrapper agrees with itself (§8). Both response shapes
+      matched, and the run that came back is the argument for the step list: `completed`, 8 steps,
+      the last two `resend:send-email` and `model_output` — the same status a run that silently
+      skipped the mail would carry. The 400 path was driven too, on a Claude task: a platform that
+      publishes no run history is reported as a **fact rather than a tool error**, or an assistant
+      would call Vercel Cron broken for behaving exactly as designed.
 - [ ] **`GEMINI_TRIGGERS` in `create_task`** — **unblocked 2026-08-25 when A shipped.** It was held
       back deliberately until presets existed, and now they do: an agent names a preset and the
       credential never crosses the MCP boundary, which is `${secret.NAME}`'s shape one layer up.

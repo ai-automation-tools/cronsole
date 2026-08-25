@@ -344,6 +344,30 @@ interface ExecutionRow {
   platformRunId: string | null;
 }
 
+/**
+ * A run the **platform** recorded, not one Cronsole performed.
+ *
+ * `status` is the platform's own word and is deliberately not mapped onto
+ * Cronsole's `ExecutionStatus`: that would be a second judgement about an
+ * outcome the platform already named, in a vocabulary that is preview-era on at
+ * least one source.
+ */
+interface PlatformRunRow {
+  id: string;
+  status: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  outputAvailable: boolean;
+}
+
+/** One run's product. `facts` is printed, never parsed — see the route. */
+interface PlatformRunOutputRow {
+  text: string | null;
+  steps: string[];
+  facts: { label: string; value: string }[];
+  url: string | null;
+}
+
 // ---- helpers ----
 
 /** A tool handler failed — render the message honestly and flag it as an error. */
@@ -1380,7 +1404,10 @@ Next run: ${task.nextRunTime}` : '')
         'scheduler fires. A Windows task that ran on its own trigger is recorded by Windows, not here, so an ' +
         'empty history does NOT mean the task never ran. Note too that a SUCCESS here means the run was ' +
         'dispatched and reported success — a task that hangs forever can still report SUCCESS, so for a ' +
-        'suspected hang check Windows\' own LastTaskResult rather than trusting this.',
+        'suspected hang check Windows\' own LastTaskResult rather than trusting this. ' +
+        'For the runs a source recorded ITSELF — every scheduled run Cronsole never triggered — call ' +
+        'list_platform_runs instead. On GEMINI_TRIGGERS, GITHUB_ACTIONS, VERCEL_CRON and Windows that is ' +
+        'where the history actually lives, and this tool being empty there is the design working.',
       inputSchema: {
         taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
         limit: z
@@ -1423,6 +1450,195 @@ Next run: ${task.nextRunTime}` : '')
           runs: rows
         });
       } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+
+  // ---------------------------------------------------------------------------
+  // list_platform_runs
+  // ---------------------------------------------------------------------------
+  server.registerTool(
+    'list_platform_runs',
+    {
+      title: 'List runs the platform itself recorded',
+      description:
+        'Show the run history the SOURCE PLATFORM keeps, including every scheduled run Cronsole never ' +
+        'triggered. This is the companion to get_task_history and the two are deliberately separate: ' +
+        'get_task_history reads Cronsole\'s own log, which holds only runs Cronsole PERFORMED — so on a ' +
+        'source that runs work by itself it is empty by design, however well the task is running. ' +
+        'THIS is where the runs actually are on GEMINI_TRIGGERS, GITHUB_ACTIONS, VERCEL_CRON and ' +
+        'WINDOWS_TASK_SCHEDULER. When asked "why did my scheduled task fail?", call this, not ' +
+        'get_task_history. ' +
+        'Nothing is stored: this is a live read, so it can fail on its own while Cronsole\'s log reads fine. ' +
+        'A platform that publishes no run history answers plainly rather than erroring — VERCEL_CRON is the ' +
+        'permanent case, and "no history published" is a fact about the platform, never evidence the task ' +
+        'is broken. Use get_run_output on a run whose outputAvailable is true to see what it produced.',
+      inputSchema: {
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .default(20)
+          .describe('Max runs to return, newest first (default 20).')
+      }
+    },
+    async ({ taskId, limit }) => {
+      try {
+        const body = await client.get<{ runs?: PlatformRunRow[] }>(
+          `/tasks/${encodeURIComponent(taskId)}/platform-runs`
+        );
+        const runs = (body?.runs ?? []).slice(0, limit);
+
+        if (runs.length === 0) {
+          // **"Found nothing" and "looked at nothing" render identically**, which
+          // is the ambiguity this whole feature exists to close — so say which
+          // one this is rather than returning a bare empty list.
+          return ok(
+            'The platform reports no runs for this task.\n' +
+            'That means the platform was asked and had nothing to give — not that Cronsole could not ask. ' +
+            'A task that has genuinely never fired looks exactly like this, and so does one whose history ' +
+            'the platform ages out.',
+            { taskId, returned: 0, runs: [] }
+          );
+        }
+
+        const summary = runs
+          .map(r => {
+            const when = r.startedAt ?? 'start time unknown';
+            const ended = r.endedAt ? ` → ${r.endedAt}` : '';
+            // `outputAvailable` is the difference between "nothing to show yet"
+            // and "this platform never shows output". Both are real, and a
+            // caller that cannot tell them apart burns a call finding out.
+            const open = r.outputAvailable ? ` · id ${r.id} (output available)` : ` · id ${r.id}`;
+            return `• ${when}${ended} — ${r.status}${open}`;
+          })
+          .join('\n');
+
+        return ok(
+          `${runs.length} run(s) recorded by the platform, newest first:\n${summary}\n\n` +
+          'The status is the PLATFORM\'S OWN WORD, not a Cronsole verdict — vocabularies differ by source ' +
+          'and are preview-era on at least one. Call get_run_output with a run id to see what a run did.',
+          { taskId, returned: runs.length, runs }
+        );
+      } catch (err) {
+        // A 400 here is the documented "this platform has no such thing" answer,
+        // and it is information rather than a failure. Returning it as a tool
+        // error would have an assistant report a broken integration over a
+        // source that is working exactly as designed.
+        if (err instanceof CronsoleApiError && err.status === 400) {
+          return ok(
+            `This platform does not publish its own run history. ${err.message}\n` +
+            'That is a property of the source, not a fault. Cronsole\'s own log (get_task_history) is the ' +
+            'only run record available here.',
+            { taskId, returned: 0, runs: [], platformPublishesRuns: false }
+          );
+        }
+        return toolError(err);
+      }
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // get_run_output
+  // ---------------------------------------------------------------------------
+  server.registerTool(
+    'get_run_output',
+    {
+      title: 'Read what one platform run produced',
+      description:
+        'Fetch the output of a single run from list_platform_runs — its final text, THE STEPS IT ACTUALLY ' +
+        'TOOK, whatever the platform counts, and a link to the run\'s page where one exists. ' +
+        'READ THE STEPS, NOT JUST THE STATUS. A status of "completed" means the agent finished its turn, ' +
+        'not that it did the job: a trigger asked to email a report completes cleanly having only written a ' +
+        'file, because its sandbox had no mailer. The step list is the only thing that shows that. ' +
+        'One run per call, deliberately — a transcript can be ~90KB, so fetching a list of them would ' +
+        'flood the context for no benefit. Long output is truncated here and the response says so. ' +
+        'A refusal carries its reason, and the reasons are different facts: "still running", "produced ' +
+        'nothing" and "aged out of the platform\'s list" each mean something else and none of them is an error.',
+      inputSchema: {
+        taskId: z.string().describe('The Cronsole task id (from list_tasks).'),
+        runId: z.string().describe('The platform run id, from list_platform_runs.'),
+        maxChars: z
+          .number()
+          .int()
+          .min(200)
+          .max(20000)
+          .default(4000)
+          .describe(
+            'Truncate the run text to this many characters (default 4000). Raise it only when the ' +
+            'answer is genuinely in the transcript — a full agent transcript can be ~90KB.'
+          )
+      }
+    },
+    async ({ taskId, runId, maxChars }) => {
+      try {
+        const body = await client.get<{
+          available: boolean;
+          reason?: string;
+          output?: PlatformRunOutputRow;
+        }>(
+          `/tasks/${encodeURIComponent(taskId)}/platform-runs/${encodeURIComponent(runId)}/output`
+        );
+
+        if (!body?.available || !body.output) {
+          // Not an error: the route answers `available: false` WITH a reason
+          // precisely so the three cases stay distinguishable.
+          return ok(
+            `No output for this run. ${body?.reason ?? 'The platform gave no reason.'}`,
+            { taskId, runId, available: false, reason: body?.reason ?? null }
+          );
+        }
+
+        const out = body.output;
+        const full = out.text ?? '';
+        const truncated = full.length > maxChars;
+        const text = truncated ? `${full.slice(0, maxChars)}\n…[truncated]` : full;
+
+        const parts: string[] = [];
+        if (out.steps?.length) {
+          // First, and labelled as the thing to read. This is the field that
+          // catches a run which succeeded at finishing and failed at the job.
+          parts.push(`What it did, in order (${out.steps.length} step(s)):\n  ${out.steps.join(' → ')}`);
+        } else {
+          parts.push('The platform reported no step list for this run.');
+        }
+        if (text) parts.push(`Output:\n${text}`);
+        else parts.push('The run produced no final text.');
+        if (out.facts?.length) {
+          // Printed, never parsed: every source counts something different, so
+          // these are label/value pairs by design rather than named fields.
+          parts.push(out.facts.map(f => `${f.label}: ${f.value}`).join(' · '));
+        }
+        if (out.url) parts.push(`On the platform: ${out.url}`);
+        if (truncated) {
+          parts.push(
+            `Output truncated at ${maxChars} of ${full.length} characters. Re-call with a higher maxChars ` +
+            'if the answer is further down.'
+          );
+        }
+
+        return ok(parts.join('\n\n'), {
+          taskId,
+          runId,
+          available: true,
+          steps: out.steps ?? [],
+          facts: out.facts ?? [],
+          url: out.url ?? null,
+          truncated,
+          totalChars: full.length,
+          text
+        });
+      } catch (err) {
+        if (err instanceof CronsoleApiError && err.status === 400) {
+          return ok(
+            `This platform does not publish what a run produced. ${err.message}`,
+            { taskId, runId, available: false, platformPublishesOutput: false }
+          );
+        }
         return toolError(err);
       }
     }

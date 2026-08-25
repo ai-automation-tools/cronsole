@@ -1137,6 +1137,80 @@ describe('platform run history — the detail Windows publishes nowhere else', (
     expect(result.message).toMatch(/no longer has an entry/i);
   });
 
+  it('collapses events whose start has aged out into ONE truncated run', async () => {
+    // Keying orphans by their own timestamps made every stray event its own
+    // "run" — a single truncated run rendered as three rows with no start time,
+    // which is the failure this grouping exists to prevent, arriving through the
+    // orphan path instead of the normal one.
+    answerHistory({
+      historyEnabled: true,
+      events: [
+        evt(102, '2026-08-24T12:32:12Z', 'Task completed'),
+        evt(201, '2026-08-24T12:32:11Z', 'Action completed'),
+        evt(200, '2026-08-24T12:32:10Z', 'Action launched')
+      ]
+    });
+
+    const result = await connector.listPlatformRuns!('\Folder\Task', config);
+    expect(result.runs).toHaveLength(1);
+    // **`completed`, not `partial`** — the run really did finish; event 102 says
+    // so. What is missing is Cronsole's view of its start, which is a gap in the
+    // log window rather than in the run, and reporting it as incomplete would
+    // describe the reader instead of the task.
+    expect(result.runs![0]!.status).toBe('completed');
+    // The earliest surviving event is a better time than null, which would
+    // render as a run that never happened.
+    expect(result.runs![0]!.startedAt).toEqual(new Date('2026-08-24T12:32:10Z'));
+  });
+
+  it('says partial only when the fragments settle nothing', async () => {
+    // No start and no outcome: the log holds the middle of a run and nothing
+    // that says how it went. That is genuinely inconclusive, and distinct both
+    // from a finished run and from one still in progress.
+    answerHistory({
+      historyEnabled: true,
+      events: [evt(200, '2026-08-24T12:32:10Z', 'Action launched')]
+    });
+
+    const result = await connector.listPlatformRuns!('\Folder\Task', config);
+    expect(result.runs![0]!.status).toBe('partial');
+  });
+
+  it('reads the exit code from the event fields, not the English sentence', async () => {
+    // `message` is those same values pasted into a localized template, so a regex
+    // over it returns nothing the moment Windows is not in English — a silent,
+    // total loss of the one detail this platform publishes.
+    answerHistory({
+      historyEnabled: true,
+      events: [
+        {
+          ...evt(201, '2026-08-25T03:00:08Z', 'Aufgabenplanung hat die Aktion abgeschlossen'),
+          data: { ResultCode: '2', ActionName: 'C:\tools\backup.cmd' }
+        },
+        evt(100, '2026-08-25T03:00:00Z', 'Task started')
+      ]
+    });
+
+    const result = await connector.getRunOutput!('\Folder\Task', '2026-08-25T03:00:00Z', config);
+    expect(result.output!.facts).toContainEqual({ label: 'Exit code', value: '2' });
+    expect(result.output!.facts).toContainEqual({ label: 'Action', value: 'C:\tools\backup.cmd' });
+  });
+
+  it('still parses the message when the agent predates the named fields', async () => {
+    // An agent published before 2026-08-25 sends no `data`, and this must keep
+    // working against it rather than silently losing the exit code.
+    answerHistory({
+      historyEnabled: true,
+      events: [
+        evt(201, '2026-08-25T03:00:08Z', 'Task Scheduler successfully completed task, action "C:\old.cmd", with return code 5'),
+        evt(100, '2026-08-25T03:00:00Z', 'Task started')
+      ]
+    });
+
+    const result = await connector.getRunOutput!('\Folder\Task', '2026-08-25T03:00:00Z', config);
+    expect(result.output!.facts).toContainEqual({ label: 'Exit code', value: '5' });
+  });
+
   it('refuses without an agent rather than reporting an empty history', async () => {
     vi.mocked(agentManager.getSocket).mockReturnValue(undefined);
     expect(await connector.listPlatformRuns!('\Folder\Task', config)).toMatchObject({

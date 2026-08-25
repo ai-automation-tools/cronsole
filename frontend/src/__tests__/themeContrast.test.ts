@@ -84,6 +84,7 @@ const TEXT_ROLES = [
   'foreground',
   'muted-foreground',
   'subtle-foreground',
+  'primary-text',
   'success-text',
   'warning-text',
   'danger-text',

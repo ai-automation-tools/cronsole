@@ -66,6 +66,14 @@
   --primary: 262 83% 58%;
   --primary-foreground: 0 0% 100%;
   --primary-hover: 262 84% 63%;
+  /* The brand violet as **text on the page**, which `--primary` never was: that
+     is a fill, measured only against `--primary-foreground` sitting on top of
+     it. A low-opacity primary tint needs a text colour that clears AA on the
+     page beneath it, and reusing the fill for that is the mistake `--native`
+     made against `--primary` — the same hex doing two jobs and drawing no
+     distinction in either. Sits with `--system-text` / `--claude-text` in
+     lightness because they solve the same problem in the same family. */
+  --primary-text: 262 90% 76%;
   --success: 160 84% 26%;
   --success-foreground: 0 0% 100%;
   --success-hover: 158 74% 30%;
@@ -142,6 +150,14 @@
   --primary: 262 83% 58%;
   --primary-foreground: 0 0% 100%;
   --primary-hover: 262 84% 63%;
+  /* The brand violet as **text on the page**, which `--primary` never was: that
+     is a fill, measured only against `--primary-foreground` sitting on top of
+     it. A low-opacity primary tint needs a text colour that clears AA on the
+     page beneath it, and reusing the fill for that is the mistake `--native`
+     made against `--primary` — the same hex doing two jobs and drawing no
+     distinction in either. Sits with `--system-text` / `--claude-text` in
+     lightness because they solve the same problem in the same family. */
+  --primary-text: 262 90% 76%;
   --success: 160 84% 26%;
   --success-foreground: 0 0% 100%;
   --success-hover: 158 74% 30%;
@@ -215,6 +231,10 @@
   --primary: 262 83% 58%;
   --primary-foreground: 0 0% 100%;
   --primary-hover: 262 72% 48%;
+  /* Light inverts the text half and not the accent, per the pair rule. Matched
+     to `--system-text` (259 69% 45%), which clears 4.5 on `--muted` — the
+     binding surface in this theme, not the page. */
+  --primary-text: 262 72% 45%;
   --success: 160 84% 28%;
   --success-foreground: 0 0% 100%;
   --success-hover: 161 84% 22%;
@@ -272,6 +292,7 @@
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-primary-hover: hsl(var(--primary-hover));
+  --color-primary-text: hsl(var(--primary-text));
   --color-success: hsl(var(--success));
   --color-success-foreground: hsl(var(--success-foreground));
   --color-success-hover: hsl(var(--success-hover));

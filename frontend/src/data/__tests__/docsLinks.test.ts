@@ -13,9 +13,16 @@ import troubleshooting from '../../../../docs/troubleshooting/README.md?raw';
 import adrPerJobSecrets from '../../../../docs/adr/0003-per-job-secrets.md?raw';
 import remoteAccessGuide from '../../../../docs/user-guides/guides/Remote_Access_Guide.md?raw';
 import addingASource from '../../../../docs/contributing/Adding_A_Source.md?raw';
+import sourceDocsIndexDoc from '../../../../docs/user-guides/sources/README.md?raw';
+import sourceWindows from '../../../../docs/user-guides/sources/Windows_Task_Scheduler.md?raw';
+import sourceNative from '../../../../docs/user-guides/sources/Cronsole_Native.md?raw';
+import sourceClaude from '../../../../docs/user-guides/sources/Claude_Code_Routines.md?raw';
+import sourceGemini from '../../../../docs/user-guides/sources/Gemini_API_Triggers.md?raw';
+import sourceGitHub from '../../../../docs/user-guides/sources/GitHub_Actions.md?raw';
+import sourceVercel from '../../../../docs/user-guides/sources/Vercel_Cron.md?raw';
 
 import { describe, it, expect } from 'vitest';
-import { DOCS_BASE, addingASourceDoc } from '../docs';
+import { DOCS_BASE, addingASourceDoc, sourceDoc, sourceDocsIndex } from '../docs';
 import { helpTopics } from '../help';
 import { GETTING_STARTED_STEPS, HELP_GUIDES } from '../onboarding';
 
@@ -47,8 +54,33 @@ const DOC_SOURCES: Record<string, string> = {
   'docs/troubleshooting/README.md': troubleshooting,
   'docs/adr/0003-per-job-secrets.md': adrPerJobSecrets,
   'docs/user-guides/guides/Remote_Access_Guide.md': remoteAccessGuide,
-  'docs/contributing/Adding_A_Source.md': addingASource
+  'docs/contributing/Adding_A_Source.md': addingASource,
+  'docs/user-guides/sources/README.md': sourceDocsIndexDoc,
+  'docs/user-guides/sources/Windows_Task_Scheduler.md': sourceWindows,
+  'docs/user-guides/sources/Cronsole_Native.md': sourceNative,
+  'docs/user-guides/sources/Claude_Code_Routines.md': sourceClaude,
+  'docs/user-guides/sources/Gemini_API_Triggers.md': sourceGemini,
+  'docs/user-guides/sources/GitHub_Actions.md': sourceGitHub,
+  'docs/user-guides/sources/Vercel_Cron.md': sourceVercel
 };
+
+/**
+ * Every platform whose card carries a **Read: using X** link.
+ *
+ * Hard-coded rather than read from the matrix, deliberately: the matrix is a
+ * server response this test does not have, and a list derived from the same
+ * `SOURCE_DOCS` map the app uses would assert that the map agrees with itself.
+ * A new source added to the Sources tab and not to this array is caught by the
+ * *count* assertion below rather than by a silently shorter loop.
+ */
+const DOCUMENTED_SOURCES = [
+  'WINDOWS_TASK_SCHEDULER',
+  'TASKHUB_NATIVE',
+  'CLAUDE_CODE',
+  'GEMINI_TRIGGERS',
+  'GITHUB_ACTIONS',
+  'VERCEL_CRON'
+];
 
 /**
  * GitHub's heading → anchor slug: lowercase, drop punctuation other than `-`
@@ -91,16 +123,21 @@ const links: { from: string; label: string; url: string }[] = [
     url: s.link!.url
   })),
   ...HELP_GUIDES.map(g => ({ from: 'Help Center guides', label: g.label, url: g.url })),
-  // Not a `HelpTopic`, so none of the collectors above sees it — and a link the
+  // Not `HelpTopic`s, so none of the collectors above sees them — and a link the
   // matrix cannot see is exactly the one that rots, which is this file's whole
-  // premise. `AddCustomSourcePanel` is the only component that deep-links into
-  // the repo on its own rather than through `help.ts`; if a second ever does,
-  // the honest fix is to collect them rather than to add a second line here.
+  // premise. These are the components that deep-link into the repo on their own
+  // rather than through `help.ts`.
   {
     from: 'AddCustomSourcePanel',
     label: 'Adding a source',
     url: addingASourceDoc()
-  }
+  },
+  { from: 'source guides index', label: 'Source guides', url: sourceDocsIndex() },
+  ...DOCUMENTED_SOURCES.map(platform => ({
+    from: `SourceDocLink "${platform}"`,
+    label: `Using ${platform}`,
+    url: sourceDoc(platform)!
+  }))
 ];
 
 describe('in-app documentation links', () => {
@@ -149,5 +186,48 @@ describe('help topics', () => {
   it('ids are unique', () => {
     const ids = helpTopics().map(t => t.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+/**
+ * **Every source on the Sources tab has a document, and every document is reachable.**
+ *
+ * A card whose guide link is missing looks exactly like a card whose source is
+ * simpler than the others — there is no gap on screen to notice. So the count is
+ * asserted rather than the loop being allowed to run short.
+ */
+describe('per-source guides', () => {
+  it('covers all six sources on the Sources tab', () => {
+    // If a seventh source ships, this fails here rather than shipping a card
+    // with no way to read about it.
+    expect(DOCUMENTED_SOURCES).toHaveLength(6);
+  });
+
+  it.each(DOCUMENTED_SOURCES)('%s has a guide', platform => {
+    const url = sourceDoc(platform);
+    expect(url, `${platform} has no per-source guide`).toBeTruthy();
+    expect(DOC_SOURCES[url!.slice(DOCS_BASE.length + 1)]).toBeDefined();
+  });
+
+  it('returns null for a platform with no connector, rather than a dead link', () => {
+    // Quick links have nothing to document. A button that goes nowhere is worse
+    // than an absent one, so `SourceDocLink` renders nothing on a null.
+    expect(sourceDoc('CHATGPT')).toBeNull();
+    expect(sourceDoc('')).toBeNull();
+  });
+
+  it('is linked from the index, so the set is reachable as a set', () => {
+    // The Tier-3 index is the only place all six are listed together; a document
+    // nothing links to is an orphan however good it is.
+    for (const file of [
+      'Windows_Task_Scheduler.md',
+      'Cronsole_Native.md',
+      'Claude_Code_Routines.md',
+      'Gemini_API_Triggers.md',
+      'GitHub_Actions.md',
+      'Vercel_Cron.md'
+    ]) {
+      expect(sourceDocsIndexDoc, `sources/README.md does not link to ${file}`).toContain(`(${file})`);
+    }
   });
 });

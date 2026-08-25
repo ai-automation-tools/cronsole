@@ -24,6 +24,19 @@ can only *watch*.
 This guide has one section per source: what it is, **what Cronsole can and can't do with it**,
 and the things that surprise people. It is what the **?** buttons in the app link to.
 
+> [!TIP]
+> **Each source also has its own document**, and that is the one to read once you have chosen. This
+> page compares six sources; a [source guide](../sources/README.md) covers one — connecting it, what
+> each capability actually does, the traps, and where to go when it misbehaves. Every card on the
+> Sources tab links straight to its own.
+>
+> [🪟 Windows](../sources/Windows_Task_Scheduler.md) ·
+> [⚡ Cronsole-native](../sources/Cronsole_Native.md) ·
+> [🤖 Claude Code](../sources/Claude_Code_Routines.md) ·
+> [✨ Gemini](../sources/Gemini_API_Triggers.md) ·
+> [🐙 GitHub Actions](../sources/GitHub_Actions.md) ·
+> [▲ Vercel Cron](../sources/Vercel_Cron.md)
+
 > **Where to find this in the app:** the **Sources** section of the sidebar lists one row per
 > source you have, with **Explore sources** and **Manage sources** beneath it. The **Sources**
 > tab shows the same systems from the other direction, in three views — **Connected**,

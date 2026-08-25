@@ -8,6 +8,7 @@ import { GitHubReposPanel } from '../GitHubReposPanel';
 import { VercelProjectsPanel } from '../VercelProjectsPanel';
 import { GeminiTriggersPanel } from '../GeminiTriggersPanel';
 import { SidebarToggle, SourceHeading, SourceStatusPill, SourceTile } from './SourceIdentity';
+import { SourceDocLink } from './SourceDocLink';
 
 /**
  * The two shapes a source takes before it is connected.
@@ -84,6 +85,14 @@ export const PendingSourceCard = ({ row, shownSources, onToggleShown }: {
             Set up {row.label}
           </button>
         )}
+
+        {/*
+          Below the setup control rather than beside it. Reading how a source
+          works is what you do BEFORE connecting it — this is the card that says
+          "you have added this and not set it up yet", so the guide is the more
+          useful of the two things on offer more often than you would think.
+        */}
+        <SourceDocLink platform={row.platform} label={row.label} />
       </div>
 
       {setup.hasPanel && open && (
@@ -144,5 +153,12 @@ export const OfferSourceCard = ({ row, onAdd }: {
     >
       <Plus size={14} /> Add to sidebar
     </button>
+
+    {/*
+      The one card where the guide answers the question the card is asking.
+      "Add to sidebar" is a decision about whether this source is for you, and
+      a summary line cannot settle it — the document can.
+    */}
+    <SourceDocLink platform={row.platform} label={row.label} />
   </article>
 );

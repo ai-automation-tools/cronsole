@@ -86,6 +86,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 
 ### Fixed
+- **A Gemini task shows its prompt, and stops telling you to update the Windows agent** (2026-08-25). The Action panel read `command`, `job` and `actions` — none of which a Gemini trigger has. Its prompt is stored under `prompt`, so every synced trigger showed an empty panel carrying the fallback advice: *"Update the Windows agent to surface the command it runs."* On a platform with no agent, about a task whose action was sitting in the record two fields over.
+
+  The panel now reads the prompt, and the fallback names the actual source instead of a component the platform does not have. Republishing the agent is the fix on exactly one source, and printing it on the others is the same wrong-platform blame as the Sources tab naming your own broken file.
 - **A Gemini task can be deleted from the dashboard now** (2026-08-25). The Delete button was gated on a hardcoded pair of platforms, so a Gemini trigger had no delete control at all — the only removal on screen was *Remove from Cronsole*, which leaves it running on the platform. The capability was already there: the connector implements it, the route calls it, and the Sources tab reported the verb working. Only the button was missing, so the actual path to deleting a trigger was `curl`.
 
   It now follows **the server's capability matrix** rather than a list of platform names kept in the browser, which means the next source to support deletion gets the button without anyone remembering to widen a list. Its confirmation names the source (*"Delete from Gemini API Triggers?"*), says the trigger will stop existing there, and points at *Remove from Cronsole* as the reversible alternative — on a hosted source those two sit one button apart and only one can be undone.

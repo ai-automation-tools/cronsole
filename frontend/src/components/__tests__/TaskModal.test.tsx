@@ -342,3 +342,30 @@ describe('TaskModal Component', () => {
     });
   });
 });
+
+describe('the Action panel reads the unit of work each platform actually has', () => {
+  const geminiTask = (metadata: Record<string, unknown>): Task => ({
+    ...mockTask,
+    id: 'gem1',
+    platform: 'GEMINI_TRIGGERS',
+    externalId: 'trg_1',
+    name: 'Daily digest',
+    metadata
+  });
+
+  it('shows a Gemini trigger prompt as its action', async () => {
+    // The connector writes `metadata.prompt`; reading only `command` left every
+    // synced trigger with an empty Action panel.
+    vi.mocked(api.get).mockResolvedValue({ data: [] } as never);
+    renderModal({ task: geminiTask({ prompt: 'Summarise yesterday' }) });
+    expect(await screen.findByText('Summarise yesterday')).toBeInTheDocument();
+  });
+
+  it('does not blame the Windows agent on a platform that has none', async () => {
+    // #77's shape: advice naming a component this platform does not have.
+    vi.mocked(api.get).mockResolvedValue({ data: [] } as never);
+    renderModal({ task: geminiTask({}) });
+    expect(await screen.findByText(/didn.t report what this task runs/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Windows agent/i)).not.toBeInTheDocument();
+  });
+});

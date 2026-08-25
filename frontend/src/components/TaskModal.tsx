@@ -155,6 +155,17 @@ function actionInfo(task: Task): { rows: DetailRow[]; reported: boolean } {
     return { rows, reported: true };
   }
 
+  // **The unit of work is not always a command.** A Gemini trigger's action is a
+  // prompt, and the connector writes it to `metadata.prompt` — so reading only
+  // `command` left every synced trigger with an empty Action panel showing advice
+  // about the Windows agent, a component that platform does not have. The same
+  // wrong-platform blame as #77, one panel over.
+  const prompt = asText(meta.prompt);
+  if (prompt) {
+    rows.push({ label: 'Prompt', value: prompt, mono: false });
+    return { rows, reported: true };
+  }
+
   return { rows, reported: false };
 }
 
@@ -624,7 +635,12 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
             ) : (
               <div className="text-xs text-subtle-foreground bg-background border border-border rounded-xl px-4 py-3 flex items-start gap-2">
                 <Info size={14} className="shrink-0 mt-0.5" />
-                The agent didn't report this task's action. Update the Windows agent to surface the command it runs.
+                {/* Advice, only where it applies. Republishing the Windows agent
+                    is the fix on exactly one platform, and printing it on the
+                    others blames a component they do not have — #77's shape. */}
+                {task.platform === 'WINDOWS_TASK_SCHEDULER'
+                  ? "The agent didn't report this task's action. Republish the Windows agent to surface the command it runs."
+                  : `${platformSourceLabel(task.platform)} didn't report what this task runs.`}
               </div>
             )}
           </DetailSection>

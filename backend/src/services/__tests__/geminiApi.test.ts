@@ -130,3 +130,78 @@ describe('listExecutions reads the array the API actually returns', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe('reading what an agent can reach never reads back its credentials', () => {
+  const withTools = (interaction: Record<string, unknown>) =>
+    toTrigger({ id: 'trg_1', interaction });
+
+  it('summarises an MCP server without its headers', () => {
+    // `headers` carries bearer tokens. It is dropped at the PARSE, not filtered
+    // downstream — otherwise every future reader (task metadata, an export, an
+    // archive, a log line) is one forgotten `delete` from publishing a token.
+    const parsed = withTools({
+      tools: [{
+        type: 'mcp_server',
+        name: 'weather',
+        url: 'https://example.com/mcp',
+        headers: { Authorization: 'Bearer super-secret' },
+        allowed_tools: [{ x: 1 }]
+      }]
+    });
+
+    expect(parsed!.tools).toEqual([
+      { type: 'mcp_server', name: 'weather', url: 'https://example.com/mcp', restricted: true }
+    ]);
+    // The decisive assertion: the token appears nowhere in the parsed object,
+    // under any key, at any depth.
+    expect(JSON.stringify(parsed)).not.toContain('super-secret');
+    expect(JSON.stringify(parsed)).not.toContain('Authorization');
+  });
+
+  it('keeps a tool type it has never seen rather than dropping it', () => {
+    // The supported list is preview-era and will grow. A tool Cronsole cannot
+    // name is still reach the agent has, and hiding it would understate what a
+    // scheduled autonomous task can do.
+    expect(withTools({ tools: [{ type: 'quantum_thing' }] })!.tools[0]).toMatchObject({
+      type: 'quantum_thing',
+      restricted: false
+    });
+    // A tool object with no type at all is reported as unknown, not skipped.
+    expect(withTools({ tools: [{}] })!.tools[0]!.type).toBe('unknown');
+  });
+
+  it('reads the network allowlist by its real field name', () => {
+    // `allowlist`, not the documented `allowed_domains` — the docs' name is
+    // rejected by the API outright.
+    const parsed = toTrigger({
+      id: 'trg_1',
+      interaction: { environment: { type: 'remote', network: { allowlist: [{ domain: 'example.com' }] } } }
+    });
+    expect(parsed!.networkAllowlist).toEqual(['example.com']);
+  });
+
+  it('takes only the domain from an allowlist entry', () => {
+    // An entry can carry header transforms, which are credentials wearing a
+    // routing name.
+    const parsed = toTrigger({
+      id: 'trg_1',
+      interaction: {
+        environment: {
+          type: 'remote',
+          network: { allowlist: [{ domain: 'api.example.com', headers: { Authorization: 'Bearer leak-me' } }] }
+        }
+      }
+    });
+    expect(parsed!.networkAllowlist).toEqual(['api.example.com']);
+    expect(JSON.stringify(parsed)).not.toContain('leak-me');
+  });
+
+  it('is empty, not undefined, when a trigger declares neither', () => {
+    // The default and the common case — including every trigger Cronsole itself
+    // creates. Empty arrays keep the connector free of optional-chaining that
+    // would imply an absence the type rules out.
+    const parsed = withTools({});
+    expect(parsed!.tools).toEqual([]);
+    expect(parsed!.networkAllowlist).toEqual([]);
+  });
+});

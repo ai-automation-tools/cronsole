@@ -90,6 +90,74 @@ export type GeminiResult<T> =
  */
 export type GeminiTriggerStatus = 'active' | 'paused' | 'disabled' | 'unknown';
 
+/**
+ * One tool a trigger's agent can use, reduced to what is safe to display.
+ *
+ * **The credentials are dropped at the parse, not filtered later**, and that
+ * placement is the whole design. An `mcp_server` tool carries a `headers` map
+ * whose values are bearer tokens; an allowlist entry can carry header transforms
+ * that are the same thing by another name. If those were parsed into a
+ * `GeminiTrigger` and removed downstream, every future reader — task metadata,
+ * an export, an archive, a log line, an MCP tool response — would be one
+ * forgotten `delete` away from publishing somebody's token.
+ *
+ * So they never enter the object. This is `TaskSecret`'s rule pointed the other
+ * way: there, no route returns a stored value; here, no parse produces one.
+ */
+/**
+ * The tool types the platform accepts, **taken from the API rather than the docs**.
+ *
+ * Obtained by sending a bogus type and reading the refusal, which enumerates the
+ * supported set — a better source than any document, and this connector's
+ * documentation has disagreed with the wire five times. Validated before the
+ * create so a typo is refused by Cronsole with a list, rather than by Google
+ * with a sentence about a field the user did not know they were setting.
+ *
+ * It will grow. An unknown type is refused *here* rather than silently dropped,
+ * because dropping one would create a trigger with less reach than the form
+ * showed — and a security-relevant field that quietly does nothing is worse than
+ * an error.
+ */
+export const GEMINI_TOOL_TYPES = [
+  'filesystem',
+  'file_search',
+  'google_maps',
+  'bash',
+  'computer_use',
+  'mcp_server',
+  'url_context',
+  'code_execution',
+  'google_search',
+  'tool_search',
+  'function'
+] as const;
+
+/** A tool as it goes *in*. Distinct from {@link GeminiToolSummary}: this one has headers. */
+export interface GeminiToolInput {
+  type: string;
+  name?: string;
+  url?: string;
+  headers?: Record<string, string>;
+}
+
+export interface GeminiToolSummary {
+  /** `mcp_server`, `bash`, `google_search`, … — the platform's own word. */
+  type: string;
+  /** The server or function name, where the tool has one. */
+  name: string | null;
+  /** An MCP server's endpoint. Credential-free: `headers` is never read. */
+  url: string | null;
+  /**
+   * Whether the trigger restricts which of an MCP server's tools may be used.
+   *
+   * A boolean rather than the list, because the element shape is still unknown
+   * (an object, and not `name`/`tool`/`tool_name`) — and reporting *that it is
+   * restricted* is the fact worth having. Guessing at contents Cronsole cannot
+   * parse would be worse than saying less.
+   */
+  restricted: boolean;
+}
+
 export interface GeminiTrigger {
   /** The platform's id — Cronsole's `externalId`, unchanged by a rename. */
   id: string;
@@ -112,6 +180,25 @@ export interface GeminiTrigger {
   input: string | null;
   /** The sandbox type the interaction declares, e.g. `remote`. */
   environmentType: string | null;
+  /**
+   * The tools this trigger's agent can reach — **without their credentials**.
+   *
+   * Cronsole creates triggers with no `tools` at all, but one made in AI Studio
+   * or through the API can carry MCP servers, `bash`, `computer_use` and more.
+   * Reading them is not a nicety: an agent's *reach* is the most consequential
+   * thing about a scheduled autonomous task, and until this existed a trigger
+   * with a shell and three MCP servers was indistinguishable on the dashboard
+   * from one that could only think.
+   */
+  tools: GeminiToolSummary[];
+  /**
+   * The domains the sandbox may reach, when the trigger declares an allowlist.
+   *
+   * Empty means the environment states none — the default, and what Cronsole
+   * itself creates. Domains only: see {@link toToolSummary} for why the header
+   * transforms that can accompany them never leave the parse.
+   */
+  networkAllowlist: string[];
   executionTimeoutSeconds: number | null;
 }
 
@@ -137,6 +224,20 @@ export interface GeminiExecution {
    * worth reading, and absent is more honest than a half-written transcript.
    */
   interactionId: string | null;
+  /**
+   * Why the run failed, when the platform says so on the execution itself.
+   *
+   * **The most valuable field on this object and it was dropped for a day.** A
+   * run that fails *before* the agent starts — a tool the agent is not allowed,
+   * a malformed environment — has no interaction, so the transcript path has
+   * nothing to show and Cronsole reported "there is nothing to read" while the
+   * exact reason sat one key over in the same response
+   * ([#84](../../../docs/troubleshooting/README.md)).
+   *
+   * Null on a run that succeeded, and on one that failed *inside* the agent —
+   * there the interaction holds the story.
+   */
+  error: string | null;
 }
 
 /**
@@ -435,8 +536,36 @@ export async function patchTrigger(
  */
 export async function createTrigger(
   apiKey: string,
-  spec: { schedule: string; displayName: string; agent: string; input: string; environmentType?: string }
+  spec: {
+    schedule: string;
+    displayName: string;
+    agent: string;
+    input: string;
+    environmentType?: string;
+    /** Tools to grant. Omitted entirely when empty — see `GEMINI_TOOL_TYPES`. */
+    tools?: GeminiToolInput[];
+    /** Domains the sandbox may reach. Omitted entirely when empty. */
+    allowlist?: string[];
+  }
 ): Promise<GeminiResult<GeminiTrigger>> {
+  // **Both omitted when empty, never sent as `[]`.** An empty `tools` array is
+  // not the same request as no `tools` key: the API documents the field as the
+  // way to *restrict* the default set, so sending `[]` could plausibly mean "no
+  // tools at all" rather than "use the defaults". Cronsole's create has always
+  // meant the latter, and an empty form must not silently change what a trigger
+  // can do.
+  const tools = (spec.tools ?? []).map(tool => ({
+    type: tool.type,
+    ...(tool.name ? { name: tool.name } : {}),
+    ...(tool.url ? { url: tool.url } : {}),
+    // The one credential on this path. It goes into the request body and
+    // nowhere else — not into a log line, not into the returned trigger, not
+    // into task metadata. `toTrigger` cannot read it back even if it wanted to.
+    ...(tool.headers && Object.keys(tool.headers).length ? { headers: tool.headers } : {})
+  }));
+
+  const allowlist = (spec.allowlist ?? []).filter(Boolean);
+
   const body = {
     schedule: spec.schedule,
     time_zone: 'UTC',
@@ -444,7 +573,13 @@ export async function createTrigger(
     interaction: {
       agent: spec.agent,
       input: spec.input,
-      environment: { type: spec.environmentType || 'remote' }
+      ...(tools.length ? { tools } : {}),
+      environment: {
+        type: spec.environmentType || 'remote',
+        // `allowlist`, with `{ domain }` entries — **not** the `allowed_domains`
+        // the documentation names, which the API rejects outright.
+        ...(allowlist.length ? { network: { allowlist: allowlist.map(domain => ({ domain })) } } : {})
+      }
     }
   };
 
@@ -509,6 +644,8 @@ export function toTrigger(raw: unknown): GeminiTrigger | null {
     agent: str(interaction.agent),
     input: readInput(interaction.input),
     environmentType: str(environment.type),
+    tools: Array.isArray(interaction.tools) ? interaction.tools.map(toToolSummary) : [],
+    networkAllowlist: readAllowlist(environment.network),
     executionTimeoutSeconds: num(t.execution_timeout_seconds ?? t.executionTimeoutSeconds)
   };
 }
@@ -553,7 +690,8 @@ export function toExecution(raw: unknown): GeminiExecution | null {
     status: (str(e.status) ?? 'unknown').toLowerCase(),
     startTime: toDate(str(e.start_time) ?? str(e.startTime)),
     endTime: toDate(str(e.end_time) ?? str(e.endTime)),
-    interactionId: str(e.interaction_id) ?? str(e.interactionId)
+    interactionId: str(e.interaction_id) ?? str(e.interactionId),
+    error: str(e.error)
   };
 }
 
@@ -630,7 +768,12 @@ function emptyTrigger(id: string): GeminiTrigger {
     agent: null,
     input: null,
     environmentType: null,
-    executionTimeoutSeconds: null
+    executionTimeoutSeconds: null,
+    // Empty, not "unknown": this placeholder describes a write whose echo could
+    // not be read, and claiming a tool list Cronsole never saw would be worse
+    // than claiming none — the next sync replaces it with the real one anyway.
+    tools: [],
+    networkAllowlist: []
   };
 }
 
@@ -664,6 +807,40 @@ function readInput(raw: unknown): string | null {
     .join('\n');
 
   return text || null;
+}
+
+/**
+ * One raw tool object, with everything credential-shaped left behind.
+ *
+ * `headers` is read **nowhere in this function**, deliberately and permanently.
+ * It is the field an MCP server's bearer token lives in, and the safest place
+ * for a secret Cronsole has no reason to hold is outside the object entirely.
+ */
+function toToolSummary(raw: unknown): GeminiToolSummary {
+  const t = (raw ?? {}) as Record<string, unknown>;
+  return {
+    type: str(t.type) ?? 'unknown',
+    name: str(t.name),
+    url: str(t.url),
+    restricted: Array.isArray(t.allowed_tools) ? t.allowed_tools.length > 0 : false
+  };
+}
+
+/**
+ * The domains an environment's network allowlist names.
+ *
+ * `allowlist`, not the documented `allowed_domains` — that name is rejected by
+ * the API, one of five places its documentation disagrees with the wire on this
+ * platform. Entries are objects (`{ domain }`), and only the domain is read: an
+ * entry may also carry header transforms, which are credentials wearing a
+ * routing name.
+ */
+function readAllowlist(network: unknown): string[] {
+  const list = (network as { allowlist?: unknown })?.allowlist;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map(entry => str((entry as { domain?: unknown })?.domain))
+    .filter((d): d is string => Boolean(d));
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);

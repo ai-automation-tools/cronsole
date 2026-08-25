@@ -369,3 +369,47 @@ describe('the Action panel reads the unit of work each platform actually has', (
     expect(screen.queryByText(/Windows agent/i)).not.toBeInTheDocument();
   });
 });
+
+describe('what a hosted agent can reach', () => {
+  const geminiTask = (metadata: Record<string, unknown>): Task => ({
+    ...mockTask,
+    id: 'gem2',
+    platform: 'GEMINI_TRIGGERS',
+    externalId: 'trg_2',
+    name: 'Digest',
+    metadata
+  });
+
+  it('shows the tools and the network allowlist', async () => {
+    // The most consequential fact about an autonomous scheduled task, and it was
+    // invisible: a trigger with a shell and an MCP server rendered identically to
+    // one that could only think.
+    vi.mocked(api.get).mockResolvedValue({ data: [] } as never);
+    renderModal({
+      task: geminiTask({
+        prompt: 'Do the thing',
+        tools: [
+          { type: 'bash', name: null, url: null, restricted: false },
+          { type: 'mcp_server', name: 'weather', url: 'https://example.com/mcp', restricted: true }
+        ],
+        networkAllowlist: ['api.example.com']
+      })
+    });
+
+    expect(await screen.findByText('bash')).toBeInTheDocument();
+    expect(screen.getByText(/mcp_server: weather/)).toBeInTheDocument();
+    // "restricted" is reported because the element shape of allowed_tools is
+    // still unknown — saying it is limited beats guessing at contents.
+    expect(screen.getByText('(restricted)')).toBeInTheDocument();
+    expect(screen.getByText('api.example.com')).toBeInTheDocument();
+  });
+
+  it('renders nothing at all when a trigger declares neither', async () => {
+    // The common case, including every trigger Cronsole creates. A permanent
+    // "None" panel on every task is noise the eye learns to skip.
+    vi.mocked(api.get).mockResolvedValue({ data: [] } as never);
+    renderModal({ task: geminiTask({ prompt: 'Do the thing' }) });
+    await screen.findByText('Do the thing');
+    expect(screen.queryByText(/What this agent can reach/i)).not.toBeInTheDocument();
+  });
+});

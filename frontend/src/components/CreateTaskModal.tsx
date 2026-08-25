@@ -13,6 +13,8 @@ import { HelpButton } from './HelpButton';
 import { sourceTopicId } from '../data/help';
 import { NativeJobFields } from './edit/NativeJobFields';
 import { TaskSecretsFields, type PendingSecret } from './edit/TaskSecretsFields';
+import { AgentReachEditor } from './AgentReachEditor';
+import { reachPayload, type AgentToolDraft } from '../utils/agentReach';
 import {
   emptyNativeJobValues,
   nativeJobPayload,
@@ -98,6 +100,14 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
   // Gemini's target: the instruction its agent runs on the schedule. Deliberately
   // its own state rather than sharing `command` — see `CreatePlatform`.
   const [prompt, setPrompt] = useState('');
+  // What the agent may use and reach. Both start empty, which is the standing
+  // rule: Cronsole never guesses an agent's reach, so a create that ignores this
+  // section produces the plainest environment the API accepts.
+  const [agentTools, setAgentTools] = useState<AgentToolDraft[]>([]);
+  const [agentAllowlist, setAgentAllowlist] = useState<string[]>([]);
+
+  /** See `reachPayload`: omitted entirely when nothing was granted. */
+  const cleanReachForSubmit = () => reachPayload(agentTools, agentAllowlist);
   const [preview, setPreview] = useState<{ score: number; warnings: string[] } | null>(null);
   // Claude fields. There is no schedule here on purpose — a routine's cadence
   // lives at claude.ai and is not readable through the one endpoint Anthropic
@@ -225,7 +235,10 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
           name,
           platform,
           schedule: storedSchedule.cron,
-          command: prompt
+          command: prompt,
+          // Sent only when something was granted, so a create that touched none
+          // of this is byte-identical to one made before the section existed.
+          ...cleanReachForSubmit()
         });
       }
       return api.post('/tasks/native', {
@@ -590,10 +603,34 @@ export const CreateTaskModal = ({ onClose }: CreateTaskModalProps) => {
                 className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs text-foreground outline-none focus:border-gemini transition-colors resize-y leading-relaxed"
               />
               <p className="text-[10px] text-subtle-foreground italic">
-                Runs on the managed agent set in the Sources tab. It gets{' '}
-                <span className="font-bold not-italic text-foreground">no network allowlist</span>, so it
-                can reach nothing outside its sandbox — add domains in Google AI Studio if it needs them.
+                Runs on the managed agent set in the Sources tab.
               </p>
+
+              {/*
+                Reach is part of creating an autonomous task, not an advanced
+                afterthought — but it is collapsed by default so the common case
+                (a prompt on a schedule, plain sandbox) is still two fields.
+              */}
+              <details className="group border border-border rounded-xl bg-background/40">
+                <summary className="cursor-pointer list-none px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-subtle-foreground flex items-center gap-1.5">
+                  <span className="transition-transform group-open:rotate-90">▸</span>
+                  Tools and network access
+                  {(agentTools.length > 0 || agentAllowlist.length > 0) && (
+                    <span className="ml-1 text-gemini-text normal-case tracking-normal font-bold">
+                      {agentTools.length} tool{agentTools.length === 1 ? '' : 's'}
+                      {agentAllowlist.length > 0 && `, ${agentAllowlist.length} domain${agentAllowlist.length === 1 ? '' : 's'}`}
+                    </span>
+                  )}
+                </summary>
+                <div className="px-3 pb-3">
+                  <AgentReachEditor
+                    tools={agentTools}
+                    onToolsChange={setAgentTools}
+                    allowlist={agentAllowlist}
+                    onAllowlistChange={setAgentAllowlist}
+                  />
+                </div>
+              </details>
             </div>
           ) : isWindows ? (
             <div className="space-y-2">

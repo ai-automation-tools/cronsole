@@ -149,7 +149,7 @@ for capturing it at sync time. Do not build the store until a real retention win
 
 <a id="gemini-agent-extensibility"></a>
 
-#### 2. 🔬 Giving a Gemini trigger MCP servers and tools — researched 2026-08-25
+#### 2. 🔬 Giving a Gemini trigger MCP servers and tools — researched, reading shipped 2026-08-25
 
 **The question:** the trigger Cronsole creates runs a bare managed agent. Can a user give it more —
 MCP servers, skills, tools, a network allowlist?
@@ -225,8 +225,29 @@ reach. It is `updateAction`'s missing form, which is the verb currently absent f
 reason: an editable prompt, agent, tool list and allowlist are one form, and building half of it is
 worse than none.
 
-**Not scheduled.** The research is the deliverable; the build is a real product surface and should
-be its own decision.
+**Read-only surfacing shipped 2026-08-25.** A Gemini task now shows a **What this agent can reach**
+section — the tool list and, separately, the network allowlist — so a trigger carrying a shell and
+three MCP servers no longer renders identically to one that can only think. Credentials cannot appear
+there: an MCP server's `headers` are never read, so the token is absent from the parsed object rather
+than removed from it later.
+
+**Creating with tools shipped 2026-08-25, with rotation.** The New Task form's Gemini arm has a
+collapsed *Tools and network access* section — the nine built-in tools, MCP server rows, and a
+separate domain allowlist — and nothing is selected by default, so a trigger created without opening
+it is byte-identical to one made before.
+
+The credential decision landed as **use once, store nowhere**: the token goes into the create call
+and Gemini holds it from there, which the form states where it is typed. `TaskSecret` was the
+alternative and was rejected on lifecycle rather than caution — the value is needed exactly once, so
+storing it would mean holding a credential Cronsole has no further use for.
+
+**Rotation is therefore a recreate**, and is named that everywhere: `rotateCredentials` builds the
+replacement before removing the original, inherits a paused status, and the route rekeys the existing
+row so run history, favourites and collections survive the new platform id.
+
+**Still not built: editing a trigger's prompt or schedule** — `updateAction` and `updateSchedule`
+remain absent for the same API reason, and the rotation path is the shape any future edit would have
+to take.
 
 **The original ask, for the record:**
 

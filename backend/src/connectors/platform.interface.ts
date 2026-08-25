@@ -2,6 +2,36 @@ import { PlatformType, HealthState } from '@prisma/client';
 import { WindowsTrigger } from '../utils/scheduler-conversion.js';
 import { StructuredAction } from '../utils/commandParser.js';
 
+/**
+ * One tool to give a hosted agent at create time.
+ *
+ * **An input type, deliberately distinct from `GeminiToolSummary`** — the shape
+ * read back from the platform. They differ by exactly one field, and that field
+ * is the whole reason they are two types: `headers` exists on the way *in* and
+ * has no counterpart on the way *out*, because a bearer token is used once in
+ * the create call and never read, stored or returned. A single type with an
+ * optional `headers` would make "did this one come from a form or from a sync?"
+ * a question every reader has to get right.
+ */
+export interface AgentToolInput {
+  /** `mcp_server`, `bash`, `google_search`, … — validated against the platform. */
+  type: string;
+  /** An MCP server's name, or a function's. */
+  name?: string;
+  /** An MCP server's endpoint. */
+  url?: string;
+  /**
+   * Headers the platform should send to that MCP server — **bearer tokens**.
+   *
+   * Travels exactly as far as the create call. Cronsole does not store it, and
+   * cannot: the trigger lives on the platform, so the platform holds the
+   * credential from that moment on. That is a fact to state at the point of
+   * entry, not a limitation to design around — a UI implying the token stays
+   * local would be false.
+   */
+  headers?: Record<string, string>;
+}
+
 export interface CreateTaskOptions {
   /**
    * Structured trigger produced by convertCronToWindowsTrigger. Platform
@@ -56,6 +86,28 @@ export interface CreateTaskOptions {
    * access is not a mistake the user can see before it happens.
    */
   repositoryUrls?: string[];
+  /**
+   * What a hosted agent may use and reach — **Gemini API Triggers only**.
+   *
+   * Sits beside `repositoryUrls` and follows the same rule for the same reason:
+   * **never defaulted, never guessed**. A trigger with no tools still runs; one
+   * handed the wrong reach is a mistake nobody can see until an autonomous agent
+   * has already acted on it. Cronsole's own default remains the plainest
+   * environment the API accepts.
+   *
+   * `headers` on an MCP server is the one field here that is a **credential**,
+   * and it is `agentTools`'s reason for existing as an input type rather than a
+   * stored one: the value is used in the create call and **kept nowhere**. See
+   * `GeminiToolInput`.
+   */
+  agentTools?: AgentToolInput[];
+  /**
+   * Domains a hosted agent's sandbox may contact — Gemini only, same rules.
+   *
+   * Empty and absent mean the same thing and are both the default: no allowlist,
+   * so the sandbox reaches nothing outside itself.
+   */
+  agentAllowlist?: string[];
   /**
    * Cronsole label to file the created task under — **Cronsole-native only**.
    *
@@ -425,6 +477,38 @@ export interface PlatformConnector {
     options: { overwrite: boolean; createFolders: boolean },
     config: any
   ): Promise<ImportTaskResult>;
+
+  /**
+   * Replace the credentials a task's agent uses — by **recreating it**.
+   *
+   * Optional, and unsupported by absence like every other optional verb. It
+   * exists because a credential outlives nothing: tokens rotate, and a platform
+   * where the task definition is immutable would otherwise strand a trigger the
+   * day its MCP token expires, with no path but "delete it and build it again
+   * from memory".
+   *
+   * **It genuinely recreates**, and the interface says so rather than pretending
+   * to edit. Gemini's `PATCH` accepts a trigger's status and display name and
+   * nothing else, so there is no way to change an interaction in place. The
+   * implementation therefore creates the replacement **first** — a failure then
+   * leaves the original untouched and running — and only deletes the old one
+   * once the new one exists.
+   *
+   * Because the platform assigns a new id, the caller must **rekey the existing
+   * row** rather than delete and re-create it: favorites, collections, run
+   * history and the Cronsole name all hang off that row, and a user rotating a
+   * token has not asked to lose them.
+   *
+   * `newExternalId` is returned for exactly that rekey. `oldRemoved: false`
+   * means the replacement is live and the original is *also* still there — the
+   * one outcome that must never be reported as a plain success.
+   */
+  rotateCredentials?(
+    externalId: string,
+    tools: AgentToolInput[],
+    allowlist: string[],
+    config: any
+  ): Promise<{ success: boolean; newExternalId?: string; oldRemoved?: boolean; message?: string }>;
 
   /**
    * Runs that **happened on the platform**, read live.

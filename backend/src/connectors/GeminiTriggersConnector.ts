@@ -9,6 +9,7 @@ import {
   CreateTaskOptions,
   UpdateScheduleOptions,
   PlatformRunsResult,
+  AgentToolInput,
   PlatformRunOutputResult
 } from './platform.interface.js';
 import {
@@ -20,6 +21,8 @@ import {
   deleteTrigger,
   getInteraction,
   isPendingStatus,
+  GEMINI_TOOL_TYPES,
+  getTrigger,
   type GeminiTrigger,
   type GeminiExecution
 } from '../services/geminiApi.js';
@@ -283,6 +286,18 @@ export class GeminiTriggersConnector implements PlatformConnector {
         ...(trigger.agent ? { agent: trigger.agent } : {}),
         ...(trigger.input ? { prompt: trigger.input } : {}),
         ...(trigger.environmentType ? { environmentType: trigger.environmentType } : {}),
+        // **What this agent can reach**, which is the most consequential fact
+        // about an autonomous task and was invisible until now: Cronsole creates
+        // triggers with no tools, but one made in AI Studio can carry a shell,
+        // `computer_use` and three MCP servers, and it rendered identically.
+        //
+        // Present only when non-empty — an absent key means "this trigger
+        // declares none", which is the default and the common case, and a
+        // permanent empty array on every task would be noise the eye learns to
+        // skip. Credentials are already gone: `toToolSummary` never reads
+        // `headers`, so there is nothing here to filter.
+        ...(trigger.tools.length ? { tools: trigger.tools } : {}),
+        ...(trigger.networkAllowlist.length ? { networkAllowlist: trigger.networkAllowlist } : {}),
         ...(trigger.executionTimeoutSeconds
           ? { executionTimeoutSeconds: trigger.executionTimeoutSeconds }
           : {}),
@@ -458,7 +473,7 @@ export class GeminiTriggersConnector implements PlatformConnector {
     schedule: string,
     command: string,
     config: any,
-    _options?: CreateTaskOptions
+    options?: CreateTaskOptions
   ): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated?: string[] }> {
     const { apiKey, agent } = readConfig(config);
     if (!apiKey) {
@@ -474,11 +489,39 @@ export class GeminiTriggersConnector implements PlatformConnector {
       };
     }
 
+    const tools = options?.agentTools ?? [];
+    const allowlist = options?.agentAllowlist ?? [];
+
+    // **Refused here, with the list, rather than dropped.** An unrecognised type
+    // silently removed would create a trigger with less reach than the form
+    // showed — and a security-relevant field that quietly does nothing is worse
+    // than an error. Refusing before the call also means Google never sees a
+    // request Cronsole already knows is wrong.
+    const unknown = tools.map(t => t.type).filter(t => !GEMINI_TOOL_TYPES.includes(t as never));
+    if (unknown.length) {
+      return {
+        success: false,
+        foldersCreated: [],
+        message: `Gemini does not offer ${unknown.join(', ')}. Supported: ${GEMINI_TOOL_TYPES.join(', ')}.`
+      };
+    }
+
+    const namelessServer = tools.find(t => t.type === 'mcp_server' && !t.url);
+    if (namelessServer) {
+      return {
+        success: false,
+        foldersCreated: [],
+        message: 'An MCP server needs a URL — that is the endpoint the agent connects to.'
+      };
+    }
+
     const result = await createTrigger(apiKey, {
       schedule: schedule.trim().replace(/\s+/g, ' '),
       displayName: name,
       agent,
-      input: command
+      input: command,
+      tools,
+      allowlist
     });
     if (!result.ok) return { success: false, foldersCreated: [], message: result.message };
 
@@ -489,9 +532,11 @@ export class GeminiTriggersConnector implements PlatformConnector {
       // required rather than optional precisely so a connector cannot stay silent
       // about having created one.
       foldersCreated: [],
-      message:
-        'Created with no network allowlist, so the agent can reach nothing outside its sandbox. Add ' +
-        'domains in Google AI Studio if it needs them.'
+      // **The message states what was granted, not only what was withheld.**
+      // Reach is the consequential half of creating an autonomous task, so the
+      // confirmation says it out loud — and where a credential was sent, it says
+      // where that credential now lives, because Cronsole no longer has it.
+      message: describeGrant(tools, allowlist)
     };
   }
 
@@ -509,6 +554,108 @@ export class GeminiTriggersConnector implements PlatformConnector {
 
     const result = await deleteTrigger(apiKey, externalId);
     return result.ok ? { success: true } : { success: false, message: result.message };
+  }
+
+  /**
+   * Rotate an MCP credential by recreating the trigger.
+   *
+   * **The honest implementation of a verb the platform cannot do.** `PATCH`
+   * takes `status` and `display_name`; there is no way to change an
+   * `interaction`, so a token that expires would otherwise strand the trigger
+   * permanently. What Cronsole can do is build the replacement from what the
+   * platform still holds and retire the original.
+   *
+   * Three properties, in the order they matter:
+   *
+   * **Create first, delete second.** A failure anywhere in the create leaves the
+   * original trigger untouched and still running, which is the only acceptable
+   * outcome for a task somebody depends on. The reverse order has a window where
+   * the user has neither.
+   *
+   * **The replacement inherits the original's status.** Rotating a token on a
+   * *paused* trigger must not quietly start it running — a paused trigger is
+   * often paused because something is wrong, and the rotation is part of fixing
+   * it, not a decision to resume.
+   *
+   * **A failed delete is not a success.** If the new trigger exists and the old
+   * one survives, the schedule now fires twice, and `oldRemoved: false` exists so
+   * the caller cannot report that as "rotated" and move on.
+   */
+  async rotateCredentials(
+    externalId: string,
+    tools: AgentToolInput[],
+    allowlist: string[],
+    config: any
+  ): Promise<{ success: boolean; newExternalId?: string; oldRemoved?: boolean; message?: string }> {
+    const { apiKey } = readConfig(config);
+    if (!apiKey) return { success: false, message: 'No Gemini API key is stored for this connection.' };
+
+    const existing = await getTrigger(apiKey, externalId);
+    if (!existing.ok) return { success: false, message: existing.message };
+
+    const current = existing.data;
+    // Everything the replacement needs must survive the round trip, and the
+    // schedule is the one field that cannot be reconstructed from anywhere else
+    // if the platform declines to report it.
+    if (!current.schedule || !current.agent || !current.input) {
+      return {
+        success: false,
+        message:
+          'Gemini did not report the schedule, agent and prompt for this trigger, so Cronsole cannot rebuild ' +
+          'it faithfully. Recreating it by hand is safer than guessing at what it ran.'
+      };
+    }
+
+    const created = await createTrigger(apiKey, {
+      // The platform's own stored expression, sent back verbatim. `time_zone` is
+      // always UTC on anything Cronsole writes, and `createTrigger` sets it —
+      // but a trigger created elsewhere in a real zone would be rewritten as UTC
+      // here, so the schedule is taken from the platform rather than from the
+      // normalized copy on the task row.
+      schedule: current.schedule,
+      displayName: current.displayName ?? externalId,
+      agent: current.agent,
+      input: current.input,
+      ...(current.environmentType ? { environmentType: current.environmentType } : {}),
+      tools,
+      allowlist
+    });
+    if (!created.ok) {
+      return {
+        success: false,
+        message: `${created.message} The original trigger is untouched and still running.`
+      };
+    }
+
+    // Inherited before the old one is removed, so a failure here still leaves a
+    // recoverable pair rather than an orphaned active trigger.
+    if (current.status === 'paused' || current.status === 'disabled') {
+      await patchTrigger(apiKey, created.data.id, { status: 'paused' });
+    }
+
+    const removed = await deleteTrigger(apiKey, externalId);
+    if (!removed.ok) {
+      return {
+        success: true,
+        newExternalId: created.data.id,
+        oldRemoved: false,
+        message:
+          `The replacement was created, but the original could not be deleted: ${removed.message} ` +
+          'Both triggers exist and this schedule will now fire twice — remove the old one in Google AI Studio.'
+      };
+    }
+
+    return {
+      success: true,
+      newExternalId: created.data.id,
+      oldRemoved: true,
+      message:
+        'Recreated with the new credentials. Gemini assigns a new trigger id, so this task now points at ' +
+        'the replacement — its history, favourites and collections are unchanged.' +
+        (current.status === 'paused' || current.status === 'disabled'
+          ? ' It was paused, so the replacement is paused too.'
+          : '')
+    };
   }
 
   /**
@@ -539,7 +686,9 @@ export class GeminiTriggersConnector implements PlatformConnector {
         status: run.status,
         startedAt: run.startTime,
         endedAt: run.endTime,
-        outputAvailable: Boolean(run.interactionId) && !isPendingStatus(run.status)
+        // Openable when there is a transcript OR a stated failure reason: a run
+        // that never started an agent still has something to say.
+        outputAvailable: (Boolean(run.interactionId) || Boolean(run.error)) && !isPendingStatus(run.status)
       }))
     };
   }
@@ -580,11 +729,28 @@ export class GeminiTriggersConnector implements PlatformConnector {
       };
     }
     if (!run.interactionId) {
+      // **The platform's own reason, when it gave one.** A run that fails before
+      // the agent starts has no transcript, but the execution row carries an
+      // `error` — and reporting "there is nothing to read" over the top of it
+      // hid a one-line explanation ("Tool 'filesystem' is not allowed when
+      // interacting with this agent") behind a shrug. A failure with a stated
+      // cause is output, even though no agent ever ran.
+      if (run.error) {
+        return {
+          success: true,
+          output: {
+            text: run.error,
+            steps: [],
+            facts: [{ label: 'Failed before the agent started', value: 'no transcript' }],
+            url: null
+          }
+        };
+      }
       return {
         success: false,
         message: isPendingStatus(run.status)
           ? 'This run is still going. Its output exists once the agent finishes.'
-          : `Gemini recorded this run as "${run.status}" but attached no interaction to it, so there is nothing to read.`
+          : `Gemini recorded this run as "${run.status}" but gave no reason and attached no interaction, so there is nothing to read.`
       };
     }
 
@@ -691,4 +857,39 @@ function coverageNote(total: number, withHistory: number): string {
   if (total === 0) return 'Gemini API Triggers: read 0 triggers — this API key\'s project has none.';
   if (withHistory === total) return `Gemini API Triggers: read ${total} ${word}, with run history for each.`;
   return `Gemini API Triggers: read ${total} ${word}, with run history for ${withHistory}.`;
+}
+
+/**
+ * What a create actually granted, in a sentence.
+ *
+ * Cronsole's old message named only the absence ("no network allowlist"), which
+ * was right when a create could grant nothing. Now that it can, the confirmation
+ * has to state the reach — and, when an MCP header was sent, has to say plainly
+ * that the credential is on the platform and not here. A UI that implied
+ * otherwise would be false, and this is the last moment anyone reads before the
+ * agent starts running on a schedule.
+ */
+function describeGrant(
+  tools: { type: string; name?: string; headers?: Record<string, string> }[],
+  allowlist: string[]
+): string {
+  if (!tools.length && !allowlist.length) {
+    return 'Created with the default toolset and no network allowlist, so the agent can reach nothing ' +
+      'outside its sandbox.';
+  }
+
+  const parts: string[] = [];
+  if (tools.length) {
+    parts.push(`Created with ${tools.length} tool${tools.length === 1 ? '' : 's'}: ${tools.map(t => t.name ? `${t.type} (${t.name})` : t.type).join(', ')}.`);
+  }
+  if (allowlist.length) {
+    parts.push(`The sandbox may reach ${allowlist.join(', ')}.`);
+  }
+  if (tools.some(t => t.headers && Object.keys(t.headers).length)) {
+    parts.push(
+      'The credentials you supplied were sent to Gemini, which stores them with the trigger — Cronsole ' +
+      'keeps no copy and cannot show them again.'
+    );
+  }
+  return parts.join(' ');
 }

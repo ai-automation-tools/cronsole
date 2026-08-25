@@ -492,6 +492,32 @@ Non-negotiable rules. **Every one has a reason recorded in
   a field per platform would make the shape a union of every vocabulary), and `url` is null wherever
   the platform has no page, which is the case on Gemini and Windows and precisely why the panel
   matters most there.
+- **A credential Cronsole hands to a platform is used once and stored nowhere, and the UI says so
+  where it is typed.** An MCP server's `headers` reach `createTrigger` and no further: not
+  `TaskSecret`, not metadata, not a log. The reason is lifecycle rather than caution — the value is
+  needed exactly once, and the trigger lives on *Google's* side, so Cronsole can avoid **holding** the
+  token but cannot avoid **handing it over**. A UI implying otherwise would be false, so the form
+  states it at the point of entry. `AgentToolInput` (has `headers`) and `GeminiToolSummary` (cannot)
+  are two types for exactly this reason.
+- **A platform whose task definition is immutable still needs a rotation path, and it must say
+  "recreate".** Gemini's `PATCH` takes `status` and `display_name`, so a rotated token would strand a
+  trigger forever. `rotateCredentials` builds the replacement **first** (a failure leaves the original
+  running), inherits a paused status (rotating a parked trigger must not resume it), and the route
+  **rekeys the existing row** rather than deleting it — favourites, collections and run history hang
+  off that row and a token rotation is not a request to lose them. A replacement that exists while the
+  original survives is reported as a **failure**: the schedule now fires twice.
+- **A grant is refused with the list, never silently narrowed.** An unknown tool type is rejected
+  before the call rather than dropped, because a create that quietly produces less reach than the form
+  showed is worse than an error — and the same rule makes an empty `tools` array *absent* rather than
+  `[]`, since the platform reads `tools` as a restriction of its defaults.
+- **A credential is dropped at the parse, never filtered downstream.** A Gemini trigger's `tools` can
+  carry an MCP server whose `headers` are bearer tokens, and an allowlist entry can carry header
+  transforms that are the same thing by another name. `toToolSummary` / `readAllowlist` **never read
+  those fields**, so no `GeminiTrigger` has ever held one — rather than parsing them and removing them
+  later, which would leave every future reader (task metadata, an export, an archive, a log line, an
+  MCP tool response) one forgotten `delete` from publishing somebody's token. `TaskSecret`'s rule
+  pointed the other way: there no route *returns* a stored value, here no parse *produces* one.
+  **What an agent can reach is shown; what lets it reach is not.**
 - **Cronsole redacts what it *writes*; it never redacts what the platform already shows you.**
   `executeJob` strips `${secret.NAME}` values out of a native job's log at the one point every job
   type funnels through, because Cronsole **stores** that log. A platform's own log is different in

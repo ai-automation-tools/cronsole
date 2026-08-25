@@ -522,12 +522,42 @@ const createTaskSchema = z.object({
    * silently, because a routine that cannot do its job fails at 3am rather
    * than at the click that created it.
    */
-  allowedTools: z.array(z.string().trim().min(1)).max(50).optional()
+  allowedTools: z.array(z.string().trim().min(1)).max(50).optional(),
+  /**
+   * Gemini only: what the agent may use, and what its sandbox may reach.
+   *
+   * **The one place in this schema that accepts a credential.** `headers` on an
+   * MCP server is a bearer token, and it is validated here like any other
+   * boundary input and then never stored — `createTrigger` puts it in the
+   * request body and Cronsole keeps no copy. That is why `agentTools` is an
+   * input type with no stored counterpart.
+   *
+   * Bounded deliberately: ten tools, five headers each, and a URL that must
+   * parse. An unbounded header map on a create route is a place to stuff
+   * arbitrary data into somebody else's HTTP request.
+   */
+  agentTools: z
+    .array(
+      z.object({
+        type: z.string().trim().min(1),
+        name: z.string().trim().min(1).max(100).optional(),
+        url: z.string().trim().url().max(500).optional(),
+        headers: z.record(z.string().trim().min(1).max(100), z.string().max(4096)).optional()
+      })
+    )
+    .max(10)
+    .optional(),
+  /**
+   * Gemini only: domains the sandbox may contact. Absent means none, which is
+   * the default and the safe direction — an agent that can reach nothing is a
+   * smaller problem than one that can reach the wrong thing.
+   */
+  agentAllowlist: z.array(z.string().trim().min(1).max(253)).max(20).optional()
 });
 
 // Create a new task (New Task modal Windows path, cloning, custom creation)
 router.post('/', validateBody(createTaskSchema), async (req: Request, res: Response) => {
-  const { name, platform, category, schedule, command, folder, createFolder, repositoryUrls, allowedTools } = req.body;
+  const { name, platform, category, schedule, command, folder, createFolder, repositoryUrls, allowedTools, agentTools, agentAllowlist } = req.body;
   const userId = (req as AuthRequest).user!.id;
 
   if (!isValidCron(schedule)) {
@@ -600,7 +630,13 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
       // runs; attaching the wrong one to an agent with write access is the
       // mistake a user cannot see before it happens.
       ...(repositoryUrls ? { repositoryUrls } : {}),
-      ...(allowedTools ? { allowedTools } : {})
+      ...(allowedTools ? { allowedTools } : {}),
+      // Gemini-only, same rule as repositoryUrls above and for the same reason:
+      // never defaulted. The connector refuses a tool type it does not know
+      // rather than dropping it, so a typo cannot quietly produce a trigger with
+      // less reach than the form showed.
+      ...(agentTools ? { agentTools } : {}),
+      ...(agentAllowlist ? { agentAllowlist } : {})
     }
   );
 
@@ -1670,6 +1706,108 @@ async function ownedTaskWithConnector(id: string, userId: string) {
   });
   // Config is encrypted at rest (AES-256-GCM); decrypt before use.
   return { task, connector, config: { ...deserializeConfig(connection?.config), userId } };
+}
+
+const rotateCredentialsSchema = z.object({
+  /**
+   * The complete replacement tool list, with fresh credentials.
+   *
+   * **Complete, not a patch.** The platform's stored `headers` are unreadable —
+   * Cronsole never parses them and could not send back what it does not have —
+   * so a partial update would silently drop the credentials of every tool the
+   * caller did not mention. Asking for the whole list makes what the replacement
+   * will hold explicit at the one moment somebody is looking at it.
+   */
+  agentTools: z
+    .array(
+      z.object({
+        type: z.string().trim().min(1),
+        name: z.string().trim().min(1).max(100).optional(),
+        url: z.string().trim().url().max(500).optional(),
+        headers: z.record(z.string().trim().min(1).max(100), z.string().max(4096)).optional()
+      })
+    )
+    .max(10),
+  agentAllowlist: z.array(z.string().trim().min(1).max(253)).max(20).optional()
+});
+
+/**
+ * Replace a task's agent credentials by recreating it on the platform.
+ *
+ * **A rotation route, because a token outlives nothing and this platform's task
+ * definition is immutable.** Gemini's `PATCH` accepts a status and a display
+ * name; an MCP bearer token lives inside the interaction, which nothing can
+ * edit. Without this, the day a token expires the only path is "delete it and
+ * rebuild it from memory" — and the memory Cronsole could offer is exactly the
+ * part it deliberately does not store.
+ *
+ * **The row is rekeyed, not replaced.** The platform assigns a new id, but the
+ * `Task` row keeps its own primary key — so favourites, collections, run
+ * history and the Cronsole name survive a rotation, which is the whole
+ * difference between this and deleting the task and making another one.
+ * `(platform, externalId)` stays unique because the old trigger is gone.
+ */
+router.post('/:id/rotate-credentials', validateBody(rotateCredentialsSchema), async (req: Request, res: Response) => {
+  const { task, connector, config } = await ownedTaskWithConnector(
+    req.params.id as string,
+    (req as AuthRequest).user!.id
+  );
+
+  if (!connector?.rotateCredentials) {
+    throw new HttpError(400, `${task.platform} does not store agent credentials Cronsole can replace.`);
+  }
+
+  const { agentTools, agentAllowlist } = req.body as {
+    agentTools: { type: string; name?: string; url?: string; headers?: Record<string, string> }[];
+    agentAllowlist?: string[];
+  };
+
+  const result = await connector.rotateCredentials(
+    task.externalId,
+    agentTools,
+    agentAllowlist ?? [],
+    config
+  );
+
+  if (!result.success || !result.newExternalId) {
+    // A 502: the platform declined. The original is untouched by construction —
+    // the connector creates the replacement before removing anything.
+    throw new HttpError(502, result.message || 'The platform could not replace this credential.');
+  }
+
+  await prisma.task.update({
+    where: { id: task.id },
+    data: {
+      externalId: result.newExternalId,
+      // The stored metadata describes the OLD trigger's reach. Clearing the two
+      // reach fields rather than guessing keeps the task honest until the next
+      // sync reads what the replacement actually holds — inventing them from the
+      // request would state what Cronsole *asked for*, not what exists.
+      metadata: stripReach(task.metadata)
+    }
+  });
+
+  notifyTasksChanged((req as AuthRequest).user!.id);
+
+  res.json({
+    rotated: true,
+    externalId: result.newExternalId,
+    // **Surfaced, never folded into `rotated`.** False means the replacement is
+    // live and the original is ALSO still running, so this schedule now fires
+    // twice — the one outcome that must not read as a plain success.
+    oldRemoved: result.oldRemoved !== false,
+    message: result.message
+  });
+});
+
+/** Metadata with the platform-reported reach removed, pending the next sync. */
+function stripReach(metadata: unknown): Prisma.InputJsonValue {
+  const meta = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? { ...(metadata as Record<string, unknown>) }
+    : {};
+  delete meta.tools;
+  delete meta.networkAllowlist;
+  return meta as Prisma.InputJsonValue;
 }
 
 /**

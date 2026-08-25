@@ -113,6 +113,19 @@
      `--muted`, which is the binding surface in both themes. */
   --vercel: 0 0% 62%;
   --vercel-text: 0 0% 72%;
+  /* Gemini API Triggers. **A saturated indigo, and the saturation is what carries
+     the distinction rather than the hue.** It sits 18 degrees from `--github`,
+     which would normally be too close for two sources on the same tab — but
+     GitHub's slate is deliberately desaturated (18%) and this is not, so an
+     indigo dot and a grey-blue dot are never mistaken for each other at 8px.
+     Going further round was worse in both directions: past 260 it collides with
+     the three violets (`--native`, `--claude`, `--system`), and back towards 199
+     it collides with `--info`, which is a *status* and must not carry a
+     platform's claim. Measured like every other pair: the accent clears 3.0 as a
+     bare dot and the text clears 4.5 on `--muted`, the binding surface in both
+     themes. */
+  --gemini: 231 84% 70%;
+  --gemini-text: 231 90% 80%;
   --ring: 262 83% 62%;
   --radius: 0.5rem;
 }
@@ -164,6 +177,19 @@
      `--muted`, which is the binding surface in both themes. */
   --vercel: 0 0% 62%;
   --vercel-text: 0 0% 72%;
+  /* Gemini API Triggers. **A saturated indigo, and the saturation is what carries
+     the distinction rather than the hue.** It sits 18 degrees from `--github`,
+     which would normally be too close for two sources on the same tab — but
+     GitHub's slate is deliberately desaturated (18%) and this is not, so an
+     indigo dot and a grey-blue dot are never mistaken for each other at 8px.
+     Going further round was worse in both directions: past 260 it collides with
+     the three violets (`--native`, `--claude`, `--system`), and back towards 199
+     it collides with `--info`, which is a *status* and must not carry a
+     platform's claim. Measured like every other pair: the accent clears 3.0 as a
+     bare dot and the text clears 4.5 on `--muted`, the binding surface in both
+     themes. */
+  --gemini: 231 84% 70%;
+  --gemini-text: 231 90% 80%;
   --ring: 262 83% 62%;
 }
 
@@ -224,6 +250,8 @@
   --github-text: 215 25% 30%;
   --vercel: 0 0% 38%;
   --vercel-text: 0 0% 22%;
+  --gemini: 231 72% 48%;
+  --gemini-text: 231 64% 38%;
   --ring: 262 83% 58%;
 }
 
@@ -272,6 +300,8 @@
   --color-github-text: hsl(var(--github-text));
   --color-vercel: hsl(var(--vercel));
   --color-vercel-text: hsl(var(--vercel-text));
+  --color-gemini: hsl(var(--gemini));
+  --color-gemini-text: hsl(var(--gemini-text));
   --color-ring: hsl(var(--ring));
 }
 

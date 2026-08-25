@@ -106,6 +106,21 @@ Vercel publishes no run history for a cron job, so its tasks show a schedule and
 health however well they are running. Read that as *no evidence*, not as a problem — and do not
 suggest a sync or a reconnect to "fix" it, because nothing will.
 
+**`platform` also accepts `GEMINI_TRIGGERS`** (2026-08-24), and it is the opposite case in every
+respect — the **only hosted source that is not read-only**. Run, pause, reschedule, create and
+delete all reach real endpoints there, so an assistant that has learned "hosted means read-only"
+from the two above will be wrong about this one. It reports real run outcomes too.
+
+Two things about it are worth an assistant knowing before it explains a screen:
+
+- **A `DISABLED` Gemini trigger may not have been disabled by a person.** Gemini pauses a trigger
+  itself after repeated consecutive failures. `get_task_health` says which, and resuming it with
+  `set_task_status` clears the pause and not the cause.
+- **Creating one takes a prompt, not a command.** `create_task` with `platform: "GEMINI_TRIGGERS"`
+  reads `command` as the instruction the agent runs. The trigger is created with **no network
+  allowlist**, so its agent can reach nothing outside its sandbox — say so rather than letting
+  someone assume it can reach their repository.
+
 `list_tasks` and `list_templates` accept optional filters (`platform`, `status`, `category`,
 `search`) and are bounded (default 50 results, with an honest "showing N of M" note). A task's
 `status` can be **`MISSING`** — tracked by Cronsole but gone from the platform on the last sync

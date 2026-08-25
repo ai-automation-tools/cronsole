@@ -117,7 +117,12 @@ const ALL_PLATFORMS = [
   // list's: a hardcoded exclusion here would be the frontend's deleted
   // CREATABLE_PLATFORMS constant all over again.
   'GITHUB_ACTIONS',
-  'VERCEL_CRON'
+  'VERCEL_CRON',
+  // A full controller, unlike the two above it — every verb here reaches a real
+  // endpoint. It is in the same list for the same reason they are: this is a
+  // filter enum, and what an agent may *do* with a platform is `list_platforms`'
+  // answer rather than this list's.
+  'GEMINI_TRIGGERS'
 ] as const;
 
 // ---- API response shapes (only the fields the tools surface) ----
@@ -454,11 +459,15 @@ export function registerTools(
       title: 'List scheduled tasks',
       description:
         'List the scheduled tasks Cronsole tracks for the current user — Windows Task Scheduler, Cronsole-native, ' +
-        'Claude Code routines, GitHub Actions workflows and Vercel cron jobs — with each task\'s schedule, ' +
-        'status, next run time and last run result. Optional filters narrow the list. GITHUB_ACTIONS and ' +
-        'VERCEL_CRON are READ-ONLY sources: their tasks list and report health, and every verb that would ' +
-        'change one is refused. VERCEL_CRON additionally never reports a last run result — Vercel publishes ' +
-        'no run history for a cron, so its tasks are permanently `unknown` health rather than unhealthy. ' +
+        'Claude Code routines, GitHub Actions workflows, Vercel cron jobs and Gemini API triggers — with each ' +
+        'task\'s schedule, status, next run time and last run result. Optional filters narrow the list. ' +
+        'GITHUB_ACTIONS and VERCEL_CRON are READ-ONLY sources: their tasks list and report health, and every ' +
+        'verb that would change one is refused. VERCEL_CRON additionally never reports a last run result — ' +
+        'Vercel publishes no run history for a cron, so its tasks are permanently `unknown` health rather than ' +
+        'unhealthy. GEMINI_TRIGGERS is the opposite case and the only hosted source that is NOT read-only: ' +
+        'run, pause, reschedule, create and delete all reach real endpoints there, and it reports real run ' +
+        'outcomes. A GEMINI_TRIGGERS task that is DISABLED may have been paused by Gemini itself after ' +
+        'repeated failures rather than by a person — get_task_health says which. ' +
         'Call list_platforms before planning work on a platform you are unsure about.',
       inputSchema: {
         platform: z
@@ -1969,6 +1978,10 @@ Next run: ${task.nextRunTime}` : '')
         'APIs behind them (a workflow_dispatch run is not the scheduled run; enabling a workflow is a ' +
         'repository-state change; calling a Vercel cron path yourself bypasses its CRON_SECRET and is not ' +
         'the scheduled invocation). Do not plan around an observer gaining write verbs. ' +
+        'Hosted does NOT imply observer: Gemini API Triggers is a `controller` — running one there IS the ' +
+        'scheduled invocation (the same agent, prompt and sandbox, on the same execution list), so do not ' +
+        'carry the GitHub/Vercel assumption onto it. Its one refusal is `updateAction`, which is absent ' +
+        'rather than declared unsupported: editing a trigger\'s prompt happens in Google AI Studio. ' +
         'What a platform reports also depends on the install: Claude Code supports `create` and ' +
         '`setStatus` when Cronsole can read your Claude Code session, and refuses both when it cannot — ' +
         'which is exactly why this matrix is worth calling rather than assumed. ' +

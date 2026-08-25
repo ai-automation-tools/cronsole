@@ -58,6 +58,15 @@ import {
   listTeams as listVercelTeams,
   verifyToken as verifyVercelToken
 } from '../services/vercelApi.js';
+import {
+  readConfig as readGeminiConfig,
+  redactConfig as redactGeminiConfig,
+  looksLikeGeminiKey,
+  keyInputSchema as geminiKeyInputSchema,
+  agentInputSchema as geminiAgentInputSchema,
+  DEFAULT_GEMINI_AGENT
+} from '../services/geminiTriggers.js';
+import { listTriggers as listGeminiTriggers } from '../services/geminiApi.js';
 import { parseTaskBundle, TaskImportError } from '../services/taskImport.js';
 import { createNativeTask, NativeTaskCreateError } from '../services/nativeTaskCreate.js';
 import { HttpError } from '../middleware/errorHandler.js';
@@ -2540,6 +2549,264 @@ router.delete('/platforms/vercel/connection', async (req: Request, res: Response
   await prisma.$transaction([
     ...(doomedIds.length
       ? [
+          prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
+          prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
+        ]
+      : []),
+    prisma.platformConnection.delete({ where: { id: connection.id } })
+  ]);
+  if (doomedIds.length) notifyTasksChanged(userId);
+
+  res.json({ disconnected: true, tasksRemoved: doomedIds.length });
+});
+
+/* ---------------------------------------------------------------------------
+ * Gemini API Triggers connection — the fourth config a user composes by hand,
+ * and by some distance the smallest.
+ *
+ * The three blocks above each carry a **list**: Claude a list of `(routine,
+ * token)` pairs, GitHub a list of repositories, Vercel a list of projects. Each
+ * list exists because a credential on those platforms reaches far more than the
+ * user wants tracked, so naming a subset is a real gesture with real routes —
+ * add, remove, and on Vercel a discovery read to make the add cheap.
+ *
+ * **Gemini has nothing to enumerate.** An API key is scoped to one Google Cloud
+ * project, and that project's triggers are the whole tracked set. So there is no
+ * add route, no remove route, no discover route, and no question anywhere in
+ * here about what a refresh includes. What is left is a key, and one setting.
+ *
+ * That setting — `agent` — is the only field here that is not a credential, and
+ * it is stored rather than compiled in for a specific reason:
+ * `antigravity-preview-05-2026` is a **preview** id with a date inside it. A
+ * constant in the source would mean creates that begin failing months after
+ * this was written, with nothing in the product to change. Stored, it is a text
+ * field; the panel shows it, and the default is shown as the placeholder so
+ * clearing the field is a way back rather than a way to break it.
+ *
+ * **The key is write-only**, like every other credential here: `GET` reports
+ * `hasKey` and the last four characters. There is no reveal endpoint — Google's
+ * console is where a key is looked at, and it is a better place than this one.
+ * -------------------------------------------------------------------------- */
+
+/** Load the Gemini connection and its config, or a well-formed empty state. */
+async function loadGeminiConnection(userId: string) {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.GEMINI_TRIGGERS }
+  });
+  return {
+    connection,
+    config: connection ? readGeminiConfig(deserializeConfig(connection.config)) : readGeminiConfig({})
+  };
+}
+
+/**
+ * Write the config back, creating the connection on first use.
+ *
+ * `serializeConfig` is not optional: `PlatformConnection.config` is AES-256-GCM
+ * encrypted at rest and this holds a live third-party credential.
+ */
+async function saveGeminiConnection(
+  userId: string,
+  connectionId: string | undefined,
+  config: ReturnType<typeof readGeminiConfig>
+) {
+  const serialized = serializeConfig(config);
+  if (connectionId) {
+    await prisma.platformConnection.update({ where: { id: connectionId }, data: { config: serialized } });
+  } else {
+    await prisma.platformConnection.create({
+      data: { userId, platform: PlatformType.GEMINI_TRIGGERS, isActive: true, config: serialized }
+    });
+  }
+  await refreshGeminiHealth(userId);
+}
+
+/**
+ * Recompute and store this connection's health right after writing it.
+ *
+ * Same reason as the three `refresh*Health` helpers above: the dashboard's
+ * 45-second poll is the only other writer of `PlatformConnection.healthState`,
+ * so without this the card sits at whatever that poll last left until the next
+ * one runs.
+ *
+ * Safe here for one specific reason, and **only** that reason: the Gemini
+ * connector's `getHealth` reads back stored `PlatformCapability` evidence and
+ * does not probe. Do not copy this into a write path for a platform whose health
+ * check talks to the platform.
+ */
+async function refreshGeminiHealth(userId: string): Promise<void> {
+  const connection = await prisma.platformConnection.findFirst({
+    where: { userId, platform: PlatformType.GEMINI_TRIGGERS }
+  });
+  if (!connection) return;
+
+  const connector = connectorRegistry.getConnector(PlatformType.GEMINI_TRIGGERS);
+  if (!connector) return;
+
+  try {
+    const health = await connector.getHealth({ ...deserializeConfig(connection.config), userId });
+    await prisma.platformConnection.update({
+      where: { id: connection.id },
+      // `?? null`, not a bare value: Prisma reads `undefined` as "leave the
+      // column alone", which keeps a stale reason under a fresh state.
+      data: { healthState: health.state, healthReason: health.reason ?? null }
+    });
+  } catch {
+    // Health is a readout, not the operation. Failing to refresh it must not
+    // fail the write the user just made.
+  }
+}
+
+/**
+ * The connection's state — whether a key is stored, which agent creates use, and
+ * how many triggers are on the dashboard.
+ *
+ * `taskCount` is a single number rather than the per-repository breakdown the
+ * GitHub and Vercel panels carry, because there is nothing to break it down by.
+ * It is here for the same reason theirs is: disconnecting strands every tracked
+ * trigger, and the UI has to be able to say how many **before** the click.
+ */
+router.get('/platforms/gemini/connection', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { connection, config } = await loadGeminiConnection(userId);
+
+  const taskCount = await prisma.task.count({
+    where: { userId, platform: PlatformType.GEMINI_TRIGGERS }
+  });
+
+  const redacted = redactGeminiConfig(config);
+  res.json({
+    connected: Boolean(connection),
+    hasKey: redacted.hasKey,
+    keyHint: redacted.keyHint,
+    agent: redacted.agent,
+    defaultAgent: redacted.defaultAgent,
+    taskCount
+  });
+});
+
+/**
+ * Store (or rotate) the API key.
+ *
+ * **Verified before it is stored**, by listing triggers. Unlike the other three
+ * connectors there is no separate identity endpoint to call — and there does not
+ * need to be, because the thing this connection is *for* is the same request. A
+ * key that can list triggers works; one that cannot has failed the only question
+ * worth asking, and the answer names the count so a working key over an empty
+ * project reads as working rather than as suspicious.
+ *
+ * This is the **one** place Cronsole contacts Gemini outside a sync or an
+ * explicit user action, and it is here rather than in `getHealth` on purpose: a
+ * bad paste should fail at the click that made it, while a health check runs on
+ * a 45-second poll per open tab and would spend a metered quota answering a
+ * question sync answers for free.
+ *
+ * A key Gemini rejects is a **400**, not a 502 — the request is wrong, not the
+ * gateway, and retrying the same paste cannot help. A key Gemini *accepts* whose
+ * shape is unfamiliar is saved with a warning, the same call the GitHub and
+ * Vercel routes make: a key format is a fact about this year, not a contract.
+ */
+router.put(
+  '/platforms/gemini/connection',
+  validateBody(geminiKeyInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const apiKey = String((req.body as { apiKey: string }).apiKey).trim();
+
+    const verified = await listGeminiTriggers(apiKey);
+    if (!verified.ok) {
+      throw new HttpError(verified.status === null ? 502 : 400, verified.message);
+    }
+
+    const { connection, config } = await loadGeminiConnection(userId);
+    await saveGeminiConnection(userId, connection?.id, { ...config, apiKey });
+
+    res.json({
+      hasKey: true,
+      keyHint: apiKey.slice(-4),
+      agent: config.agent,
+      defaultAgent: DEFAULT_GEMINI_AGENT,
+      triggerCount: verified.data.length,
+      warnings: looksLikeGeminiKey(apiKey)
+        ? []
+        : ['That key does not match a format Google currently issues. It verified, so it is saved.']
+    });
+  }
+);
+
+/**
+ * Set which managed agent a Cronsole-created trigger runs.
+ *
+ * **Not verified against the platform**, and that is deliberate rather than
+ * lazy. There is no endpoint that lists valid agent ids, so the only way to
+ * "check" one would be to create a trigger with it — a write, with a side
+ * effect, from a settings field. The honest alternative is to store what was
+ * typed and let the create say plainly when Gemini rejects it, which
+ * `describeError` already does with Google's own message attached.
+ *
+ * **Blank means the default**, which is why the schema allows an empty string:
+ * clearing the field has to be a way back to the shipped value, or a user who
+ * typed a wrong id is stuck guessing the right one.
+ */
+router.put(
+  '/platforms/gemini/agent',
+  validateBody(geminiAgentInputSchema),
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthRequest).user!.id;
+    const typed = String((req.body as { agent: string }).agent).trim();
+
+    const { connection, config } = await loadGeminiConnection(userId);
+    if (!connection) {
+      throw new HttpError(400, 'Add a Gemini API key first — there is no connection to configure yet.');
+    }
+
+    await saveGeminiConnection(userId, connection.id, {
+      ...config,
+      agent: typed || DEFAULT_GEMINI_AGENT
+    });
+
+    res.json({ agent: typed || DEFAULT_GEMINI_AGENT, defaultAgent: DEFAULT_GEMINI_AGENT });
+  }
+);
+
+/**
+ * Disconnect Gemini entirely — forget the key and the tracked triggers.
+ *
+ * **Cronsole-side only.** The triggers keep running on Gemini exactly as before;
+ * nothing here calls `DELETE /v1beta/triggers`, which is what the *Delete*
+ * button on a task is for. That distinction is why this control says
+ * *Disconnect* and never *Delete*.
+ *
+ * The connection row is **deleted** rather than emptied, for the reason the
+ * Claude, GitHub and Vercel routes give: an empty connection is
+ * `configured: true` with nothing behind it, which renders as a connected source
+ * that cannot do anything. The tracked rows go with it in the same transaction,
+ * because a row whose connection is gone cannot be synced and would sit on the
+ * dashboard flipping to MISSING.
+ *
+ * **No `TaskExclusion` is written**, deliberately. An exclusion exists to stop a
+ * re-enumeration putting something back; with the key gone there is nothing to
+ * enumerate at all, and a stale exclusion would silently swallow the trigger if
+ * Gemini were reconnected later.
+ */
+router.delete('/platforms/gemini/connection', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+  const { connection } = await loadGeminiConnection(userId);
+  if (!connection) {
+    throw new HttpError(404, 'Gemini is not connected.');
+  }
+
+  const doomed = await prisma.task.findMany({
+    where: { userId, platform: PlatformType.GEMINI_TRIGGERS },
+    select: { id: true }
+  });
+  const doomedIds = doomed.map(t => t.id);
+
+  await prisma.$transaction([
+    ...(doomedIds.length
+      ? [
+          // ExecutionLog has no cascade on its Task relation, so it must go first
+          // or the delete violates the FK. TaskFavorite does cascade.
           prisma.executionLog.deleteMany({ where: { taskId: { in: doomedIds } } }),
           prisma.task.deleteMany({ where: { id: { in: doomedIds } } })
         ]

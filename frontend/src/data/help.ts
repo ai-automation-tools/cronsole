@@ -502,6 +502,71 @@ const sourceVercel: HelpTopic = {
   doc: { label: 'Sources Guide \u203a Vercel Cron', url: sourcesGuide('vercel-cron') }
 };
 
+const sourceGemini: HelpTopic = {
+  id: 'source:GEMINI_TRIGGERS',
+  title: 'Gemini API Triggers',
+  summary:
+    'Scheduled prompts Google runs on its own agents in the cloud. The first hosted source Cronsole ' +
+    'can act on rather than only read.',
+  points: [
+    {
+      label: 'Run now is the real thing here, unlike the two read-only sources',
+      body:
+        'GitHub Actions and Vercel Cron both refuse Run now, because the endpoint they would call ' +
+        'produces something that only resembles the scheduled run. Gemini runs the trigger\'s own ' +
+        'agent, prompt and sandbox, and the run lands on the same execution list the scheduled ones ' +
+        'do. Google documents that pausing stops scheduled executions without affecting manual ones ' +
+        '— which is the platform saying the two are one mechanism.'
+    },
+    {
+      label: 'A trigger that keeps failing gets paused by Google, not by you',
+      body:
+        'After a number of consecutive failures — five by default — Gemini disables the trigger ' +
+        'itself. Cronsole shows that as its own health warning rather than the ordinary "disabled" ' +
+        'note, because nobody chose it: a nightly agent dead for a week otherwise looks exactly ' +
+        'like one somebody parked. Resuming clears the pause and not the cause.'
+    },
+    {
+      label: 'One API key, and nothing to pick',
+      body:
+        'A Gemini API key is scoped to one Google Cloud project and sees every trigger in it, so ' +
+        'there are no repositories or projects to name — unlike GitHub Actions and Vercel Cron. ' +
+        'Every trigger lands under a single Gemini category.'
+    },
+    {
+      label: 'Gemini stores a time zone; Cronsole stores UTC',
+      body:
+        'A trigger carries a cron and an IANA zone. Anything Cronsole creates or reschedules is ' +
+        'written as UTC, so the round trip is exact. A trigger made elsewhere in a real zone is ' +
+        'converted on the way in, with the platform\'s original pair shown beside it — and where ' +
+        'the conversion has no honest answer, the schedule reads as unavailable with the reason, ' +
+        'never as a guess.'
+    },
+    {
+      label: 'Creating one asks for a prompt, not a command',
+      body:
+        'The unit of work here is a sentence for an agent, so the action field is the prompt. The ' +
+        'agent id comes from the connection panel and is a preview string with a date in it — if ' +
+        'creates start failing, that field is the first thing to check.'
+    },
+    {
+      label: 'A trigger Cronsole creates can reach nothing outside its sandbox',
+      body:
+        'Gemini lets a trigger declare a network allowlist, including domains carrying credentials. ' +
+        'Cronsole creates the plainest environment the API accepts and never guesses one, because ' +
+        'widening what an autonomous agent may reach is not a default a task manager should pick ' +
+        'for you. Add domains in Google AI Studio.'
+    },
+    {
+      label: 'Editing the prompt happens in Google AI Studio',
+      body:
+        'Edit action reads Unsupported for this source. Everything else — run, pause, reschedule, ' +
+        'create, delete — works from Cronsole.'
+    }
+  ],
+  doc: { label: 'Sources Guide › Gemini API Triggers', url: sourcesGuide('gemini-api-triggers') }
+};
+
 const sourceClaude: HelpTopic = {
   id: 'source:CLAUDE_CODE',
   title: 'Claude Code routines',
@@ -1420,6 +1485,7 @@ const TOPIC_LIST: HelpTopic[] = [
   sourceClaude,
   sourceGitHub,
   sourceVercel,
+  sourceGemini,
   schedule,
   nativeJobType,
   jobEnv,

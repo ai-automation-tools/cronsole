@@ -35,7 +35,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(themes done 2026-08-24)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
-| **Sources** | 🟡 5 of ~8 built | POSIX agent (the big one) · Supabase observer |
+| **Sources** | 🟡 6 of ~9 built | POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
@@ -44,6 +44,12 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 GitHub Actions' live verification, ran against a real repository and immediately earned its keep:
 it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)),
 which is the argument for doing this on every connector rather than trusting a green suite.
+
+**Gemini API Triggers shipped 2026-08-24** — the sixth source, and the **first hosted controller**:
+run, pause, reschedule, create and delete all reach real endpoints, and it reports real run
+outcomes. It jumped the Sources queue ahead of a third observer because a live re-check found the
+API had appeared four weeks earlier, which is the argument for re-checking the quick-links list
+before every sources pass rather than once.
 
 **The largest open item is now the POSIX agent.** *(The light theme and the `env` editor — the
 whole 2026-08-15 request block — both shipped 2026-08-24; the theme pass carved out one follow-up,
@@ -483,7 +489,75 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       **Windows arm as the `else`**, so every source without its own scoring — Claude too, not just
       the new one — was told to *"republish the agent"*.
 
-- [ ] **Supabase `pg_cron` — read-only observer** *(next up in this section)*: the other half of the
+- [x] **Gemini API Triggers — the first hosted controller** *(jumped the queue and shipped 2026-08-24)*. Google
+      announced scheduled **triggers** for Managed Agents on 2026-07-28, after the line below had
+      already written Gemini off as quick-links-only. It is not an observer: a trigger is a
+      persistent resource with full CRUD, a manual-run endpoint **and** an execution history, so
+      every verb Cronsole would offer maps 1:1 onto a documented endpoint rather than onto something
+      that merely resembles one.
+
+      | Verb | Endpoint |
+      |---|---|
+      | `sync` | `GET /v1beta/triggers` |
+      | `run` | `POST /v1beta/triggers/{id}/executions` |
+      | `setStatus` | `PATCH /v1beta/triggers/{id}` `{"status":"paused"｜"active"}` |
+      | `updateSchedule` | `PATCH /v1beta/triggers/{id}` `{"schedule","time_zone"}` |
+      | `create` | `POST /v1beta/triggers` |
+      | `delete` | `DELETE /v1beta/triggers/{id}` |
+      | run evidence | `GET /v1beta/triggers/{id}/executions` |
+
+      **Why it outranks the ordering principle above rather than breaking it.** That principle
+      compares an agent unlocking three OS schedulers against *one more cloud scheduler with its own
+      OAuth surface* — and it is still right about that. This is a different axis: two hosted sources
+      ship today and **both are read-only**, so the matrix's whole controller half has exactly two
+      inhabitants, both local. A third read-only row says less each time; the first hosted row that
+      can *act* is what proves the controller shape works over an API rather than over an agent, and
+      it is what the two-of-three umbrella item below is actually waiting to be interesting.
+      Its auth surface is also the cheapest of any candidate — a Gemini API key in one header, no
+      OAuth dance, no team scoping, free tier included.
+
+      **Three things it does that no shipped source does.** `run` is the real scheduled invocation
+      rather than a lookalike (Vercel's and GitHub's are both refused for being lookalikes) — same
+      agent, same prompt, same sandbox, and Google's own docs note that pausing stops scheduled
+      executions *without* affecting manual ones, so the two are the same machinery. `setStatus` is a
+      genuine per-resource pause, where Vercel has only a project-wide switch. And it reports run
+      outcomes, so it gets a real `scoreTask` arm instead of a permanent `unknown` — plus a signal
+      neither observer can produce: a trigger **auto-pauses after `max_consecutive_failures`**
+      (default 5), which is GitHub's silent 60-day auto-disable in a more honest form, with the count
+      published on the resource.
+
+      **The schedule is cron + IANA zone, which is the one place it does not fit the storage
+      contract.** Cronsole stores 5-field UTC; a trigger carries `{"schedule","time_zone"}` and the
+      zone is Google's, not the browser's. Cronsole writes `time_zone: "UTC"` on everything it
+      creates or reschedules so the round trip is exact — and a trigger created *elsewhere* in a real
+      zone is read back with its cron shifted to UTC and **the original pair kept in metadata**,
+      because a shifted field that does not print what it was shifted from is the #60 shape.
+      `America/Sao_Paulo` and friends have no fixed offset, so the shift is refused with its reason
+      rather than approximated.
+
+      **What it is not.** `updateAction` (editing a trigger's prompt) and `export` / `restore` are
+      out of the first pass — a trigger's payload is an agent, a prompt, an environment and a network
+      allowlist, and rendering that as an editable action needs a form Cronsole does not have yet.
+      Absent, so the matrix reports them `unsupported` by absence, which is the honest reading:
+      *not yet*, and the cell is free to change when the form exists.
+
+      **Shipped the same day.** `GeminiTriggersConnector` + `services/geminiApi.ts` +
+      `services/geminiTriggers.ts`, the `GEMINI_TRIGGERS` enum value and migration, the `access:
+      controller` descriptor, a real `scoreTask` arm (including the auto-pause signal), the
+      hand-composed connection panel on both source cards, a fourth arm in the create modal whose
+      target field is a **prompt** rather than a command, the `--gemini` identity pair measured
+      against every surface, a `HelpTopic`, a Sources Guide section, and `GEMINI_TRIGGERS` on the MCP
+      filter enum. 69 new tests; backend 1040, frontend 887, MCP 193 all green.
+
+      **Two follow-ups it deliberately left**, both *not yet* rather than *cannot*:
+      - **`updateAction`** — an editable prompt, which needs the form described above. Until then
+        the cell is `unsupported` by absence and the help topic says to edit in Google AI Studio.
+      - **The network allowlist** — Cronsole creates the plainest environment the API accepts and
+        never guesses one. A trigger that needs to reach a domain has to be widened in Google's
+        console. Offering it here means a UI for what an autonomous agent may reach, including
+        header credentials, which is worth its own design pass rather than a text field.
+
+- [ ] **Supabase `pg_cron` — read-only observer** *(next after Gemini in this section)*: the other half of the
       2026-08-12 pair. Same observer shape again, and the piece it needs that neither GitHub nor
       Vercel had is a **different kind of read**: `cron.job` is a table in the user's own Postgres,
       not a REST resource, so it is either a `pg` connection string (a much heavier credential than
@@ -499,15 +573,33 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       on the two cheap ones above rather than on the pattern. Kept here rather than dropped so the
       omission stays a decision rather than an oversight.
 
-- [ ] **Staying quick-links-only — ChatGPT · Gemini · Jules**: no public scheduled-task API exists.
-      A connector would render a row of `unsupported` that says strictly less than the link already
-      does. Revisit if an API appears.
+- [ ] **Staying quick-links-only — ChatGPT · Grok · Jules** *(re-checked live 2026-08-24)*: no public
+      scheduled-task API exists for any of them. A connector would render a row of `unsupported` that
+      says strictly less than the link already does. **Gemini left this line** — see the controller
+      above — which is the argument for re-checking rather than for assuming:
+
+      - **ChatGPT Tasks** — the *product* grew (a Scheduled page with edit / pause / resume landed
+        June 2026), the API did not. OpenAI's own guidance is still to run your own cron, and Agent
+        Builder is being wound down (gone 2026-11-30), so no path arrives from that direction either.
+      - **Grok Automations** — shipped as a feature in 2026 with schedules and email triggers, and
+        xAI publishes no automation API.
+      - **Jules** — the closest to flipping, and the reason this line names a date. It has a public
+        API (`jules.googleapis.com/v1alpha`, alpha) *and* Scheduled Tasks in the product, but the API
+        exposes only sources / sessions / activities / plan-approval. **There is no schedules
+        resource**, so the two halves exist and have not been joined. Worth a re-check, not a build.
+
+      The habit this establishes: **re-check before each Sources pass, not once.** Gemini sat on
+      this line for the whole of 2026 and shipped a full CRUD scheduler four weeks before anybody
+      looked again.
 
 - [ ] **Umbrella grouping for the hosted observers** *(reading (c) of the 2026-08-12 source
       decision, left open when (b) was chosen)*: group GitHub Actions / Vercel / Supabase under one
       two-level source node. A presentation question about the rail, not a data-model one — worth
       doing once three hosted observers exist, and it blocks nothing until then. **Two of the three
-      exist as of 2026-08-24**, so this is one source away from being worth doing.
+      exist as of 2026-08-24**, so this is one source away from being worth doing. **Gemini API
+      Triggers does not move that count** even though it is hosted: it is a controller, and the
+      grouping's whole appeal is that a stack of read-only rows reads better collapsed. A row you can
+      act on wants its own place in the rail, not a shared drawer.
 
 - [ ] **The last unedited attribute — a question, not a task** *(reported 2026-08-12)*. Category,
       schedule, action/command, job spec and name are all editable now. A task's **`externalId`**

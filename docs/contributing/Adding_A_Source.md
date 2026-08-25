@@ -50,12 +50,14 @@ Three shapes. **Picking the wrong one is the usual reason a connector stalls hal
 
 | Shape | When it fits | What it costs |
 |:--|:--|:--|
-| **Controller** | The platform has an API to read **and** change scheduled work — run, enable/disable, edit, delete. | The most work and the most trust. Windows Task Scheduler and Cronsole-native are the two. |
+| **Controller** | The platform has an API to read **and** change scheduled work — run, enable/disable, edit, delete. | The most work and the most trust. Windows Task Scheduler and Cronsole-native are the local two; **Gemini API Triggers** is the hosted one, and the worked example if your platform is somebody else's HTTP API. |
 | **Observer** | It can be read, but should not be written or cannot be. | Much less — and it is a **finished** state, not a stalled one. GitHub Actions and Vercel Cron are the worked examples. |
 | **Quick link** | No public API for scheduled work exists at all. | A bookmark. Anyone adds one from the Sources tab in ten seconds; it needs no PR. |
 
-**An observer is the right default for a hosted platform.** Cronsole says plainly which half a
-connector is — `PlatformDescriptor.access` is `controller` or `observer`, declared and rendered — so
+**An observer is a good default for a hosted platform, but not an automatic one.** Two of the three hosted sources here are observers, and the third is not: Gemini API Triggers is a controller because every verb it offers reaches an endpoint that does the thing the verb says. Decide by asking what each write verb would actually *do*, not by whether the platform is in the cloud.
+
+Cronsole says plainly which half a connector is — `PlatformDescriptor.access` is `controller` or
+`observer`, declared and rendered — so
 shipping a read-only source is not an apology and does not read as unfinished work.
 
 > **Read-only does not mean second-class.** It means the capability matrix tells the truth. Before
@@ -80,6 +82,13 @@ Every one of these has cost someone real time. They are not style preferences.
   at the browser's edge and nowhere else. If the platform's schedule cannot be expressed as one, the
   conversion is lossy and you have to say so; an unmentioned approximation is the one outcome ruled
   out.
+- **If the platform stores a time zone, Cronsole stores UTC — and the conversion is not optional.**
+  Gemini API Triggers is the first source that carries `{ schedule, time_zone }`, and it is why
+  `utils/cron.ts` has a server-side `shiftCronToUtc` at all: the browser cannot do this one, because a
+  sync, an MCP session and the rail all have to normalize the same trigger identically and none of them
+  has a browser. Write UTC on everything you create or edit, so a round trip through Cronsole is exact.
+  Normalize on read, keep the platform's original pair in metadata, and refuse — with the reason — any
+  expression that has no honest UTC equivalent.
 - **A schedule you could not read is `null` with a reason**, never a guessed cron. *"Cronsole could
   not read this"* and *"this has no schedule"* are different facts that demand different actions, so
   they must never be the same code path.
@@ -179,7 +188,8 @@ failure mode this project spends the most effort avoiding.
 
 | Start here | When |
 |:--|:--|
-| [`VercelCronConnector.ts`](../../backend/src/connectors/VercelCronConnector.ts) | **The best starting point for most sources.** The smallest complete connector: a hosted read-only observer, one account token, a declared tracked set, health from stored evidence, and the honest handling of a platform that reports no run outcomes. |
+| [`VercelCronConnector.ts`](../../backend/src/connectors/VercelCronConnector.ts) | **The best starting point for a read-only source.** The smallest complete connector: a hosted observer, one account token, a declared tracked set, health from stored evidence, and the honest handling of a platform that reports no run outcomes. |
+| [`GeminiTriggersConnector.ts`](../../backend/src/connectors/GeminiTriggersConnector.ts) | **The starting point for a hosted source you can act on.** The only connector with an empty `unsupportedVerbs`: every mandated verb reaches a documented endpoint. Read it for how a write verb earns its name (its `run` is the real scheduled invocation, where GitHub's and Vercel's would not have been), for a **constant** declared tracked set on a platform with no containers, and for the one case where a platform stores a time zone and Cronsole has to reconcile it server-side. |
 | [`GitHubActionsConnector.ts`](../../backend/src/connectors/GitHubActionsConnector.ts) | Your platform keeps its schedule somewhere the list endpoint does not return (a file, a second request), or it *does* report real run outcomes you want scored. |
 | [`ClaudeConnector.ts`](../../backend/src/connectors/ClaudeConnector.ts) | Your platform's capabilities depend on the **install** rather than on the connector — then `unsupportedVerbs` is a getter, not a constant. |
 | [`WindowsAgentConnector.ts`](../../backend/src/connectors/WindowsAgentConnector.ts) | You are adding a **local OS scheduler** reached through an agent. Read the agent protocol in [`skills/cronsole/references/architecture.md`](../../skills/cronsole/references/architecture.md) first. |

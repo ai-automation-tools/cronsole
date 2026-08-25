@@ -178,9 +178,9 @@ about the ones you could:
 - **Manage sources** — the same tab at *Connected*: connect, disconnect, and show or hide each
   one.
 
-**A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code and
-GitHub Actions and Vercel Cron are shown once you add them from *Explore*, which is why the button is there rather
-than a first run listing four platforms of which two are real. Two rules make hiding safe: **a
+**A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code,
+GitHub Actions, Vercel Cron and Gemini API Triggers are shown once you add them from *Explore*, which
+is why the button is there rather than a first run listing five platforms of which two are real. Two rules make hiding safe: **a
 source holding tasks is never hidden**, and **connecting one shows it**.
 
 The **?** beside the *Sources* heading opens the same breakdown in the app, for the source you are
@@ -1012,15 +1012,16 @@ Everything Cronsole can connect to that is **not connected**, in two groups.
 asked for that have nothing behind them yet. Each says what would actually connect it, and the
 answer takes one of two shapes:
 
-- **Something to fill in** — Claude Code, GitHub Actions and Vercel Cron are registered by hand, so **Set up**
-  opens that panel in place.
+- **Something to fill in** — Claude Code, GitHub Actions, Vercel Cron and Gemini API Triggers are
+  registered by hand, so **Set up** opens that panel in place.
 - **Nothing to fill in** — Windows connects when the Cronsole agent is running; Cronsole-native
   connects whenever the backend is up. These get the sentence and no button, because nothing you
   could type would connect them.
 
-**Not added** holds the rest — today Claude Code, GitHub Actions and Vercel Cron on a fresh install. Each card
-says what the source *is* and whether it is a **controller** (Cronsole can change things there) or
-an **observer** (it can only read). Adding one lists it in the sidebar and moves it into the group
+**Not added** holds the rest — today Claude Code, GitHub Actions, Vercel Cron and Gemini API
+Triggers on a fresh install. Each card says what the source *is* and whether it is a **controller**
+(Cronsole can change things there) or an **observer** (it can only read). Being hosted does not
+decide which: GitHub Actions and Vercel Cron are observers, and Gemini API Triggers is a controller. Adding one lists it in the sidebar and moves it into the group
 above; **it connects nothing on its own.** This view is what makes hiding a source safe: nothing
 you turn off becomes unfindable.
 

@@ -525,11 +525,99 @@ shows as *Unsupported* on the Sources tab — that tab stating a boundary, not w
 
 ---
 
+## Gemini API Triggers
+
+**Scheduled prompts Google runs on its own agents in the cloud.** Connect on the **Sources** tab:
+paste a Gemini API key, and that is the whole setup. There are no repositories or projects to name —
+a key is scoped to one Google Cloud project and sees every trigger in it, so everything it can reach
+arrives on the first sync under a single **Gemini** category.
+
+**This is the first hosted source Cronsole can act on rather than only read**, and that is worth
+saying out loud, because the two hosted sources before it are read-only and it would be reasonable to
+assume the pattern holds. It does not. Cronsole runs, pauses, resumes, reschedules, creates and
+deletes triggers here, and reads how their runs actually went.
+
+### Why *Run now* works here and is refused on the other two
+
+GitHub Actions and Vercel Cron both refuse *Run now* even though each has an endpoint that could be
+called, because in both cases what comes back is a lookalike: a `workflow_dispatch` run is a
+different event from the scheduled one, and calling a Vercel cron path yourself is an ordinary HTTP
+request the scheduler never records.
+
+Gemini's is not a lookalike. Running a trigger runs **its own agent, with its own prompt, in its own
+sandbox**, and the run appears on the same execution list the scheduled runs appear on. Google's own
+documentation notes that pausing a trigger stops its *scheduled* executions while leaving manual ones
+alone — which is the platform stating that the two are one mechanism with two doors.
+
+### The signal this source gives you that the others cannot
+
+**A trigger that keeps failing is paused by Google, not by you.** After a number of consecutive
+failures — five by default — Gemini sets the trigger to `disabled` itself and stops running it.
+
+Cronsole surfaces that as its own health warning with the failure count attached, rather than folding
+it into the ordinary *this task is disabled* note. The difference matters: a task somebody
+deliberately parked and an agent that has been dead for a week look identical on a dashboard, and
+only one of them is something you need to know. **Resuming clears the pause and not the cause** — the
+message says so, because a trigger that resumes and fails five more times is back where it started.
+
+### What Cronsole can do here
+
+**Sync · Run now · Enable / disable · Edit schedule · Create · Delete**, plus real run outcomes
+feeding task health. **Edit action** is the one thing it cannot do: a trigger's payload is an agent, a
+prompt, an environment and a network allowlist, and Cronsole has no form that can hold one honestly
+yet. It shows as *Unsupported* on the Sources tab — edit the prompt in Google AI Studio.
+
+### Things that surprise people
+
+- **The action is a prompt, not a command.** The unit of work here is a sentence for an agent, so the
+  create form asks for one. There is no executable to fall back on, and a create with no prompt is
+  refused rather than sent.
+- **A trigger Cronsole creates can reach nothing outside its sandbox.** Gemini lets a trigger declare
+  a network allowlist, including domains carrying credentials in a header. Cronsole creates the
+  plainest environment the API accepts and never guesses one — widening what an autonomous agent may
+  reach is not a default a task manager gets to pick for you. Add domains in Google AI Studio.
+- **The agent id is a setting, and it has a date in it.** `antigravity-preview-05-2026` is what
+  Google's docs name today, and a preview id with a date is one that will be replaced. It lives in
+  the connection panel rather than in Cronsole's source, so the day creates start failing the fix is
+  a text field. Clearing it goes back to the shipped default.
+- **Gemini stores a time zone and Cronsole stores UTC.** A trigger carries a cron *and* an IANA zone.
+  Everything Cronsole writes is `UTC`, so a schedule that goes through Cronsole round-trips exactly.
+  A trigger created elsewhere in a real zone is converted on the way in, with the platform's original
+  cron and zone kept on the task — a shifted field always prints what it was shifted from.
+- **A schedule Cronsole will not convert reads as unavailable, with the reason.** Some expressions
+  have no honest UTC equivalent: one that pins a day of the month and crosses midnight in the shift,
+  or one whose hour field names several hours. Cronsole says which rather than emitting a plausible
+  cron that fires on the wrong day. The sync warns, and the original is on the task.
+- **Zones that observe DST are converted at today's offset.** A 09:00 New York trigger is 13:00 UTC
+  in summer and 14:00 in winter, and no single cron says both. Cronsole stores the current one — the
+  same bargain it already makes when you type a schedule in your own zone.
+- **Deleting is real, and disconnecting is not.** *Delete* on a task removes the trigger from Gemini.
+  *Disconnect* on the source forgets the key and the tracked rows, and leaves every trigger running
+  exactly as before.
+- **There is one category, and it is not a limitation.** A trigger has no repository, project or
+  folder — a key sees a flat list. Grouping by agent id instead would put a dated preview string into
+  your sidebar and into any saved view keyed on it.
+- **The key is stored encrypted and never shown again.** Cronsole verifies it against Gemini before
+  saving — by listing your triggers, which is the same request the source exists to make — so a bad
+  paste fails at the click rather than inside a sync days later. Rotating means pasting a new one.
+- **This API is a preview.** Triggers are part of the Gemini API's Managed Agents preview and the row
+  is marked *Experimental* for that reason. It is a statement about the API underneath, not about how
+  much of the connector is finished.
+- **Health here comes from your syncs, not from a probe.** The same rule every source follows:
+  `getHealth` runs every 45 seconds per open tab, so probing would spend a metered quota on a
+  question sync already answers. Sync is your probe.
+
+---
+
 ## Quick links — schedulers with no connector
 
-The **Sources** tab has a *Quick links* view: bookmarks to ChatGPT, Gemini, Jules, and any you
-add yourself. **Nothing is read or written through them**, and no task from one appears in your
-dashboard. They exist so the schedulers Cronsole *cannot* reach are still one click away rather
+The **Sources** tab has a *Quick links* view: bookmarks to ChatGPT, the Gemini app, Jules, and any
+you add yourself. **Nothing is read or written through them**, and no task from one appears in your
+dashboard.
+
+> The **Gemini app**'s scheduled actions and **Gemini API Triggers** are two different things, and
+> only the second has an API. A scheduled action you set up by talking to the Gemini app is reachable
+> from the bookmark and nowhere else; a trigger created through the API is a real source above. They exist so the schedulers Cronsole *cannot* reach are still one click away rather
 than invisible, and they get their own view rather than a place among the real sources, because a
 bookmark that looks like a connector reads as a broken one.
 
@@ -538,6 +626,12 @@ line that truncates into an ellipsis at tile width — and the remove control is
 rendered**, not revealed on hover, so it is reachable on a phone.
 
 They are a preference, so your links follow your account rather than the browser you added them in.
+
+**Re-check these rather than assuming.** Gemini sat on this list for the whole of 2026 and shipped a
+full CRUD trigger API four weeks before anyone looked again. As of 2026-08-24: ChatGPT Tasks grew a
+better UI and no API; Grok Automations has no automation API; and Jules has both a public API *and*
+scheduled tasks in the product, with no schedules resource joining them — the closest of the three to
+changing.
 
 A link graduates to a connector when it can do something a bookmark cannot — which needs a public
 API for reading scheduled work, and is the first question in

@@ -205,13 +205,23 @@ wrong.
       skipped the mail would carry. The 400 path was driven too, on a Claude task: a platform that
       publishes no run history is reported as a **fact rather than a tool error**, or an assistant
       would call Vercel Cron broken for behaving exactly as designed.
-- [ ] **`GEMINI_TRIGGERS` in `create_task`** — **unblocked 2026-08-25 when A shipped.** It was held
+- [x] **Creating a Gemini trigger over MCP** — **shipped 2026-08-25 as `create_gemini_trigger`**, its own tool rather than a `platform` on `create_task`: the unit of work is a **prompt**, so none of that tool's command, tokenization or no-shell guidance applies, and the native creates already split on exactly that. It was held
       back deliberately until presets existed, and now they do: an agent names a preset and the
       credential never crosses the MCP boundary, which is `${secret.NAME}`'s shape one layer up.
       Without them this would have meant an assistant handling a bearer token in a tool call, which
       is worse than the friction that block was about. Note also that
-      `CREATABLE_PLATFORMS` (`mcp-server/src/tools.ts`) is a hardcoded pair, which is the shape the
-      comments 20 lines below it warn against — widen it *there*, and let the route refuse.
+      `CREATABLE_PLATFORMS` (`mcp-server/src/tools.ts`) stays the pair it was — the separate tool made
+      widening it unnecessary — and `create_task` now names the tool that owns this platform instead.
+
+      **Driving it live found two defects in the path it wraps, both fixed here.** The connector's
+      `describeGrant` sentence — what a create actually granted, and where a supplied credential now
+      lives — was being built and then **overwritten** by the route with `'Task created successfully'`,
+      so it reached nobody: #65's shape, a thing produced with no reader. And every connector refusal
+      on a platform that declares `create` was a **500**, so *"no saved MCP server called X, saved
+      servers: resend"* — a mistake with the fix in the message — arrived in the same register as
+      "the platform is down". `refusedBeforeCalling` is now the create-path twin of `runTask`'s
+      `ran`: a refusal reached without contacting the platform is a **400**, because retrying an
+      identical bad request never helps.
 - [x] **Not `rotate_credentials` over MCP** — decided 2026-08-25. It takes credential *values*. It
       stays UI-only, and this line exists so the absence reads as a boundary rather than an oversight.
 

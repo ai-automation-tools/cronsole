@@ -125,6 +125,7 @@ describe('the tool surface', () => {
       'connect_claude_routine',
       'convert_schedule',
       'create_claude_routine',
+      'create_gemini_trigger',
       'create_native_check_task',
       'create_native_program_task',
       'create_native_script_task',
@@ -1326,6 +1327,142 @@ describe('get_task_history', () => {
  * the Cronsole log is empty by design, which is the case an assistant is most
  * likely to misread as "it never ran".
  */
+/**
+ * **Creating an autonomous agent from a tool call.**
+ *
+ * The thing this tool must never do is carry a credential, and the thing it must
+ * never imply is that the result can be edited. Both are asserted here rather
+ * than left to the description, because a description is advice and a test is a
+ * boundary.
+ */
+describe('create_gemini_trigger', () => {
+  const created = { message: 'Task created successfully', task: { id: 't1', name: 'n' } };
+
+  it('sends the prompt as the route\'s command field, on the Gemini platform', async () => {
+    // The route calls it `command` for every platform; on this one it carries a
+    // prompt. The wrapper does that translation so the tool's own surface can
+    // use the word that is true here.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_gemini_trigger', {
+      name: 'Nightly digest',
+      prompt: 'Compile the list and email it to a@b.com. Say so explicitly if the send fails.',
+      schedule: '0 3 * * *'
+    });
+    expect(calls[0].body).toMatchObject({
+      platform: 'GEMINI_TRIGGERS',
+      command: 'Compile the list and email it to a@b.com. Say so explicitly if the send fails.',
+      schedule: '0 3 * * *'
+    });
+  });
+
+  it('omits agentTools entirely when nothing was granted', async () => {
+    // Not `agentTools: []`. The platform reads `tools` as a RESTRICTION of its
+    // defaults, so an empty array is a different request from no key — and a
+    // create that granted nothing must be byte-identical to one made before this
+    // tool could grant anything.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_gemini_trigger', { name: 'n', prompt: 'p', schedule: '0 3 * * *' });
+    expect(calls[0].body).not.toHaveProperty('agentTools');
+    expect(calls[0].body).not.toHaveProperty('agentAllowlist');
+  });
+
+  it('sends a saved server as a reference and never as a credential', async () => {
+    // The whole reason this tool was blocked until presets existed: a bearer
+    // token in a tool call passes through the assistant's context and the host's
+    // transcript. There is no field for one here, and this pins that.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_gemini_trigger', {
+      name: 'n',
+      prompt: 'p',
+      schedule: '0 3 * * *',
+      presets: ['resend'],
+      tools: ['google_search'],
+      allowlist: ['mcp.resend.com']
+    });
+    const body = calls[0].body as { agentTools: unknown[]; agentAllowlist: string[] };
+    expect(body.agentTools).toEqual([
+      { type: 'google_search' },
+      { type: 'mcp_server', preset: 'resend' }
+    ]);
+    expect(body.agentAllowlist).toEqual(['mcp.resend.com']);
+    // At any depth: nothing on this wire can be a token.
+    expect(JSON.stringify(body)).not.toMatch(/authorization|bearer|headers/i);
+  });
+
+  it('refuses a raw credential by having nowhere to put one', async () => {
+    // An unknown key is dropped by the schema rather than forwarded, so an
+    // assistant that tries to pass a token cannot succeed by accident.
+    const { client, calls } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    await call(mcp, 'create_gemini_trigger', {
+      name: 'n',
+      prompt: 'p',
+      schedule: '0 3 * * *',
+      headers: { Authorization: 'Bearer re_live_leak' }
+    } as Record<string, unknown>);
+    expect(JSON.stringify(calls[0]?.body ?? {})).not.toContain('re_live_leak');
+  });
+
+  it('leads with what the create actually granted, not with "created"', async () => {
+    // `describeGrant` is the connector's sentence and it states where a supplied
+    // credential now lives. It was being built and overwritten by the route
+    // until 2026-08-25; this asserts the caller sees it.
+    const { client } = stubClient({
+      'POST /tasks': {
+        message: 'Created with 1 tool: mcp_server (resend). The sandbox may reach mcp.resend.com.',
+        task: { id: 't1' }
+      }
+    });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'create_gemini_trigger', {
+      name: 'n', prompt: 'p', schedule: '0 3 * * *', presets: ['resend']
+    }));
+    expect(out).toMatch(/Created with 1 tool: mcp_server \(resend\)/);
+  });
+
+  it('says the trigger cannot be edited', async () => {
+    // The most expensive thing an assistant can believe about this platform is
+    // that it can fix a prompt later. It cannot: Gemini takes only a status and
+    // a display name on update.
+    const { client } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'create_gemini_trigger', {
+      name: 'n', prompt: 'p', schedule: '0 3 * * *'
+    }));
+    expect(out).toMatch(/cannot be edited/i);
+    expect(out).toMatch(/create a replacement and delete this one/i);
+  });
+
+  it('points at the step list rather than the status for verification', async () => {
+    const { client } = stubClient({ 'POST /tasks': created });
+    const mcp = await connect(client);
+    const out = text(await call(mcp, 'create_gemini_trigger', {
+      name: 'n', prompt: 'p', schedule: '0 3 * * *'
+    }));
+    expect(out).toMatch(/list_platform_runs/);
+    expect(out).toMatch(/STEP LIST|step list/);
+  });
+
+  it('carries the backend refusal for an unknown preset', async () => {
+    // The connector refuses with the list of what exists, so a wrong guess costs
+    // one call and teaches the caller the right name.
+    const { client } = stubClient({
+      'POST /tasks': () =>
+        new CronsoleApiError('No saved MCP server called "sendgrid". Saved servers: resend.', 400)
+    });
+    const mcp = await connect(client);
+    const r = await call(mcp, 'create_gemini_trigger', {
+      name: 'n', prompt: 'p', schedule: '0 3 * * *', presets: ['sendgrid']
+    });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toMatch(/Saved servers: resend/);
+  });
+});
+
+
 describe('list_platform_runs', () => {
   const run = (over: Record<string, unknown> = {}) => ({
     id: 'r1',
@@ -1941,6 +2078,7 @@ describe('error handling across the surface', () => {
       ['convert_schedule', { schedule: '0 9 * * *' }],
       ['create_claude_routine', { name: 'n', prompt: 'p', schedule: '0 9 * * *' }],
       ['create_task_from_template', { templateId: 't' }],
+      ['create_gemini_trigger', { name: 'n', prompt: 'p', schedule: '0 9 * * *' }],
       ['get_task_history', { taskId: 'x' }],
       ['list_platform_runs', { taskId: 'x' }],
       ['get_run_output', { taskId: 'x', runId: 'r' }],

@@ -474,7 +474,7 @@ export class GeminiTriggersConnector implements PlatformConnector {
     command: string,
     config: any,
     options?: CreateTaskOptions
-  ): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated?: string[] }> {
+  ): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated?: string[]; refusedBeforeCalling?: boolean }> {
     const stored = readConfig(config);
     const { apiKey, agent } = stored;
     if (!apiKey) {
@@ -484,6 +484,7 @@ export class GeminiTriggersConnector implements PlatformConnector {
       return {
         success: false,
         foldersCreated: [],
+        refusedBeforeCalling: true,
         message:
           'A Gemini trigger needs a prompt — the instruction the agent runs on the schedule. There is ' +
           'no executable to fall back on here.'
@@ -499,7 +500,7 @@ export class GeminiTriggersConnector implements PlatformConnector {
 
     const resolvedTools = resolveToolPresets(requested, stored);
     if (!resolvedTools.ok) {
-      return { success: false, foldersCreated: [], message: resolvedTools.message };
+      return { success: false, foldersCreated: [], refusedBeforeCalling: true, message: resolvedTools.message };
     }
     const tools = resolvedTools.tools;
 
@@ -513,6 +514,7 @@ export class GeminiTriggersConnector implements PlatformConnector {
       return {
         success: false,
         foldersCreated: [],
+        refusedBeforeCalling: true,
         message: `Gemini does not offer ${unknown.join(', ')}. Supported: ${GEMINI_TOOL_TYPES.join(', ')}.`
       };
     }
@@ -522,6 +524,7 @@ export class GeminiTriggersConnector implements PlatformConnector {
       return {
         success: false,
         foldersCreated: [],
+        refusedBeforeCalling: true,
         message: 'An MCP server needs a URL — that is the endpoint the agent connects to.'
       };
     }

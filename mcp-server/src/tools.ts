@@ -754,7 +754,9 @@ export function registerTools(
         'know the command to run; use create_task_from_template only when you want a catalog recipe. ' +
         'The server converts the 5-field UTC cron to the platform\'s native trigger and registers the task ' +
         '(a Windows task is created via the signed local agent, and the command is structured no-shell). ' +
-        `Only ${CREATABLE_PLATFORMS.join(' and ')} can be created today. ` +
+        `Only ${CREATABLE_PLATFORMS.join(' and ')} can be created with THIS tool. ` +
+        'A Gemini API trigger is create_gemini_trigger instead: its unit of work is a prompt for an ' +
+        'agent, not a command, so none of the command guidance below applies to it. ' +
         'IMPORTANT: check the schedule with convert_schedule first and READ THE RETURNED TRIGGER, not just the ' +
         'confidence score — a cron this converter cannot express natively is REPLACED with an hourly trigger ' +
         '(it only ever runs more often than you asked), and that arrives as a mild-sounding warning.',
@@ -1383,6 +1385,136 @@ Next run: ${task.nextRunTime}` : '')
           task: task ? compactTask(task) : null,
           missingSecrets: result.missingSecrets ?? []
         });
+      } catch (err) {
+        return toolError(err);
+      }
+    }
+  );
+
+
+  // ---------------------------------------------------------------------------
+  // create_gemini_trigger
+  // ---------------------------------------------------------------------------
+  server.registerTool(
+    'create_gemini_trigger',
+    {
+      title: 'Create a scheduled Gemini agent trigger',
+      description:
+        'Create a Gemini API trigger — a PROMPT Google runs on a schedule, on its own managed agent, in a ' +
+        'sandbox. Its own tool rather than a `platform` on create_task, because the unit of work here is a ' +
+        'sentence for an agent and not a command: there is no executable, no shell, no tokenization, and ' +
+        'none of create_task\'s command guidance applies. ' +
+        'YOU ARE CREATING AN AUTONOMOUS AGENT THAT RUNS UNATTENDED. Three rules, each paid for by a real ' +
+        'failed run: (1) NEVER let the prompt offer a choice or ask a question — nobody is there to answer ' +
+        'at 03:00, and the run stalls; give the parameter or tell it to pick. (2) ALWAYS instruct it to ' +
+        'report failure explicitly, or an agent that cannot finish a step narrates success instead. ' +
+        '(3) Grant only the tools the task needs — every tool is reach the agent keeps for as long as the ' +
+        'trigger exists. ' +
+        'A trigger is IMMUTABLE once created: Gemini\'s update endpoint takes only a status and a display ' +
+        'name, so there is no edit. Changing a prompt means create-then-delete. Get it right the first time, ' +
+        'and confirm the prompt with the user before calling this. ' +
+        'Credentials: use `preset` to name a saved MCP server. NEVER put a bearer token in this call — ' +
+        'there is no field for one, deliberately. The credential lives on the Cronsole connection and is ' +
+        'resolved server-side, so it never passes through this conversation. An unknown preset name is ' +
+        'refused WITH the list of saved servers, so a wrong guess costs one call and leaks nothing.',
+      inputSchema: {
+        name: z.string().describe('Display name for the trigger, as it will read on the dashboard and on Gemini.'),
+        prompt: z
+          .string()
+          .describe(
+            'The instruction the agent runs on the schedule. Write it as a complete brief for someone who ' +
+            'cannot ask you anything: name every parameter (addresses, repositories, formats), state what ' +
+            'to do when a step fails, and never phrase any part of it as a question.'
+          ),
+        schedule: z
+          .string()
+          .describe(
+            '5-field cron in UTC: "min hour dom month dow". Cronsole stores every schedule as UTC — do not ' +
+            'pass local time. Unlike Windows there is no trigger conversion here, so the cron is stored as ' +
+            'given; check it with convert_schedule if you are unsure of the shape.'
+          ),
+        tools: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'Built-in tools to grant, by name: google_search, url_context, code_execution, bash, filesystem, ' +
+            'file_search, computer_use, google_maps, tool_search. Omit for the platform\'s plain sandbox, ' +
+            'which reaches nothing outside itself. NOTE: the managed agent can refuse a tool this list ' +
+            'accepts — `filesystem` is the known case — and such a trigger is created and then fails in ' +
+            'about five seconds. A capability list is not a permission list.'
+          ),
+        presets: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'Saved MCP servers to grant, BY NAME. The credential for each lives on the Cronsole connection ' +
+            'and is resolved server-side. An unknown name is refused with the list of what exists.'
+          ),
+        allowlist: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'Domains the sandbox may contact, e.g. "mcp.resend.com". Empty means it reaches nothing outside ' +
+            'itself — which is why a trigger asked to email a report will quietly write a file instead. ' +
+            'Grant the domains its tools actually need and no more.'
+          ),
+        category: z
+          .string()
+          .optional()
+          .describe('Cronsole label for grouping. Defaults to "Gemini", which is where every trigger lands.')
+      }
+    },
+    async ({ name, prompt, schedule, tools, presets, allowlist, category }) => {
+      try {
+        // Built-ins and presets are two different grants and arrive as two
+        // parameters, because collapsing them into one array of strings would
+        // make `resend` and `bash` indistinguishable to the caller — and one of
+        // them carries a credential.
+        const agentTools = [
+          ...(tools ?? []).map(type => ({ type })),
+          ...(presets ?? []).map(preset => ({ type: 'mcp_server', preset }))
+        ];
+
+        const body: Record<string, unknown> = {
+          name,
+          platform: 'GEMINI_TRIGGERS',
+          // The route's field is `command` for every platform; on this one it
+          // carries the prompt. The wrapper does that translation so the tool's
+          // own surface can use the word that is true here.
+          command: prompt,
+          schedule
+        };
+        if (category) body.category = category;
+        // Absent rather than `[]`: the platform reads `tools` as a RESTRICTION of
+        // its defaults, so an empty array is a different request from no key.
+        if (agentTools.length) body.agentTools = agentTools;
+        if (allowlist?.length) body.agentAllowlist = allowlist;
+
+        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks', body);
+
+        // The connector's own sentence, which states what was granted and where
+        // any credential now lives. Leading with it rather than with "created"
+        // is the point: reach is the consequential half of an autonomous task.
+        const grant = result.message && result.message !== 'Task created successfully'
+          ? `\n${result.message}`
+          : '';
+
+        return ok(
+          `Created Gemini trigger "${name}" on ${schedule} (UTC).${grant}\n` +
+          'This trigger cannot be edited — Gemini takes only a status and a display name on update. ' +
+          'To change the prompt or the schedule, create a replacement and delete this one. ' +
+          'Check what it actually did with list_platform_runs, and read the STEP LIST rather than the ' +
+          'status: a run that finished without doing the job still reports completed.',
+          {
+            taskId: result.task?.id ?? null,
+            name,
+            schedule,
+            toolsGranted: tools ?? [],
+            presetsGranted: presets ?? [],
+            allowlist: allowlist ?? [],
+            task: result.task ?? null
+          }
+        );
       } catch (err) {
         return toolError(err);
       }

@@ -5,7 +5,7 @@
 .DESCRIPTION
     Stage 1 renamed the repo. This moves the state the OS points at:
 
-      \Task-Hub\TaskHubAgent      -> \Cronsole-Stack\CronsoleAgent
+      \Task-Hub\TaskHubAgent      -> \Cronsole-Stack\CronsoleAgent   (since REMOVED, see below)
       \Task-Hub\TaskHubRepublish  -> \Cronsole-Stack\CronsoleRepublish
       \Task-Hub\TaskHubStack      -> \Cronsole-Stack\CronsoleStack
       TASKHUB_TOKEN (User env)    -> CRONSOLE_TOKEN

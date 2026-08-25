@@ -33,7 +33,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
-| 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent through `\Cronsole-Stack\CronsoleAgent` (RunLevel `Highest`), then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
+| 86 | **`Stop-ScheduledTask` on a `\Cronsole-Stack\` task returns success and stops nothing** — the process it started keeps running, and `Start-ScheduledTask` does not bring it back either | **The task is not the process.** Every launcher task runs `wscript.exe` → `run-hidden.vbs`, which is fire-and-forget (`WScript.Shell.Run(cmd, 0, False)`), so the instance exits in under a second while what it launched runs on unparented. The task reads `Ready` while the agent holds a pid. Restarting is a property of the **script**, not the task: use `CronsoleRestart` (`cronsole.ps1 restart`), and never read a task's exit code as a statement about the stack | [→](#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing) |
+| 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent elevated — `Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'` — then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
 | 85 | A Windows task's **Run History shows more runs than happened**, and the extras have **no start time** — a task that ran twice lists three or four. Separately, the **exit code** is present on some machines and missing on others | **Two ways of reading Task Scheduler in somebody else's terms.** (1) The event log is a **ring buffer**, so the oldest run in view is missing its `TASK_STARTED`; those leftovers were keyed by their own timestamps, one bucket each, turning **one** truncated run into three rows — the *"three nights read as twelve runs"* failure arriving through the orphan path. They now share one bucket, dated by their earliest surviving event, `partial` only when nothing settles the outcome; a truncated run that finished is still `completed` ([#74](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy)'s rule applied to a log). (2) The exit code was parsed out of the event's **English prose**; event 201 publishes `ResultCode` and `ActionName` as **named `EventData` fields** and renders them separately into a localized sentence, so the regex found nothing on a non-English Windows and the fact vanished silently. **Read named fields, never the rendered sentence** — and read them **by name**, since `EventRecord.Properties` is positional and the index differs per event id. Fixed 2026-08-25; the named-fields half needs an agent republish | [→](#85-one-windows-task-shows-three-runs-that-never-happened-all-of-them-undated) |
 | 84 | A **Gemini trigger fails in about five seconds**, start to finish, and opening the run says *"Gemini recorded this run as failed but attached no interaction to it, so there is nothing to read."* The prompt is fine and the task looks healthy in every other respect | **The trigger's configuration was rejected, and Cronsole was dropping the sentence that said so.** A run that fails faster than the work could possibly take is a **refused start**, not a failed attempt — look at the trigger definition, not the prompt. In the case that surfaced this, the trigger declared `filesystem`, a type the API's own supported list contains, and the platform answered *"Tool 'filesystem' is not allowed when interacting with this agent"*: **a capability list is not a permission list**, and the per-agent restriction is published nowhere. `GET …/executions` carries that reason in an `error` field beside `status`, and `toExecution` never read it — **the third field on this one connector present on the wire and unread** (#82 the prompt, #83 the executions array). Fixed 2026-08-25: the reason is the run's output, marked *Failed before the agent started*. Rebuild the trigger without the offending tool via **Replace credentials** | [→](#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read) |
 | 83 | A **Gemini trigger's run history is always empty** — the platform has run it for days, *Runs on the platform* shows nothing, and health reads `unknown` forever. Fixing that alone then flips every **healthy** trigger to `critical` | **Two defects that hid each other, both docs-vs-wire.** The executions array is `trigger_executions`, not the documented `executions` — though the sibling `GET /triggers` really is `triggers`, which is what makes it look like a typo rather than the API. And the success word is **`completed`**, not the documented `succeeded`, with in-flight as `in_progress`. The first bug hid the second: an always-empty list meant the wrong success word could never fire, so a partial fix — the obvious one — would have called every good run a failure. `isSuccessStatus` / `isPendingStatus` are now one definition shared by the connector and `taskHealth`. **Fix both halves of a read before believing either** | [→](#83-a-gemini-trigger-runs-fine-cronsole-shows-no-run-history--then-calls-a-good-run-a-failure) |
@@ -278,7 +279,7 @@ A plain restart is enough (the source is already mounted — no rebuild needed u
 **Symptom** — you start a second agent instance for a dogfood/test (e.g. `dotnet
 Cronsole.Agent.dll` with `CRONSOLE_AGENT_ID=dogfood-agent`), do your testing, then stop it —
 and now `GET /api/tasks/health` reports `WINDOWS_TASK_SCHEDULER: OFFLINE` and stays that way,
-even though the **real** agent process (the elevated `\Cronsole-Stack\CronsoleAgent` scheduled task)
+even though the **real** agent process (started elevated by `\Cronsole-Stack\CronsoleStack`)
 is still running. Polling for a minute-plus doesn't recover it.
 
 **Cause** — the backend maps one agent socket per user (single-user MVP). When the transient
@@ -343,10 +344,20 @@ Restarting the agent directly works too, and is the lighter option on a host-run
 backend is a `tsx watch` process you may not want to bounce:
 
 ```powershell
-Stop-ScheduledTask -TaskPath '\Cronsole-Stack' -TaskName 'CronsoleAgent'
-Get-Process Cronsole.Agent -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-ScheduledTask -TaskPath '\Cronsole-Stack' -TaskName 'CronsoleAgent'
+Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'
 ```
+
+> **Do not reach for `Stop-ScheduledTask`/`Start-ScheduledTask` here.** That was the advice
+> until 2026-08-25, aimed at a `CronsoleAgent` task that no longer exists — and as a *restart*
+> it could never work. **Stop** was always a no-op: the task launched fire-and-forget through
+> `run-hidden.vbs`, so `wscript.exe` exited within a second and there was no instance left to
+> stop, while the agent it had started ran on independently. **Start** then ran the idempotent
+> `cronsole.ps1 up`, which prints *"agent already up"* at a live agent and returns `0`. The
+> pair reported success while changing nothing — and since the whole reason you are here is
+> that an agent **is** running, that is every time. (Recipes that also killed the process by
+> name in between did work, but for the `Stop-Process` line, not for the task.)
+> `CronsoleRestart` runs `cronsole.ps1 restart`, which force-stops the agent elevated and
+> brings it back. See [#86](#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing).
 
 Either way, confirm with diagnostics (`Socket: connected`, `Connected since` seconds old) **and run
 a Sync** — a socket existing is not the same fact as the agent doing work
@@ -2443,7 +2454,7 @@ the migration (it re-enables and verifies at the end) or re-enable them **from a
 they are `RunLevel Highest`, so an unelevated `Enable-ScheduledTask` fails with `Access is denied`:
 
 ```powershell
-'CronsoleAgent','CronsoleRepublish','CronsoleStack' |
+'CronsoleRepublish','CronsoleRestart','CronsoleStack' |
   ForEach-Object { Enable-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName $_ }
 ```
 
@@ -5011,7 +5022,7 @@ A machine does not lose its whole `UpdateOrchestrator` tree. Windows hides those
 non-elevated readers.
 
 **Cause.** The agent was started **unelevated** — typically by running `cronsole up` (or the exe
-directly) from an ordinary shell instead of letting `\Cronsole-Stack\CronsoleAgent` start it, which
+directly) from an ordinary shell instead of letting `\Cronsole-Stack\CronsoleStack` start it, which
 is registered `RunLevel Highest`. An unelevated agent enumerates a strictly smaller machine, the next
 sync compares that against what Cronsole tracks, and `reconcileMissingTasks` does exactly its job on
 a snapshot that is honest about what the agent saw and wrong about what exists.
@@ -5038,11 +5049,10 @@ Compare with the same command unelevated, and with what the agent reports
 **Fix.**
 
 ```powershell
-Stop-Process -Name Cronsole.Agent -Force
-Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleAgent'
+Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'
 ```
 
-Give it ~10s (the task runs `wscript.exe` → `run-hidden.vbs` → `Start-Cronsole.ps1`, so the process
+Give it ~15s (the task runs `wscript.exe` → `run-hidden.vbs` → `cronsole.ps1 restart`, so the process
 appears a beat after `Start-ScheduledTask` returns — it not being there immediately is not a
 failure). Then Sync. MISSING self-heals back to ACTIVE/DISABLED and **no data is lost**, because
 reconciliation only ever changed a status.
@@ -5766,6 +5776,102 @@ real ones.
 
 ---
 
+## 86. `Stop-ScheduledTask` on a launcher task reports success and stops nothing
+
+**Symptom.** You want to bounce the agent, so you do what the docs said:
+
+```powershell
+Stop-ScheduledTask  -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleAgent'
+Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleAgent'
+```
+
+Both return success. Neither changes anything. The agent keeps the same pid across both calls,
+still running the same stale code, still unelevated if that was the problem you came to fix.
+Nothing errors, nothing warns, and `LastTaskResult` is `0`.
+
+**Cause — the task is not the process.** Every task in `\Cronsole-Stack\` launches through
+`wscript.exe` → `run-hidden.vbs`, and that shim is deliberately fire-and-forget:
+
+```vbscript
+' 0 = hidden window (created hidden, no flash); False = fire-and-forget.
+shell.Run cmd, 0, False
+```
+
+`WScript.Shell.Run` with `bWaitOnReturn = False` returns immediately, so `wscript.exe` exits
+within a second and **the task instance is over** while the PowerShell it started — and
+everything *that* started — runs on unparented. So:
+
+- **`Stop-ScheduledTask` has nothing to stop.** It terminates the task instance, and there has
+  not been one since a second after the trigger fired. It does not walk the process tree, and
+  even if it did, the tree was orphaned on purpose.
+- **`Start-ScheduledTask` does not restart anything either**, because the script it runs is
+  `cronsole.ps1 up`, which is idempotent by design: it starts what is **down** and leaves what
+  is **up** alone. At a live agent it prints *"agent already up"* and returns `0`.
+
+The tell is one line, and it is visible at any time:
+
+```powershell
+Get-ScheduledTask -TaskPath '\Cronsole-Stack\' | Select-Object TaskName, State
+Get-Process Cronsole.Agent | Select-Object Id, StartTime
+```
+
+A task at **`Ready`** beside an agent holding a **pid** is the whole bug: if the task were the
+agent's parent it would read `Running`. It never does.
+
+**Why it survived so long.** The advice was written when the task really *did* run the agent exe
+directly — `agent\setup-agent-startup.ps1` registered `CronsoleAgent` with
+`-Execute $ExePath`, and against *that* definition Stop and Start both worked exactly as
+documented. `Register-CronsoleStack.ps1` later overwrote **the same task name** with a different
+action (the stack launcher), keeping the original description — *"Handles WebSocket
+communication with Cronsole backend."* Two registrars, one name, incompatible definitions, and
+whichever ran last won. The docs kept describing the definition that lost.
+
+**Fix.** The task was removed on 2026-08-25. Restart through the verb that actually restarts:
+
+```powershell
+Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'
+pwsh scripts\cronsole.ps1 status
+```
+
+`CronsoleRestart` runs `cronsole.ps1 restart` (`Invoke-Down`, which force-stops the agent, then
+`Invoke-Up`) at `RunLevel Highest`, which is the elevation an unelevated `Stop-Process` is
+refused for. Register it once with
+[`Register-RestartTask.ps1`](../../scripts/startup-task/Register-RestartTask.ps1).
+
+**Verified on the machine rather than assumed**, because the whole defect was a gesture that
+*reported* success — so a replacement had to be measured the same way the original was caught:
+
+| | `CronsoleAgent` (old) | `CronsoleRestart` (new) |
+|---|---|---|
+| Agent pid across the gesture | `40700` → `40700` (**unchanged**) | `40700` → `6428` |
+| Task `LastTaskResult` | `0` | `0` |
+| Elapsed | instant | 25s |
+
+**Both report `0`.** That is the point of the entry: the exit code was never the thing to read.
+The restarted agent was then confirmed **elevated** the way #74 measures it — it enumerated
+**375** tasks across 169 folders against **289** from an unelevated shell, with
+`UpdateOrchestrator`, `TPM` and `Pluton` all visible.
+
+> [!TIP]
+> **Three lessons, and the third is the expensive one.**
+>
+> 1. **A scheduled task is a launcher, not a supervisor** — any task whose action detaches
+>    (a VBS shim, a `Start-Process`, a `nohup`) stops being an owner the moment it returns.
+>    `Stop-ScheduledTask` is then a claim about a process that ended long ago.
+> 2. **Idempotence and restart are opposite requirements.** `up` is *supposed* to leave a healthy
+>    process alone; that is why the self-heal can run every 5 minutes. Reaching for it as a
+>    restart asks it to do the one thing it is built not to do.
+> 3. **Two registrars owning one task name is the actual defect**, and nothing could catch it:
+>    both scripts ran cleanly, `Register-ScheduledTask -Force` is *supposed* to overwrite, and the
+>    result was a task whose description described the loser. The invariant is **one owner per
+>    task name** — and the check is to read the registered *action*, never the name or the
+>    description, when deciding what a task does.
+
+*First hit: 2026-08-25.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
 <p align="center">
   <a href="../README.md">Docs Home</a> ·
   <a href="../setup/README.md">Setup</a> ·

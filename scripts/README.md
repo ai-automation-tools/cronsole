@@ -27,7 +27,7 @@ the full details.
 | **`check-doc-links.mjs`** | Fail on any markdown link pointing at a file or heading that does not exist — **1298 links across 147 files**. A broken doc link does not 404: GitHub serves the page scrolled to the top, so a renamed heading silently starts delivering the wrong section and nothing anywhere reddens. The TaskHub rename left **13** dead links across `CHANGELOG.md` and `troubleshooting/README.md` from 2026-07-31 to 2026-08-17, through every green CI run. Wired into the `repo-hygiene` job. **Distinct from [`docsLinks.test.ts`](../frontend/src/data/__tests__/docsLinks.test.ts)**, which checks the links the *app* sends users to (`help.ts`, `onboarding.ts`); this one checks doc → doc, which that test cannot see. |
 | **`check-tracked-env.mjs`** | Fail on any git-tracked `.env*` file that is not allowlisted, or that has grown a credential. `.gitignore` denies `.env*` and re-includes three `.env.example` files plus **`frontend/.env.remote`** — a real build input (`vite build --mode remote`) holding one public routing value, `VITE_API_URL=same-origin`. The hazard is not what those files say today: a file named `.env*` that git already carries **looks** like a secret store, and a token added to one is a one-line diff in a months-old file that nothing else would redden. So the inventory is an allowlist (a new tracked `.env*` path fails until someone adds it with a reason), `.env.remote` is **pinned to that one key and that one value**, and every tracked env file is scanned with the shared credential patterns ([`scripts/secret-patterns.mjs`](secret-patterns.mjs), also used by `check-bundle-secrets.mjs`) plus a check that no example's URI carries a live password. Flagged by the 2026-08-23 cross-repo audit, which found the same class **already realised** one repo over — a live Neon admin connection string committed in a migration write-up. Wired into the `repo-hygiene` job. |
 | **`rename-stage1.mjs`** · **`rename-stage2.mjs`** | The scripted TaskHub → Cronsole rename (2026-07-31), kept so **stage 3 is a diff to a protection list rather than a fresh judgement call**. Stage 1 renamed in-repo identity only; stage 2 renamed what the machine points at. Each has an explicit `PROTECTED` list with a comment per entry explaining what would break. `--dry` reports without writing. |
-| [**🚀 startup-task/**](startup-task/README.md) | The logon **auto-start** launcher — brings up the entire local stack automatically at Windows logon via the `\Cronsole-Stack\` scheduled tasks (`CronsoleAgent` fires once at logon; `CronsoleStack` re-runs `cronsole.ps1 up` **every 5 minutes** as a self-heal). It now delegates to `cronsole.ps1 up`, so boot and manual control share one code path. |
+| [**🚀 startup-task/**](startup-task/README.md) | The `\Cronsole-Stack\` scheduled tasks that start the stack and keep it up. **`CronsoleStack`** runs `cronsole.ps1 up` at logon and **every 5 minutes** as a self-heal; **`CronsoleRepublish`** and **`CronsoleRestart`** are on-demand elevated chores (rebuild the agent · restart everything). All three run `cronsole.ps1` or a script beside it, so boot and manual control share one code path. The old `CronsoleAgent` was removed on 2026-08-25 — two scripts registered that one name with incompatible definitions, and the documented `Stop-ScheduledTask`/`Start-ScheduledTask` bounce was a **no-op in both halves**. |
 
 ## 🎛️ Controlling the stack (`cronsole.ps1`)
 
@@ -79,9 +79,12 @@ auto-start self-heal (or immediately with `cronsole up`).
 > **`WARN`** — not a confident UP or DOWN.
 
 > [!IMPORTANT]
-> Paths in these scripts are **machine-specific** — `Start-Cronsole.ps1` and the task XMLs
-> hardcode this machine's Node, Docker, and repo paths (and the task XML embeds a user SID).
-> Adjust them before using on another machine.
+> Paths in these scripts are **machine-specific** — `cronsole.ps1` hardcodes this machine's
+> Node, Docker and Docker Desktop paths (each with a bare-name fallback). Adjust them before
+> using on another machine. The registered tasks embed the repo path and a user SID, which is
+> why moving the checkout goes through
+> [`Migrate-RepoFolder.ps1`](startup-task/Migrate-RepoFolder.ps1) and re-registration goes
+> through the `Register-*.ps1` scripts, which resolve the root at run time.
 
 ## 🧠 Linking the skills (`setup-skill-links.ps1` / `.sh`)
 

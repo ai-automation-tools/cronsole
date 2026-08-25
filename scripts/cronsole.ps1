@@ -11,12 +11,13 @@
     "which part is down?".
 
     Usage:
-      cronsole up          Start anything that isn't already running (idempotent)
+      cronsole up          Start anything that isn't already running (idempotent),
+                           including the Docker engine itself if it is down
       cronsole down        Stop the backend, frontend, and agent (leaves db/redis up)
       cronsole down -All   Also stop the Docker db/redis + proxy containers
       cronsole restart     down (app tier) then up
       cronsole status      One table showing every service (default)
-      cronsole logs        Tail the backend/frontend/launcher logs
+      cronsole logs        Tail the backend/frontend logs
       cronsole remote on   Publish the dashboard through the reverse proxy, and
                            keep it published (see Remote access below)
       cronsole remote off  Stop publishing it
@@ -101,6 +102,7 @@ $Npm = 'C:\Program Files\nodejs\npm.cmd'
 if (-not (Test-Path $Npm)) { $Npm = 'npm.cmd' }
 $Docker = 'D:\GDrive\Repos\Docker\resources\bin\docker.exe'
 if (-not (Test-Path $Docker)) { $Docker = 'docker' }
+$DockerDesktop = 'D:\GDrive\Repos\Docker\Docker Desktop.exe'
 
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
 
@@ -189,6 +191,42 @@ function Test-DockerCli {
     try { & $Docker version --format '{{.Server.Version}}' *> $null; $script:DockerOk = ($LASTEXITCODE -eq 0) }
     catch { $script:DockerOk = $false }
     return $script:DockerOk
+}
+
+# The engine has no keeper of its own, and everything below it does. `docker compose
+# up` only WARNS when the engine is down, so a Docker Desktop that is quit or crashes
+# mid-session leaves the 5-minute self-heal logging the same warning forever while the
+# stack never comes back - troubleshooting #70's shape (an opt-in with no keeper) one
+# layer further down. This used to live in Start-Cronsole.ps1, which ran ONLY at logon;
+# `up` is the thing that runs every 5 minutes, so it is where the recovery belongs.
+function Start-DockerEngine {
+    param([int]$TimeoutSeconds = 120)
+
+    # Normal case on every pass but the first: one cached probe, no work.
+    if (Test-DockerCli) { return $true }
+
+    if (-not (Test-Path $DockerDesktop)) {
+        Write-Host "  WARNING: Docker engine is down and Docker Desktop is not at $DockerDesktop" -ForegroundColor Yellow
+        return $false
+    }
+
+    Write-Host '  Docker engine down - starting Docker Desktop...'
+    Start-Process -FilePath $DockerDesktop -WindowStyle Hidden | Out-Null
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        Start-Sleep -Seconds 5
+        # Clear the memo before re-probing. Test-DockerCli caches for the good reason
+        # that `status` would otherwise make five calls - but here the whole point is
+        # that the answer is expected to change, so the cache is the bug.
+        $script:DockerOk = $null
+        if (Test-DockerCli) {
+            Write-Host ("  Docker engine ready after {0:N0}s" -f $sw.Elapsed.TotalSeconds)
+            return $true
+        }
+    }
+    Write-Host "  WARNING: Docker engine not ready after ${TimeoutSeconds}s - db/redis will not start." -ForegroundColor Yellow
+    return $false
 }
 
 function Get-DbProbe {
@@ -429,6 +467,9 @@ function Start-HostService([string]$Name, [string]$WorkDir) {
 
 function Invoke-Up {
     Write-Host 'Bringing the Cronsole stack up...'
+
+    # 0. The engine every Docker row below sits on.
+    Start-DockerEngine | Out-Null
 
     # 1. Data services (Docker). restart: unless-stopped keeps them self-healing.
     & $Docker compose -f $Compose up -d db redis 2>&1 | Out-Null

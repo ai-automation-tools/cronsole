@@ -402,6 +402,20 @@ Non-negotiable rules. **Every one has a reason recorded in
   `\Microsoft\` is refused in the backend *and* independently in the agent.
 - **`\Cronsole-Stack\` is deliberately untracked** — it is the thing that runs Cronsole, not work
   Cronsole runs. Nothing enforces this; it is a standing choice.
+- **A launcher task is not the process it launched, and exactly one script may own a task name.**
+  Every `\Cronsole-Stack\` task runs `wscript.exe` → `run-hidden.vbs`, which is fire-and-forget, so
+  the instance ends in under a second while what it started runs on unparented: `Stop-ScheduledTask`
+  stops **nothing** and `LastTaskResult: 0` is a statement about the shim, never about the stack.
+  Restarting is therefore a property of the *script* (`cronsole.ps1 restart`, on-demand elevated as
+  `CronsoleRestart`), and **`up` may never be used as a restart** — it is idempotent by design, which
+  is the same property that lets the 5-minute self-heal run at all. The name and description are
+  **not** the definition: `CronsoleAgent` was registered by two different scripts with incompatible
+  actions, `-Force` overwrote as documented, and for months the docs prescribed a bounce that
+  returned success while changing nothing — **read a task's registered action**
+  ([#86](docs/troubleshooting/README.md#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing)).
+  The corollary is that **every layer needs a keeper that runs as often as the failure can happen**:
+  the Docker engine was started only at logon while the thing that ran every 5 minutes could merely
+  warn it was down, so `up` now starts the engine itself.
 
 ### Frontend
 - **Dark is the default; light is the toggle.** Theme persists at `cronsole.theme` (with `taskhub.*`

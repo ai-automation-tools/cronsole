@@ -125,7 +125,7 @@ Windows records that itself. So:
 
 | What you see | What it means |
 |:---|:---|
-| Empty history on a Windows task | Nothing about whether it ran. Check Windows' own last result. |
+| Empty history on a Windows task | Nothing about whether it ran. Ask for the **platform's** run history instead. |
 | `SUCCESS` on a manual Windows run | The agent accepted the start. Not that the job finished. |
 | `SUCCESS` on a native task | The process exited zero. That one is real. |
 | A duration on a Windows run | The agent round trip, not the job. |
@@ -133,6 +133,59 @@ Windows records that itself. So:
 ```text
 Using Cronsole, I think "Data Import" is hanging rather than failing. Its status
 looks green — tell me why that isn't proof, and what would actually settle it.
+```
+
+### The other half: runs the platform recorded itself
+
+The rule above leaves a real hole — on a source that runs work by itself, Cronsole's own log
+correctly says *"no recorded runs"* over a week of them. **`list_platform_runs`** is a live read of
+the platform's own record, and it is where the runs actually are on Gemini, GitHub Actions, Vercel
+and Windows.
+
+```text
+Using Cronsole, why did my scheduled task fail last night? Read the run history
+the platform itself recorded — not Cronsole's log — and then open the failed run
+and tell me what it produced.
+```
+
+```text
+Using Cronsole, for "Nightly Backup" show me both populations side by side: the
+runs Cronsole performed and the runs Windows recorded on its own. Don't merge
+them into one list — I want to see which is which.
+```
+
+The two are **never summed**. Folding one into the other turns a table meaning *"Cronsole did
+this"* into one meaning nothing. Nothing is stored either, so the platform half can fail on its own
+and must say so rather than showing a short list as a complete one.
+
+```text
+Using Cronsole, pull the platform run history for all my tasks and tell me which
+sources could actually answer. For any that couldn't, say whether that's a
+failure or a platform that publishes no history at all.
+```
+
+> [!TIP]
+> **Read the step list, not the status.** `get_run_output` returns what one run produced *and the
+> steps it took* — and on an agent platform that's the whole answer. A trigger asked to email a
+> report finishes `completed` having only written a file, and no status can show that. Output is
+> one run per call (a transcript is ~90KB), and a refusal names its reason: *"still running"*,
+> *"produced nothing"* and *"aged out of the list"* are three different facts.
+
+```text
+Using Cronsole, open the most recent run of my scheduled agent task and tell me
+the steps it actually took. Did it do every part of what I asked, or finish
+having skipped one?
+```
+
+> [!NOTE]
+> **Windows can be told not to record history.** Per-task history is a machine-wide switch that is
+> off by default on some installs, and a disabled log returns **zero events — identical to a task
+> that has never run**. Cronsole reports that as a third state rather than rendering both as one
+> sentence, and it will tell you that turning it on is **not retroactive**.
+
+```text
+Using Cronsole, "Nightly Backup" shows no platform runs at all. Is Windows task
+history even enabled on this machine, or has the task genuinely never run?
 ```
 
 ## 🔌 What can this install do?

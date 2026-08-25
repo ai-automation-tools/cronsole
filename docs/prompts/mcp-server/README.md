@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/surface-MCP_server-8B5CF6?style=for-the-badge" alt="MCP server">
-  <img src="https://img.shields.io/badge/tools-27-2ea44f?style=for-the-badge" alt="27 tools">
+  <img src="https://img.shields.io/badge/tools-36-2ea44f?style=for-the-badge" alt="36 tools">
   <a href="../README.md"><img src="https://img.shields.io/badge/↩-prompt_library-6B7280?style=for-the-badge" alt="Prompt library"></a>
 </p>
 
@@ -35,6 +35,8 @@ scheduler, or a routine on your Claude account.
 | [**🤖 AI agent jobs**](ai-agent-jobs.md) | Headless coding-agent runs against a local repo — one prompt per CLI (Claude Code, Codex, Gemini, opencode, Cursor, Antigravity, Aider), the fencing each one offers, and how to update a checkout on a schedule. |
 | [**🖥️ Cronsole-native tasks**](native-tasks.md) | HTTP calls and script jobs run by the backend itself — no agent, exact cron, and a real exit code. |
 | [**🧠 Claude routines**](claude-routines.md) | Scheduled agent runs in Anthropic's cloud: create, connect, pause, disconnect — and which of the two API modes your install has. |
+| [**✨ Gemini triggers**](gemini-triggers.md) | A prompt Google runs on a schedule on its own agent — granting tools and domains, why a trigger is immutable, and reading the step list rather than the status. |
+| [**📡 Observer sources**](observers.md) | GitHub Actions and Vercel Cron — what read-only can answer, which verbs they refuse, and why refusing is correct. |
 | [**📄 Templates**](templates.md) | Finding a catalog recipe and applying it, when you know the use case but not the command. |
 | [**🔎 Inspect & audit**](inspect-and-audit.md) | What you have, what's failing, what hasn't run in months — and how much of that Cronsole can prove. |
 | [**⚙️ Manage tasks**](manage-tasks.md) | Run now, park, reschedule, repoint the command, rename. The reversible half. |
@@ -68,9 +70,18 @@ D:\jobs\nightly-backup.ps1 every day at 2am Pacific. Check the schedule
 conversion first, put it in \Cronsole, and confirm the registered action.
 ```
 
+And if you have a hosted source connected, the call that teaches the most in one go — because it
+reads the platform's own record rather than Cronsole's log:
+
+```text
+Using Cronsole, pick any task on a hosted source and show me the runs the
+PLATFORM recorded, not the ones Cronsole performed. Then open the newest run
+and tell me the steps it took rather than just its status.
+```
+
 ## 🧰 The toolbox
 
-33 tools are always present; `delete_task` appears only when the operator enabled it.
+36 tools are always present; `delete_task` appears only when the operator enabled it, for 37.
 
 | Tier | Tools |
 |:---|:---|
@@ -116,7 +127,10 @@ improvise a substitute. See [**rest-api/**](../rest-api/README.md):
 - **Bulk** status, recategorize, and untrack
 - **Analytics**, CSV export, and deleted-task archives
 - **Favorites**, and agent **pairing**
-- Deleting a real **Windows** task — that's the dashboard, per task
+- Deleting a task on any platform except **Cronsole-native** — `delete_task` refuses the rest with a
+  `400`, Windows and Gemini included, so no MCP verb can destroy a real scheduled artifact. Pause it
+  with `set_task_status` and delete in the dashboard.
+- **Saving an MCP-server credential** or rotating one — the Gemini source panel, deliberately
 
 ## 🔗 Related
 

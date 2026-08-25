@@ -13,6 +13,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Prompt sets for the hosted and observer sources** (2026-08-25). Two new pages in the [prompt library](prompts/mcp-server/README.md): **Gemini triggers** and **Observer sources** (GitHub Actions + Vercel Cron).
+
+  Gemini gets the long treatment because it is the one source where you cannot fix a mistake afterwards: a trigger is immutable, so the page leads with the three prompt-writing rules that each cost a real failed run (never let it ask a question, always make it report failure, grant only the reach it needs), then covers tools versus domains versus saved credentials, what create-then-delete actually looks like when `delete_task` refuses every non-native platform, and credential rotation. It opens by warning that this is **not** the Gemini CLI, which already had prompts one page over as a *Windows* task — same brand, nothing else in common.
+
+  The observers page exists to make read-only legible as a finished state rather than a stalled one: what those two sources can still answer, the three verbs each refuses and the different reason behind each refusal, and why Vercel says `unknown` permanently rather than scoring a configured cron as healthy.
+
+  **Inspect & audit** gained the half it was missing. Its run-history section explained Cronsole's own log and stopped there, which read as *"check the platform yourself"* — written before `list_platform_runs` and `get_run_output` existed. It now covers both populations, why they are never summed, and the rule that matters most on an agent platform: **read the step list, not the status.**
+
+  Also corrected the MCP tool count, which had drifted to four different numbers across the docs (a badge saying 27 above body text saying 33 in the same file; 23 and 33 in `DESIGN_NOTES.md`). It is **37 registered, 36 without the gated `delete_task`** — and the read/create lists in `DESIGN_NOTES.md` were missing `list_platform_runs`, `get_run_output`, `list_task_secrets` and `create_gemini_trigger` entirely.
 - **An assistant can create a Gemini trigger now** (2026-08-25). New MCP tool **`create_gemini_trigger`** — its own tool rather than a platform on `create_task`, because the unit of work here is a **prompt for an agent**, not a command: no executable, no shell, no tokenization, and none of that tool's guidance applies.
 
   **It waited for saved MCP servers to exist, deliberately.** Before them, creating a trigger with an MCP server would have meant passing a bearer token as a tool parameter — through the assistant's context, its transcript, and whatever the host logs. Now the tool names a saved server and the credential is resolved on the server, so it never enters the conversation. There is no field for a raw token, and a test pins that.

@@ -107,10 +107,31 @@ $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
 
+# The description is what someone reads in taskschd.msc before deciding what this does, so it
+# spends most of its length on the thing that is NOT visible there: that Stop/Start on a task in
+# this folder does nothing, which is the mistake this task exists to replace.
+$description = @"
+RESTARTS THE WHOLE LOCAL CRONSOLE STACK. Runs scripts\cronsole.ps1 restart - stops the Windows agent, the backend and the frontend, then brings all of them back. Takes about 15 seconds. Leaves Postgres and Redis running.
+
+ON DEMAND ONLY - THIS TASK HAS NO TRIGGER. It never fires on logon, on a schedule, or on idle. Start it by hand (no elevation needed to START it):
+    Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'
+
+THIS IS THE CORRECT WAY TO BOUNCE THE AGENT. Stop-ScheduledTask / Start-ScheduledTask on a task in this folder stops and starts NOTHING: every one of them launches fire-and-forget through run-hidden.vbs, so there is no instance left to stop, and 'up' is idempotent so it will not replace an agent that is already running. That pair returned success while changing nothing for months - see troubleshooting #86.
+
+Runs elevated (RunLevel Highest) because the agent itself runs elevated, so an unelevated Stop-Process against it is refused.
+
+Use this when: an E2E run took the agent's socket and Windows reads Offline; the agent came up unelevated and tasks flipped to MISSING (troubleshooting #74); or the backend was restarted and you want a clean reconnect. To rebuild the agent FROM SOURCE instead, use CronsoleRepublish.
+
+STATE READS 'READY', NEVER 'RUNNING' - that is correct, and LastTaskResult describes the launcher shim rather than the stack. Confirm the real result with:  pwsh scripts\cronsole.ps1 status
+
+Registered by scripts\startup-task\Register-RestartTask.ps1 (pass -Unregister to remove).
+"@
+
 # NOTE: no -Trigger. On-demand only. A restart on a timer would be a way to lose
 # work on a schedule; the recurring task is CronsoleStack, and its verb is `up`.
 Register-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath `
-    -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+    -Action $action -Principal $principal -Settings $settings `
+    -Description $description -Force | Out-Null
 
 $t = Get-ScheduledTask -TaskPath $TaskPath -TaskName $TaskName
 Write-Host ""

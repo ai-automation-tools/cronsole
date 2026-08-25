@@ -104,9 +104,32 @@ $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
 
+# The description is what someone reads in taskschd.msc before deciding what this does, so it
+# names the log - this task has no console attached, so its exit code is not the story - and
+# says plainly that it rebuilds from source, which is what separates it from CronsoleRestart.
+$description = @"
+REBUILDS THE CRONSOLE WINDOWS AGENT FROM SOURCE, then relaunches the stack. Runs scripts\Republish-Agent.ps1: stops the running agent, 'dotnet publish' into agent\publish, removes pre-rename leftovers, then cronsole.ps1 up. Takes about 20 seconds.
+
+USE IT AFTER ANY CHANGE UNDER agent\. The .NET agent is a published exe and NEVER hot-reloads - editing agent code and restarting the stack leaves the old binary running, which is troubleshooting #7. This is the only path that swaps the binary.
+
+ON DEMAND ONLY - THIS TASK HAS NO TRIGGER. It never fires on logon, on a schedule, or on idle. Start it by hand (no elevation needed to START it):
+    Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRepublish'
+
+READ THE LOG, NOT THE EXIT CODE. This task has no console attached, and it launches fire-and-forget through run-hidden.vbs, so its State and LastTaskResult describe the launcher shim rather than the build. Everything it did is here:
+    Get-Content "`$env:TEMP\cronsole-republish.log" -Tail 20
+It proves the swap by comparing the published DLL timestamp before and after, and refuses to relaunch if the publish failed - a half-swapped agent is worse than a stopped one.
+
+Runs elevated (RunLevel Highest) because the agent runs elevated: an unelevated shell can neither stop it nor overwrite its locked exe.
+
+To restart the agent WITHOUT rebuilding it, use CronsoleRestart instead.
+
+DEV TOOL - not part of what ships to users. Registered by scripts\startup-task\Register-RepublishTask.ps1 (pass -Unregister to remove).
+"@
+
 # NOTE: no -Trigger. On-demand only.
 Register-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath `
-    -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+    -Action $action -Principal $principal -Settings $settings `
+    -Description $description -Force | Out-Null
 
 $t = Get-ScheduledTask -TaskPath $TaskPath -TaskName $TaskName
 Write-Host ""

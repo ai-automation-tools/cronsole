@@ -102,6 +102,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 
 ### Fixed
+- **A Gemini run that fails before it starts now says why** (2026-08-25). A trigger whose configuration the platform rejects fails in seconds with no transcript — there is no agent run to record — and Cronsole reported *"there is nothing to read"* while the exact reason sat one field over in the same response. The execution carries an `error`, and it was not being read.
+
+  It is now the run's output, labelled **Failed before the agent started**. The case that surfaced it: *"Tool 'filesystem' is not allowed when interacting with this agent"* — a tool the API's own supported list contains, refused by the specific agent it was given to. A capability list is not a permission list, and that narrower restriction is published nowhere Cronsole can read, so the platform's sentence is the only thing that explains it.
 - **Windows run history counts runs correctly, and reads the exit code in any language** (2026-08-25). Two defects found by pointing the new feature at a real machine an hour after it shipped.
 
   **Events whose run began before the log window each became their own "run".** Task Scheduler's log is a ring buffer, so the oldest run in view is usually missing its opening event — and keying those leftovers individually turned one truncated run into three rows with no start time. They now share a single run, dated by their earliest surviving event, labelled **partial** when nothing in them says how the run went. A truncated run that *did* finish still reads `completed`: the gap is in Cronsole's view, not in the task, and saying otherwise would describe the reader instead of the run.

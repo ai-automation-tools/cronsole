@@ -632,6 +632,12 @@ yet. It shows as *Unsupported* on the Sources tab — edit the prompt in Google 
 - **There is no Google web page for any of this.** Gemini API Triggers are managed entirely through
   the API; Google's own documentation for them is programmatic only, and the Gemini app's
   scheduled-actions page is a different product. Cronsole is where you see them.
+- **A tool the API lists is not always one your agent accepts.** The tool checkboxes come from the
+  API's own supported list, but the managed agent behind your triggers may refuse some of them — a
+  trigger declaring `filesystem` is created happily and then fails in seconds with *"Tool
+  'filesystem' is not allowed when interacting with this agent"*. That refusal is now shown as the
+  run's output, marked **Failed before the agent started**. If a run fails faster than the work could
+  possibly take, look at the tools rather than the prompt.
 - **You can give the agent tools, and it starts with none of yours.** The New Task form has a
   *Tools and network access* section: the built-in tools (web search, a shell, code execution,
   filesystem and more), MCP servers by name and URL, and a separate list of domains the sandbox may

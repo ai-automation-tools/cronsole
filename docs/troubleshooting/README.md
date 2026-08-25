@@ -5635,6 +5635,67 @@ a scorer and a connector end up disagreeing about a run neither can see twice.
 
 ---
 
+## 84. A Gemini run fails in five seconds and Cronsole says there is nothing to read
+
+**Symptom.** A trigger fails almost instantly — five seconds, start to finish — and opening the run
+answers *"Gemini recorded this run as failed but attached no interaction to it, so there is nothing
+to read."* The task looks healthy in every other respect, the prompt is fine, and there is no
+transcript to inspect because no agent ever ran.
+
+**Cause, in two layers.**
+
+**The run failed because the trigger's configuration was rejected**, not because anything went wrong
+during it. In the case that surfaced this, a trigger declared `filesystem` — a type the API's own
+supported-tools list *does* contain — and the platform answered:
+
+```
+Tool 'filesystem' is not allowed when interacting with this agent
+```
+
+So the supported-type list is a property of the **API**, and a narrower per-**agent** restriction sits
+behind it that nothing in the type list expresses. A tool can be spelled correctly, validated
+correctly, accepted at create time, and still be refused at run time by the agent it was given to.
+
+**And Cronsole was dropping the sentence that said so.** `GET …/{id}/executions` returns an `error`
+field on a failed execution, right beside `status` and `interaction_id`, and `toExecution` never read
+it. A run that fails *before* the agent starts has no interaction — which is the one case where the
+transcript path has nothing — so the code fell through to a shrug while the exact cause sat one key
+over in the same response.
+
+**Fix.** `GeminiExecution.error` is read; `getRunOutput` returns it as the run's output with
+`Failed before the agent started — no transcript`, and `listPlatformRuns` marks such a run openable.
+The trigger itself has to be rebuilt without the offending tool — `PATCH` cannot edit an interaction,
+so *Replace credentials* (which sends the whole tool list) is the edit path.
+
+**How to recognize it in general.**
+
+- **A run that fails faster than the work could possibly take is a configuration rejection.** Five
+  seconds for an agent that searches the web and writes a document is not a failed attempt, it is a
+  refused start — so look at the trigger's definition, not at what it was asked to do.
+- **A capability list is not a permission list.** `GEMINI_TOOL_TYPES` says what the *API* accepts;
+  what a specific agent accepts is narrower and is published nowhere Cronsole can read. Validating
+  against the first is still right — it catches typos before the call — but it cannot promise the
+  create will run.
+- **When a platform says a run failed, look for its reason on the same object.** This is the third
+  field on this one connector that was present on the wire and not read
+  ([#82](#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)
+  the prompt,
+  [#83](#83-a-gemini-trigger-runs-fine-cronsole-shows-no-run-history--then-calls-a-good-run-a-failure)
+  the executions array, now `error`).
+
+> [!TIP]
+> **A shrug is a design decision, and this one was wrong.** "There is nothing to read" was written
+> deliberately, to distinguish a run still in flight from one that produced nothing — both real
+> cases. What it missed is a third: a run that produced nothing *and knows why*. Whenever a branch
+> exists to say "no information", check that the absence is genuine rather than assumed — the field
+> that would have contradicted it was already in the response being parsed.
+
+*First hit: 2026-08-25.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
 <p align="center">
   <a href="../README.md">Docs Home</a> ·
   <a href="../setup/README.md">Setup</a> ·

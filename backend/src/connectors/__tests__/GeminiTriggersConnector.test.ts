@@ -78,6 +78,7 @@ const trigger = (over: Record<string, unknown> = {}) => ({
 
 const execution = (over: Record<string, unknown> = {}) => ({
   id: 'exe_1',
+  error: null,
   status: 'succeeded',
   startTime: new Date('2026-08-24T09:00:00Z'),
   endTime: new Date('2026-08-24T09:04:00Z'),
@@ -648,5 +649,49 @@ describe('creating a trigger with tools grants reach deliberately', () => {
     createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
     const result = await connector.createTask('x', '0 3 * * *', 'Do it', config());
     expect(result.message).toMatch(/reach nothing outside its sandbox/i);
+  });
+});
+
+describe('a run that failed before the agent started still says why', () => {
+  const config = () => ({ apiKey: 'AIzaKEY', userId: 'u1' });
+  beforeEach(() => vi.clearAllMocks());
+
+  const failedEarly = {
+    id: 'r1',
+    status: 'failed',
+    startTime: new Date(),
+    endTime: new Date(),
+    interactionId: null,
+    error: "Tool 'filesystem' is not allowed when interacting with this agent"
+  };
+
+  it('reports the platform reason as the output', async () => {
+    // The most valuable field on the execution and it was dropped for a day: a
+    // run rejected before any agent started has no transcript, so Cronsole said
+    // "there is nothing to read" while the exact cause sat one key over in the
+    // same response.
+    listExecutionsMock.mockResolvedValue({ ok: true, data: [failedEarly] } as never);
+
+    const result = await connector.getRunOutput('trg_1', 'r1', config());
+    expect(result.success).toBe(true);
+    expect(result.output!.text).toContain("Tool 'filesystem' is not allowed");
+    // Said plainly, so nobody hunts for a transcript that cannot exist.
+    expect(result.output!.facts[0]!.label).toMatch(/before the agent started/i);
+  });
+
+  it('marks such a run openable, though no agent ever ran', async () => {
+    listExecutionsMock.mockResolvedValue({ ok: true, data: [failedEarly] } as never);
+    const result = await connector.listPlatformRuns('trg_1', config());
+    expect(result.runs![0]!.outputAvailable).toBe(true);
+  });
+
+  it('still shrugs honestly when the platform gave no reason either', async () => {
+    listExecutionsMock.mockResolvedValue({
+      ok: true,
+      data: [{ ...failedEarly, error: null }]
+    } as never);
+    const result = await connector.getRunOutput('trg_1', 'r1', config());
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/gave no reason/i);
   });
 });

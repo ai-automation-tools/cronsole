@@ -686,7 +686,9 @@ export class GeminiTriggersConnector implements PlatformConnector {
         status: run.status,
         startedAt: run.startTime,
         endedAt: run.endTime,
-        outputAvailable: Boolean(run.interactionId) && !isPendingStatus(run.status)
+        // Openable when there is a transcript OR a stated failure reason: a run
+        // that never started an agent still has something to say.
+        outputAvailable: (Boolean(run.interactionId) || Boolean(run.error)) && !isPendingStatus(run.status)
       }))
     };
   }
@@ -727,11 +729,28 @@ export class GeminiTriggersConnector implements PlatformConnector {
       };
     }
     if (!run.interactionId) {
+      // **The platform's own reason, when it gave one.** A run that fails before
+      // the agent starts has no transcript, but the execution row carries an
+      // `error` — and reporting "there is nothing to read" over the top of it
+      // hid a one-line explanation ("Tool 'filesystem' is not allowed when
+      // interacting with this agent") behind a shrug. A failure with a stated
+      // cause is output, even though no agent ever ran.
+      if (run.error) {
+        return {
+          success: true,
+          output: {
+            text: run.error,
+            steps: [],
+            facts: [{ label: 'Failed before the agent started', value: 'no transcript' }],
+            url: null
+          }
+        };
+      }
       return {
         success: false,
         message: isPendingStatus(run.status)
           ? 'This run is still going. Its output exists once the agent finishes.'
-          : `Gemini recorded this run as "${run.status}" but attached no interaction to it, so there is nothing to read.`
+          : `Gemini recorded this run as "${run.status}" but gave no reason and attached no interaction, so there is nothing to read.`
       };
     }
 

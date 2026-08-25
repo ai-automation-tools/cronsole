@@ -224,6 +224,20 @@ export interface GeminiExecution {
    * worth reading, and absent is more honest than a half-written transcript.
    */
   interactionId: string | null;
+  /**
+   * Why the run failed, when the platform says so on the execution itself.
+   *
+   * **The most valuable field on this object and it was dropped for a day.** A
+   * run that fails *before* the agent starts — a tool the agent is not allowed,
+   * a malformed environment — has no interaction, so the transcript path has
+   * nothing to show and Cronsole reported "there is nothing to read" while the
+   * exact reason sat one key over in the same response
+   * ([#84](../../../docs/troubleshooting/README.md)).
+   *
+   * Null on a run that succeeded, and on one that failed *inside* the agent —
+   * there the interaction holds the story.
+   */
+  error: string | null;
 }
 
 /**
@@ -676,7 +690,8 @@ export function toExecution(raw: unknown): GeminiExecution | null {
     status: (str(e.status) ?? 'unknown').toLowerCase(),
     startTime: toDate(str(e.start_time) ?? str(e.startTime)),
     endTime: toDate(str(e.end_time) ?? str(e.endTime)),
-    interactionId: str(e.interaction_id) ?? str(e.interactionId)
+    interactionId: str(e.interaction_id) ?? str(e.interactionId),
+    error: str(e.error)
   };
 }
 

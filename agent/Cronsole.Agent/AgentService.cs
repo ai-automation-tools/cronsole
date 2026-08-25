@@ -331,7 +331,11 @@ namespace Cronsole.Agent
                             eventId = e.EventId,
                             level = e.Level,
                             timeCreated = e.TimeCreated,
-                            message = e.Message
+                            message = e.Message,
+                            // The event's own named fields. The backend prefers
+                            // these over parsing `message`, which is translated on
+                            // a non-English Windows.
+                            data = e.Data
                         }).ToList(),
                         message = history.Unavailable ?? "OK"
                     }});

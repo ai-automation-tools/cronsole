@@ -107,6 +107,10 @@ function statusStyle(status: string): string {
   if (status === 'failed' || status === 'error') return 'bg-danger/10 text-danger-text border-danger/30';
   if (status === 'cancelled') return 'bg-warning/10 text-warning-text border-warning/30';
   if (status === 'in_progress' || status === 'running') return 'bg-info/10 text-info-text border-info/30';
+  // `partial` and `unknown` deliberately share the default neutral styling:
+  // both mean "no verdict", the label itself already says which, and there is
+  // no `--neutral` accent token to pair with `--neutral-text` — inventing one
+  // for a single badge is how a palette grows a role nothing measured.
   return 'bg-surface text-muted-foreground border-border';
 }
 

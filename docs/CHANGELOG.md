@@ -86,6 +86,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 
 ### Fixed
+- **Windows run history counts runs correctly, and reads the exit code in any language** (2026-08-25). Two defects found by pointing the new feature at a real machine an hour after it shipped.
+
+  **Events whose run began before the log window each became their own "run".** Task Scheduler's log is a ring buffer, so the oldest run in view is usually missing its opening event — and keying those leftovers individually turned one truncated run into three rows with no start time. They now share a single run, dated by their earliest surviving event, labelled **partial** when nothing in them says how the run went. A truncated run that *did* finish still reads `completed`: the gap is in Cronsole's view, not in the task, and saying otherwise would describe the reader instead of the run.
+
+  **The exit code was parsed out of an English sentence.** Task Scheduler publishes `ResultCode` and `ActionName` as named fields and *also* renders them into a human sentence — which is translated on a German or Japanese Windows, where the regex would have found nothing and silently dropped the one detail the platform gives. The agent now sends the named fields and Cronsole reads those, falling back to the sentence only for an agent published before today.
 - **A Gemini task shows its prompt, and stops telling you to update the Windows agent** (2026-08-25). The Action panel read `command`, `job` and `actions` — none of which a Gemini trigger has. Its prompt is stored under `prompt`, so every synced trigger showed an empty panel carrying the fallback advice: *"Update the Windows agent to surface the command it runs."* On a platform with no agent, about a task whose action was sitting in the record two fields over.
 
   The panel now reads the prompt, and the fallback names the actual source instead of a component the platform does not have. Republishing the agent is the fix on exactly one source, and printing it on the others is the same wrong-platform blame as the Sources tab naming your own broken file.

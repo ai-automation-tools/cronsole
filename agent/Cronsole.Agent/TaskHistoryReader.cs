@@ -124,6 +124,13 @@ namespace Cronsole.Agent
                             result.Events.Add(new AgentTaskHistoryEvent
                             {
                                 EventId = record.Id,
+                                // The event's own named fields, which is where the
+                                // facts actually live: event 201 publishes
+                                // ResultCode and ActionName as data, and the
+                                // rendered Message is merely those values pasted
+                                // into an English sentence. Reading the sentence
+                                // works until the machine is not English.
+                                Data = ReadEventData(record),
                                 // 2 = Error, 3 = Warning, 4 = Information in this
                                 // log. Passed through as the number rather than
                                 // mapped: the backend decides what to call it, and
@@ -154,6 +161,37 @@ namespace Cronsole.Agent
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// The event's <c>EventData</c> as name/value pairs.
+        ///
+        /// **Read from the XML rather than from <c>record.Properties</c>**, which is
+        /// a positional list: the index of <c>ResultCode</c> differs per event id,
+        /// so position is a second thing to get wrong per event type. The names are
+        /// stable and are what Task Scheduler's own schema publishes.
+        /// </summary>
+        private static Dictionary<string, string> ReadEventData(EventRecord record)
+        {
+            var data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var doc = new System.Xml.XmlDocument();
+                doc.LoadXml(record.ToXml());
+                var nodes = doc.GetElementsByTagName("Data");
+                foreach (System.Xml.XmlNode node in nodes)
+                {
+                    var name = node.Attributes?["Name"]?.Value;
+                    if (!string.IsNullOrEmpty(name)) data[name!] = node.InnerText ?? string.Empty;
+                }
+            }
+            catch
+            {
+                // A malformed record still has its id, time and message, all of
+                // which are worth keeping. Facts are an enrichment, not a
+                // precondition.
+            }
+            return data;
         }
     }
 
@@ -195,5 +233,16 @@ namespace Cronsole.Agent
 
         /// <summary>The event's rendered description. Empty when the provider could not render it.</summary>
         public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The event's own named data fields — <c>ResultCode</c>, <c>ActionName</c>,
+        /// <c>TaskName</c> and whatever else that event id publishes.
+        ///
+        /// These are the values the rendered <see cref="Message"/> is built from,
+        /// and they are **language-independent**: on a German or Japanese Windows
+        /// the sentence is translated and any regex over it finds nothing, while
+        /// <c>ResultCode</c> is still <c>ResultCode</c>.
+        /// </summary>
+        public Dictionary<string, string> Data { get; set; } = new Dictionary<string, string>();
     }
 }

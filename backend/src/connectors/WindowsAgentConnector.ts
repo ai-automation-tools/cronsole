@@ -696,6 +696,14 @@ interface WindowsHistoryEvent {
   level: number | null;
   timeCreated: string | null;
   message: string;
+  /**
+   * The event's own named fields — `ResultCode`, `ActionName`, and whatever else
+   * that event id publishes.
+   *
+   * Optional because an agent published before 2026-08-25 does not send them,
+   * and this must keep working against one that does not.
+   */
+  data?: Record<string, string>;
 }
 
 /**
@@ -709,6 +717,15 @@ interface WindowsHistoryEvent {
 const TASK_STARTED = 100;
 const TASK_COMPLETED = 102;
 const ACTION_COMPLETED = 201;
+/**
+ * The bucket for events whose opening `TASK_STARTED` has aged out of the log.
+ *
+ * A single constant rather than a per-event key: they are the surviving tail of
+ * **one** run, and giving each its own id turned a truncated run into several
+ * rows with no start time.
+ */
+const ORPHAN_RUN = 'before-the-log-window';
+
 /** Every id that means "this run did not go well" — start refused, action failed, terminated. */
 const FAILURE_EVENTS = new Set([101, 103, 111, 203, 329, 332]);
 
@@ -752,9 +769,13 @@ function groupHistoryIntoRuns(
   // seen before its outcome.
   for (const event of [...events].reverse()) {
     if (event.eventId === TASK_STARTED && event.timeCreated) key = event.timeCreated;
-    // An orphan: its start is older than the buffer. Keyed by its own time so it
-    // is still shown rather than silently folded into the run after it.
-    const id = key ?? event.timeCreated ?? 'unknown';
+    // Events before the first start belong to a run whose opening event has aged
+    // out of the ring buffer. They share **one** bucket rather than one each:
+    // keying them by their own timestamps made every stray event its own "run",
+    // so a single truncated run rendered as three rows with no start time — the
+    // exact "three nights read as twelve runs" failure this grouping exists to
+    // prevent, arriving through the orphan path instead of the normal one.
+    const id = key ?? ORPHAN_RUN;
 
     const at = event.timeCreated ? new Date(event.timeCreated) : null;
     const bucket: Bucket = buckets.get(id)
@@ -780,13 +801,22 @@ function groupHistoryIntoRuns(
     .map(([id, b]) => ({
       run: {
         id,
+        // A truncated run has no start event, so its earliest surviving event is
+        // the best time available — better than `null`, which renders as a run
+        // that never happened.
         // **"completed" is not "succeeded"**, and the difference is real: a
         // Windows task completes whatever its action returned. The exit code is
         // surfaced by `describeWindowsRun` from the action-completed event, so
         // this word describes the run's lifecycle and the detail names the
         // outcome.
-        status: b.failed ? 'failed' : b.completed ? 'completed' : b.startedAt ? 'in_progress' : 'unknown',
-        startedAt: b.startedAt,
+        status: b.failed
+          ? 'failed'
+          : b.completed
+            ? 'completed'
+            // No start event and no completion: this is the tail of a run the log
+            // no longer holds the beginning of, not something still running.
+            : b.startedAt ? 'in_progress' : id === ORPHAN_RUN ? 'partial' : 'unknown',
+        startedAt: b.startedAt ?? earliestTime(b.events),
         endedAt: b.endedAt,
         // Always openable: for Windows the "output" IS the event text, and every
         // run in this list has at least the event that created it.
@@ -816,9 +846,16 @@ function describeWindowsRun(events: WindowsHistoryEvent[]): PlatformRunOutput {
   const facts: { label: string; value: string }[] = [];
   for (const event of ordered) {
     if (event.eventId !== ACTION_COMPLETED) continue;
-    const code = /return code (-?\d+)/i.exec(event.message)?.[1];
+
+    // **The event's named fields first, the English sentence only as a
+    // fallback.** `record.Message` is those same values pasted into a localized
+    // template, so a regex over it returns nothing the moment Windows is not in
+    // English — a silent, total loss of the one detail this platform publishes,
+    // on somebody else's machine. The fallback exists only for an agent
+    // published before the fields were sent.
+    const code = event.data?.ResultCode ?? /return code (-?\d+)/i.exec(event.message)?.[1];
     if (code) facts.push({ label: 'Exit code', value: code });
-    const action = /action "([^"]+)"/i.exec(event.message)?.[1];
+    const action = event.data?.ActionName ?? /action "([^"]+)"/i.exec(event.message)?.[1];
     if (action) facts.push({ label: 'Action', value: action });
     break;
   }
@@ -836,4 +873,12 @@ function describeWindowsRun(events: WindowsHistoryEvent[]): PlatformRunOutput {
     // No web page to link to: Task Scheduler is a local MMC snap-in, not a URL.
     url: null
   };
+}
+
+/** The oldest timestamp in a bucket, for a run whose start event is gone. */
+function earliestTime(events: WindowsHistoryEvent[]): Date | null {
+  const times = events
+    .map(e => (e.timeCreated ? new Date(e.timeCreated) : null))
+    .filter((d): d is Date => d !== null && !Number.isNaN(d.getTime()));
+  return times.length ? new Date(Math.min(...times.map(d => d.getTime()))) : null;
 }

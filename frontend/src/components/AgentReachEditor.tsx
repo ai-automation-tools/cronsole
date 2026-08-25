@@ -1,5 +1,5 @@
-import { Plus, X, ShieldAlert } from 'lucide-react';
-import type { AgentToolDraft } from '../utils/agentReach';
+import { Plus, X, ShieldAlert, KeyRound, Bookmark } from 'lucide-react';
+import type { AgentToolDraft, ToolPreset } from '../utils/agentReach';
 
 /**
  * **The tools a hosted agent gets, and the domains it may reach.**
@@ -51,12 +51,21 @@ export function AgentReachEditor({
   tools,
   onToolsChange,
   allowlist,
-  onAllowlistChange
+  onAllowlistChange,
+  presets = []
 }: {
   tools: AgentToolDraft[];
   onToolsChange: (tools: AgentToolDraft[]) => void;
   allowlist: string[];
   onAllowlistChange: (domains: string[]) => void;
+  /**
+   * Saved MCP servers on the connection, without their credentials.
+   *
+   * Defaulted to `[]` rather than required, so a caller that has not loaded them
+   * — or a connection that has none — renders exactly the form that existed
+   * before presets, instead of an empty section implying something is missing.
+   */
+  presets?: ToolPreset[];
 }) {
   const builtInSelected = (type: string) => tools.some(t => t.type === type);
 
@@ -66,13 +75,27 @@ export function AgentReachEditor({
     );
   };
 
-  const servers = tools.filter(t => t.type === 'mcp_server');
+  const presetSelected = (name: string) =>
+    tools.some(t => t.type === 'mcp_server' && t.preset?.toLowerCase() === name.toLowerCase());
+
+  const togglePreset = (name: string) => {
+    onToolsChange(
+      presetSelected(name)
+        ? tools.filter(t => !(t.type === 'mcp_server' && t.preset?.toLowerCase() === name.toLowerCase()))
+        : [...tools, { type: 'mcp_server', preset: name }]
+    );
+  };
+
+  // **Only the hand-typed servers.** A preset row is edited by its checkbox
+  // above, and rendering it here too would offer a URL field for a value this
+  // form does not hold and a token box for one it must never ask for again.
+  const servers = tools.filter(t => t.type === 'mcp_server' && !t.preset);
 
   const updateServer = (index: number, patch: Partial<AgentToolDraft>) => {
     let seen = -1;
     onToolsChange(
       tools.map(tool => {
-        if (tool.type !== 'mcp_server') return tool;
+        if (tool.type !== 'mcp_server' || tool.preset) return tool;
         seen += 1;
         return seen === index ? { ...tool, ...patch } : tool;
       })
@@ -83,7 +106,7 @@ export function AgentReachEditor({
     let seen = -1;
     onToolsChange(
       tools.filter(tool => {
-        if (tool.type !== 'mcp_server') return true;
+        if (tool.type !== 'mcp_server' || tool.preset) return true;
         seen += 1;
         return seen !== index;
       })
@@ -125,10 +148,60 @@ export function AgentReachEditor({
         </p>
       </div>
 
+      {presets.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Bookmark size={11} className="text-gemini-text" /> Saved servers
+          </span>
+          {/*
+            The whole point of the feature: a name, not three fields and a token.
+            Ticking one grants the agent that server with the credential already
+            stored on this connection, so the same server can be used by a dozen
+            triggers and rotated in one gesture.
+          */}
+          <div className="space-y-1.5">
+            {presets.map(preset => (
+              <label
+                key={preset.name}
+                className={`flex items-start gap-2 px-2.5 py-2 rounded-lg border cursor-pointer transition-colors ${
+                  presetSelected(preset.name)
+                    ? 'border-gemini/40 bg-gemini/5'
+                    : 'border-border bg-background hover:border-border/80'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={presetSelected(preset.name)}
+                  onChange={() => togglePreset(preset.name)}
+                  className="mt-0.5 accent-gemini"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-mono text-foreground truncate">{preset.name}</span>
+                    {preset.hasHeaders && (
+                      // Says a credential is stored, never what it is. There is
+                      // no reveal here for the same reason there is none for the
+                      // API key: the value exists to be sent, and the service
+                      // that issued it is where you go to read it.
+                      <KeyRound size={9} className="text-gemini-text shrink-0" aria-label="has a stored credential" />
+                    )}
+                  </span>
+                  <span className="block text-[10px] text-subtle-foreground font-mono truncate">{preset.url}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="text-[10px] text-subtle-foreground italic">
+            Stored on the Gemini source, not on this task. Changing the credential there rebuilds every
+            trigger using it.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider">
-            MCP servers
+            {presets.length ? 'One-off servers' : 'MCP servers'}
           </span>
           <button
             type="button"
@@ -140,7 +213,9 @@ export function AgentReachEditor({
         </div>
 
         {servers.length === 0 ? (
-          <p className="text-[10px] text-subtle-foreground italic">None. The agent uses only the tools above.</p>
+          <p className="text-[10px] text-subtle-foreground italic">
+            None typed here. {presets.length ? 'Use a saved server above for anything you will reuse.' : 'The agent uses only the tools above.'}
+          </p>
         ) : (
           servers.map((server, i) => (
             <div key={i} className="space-y-1.5 bg-background border border-border rounded-xl p-2.5">
@@ -190,8 +265,10 @@ export function AgentReachEditor({
           // it is created — a password field that implied otherwise would be a
           // lie told by a UI convention.
           <p className="text-[10px] text-warning-text bg-warning/5 border border-warning/30 rounded-lg px-2.5 py-2">
-            This token is sent to Gemini, which stores it with the trigger. Cronsole keeps no copy and
-            cannot show it again — to change it later, use <b>Replace credentials</b> on the task.
+            This token is sent to Gemini, which stores it with the trigger. Typed here it is kept
+            nowhere in Cronsole, so it has to be retyped for the next trigger and again whenever you
+            rebuild this one. <b>Save it as a server</b> on the Gemini source instead and every
+            trigger can reference it by name — including for a one-click rotation later.
           </p>
         )}
       </div>

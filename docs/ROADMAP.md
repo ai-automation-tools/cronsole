@@ -35,14 +35,15 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(themes done 2026-08-24)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
-| **Sources** | 🟡 6 of ~9 built | **Gemini usability (top priority)** · POSIX agent (the big one) · Supabase observer |
+| **Sources** | 🟡 6 of ~9 built | Gemini usability *(A+B done 2026-08-25, C–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
-**Leading the queue as of 2026-08-25:** [**Gemini usability**](#gemini-usability) — the source is
-configurable and not yet *usable*, because an MCP server has to be retyped, token and all, for every
-new trigger and again on every prompt edit. The fix is saved tool presets on the connection, and it
-requires **changing a §9 invariant** whose stated reason live use falsified. Behind it, the
+**Leading the queue as of 2026-08-25:** [**Gemini usability**](#gemini-usability) — **A and B
+shipped the same day**: an MCP server is saved once on the connection and referenced by name, and a
+trigger can be duplicated instead of retyped. That required **changing a §9 invariant** whose stated
+reason ("the value is needed exactly once") live use falsified. Three of the five items remain, and
+the MCP run-history wrapper is the next self-contained one. Behind it, the
 [source-onboarding requests](#sources-onboarding) — **all five landed the same day.** The fifth,
 GitHub Actions' live verification, ran against a real repository and immediately earned its keep:
 it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)),
@@ -124,7 +125,7 @@ wrong.
 > change** — the form currently says the token is kept nowhere, and that must not survive one commit
 > past the day it stops being true.
 
-- [ ] **A. Saved agent tools — presets on the connection** *(the root-cause fix)*. A named record
+- [x] **A. Saved agent tools — presets on the connection** — **shipped 2026-08-25**. A named record
       holding `{ name, url, headers }`, headers encrypted with the key already used for
       `PlatformConnection.config`. The create form becomes a checkbox — `☑ resend` — instead of three
       fields. **A task stores the preset's name, never its headers**, so every existing reader (task
@@ -138,17 +139,23 @@ wrong.
       replacement was created while the original survives is a **failure**, as it already is in
       `rotateCredentials`: the schedule now fires twice.
 
-      Open sub-questions, to settle when building: whether a preset is a row (`AgentToolPreset`,
-      cascading from the connection) or a field inside the encrypted `config` blob — the blob is
-      simpler and the row is queryable, and "which triggers use this preset" is a query; and whether
-      a preset edit recreates eagerly or offers a list to confirm, which is the §9 friction-scales-
-      with-blast-radius question.
+      **Both open sub-questions settled by building it.** Storage is a field in the encrypted
+      `config` blob, not a row: it needs no migration, inherits the AES-256-GCM the API key already
+      has, and *"which triggers use this"* turned out not to need a query at all — it is a filter over
+      one user's Gemini tasks, which is a few dozen rows. A preset edit **does not** recreate eagerly;
+      *Push this credential* is a separate, confirmed gesture, because a save that silently rebuilt
+      every trigger would be the largest blast radius in the product hiding behind the smallest button.
+      One constraint the design added: **a preset's URL is unique**, because a synced trigger reports
+      `{type, name, url}` and nothing else — two presets on one URL would make the usage count
+      unanswerable and a rotation would rebuild the wrong triggers.
 
-- [ ] **B. Duplicate a trigger.** Cheap and immediate: reach is already read back into
+- [x] **B. Duplicate a trigger** — **shipped 2026-08-25**. Cheap and immediate: reach is already read back into
       `metadata.tools`, and `RotateCredentialsModal` already prefills a whole tool list from it. With
-      **A** in place, "another one like this" is two clicks and no credential at all. Without **A**
-      it still saves the URL and the tool set and still cannot save the token, which is most of the
-      value for very little work.
+      **A** in place, "another one like this" is two clicks and no credential at all — which is how
+      it shipped, on the same day. A *hand-typed* server is **dropped rather than copied hollow**:
+      Cronsole never read its token, and a server the new trigger cannot authenticate to fails later,
+      on a schedule, as somebody else's 401. The schedule is converted back to the user's zone on the
+      way in, or a duplicate of an 08:00 local trigger is created at 08:00 UTC.
 
 - [ ] **C. Generalize *Replace credentials* into *Recreate with changes*** *(after A)*. The machinery
       exists; it currently carries only a tool list. Let it carry a **new prompt or schedule** and

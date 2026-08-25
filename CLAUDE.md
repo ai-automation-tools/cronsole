@@ -492,20 +492,40 @@ Non-negotiable rules. **Every one has a reason recorded in
   a field per platform would make the shape a union of every vocabulary), and `url` is null wherever
   the platform has no page, which is the case on Gemini and Windows and precisely why the panel
   matters most there.
-- **A credential Cronsole hands to a platform is used once and stored nowhere, and the UI says so
-  where it is typed.** An MCP server's `headers` reach `createTrigger` and no further: not
-  `TaskSecret`, not metadata, not a log. The reason is lifecycle rather than caution — the value is
-  needed exactly once, and the trigger lives on *Google's* side, so Cronsole can avoid **holding** the
-  token but cannot avoid **handing it over**. A UI implying otherwise would be false, so the form
-  states it at the point of entry. `AgentToolInput` (has `headers`) and `GeminiToolSummary` (cannot)
-  are two types for exactly this reason.
+- **A credential Cronsole hands to a platform is stored deliberately or not at all, and the UI says
+  which where it is typed.** Typed inline, an MCP server's `headers` reach `createTrigger` and no
+  further: not `TaskSecret`, not metadata, not a log. **Saved as a preset, the value is stored** —
+  AES-256-GCM inside `PlatformConnection.config`, beside the Gemini API key, which is the larger
+  credential of the two and has been stored all along. The original rule said "used once and stored
+  nowhere" and gave **lifecycle, not caution**, as the reason: the value is needed exactly once. Live
+  use falsified that premise — it is needed once *per trigger*, again on every prompt edit (the
+  definition is immutable, so editing is recreating), and again for every trigger using a rotated
+  token, which had **no path at any price**: nothing on screen said which tasks used a given server.
+  What survives unchanged is the half that was always right: **no route returns a stored value**
+  (`redactPreset` is the only shape that leaves, reporting `hasHeaders` and never a hint — a header
+  has no two-keys-to-tell-apart use the API key's four characters serve), and **a task stores a
+  reference, never a value** — ADR 0003's `${secret.NAME}` rule one layer up, so every reader
+  downstream (metadata, export, archive, log line, MCP response) is unchanged and none of them can
+  leak what was never put there. `AgentToolInput` (has `headers` **and** `preset`) and
+  `GeminiToolSummary` (can hold neither) stay two types for the original reason.
+  **Resolution belongs to the connector** (§9's no-platform-logic-outside-that-layer), is **one
+  definition shared by create and rotate** — a second copy is how a rotation sends what a create
+  would have refused, and this one carries credentials — and a name with nothing behind it is
+  **refused with the list**, never passed through as a credential-less server, which would fail later
+  on a schedule as somebody else's 401. **A preset's URL is unique**, because a synced trigger reports
+  `{type, name, url}` and nothing else: two presets on one URL make *"which triggers use this"*
+  unanswerable and a rotation would rebuild the wrong one.
 - **A platform whose task definition is immutable still needs a rotation path, and it must say
   "recreate".** Gemini's `PATCH` takes `status` and `display_name`, so a rotated token would strand a
   trigger forever. `rotateCredentials` builds the replacement **first** (a failure leaves the original
   running), inherits a paused status (rotating a parked trigger must not resume it), and the route
   **rekeys the existing row** rather than deleting it — favourites, collections and run history hang
   off that row and a token rotation is not a request to lose them. A replacement that exists while the
-  original survives is reported as a **failure**: the schedule now fires twice.
+  original survives is reported as a **failure**: the schedule now fires twice. **Rotating a preset
+  fans that out** — every trigger referencing it is rebuilt, and per §9's fan-out rule the result
+  **reports per task, never per batch**, because each one is an independent create-then-delete
+  against somebody else's API. A trigger also carrying an *unsaved* MCP server is **skipped with its
+  reason** rather than rebuilt: Cronsole never read that credential, so rebuilding would drop it.
 - **A grant is refused with the list, never silently narrowed.** An unknown tool type is rejected
   before the call rather than dropped, because a create that quietly produces less reach than the form
   showed is worse than an error — and the same rule makes an empty `tools` array *absent* rather than

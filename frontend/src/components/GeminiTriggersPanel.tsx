@@ -8,6 +8,7 @@ import {
 } from '../hooks/useGeminiConnection';
 import { errorMessage } from '../utils/errorMessage';
 import { ConnectionField as Field } from './sources/ConnectionField';
+import { ToolPresetsManager } from './ToolPresetsManager';
 
 /**
  * **Connect Gemini so Cronsole can read and act on its scheduled triggers.**
@@ -253,9 +254,10 @@ export const GeminiTriggersPanel = () => {
           />
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-[10px] text-subtle-foreground">
-              A trigger Cronsole creates gets{' '}
-              <span className="font-bold text-foreground">no network allowlist</span>, so its agent
-              can reach nothing outside its sandbox. Add domains in Google AI Studio.
+              A trigger Cronsole creates starts with{' '}
+              <span className="font-bold text-foreground">no tools and no network allowlist</span>, so
+              its agent reaches nothing outside its sandbox until you grant it something in the create
+              form&apos;s <b>Tools and network access</b> section.
             </p>
             <button
               onClick={submitAgent}
@@ -268,6 +270,13 @@ export const GeminiTriggersPanel = () => {
           </div>
         </div>
       )}
+
+      {/*
+        Shown only with a key, like the agent field above it: a saved server is
+        configuration for creates, and there is nothing to create against without
+        a connection.
+      */}
+      {hasKey && <ToolPresetsManager />}
 
       {isLoading && <p className="text-[11px] text-subtle-foreground">Loading…</p>}
 

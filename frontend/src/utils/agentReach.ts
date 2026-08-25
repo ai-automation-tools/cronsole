@@ -20,6 +20,26 @@ export interface AgentToolDraft {
   name?: string;
   url?: string;
   headers?: Record<string, string>;
+  /**
+   * A **saved MCP server** on the connection, by name.
+   *
+   * The row that carries this has no URL and no token of its own — the server
+   * behind the name supplies both, on the backend, at the moment of the call. It
+   * is why the same trigger can be rebuilt a dozen times without anyone typing a
+   * credential again, and why a token rotation is one gesture instead of one per
+   * task.
+   */
+  preset?: string;
+}
+
+/** A saved MCP server as the server describes it — never with its credential. */
+export interface ToolPreset {
+  name: string;
+  url: string;
+  /** Whether a credential is stored. Not a masked value; there is nothing to reveal. */
+  hasHeaders: boolean;
+  /** How many tracked triggers point at this server's URL. */
+  usedBy: number;
 }
 
 /**
@@ -35,7 +55,15 @@ export interface AgentToolDraft {
  */
 export function cleanReach(tools: AgentToolDraft[], allowlist: string[]) {
   return {
-    agentTools: tools.filter(t => t.type !== 'mcp_server' || (t.url ?? '').trim().length > 0),
+    agentTools: tools.filter(
+      t =>
+        t.type !== 'mcp_server' ||
+        // A preset **is** a finished row: the name is the whole grant, and the
+        // URL it stands for lives on the server. Judging it by the URL field it
+        // deliberately leaves empty would drop every saved server on the way out.
+        Boolean(t.preset) ||
+        (t.url ?? '').trim().length > 0
+    ),
     agentAllowlist: allowlist.map(d => d.trim()).filter(Boolean)
   };
 }

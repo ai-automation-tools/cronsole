@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { Prisma, PlatformType, TaskStatus } from '@prisma/client';
 import { prisma } from '../db.js';
-import { syncOutcomeOf } from '../connectors/platform.interface.js';
+import { syncOutcomeOf, type AgentToolInput } from '../connectors/platform.interface.js';
 import { connectorRegistry } from '../connectors/registry.js';
 import { AuthRequest } from '../auth/auth.js';
 import { serializeConfig, deserializeConfig } from '../auth/connectionConfig.js';
@@ -542,7 +542,10 @@ const createTaskSchema = z.object({
         type: z.string().trim().min(1),
         name: z.string().trim().min(1).max(100).optional(),
         url: z.string().trim().url().max(500).optional(),
-        headers: z.record(z.string().trim().min(1).max(100), z.string().max(4096)).optional()
+        headers: z.record(z.string().trim().min(1).max(100), z.string().max(4096)).optional(),
+        // A saved MCP server by name. Resolved by the connector, never here:
+        // which store a preset lives in is a fact about the platform.
+        preset: z.string().trim().min(1).max(60).optional()
       })
     )
     .max(10)
@@ -1724,7 +1727,10 @@ const rotateCredentialsSchema = z.object({
         type: z.string().trim().min(1),
         name: z.string().trim().min(1).max(100).optional(),
         url: z.string().trim().url().max(500).optional(),
-        headers: z.record(z.string().trim().min(1).max(100), z.string().max(4096)).optional()
+        headers: z.record(z.string().trim().min(1).max(100), z.string().max(4096)).optional(),
+        // A saved MCP server by name. Resolved by the connector, never here:
+        // which store a preset lives in is a fact about the platform.
+        preset: z.string().trim().min(1).max(60).optional()
       })
     )
     .max(10),
@@ -1758,7 +1764,7 @@ router.post('/:id/rotate-credentials', validateBody(rotateCredentialsSchema), as
   }
 
   const { agentTools, agentAllowlist } = req.body as {
-    agentTools: { type: string; name?: string; url?: string; headers?: Record<string, string> }[];
+    agentTools: AgentToolInput[];
     agentAllowlist?: string[];
   };
 

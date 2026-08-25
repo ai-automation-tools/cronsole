@@ -17,6 +17,7 @@ vi.mock('../../services/geminiApi.js', async importOriginal => ({
   patchTrigger: vi.fn(),
   createTrigger: vi.fn(),
   deleteTrigger: vi.fn(),
+  getTrigger: vi.fn(),
   getInteraction: vi.fn()
 }));
 
@@ -30,6 +31,7 @@ import {
   patchTrigger,
   createTrigger,
   deleteTrigger,
+  getTrigger,
   getInteraction
 } from '../../services/geminiApi.js';
 import { TaskService } from '../../services/TaskService.js';
@@ -41,6 +43,7 @@ const runTriggerMock = vi.mocked(runTrigger);
 const patchTriggerMock = vi.mocked(patchTrigger);
 const createTriggerMock = vi.mocked(createTrigger);
 const deleteTriggerMock = vi.mocked(deleteTrigger);
+const getTriggerMock = vi.mocked(getTrigger);
 const findFirst = vi.mocked(prisma.platformCapability.findFirst);
 
 const connector = new GeminiTriggersConnector();
@@ -693,5 +696,162 @@ describe('a run that failed before the agent started still says why', () => {
     const result = await connector.getRunOutput('trg_1', 'r1', config());
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/gave no reason/i);
+  });
+});
+
+/**
+ * **Preset resolution — a reference in, a credential out, and nothing stored.**
+ *
+ * These are the tests for the change that made Cronsole start holding a token it
+ * hands to another platform. The interesting assertions are about the *seam*:
+ * what a caller may name, what reaches Google, and what happens when the name
+ * matches nothing.
+ */
+describe('a saved MCP server is referenced by name, never retyped', () => {
+  const withPresets = (over: Record<string, unknown> = {}) =>
+    config({
+      toolPresets: [
+        { name: 'resend', url: 'https://mcp.resend.com/mcp', headers: { Authorization: 'Bearer re_live_x' } },
+        { name: 'weather', url: 'https://weather.example/mcp' }
+      ],
+      ...over
+    });
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('resolves a preset into the URL and credential the platform needs', async () => {
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+
+    await connector.createTask('nightly', '0 3 * * *', 'Mail it', withPresets(), {
+      agentTools: [{ type: 'mcp_server', preset: 'resend' }]
+    });
+
+    expect(createTriggerMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      tools: [{
+        type: 'mcp_server',
+        name: 'resend',
+        url: 'https://mcp.resend.com/mcp',
+        headers: { Authorization: 'Bearer re_live_x' }
+      }]
+    }));
+  });
+
+  it('does not send the reference itself — `preset` is Cronsole\'s word, not Google\'s', async () => {
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+
+    await connector.createTask('nightly', '0 3 * * *', 'Mail it', withPresets(), {
+      agentTools: [{ type: 'mcp_server', preset: 'resend' }]
+    });
+
+    const sent = createTriggerMock.mock.calls[0]![1] as unknown as { tools: Record<string, unknown>[] };
+    expect(sent.tools[0]).not.toHaveProperty('preset');
+  });
+
+  it('matches the name case-insensitively', async () => {
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+
+    const result = await connector.createTask('n', '0 3 * * *', 'p', withPresets(), {
+      agentTools: [{ type: 'mcp_server', preset: 'ReSeNd' }]
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('refuses an unknown preset WITH the list, and creates nothing', async () => {
+    // The same rule as an unknown tool type, and it matters more here: passing a
+    // credential-less server through would produce a trigger that authenticates
+    // with nothing and fails later, on a schedule, as somebody else's 401.
+    const result = await connector.createTask('n', '0 3 * * *', 'p', withPresets(), {
+      agentTools: [{ type: 'mcp_server', preset: 'sendgrid' }]
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('sendgrid');
+    expect(result.message).toContain('resend');
+    expect(createTriggerMock).not.toHaveBeenCalled();
+  });
+
+  it('says where to add one when the connection has no presets at all', async () => {
+    const result = await connector.createTask('n', '0 3 * * *', 'p', config(), {
+      agentTools: [{ type: 'mcp_server', preset: 'resend' }]
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/no saved servers/i);
+  });
+
+  it('carries a preset with no credential through as a plain server', async () => {
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+
+    await connector.createTask('n', '0 3 * * *', 'p', withPresets(), {
+      agentTools: [{ type: 'mcp_server', preset: 'weather' }]
+    });
+
+    const sent = createTriggerMock.mock.calls[0]![1] as unknown as { tools: Record<string, unknown>[] };
+    expect(sent.tools[0]).toEqual({
+      type: 'mcp_server',
+      name: 'weather',
+      url: 'https://weather.example/mcp'
+    });
+    // Absent, not `{}` — an empty header map is a thing to send, and this server
+    // needs no credential at all.
+    expect(sent.tools[0]).not.toHaveProperty('headers');
+  });
+
+  it('lets an explicit value win over the preset it would have filled in', async () => {
+    // A preset FILLS IN url and headers; it does not override a caller who
+    // supplied them. Otherwise there is no way to point one create at a staging
+    // endpoint without editing the saved server every other trigger uses.
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+
+    await connector.createTask('n', '0 3 * * *', 'p', withPresets(), {
+      agentTools: [{ type: 'mcp_server', preset: 'resend', url: 'https://staging.resend/mcp' }]
+    });
+
+    expect(createTriggerMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      tools: [expect.objectContaining({ url: 'https://staging.resend/mcp' })]
+    }));
+  });
+
+  it('still refuses a literal MCP server with no URL and no preset', async () => {
+    // The URL check must judge what will actually be SENT, which is why presets
+    // resolve before it rather than after.
+    const result = await connector.createTask('n', '0 3 * * *', 'p', withPresets(), {
+      agentTools: [{ type: 'mcp_server', name: 'half-typed' }]
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/needs a URL/i);
+  });
+
+  it('resolves presets on a rotation too, from the one definition', async () => {
+    // A second copy of this resolution is how a rotation sends a tool list the
+    // create path would have refused — and this one carries credentials.
+    getTriggerMock.mockResolvedValue({
+      ok: true,
+      data: trigger({ id: 'trg_old', schedule: '0 3 * * *', agent: 'a', input: 'p', status: 'active' })
+    } as never);
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new' }) } as never);
+    deleteTriggerMock.mockResolvedValue({ ok: true } as never);
+
+    await connector.rotateCredentials!('trg_old', [{ type: 'mcp_server', preset: 'resend' }], [], withPresets());
+
+    expect(createTriggerMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      tools: [expect.objectContaining({ headers: { Authorization: 'Bearer re_live_x' } })]
+    }));
+  });
+
+  it('refuses a bad preset on a rotation BEFORE touching the platform', async () => {
+    // The original trigger is the only one that exists at this point, and it has
+    // to stay that way: create-first is what makes a failed rotation safe, and a
+    // refusal that costs nothing is better still.
+    const result = await connector.rotateCredentials!(
+      'trg_old',
+      [{ type: 'mcp_server', preset: 'nope' }],
+      [],
+      withPresets()
+    );
+
+    expect(result.success).toBe(false);
+    expect(getTriggerMock).not.toHaveBeenCalled();
+    expect(createTriggerMock).not.toHaveBeenCalled();
+    expect(deleteTriggerMock).not.toHaveBeenCalled();
   });
 });

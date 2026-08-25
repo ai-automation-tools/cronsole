@@ -34,6 +34,11 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent through `\Cronsole-Stack\CronsoleAgent` (RunLevel `Highest`), then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
+| 85 | A Windows task's **Run History shows more runs than happened**, and the extras have **no start time** — a task that ran twice lists three or four. Separately, the **exit code** is present on some machines and missing on others | **Two ways of reading Task Scheduler in somebody else's terms.** (1) The event log is a **ring buffer**, so the oldest run in view is missing its `TASK_STARTED`; those leftovers were keyed by their own timestamps, one bucket each, turning **one** truncated run into three rows — the *"three nights read as twelve runs"* failure arriving through the orphan path. They now share one bucket, dated by their earliest surviving event, `partial` only when nothing settles the outcome; a truncated run that finished is still `completed` ([#74](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy)'s rule applied to a log). (2) The exit code was parsed out of the event's **English prose**; event 201 publishes `ResultCode` and `ActionName` as **named `EventData` fields** and renders them separately into a localized sentence, so the regex found nothing on a non-English Windows and the fact vanished silently. **Read named fields, never the rendered sentence** — and read them **by name**, since `EventRecord.Properties` is positional and the index differs per event id. Fixed 2026-08-25; the named-fields half needs an agent republish | [→](#85-one-windows-task-shows-three-runs-that-never-happened-all-of-them-undated) |
+| 84 | A **Gemini trigger fails in about five seconds**, start to finish, and opening the run says *"Gemini recorded this run as failed but attached no interaction to it, so there is nothing to read."* The prompt is fine and the task looks healthy in every other respect | **The trigger's configuration was rejected, and Cronsole was dropping the sentence that said so.** A run that fails faster than the work could possibly take is a **refused start**, not a failed attempt — look at the trigger definition, not the prompt. In the case that surfaced this, the trigger declared `filesystem`, a type the API's own supported list contains, and the platform answered *"Tool 'filesystem' is not allowed when interacting with this agent"*: **a capability list is not a permission list**, and the per-agent restriction is published nowhere. `GET …/executions` carries that reason in an `error` field beside `status`, and `toExecution` never read it — **the third field on this one connector present on the wire and unread** (#82 the prompt, #83 the executions array). Fixed 2026-08-25: the reason is the run's output, marked *Failed before the agent started*. Rebuild the trigger without the offending tool via **Replace credentials** | [→](#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read) |
+| 83 | A **Gemini trigger's run history is always empty** — the platform has run it for days, *Runs on the platform* shows nothing, and health reads `unknown` forever. Fixing that alone then flips every **healthy** trigger to `critical` | **Two defects that hid each other, both docs-vs-wire.** The executions array is `trigger_executions`, not the documented `executions` — though the sibling `GET /triggers` really is `triggers`, which is what makes it look like a typo rather than the API. And the success word is **`completed`**, not the documented `succeeded`, with in-flight as `in_progress`. The first bug hid the second: an always-empty list meant the wrong success word could never fire, so a partial fix — the obvious one — would have called every good run a failure. `isSuccessStatus` / `isPendingStatus` are now one definition shared by the connector and `taskHealth`. **Fix both halves of a read before believing either** | [→](#83-a-gemini-trigger-runs-fine-cronsole-shows-no-run-history--then-calls-a-good-run-a-failure) |
+| 82 | A **Gemini trigger loses its prompt on the first sync** — you create it in Cronsole *with* a prompt, sync, and the Action panel is empty. Separately, **Edit schedule** fails with `400 Unknown parameter 'schedule'`, a word you never typed | **`interaction.input` is written as a string and read back as a structured array**, so reading only the write spelling dropped the prompt from every synced trigger, including one Cronsole had just created with it. And **a trigger's *when* is fixed at create time on `v1beta`**: `PATCH …/{id}` is the documented update endpoint, it takes `status` and `display_name`, and it rejects `schedule` outright — no `PUT`, no field mask. `updateSchedule` was **removed** rather than declared unsupported, because declaring it bought one thing: a cell that could only ever fail, handing Google's vocabulary back to a user. **Found by driving the live API, not by reading it** — the test suite stubs the HTTP client, so it only ever checks Cronsole's belief against itself | [→](#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word) |
+| 81 | A **brand-new source 500s the moment you open it** — *"Internal server error"*, bare, on **every** route including plain reads. The API key is valid, the code is committed, `schema.prisma` has the value, and the entire test suite is green | **A committed migration that was never applied.** The database schema is the **fifth thing that runs stale** and the only one the repo cannot see: `schema.prisma`, the generated Prisma client and every test all hold the new enum value, so nothing reddens — only the database disagrees, and a query naming an enum value it does not have throws before any handler logic. A perfectly valid credential then looks like the problem. Run `npx prisma migrate deploy`. **Fixed as a check 2026-08-25**: `node scripts/check-migrations-applied.mjs`, wired into `/doctor` as check 2b, with `UNKNOWN` (no database reachable) reported separately from `OK` | [→](#81-a-brand-new-source-returns-internal-server-error-the-moment-you-open-it) |
 | 80 | **CI is red on a commit whose tests and typecheck were both green locally.** Five of six jobs pass; **Frontend lint and build** fails, and it died before running any test — `react-hooks/set-state-in-effect`, or any other rule | **Lint is a separate gate and nothing you ran locally includes it.** `npm test` runs vitest, `tsc --noEmit` typechecks, and neither runs `eslint` — so the frontend job lints *before* testing, and one error means the suite and the build never ran either. The rule that caught it was right about a real defect: a field seeded from the server with `useState('')` + `useEffect(() => setX(stored), [stored])`, under a comment claiming it could not clobber an in-progress edit. It can — `stored` is exactly what a refetch changes, and the panel refetched on every mutation it made. **Derive the value** (`draft ?? stored`) rather than mirroring it. **The tell: an effect whose whole body is `setState(derivedFromProps)`.** Run what CI runs — the frontend `npm run lint` is the step that is easy to skip | [→](#80-ci-is-red-on-a-commit-whose-tests-and-typecheck-both-passed-locally) |
 | 79 | **A whole screen renders blank after adding a new platform**, with no server error and a green test suite. The console says `TypeError: Cannot read properties of undefined (reading 'split')` somewhere in presentation code that has nothing to do with what you changed | **A `PlatformType.X` that is `undefined` at runtime, because the generated Prisma client is older than the schema** — a backend process started before `prisma generate` finished, or a container built on a stale layer. Nothing catches it: TypeScript is happy (the *types* have the value), `MATRIX_PLATFORMS` holds the `undefined` quietly, and `PLATFORM_DESCRIPTORS[undefined]` **succeeds** — the computed key in that object literal also evaluated to `undefined` and became the string `"undefined"`, so the two agree with each other and disagree with reality. The matrix then serves a row with a label, a summary and ten capability cells and **no `platform` field at all**, since `JSON.stringify` drops an undefined value. **The tell: one row in `list_platforms` is missing a key every other row has.** Fixed 2026-08-24 — `MATRIX_PLATFORMS` is checked at boot and throws naming the value, and the `platform.ts` lookups are total so a bad row degrades to a globe instead of a white page | [→](#79-a-screen-goes-blank-after-adding-a-platform-and-nothing-logs-an-error) |
 | 78 | **The light theme is hard to read and nothing in it looks obviously wrong.** Panels sit flat on the page, field labels wash out, coloured status dots vanish — and every individual value looks defensible when you open `index.css` | **Colour fails silently, so it has to be measured rather than reviewed.** A role below the WCAG bar renders perfectly. Measuring every role against every *surface* (not just the page) found **26 pairs under AA across both themes**, and the structural fault: light ran `background 100% -> surface 95% -> raised 98%`, putting a *raised* panel at **1.04:1** against the page — flatter than the `surface` card it sits above (1.12) and effectively invisible. `muted` is the binding constraint in light, not `background`, which is why a pass that checked against white missed it. Fixed 2026-08-24: light is now the mirror of dark (1.07/1.14/1.25 vs 1.05/1.16/1.27) and `themeContrast.test.ts` measures every pair, so this cannot recur quietly. **If a colour looks wrong, run that test before opening a picker** | [→](#78-the-light-theme-is-hard-to-read-and-every-value-looks-defensible) |
@@ -5689,6 +5694,71 @@ so *Replace credentials* (which sends the whole tool list) is the edit path.
 > cases. What it missed is a third: a run that produced nothing *and knows why*. Whenever a branch
 > exists to say "no information", check that the absence is genuine rather than assumed — the field
 > that would have contradicted it was already in the response being parsed.
+
+*First hit: 2026-08-25.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 85. One Windows task shows three runs that never happened, all of them undated
+
+**Symptom.** Open a Windows task's **Run History**, look at *Runs on the platform*, and the count is
+wrong in a specific way: a task that ran twice shows three or four rows, and the extra ones have
+**no start time** and a status of `unknown`. Every real run is there and correct; the phantoms sit
+at the bottom of the list. Separately, and on the same screen: the **exit code** — the one hard fact
+Windows publishes about a run — is present on some machines and absent on others, with nothing on
+screen distinguishing them.
+
+**Cause, two defects, both about reading a platform in its own terms.**
+
+**The event log is a ring buffer, so the oldest run in view is almost always missing its opening
+event.** `groupHistoryIntoRuns` keys a run on its `TASK_STARTED` (100) timestamp and walks the list
+oldest-first, so events appearing *before* the first start belong to a run whose beginning has aged
+out. They were keyed by their own timestamps — one bucket each — which turned **one** truncated run
+into three rows. That is precisely the *"three nights read as twelve runs"* failure the grouping
+exists to prevent, arriving through the orphan path instead of the normal one.
+
+**And the exit code was parsed out of an English sentence.** Event 201 publishes `ResultCode` and
+`ActionName` as **named `EventData` fields**, and *separately* renders those same values into a prose
+message. The code read the prose, with a regex over `event.message` looking for the words *return
+code* followed by a number.
+
+That template is localized. On a Windows that is not in English the regex matches nothing, the fact
+disappears, and the panel renders a run with no exit code — silently, correctly-looking, on somebody
+else's machine.
+
+**Fix (2026-08-25).** Orphans share one `ORPHAN_RUN` bucket, dated by their earliest surviving event
+rather than `null`, and read `partial` when nothing in them settles the outcome. **A truncated run
+that did finish is still `completed`** — the gap is in the reader's view, not in the task, which is
+[#74](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy)'s rule applied to
+a log instead of to a task list. The agent now sends each event's named fields as `data`, and
+`describeWindowsRun` reads `ResultCode` / `ActionName` by name, keeping the regex only as a fallback
+for an agent published before this date. Verified live: a real task went from 3 phantom runs to 2
+real ones.
+
+**How to recognize it in general.**
+
+- **Read a platform's named fields, never its rendered sentence.** If a value appears both as a field
+  and inside a human-readable message, the message is a *presentation* of the field — translated,
+  reworded between builds, and the wrong thing to parse.
+- **Read `EventData` by name, not by position.** `EventRecord.Properties` is a positional array and
+  the index differs per event id, so the tidy-looking `Properties[3]` is a different value on the
+  next event type. The agent parses the event XML and returns a `name → value` map.
+- **A windowed reader always has a partial oldest item.** Anything grouping a log into units has to
+  decide what the first fragment is. One bucket, dated by what survives, is right; one bucket per
+  stray event manufactures history.
+- **This is [#82](#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)
+  and [#83](#83-a-gemini-trigger-runs-fine-cronsole-shows-no-run-history--then-calls-a-good-run-a-failure)'s
+  shape on a different platform** — a value written one way and read another, invisible from inside
+  the repo because the fixtures were written from the same belief as the code.
+
+> [!TIP]
+> **Both defects shipped an hour before they were found, and both were found the same way: pointing
+> the feature at a real machine.** Neither is reachable from a fixture — a hand-written history array
+> starts at a run boundary, because that is how a person writes one, and it is written in English.
+> **The first thing to do with a new reader is read something real with it and count the answers by
+> hand.**
 
 *First hit: 2026-08-25.*
 

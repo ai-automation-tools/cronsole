@@ -57,8 +57,14 @@ before every sources pass rather than once.
 **Three items were added 2026-08-25** from the first real session against live Gemini data —
 [in-app failure logs](#in-app-logging), [agent extensibility on Gemini](#gemini-agent-extensibility),
 and [a Sync reported as missing a new task](#sync-missed-a-new-task) — investigated the same day,
-**not reproduced**, with every hypothesis ruled out. The same session shipped five fixes and two
-features on the Gemini connector, all found by driving the live API rather than by any test.
+**not reproduced**, with every hypothesis ruled out. The same session shipped both of the first two
+and, on the Gemini connector, every fix it made was found by driving the live API rather than by any
+test — **three fields present on the wire and unread** (the prompt, the executions array, a failed
+run's `error`), plus a schedule verb the API cannot perform. Windows became run history's second
+implementer and immediately contributed a fourth of the same shape
+([#85](troubleshooting/README.md#85-one-windows-task-shows-three-runs-that-never-happened-all-of-them-undated)).
+**The standing lesson: a suite that stubs the HTTP client can only ever check Cronsole's belief
+against itself** — see the contract-test item [below](#connector-contract-test).
 
 **The largest open item is now the POSIX agent.** *(The light theme and the `env` editor — the
 whole 2026-08-15 request block — both shipped 2026-08-24; the theme pass carved out one follow-up,
@@ -523,6 +529,25 @@ The five original items and the two shipped halves of the API-token work are in
 New correctness work lands here as it is found. Everything logged before 2026-08-16 is closed —
 see [Part II](#completed--p1-correctness--honesty).
 
+<a id="connector-contract-test"></a>
+
+- [ ] **A connector contract test — diff a real API response against what the parser consumes**
+      *(logged 2026-08-25, after the fourth instance)*. Four defects in two days shared one shape: a
+      field that was **present on the wire and never read**. Gemini's prompt (written as a string,
+      returned as a structured array), its executions array (`trigger_executions`, not the documented
+      `executions`), a failed execution's `error`, and Windows' `ResultCode` (read out of a localized
+      English sentence instead of the named `EventData` field). **None is reachable from the suite**,
+      because every connector test stubs the HTTP client or the agent — so the fixtures are written
+      from the same belief as the code, and the two agree with each other while disagreeing with the
+      platform. A green suite is evidence about Cronsole's self-consistency and nothing else.
+      **The shape worth building**: capture one real response per connector (credentials stripped,
+      committed as a fixture), and assert that every key in it is either consumed by the parser or
+      **named in an explicit ignore list**. The ignore list is the point — it converts "we did not
+      notice this field" into a line someone had to write. Refreshing a fixture against the live API
+      then becomes a review of what changed rather than a silent no-op. Cheap; the expensive part is
+      capturing the first response, which for a preview API means driving it by hand anyway
+      ([the probe technique](../skills/cronsole/SKILL.md) is how each of these was found).
+
 - [ ] **The agent must report its own elevation, and MISSING must be bounded by what the agent can
       see** *(logged 2026-08-23, from a live incident)*. An agent started by hand from an ordinary
       shell runs **unelevated** and cannot enumerate the ACL-protected task folders —
@@ -804,9 +829,20 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       all** (their docs are entirely programmatic), so Cronsole is the only place this is visible.
       Gemini is the first implementer; GitHub Actions is the obvious second.
 
-      **A gap this exposed and did not close:** the UI's Delete button is gated to native and
-      Windows, so there is no user-facing way to delete a Gemini trigger — `DELETE /api/tasks/:id`
-      supports it, and MCP's `delete_task` is native-only by design. Small fix, not yet made.
+      **A gap this exposed, closed 2026-08-25:** the UI's Delete button was gated to a hardcoded
+      `{native, Windows}` pair, so a Gemini trigger had **no delete control at all** — the connector
+      implements it, `DELETE /api/tasks/:id` calls it, and the Sources tab reported the verb working,
+      so the only actual path was `curl`. It now reads the server's capability matrix
+      (`usePlatformDeletability`), which means the next deletable source gets the button without
+      anyone widening a list. MCP's `delete_task` stays native-only by design.
+
+      **Windows became the second implementer of run history the same day**, over a new `task:history`
+      agent verb — and pointing it at a real machine an hour later found two defects a fixture cannot
+      hold: a ring-buffer log makes the oldest run in view a fragment (one bucket, not one per stray
+      event), and the exit code was being read out of a **localized English sentence** rather than
+      the event's named `ResultCode` field
+      ([#85](troubleshooting/README.md#85-one-windows-task-shows-three-runs-that-never-happened-all-of-them-undated)).
+      The named-fields half needs an agent republish to take effect.
 
       **A boundary found afterwards, 2026-08-25**: `updateSchedule` is *cannot*, not *not yet*.
       `PATCH /v1beta/triggers/{id}` takes `status` and `display_name` and answers `400 Unknown
@@ -815,13 +851,32 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       verb. Worth carrying into the next connector: **an endpoint existing is not the endpoint doing
       what the verb says**, and only driving it says which.
 
-      **Two follow-ups it deliberately left**, both *not yet* rather than *cannot*:
-      - **`updateAction`** — an editable prompt, which needs the form described above. Until then
-        the cell is `unsupported` by absence and the help topic says to edit in Google AI Studio.
-      - **The network allowlist** — Cronsole creates the plainest environment the API accepts and
-        never guesses one. A trigger that needs to reach a domain has to be widened in Google's
-        console. Offering it here means a UI for what an autonomous agent may reach, including
-        header credentials, which is worth its own design pass rather than a text field.
+      **Of the two follow-ups it deliberately left, one shipped the next day:**
+      - **`updateAction`** — still open, and still *not yet* rather than *cannot*: an editable prompt
+        needs a `PATCH` that takes one, and `v1beta` does not have it. The cell is `unsupported` by
+        absence; the help topic says to delete and recreate.
+      - **The network allowlist and tools — shipped 2026-08-25.** It got the design pass rather than
+        a text field: *Tools and network access* on the create form (built-ins, MCP servers, domains),
+        starting empty so a trigger made without opening it is byte-identical to one made before the
+        section existed. A grant is **refused with the list, never narrowed** — an unknown tool type
+        errors rather than being dropped, since a create that quietly produces less reach than the
+        form showed is worse than a failure.
+
+        The credential question it was waiting on has an answer that is about **lifecycle, not
+        caution**: an MCP server's `headers` reach `createTrigger` and stop there, because the value
+        is needed exactly once and the trigger lives on *Google's* side — Cronsole can avoid holding
+        the token but cannot avoid handing it over, and the form says so where it is typed.
+        `toToolSummary` / `readAllowlist` never *parse* those fields, so no stored object has ever
+        held one. **Which forced a rotation path**, since Gemini's definition is immutable: *Replace
+        credentials* builds the replacement first, inherits a paused status, and rekeys the existing
+        row so favourites, collections and run history survive — a replacement that exists while the
+        original does is reported as a **failure**, because the schedule now fires twice.
+
+        **And a boundary the API does not publish:** a tool type its own supported list contains can
+        still be refused by the specific agent (`filesystem` is the known case), which surfaces as a
+        five-second run failure — a rejected configuration, not a failed attempt
+        ([#84](troubleshooting/README.md#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read)).
+        **A capability list is not a permission list.**
 
 - [ ] **Supabase `pg_cron` — read-only observer** *(next after Gemini in this section)*: the other half of the
       2026-08-12 pair. Same observer shape again, and the piece it needs that neither GitHub nor

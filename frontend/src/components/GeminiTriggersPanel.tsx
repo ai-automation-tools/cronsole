@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AlertTriangle, Check, ExternalLink, Loader2, X } from 'lucide-react';
 import {
   useDisconnectGemini,
@@ -50,7 +50,22 @@ export const GeminiTriggersPanel = () => {
 
   const [keyOpen, setKeyOpen] = useState(false);
   const [apiKey, setApiKey] = useState('');
-  const [agent, setAgent_] = useState('');
+  /**
+   * What the user has typed into the agent field, or `null` when they have not
+   * touched it.
+   *
+   * **Not seeded from the server, and deliberately not mirrored into state by an
+   * effect.** The obvious shape — a `useState('')` synced in a `useEffect` on
+   * `storedAgent` — is a lint error here (`react-hooks/set-state-in-effect`) and
+   * the rule is right twice over: it cascades a render, and every version of it
+   * that is cheap to write can retype over what somebody is halfway through
+   * editing when a background refetch lands.
+   *
+   * Deriving the displayed value instead makes that impossible rather than
+   * unlikely: before the first keystroke the field simply *is* the stored value,
+   * and after it the draft wins until it is saved or the panel is closed.
+   */
+  const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [note, setNote] = useState<string | null>(null);
@@ -58,14 +73,8 @@ export const GeminiTriggersPanel = () => {
   const hasKey = data?.hasKey ?? false;
   const storedAgent = data?.agent ?? '';
   const defaultAgent = data?.defaultAgent ?? '';
-
-  // Seed the field from the server once it arrives, and never again — retyping
-  // over what someone is editing because a background refetch landed is the
-  // failure mode this effect exists to avoid, which is why it keys on the stored
-  // value rather than on the query object.
-  useEffect(() => {
-    setAgent_(storedAgent);
-  }, [storedAgent]);
+  /** The stored value until the user types, then theirs. No effect involved. */
+  const agent = draft ?? storedAgent;
 
   const clear = () => {
     setError(null);
@@ -97,6 +106,11 @@ export const GeminiTriggersPanel = () => {
     clear();
     try {
       const result = await setAgent.mutateAsync(agent.trim());
+      // Hand the field back to the server's value. Without this a saved draft
+      // stays "typed" forever: it would keep winning over `storedAgent`, so
+      // clearing the box to restore the default would show an empty field after
+      // a save that correctly stored the default.
+      setDraft(null);
       setNote(
         agent.trim()
           ? `New triggers will run ${result.agent}.`
@@ -234,7 +248,7 @@ export const GeminiTriggersPanel = () => {
             label="Agent for new triggers"
             hint="The managed agent a trigger Cronsole creates will run. It is a preview id with a date in it, so it will be replaced eventually — if creates start failing, this is the first thing to change. Leave it empty to use the default."
             value={agent}
-            onChange={setAgent_}
+            onChange={setDraft}
             placeholder={defaultAgent}
           />
           <div className="flex items-center justify-between gap-2 flex-wrap">

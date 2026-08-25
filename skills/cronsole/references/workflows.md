@@ -154,7 +154,14 @@ pwsh .\scripts\cronsole.ps1 up
    maintaining it later must be one surface), and reuse `sources/ConnectionField` rather than
    growing a third copy of it.
 11. **No platform-specific logic outside the connector layer.**
-12. **Then the mirror surfaces, in the same change** (CLAUDE.md §11a): a `HelpTopic` in
+12. **Write the source's own guide**, `docs/user-guides/sources/<Source>.md`, and register it in
+    `SOURCE_DOCS` (`frontend/src/data/docs.ts`) so its card carries a **Read: using X** link. Add it
+    to that folder's `README.md` too — a document nothing links to is an orphan however good it is.
+    `docsLinks.test.ts` asserts the set is **exactly the number of sources on the tab**, so a seventh
+    source cannot ship without a guide; it is the one item on this list that fails loudly. The Sources
+    Guide *compares* sources and this *is* one, and the split exists because a reader who has already
+    chosen lands two-thirds down a long page about five others otherwise.
+13. **Then the rest of the mirror surfaces, in the same change** (CLAUDE.md §11a): a `HelpTopic` in
     `frontend/src/data/help.ts` pointing at a **new section in the Sources Guide** (`docsLinks.test.ts`
     checks the anchor resolves), the `ALL_PLATFORMS` enum and the platform sentences in
     `mcp-server/src/tools.ts`, the `list_tasks` / `list_platforms` rows in **both** MCP tool tables,
@@ -180,10 +187,14 @@ route, which is what keeps owner scoping, no-shell `exec`, signed agent commands
 cron→trigger conversion in one tested place. **New behavior means a new backend route**, never
 cleverness in the wrapper.
 
-The tools and their routes. **This table is a selection, not the full surface** — there are
-**29** tools; run `grep -c 'server.registerTool' mcp-server/src/tools.ts` for the count and
-`mcp-server/README.md` for the complete table. *(It said "the 15 tools" until 2026-08-16,
-which read as exhaustive and was wrong by fourteen.)*
+The tools and their routes. **This table is a selection, not the full surface.** Run
+`grep -c 'server.registerTool' mcp-server/src/tools.ts` for the count and `mcp-server/README.md`
+for the complete table.
+
+> **The number that used to live in this sentence is deliberately gone.** It said *"the 15 tools"*
+> until 2026-08-16, was corrected to 29, and by 2026-08-25 was 37 — drifting again inside the very
+> paragraph that apologised for drifting. A count in prose has no test and no reader who would
+> notice, so the honest form is the command that answers it.
 
 | Tool | Route | |
 |:---|:---|:---|

@@ -76,6 +76,21 @@ export const BUILTIN_VIEWS: SavedView[] = [
    */
   view('all', 'All', { status: 'any', system: 'include' },
     'Every task, including the ones Windows owns and anything disabled or missing. No lens at all.'),
+  /**
+   * "All" minus the tasks Windows owns — and what a bare URL opens on while
+   * `showSystemTasks` is off, which is its default.
+   *
+   * It exists so that opening state has a **name**. `openingFilters` stopped
+   * forcing `system: 'include'` on 2026-08-26, which left the first screen at
+   * `{status: 'any', system: 'personal'}` — a combination no built-in held, so
+   * the bar lit "Custom" over the dashboard's own default. A list whose lit chip
+   * says "Custom" is one whose constraints the reader has to go and look up.
+   *
+   * It is not redundant with "My jobs": that one is also `active`, so it hides
+   * everything disabled or missing. This is every status.
+   */
+  view('mine', 'Mine', { status: 'any', system: 'personal' },
+    'Every task you own, at any status — including disabled and missing. Hides the tasks Windows itself owns.'),
   view('my-jobs', 'My jobs', { status: 'active', system: 'personal' },
     'Your active tasks. Hides Windows’ own tasks and anything disabled or missing.'),
   view('failures', 'Failures', { status: 'any', system: 'personal', outcome: 'failing' },
@@ -92,28 +107,37 @@ export const isBuiltinView = (id: string): boolean =>
   BUILTIN_VIEWS.some(v => v.id === id);
 
 /**
- * What a **bare** dashboard URL resolves to: **everything**.
+ * What a **bare** dashboard URL resolves to: every status, through the
+ * **ownership lens the user set in Settings**.
  *
  * It opened on Favorites from 2026-08-11 until 2026-08-12. That was defensible —
  * a starred task is an explicit choice — but it made the first screen a *subset*
  * chosen by a gesture the user may have made once, weeks ago, and the machinery
  * needed to keep it honest (a banner naming the filter, counting what it held
  * back, and offering the way out) is itself the evidence that opening filtered
- * wants apologising for. Opening on **All** needs no apology: nothing is
- * withheld, so there is nothing to disclose.
+ * wants apologising for.
  *
- * **Two of the user's saved defaults survive and two are superseded**, and the
- * split is not arbitrary — `status` and `system` are precisely the lenses "All"
- * is *about*, so honouring them would make the opening view not-All. `category`
- * and `source` narrow along axes All says nothing about, so they still apply.
- * (If that leaves *Show disabled tasks* looking vestigial, it is — see the note
- * in ROADMAP › Open.)
+ * From 2026-08-12 to 2026-08-26 it forced `system: 'include'` as well, on the
+ * reasoning that opening on everything needs no apology. That was true of
+ * *disabled* tasks and false of Windows' own: 257 of 352 rows on a real machine
+ * belong to the OS, so "no lens" is not a neutral first screen, it is a screen
+ * about somebody else's tasks — and it silently overrode `showSystemTasks`,
+ * which is the one preference that exists to answer this exact question. So the
+ * ownership lens is **read from the user's settings**, not overridden here, and
+ * the dashboard states the default in a line above the list (see
+ * `DashboardScreen`) rather than leaving it to be discovered.
+ *
+ * **`status` is still superseded and `system` no longer is.** `status` has a
+ * withheld-count chip beside the Filters trigger that names what it holds back
+ * the moment it holds anything, so a default there discloses itself; the
+ * ownership default is the one worth carrying across a reload. `category` and
+ * `source` narrow along axes this says nothing about, so they still apply.
  *
  * A function rather than a branch inside the screen so the rule can be pinned
  * without rendering a dashboard, and so it stays one rule with one answer.
  */
 export function openingFilters(defaults: TaskFilters): TaskFilters {
-  return { ...defaults, status: 'any', system: 'include' };
+  return { ...defaults, status: 'any' };
 }
 
 /**

@@ -5,7 +5,7 @@ import type { RailPin } from '../utils/railPins';
 import type { PlatformLink } from '../types';
 import { DEFAULT_QUICK_LINKS, readLegacyQuickLinks } from '../utils/quickLinks';
 
-export type DashboardView = 'grid' | 'list' | 'kanban' | 'schedule';
+export type DashboardView = 'grid' | 'list' | 'kanban' | 'schedule' | 'calendar';
 export type TemplateView = 'grid' | 'list' | 'kanban';
 /**
  * The zone schedules are read and written in.

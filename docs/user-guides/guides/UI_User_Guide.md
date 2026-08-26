@@ -192,16 +192,24 @@ platform Cronsole does not have yet.
 ### Saved views
 Across the top of the dashboard is a row of **views** — named filter combinations, so the question
 you actually ask ("what's failing?", "what runs today?") is one click instead of four filters
-rebuilt from scratch on every visit. Six ship built in:
+rebuilt from scratch on every visit. Seven ship built in:
 
 | View | Shows |
 |---|---|
 | **All** | Every task, with no lens at all — including the ones Windows owns and anything disabled or missing. The one click that means "stop hiding things". |
-| **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. The default *until you star something*. |
+| **Mine** | Every task you own, at any status — including disabled and missing. Hides the tasks Windows itself owns. **This is what a bare dashboard URL opens on** while *Settings › Show system tasks* is off, which is its default. Turn that setting on and a bare URL opens on **All** instead. |
+| **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. |
 | **Failures** | Tasks the health check rates *critical* or *needs attention*. |
 | **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
 | **Disabled** | Only the tasks you've parked. Note this **isolates** them — it is not the same as *Filters › Status › All statuses*, which merely stops hiding them. |
 | **System** | Only the tasks Windows itself owns under `\Microsoft\`, which the dashboard hides by default. |
+
+> **System tasks are hidden by default.** On a real machine `\Microsoft\…` is most of what Task
+> Scheduler holds — 257 of 352 on the box this was built against — so leaving them in makes every
+> count, folder and view about somebody else's tasks. The dashboard says so in a line above the list,
+> with the number and a link to **Settings › Dashboard defaults › Show system tasks**, which is the
+> switch that changes it for good. The `N system hidden` chip beside **Filters** still reveals them
+> for the current session, and the **System** view still isolates them.
 
 - **Saving your own:** change any filters and the row shows a **Custom** chip plus **Save view**. Name it and it becomes a chip of its own, with a count, kept between visits. Delete one with the `×` on its chip — that only removes the name; the tasks and the filters you're currently looking at are untouched.
 - **Every view is a link.** The URL carries the view (`?view=failures`) or the individual filters, so you can bookmark one or paste it to another machine. A link to a saved view *someone else* made falls back to the normal dashboard rather than showing you nothing.
@@ -300,8 +308,36 @@ Two consequences worth knowing:
 Pins are per-browser, like your other dashboard preferences (the rail's collapsed state, your saved
 views). They are not stored on the server and are not shared.
 
+### Calendar
+The fifth view mode. Grid, List, Kanban and Schedule all answer *"what do I have"*; the calendar
+answers *"what happens next Tuesday"*, which none of them could — the Schedule timeline comes
+closest and still orders tasks by their **next** run, one instant each, so a task that fires every
+weekday appears exactly once and the shape of a week is invisible.
+
+- **Month or Week.** Month draws a fixed six-week grid (so the page doesn't jump height when you
+  step forward); Week draws seven full-height columns. `‹` `›` step, **Today** comes back.
+- **It draws the slice you're already in.** Every filter, the source rail, the search box and the
+  ownership lens still apply — a calendar is a *layout*, not a second question. Narrowing to a
+  collection or a folder re-draws the same grid over fewer tasks and costs no round trip.
+- **Days are days in your *schedule* timezone** (Settings › Schedule timezone), which is named on
+  the header beside the month. Schedules are stored as UTC cron, so `0 9 * * *` lands on a different
+  calendar day in Berlin than in Los Angeles, and an unlabelled grid would be the same unmarked
+  clock reading the rest of the app refuses to print.
+- **A task that runs six times on a Tuesday is one chip, not six.** The chip carries the first time
+  and `×6`; hovering lists the times. A month cell shows three and then `+N more`, which expands in
+  place.
+- **Tasks that run too often to draw say so.** A task firing every five minutes has thousands of
+  runs in a six-week grid. Cronsole lists the first few hundred and then prints a line above the
+  grid naming how many tasks were cut short — because a month whose second half looks empty reads
+  as *"it stopped running"*, which is the most expensive wrong thing a calendar can say. **Switch to
+  Week** and the same tasks fit completely.
+- **Tasks with no place on a calendar are named, not dropped.** A Windows task triggered at logon
+  has no cron and never will; a GitHub workflow whose schedule Cronsole couldn't read carries the
+  reason it couldn't. Both are listed under the grid, with the reason, and clicking one opens it —
+  silently omitting them would be indistinguishable from them having been deleted.
+
 ### Views, Search & Filters
-- **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), and **Schedule** (sorted by next run) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
+- **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), **Schedule** (sorted by next run) and **Calendar** (a month or week grid — see above) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
 - **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
 - **The Filters button** holds status and ownership. *(Neither source nor folder is in here — both are the **source rail** on the left. The button's count ignores them too, because a badge may only count what its own menu can clear.)* The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
   - **Status** — *Active only* (the default), *All statuses*, or **isolate** just the *Disabled* or just the *Missing* ones. Isolating is not the same as including: it shows you **less**, and an isolated state appears as its own pill outside the menu so it can't be mistaken for normal.

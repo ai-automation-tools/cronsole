@@ -466,6 +466,15 @@ Non-negotiable rules. **Every one has a reason recorded in
   resolve by recency over the whole document, never field-by-field. Theme, the API-origin
   override and the session token stay per-browser *because they describe the device*, and theme
   additionally is read before login.
+- **A calendar is a layout, not a second question, and the day an instant lands on is the
+  reader's.** The Calendar view draws the same filtered slice every other view draws;
+  `GET /api/tools/occurrences` (`services/occurrences.ts`) walks the stored UTC cron and takes **no
+  timezone** — `utils/calendar.ts` buckets by day through the same `dayKeyIn` that decides *due
+  today*, or the grid disagrees with the times on its own cards. Two refusals it may not make
+  quietly: a task it **cannot** place (no cron, or a `metadata.scheduleReason`) is listed with its
+  reason rather than omitted, because a silently missing task is indistinguishable from a deleted
+  one; and the per-task walk stops at a cap and reports **where** it stopped, because a month whose
+  second half is empty reads as *"it stopped running"*.
 - **A count beside a control describes the population that control governs** —
   `applyTaskFiltersExcept`, with the hidden count derived, not counted separately.
 - **A judgement has one definition and it is the server's** — `isSystem`, health tier, task source

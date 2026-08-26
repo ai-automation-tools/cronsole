@@ -1,6 +1,6 @@
 import type { Task } from '../types';
 import type { TimezoneMode } from '../hooks/useSettings';
-import { resolveZone } from './timezone';
+import { dayKeyIn, resolveZone } from './timezone';
 import { matchesTaskSearch } from './taskSearch';
 
 /**
@@ -243,21 +243,6 @@ export function nextRunOf(task: Task): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** `YYYY-MM-DD` for an instant, as seen in `zone`. */
-function dayIn(zone: string, at: Date): string {
-  try {
-    // en-CA formats as YYYY-MM-DD, so string equality is date equality.
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: zone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).format(at);
-  } catch {
-    return at.toISOString().slice(0, 10);
-  }
-}
-
 /**
  * Next-run window.
  *
@@ -287,7 +272,7 @@ export function matchesDue(
 
   switch (filter) {
     case 'today':
-      return dayIn(zone, next) === dayIn(zone, now);
+      return dayKeyIn(zone, next) === dayKeyIn(zone, now);
     case 'overdue':
       return next.getTime() < now.getTime();
     case 'week':

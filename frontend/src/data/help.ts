@@ -1051,10 +1051,12 @@ const views: HelpTopic = {
     '"what runs today?" — is one click rather than four filters rebuilt from scratch.',
   points: [
     {
-      label: 'Six ship built in',
+      label: 'Seven ship built in',
       body:
-        'All, My jobs, Failures, Due today, Disabled and System. Disabled isolates ' +
-        'parked tasks; that is not the same as the Status filter merely including them.'
+        'All, Mine, My jobs, Failures, Due today, Disabled and System. Mine is All minus the ' +
+        'tasks Windows owns, and is what the dashboard opens on while Settings hides them. ' +
+        'Disabled isolates parked tasks; that is not the same as the Status filter merely ' +
+        'including them.'
     },
     {
       label: 'Changing a filter drops you to Custom',
@@ -1077,6 +1079,43 @@ const views: HelpTopic = {
     }
   ],
   doc: { label: 'UI User Guide › Saved views', url: uiGuide('saved-views') }
+};
+
+const calendar: HelpTopic = {
+  id: 'calendar',
+  title: 'Calendar',
+  summary:
+    'A month or week grid of when your tasks actually fire, worked out from the stored cron. ' +
+    'It draws the same slice every other view draws — a calendar is a layout, not a second question.',
+  points: [
+    {
+      label: 'Days are days in your schedule timezone',
+      body:
+        'Named beside the month. Schedules are stored as UTC cron, so the same expression lands on ' +
+        'a different calendar day in Berlin than in Los Angeles, and an unlabelled grid would be an ' +
+        'unmarked clock reading.'
+    },
+    {
+      label: 'A task that runs six times is one chip',
+      body:
+        'The chip carries the first time and ×6; hovering lists them. A month cell shows three ' +
+        'and then "+N more", which expands in place.'
+    },
+    {
+      label: 'Too-frequent tasks say so rather than going quiet',
+      body:
+        'A five-minute task has thousands of runs in a six-week grid. Cronsole lists the first few ' +
+        'hundred and prints a line naming how many were cut short — a half-empty month reads as ' +
+        '"it stopped running". Week shows the same tasks completely.'
+    },
+    {
+      label: 'Tasks with no cron are listed under the grid',
+      body:
+        'A Windows task triggered at logon has no place on any calendar, and a workflow whose ' +
+        'schedule could not be read says why. Dropping them silently would look like deletion.'
+    }
+  ],
+  doc: { label: 'UI User Guide › Calendar', url: uiGuide('calendar') }
 };
 
 const filters: HelpTopic = {
@@ -1573,6 +1612,7 @@ const TOPIC_LIST: HelpTopic[] = [
   command,
   taskActions,
   views,
+  calendar,
   collections,
   filters,
   importSync,

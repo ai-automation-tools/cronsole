@@ -535,14 +535,16 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       `--border-strong` and a sweep of the *controls* only — a component change, which is why it
       is not in the palette pass. The test says so and will fail if someone closes it by value.
 
-- [ ] **Two Settings toggles are now vestigial** *(logged 2026-08-12, created by the same change)*.
-      The dashboard opens on **All**, which hard-sets `status: any` and `system: include` — exactly
-      what *Show disabled tasks* and the persisted system lens control, so neither affects the
-      opening view any more (`defaultCategory` and `defaultPlatform` still do). **Not silently
-      removed**, because the system lens is still written when you change it from the dashboard,
-      and both may want to become "what the All view means for you" instead. Decide between making
-      them apply again, repurposing them, or deleting them — but do not leave two settings that
-      look like they do something and don't.
+- [ ] **One Settings toggle is still vestigial** *(logged 2026-08-12, halved 2026-08-26)*.
+      The dashboard used to open on **All**, which hard-set `status: any` **and** `system: include`
+      — exactly what *Show disabled tasks* and the persisted system lens control, so neither
+      affected the opening view. **The ownership half is fixed**: `openingFilters` now reads
+      `showSystemTasks`, the setting has its own switch on the Settings screen, and the dashboard
+      states the default above the list. *Show disabled tasks* is still overridden, deliberately
+      for now — the status lens already prints an `N inactive hidden` chip beside **Filters** the
+      moment it withholds anything, so a default there discloses itself where the ownership one did
+      not. Decide between making it apply too, repurposing it, or deleting it — but do not leave a
+      setting that looks like it does something and doesn't.
 - [ ] **Restore's plan doesn't check that a task's action points at anything that exists**
       *(logged 2026-07-31)*: add an **advisory** column reporting, per file, whether the action's
       executable and file-looking arguments resolve on this machine. Not a refusal — an executable
@@ -995,6 +997,38 @@ lines replaced is in that file's *Roadmap narrative archive* appendices.
 <a id="shipped-2026-08-15--2026-08-17"></a>
 
 ## Shipped 2026-08-15 → 2026-08-18 — the current sprint
+
+### Shipped 2026-08-26 — the ownership default, and a calendar
+
+#### 🟢 System tasks are hidden by default again *(2026-08-26)*
+
+`openingFilters` hard-set `system: 'include'` on every bare dashboard URL, which silently overrode
+**Show system tasks** — so 257 of 352 rows on a real machine belonged to Windows and no preference
+could change it for good. The opening view now **reads** that setting; it has a switch of its own
+under Settings › Dashboard defaults; and the dashboard prints a line above the list naming the
+number it holds back with a link to the switch. A seventh built-in view, **Mine**, ships with it so
+the default combination still lights a named chip instead of *Custom*. Half of the "two vestigial
+toggles" open item is now closed — *Show disabled tasks* stays overridden, because the status lens
+already discloses itself with an `N inactive hidden` chip.
+
+#### 🟢 Calendar view — the fifth layout *(2026-08-26)*
+
+Grid, List, Kanban and Schedule all answer *"what do I have"*. The calendar answers *"what happens
+next Tuesday"*, which none of them could: the Schedule timeline orders by **next** run, one instant
+per task, so a weekday task appears once and the shape of a week is invisible.
+
+Month (a fixed six-week grid) or Week, over the slice you are already in — every filter, the rail,
+the search box and the ownership lens still apply, because a calendar is a *layout*, not a second
+question. New route **`GET /api/tools/occurrences`** walks the stored UTC cron
+(`services/occurrences.ts`); it takes **no timezone**, because which calendar *day* an instant lands
+on is the browser's arithmetic and stays at the edge with every other conversion.
+
+Two things it refuses to do quietly. A task it **cannot** place — a logon-triggered Windows task, a
+workflow whose schedule could not be read — is listed under the grid **with its reason** rather than
+omitted, because a silently missing task is indistinguishable from a deleted one. And a task firing
+every five minutes has thousands of runs in a six-week grid, so the walk stops at a cap and reports
+*where* it stopped: the grid says how many tasks were cut short and points at Week, rather than
+rendering a half-empty month that reads as *"it stopped running"*.
 
 ### Shipped 2026-08-25 — logs, extensibility, and one investigation
 

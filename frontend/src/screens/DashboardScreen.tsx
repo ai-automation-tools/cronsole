@@ -9,6 +9,7 @@ import {
   List,
   Columns,
   Calendar,
+  CalendarDays,
   HelpCircle,
   Zap,
   Search,
@@ -34,6 +35,7 @@ import { pinForNode, pinFromNode, pinIdFromKey } from '../utils/railPins';
 import { HelpButton } from '../components/HelpButton';
 import { sourceTopicId } from '../data/help';
 import { ViewBar } from '../components/ViewBar';
+import { CalendarView } from '../components/CalendarView';
 import { platformLabel, platformBadgeClass, sourceLabel, sourceDescription } from '../platform';
 import { applySystemLens } from '../utils/systemTasks';
 import {
@@ -57,11 +59,11 @@ import {
   openingFilters,
   type SavedView
 } from '../utils/savedViews';
-import { useSettings, type Settings } from '../hooks/useSettings';
+import { useSettings, type DashboardView, type Settings } from '../hooks/useSettings';
 import { useTaskHealthTiers } from '../hooks/useTaskHealthTiers';
 import { useMinuteClock } from '../hooks/useMinuteClock';
 import { formatDateTime, formatTime } from '../utils/datetime';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 // Loose shape for the untyped platform-metadata JSON blob on tasks.
 type TaskMeta = { nextRunTime?: string; nextRun?: string; schedule?: string } | null | undefined;
@@ -189,11 +191,12 @@ export const DashboardScreen = ({
     () =>
       hasFilterParams
         ? filtersFromParams(searchParams, settings.savedViews)
-        // A bare URL opens on **All** — everything, no lens. It is *derived*
-        // rather than written, so it can never fight you: touching any filter
-        // makes the URL non-bare and this branch is not consulted again. And it
-        // resolves to a built-in view, so the bar lights "All" rather than
-        // leaving the state nameless.
+        // A bare URL opens on every status, through the ownership lens the user
+        // set in Settings — see `openingFilters`. It is *derived* rather than
+        // written, so it can never fight you: touching any filter makes the URL
+        // non-bare and this branch is not consulted again. And it resolves to a
+        // built-in view either way ("Mine" or "All"), so the bar names the
+        // state rather than lighting "Custom" over the first screen.
         //
         // It used to open on Favorites. The banner that had to accompany that —
         // naming the filter, counting what it withheld, offering the way out —
@@ -222,7 +225,7 @@ export const DashboardScreen = ({
    */
   const applyRailPatch = (patch: Partial<TaskFilters>) => setFilters({ ...filters, ...patch });
 
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'kanban' | 'schedule'>(settings.defaultView);
+  const [viewMode, setViewMode] = useState<DashboardView>(settings.defaultView);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // The source rail as a drawer, below `md` only. Local state and not the URL:
@@ -893,6 +896,37 @@ export const DashboardScreen = ({
         </div>
       ) : (
         <>
+          {/*
+            The ownership default, stated where it applies.
+
+            `showSystemTasks` is off by default and now survives into the opening
+            view (`openingFilters`), so the first screen withholds ~257 rows on a
+            real machine. The withheld-count chip beside the Filters trigger is
+            the *escape hatch* — it flips the lens for this session — and this
+            line is the different half it cannot serve: **that the hiding is a
+            setting, and where the setting lives.** Someone who wants system
+            tasks permanently visible should not have to re-click a chip on every
+            reload to get there.
+
+            Rendered only while the lens is actually withholding something. A
+            standing notice on a machine with no system tasks would be a sentence
+            about a thing that is not happening.
+          */}
+          {filters.system === 'personal' && systemTaskCount > 0 && (
+            <p className="text-[11px] text-subtle-foreground">
+              System tasks are hidden by default —{' '}
+              <span className="tabular-nums font-semibold text-muted-foreground">{systemTaskCount}</span>{' '}
+              on this machine. Change it in{' '}
+              <Link
+                to="/settings"
+                className="font-semibold text-foreground underline underline-offset-2 hover:text-primary transition-colors"
+              >
+                Settings
+              </Link>
+              .
+            </p>
+          )}
+
           {/* Source used to be a chip row here. It is the rail on the left now —
               the first-level axis deserved navigation, not a fourth horizontal
               bar competing with the three below it. The view bar is what is left,
@@ -1017,6 +1051,12 @@ export const DashboardScreen = ({
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'schedule' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <Calendar size={12} /> Schedule
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <CalendarDays size={12} /> Calendar
               </button>
             </div>
             </div>
@@ -1353,6 +1393,20 @@ export const DashboardScreen = ({
                 )}
               </div>
             </div>
+          )}
+
+          {/* Calendar View — the same slice, laid out by when it fires.
+              It takes `filteredTasks` like every other view and joins the
+              server's occurrence expansion to it, so every filter, the rail and
+              the search box still apply. `includeSystem` is passed because the
+              expansion happens server-side and there is no point walking 257
+              crons the current lens is hiding. */}
+          {viewMode === 'calendar' && (
+            <CalendarView
+              tasks={filteredTasks}
+              includeSystem={filters.system !== 'personal'}
+              onTaskSelect={onTaskSelect}
+            />
           )}
         </>
       )}

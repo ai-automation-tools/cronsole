@@ -37,7 +37,7 @@ describe('BUILTIN_VIEWS', () => {
     // Favorites is deliberately absent — it became a row in the source rail, so
     // a chip here would be a second control for a dimension the rail owns.
     expect(BUILTIN_VIEWS.map(v => v.id))
-      .toEqual(['all', 'my-jobs', 'failures', 'due-today', 'disabled', 'system']);
+      .toEqual(['all', 'mine', 'my-jobs', 'failures', 'due-today', 'disabled', 'system']);
   });
 
   it('makes All actually mean all — no lens at all', () => {
@@ -58,11 +58,12 @@ describe('BUILTIN_VIEWS', () => {
     // state that reads as meaningful to whoever finds it next.
     expect(BUILTIN_VIEWS.find(v => v.id === 'favorites')).toBeUndefined();
     // And the star still outranks the *defaults* where that mattered: a bare
-    // URL opens on All (every status, system included), so clicking Favorites
-    // from a fresh load withholds nothing.
+    // URL opens on every status, so clicking Favorites from a fresh load
+    // withholds nothing the star did not already withhold. The ownership lens
+    // follows the user's setting — see `openingFilters`.
     const opening = openingFilters(filters());
     expect(opening.status).toBe('any');
-    expect(opening.system).toBe('include');
+    expect(opening.favorites).toBe('any');
   });
 
   it('gives every built-in a blurb naming what it leaves out', () => {
@@ -93,30 +94,42 @@ describe('BUILTIN_VIEWS', () => {
 describe('openingFilters — what a bare dashboard URL means', () => {
   const myDefaults = filters({ source: 'WINDOWS_TASK_SCHEDULER', category: 'Backups' });
 
-  it('opens on everything', () => {
+  it('opens on every status', () => {
     // Changed 2026-08-12 from "Favorites once you have any". Opening on a subset
     // chosen by a gesture the user may have made weeks ago needed a banner to
     // stay honest — naming the filter, counting what it withheld, offering the
-    // way out. Opening on everything needs no such apology.
+    // way out. The status lens needs no such apology: its withheld count is a
+    // chip beside the Filters trigger, so a default there discloses itself.
     const open = openingFilters(myDefaults);
     expect(open.status).toBe('any');
-    expect(open.system).toBe('include');
     expect(open.favorites).toBe('any');
   });
 
-  it('keeps the saved defaults that All says nothing about', () => {
-    // `status` and `system` are exactly the lenses All is *about*, so honouring
-    // them would make the opening view not-All. `category` and `source` narrow
-    // along other axes and still apply.
+  it('honours the ownership lens the user set in Settings', () => {
+    // The one preference that exists to answer "whose machine is this dashboard
+    // about". Forcing `include` here overrode it on every reload, so ~257
+    // Windows-owned rows came back after each visit however the setting was
+    // left. Both directions are pinned — a rule that only holds one way is the
+    // override again wearing a different default.
+    expect(openingFilters(filters({ system: 'personal' })).system).toBe('personal');
+    expect(openingFilters(filters({ system: 'include' })).system).toBe('include');
+  });
+
+  it('keeps the saved defaults this says nothing about', () => {
+    // `status` is superseded; `category` and `source` narrow along other axes
+    // and still apply.
     const open = openingFilters(myDefaults);
     expect(open.source).toBe('WINDOWS_TASK_SCHEDULER');
     expect(open.category).toBe('Backups');
   });
 
-  it('resolves to a view the bar can name', () => {
+  it('resolves to a view the bar can name, under either ownership default', () => {
     // The state must never be nameless: a list with no lit chip is one whose
-    // constraints the user has no way to read off the page.
-    expect(matchView(openingFilters(filters()), [])?.name).toBe('All');
+    // constraints the user has no way to read off the page. This is the whole
+    // reason the "Mine" built-in exists — without it the *default* dashboard
+    // lit "Custom".
+    expect(matchView(openingFilters(filters({ system: 'personal' })), [])?.name).toBe('Mine');
+    expect(matchView(openingFilters(filters({ system: 'include' })), [])?.name).toBe('All');
   });
 });
 

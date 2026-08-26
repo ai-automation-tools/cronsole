@@ -12,6 +12,7 @@ import {
   List,
   Columns,
   Calendar,
+  CalendarDays,
   Download,
   Upload,
   RotateCcw,
@@ -74,6 +75,7 @@ const VIEW_OPTIONS: { value: DashboardView; label: string; Icon: typeof Grid }[]
   { value: 'list', label: 'List', Icon: List },
   { value: 'kanban', label: 'Kanban', Icon: Columns },
   { value: 'schedule', label: 'Schedule', Icon: Calendar },
+  { value: 'calendar', label: 'Calendar', Icon: CalendarDays },
 ];
 
 // ---- Layout primitives -----------------------------------------------------
@@ -557,6 +559,25 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
             checked={settings.defaultShowDisabled}
             onChange={v => update('defaultShowDisabled', v)}
             label="Show disabled tasks by default"
+          />
+        </Row>
+        {/*
+          The persisted answer to "whose machine is this dashboard about".
+
+          Off hides `\Microsoft\…` — 257 of 352 rows on a real machine — so every
+          headline number and rail count is about tasks the user wrote. It is a
+          *default*, not a wall: the Filters popover still switches the lens for
+          a session, the "System" view still isolates them, and the dashboard
+          prints a line saying they are hidden and pointing back here.
+        */}
+        <Row
+          label="Show system tasks"
+          description="Off hides the tasks Windows itself owns (\Microsoft\…), which are usually most of them. You can still see them from the Filters menu or the System view."
+        >
+          <Toggle
+            checked={settings.showSystemTasks}
+            onChange={v => update('showSystemTasks', v)}
+            label="Show system tasks by default"
           />
         </Row>
         <Row label="Default category filter">

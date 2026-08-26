@@ -131,6 +131,7 @@ import {
 import { planBulkUntrack, summarizeBulkUntrack } from '../services/bulkUntrack.js';
 import { buildPlatformMatrix, recordCapability } from '../services/platformCapabilities.js';
 import { TaskService } from '../services/TaskService.js';
+import { expandOccurrences, DEFAULT_MAX_PER_TASK } from '../services/occurrences.js';
 import {
   buildDownload,
   findDownload,
@@ -1663,6 +1664,112 @@ router.get('/task-health', async (req: Request, res: Response) => {
  * bounded query rather than a full history load.
  */
 const HEALTH_EXECUTION_WINDOW = 10;
+
+/**
+ * The widest window one occurrence read will expand, in days.
+ *
+ * A six-week month grid is 42 days and a week is 7, so this leaves room for the
+ * padding the caller adds around the grid without leaving room for "expand the
+ * next five years", which is a request no calendar makes and every runaway
+ * client does.
+ */
+const MAX_OCCURRENCE_DAYS = 70;
+
+const occurrencesQuerySchema = z.object({
+  from: z.string().datetime({ offset: true }),
+  to: z.string().datetime({ offset: true }),
+  /**
+   * Strict `'true' | 'false'` like the health route's, and for the same reason:
+   * a typo that silently means `true` changes which tasks the answer is about.
+   * Defaults to **false** here rather than true, because the dashboard hides
+   * system tasks by default and expanding 257 of them per month page is work
+   * nobody asked for.
+   */
+  includeSystem: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform(v => v === 'true'),
+  maxPerTask: z.coerce.number().int().positive().max(1000).optional()
+});
+
+/**
+ * When does each task fire, between two instants?
+ *
+ * The calendar view's data. `GET /api/tasks` carries one `nextRunTime` per task,
+ * which answers "what is next" and cannot answer "which days of March does this
+ * run on" — that needs the stored cron walked forward, which is what
+ * `services/occurrences.ts` does.
+ *
+ * **On `/api/tools` rather than `/api/tasks`** for the reason the whole router
+ * exists: this is a question across tasks, and every route there competes with
+ * `/:id`.
+ *
+ * **Instants in, instants out — no timezone parameter.** Storage is 5-field cron
+ * in UTC (CLAUDE.md §9) and the zone lives at the browser's edge, so which
+ * calendar *day* an instant falls on is the caller's arithmetic, not this
+ * route's. Passing a zone here would put a second conversion in the stack, and
+ * a calendar disagreeing with the times printed on its own cards is exactly the
+ * failure `utils/timezone.ts` was built to end.
+ *
+ * **A task that cannot be placed is returned, with its reason.** `unplaceable`
+ * is not an error list — a Windows task triggered at logon belongs on it
+ * permanently, and the calendar says so rather than leaving the user to conclude
+ * their task vanished.
+ */
+router.get('/occurrences', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+
+  const parsed = occurrencesQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new HttpError(400, parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
+  }
+  const { includeSystem, maxPerTask } = parsed.data;
+  const from = new Date(parsed.data.from);
+  const to = new Date(parsed.data.to);
+
+  if (to.getTime() <= from.getTime()) {
+    throw new HttpError(400, '`to` must be after `from`.');
+  }
+  const days = (to.getTime() - from.getTime()) / 86_400_000;
+  if (days > MAX_OCCURRENCE_DAYS) {
+    throw new HttpError(
+      400,
+      `That window is ${Math.round(days)} days. One read expands at most ${MAX_OCCURRENCE_DAYS} — ask for a month at a time.`
+    );
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: { userId, status: { not: TaskStatus.DELETED } },
+    select: { id: true, externalId: true, platform: true, schedule: true, metadata: true }
+  });
+
+  // The system lens is applied HERE, before the expansion, so hiding those tasks
+  // also costs nothing to compute. `isSystemTask` is the one definition — the
+  // browser gets the verdict on each task and never re-derives the rule (#20a).
+  const governed = includeSystem
+    ? tasks
+    : tasks.filter(t => !TaskService.isSystemTask(t.externalId, t.platform));
+
+  const report = expandOccurrences(governed, from, to, maxPerTask);
+
+  res.json({
+    range: { from: from.toISOString(), to: to.toISOString() },
+    /**
+     * What the lists below are *about*. Without this a caller cannot tell "no
+     * runs this month" from "the tasks with runs this month were excluded" —
+     * the same reason the health route carries a `scope`.
+     */
+    scope: {
+      includeSystem,
+      systemExcluded: tasks.length - governed.length,
+      maxPerTask: maxPerTask ?? DEFAULT_MAX_PER_TASK
+    },
+    tasks: report.tasks,
+    unplaceable: report.unplaceable,
+    /** How many tasks hit the cap. Zero means every list below is complete. */
+    truncated: report.truncated
+  });
+});
 
 /**
  * Ceiling on the rows one analytics read pulls into memory to bucket.

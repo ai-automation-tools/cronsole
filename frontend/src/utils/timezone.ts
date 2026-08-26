@@ -123,6 +123,33 @@ export function zoneLabel(mode: TimezoneMode, at: Date = new Date()): string {
   return abbrev;
 }
 
+/**
+ * Which calendar day an instant falls on, **in `zone`** — `YYYY-MM-DD`.
+ *
+ * The one conversion the whole zone layer exists for, in its smallest form: an
+ * instant is zone-free and a *day* is not, so 09:00 UTC is Tuesday in Berlin and
+ * Monday evening in Los Angeles. Every surface that groups by day — "due today",
+ * the calendar's cells — has to ask this question, and asking it two different
+ * ways is how a calendar comes to disagree with the filter chip above it.
+ *
+ * `en-CA` formats as `YYYY-MM-DD`, so string equality is date equality and the
+ * keys sort chronologically without being parsed back.
+ */
+export function dayKeyIn(zone: string, at: Date): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: zone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(at);
+  } catch {
+    // An unknown zone id falls back to UTC rather than throwing: a day label
+    // that is off by one is recoverable, a screen that does not render is not.
+    return at.toISOString().slice(0, 10);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Cron ↔ zone
 // ---------------------------------------------------------------------------

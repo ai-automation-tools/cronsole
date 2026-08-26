@@ -81,7 +81,7 @@ so what you see is consistent no matter where a task actually lives.
 
 | Capability | What it gives you |
 |:---|:---|
-| **Unified dashboard** | Every synced task in one view, with platform and status badges, across grid / list / kanban / schedule layouts. Each card says **when the task runs** in plain words — *"Daily at 8:00 AM PDT"*, read in your own timezone — so you don't have to open a task to find out. |
+| **Unified dashboard** | Every synced task in one view, with platform and status badges, across grid / list / kanban / schedule / calendar layouts. Each card says **when the task runs** in plain words — *"Daily at 8:00 AM PDT"*, read in your own timezone — so you don't have to open a task to find out, and the **calendar** puts a month or a week of actual firings on a grid. |
 | **Favorites & collections** | Star the handful of tasks you actually watch — **Favorites** is a row on the source rail, so it *composes* with whatever view is lit (Failures + Favorites is your failing starred tasks) rather than replacing it. A **collection** goes further: it stores *the tasks themselves*, not a filter, so you can name a set containing two Claude routines and two Windows tasks that share no property any filter could match. Neither ever narrows the dashboard behind your back — a bare URL opens on everything. |
 | **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. Cronsole is local-first, so reaching it from a phone is an opt-in step: [**Remote Access**](docs/user-guides/guides/Remote_Access_Guide.md) ships a single-origin reverse proxy you put behind Tailscale or a Cloudflare Tunnel, keeping the dashboard off the public internet. |
 | **Live sync** | The local agent keeps Cronsole in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
@@ -106,7 +106,7 @@ so what you see is consistent no matter where a task actually lives.
 <br>
 
 <p align="center">
-  <img src="images/screenshots/dashboard.png" alt="Cronsole unified dashboard — dark theme with platform filters, categories, and grid/list/kanban/schedule views" width="900">
+  <img src="images/screenshots/dashboard.png" alt="Cronsole unified dashboard — dark theme with platform filters, categories, and grid/list/kanban/schedule/calendar views" width="900">
 </p>
 
 | | |

@@ -13,6 +13,54 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Calendar view — which of your tasks run on which day** (2026-08-26). A fifth view mode beside
+  Grid, List, Kanban and Schedule, in **Month** or **Week**.
+
+  The four existing layouts all answer *"what do I have"*. None of them could answer *"what happens
+  next Tuesday"* — the Schedule timeline comes closest and still orders tasks by their **next** run,
+  one instant each, so a task that fires every weekday appears exactly once and the shape of a week
+  is invisible.
+
+  **It draws the slice you are already in.** Every filter, the source rail, the search box and the
+  ownership lens still apply, because a calendar is a *layout*, not a second question — narrowing to
+  a collection re-draws the same grid over fewer tasks and costs no round trip. Days are days in
+  your **schedule timezone**, which is named on the header: schedules are stored as UTC cron, so the
+  same expression lands on a different calendar day in Berlin than in Los Angeles, and an unlabelled
+  grid would be the unmarked clock reading the rest of the app refuses to print.
+
+  **Two things it will not do quietly.** A task it cannot place — a Windows task triggered at logon,
+  a workflow whose schedule could not be read — is listed under the grid **with its reason** rather
+  than left off, because a silently missing task is indistinguishable from a deleted one. And a task
+  firing every five minutes has thousands of runs in a six-week grid: Cronsole enumerates the first
+  few hundred, then says how many tasks were cut short and points at **Week**, where the same tasks
+  fit completely. A month whose second half looks empty reads as *"it stopped running"*, which is the
+  most expensive wrong thing a calendar can say.
+
+  Under it, a new route — `GET /api/tools/occurrences` — walks the stored cron. It takes **no
+  timezone parameter**: instants in, instants out, with the day-of-the-week arithmetic staying at the
+  browser's edge alongside every other zone conversion.
+
+### Changed
+- **System tasks are hidden by default again, and the setting that says so now sticks** (2026-08-26).
+  A bare dashboard URL used to hard-set the ownership lens to *include*, which silently overrode
+  **Show system tasks** on every reload — so on a real machine the first screen was 257 of 352 rows
+  belonging to Windows, and no preference could change that for good.
+
+  The opening view now **reads** that setting instead of overriding it, and the setting has a switch
+  of its own under **Settings › Dashboard defaults**. A small line above the task list states the
+  default with the number it is holding back and links to the switch — the `N system hidden` chip
+  beside **Filters** was already the escape hatch for *this session*, and what it could not say is
+  that the hiding is a setting or where the setting lives.
+
+  A seventh built-in view, **Mine**, ships with it: All minus the tasks Windows owns. Without it the
+  dashboard's own default combination matched no view and the bar lit **Custom** over the first
+  screen every user sees.
+
+  *Show disabled tasks* is still overridden by the opening view — see ROADMAP › Open. That one
+  discloses itself (an `N inactive hidden` chip appears the moment it withholds anything), which is
+  precisely what the ownership default did not do.
+
+### Added
 - **Prompt sets for the hosted and observer sources** (2026-08-25). Two new pages in the [prompt library](prompts/mcp-server/README.md): **Gemini triggers** and **Observer sources** (GitHub Actions + Vercel Cron).
 
   Gemini gets the long treatment because it is the one source where you cannot fix a mistake afterwards: a trigger is immutable, so the page leads with the three prompt-writing rules that each cost a real failed run (never let it ask a question, always make it report failure, grant only the reach it needs), then covers tools versus domains versus saved credentials, what create-then-delete actually looks like when `delete_task` refuses every non-native platform, and credential rotation. It opens by warning that this is **not** the Gemini CLI, which already had prompts one page over as a *Windows* task — same brand, nothing else in common.

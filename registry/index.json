@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-08-20T14:20:02.220Z",
+  "updatedAt": "2026-08-27T14:26:28.376Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1216,6 +1216,25 @@
       "sha256": "ec6c4f60e08c35a0901b4cd071e01c988dcd2f61ca08198911040bbb4825fe03"
     },
     {
+      "id": "ntf-email-alert",
+      "name": "Send an Email Alert (SMTP)",
+      "description": "Send a scheduled email through an SMTP relay using PowerShell — an alert channel for anyone who wants a message in their inbox rather than a chat webhook.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "email",
+        "smtp"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ntf-email-alert.json",
+      "sha256": "00d94d3e01107da7cc042851eadd589977ca48c1e69eb558df4990778a0c54e6"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -1329,6 +1348,44 @@
       ],
       "path": "templates/native-http-heartbeat.json",
       "sha256": "d3801cb6b6d7c6261b13575252ba5908e6ad72068d6c0fe6682016d5f7a34654"
+    },
+    {
+      "id": "native-ffmpeg-transcode",
+      "name": "Transcode Video (ffmpeg)",
+      "description": "Re-encode a video file to H.264 with ffmpeg on the machine hosting Cronsole, useful for shrinking recordings dropped into a watch folder before they pile up on disk.",
+      "category": "media",
+      "tags": [
+        "cronsole-native",
+        "media",
+        "video",
+        "ffmpeg"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-ffmpeg-transcode.json",
+      "sha256": "cade8d13f01b8b5de34f8197c4e989ea19787030fbda1d22bf1fa8ddd4ae822c"
+    },
+    {
+      "id": "native-image-resize",
+      "name": "Resize Images in a Folder (ImageMagick)",
+      "description": "Batch-resize every image matching a pattern to a maximum width using ImageMagick, on the machine hosting Cronsole — a way to keep a photo drop folder from filling disk with full-resolution originals.",
+      "category": "media",
+      "tags": [
+        "cronsole-native",
+        "media",
+        "images",
+        "imagemagick"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-image-resize.json",
+      "sha256": "c6e2bfdcb6104a2a0fa8d0cffaec8522752819b6edd84aebc56ab8e51bdaf9f7"
     },
     {
       "id": "native-script-starter",
@@ -1468,6 +1525,26 @@
       ],
       "path": "templates/native-check-port-open.json",
       "sha256": "30bf12839dcb69167dcdb14518f18f0fdb8bcface08ddb200fccff3fc2a14836"
+    },
+    {
+      "id": "native-script-pending-reboot",
+      "name": "Pending Reboot Check (Cronsole)",
+      "description": "Fail the run when Windows has installed updates that need a restart to finish — the gap between kicking off an update scan and actually knowing a reboot is owed.",
+      "category": "system",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "system",
+        "windows",
+        "updates"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-pending-reboot.json",
+      "sha256": "f718f606c472f4c5b55b3df40c263b1fd0d1b25935dc9de7438bac80c82cbe65"
     },
     {
       "id": "claude-routine-issue-triage",
@@ -1712,10 +1789,13 @@
         "native-check-endpoint-healthy",
         "native-check-backup-fresh",
         "native-check-disk-space",
-        "native-check-port-open"
+        "native-check-port-open",
+        "native-script-pending-reboot",
+        "native-ffmpeg-transcode",
+        "native-image-resize"
       ],
       "path": "packs/cronsole-native.json",
-      "sha256": "16f884ea5d20463176c0ceb760a62b2311f8f7d8ab3f24e70bc288498ceade9e"
+      "sha256": "b30447e6b1250aec0dd322436ce3264d10b9d78c41e589372ddccdc1e0698857"
     },
     {
       "id": "claude-routines",
@@ -1749,10 +1829,11 @@
         "data-scp-upload",
         "ntf-discord-heartbeat",
         "ntf-log-heartbeat",
-        "ntf-windows-broadcast-message"
+        "ntf-windows-broadcast-message",
+        "ntf-email-alert"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "27215940b244a1a31d8e23da4689ee94ae5c3ab2c878fd424afeccec9544d551"
+      "sha256": "5bc6a1a6e09b47e5541d749beab7e178798459dfdad72fe4e32067e8a7192c23"
     }
   ]
 }

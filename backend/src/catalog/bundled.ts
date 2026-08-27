@@ -1267,6 +1267,27 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'reportPath', label: 'Report file path', type: 'path', default: 'C:\\reports\\failed-tasks.txt', required: true, help: 'Where to append the list of failing tasks. Reading every task needs the run to be elevated on most machines.' }
     ],
     compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ntf-email-alert',
+    name: 'Send an Email Alert (SMTP)',
+    description: 'Send a scheduled email through an SMTP relay using PowerShell — an alert channel for anyone who wants a message in their inbox rather than a chat webhook.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'notification',
+    tags: ['notification', 'windows', 'email', 'smtp'],
+    icon: 'Mail',
+    trigger: sched('0 8 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Send-MailMessage -SmtpServer \'{{smtpServer}}\' -From \'{{fromAddress}}\' -To \'{{toAddress}}\' -Subject \'{{subject}}\' -Body \'{{body}}\'"',
+    parameters: [
+      { key: 'smtpServer', label: 'SMTP server', type: 'text', default: '', required: true, help: 'Hostname or IP of an SMTP relay that accepts mail from this machine without authentication, such as an internal relay or your mail provider\u2019s relay endpoint.' },
+      { key: 'fromAddress', label: 'From address', type: 'text', default: '', required: true, help: 'The address the alert appears to come from.' },
+      { key: 'toAddress', label: 'To address', type: 'text', default: '', required: true, help: 'Where to send the alert.' },
+      { key: 'subject', label: 'Subject', type: 'text', default: 'Cronsole scheduled alert', required: true, help: 'The email subject line. Avoid single quotes (they close the PowerShell string).' },
+      { key: 'body', label: 'Body', type: 'text', default: 'Scheduled alert from Cronsole.', required: true, help: 'The email body text. Avoid single quotes (they close the PowerShell string).' }
+    ],
+    compatibleTargets: ['windows']
   }
 ];
 
@@ -1431,6 +1452,88 @@ const nativePack: RegistryTemplate[] = [
       {
         ...P.url,
         help: 'The heartbeat URL your monitor gave you. It alerts when the ping stops — which is the one failure a scheduler cannot report about itself.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-ffmpeg-transcode',
+    name: 'Transcode Video (ffmpeg)',
+    description:
+      'Re-encode a video file to H.264 with ffmpeg on the machine hosting Cronsole, useful for shrinking recordings dropped into a watch folder before they pile up on disk.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'media',
+    tags: ['cronsole-native', 'media', 'video', 'ffmpeg'],
+    icon: 'Film',
+    trigger: sched('0 2 * * *'),
+    commandTemplate: 'ffmpeg -y -i "{{inputFile}}" -c:v libx264 -crf {{quality}} "{{outputFile}}"',
+    parameters: [
+      {
+        key: 'inputFile',
+        label: 'Source video path',
+        type: 'path',
+        default: '',
+        required: true,
+        help: 'Absolute path to the source video file, as seen by the machine running the Cronsole backend. ffmpeg must already be on that machine\u2019s PATH.'
+      },
+      {
+        key: 'outputFile',
+        label: 'Output video path',
+        type: 'path',
+        default: '',
+        required: true,
+        help: 'Where to write the transcoded file. Must be a different path than the source — ffmpeg cannot write over the file it is reading.'
+      },
+      {
+        key: 'quality',
+        label: 'CRF quality',
+        type: 'text',
+        default: '23',
+        required: true,
+        help: 'The x264 CRF value. Lower means higher quality and a larger file; 18 to 28 is the usual range.'
+      }
+    ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-image-resize',
+    name: 'Resize Images in a Folder (ImageMagick)',
+    description:
+      'Batch-resize every image matching a pattern to a maximum width using ImageMagick, on the machine hosting Cronsole — a way to keep a photo drop folder from filling disk with full-resolution originals.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'media',
+    tags: ['cronsole-native', 'media', 'images', 'imagemagick'],
+    icon: 'ImageDown',
+    trigger: sched('0 3 * * *'),
+    commandTemplate: 'magick mogrify -path "{{outputDir}}" -resize {{maxWidth}} "{{inputPattern}}"',
+    parameters: [
+      {
+        key: 'inputPattern',
+        label: 'Input file pattern',
+        type: 'text',
+        default: '',
+        required: true,
+        help: 'Files to resize, as a path or wildcard such as C:\\photos\\*.jpg, resolved on the machine running the Cronsole backend. ImageMagick must already be installed there.'
+      },
+      {
+        key: 'outputDir',
+        label: 'Output folder',
+        type: 'path',
+        default: '',
+        required: true,
+        help: 'Where the resized copies are written. Use a different folder than the input — mogrify overwrites files in place otherwise.'
+      },
+      {
+        key: 'maxWidth',
+        label: 'Max width (pixels)',
+        type: 'text',
+        default: '1920',
+        required: true,
+        help: 'Images wider than this are scaled down proportionally; images already narrower are left unchanged.'
       }
     ],
     compatibleTargets: ['cronsole-native']
@@ -1764,6 +1867,40 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
         help: 'The check succeeds if a TCP connection is accepted within 15 seconds. It does not log in or send anything.'
       }
     ],
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-script-pending-reboot',
+    name: 'Pending Reboot Check (Cronsole)',
+    description:
+      'Fail the run when Windows has installed updates that need a restart to finish — the gap between kicking off an update scan and actually knowing a reboot is owed.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'system',
+    tags: ['cronsole-native', 'script', 'system', 'windows', 'updates'],
+    icon: 'AlertTriangle',
+    trigger: sched('0 9 * * *'),
+    action: {
+      kind: 'script',
+      interpreter: 'powershell',
+      body: [
+        '# Runs on the machine hosting the Cronsole backend, which must be a Windows host.',
+        '# A non-zero exit records a failed run, which is what makes this an alert rather than a status log.',
+        '',
+        '$pending = $false',
+        'if (Test-Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending") { $pending = $true }',
+        'if (Test-Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired") { $pending = $true }',
+        '',
+        'if ($pending) {',
+        '  Write-Output "A reboot is pending."',
+        '  exit 1',
+        '} else {',
+        '  Write-Output "No reboot pending."',
+        '}',
+        ''
+      ].join('\n')
+    },
     compatibleTargets: ['cronsole-native']
   }
 ];

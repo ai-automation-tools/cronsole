@@ -172,7 +172,10 @@ export const bundledPacks: BundledPack[] = [
       'native-check-endpoint-healthy',
       'native-check-backup-fresh',
       'native-check-disk-space',
-      'native-check-port-open'
+      'native-check-port-open',
+      'native-script-pending-reboot',
+      'native-ffmpeg-transcode',
+      'native-image-resize'
     ]
   },
   {
@@ -221,7 +224,8 @@ export const bundledPacks: BundledPack[] = [
       'data-scp-upload',
       'ntf-discord-heartbeat',
       'ntf-log-heartbeat',
-      'ntf-windows-broadcast-message'
+      'ntf-windows-broadcast-message',
+      'ntf-email-alert'
     ]
   }
 ];

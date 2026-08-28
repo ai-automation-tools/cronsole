@@ -111,6 +111,18 @@ export interface Settings {
   /** Is the Sources tree folded shut? Independent of the two bands above it. */
   sourcesCollapsed: boolean;
   /**
+   * Platform keys in the order the rail draws them, when the user has dragged
+   * one. Empty means alphabetical, which is the order it always had.
+   *
+   * A *show* list's sibling and the same shape for the same reason: it names
+   * only what was arranged, so a source shipped later is absent from every
+   * existing preference and arrives at the bottom rather than reshuffling a
+   * rail somebody arranged. Pins keep their order in `railPins` and collections
+   * in their own `position` column — three stores, because the order of a row
+   * belongs with the row, not in a fourth record free to disagree.
+   */
+  sourceOrder: string[];
+  /**
    * Sources listed in the rail even when they hold nothing and are not connected.
    *
    * **The opt-in half of a three-way union.** A source is shown when it is in
@@ -181,6 +193,7 @@ export const DEFAULT_SETTINGS: Settings = {
   collectionsCollapsed: false,
   pinnedCollapsed: false,
   sourcesCollapsed: false,
+  sourceOrder: [],
   shownSources: DEFAULT_SHOWN_SOURCES,
   quickLinks: DEFAULT_QUICK_LINKS,
   openTools: [],

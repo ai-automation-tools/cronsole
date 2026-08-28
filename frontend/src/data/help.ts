@@ -145,12 +145,21 @@ const sources: HelpTopic = {
         'Explore sources shows everything Cronsole can connect to, including what you have not ' +
         'added. Manage sources is where you connect, disconnect, and choose which sources this ' +
         'sidebar lists. A source holding tasks can never be hidden, and connecting one shows it.'
+    },
+    {
+      label: 'Drag a source into the order you want',
+      body:
+        'Sources are alphabetical until you move one — drag a row inside the Sources section, or ' +
+        'press Alt+↑ / Alt+↓ on it. A platform you never moved keeps its alphabetical place at ' +
+        'the bottom, which is where a source added in a later version arrives, so a new one never ' +
+        'reshuffles a sidebar you arranged. Folders inside a source stay alphabetical.'
     }
   ],
   doc: { label: 'Sources Guide › What a source is', url: sourcesGuide('what-a-source-is') },
   more: [
     { label: 'Sources Guide › Choosing which sources you see', url: sourcesGuide('choosing-which-sources-you-see') },
-    { label: 'UI User Guide › The source rail', url: uiGuide('source--where-a-task-comes-from') }
+    { label: 'UI User Guide › The source rail', url: uiGuide('source--where-a-task-comes-from') },
+    { label: 'UI User Guide › Reordering the sidebar', url: uiGuide('reordering-the-sidebar') }
   ]
 };
 
@@ -1038,6 +1047,14 @@ const collections: HelpTopic = {
         'independently. A folded section keeps its count, so folding never hides how much is in ' +
         'there. Manage collections sits at the foot of the Collections section itself. The button ' +
         'at the top of the sidebar is different — it narrows the whole rail to icons.'
+    },
+    {
+      label: 'Drag a row to reorder it',
+      body:
+        'Collections, Pinned and Sources each keep the order you put them in. Drag a row up or ' +
+        'down inside its own section and it takes the place of the row you drop it on; Alt+↑ and ' +
+        'Alt+↓ do the same one step at a time from the keyboard. A row cannot leave its section, ' +
+        'and folders inside a source stay alphabetical. The order follows your account.'
     }
   ],
   doc: { label: 'UI User Guide › Collections', url: uiGuide('collections') }

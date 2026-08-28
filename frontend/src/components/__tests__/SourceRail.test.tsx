@@ -447,3 +447,69 @@ describe('SourceRail collections band', () => {
     expect(screen.queryByRole('button', { name: /pin System tasks/i })).toBeNull();
   });
 });
+
+describe('SourceRail reordering', () => {
+  /**
+   * The keyboard path, which is the one jsdom can drive — HTML5 drag events
+   * carry no `dataTransfer` here. It is also the path that matters most: the
+   * rail is navigation, and an order you can only set with a pointer is one a
+   * keyboard user does not have at all.
+   */
+  const railWithSources = (onReorder = vi.fn(), sourceOrder: string[] = []) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <SourceRail
+            population={[
+              task({ platform: 'WINDOWS_TASK_SCHEDULER' }),
+              task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:HTTP' })
+            ]}
+            filters={DEFAULT_FILTERS}
+            onSelect={vi.fn()}
+            sourceOrder={sourceOrder}
+            onReorder={onReorder}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    return onReorder;
+  };
+
+  it('Alt+ArrowDown reports the whole band in its new order', async () => {
+    const onReorder = railWithSources();
+    // Alphabetical to start: Cronsole (Native), then Windows.
+    fireEvent.keyDown(await screen.findByText('Cronsole (Native)'), {
+      key: 'ArrowDown',
+      altKey: true
+    });
+    expect(onReorder).toHaveBeenCalledWith('source', [
+      'WINDOWS_TASK_SCHEDULER',
+      'TASKHUB_NATIVE'
+    ]);
+  });
+
+  it('does not fire at the end of the band', async () => {
+    const onReorder = railWithSources();
+    fireEvent.keyDown(await screen.findByText('Cronsole (Native)'), {
+      key: 'ArrowUp',
+      altKey: true
+    });
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('leaves the arrows alone without Alt', async () => {
+    const onReorder = railWithSources();
+    fireEvent.keyDown(await screen.findByText('Cronsole (Native)'), { key: 'ArrowDown' });
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('draws the sources in the stored order', async () => {
+    railWithSources(vi.fn(), ['WINDOWS_TASK_SCHEDULER']);
+    await screen.findByText('Windows Task Scheduler');
+    const labels = screen
+      .getAllByText(/^(Cronsole \(Native\)|Windows Task Scheduler)$/)
+      .map(el => el.textContent);
+    expect(labels).toEqual(['Windows Task Scheduler', 'Cronsole (Native)']);
+  });
+});

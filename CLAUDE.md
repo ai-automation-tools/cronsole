@@ -455,6 +455,19 @@ Non-negotiable rules. **Every one has a reason recorded in
   shown in its **own** rail band (Pinned, beside Collections — one `Band` component draws both),
   storing no foreign key, reading its target node's count rather than re-deriving one, and
   surviving its target's disappearance at `0`.
+- **The rail reorders per band, and each band's order is written where that band's record already
+  lives** — `railPins` for a pin, the new `sourceOrder` preference for a platform,
+  `TaskCollection.position` for a collection. A fourth record holding *"the rail's order"* would be
+  a second definition of the collection order the server already serves, free to disagree with it,
+  and the disagreement would show only as a rail that reshuffles itself on reload. The rail reports
+  the move and never the store: `onReorder(section, keys)` hands back **the whole band** in its new
+  order, because a `(from, to)` pair applied to an empty `sourceOrder` would name two platforms and
+  leave every other row unordered beneath them. A row may not cross bands (three bands, three kinds
+  of record), sources stay alphabetical until dragged so a later-shipped platform lands at the
+  bottom rather than reshuffling an arranged rail, and folders *inside* a source are never hand
+  ordered — they come and go with the tasks. **Drag has a keyboard twin** (`Alt+↑/↓`, one step of
+  the same move): the rail is navigation, and an order only a pointer can set is one a keyboard
+  user does not have.
 - **A preference follows the account; only a fact about the device stays in the browser.**
   `localStorage` is scoped to an *origin*, so the same install at `localhost:8080` and at a
   Tailscale name is two stores — collections and favorites crossed over (rows), pins and saved

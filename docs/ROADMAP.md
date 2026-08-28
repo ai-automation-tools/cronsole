@@ -1570,6 +1570,16 @@ verification pass — is still open above, narrowed to the half that needs a tok
 
 ### Features
 
+- [x] **The sidebar reorders, one gesture per band** — drag a row inside Collections, Pinned or
+      Sources and it takes the place of the row it lands on; **Alt+↑ / Alt+↓** is the same move from
+      the keyboard, because the rail is navigation and an order you can only set with a pointer is
+      one a keyboard user does not have. Native HTML5 drag-and-drop, no dependency. A row cannot
+      cross bands — three bands, three kinds of record. **Three stores, deliberately**: `railPins`
+      keeps a pin's order, a new `sourceOrder` preference keeps a platform's, and a collection's
+      stays in the `position` column it has had since collections shipped, so nothing here becomes a
+      second definition of an order the server already serves. Sources stay alphabetical until
+      dragged, and an unmoved (or newly shipped) platform keeps its alphabetical place at the bottom
+      rather than reshuffling an arranged rail *(2026-08-27)*.
 - [x] **Collections and Pinned are two bands of their own** — the rail is four sections now
       (scopes · collections · pinned · sources) rather than one list with a rule computed under
       whichever row happened to be last. **Sources became a section like them**: its heading and

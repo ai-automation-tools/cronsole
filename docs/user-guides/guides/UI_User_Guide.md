@@ -305,8 +305,28 @@ Two consequences worth knowing:
   is a place you declared, so it does not vanish out from under you, and you can still click it to
   remove it.
 
-Pins are per-browser, like your other dashboard preferences (the rail's collapsed state, your saved
-views). They are not stored on the server and are not shared.
+Pins follow your account, like your other dashboard preferences (the rail's collapsed state, your
+saved views): they sync through Cronsole's own preference store, so the sidebar you arranged on the
+desktop is the sidebar your phone draws. They change nothing on any platform and are yours alone.
+
+### Reordering the sidebar
+**Collections, Pinned and Sources each keep the order you put them in.** Drag a row up or down
+inside its own section — a collection among collections, a platform among platforms. A row cannot
+leave its section, because the three sections are three different kinds of thing and a platform
+sitting among your collections would say something untrue about it.
+
+- **Drop a row on another and it takes that row's place**, everything in between shifting by one.
+- **Or use the keyboard**: focus a row and press **Alt+↑ / Alt+↓**. It is the same move one step at
+  a time, so you never need a pointer to arrange the rail.
+- **Sources start alphabetical and stay that way until you drag one.** A platform you have never
+  moved keeps its alphabetical place at the bottom of the list, which is also where a source that
+  ships in a later version of Cronsole arrives — adding one never reshuffles a rail you arranged.
+- **The order follows your account**, like the rest of your sidebar preferences. Collection order is
+  stored with the collections themselves; pins and sources are preferences.
+- **Arranging happens on a desktop.** Dragging needs a pointer and the shortcut needs a keyboard, so
+  the mobile drawer draws the order you set elsewhere rather than offering its own.
+- Folders *inside* a source stay alphabetical. They come and go with your tasks, so a hand order
+  there would be a list of names that quietly stopped matching the tree.
 
 ### Calendar
 The fifth view mode. Grid, List, Kanban and Schedule all answer *"what do I have"*; the calendar

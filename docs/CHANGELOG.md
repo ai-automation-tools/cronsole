@@ -13,6 +13,27 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **The sidebar reorders — Collections, Pinned and Sources each keep the order you put them in**
+  (2026-08-27). Drag a row up or down inside its own section and it takes the place of the row you
+  drop it on; **Alt+↑ / Alt+↓** does the same one step at a time, so arranging the rail never needs
+  a pointer.
+
+  **A row cannot leave its section.** The three bands are three different kinds of record — a
+  collection holds the tasks you put in it, a pin tracks a folder, a source is a system — and a
+  platform sitting among your collections would say something untrue about it.
+
+  **Sources are alphabetical until you move one**, and a platform you have never dragged keeps its
+  alphabetical place at the bottom of the list. That is also where a source shipped in a later
+  version arrives, so adding a connector never reshuffles a sidebar somebody arranged. Folders
+  *inside* a source stay alphabetical: they come and go with your tasks, so a hand order there would
+  be a list of names that quietly stopped matching the tree.
+
+  **One gesture, three stores.** A pin's order is the `railPins` array it already lives in, a
+  source's is a new `sourceOrder` preference, and a collection's is the `position` column the schema
+  has carried since collections shipped. A fourth record holding "the rail's order" would be a second
+  definition of the collection order the server already serves, free to disagree with it — and the
+  disagreement would show up only as a rail that reshuffles itself on reload.
+
 - **Calendar view — which of your tasks run on which day** (2026-08-26). A fifth view mode beside
   Grid, List, Kanban and Schedule, in **Month** or **Week**.
 

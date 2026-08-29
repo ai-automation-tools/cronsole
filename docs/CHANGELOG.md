@@ -12,6 +12,44 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Security
+- **`req.user` is resolved from the database, not from the token's claims** (2026-08-28). Closes the
+  last open **P0** item.
+
+  `authenticateToken` verified a signature and then believed everything the payload said. Two things
+  followed from that. A **correctly-signed token for a deleted account stayed valid for its whole
+  life** — up to `never`, for an API token, which is the credential the MCP server holds. And
+  `req.user.email` was whatever was true on the day the token was signed, with nothing anywhere that
+  could ever correct it. Only `id` is read today, which is exactly the shape of thing that stays
+  harmless right up until something reads the other field.
+
+  `checkToken` — still the one definition the REST middleware and the Socket.IO handshake share — now
+  ends with a primary-key read of the `User` row and returns **that row's** id and email. A missing
+  row is a `403` that **says what is actually wrong**: `This account no longer exists`, not
+  *"invalid or expired"*, because a caller told the token expired would go and try to log in with
+  credentials that are also gone. A database that cannot answer is a `503`, the same fail-closed rule
+  the revocation lookup already followed — being unable to ask has never been permission to assume
+  yes. A signed token carrying no usable `id` is refused before the query rather than throwing inside
+  it, and a **revoked API token is still refused first**, so the cheap no stays cheap.
+
+  **What this costs, stated rather than buried:** one indexed read per authenticated request. The
+  browser session was deliberately designed to avoid that — it carries no `jti`, so verifying it used
+  to touch nothing. The trade is now the other way round: an identity nobody re-checks is not an
+  identity, and the row is the only thing that can answer *does this user exist right now*. §9,
+  `DESIGN_NOTES.md` and the skill's invariants table all say so in the same change.
+
+  `verifyToken` was **deleted** with it. Its own doc comment said the Socket.IO UI channel used it;
+  that channel moved to `checkToken` when revocation shipped, so by 2026-08-28 only its test still
+  called it. Left in place it would have been a second, *trusting* definition of the exact thing this
+  change exists to stop doing — and the next caller wanting an identity would have found the cheap
+  one first.
+
+  Pinned at both layers: the unit suite covers the deleted account, the stale email claim, the
+  fail-closed DB error, the id-less token and the revocation ordering; one integration test drives it
+  through the real middleware against real Postgres, because the subject *is* the database read and a
+  stubbed test would only be asserting its own fixture. That test was confirmed to fail (`200`
+  instead of `403`) with the lookup short-circuited.
+
 ### Added
 - **Calendar view — which of your tasks run on which day** (2026-08-26). A fifth view mode beside
   Grid, List, Kanban and Schedule, in **Month** or **Week**.

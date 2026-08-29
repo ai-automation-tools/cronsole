@@ -56,7 +56,7 @@ ChatGPT / Grok / Jules / Open Claw / Hermes = quick links only.
 | Database | PostgreSQL 16 + Prisma |
 | Real-time | Socket.io server + WebSocket client in the agent |
 | Windows agent | .NET 10 (C#) + `Microsoft.Win32.TaskScheduler` |
-| Auth | JWT in two kinds: a 24h **browser session** (no refresh, no `jti`, not individually revocable) and a named, revocable **API token** (`ApiToken`, `/api/auth/tokens`, 30/60/90 days or never). `checkToken` is one definition shared by REST middleware and the Socket.IO handshake, and fails closed on DB error. |
+| Auth | JWT in two kinds: a 24h **browser session** (no refresh, no `jti`, not individually revocable) and a named, revocable **API token** (`ApiToken`, `/api/auth/tokens`, 30/60/90 days or never). `checkToken` is one definition shared by REST middleware and the Socket.IO handshake, fails closed on DB error, and **resolves the identity from the `User` row rather than from the claims**. |
 | Hosting | Docker Compose (dev). **No prod hosting — local-first.** Secrets live in the user's own `.env`. |
 | MCP server | Node.js stdio wrapper over the REST API (`mcp-server/`) |
 
@@ -628,6 +628,17 @@ Non-negotiable rules. **Every one has a reason recorded in
   `VITE_API_URL=same-origin` and nothing else**, and scans every tracked env file for credentials.
   Credential patterns have **one definition** (`scripts/secret-patterns.mjs`), shared with the
   build-output guard — different populations, same fact.
+- **A signature says who was *signed for*; only the row says who *exists*.** `checkToken` ends with a
+  primary-key read of `User` and returns that row's id and email — `req.user` is never assembled from
+  the claims. Without it a correctly-signed token for a deleted account stayed good for its whole
+  life (up to `never`, for the API token the MCP server holds) and the `email` claim could never be
+  corrected. The missing row is its own `403` (*"This account no longer exists"*, not
+  *"invalid or expired"* — a caller told the latter goes to log in with credentials that are also
+  gone), a DB that cannot answer is a `503` on the revocation lookup's fail-closed rule, and a
+  revoked API token is still refused **before** the read. It costs one indexed read per authenticated
+  request; the browser session's `jti`-free "no round trip" property was traded for it deliberately.
+  There is **one door** — `verifyToken`, a synchronous payload-trusting helper with no caller left,
+  was deleted in the same change rather than left as the cheap second definition.
 - **Exactly one account-creation path: `POST /api/auth/setup`** (first run only). **Never re-add a
   register route for a test** — an integration test pins its 404.
 - **`ALLOWED_ORIGINS` is one list gating two surfaces** (REST CORS + the Socket.IO handshake), parsed

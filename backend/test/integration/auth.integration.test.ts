@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import { prisma } from '../../src/db.js';
+import { createUser } from './helpers.js';
 
 // Exercises the real setup/login flow end-to-end: bcrypt hashing, the Prisma
 // unique-email constraint, JWT issuance, and the Zod boundary schemas — all
@@ -219,5 +220,29 @@ describe('change password', () => {
       .patch('/api/auth/password')
       .send({ currentPassword: creds.password, newPassword: 'a-brand-new-password' });
     expect(res.status).toBe(401);
+  });
+});
+
+/**
+ * The token proves it was signed here. Only the row proves the account exists.
+ *
+ * Driven through the real middleware against real Postgres on purpose: the thing
+ * under test *is* the database read, so a suite that stubbed Prisma would be
+ * asserting its own fixture.
+ */
+describe('req.user is resolved from the database, not from the claim', () => {
+  it('refuses a correctly-signed token once its account is deleted', async () => {
+    const { user, auth } = await createUser('deleted-owner@example.com');
+
+    // Same credential, before and after. Nothing about the token changes.
+    expect((await request(app).get('/api/tasks').set('Authorization', auth)).status).toBe(200);
+
+    await prisma.user.delete({ where: { id: user.id } });
+
+    const after = await request(app).get('/api/tasks').set('Authorization', auth);
+    expect(after.status).toBe(403);
+    // Named as its own fact — "expired" would send the caller to a login screen
+    // for credentials that no longer exist.
+    expect(after.body.error).toBe('This account no longer exists');
   });
 });

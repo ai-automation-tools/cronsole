@@ -146,13 +146,13 @@ export async function issueApiToken(
 /**
  * Middleware to verify a JWT.
  *
- * Two kinds of token reach here and they are checked differently. A **browser
- * session** carries no `jti`: the signature and `exp` are the whole story, and it
- * costs no database round trip — which matters, because every dashboard poll goes
- * through this. An **API token** carries a `jti` and is looked up, because the
- * point of issuing it was to be able to take it back.
+ * Two kinds of token reach here and the *revocation* check differs. A **browser
+ * session** carries no `jti`: the signature and `exp` are the whole story of
+ * whether it was withdrawn. An **API token** carries a `jti` and is looked up,
+ * because the point of issuing it was to be able to take it back.
  *
- * That split is why revocation did not cost the hot path anything.
+ * **Who the token belongs to is resolved from the database in both cases.** The
+ * claims say who *was* signed for; only the `User` row says who exists now.
  */
 export type TokenCheck =
   | { ok: true; user: { id: string; email: string } }
@@ -167,14 +167,21 @@ export type TokenCheck =
  * streaming task updates, which is the half nobody would think to test.
  */
 export async function checkToken(token: string): Promise<TokenCheck> {
-  let payload: { id: string; email: string; jti?: string };
+  let payload: { id?: unknown; jti?: unknown };
   try {
     payload = jwt.verify(token, JWT_SECRET) as typeof payload;
   } catch {
     return { ok: false, status: 403, error: 'Invalid or expired token' };
   }
 
-  if (payload.jti) {
+  // A correctly-signed token whose `id` is not a string cannot name a row, and
+  // handing `undefined` to `findUnique` would throw rather than refuse. Checked
+  // here so the refusal is a 403 like every other unusable token.
+  if (typeof payload.id !== 'string' || payload.id.length === 0) {
+    return { ok: false, status: 403, error: 'Invalid or expired token' };
+  }
+
+  if (typeof payload.jti === 'string') {
     let record;
     try {
       record = await prisma.apiToken.findUnique({
@@ -209,7 +216,40 @@ export async function checkToken(token: string): Promise<TokenCheck> {
     }
   }
 
-  return { ok: true, user: { id: payload.id, email: payload.email } };
+  // Resolve the identity from the database rather than from the claims.
+  //
+  // A signature proves the token was issued by this install; it says nothing
+  // about whether the account still exists, and nothing at all about whether the
+  // `email` beside the `id` is still that account's address. Trusting the claim
+  // made both of those unknowable: a token for a deleted user stayed good for its
+  // full life (up to `never`, for an API token), and `req.user.email` was
+  // whatever was true on the day the token was signed. Only `id` is read today,
+  // which is exactly the kind of thing that stays harmless until it isn't.
+  //
+  // This costs one primary-key read per authenticated request, which the browser
+  // session deliberately used to avoid. That trade is now explicit: an identity
+  // nobody re-checks is not an identity, and the row is the only thing that can
+  // answer "does this user exist right now".
+  let user;
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, email: true }
+    });
+  } catch {
+    // Same rule as the revocation lookup above: being unable to ask is not
+    // permission to assume yes. Fail closed.
+    return { ok: false, status: 503, error: 'Cannot verify token right now' };
+  }
+
+  // Said as its own fact rather than folded into "invalid or expired". The token
+  // is neither — the account it names is gone, and a caller told "expired" would
+  // reasonably try to log in again with credentials that no longer exist.
+  if (!user) {
+    return { ok: false, status: 403, error: 'This account no longer exists' };
+  }
+
+  return { ok: true, user: { id: user.id, email: user.email } };
 }
 
 export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -229,17 +269,15 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
   next();
 };
 
-/**
- * Verify a JWT and return its payload, or null if invalid/expired. Used by the
- * Socket.IO UI channel, which authenticates on the handshake instead of a header.
+/*
+ * `verifyToken` used to live here — a synchronous "verify the signature and hand
+ * back the payload" helper. It was removed on 2026-08-28 with the `req.user`
+ * fix. Its doc comment said the Socket.IO UI channel used it; that channel moved
+ * to `checkToken` when revocation shipped, so by then only its own test called
+ * it. Left in place it would have been a second, *trusting* definition of the
+ * exact thing this file now refuses to do — the next caller who wanted an
+ * identity would have found the cheap one first. `checkToken` is the only door.
  */
-export function verifyToken(token: string): { id: string; email: string } | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as { id: string; email: string };
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Generate a JWT for a user. Lifetime comes from `JWT_EXPIRES_IN` (default `24h`).

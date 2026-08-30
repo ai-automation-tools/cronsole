@@ -210,6 +210,15 @@ docker compose up -d --force-recreate backend
 > the frontend dev token (`frontend/.env.local`). See
 > [Setup › Docker vs. manual](../setup/README.md#-docker-vs-manual).
 
+> [!TIP]
+> **A 403 saying `This account no longer exists` is a different fact and needs a different fix.**
+> Since 2026-08-28 `checkToken` resolves the caller from the `User` row rather than from the
+> token's claims, so that message means the signature verified fine — `JWT_SECRET` is *not* your
+> problem — and the account the token names is gone from this database. You are pointed at a
+> different DB (a `taskhub_test` `DATABASE_URL`, or a volume that was recreated), or the row was
+> deleted. Log in again, or re-mint the token against a `User.id` that exists. Everything above
+> this note is for the *other* 403, `Invalid or expired token`.
+
 *First hit: 2026-07-10.*
 
 ---

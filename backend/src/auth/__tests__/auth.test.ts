@@ -2,6 +2,24 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 
 /**
+ * `checkToken` reads the `User` row on every call, so the mock is the whole
+ * subject of the identity-resolution block below: it is what lets a test say
+ * "this signature is good and the account is gone".
+ */
+const findUser = vi.fn();
+const findApiToken = vi.fn();
+
+vi.mock('../../db.js', () => ({
+  prisma: {
+    user: { findUnique: (...args: unknown[]) => findUser(...args) },
+    apiToken: {
+      findUnique: (...args: unknown[]) => findApiToken(...args),
+      update: () => Promise.resolve({})
+    }
+  }
+}));
+
+/**
  * `auth.ts` reads its config at MODULE LOAD (that is the point — it fails fast
  * rather than at the first login), so every case here sets the environment and
  * then re-imports through `vi.resetModules()`.
@@ -27,6 +45,10 @@ const ORIGINAL_ENV = { ...process.env };
 
 beforeEach(() => {
   process.env = { ...ORIGINAL_ENV };
+  findUser.mockReset();
+  findApiToken.mockReset();
+  // The ordinary case: the account named by the token still exists.
+  findUser.mockResolvedValue({ id: USER.id, email: USER.email });
 });
 
 afterEach(() => {
@@ -98,16 +120,74 @@ describe('JWT_EXPIRES_IN — refusing to start', () => {
 
 describe('token verification', () => {
   it('accepts a token it just issued and rejects one signed with another secret', async () => {
-    const { generateToken, verifyToken } = await loadAuth('24h');
+    const { generateToken, checkToken } = await loadAuth('24h');
 
-    expect(verifyToken(generateToken(USER))?.id).toBe(USER.id);
-    expect(verifyToken(jwt.sign({ id: 'x', email: 'x@y.z' }, 'a-completely-different-secret'))).toBeNull();
+    const good = await checkToken(generateToken(USER));
+    expect(good).toMatchObject({ ok: true, user: { id: USER.id } });
+
+    const forged = await checkToken(jwt.sign({ id: 'x', email: 'x@y.z' }, 'a-completely-different-secret'));
+    expect(forged).toMatchObject({ ok: false, status: 403 });
   });
 
   it('rejects an expired token', async () => {
-    const { verifyToken } = await loadAuth('24h');
+    const { checkToken } = await loadAuth('24h');
     const expired = jwt.sign({ id: USER.id, email: USER.email }, SECRET, { expiresIn: -10 });
 
-    expect(verifyToken(expired)).toBeNull();
+    expect(await checkToken(expired)).toMatchObject({ ok: false, status: 403 });
+  });
+});
+
+/**
+ * The P0 item this block closes: a signature says who was signed for, not who
+ * exists. Everything here is about the gap between those two.
+ */
+describe('resolving the identity from the database', () => {
+  it('returns the row\'s email, not the claim — a stale claim never reaches req.user', async () => {
+    const { generateToken, checkToken } = await loadAuth('24h');
+    findUser.mockResolvedValue({ id: USER.id, email: 'renamed@example.test' });
+
+    const result = await checkToken(generateToken(USER));
+
+    expect(result).toEqual({ ok: true, user: { id: USER.id, email: 'renamed@example.test' } });
+  });
+
+  // The headline case. Before this, a correctly-signed token for a deleted user
+  // stayed good for its whole life — up to `never`, for an API token.
+  it('refuses a correctly-signed token whose account is gone, and says so', async () => {
+    const { generateToken, checkToken } = await loadAuth('24h');
+    findUser.mockResolvedValue(null);
+
+    const result = await checkToken(generateToken(USER));
+
+    expect(result).toEqual({ ok: false, status: 403, error: 'This account no longer exists' });
+  });
+
+  // Same rule the revocation lookup follows: being unable to ask is not
+  // permission to assume yes.
+  it('fails closed when the database cannot answer', async () => {
+    const { generateToken, checkToken } = await loadAuth('24h');
+    findUser.mockRejectedValue(new Error('connection refused'));
+
+    expect(await checkToken(generateToken(USER))).toMatchObject({ ok: false, status: 503 });
+  });
+
+  // `findUnique({ where: { id: undefined } })` throws rather than refusing, so
+  // this would surface as a 500 on a token that is merely unusable.
+  it('refuses a signed token carrying no usable id', async () => {
+    const { checkToken } = await loadAuth('24h');
+
+    expect(await checkToken(jwt.sign({ email: USER.email }, SECRET))).toMatchObject({ ok: false, status: 403 });
+    expect(findUser).not.toHaveBeenCalled();
+  });
+
+  // A revoked API token must never reach the user lookup — the cheap refusal
+  // stays first, and a revoked token for a live account is still revoked.
+  it('checks revocation before it checks the account', async () => {
+    const { checkToken } = await loadAuth('24h');
+    findApiToken.mockResolvedValue({ id: 'tok_1', revokedAt: new Date(), expiresAt: null, lastUsedAt: null });
+
+    const token = jwt.sign({ ...USER, jti: 'jti-1' }, SECRET);
+    expect(await checkToken(token)).toMatchObject({ ok: false, error: 'This API token has been revoked' });
+    expect(findUser).not.toHaveBeenCalled();
   });
 });

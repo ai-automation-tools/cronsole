@@ -13,6 +13,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Four extended-tier templates** (2026-08-27): `native-ffmpeg-transcode` and `native-image-resize`
+  (Cronsole-native, the catalog's first `media`-category templates), `ntf-email-alert` (SMTP email
+  alerts), and `native-script-pending-reboot` (fails when Windows has an update-required reboot
+  pending). Registry rebuilt via `npm run registry:build`.
 - **Calendar view — which of your tasks run on which day** (2026-08-26). A fifth view mode beside
   Grid, List, Kanban and Schedule, in **Month** or **Week**.
 

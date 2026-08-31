@@ -105,21 +105,24 @@ Three rules, each paid for by a real failed run.
 3. **Paste plain text.** A prompt copied out of a terminal can carry gutter characters (`▎`) that chop
    the instruction into fragments the agent ignores.
 
-## 🔁 Changing one — Duplicate and Replace credentials
+## 🔁 Changing one — Recreate with changes, and Duplicate
 
 A trigger is **immutable once it exists**. Google's update endpoint takes a status and a display name
 and rejects everything else, so *Edit schedule* and *Edit action* both read **Unsupported** — a
-boundary of the preview API, not a missing feature.
+boundary of the preview API, not a missing feature. Editing here is a **rebuild** instead, and the
+two buttons answer different questions: one changes *this* trigger, the other makes *another* one.
 
-**Duplicate** opens the create form filled in from this trigger. It is how you change a prompt:
-duplicate, edit, delete the original. Saved servers cross as references, so nothing secret is typed
-twice. A hand-typed server is dropped rather than copied hollow — Cronsole never read its token, and
-a server the new trigger could not authenticate to fails later, on a schedule.
-
-**Replace credentials** rebuilds **one** trigger with new tokens or a different tool list. The
-replacement is created *before* the original is removed, so a failure leaves the working trigger
+**Recreate with changes** rebuilds **one** trigger with a new prompt, a new schedule, new tokens or a
+different tool list — whichever you touch. Fields you leave alone are copied from the trigger **as it
+stands on Gemini right now**, so rotating a token cannot revert a prompt changed in Google's console.
+The replacement is created *before* the original is removed, so a failure leaves the working trigger
 alone. A paused trigger stays paused. The task keeps its run history, favourite and collections even
 though Gemini assigns a new id.
+
+**Duplicate** opens the create form filled in from this trigger, for when you want a *second* one and
+the original stays. Saved servers cross as references, so nothing secret is typed twice. A hand-typed
+server is dropped rather than copied hollow — Cronsole never read its token, and a server the new
+trigger could not authenticate to fails later, on a schedule.
 
 For rotating one token across *every* trigger, use **Push this credential** on the saved server
 instead — not this button, task by task.

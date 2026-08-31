@@ -1423,17 +1423,21 @@ describe('create_gemini_trigger', () => {
     expect(out).toMatch(/Created with 1 tool: mcp_server \(resend\)/);
   });
 
-  it('says the trigger cannot be edited', async () => {
+  it('says the trigger cannot be edited in place, and names both paths that exist', async () => {
     // The most expensive thing an assistant can believe about this platform is
-    // that it can fix a prompt later. It cannot: Gemini takes only a status and
-    // a display name on update.
+    // that it can fix a prompt later with an edit verb. It cannot: Gemini takes
+    // only a status and a display name on update. The second half matters just
+    // as much now that a real path exists — an assistant that only knows
+    // create-then-delete talks a user into a NEW task, losing the run history,
+    // favourite and collections the UI's rebuild would have kept.
     const { client } = stubClient({ 'POST /tasks': created });
     const mcp = await connect(client);
     const out = text(await call(mcp, 'create_gemini_trigger', {
       name: 'n', prompt: 'p', schedule: '0 3 * * *'
     }));
-    expect(out).toMatch(/cannot be edited/i);
-    expect(out).toMatch(/create a replacement and delete this one/i);
+    expect(out).toMatch(/cannot be edited in place/i);
+    expect(out).toMatch(/recreate with changes/i);
+    expect(out).toMatch(/create-a-replacement-then-delete/i);
   });
 
   it('points at the step list rather than the status for verification', async () => {

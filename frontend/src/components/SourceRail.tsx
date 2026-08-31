@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
   ChevronRight, Layers, Monitor, EyeOff, Star,
@@ -23,6 +23,7 @@ import {
   type RailSection
 } from '../utils/sourceTree';
 import { pinForNode, type RailPin } from '../utils/railPins';
+import { moveKey } from '../utils/railOrder';
 import { useCollections } from '../hooks/useCollections';
 import type { Task } from '../types';
 import type { TaskFilters } from '../utils/taskFilters';
@@ -58,6 +59,114 @@ import type { TaskFilters } from '../utils/taskFilters';
 // One definition, in `platform.ts`, because the Sources tab draws the same
 // glyphs on its cards. See `sourceIcon` for why it is not private here.
 const iconFor = sourceIcon;
+
+/**
+ * Props a reorderable row's `<li>` spreads. Named so the hook can return an
+ * empty object for a band that cannot reorder without the two shapes diverging.
+ */
+interface DragProps {
+  draggable?: boolean;
+  onDragStart?: (e: DragEvent<HTMLLIElement>) => void;
+  onDragOver?: (e: DragEvent<HTMLLIElement>) => void;
+  onDragLeave?: () => void;
+  onDrop?: (e: DragEvent<HTMLLIElement>) => void;
+  onDragEnd?: () => void;
+  onKeyDown?: (e: KeyboardEvent<HTMLLIElement>) => void;
+  className?: string;
+}
+
+/**
+ * **Drag one band's rows into the order you want**, with a keyboard path.
+ *
+ * Native HTML5 drag-and-drop rather than a library: the rail reorders a flat
+ * list of at most a few dozen rows inside one container, which is the exact case
+ * the platform already handles, and a drag library is a dependency plus a
+ * provider plus a sensor config to do it. What the platform does *not* give is a
+ * keyboard path — HTML5 DnD has none at all — so **Alt+Arrow moves the focused
+ * row**, which is the half that would otherwise make this control mouse-only.
+ * That is not a nicety here: the rail is the app's navigation, and a
+ * navigation preference you cannot set without a pointer is one a keyboard user
+ * simply does not have.
+ *
+ * A drop means *the dragged row takes the target's index* — the same thing
+ * Alt+Arrow does one step at a time, so the two gestures cannot disagree about
+ * what a move is. Order is written by the caller, never here: this hook knows
+ * two rows swapped, and `onReorder` knows where that fact is kept.
+ *
+ * ponytail: touch is left out — HTML5 DnD does not fire for a finger and the
+ * keyboard path needs a keyboard, so the rail is arranged on a desktop and the
+ * order (a synced preference) is what the phone reads. Add pointer-event
+ * dragging if anyone ever wants to arrange a sidebar from a phone.
+ *
+ * Returns no props at all for a band of fewer than two rows or one whose caller
+ * passed no handler — a single row that can be picked up and dropped on itself
+ * is an affordance that promises something it cannot do.
+ */
+function useBandReorder(
+  section: RailSection,
+  keys: string[],
+  onReorder?: (section: RailSection, keys: string[]) => void
+): (key: string) => DragProps {
+  const dragging = useRef<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+
+  const enabled = !!onReorder && keys.length > 1;
+
+  const move = (from: string, to: string) => {
+    const next = moveKey(keys, from, to);
+    // `moveKey` returns the same array when nothing moved — a drop on yourself,
+    // or on a row that has gone since the drag began. Reporting that would push
+    // a write for a change that did not happen.
+    if (next !== keys) onReorder?.(section, next);
+  };
+
+  return (key: string) => {
+    if (!enabled) return {};
+    return {
+      draggable: true,
+      onDragStart: e => {
+        dragging.current = key;
+        e.dataTransfer.effectAllowed = 'move';
+        // Set *something*: Firefox starts no drag at all without payload, and
+        // it doubles as the fallback when `dragging` is lost to a re-render.
+        e.dataTransfer.setData('text/plain', key);
+      },
+      onDragOver: e => {
+        // Preventing the default is what makes this a drop target — without it
+        // the row rejects every drag and the whole gesture silently no-ops.
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (over !== key) setOver(key);
+      },
+      onDragLeave: () => setOver(prev => (prev === key ? null : prev)),
+      onDrop: e => {
+        e.preventDefault();
+        move(dragging.current ?? e.dataTransfer.getData('text/plain'), key);
+        dragging.current = null;
+        setOver(null);
+      },
+      onDragEnd: () => {
+        dragging.current = null;
+        setOver(null);
+      },
+      onKeyDown: e => {
+        // Alt-modified, so the arrows keep meaning "move the caret / scroll" in
+        // every other context and this cannot shadow a browser or screen-reader
+        // binding. Bubbles up from the row's own button, which is what holds
+        // focus.
+        if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+        const i = keys.indexOf(key);
+        const j = e.key === 'ArrowUp' ? i - 1 : i + 1;
+        if (i < 0 || j < 0 || j >= keys.length) return;
+        e.preventDefault();
+        move(key, keys[j]);
+      },
+      className: `cursor-grab active:cursor-grabbing rounded-lg ${
+        over === key ? 'ring-1 ring-ring/60' : ''
+      }`
+    };
+  };
+}
 
 interface SourceRailProps {
   /**
@@ -128,6 +237,27 @@ interface SourceRailProps {
    */
   sourcesCollapsed?: boolean;
   onToggleSourcesCollapsed?: () => void;
+  /**
+   * The order the user dragged the source rows into. See
+   * `SourceTreeInput.sourceOrder` — empty means alphabetical.
+   */
+  sourceOrder?: string[];
+  /**
+   * The band was reordered — here are **all** of its row keys, in the new order.
+   *
+   * The whole band rather than the pair that moved, because the rail is the only
+   * surface that knows the order the user was looking at when they dragged. A
+   * source's stored order is empty until the first drag, so a `(from, to)` pair
+   * applied to an empty list would name two platforms and leave every other row
+   * unordered beneath them — the first drag would reshuffle rows nobody touched.
+   *
+   * It says which band it is about because *where the order is kept* differs per
+   * band and the rail must not hold an opinion about that: a pin's order is an
+   * array in preferences, a collection's is a column the server already has, a
+   * source's is a preference of its own. Optional on the same terms as
+   * `onTogglePin` — no handler, no drag.
+   */
+  onReorder?: (section: RailSection, keys: string[]) => void;
 }
 
 export const SourceRail = ({
@@ -144,7 +274,9 @@ export const SourceRail = ({
   pinnedCollapsed = false,
   onTogglePinnedCollapsed,
   sourcesCollapsed = false,
-  onToggleSourcesCollapsed
+  onToggleSourcesCollapsed,
+  sourceOrder = [],
+  onReorder
 }: SourceRailProps) => {
   const navigate = useNavigate();
   const { data: connections } = useConnections();
@@ -184,9 +316,10 @@ export const SourceRail = ({
         filters,
         connectedPlatforms: listedPlatforms,
         collections: collections ?? [],
-        pins
+        pins,
+        sourceOrder
       }),
-    [population, filters, listedPlatforms, collections, pins]
+    [population, filters, listedPlatforms, collections, pins, sourceOrder]
   );
 
   /**
@@ -233,6 +366,15 @@ export const SourceRail = ({
    * reproduces which tasks you are looking at, and a link that also restored a
    * disclosure would make two URLs that mean the same thing.
    */
+  // The source band reorders here rather than inside `Band` because these rows
+  // are not `Band` rows — they expand into folders and carry health dots. Same
+  // hook, same gesture, one level up.
+  const sourceDrag = useBandReorder(
+    'source',
+    sections.source.map(n => n.key),
+    onReorder
+  );
+
   const branch = expandedSourceFor(filters);
   const [overrides, setOverrides] = useState<Map<string, boolean>>(() => new Map());
 
@@ -322,6 +464,8 @@ export const SourceRail = ({
       <Band
         testId="collections-band"
         title="Collections"
+        section="collection"
+        onReorder={onReorder}
         Icon={Bookmark}
         rows={sections.collection}
         rowIcon={Bookmark}
@@ -368,6 +512,8 @@ export const SourceRail = ({
       <Band
         testId="pinned-band"
         title="Pinned"
+        section="pinned"
+        onReorder={onReorder}
         Icon={Pin}
         rows={sections.pinned}
         rowIcon={Pin}
@@ -422,7 +568,7 @@ export const SourceRail = ({
           const conn = health.get(node.key);
 
           return (
-            <li key={node.key}>
+            <li key={node.key} {...sourceDrag(node.key)}>
               <Row
                 node={node}
                 selected={isRailNodeSelected(node, filters)}
@@ -616,7 +762,9 @@ const Band = ({
   onSelect,
   keepWhenEmpty = false,
   footer,
-  rowAction
+  rowAction,
+  section,
+  onReorder
 }: {
   testId: string;
   title: string;
@@ -634,7 +782,12 @@ const Band = ({
   keepWhenEmpty?: boolean;
   footer?: ReactNode;
   rowAction?: (node: RailNode) => ReactNode;
+  /** Which band these rows belong to — passed straight back to `onReorder`. */
+  section: RailSection;
+  onReorder?: (section: RailSection, keys: string[]) => void;
 }) => {
+  const drag = useBandReorder(section, rows.map(r => r.key), onReorder);
+
   /*
     Nothing to show and nothing to offer: render no rule at all. A band that is
     empty *and* has no way to fill itself from here is two hairlines around a
@@ -672,7 +825,7 @@ const Band = ({
         <>
           <ul className="space-y-0.5">
             {rows.map(node => (
-              <li key={node.key}>
+              <li key={node.key} {...drag(node.key)}>
                 <Row
                   node={node}
                   selected={isRailNodeSelected(node, filters)}

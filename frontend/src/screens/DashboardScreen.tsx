@@ -24,14 +24,16 @@ import { TaskSchedule } from '../components/TaskSchedule';
 import { TaskFavoriteStar } from '../components/TaskFavoriteStar';
 import { ManageCollectionsModal } from '../components/ManageCollectionsModal';
 import { TaskCollectionMenu } from '../components/TaskCollectionMenu';
-import { useCollections } from '../hooks/useCollections';
+import { useCollections, useUpdateCollection } from '../hooks/useCollections';
 import { TaskRowActions } from '../components/TaskRowActions';
 import { TaskFilterMenu } from '../components/TaskFilterMenu';
 import { HealthStrip } from '../components/HealthStrip';
 import { SyncMenu } from '../components/SyncMenu';
 import { SourceRail } from '../components/SourceRail';
-import type { RailNode } from '../utils/sourceTree';
-import { pinForNode, pinFromNode, pinIdFromKey } from '../utils/railPins';
+import type { RailNode, RailSection } from '../utils/sourceTree';
+import { collectionIdFromKey } from '../utils/sourceTree';
+import { pinForNode, pinFromNode, pinIdFromKey, pinKey } from '../utils/railPins';
+import { orderBy } from '../utils/railOrder';
 import { HelpButton } from '../components/HelpButton';
 import { sourceTopicId } from '../data/help';
 import { ViewBar } from '../components/ViewBar';
@@ -234,6 +236,43 @@ export const DashboardScreen = ({
   const [railOpen, setRailOpen] = useState(false);
   const [managingCollections, setManagingCollections] = useState(false);
   const { data: collections } = useCollections();
+
+  /**
+   * The rail was reordered — write the new order where that band keeps it.
+   *
+   * **One gesture, three stores**, and the split is the point: a pin's order is
+   * the `railPins` array it already lives in, a source's is a preference of its
+   * own, and a collection's is the `position` column the schema has carried
+   * since collections shipped. A fourth record holding "the rail's order" would
+   * be a second definition of the collection order the server already serves,
+   * free to disagree with it — and the disagreement would surface only as a
+   * rail that reshuffles itself on reload.
+   *
+   * The rail reports the move; where it is written is this screen's business,
+   * the same division as `togglePin` above.
+   */
+  const updateCollection = useUpdateCollection();
+  const reorderRail = useCallback(
+    (section: RailSection, keys: string[]) => {
+      if (section === 'pinned') {
+        update('railPins', orderBy(prefs.railPins, p => pinKey(p.id), keys));
+        return;
+      }
+      if (section === 'source') {
+        update('sourceOrder', keys);
+        return;
+      }
+      const ids = keys.map(collectionIdFromKey).filter((id): id is string => id !== null);
+      const current = (collections ?? []).map(c => c.id);
+      // ponytail: one PATCH per collection that actually moved — there is no
+      // bulk order route and a rail holds a handful of collections. Add
+      // `PATCH /collections/order` if that stops being true.
+      ids.forEach((id, position) => {
+        if (current[position] !== id) updateCollection.mutate({ id, position });
+      });
+    },
+    [prefs.railPins, collections, update, updateCollection]
+  );
 
   // Escape closes the drawer. Only bound while it is open, so it cannot steal
   // the key from the search box's own clear-on-Escape.
@@ -668,6 +707,8 @@ export const DashboardScreen = ({
           onTogglePinnedCollapsed={() => update('pinnedCollapsed', !prefs.pinnedCollapsed)}
           sourcesCollapsed={prefs.sourcesCollapsed}
           onToggleSourcesCollapsed={() => update('sourcesCollapsed', !prefs.sourcesCollapsed)}
+          sourceOrder={prefs.sourceOrder}
+          onReorder={reorderRail}
         />
       </aside>
 
@@ -722,6 +763,10 @@ export const DashboardScreen = ({
               onTogglePinnedCollapsed={() => update('pinnedCollapsed', !prefs.pinnedCollapsed)}
               sourcesCollapsed={prefs.sourcesCollapsed}
               onToggleSourcesCollapsed={() => update('sourcesCollapsed', !prefs.sourcesCollapsed)}
+              sourceOrder={prefs.sourceOrder}
+              // Reordering is not navigation, so the drawer stays open — the
+              // same rule as pinning, and arranging a rail is several drags.
+              onReorder={reorderRail}
             />
           </div>
         </div>

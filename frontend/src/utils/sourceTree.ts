@@ -2,6 +2,7 @@ import type { Task } from '../types';
 import type { TaskFilters } from './taskFilters';
 import { sourceLabel, sourceSubtypeLabel, sourcePlatform, platformSourceLabel } from '../platform';
 import { pinKey, pinIdFromKey, type RailPin } from './railPins';
+import { byStoredOrder } from './railOrder';
 
 /**
  * The dashboard's navigation tree: **source → that source's own grouping**.
@@ -201,6 +202,16 @@ export interface SourceTreeInput {
    * `buildSourceTree` — nothing here tallies a folder twice.
    */
   pins?: RailPin[];
+  /**
+   * Platform keys in the order the user dragged them into, if they ever did.
+   *
+   * Applied **before** the alphabetical sort rather than instead of it: a
+   * platform that is not named here keeps its alphabetical place at the end of
+   * the list, so shipping a new source lands it at the bottom instead of
+   * reshuffling a rail somebody has arranged. Empty is the default and means
+   * "alphabetical", which is what it always was.
+   */
+  sourceOrder?: string[];
 }
 
 /** The minimum the rail needs to render a collection row. */
@@ -221,7 +232,8 @@ export function buildSourceTree({
   filters,
   connectedPlatforms = [],
   collections = [],
-  pins = []
+  pins = [],
+  sourceOrder = []
 }: SourceTreeInput): RailNode[] {
   // The lens the *list* is currently under. When it already includes system
   // tasks, a source row must count them too — otherwise the row promises 254
@@ -249,8 +261,12 @@ export function buildSourceTree({
     ...(filters.source !== ALL_SOURCES ? [sourcePlatform(filters.source)] : [])
   ]);
 
+  const rank = byStoredOrder(sourceOrder);
   const sourceRows = Array.from(platforms)
-    .sort((a, b) => platformSourceLabel(a).localeCompare(platformSourceLabel(b)))
+    .sort(
+      (a, b) =>
+        rank(a, b) || platformSourceLabel(a).localeCompare(platformSourceLabel(b))
+    )
     .map(platform => {
       const mine = byPlatform.get(platform) ?? [];
       const personal = mine.filter(t => t.isSystem !== true);

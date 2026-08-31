@@ -82,6 +82,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   timezone parameter**: instants in, instants out, with the day-of-the-week arithmetic staying at the
   browser's edge alongside every other zone conversion.
 
+### Fixed
+- **A Gemini trigger created in a real timezone no longer moves when it is rebuilt** (2026-08-31).
+  Gemini stores a schedule beside its own `time_zone`, and everything Cronsole writes is UTC — but a
+  rebuild was sending the platform's stored expression back verbatim under `time_zone: UTC`. A
+  trigger made in Google's console at 09:00 New York came back as 09:00 UTC, five hours early, with
+  nothing on any screen saying it had moved. Inherited schedules are now converted through the same
+  `shiftCronToUtc` every read uses, and a zone Cronsole cannot resolve is a **refusal with its
+  reason** — now with the way past it, since a recreate can take a schedule explicitly.
+
 ### Changed
 - **System tasks are hidden by default again, and the setting that says so now sticks** (2026-08-26).
   A bare dashboard URL used to hard-set the ownership lens to *include*, which silently overrode
@@ -226,7 +235,6 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - **Quick links are reachable on a phone** (2026-08-24). The remove control sat at `opacity-0` until you hovered the row — which on a touch screen is a control that does not exist. It is always rendered now, quiet until you reach for it. The tiles also show a link's **host** instead of its whole URL, which at tile width truncated into an ellipsis and identified nothing; the full URL is still in the tooltip.
 
 
-### Fixed
 - **The launcher task that claimed to restart the agent, and never did** (2026-08-25). `\Cronsole-Stack\CronsoleAgent` is **removed**. Both the troubleshooting log and the Agent Setup Guide told you to bounce the agent with `Stop-ScheduledTask` then `Start-ScheduledTask` on it; on the definition that shipped, **both halves were no-ops that returned success**.
 
   **Stop** had nothing to stop — the task launched fire-and-forget through `run-hidden.vbs` (`WScript.Shell.Run(cmd, 0, False)`), so `wscript.exe` exited within a second while the agent it started ran on unparented. The task sat at `Ready` while the agent held a pid, which is the whole tell and was visible at any time. **Start** then ran the idempotent `cronsole.ps1 up`, which is *built* to leave a healthy process alone — it printed *"agent already up"* and returned `0`. That was the documented recovery for [#74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy), an unelevated agent silently retiring 86 tasks: a gesture that reported success while changing nothing, which is worse than an error because the next move is to believe it.

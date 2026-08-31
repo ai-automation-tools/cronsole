@@ -52,6 +52,44 @@ export interface AgentToolInput {
   preset?: string;
 }
 
+/**
+ * What a recreate should change about the task it rebuilds.
+ *
+ * **Every field is optional and an omitted one means "keep what the platform
+ * holds"** — read from the platform's own copy, not from Cronsole's row, so a
+ * trigger edited in the vendor's console is rebuilt as it actually is rather
+ * than as the last sync remembered it.
+ */
+export interface RecreateChanges {
+  /** The new instruction the agent runs. Absent keeps the platform's. */
+  prompt?: string;
+  /** A new 5-field cron **in UTC**, the storage contract. Absent keeps the platform's. */
+  schedule?: string;
+}
+
+/**
+ * What a recreate produced.
+ *
+ * The three `new*` fields exist so the caller can update its row from **what
+ * the platform reports the replacement to be**, rather than echoing back what
+ * was asked for. Those are not the same claim, and this connector has already
+ * been bitten by the difference once — a Gemini prompt is written as a string
+ * and read back as a structured array ([#82]). Null means the platform did not
+ * report that field; the caller keeps what it had.
+ */
+export interface RecreateResult {
+  success: boolean;
+  newExternalId?: string;
+  oldRemoved?: boolean;
+  message?: string;
+  /** The replacement's schedule, normalized to UTC. */
+  newSchedule?: string | null;
+  /** The replacement's prompt, as the platform reports it. */
+  newPrompt?: string | null;
+  /** The platform's own next-run time for the replacement. Never computed here. */
+  newNextRunTime?: Date | null;
+}
+
 export interface CreateTaskOptions {
   /**
    * Structured trigger produced by convertCronToWindowsTrigger. Platform
@@ -514,7 +552,8 @@ export interface PlatformConnector {
   ): Promise<ImportTaskResult>;
 
   /**
-   * Replace the credentials a task's agent uses — by **recreating it**.
+   * Rebuild a task on the platform — **new credentials, and optionally a new
+   * prompt or schedule**.
    *
    * Optional, and unsupported by absence like every other optional verb. It
    * exists because a credential outlives nothing: tokens rotate, and a platform
@@ -529,6 +568,18 @@ export interface PlatformConnector {
    * leaves the original untouched and running — and only deletes the old one
    * once the new one exists.
    *
+   * **`changes` is why this is not called `rotateCredentials` any more.** The
+   * machinery — read the platform's own copy, build a replacement, inherit the
+   * status, retire the original, rekey the row — is identical whether the thing
+   * being changed is a token, a prompt or a cadence, and having it carry only a
+   * tool list meant iterating on a prompt stayed a full retype on the one
+   * platform where editing is impossible. What does *not* change is the honesty:
+   * `updateAction` and `updateSchedule` stay `unsupported` here, because they
+   * mean **change in place** and this is a different act with a new platform id
+   * at the end of it. An omitted field keeps what the platform currently holds;
+   * `schedule` is a 5-field cron **in UTC**, like every other schedule in the
+   * system.
+   *
    * Because the platform assigns a new id, the caller must **rekey the existing
    * row** rather than delete and re-create it: favorites, collections, run
    * history and the Cronsole name all hang off that row, and a user rotating a
@@ -542,8 +593,9 @@ export interface PlatformConnector {
     externalId: string,
     tools: AgentToolInput[],
     allowlist: string[],
-    config: any
-  ): Promise<{ success: boolean; newExternalId?: string; oldRemoved?: boolean; message?: string }>;
+    config: any,
+    changes?: RecreateChanges
+  ): Promise<RecreateResult>;
 
   /**
    * Runs that **happened on the platform**, read live.

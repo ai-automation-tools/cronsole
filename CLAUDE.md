@@ -455,6 +455,19 @@ Non-negotiable rules. **Every one has a reason recorded in
   shown in its **own** rail band (Pinned, beside Collections — one `Band` component draws both),
   storing no foreign key, reading its target node's count rather than re-deriving one, and
   surviving its target's disappearance at `0`.
+- **The rail reorders per band, and each band's order is written where that band's record already
+  lives** — `railPins` for a pin, the new `sourceOrder` preference for a platform,
+  `TaskCollection.position` for a collection. A fourth record holding *"the rail's order"* would be
+  a second definition of the collection order the server already serves, free to disagree with it,
+  and the disagreement would show only as a rail that reshuffles itself on reload. The rail reports
+  the move and never the store: `onReorder(section, keys)` hands back **the whole band** in its new
+  order, because a `(from, to)` pair applied to an empty `sourceOrder` would name two platforms and
+  leave every other row unordered beneath them. A row may not cross bands (three bands, three kinds
+  of record), sources stay alphabetical until dragged so a later-shipped platform lands at the
+  bottom rather than reshuffling an arranged rail, and folders *inside* a source are never hand
+  ordered — they come and go with the tasks. **Drag has a keyboard twin** (`Alt+↑/↓`, one step of
+  the same move): the rail is navigation, and an order only a pointer can set is one a keyboard
+  user does not have.
 - **A preference follows the account; only a fact about the device stays in the browser.**
   `localStorage` is scoped to an *origin*, so the same install at `localhost:8080` and at a
   Tailscale name is two stores — collections and favorites crossed over (rows), pins and saved
@@ -554,13 +567,24 @@ Non-negotiable rules. **Every one has a reason recorded in
   on a schedule as somebody else's 401. **A preset's URL is unique**, because a synced trigger reports
   `{type, name, url}` and nothing else: two presets on one URL make *"which triggers use this"*
   unanswerable and a rotation would rebuild the wrong one.
-- **A platform whose task definition is immutable still needs a rotation path, and it must say
-  "recreate".** Gemini's `PATCH` takes `status` and `display_name`, so a rotated token would strand a
-  trigger forever. `rotateCredentials` builds the replacement **first** (a failure leaves the original
-  running), inherits a paused status (rotating a parked trigger must not resume it), and the route
-  **rekeys the existing row** rather than deleting it — favourites, collections and run history hang
-  off that row and a token rotation is not a request to lose them. A replacement that exists while the
-  original survives is reported as a **failure**: the schedule now fires twice. **Rotating a preset
+- **A platform whose task definition is immutable still needs an edit path, and it must say
+  "recreate".** Gemini's `PATCH` takes `status` and `display_name`, so a rotated token — or a prompt
+  needing one more sentence — would strand a trigger forever. `rotateCredentials` builds the
+  replacement **first** (a failure leaves the original running), inherits a paused status (rotating a
+  parked trigger must not resume it), and the route **rekeys the existing row** rather than deleting
+  it — favourites, collections and run history hang off that row and a token rotation is not a
+  request to lose them. A replacement that exists while the original survives is reported as a
+  **failure**: the schedule now fires twice. **It carries `RecreateChanges` — a prompt, a schedule —
+  because the machinery is identical whatever is being changed**, and restricting it to credentials
+  left the ordinary case (iterating on a prompt) as a retype in Duplicate plus a manual delete.
+  `updateAction` / `updateSchedule` stay `unsupported` anyway: they mean *change in place*, and this
+  is a different act with a new platform id at the end of it — so the refusals on those two **name
+  the recreate path** instead of reading as a dead end. **An omitted field is read back off the
+  platform, never resent from the row**, or rotating a token silently reverts a prompt edited in the
+  vendor's console; the row is then written from what the platform reports the replacement to be, not
+  from the request. And an **inherited** schedule is converted through `shiftCronToUtc` on the way
+  out, because the create writes `time_zone: UTC` unconditionally and echoing a real zone's
+  expression back would move the trigger by the offset with nothing on screen to say so. **Rotating a preset
   fans that out** — every trigger referencing it is rebuilt, and per §9's fan-out rule the result
   **reports per task, never per batch**, because each one is an independent create-then-delete
   against somebody else's API. A trigger also carrying an *unsaved* MCP server is **skipped with its

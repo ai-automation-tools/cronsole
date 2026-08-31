@@ -1749,18 +1749,39 @@ const rotateCredentialsSchema = z.object({
       })
     )
     .max(10),
-  agentAllowlist: z.array(z.string().trim().min(1).max(253)).max(20).optional()
+  agentAllowlist: z.array(z.string().trim().min(1).max(253)).max(20).optional(),
+  /**
+   * A new prompt and/or schedule to build the replacement with.
+   *
+   * **Optional in the other direction from `agentTools`.** The tool list is
+   * always complete because the platform's credentials are unreadable; these two
+   * are read back off the platform a moment before the rebuild, so an omitted
+   * field means "keep what is there" and a *changed* one is the whole reason
+   * somebody opened this dialog. Absent is not the same as empty: an empty
+   * prompt would be a trigger that instructs an agent to do nothing.
+   */
+  prompt: z.string().trim().min(1).max(10000).optional(),
+  /** 5-field cron **in UTC** — the storage contract. Converted at the browser's edge. */
+  schedule: z.string().trim().min(1).optional()
 });
 
 /**
- * Replace a task's agent credentials by recreating it on the platform.
+ * Recreate a task on the platform — new credentials, prompt or schedule.
  *
- * **A rotation route, because a token outlives nothing and this platform's task
+ * **A rebuild route, because a token outlives nothing and this platform's task
  * definition is immutable.** Gemini's `PATCH` accepts a status and a display
  * name; an MCP bearer token lives inside the interaction, which nothing can
- * edit. Without this, the day a token expires the only path is "delete it and
- * rebuild it from memory" — and the memory Cronsole could offer is exactly the
- * part it deliberately does not store.
+ * edit — and so does the prompt, which is the field people actually iterate on.
+ * Without this, the day a token expires (or a prompt needs one more sentence)
+ * the only path is "delete it and rebuild it from memory" — and the memory
+ * Cronsole could offer is exactly the part it deliberately does not store.
+ *
+ * **The path stays `/rotate-credentials` while the verb has grown.** Renaming a
+ * route to match a widened meaning costs every caller and buys a word; what
+ * matters is that the *contract* says what it does, which the schema and this
+ * comment do. `PATCH /:id/schedule` and `/:id/actions` remain the in-place
+ * edits, and remain unsupported here — a recreate is a different act with a new
+ * platform id at the end of it, and the UI names it as one.
  *
  * **The row is rekeyed, not replaced.** The platform assigns a new id, but the
  * `Task` row keeps its own primary key — so favourites, collections, run
@@ -1775,19 +1796,30 @@ router.post('/:id/rotate-credentials', validateBody(rotateCredentialsSchema), as
   );
 
   if (!connector?.rotateCredentials) {
-    throw new HttpError(400, `${task.platform} does not store agent credentials Cronsole can replace.`);
+    throw new HttpError(400, `${task.platform} cannot be recreated with changes by Cronsole.`);
   }
 
-  const { agentTools, agentAllowlist } = req.body as {
+  const { agentTools, agentAllowlist, prompt, schedule } = req.body as {
     agentTools: AgentToolInput[];
     agentAllowlist?: string[];
+    prompt?: string;
+    schedule?: string;
   };
+
+  // Validated here rather than in the schema, from `isValidCron` — the one
+  // definition every other schedule-taking route uses. A cron the platform will
+  // reject is the caller's mistake, and a 400 that names it beats a 502 that
+  // hands back somebody else's parser error.
+  if (schedule && !isValidCron(schedule)) {
+    throw new HttpError(400, `Invalid cron expression: "${schedule}". Use 5 fields, in UTC.`);
+  }
 
   const result = await connector.rotateCredentials(
     task.externalId,
     agentTools,
     agentAllowlist ?? [],
-    config
+    config,
+    { ...(prompt ? { prompt } : {}), ...(schedule ? { schedule } : {}) }
   );
 
   if (!result.success || !result.newExternalId) {
@@ -1800,11 +1832,21 @@ router.post('/:id/rotate-credentials', validateBody(rotateCredentialsSchema), as
     where: { id: task.id },
     data: {
       externalId: result.newExternalId,
+      // **Written from the platform's report of the replacement, never from the
+      // request.** A schedule change that showed on the dashboard only after the
+      // next sync would leave the calendar drawing the old cadence over a
+      // trigger that no longer runs it; echoing the request instead would state
+      // what Cronsole asked for. `null` means the platform said nothing, and
+      // then the old value is still the best thing known.
+      ...(result.newSchedule ? { schedule: result.newSchedule } : {}),
+      nextRunTime: result.newNextRunTime ?? null,
       // The stored metadata describes the OLD trigger's reach. Clearing the two
       // reach fields rather than guessing keeps the task honest until the next
       // sync reads what the replacement actually holds — inventing them from the
-      // request would state what Cronsole *asked for*, not what exists.
-      metadata: stripReach(task.metadata)
+      // request would state what Cronsole *asked for*, not what exists. The
+      // prompt is different in kind: the platform hands it straight back, so it
+      // is evidence rather than a guess and is written rather than dropped.
+      metadata: withPrompt(stripReach(task.metadata), result.newPrompt)
     }
   });
 
@@ -1820,6 +1862,20 @@ router.post('/:id/rotate-credentials', validateBody(rotateCredentialsSchema), as
     message: result.message
   });
 });
+
+/**
+ * The prompt the replacement actually carries, or none at all.
+ *
+ * A `null` from the connector means the platform did not report one, and a
+ * stale prompt over a rebuilt trigger is the kind of quiet lie #82 was: the key
+ * is removed rather than left describing a trigger that no longer exists.
+ */
+function withPrompt(metadata: Prisma.InputJsonValue, prompt: string | null | undefined): Prisma.InputJsonValue {
+  const meta = { ...(metadata as Record<string, unknown>) };
+  if (prompt) meta.prompt = prompt;
+  else delete meta.prompt;
+  return meta as Prisma.InputJsonValue;
+}
 
 /** Metadata with the platform-reported reach removed, pending the next sync. */
 function stripReach(metadata: unknown): Prisma.InputJsonValue {

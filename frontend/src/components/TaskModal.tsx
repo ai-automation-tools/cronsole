@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, KeyRound, Copy } from 'lucide-react';
+import { XCircle, Folder, Play, History, Info, Loader2, CheckCircle2, XOctagon, Clock, Trash2, CalendarClock, Terminal, SlidersHorizontal, Pencil, BookmarkPlus, EyeOff, Wrench, RefreshCw, Copy } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task, ExecutionLogEntry } from '../types';
 import { PlatformRunHistory } from './PlatformRunHistory';
-import { RotateCredentialsModal } from './RotateCredentialsModal';
+import { RecreateTriggerModal } from './RecreateTriggerModal';
 import { CreateTaskModal } from './CreateTaskModal';
 import { useScheduleZone } from '../hooks/useScheduleZone';
 import type { AgentToolDraft } from '../utils/agentReach';
@@ -288,7 +288,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
   // Which removals this platform actually supports — the server's answer, not a
   // list of platform names kept in this file.
   const { deletability } = usePlatformDeletability();
-  const [rotating, setRotating] = useState(false);
+  const [recreating, setRecreating] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   // The create form holds a cron in the user's zone and converts once on submit,
   // so a stored UTC schedule has to come back the other way first — otherwise a
@@ -856,18 +856,20 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
             </button>
           )}
           {/*
-            Offered only where there is a credential to replace — a Gemini task
-            carrying at least one tool. The verb recreates the trigger, so it is
-            not a maintenance nicety to show on every task: it is a deliberate
-            action with a new platform id at the end of it.
+            **No longer gated on the task carrying a tool.** While this verb only
+            replaced credentials, a trigger with none had nothing to change and
+            the control was noise. Now it carries the prompt and the schedule
+            too — the fields every Gemini task has, and the ones people actually
+            iterate on — so hiding it from a toolless trigger would hide the only
+            way to edit that trigger at all.
           */}
-          {task.platform === 'GEMINI_TRIGGERS' && agentReach.tools.length > 0 && (
+          {task.platform === 'GEMINI_TRIGGERS' && (
             <button
-              onClick={() => setRotating(true)}
+              onClick={() => setRecreating(true)}
               className="bg-gemini/10 hover:bg-gemini/20 text-gemini-text px-4 py-3 rounded-xl font-bold transition-all border border-gemini/30 active:scale-95 text-sm flex items-center gap-2"
-              title="Recreate this trigger with new agent credentials"
+              title="Rebuild this trigger with a new prompt, schedule or credentials"
             >
-              <KeyRound size={16} /> Replace credentials
+              <RefreshCw size={16} /> Recreate with changes
             </button>
           )}
           {/*
@@ -997,7 +999,7 @@ export const TaskModal = ({ task, onClose, onRun, onToggleFavorite }: TaskModalP
           onClose={() => setShowEditor(false)}
         />
       )}
-      {rotating && <RotateCredentialsModal task={task} onClose={() => setRotating(false)} />}
+      {recreating && <RecreateTriggerModal task={task} onClose={() => setRecreating(false)} />}
       {duplicating && (
         <CreateTaskModal
           onClose={() => setDuplicating(false)}

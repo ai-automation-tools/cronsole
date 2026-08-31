@@ -10,7 +10,9 @@ import {
   UpdateScheduleOptions,
   PlatformRunsResult,
   AgentToolInput,
-  PlatformRunOutputResult
+  PlatformRunOutputResult,
+  RecreateChanges,
+  RecreateResult
 } from './platform.interface.js';
 import {
   listTriggers,
@@ -571,20 +573,33 @@ export class GeminiTriggersConnector implements PlatformConnector {
   }
 
   /**
-   * Rotate an MCP credential by recreating the trigger.
+   * Recreate a trigger — new credentials, and optionally a new prompt or
+   * schedule.
    *
    * **The honest implementation of a verb the platform cannot do.** `PATCH`
    * takes `status` and `display_name`; there is no way to change an
-   * `interaction`, so a token that expires would otherwise strand the trigger
-   * permanently. What Cronsole can do is build the replacement from what the
-   * platform still holds and retire the original.
+   * `interaction`, so a token that expires — or a prompt that needs one more
+   * sentence — would otherwise strand the trigger permanently. What Cronsole can
+   * do is build the replacement from what the platform still holds and retire
+   * the original.
    *
-   * Three properties, in the order they matter:
+   * Four properties, in the order they matter:
    *
    * **Create first, delete second.** A failure anywhere in the create leaves the
    * original trigger untouched and still running, which is the only acceptable
    * outcome for a task somebody depends on. The reverse order has a window where
    * the user has neither.
+   *
+   * **Everything not being changed comes from the platform, not from the row.**
+   * `changes` names what is different; every other field is read back off the
+   * trigger a moment before the rebuild, so a prompt edited in Google's console
+   * since the last sync is carried forward rather than reverted to Cronsole's
+   * copy of it. The **schedule is the one field that needs converting on the way
+   * out**: the platform stores it beside a `time_zone`, `createTrigger` always
+   * writes `UTC`, and re-sending a `America/New_York` expression verbatim would
+   * silently move the trigger by the offset. `shiftCronToUtc` is the one
+   * definition of that conversion, and a zone it cannot resolve is a **refusal
+   * with its reason** rather than a guessed cron.
    *
    * **The replacement inherits the original's status.** Rotating a token on a
    * *paused* trigger must not quietly start it running — a paused trigger is
@@ -599,8 +614,9 @@ export class GeminiTriggersConnector implements PlatformConnector {
     externalId: string,
     tools: AgentToolInput[],
     allowlist: string[],
-    config: any
-  ): Promise<{ success: boolean; newExternalId?: string; oldRemoved?: boolean; message?: string }> {
+    config: any,
+    changes?: RecreateChanges
+  ): Promise<RecreateResult> {
     const stored = readConfig(config);
     const { apiKey } = stored;
     if (!apiKey) return { success: false, message: 'No Gemini API key is stored for this connection.' };
@@ -615,28 +631,43 @@ export class GeminiTriggersConnector implements PlatformConnector {
     if (!existing.ok) return { success: false, message: existing.message };
 
     const current = existing.data;
-    // Everything the replacement needs must survive the round trip, and the
-    // schedule is the one field that cannot be reconstructed from anywhere else
-    // if the platform declines to report it.
-    if (!current.schedule || !current.agent || !current.input) {
+    const prompt = changes?.prompt?.trim() || current.input;
+    // **A field the caller is replacing does not need to have been readable.**
+    // The agent is the one thing with no other source — nothing in the request
+    // names it and Cronsole will not guess which model ran somebody's task —
+    // so it is the only unconditional requirement. A prompt the platform hid is
+    // fatal only when the caller is not supplying one.
+    if (!current.agent || !prompt) {
       return {
         success: false,
         message:
-          'Gemini did not report the schedule, agent and prompt for this trigger, so Cronsole cannot rebuild ' +
-          'it faithfully. Recreating it by hand is safer than guessing at what it ran.'
+          'Gemini did not report the agent and prompt for this trigger, so Cronsole cannot rebuild it ' +
+          'faithfully. Recreating it by hand is safer than guessing at what it ran.'
       };
     }
 
+    // A requested schedule is already UTC — the storage contract, validated by
+    // the route. An inherited one is the platform's own expression in the
+    // platform's own zone, and `createTrigger` writes `time_zone: UTC`
+    // unconditionally, so it has to be converted rather than echoed: sending
+    // `0 8 * * *` from a `America/New_York` trigger back as UTC moves it five
+    // hours and nothing on any screen would say so.
+    const inherited = shiftCronToUtc(current.schedule ?? '', current.timeZone);
+    const schedule = changes?.schedule?.trim() || inherited.cron;
+    if (!schedule) {
+      const why = current.schedule
+        ? inherited.reason ?? 'Gemini reported a schedule Cronsole cannot express in UTC.'
+        : 'Gemini did not report a schedule for this trigger.';
+      // The refusal states its cause and the way past it — a recreate can carry
+      // a schedule now, so "cannot read yours" is not the end of the road.
+      return { success: false, message: `${why.replace(/\.?$/, '.')} Set one explicitly to rebuild it.` };
+    }
+
     const created = await createTrigger(apiKey, {
-      // The platform's own stored expression, sent back verbatim. `time_zone` is
-      // always UTC on anything Cronsole writes, and `createTrigger` sets it —
-      // but a trigger created elsewhere in a real zone would be rewritten as UTC
-      // here, so the schedule is taken from the platform rather than from the
-      // normalized copy on the task row.
-      schedule: current.schedule,
+      schedule,
       displayName: current.displayName ?? externalId,
       agent: current.agent,
-      input: current.input,
+      input: prompt,
       ...(current.environmentType ? { environmentType: current.environmentType } : {}),
       tools: sendTools,
       allowlist
@@ -654,25 +685,48 @@ export class GeminiTriggersConnector implements PlatformConnector {
       await patchTrigger(apiKey, created.data.id, { status: 'paused' });
     }
 
+    // **What the platform says the replacement is**, not what was asked for.
+    // The two differ often enough to matter here: Gemini normalizes the prompt
+    // it stores (#82), and echoing the request back would put Cronsole's
+    // intention on the dashboard under the name of the platform's answer. The
+    // schedule falls back to what was sent only because the create *succeeded*
+    // with it — that is an accepted value, not an assumption.
+    const built = {
+      newSchedule: shiftCronToUtc(created.data.schedule ?? schedule, created.data.timeZone).cron,
+      newPrompt: created.data.input,
+      newNextRunTime: created.data.nextRunTime
+    };
+
     const removed = await deleteTrigger(apiKey, externalId);
     if (!removed.ok) {
       return {
         success: true,
         newExternalId: created.data.id,
         oldRemoved: false,
+        ...built,
         message:
           `The replacement was created, but the original could not be deleted: ${removed.message} ` +
           'Both triggers exist and this schedule will now fire twice — remove the old one in Google AI Studio.'
       };
     }
 
+    // Names what actually changed, because "recreated" alone does not say
+    // whether the thing the user came to change took effect — and on a platform
+    // where every edit is a rebuild, that is the whole question.
+    const changed = [
+      ...(changes?.prompt?.trim() ? ['a new prompt'] : []),
+      ...(changes?.schedule?.trim() ? ['a new schedule'] : [])
+    ];
+
     return {
       success: true,
       newExternalId: created.data.id,
       oldRemoved: true,
+      ...built,
       message:
-        'Recreated with the new credentials. Gemini assigns a new trigger id, so this task now points at ' +
-        'the replacement — its history, favourites and collections are unchanged.' +
+        `Recreated with ${changed.length ? `${changed.join(' and ')} and the credentials given` : 'the new credentials'}. ` +
+        'Gemini assigns a new trigger id, so this task now points at the replacement — its history, ' +
+        'favourites and collections are unchanged.' +
         (current.status === 'paused' || current.status === 'disabled'
           ? ' It was paused, so the replacement is paused too.'
           : '')

@@ -305,8 +305,28 @@ Two consequences worth knowing:
   is a place you declared, so it does not vanish out from under you, and you can still click it to
   remove it.
 
-Pins are per-browser, like your other dashboard preferences (the rail's collapsed state, your saved
-views). They are not stored on the server and are not shared.
+Pins follow your account, like your other dashboard preferences (the rail's collapsed state, your
+saved views): they sync through Cronsole's own preference store, so the sidebar you arranged on the
+desktop is the sidebar your phone draws. They change nothing on any platform and are yours alone.
+
+### Reordering the sidebar
+**Collections, Pinned and Sources each keep the order you put them in.** Drag a row up or down
+inside its own section — a collection among collections, a platform among platforms. A row cannot
+leave its section, because the three sections are three different kinds of thing and a platform
+sitting among your collections would say something untrue about it.
+
+- **Drop a row on another and it takes that row's place**, everything in between shifting by one.
+- **Or use the keyboard**: focus a row and press **Alt+↑ / Alt+↓**. It is the same move one step at
+  a time, so you never need a pointer to arrange the rail.
+- **Sources start alphabetical and stay that way until you drag one.** A platform you have never
+  moved keeps its alphabetical place at the bottom of the list, which is also where a source that
+  ships in a later version of Cronsole arrives — adding one never reshuffles a rail you arranged.
+- **The order follows your account**, like the rest of your sidebar preferences. Collection order is
+  stored with the collections themselves; pins and sources are preferences.
+- **Arranging happens on a desktop.** Dragging needs a pointer and the shortcut needs a keyboard, so
+  the mobile drawer draws the order you set elsewhere rather than offering its own.
+- Folders *inside* a source stay alphabetical. They come and go with your tasks, so a hand order
+  there would be a list of names that quietly stopped matching the tree.
 
 ### Calendar
 The fifth view mode. Grid, List, Kanban and Schedule all answer *"what do I have"*; the calendar
@@ -655,15 +675,16 @@ task modal or **Sources › Claude**. Two things it also does, both stated in it
 - **It changes nothing at claude.ai.** The routine still exists and still runs on its own
   schedule. You are disconnecting Cronsole from it, not deleting it.
 
-### Changing a Gemini trigger — Duplicate and Replace credentials
+### Changing a Gemini trigger — Recreate with changes, and Duplicate
 
 A Gemini trigger is **immutable once it exists**. Google's update endpoint takes a status and a
 display name and rejects everything else, so *Edit schedule* and *Edit action* both read
 **Unsupported** — a boundary of the preview API, not a missing feature. Two buttons exist because of
-it, and both say **recreate** rather than *save*.
+it, and both say **recreate** rather than *save*. They answer different questions: *Recreate with
+changes* changes **this** trigger; *Duplicate* makes **another** one.
 
 **Duplicate** opens the New Task form filled in from this trigger — name, schedule, prompt, tools and
-allowlist. It is how you change a prompt: duplicate, edit, delete the original. The schedule comes
+allowlist. Use it when you want a second, similar trigger and the original stays. The schedule comes
 back in **your** timezone on the way in, so a duplicate of an 08:00 local trigger is not created at
 08:00 UTC.
 
@@ -672,8 +693,11 @@ back in **your** timezone on the way in, so a duplicate of an 08:00 local trigge
   server the new trigger could not authenticate to would fail later, on a schedule, as somebody
   else's 401 — so the row is left out and you add it deliberately.
 
-**Replace credentials** rebuilds **one** trigger with new tokens or a different tool list. The
-replacement is created *before* the original is removed, so a failure leaves the working trigger
+**Recreate with changes** rebuilds **one** trigger with a new prompt, a new schedule, new tokens or a
+different tool list — whichever of those you touch. It is the only way to edit a Gemini trigger, and
+the fields it leaves alone are copied from the trigger **as it stands on Gemini right now**, not from
+Cronsole's last sync: rotating a token cannot revert a prompt somebody changed in Google's console.
+The replacement is created *before* the original is removed, so a failure leaves the working trigger
 alone; a paused trigger stays paused; and the task keeps its run history, favourite and collections
 even though Gemini assigns a new trigger id. If the replacement is created and the original cannot be
 deleted, that is reported as a **failure**, not a note — that schedule now fires twice.

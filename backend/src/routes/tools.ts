@@ -3101,7 +3101,7 @@ router.post('/platforms/gemini/tool-presets/:name/apply', async (req: Request, r
         message:
           `Skipped: this trigger also uses ${unsavable.map(t => t.name || t.url).join(', ')}, which is not ` +
           'saved here, so rebuilding it would drop that credential. Save that server as a preset first, ' +
-          'or use Replace credentials on the task and retype both.'
+          'or use Recreate with changes on the task and retype both.'
       });
       continue;
     }

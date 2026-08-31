@@ -567,13 +567,24 @@ Non-negotiable rules. **Every one has a reason recorded in
   on a schedule as somebody else's 401. **A preset's URL is unique**, because a synced trigger reports
   `{type, name, url}` and nothing else: two presets on one URL make *"which triggers use this"*
   unanswerable and a rotation would rebuild the wrong one.
-- **A platform whose task definition is immutable still needs a rotation path, and it must say
-  "recreate".** Gemini's `PATCH` takes `status` and `display_name`, so a rotated token would strand a
-  trigger forever. `rotateCredentials` builds the replacement **first** (a failure leaves the original
-  running), inherits a paused status (rotating a parked trigger must not resume it), and the route
-  **rekeys the existing row** rather than deleting it — favourites, collections and run history hang
-  off that row and a token rotation is not a request to lose them. A replacement that exists while the
-  original survives is reported as a **failure**: the schedule now fires twice. **Rotating a preset
+- **A platform whose task definition is immutable still needs an edit path, and it must say
+  "recreate".** Gemini's `PATCH` takes `status` and `display_name`, so a rotated token — or a prompt
+  needing one more sentence — would strand a trigger forever. `rotateCredentials` builds the
+  replacement **first** (a failure leaves the original running), inherits a paused status (rotating a
+  parked trigger must not resume it), and the route **rekeys the existing row** rather than deleting
+  it — favourites, collections and run history hang off that row and a token rotation is not a
+  request to lose them. A replacement that exists while the original survives is reported as a
+  **failure**: the schedule now fires twice. **It carries `RecreateChanges` — a prompt, a schedule —
+  because the machinery is identical whatever is being changed**, and restricting it to credentials
+  left the ordinary case (iterating on a prompt) as a retype in Duplicate plus a manual delete.
+  `updateAction` / `updateSchedule` stay `unsupported` anyway: they mean *change in place*, and this
+  is a different act with a new platform id at the end of it — so the refusals on those two **name
+  the recreate path** instead of reading as a dead end. **An omitted field is read back off the
+  platform, never resent from the row**, or rotating a token silently reverts a prompt edited in the
+  vendor's console; the row is then written from what the platform reports the replacement to be, not
+  from the request. And an **inherited** schedule is converted through `shiftCronToUtc` on the way
+  out, because the create writes `time_zone: UTC` unconditionally and echoing a real zone's
+  expression back would move the trigger by the offset with nothing on screen to say so. **Rotating a preset
   fans that out** — every trigger referencing it is rebuilt, and per §9's fan-out rule the result
   **reports per task, never per batch**, because each one is an independent create-then-delete
   against somebody else's API. A trigger also carrying an *unsaved* MCP server is **skipped with its

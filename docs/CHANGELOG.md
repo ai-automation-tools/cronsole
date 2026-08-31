@@ -13,6 +13,27 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ## [Unreleased]
 
 ### Added
+- **Recreate with changes — a Gemini trigger's prompt and schedule are editable at last**
+  (2026-08-31). *Replace credentials* on a Gemini task is now **Recreate with changes**, and it
+  carries a new prompt or a new schedule alongside the tools and tokens it always carried.
+
+  Gemini's task definition is immutable — Google's update endpoint takes a status and a display name
+  and rejects everything else — so until now the way to fix a prompt was: Duplicate, retype, create,
+  then delete the original by hand, losing that task's run history, favourite and collections in the
+  process. The machinery to do it properly was already here and only ever carried a tool list. It
+  reads the trigger, builds the replacement **before** retiring the original, inherits a paused
+  status, and **rekeys the Cronsole row** so nothing hanging off it is lost.
+
+  **What you leave alone is copied from Gemini, not from Cronsole's copy of it.** Untouched fields
+  are read off the trigger a moment before the rebuild, so rotating a token cannot silently revert a
+  prompt somebody changed in Google's console since the last sync. Afterwards the task is written
+  from what the platform reports the replacement to be, rather than from what was asked for.
+
+  **It is still called *recreate*, and Edit schedule / Edit action are still Unsupported** — those
+  mean *change in place*, which this API cannot do, and a rebuild is a different act with a new
+  trigger id at the end of it. What changed is that both refusals now **name the path that works**
+  instead of reading as a dead end.
+
 - **The sidebar reorders — Collections, Pinned and Sources each keep the order you put them in**
   (2026-08-27). Drag a row up or down inside its own section and it takes the place of the row you
   drop it on; **Alt+↑ / Alt+↓** does the same one step at a time, so arranging the rail never needs
@@ -60,6 +81,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   Under it, a new route — `GET /api/tools/occurrences` — walks the stored cron. It takes **no
   timezone parameter**: instants in, instants out, with the day-of-the-week arithmetic staying at the
   browser's edge alongside every other zone conversion.
+
+### Fixed
+- **A Gemini trigger created in a real timezone no longer moves when it is rebuilt** (2026-08-31).
+  Gemini stores a schedule beside its own `time_zone`, and everything Cronsole writes is UTC — but a
+  rebuild was sending the platform's stored expression back verbatim under `time_zone: UTC`. A
+  trigger made in Google's console at 09:00 New York came back as 09:00 UTC, five hours early, with
+  nothing on any screen saying it had moved. Inherited schedules are now converted through the same
+  `shiftCronToUtc` every read uses, and a zone Cronsole cannot resolve is a **refusal with its
+  reason** — now with the way past it, since a recreate can take a schedule explicitly.
 
 ### Changed
 - **System tasks are hidden by default again, and the setting that says so now sticks** (2026-08-26).
@@ -205,7 +235,6 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - **Quick links are reachable on a phone** (2026-08-24). The remove control sat at `opacity-0` until you hovered the row — which on a touch screen is a control that does not exist. It is always rendered now, quiet until you reach for it. The tiles also show a link's **host** instead of its whole URL, which at tile width truncated into an ellipsis and identified nothing; the full URL is still in the tooltip.
 
 
-### Fixed
 - **The launcher task that claimed to restart the agent, and never did** (2026-08-25). `\Cronsole-Stack\CronsoleAgent` is **removed**. Both the troubleshooting log and the Agent Setup Guide told you to bounce the agent with `Stop-ScheduledTask` then `Start-ScheduledTask` on it; on the definition that shipped, **both halves were no-ops that returned success**.
 
   **Stop** had nothing to stop — the task launched fire-and-forget through `run-hidden.vbs` (`WScript.Shell.Run(cmd, 0, False)`), so `wscript.exe` exited within a second while the agent it started ran on unparented. The task sat at `Ready` while the agent held a pid, which is the whole tell and was visible at any time. **Start** then ran the idempotent `cronsole.ps1 up`, which is *built* to leave a healthy process alone — it printed *"agent already up"* and returned `0`. That was the documented recovery for [#74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy), an unelevated agent silently retiring 86 tasks: a gesture that reported success while changing nothing, which is worse than an error because the next move is to believe it.

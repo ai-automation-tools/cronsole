@@ -615,15 +615,16 @@ const sourceGemini: HelpTopic = {
         'saved server for anything you will use twice.'
     },
     {
-      label: 'Replace credentials recreates the trigger, and says so',
+      label: 'Recreate with changes is how you edit a Gemini trigger at all',
       body:
-        'When a token rotates, use Replace credentials on the task. Gemini cannot change a trigger in ' +
-        'place, so Cronsole builds a replacement with the same schedule, prompt and agent — creating ' +
-        'the new one before removing the old, so a failure leaves the working trigger alone — and the ' +
-        'task keeps its run history, favourite and collections even though the trigger gets a new id. ' +
-        'A paused trigger stays paused. A saved server needs nothing retyped; a hand-typed one does, ' +
-        'because Cronsole never read that token off the platform. This is also the way to change ' +
-        'which tools one trigger has.'
+        'Gemini cannot change a trigger in place, so every edit is a rebuild — a new prompt, a new ' +
+        'schedule, a rotated token or a different tool list, all through Recreate with changes on the ' +
+        'task. Anything you leave alone is copied from the trigger as it stands on Gemini right now, ' +
+        'so rotating a token cannot revert a prompt you edited elsewhere. Cronsole creates the ' +
+        'replacement before removing the old one, so a failure leaves the working trigger alone, and ' +
+        'the task keeps its run history, favourite and collections even though the trigger gets a new ' +
+        'id. A paused trigger stays paused. A saved server needs nothing retyped; a hand-typed one ' +
+        'does, because Cronsole never read that token off the platform.'
     },
     {
       label: 'Run History has two lists, and the platform one is where the runs are',

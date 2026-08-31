@@ -179,6 +179,14 @@ partway then leaves the original still running rather than leaving you with neit
 if both end up alive, the schedule now fires twice — which is why the pause-then-delete sequence
 above is the safe shape when the delete has to happen on a different surface.
 
+> [!TIP]
+> **In the dashboard this is one gesture, and it keeps the task.** *Recreate with changes* on a
+> Gemini task takes a new prompt or schedule, does the create-then-delete for you in the safe
+> order, and **rekeys the existing row** — so run history, favourite and collections survive, which
+> the create-then-delete above cannot do from here. The MCP route is the right one when you are
+> *scripting* a replacement or want a second trigger; the UI one is right when you are editing the
+> task you already have.
+
 ### Rotating a credential
 
 ```text

@@ -202,7 +202,13 @@ export function scheduleEdit(task: Task): Editable<string> {
   if (!supported) {
     return {
       editable: false,
-      reason: 'Schedule editing is only available for Cronsole-native tasks and cron-expressible Windows tasks.'
+      // **A refusal names the path that does work.** Gemini's schedule cannot be
+      // changed *in place* — `PATCH` rejects the field outright — but it can be
+      // rebuilt, and a flat "not available here" sent people to Duplicate and a
+      // manual delete for something the task's own footer offers.
+      reason: task.platform === 'GEMINI_TRIGGERS'
+        ? "Gemini can't change a trigger's schedule in place. Use Recreate with changes on this task — it rebuilds the trigger on the new schedule and keeps this task's history."
+        : 'Schedule editing is only available for Cronsole-native tasks and cron-expressible Windows tasks.'
     };
   }
   if (!task.schedule) {
@@ -362,7 +368,12 @@ export function runsEdit(task: Task): RunsEdit {
     editable: false,
     reason: task.platform === 'CLAUDE_CODE'
       ? 'What a Claude routine runs is defined at claude.ai — Cronsole can schedule and fire it, not rewrite its prompt.'
-      : 'Editing what this task runs is only available for Windows Task Scheduler and Cronsole-native tasks.'
+      // Claude's is a boundary; Gemini's is only a boundary on *editing in
+      // place*, and saying the same sentence for both would hide a path that
+      // exists two buttons away.
+      : task.platform === 'GEMINI_TRIGGERS'
+        ? "A Gemini trigger's prompt is immutable — Google's API has no way to change one. Use Recreate with changes on this task to rebuild it with a new prompt."
+        : 'Editing what this task runs is only available for Windows Task Scheduler and Cronsole-native tasks.'
   };
 }
 

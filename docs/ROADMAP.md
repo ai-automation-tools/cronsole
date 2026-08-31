@@ -35,15 +35,18 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(themes done 2026-08-24)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
-| **Sources** | 🟡 6 of ~9 built | Gemini usability *(A+B done 2026-08-25, C–E open)* · POSIX agent (the big one) · Supabase observer |
+| **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
-**Leading the queue as of 2026-08-25:** [**Gemini usability**](#gemini-usability) — **A and B
-shipped the same day**: an MCP server is saved once on the connection and referenced by name, and a
+**Leading the queue as of 2026-08-31:** [**Gemini usability**](#gemini-usability) — **A and B
+shipped 2026-08-25**: an MCP server is saved once on the connection and referenced by name, and a
 trigger can be duplicated instead of retyped. That required **changing a §9 invariant** whose stated
-reason ("the value is needed exactly once") live use falsified. Three of the five items remain, and
-the MCP run-history wrapper is the next self-contained one. Behind it, the
+reason ("the value is needed exactly once") live use falsified. **C shipped 2026-08-31** — the
+recreate path now carries a prompt and a schedule, so a Gemini trigger is editable at all, and
+widening it uncovered a silent timezone shift on every rebuild of a trigger created outside
+Cronsole. Two of the five items remain, and **E (prompt preflight)** is the next self-contained
+one. Behind it, the
 [source-onboarding requests](#sources-onboarding) — **all five landed the same day.** The fifth,
 GitHub Actions' live verification, ran against a real repository and immediately earned its keep:
 it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)),
@@ -96,7 +99,9 @@ task."* True, and the cause was not the form. It was a **premise in the invarian
 falsified.**
 
 > **A and B shipped 2026-08-25** — saved MCP servers with a one-gesture rotation, and Duplicate.
-> **C, D and E are open**, and so are the two MCP items and the skill gap below. The diagnosis that
+> **C shipped 2026-08-31** — *Replace credentials* became *Recreate with changes*, so a prompt or a
+> schedule can be changed on the one platform where editing is impossible. **D and E are open**, and
+> so is the skill gap below. The diagnosis that
 > follows is kept rather than trimmed: it is the reasoning that changed a §9 invariant, and the next
 > rule whose stated reason is a lifecycle claim should be re-read the same way.
 
@@ -164,13 +169,27 @@ wrong.
       on a schedule, as somebody else's 401. The schedule is converted back to the user's zone on the
       way in, or a duplicate of an 08:00 local trigger is created at 08:00 UTC.
 
-- [ ] **C. Generalize *Replace credentials* into *Recreate with changes*** *(after A)*. The machinery
-      exists; it currently carries only a tool list. Let it carry a **new prompt or schedule** and
-      Gemini's immutability stops being a wall for the case that actually hurts — iterating on a
-      prompt. **`updateAction` and `updateSchedule` stay honestly `unsupported`**: they mean *change
-      in place*, `PATCH` cannot do it, and a recreate is a different act that the UI names as one.
-      This is the same distinction `rotateCredentials` already draws, and the reason that modal says
-      *recreate* everywhere instead of *save*.
+- [x] **C. Generalize *Replace credentials* into *Recreate with changes*** — **shipped 2026-08-31**.
+      The machinery existed and carried only a tool list; it now carries a **new prompt or schedule**
+      too (`RecreateChanges`), so Gemini's immutability stops being a wall for the case that actually
+      hurts — iterating on a prompt. **`updateAction` and `updateSchedule` stay honestly
+      `unsupported`**: they mean *change in place*, `PATCH` cannot do it, and a recreate is a
+      different act that the UI names as one — but both refusals now **name the recreate path**
+      instead of reading as a dead end, which was the discoverability half of the item.
+
+      **Two rules the build added.** An omitted field is read **off the platform** a moment before
+      the rebuild rather than resent from the Cronsole row, or rotating a token silently reverts a
+      prompt edited in Google's console; and the row is written afterwards from **what the platform
+      reports the replacement to be**, never from the request — [#82](troubleshooting/README.md#82-a-gemini-trigger-loses-its-prompt-on-the-first-sync-and-edit-schedule-fails-with-googles-word)'s
+      shape, where the write spelling and the read spelling of a prompt are not the same.
+
+      **And it surfaced a latent defect nothing would have reddened**: a rebuild sent the platform's
+      stored expression back verbatim while `createTrigger` writes `time_zone: UTC` unconditionally,
+      so a trigger made in Google's console at 09:00 New York was silently rebuilt at 09:00 UTC.
+      Inherited schedules now go through `shiftCronToUtc` like every read does. That is the third
+      time on this connector that the bug was **a field read in one vocabulary and written in
+      another** (#82 the prompt, #83 the executions array), and the first found by widening a verb
+      rather than by driving the API.
 
 - [ ] **D. A Gemini template family** *(after A)*. "Daily digest by email", "weekly repo report" —
       target-agnostic, compiled at apply time, tools carried **by preset reference**. Save-as-template

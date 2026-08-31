@@ -609,9 +609,10 @@ message says so, because a trigger that resumes and fails five more times is bac
 Delete**, plus real run outcomes feeding task health. **Edit action** and **Edit schedule** are the
 two things it cannot do, and both are the preview API's boundary rather than missing features: its
 update endpoint takes a trigger's status and display name and rejects everything else. Both show as
-*Unsupported* on the Sources tab. To change a prompt or a schedule, delete the trigger and create it
-again; to change **tools or a credential**, use *Replace credentials*, which recreates the trigger
-for you and keeps the Cronsole task.
+*Unsupported* on the Sources tab, because they mean *change in place*. Every edit here is instead a
+**rebuild**: *Recreate with changes* on the task takes a new prompt, a new schedule, new credentials
+or a different tool list, creates the replacement, retires the original, and keeps the Cronsole task
+with its history.
 
 ### Things that surprise people
 
@@ -679,18 +680,21 @@ for you and keeps the Cronsole task.
   references, so nothing secret is typed twice. A *hand-typed* MCP server is dropped rather than
   copied hollow: Cronsole never read its token, and a server the new trigger cannot authenticate to
   would fail later, on a schedule.
-- **Replace credentials recreates one trigger, and says so.** When a token rotates on a single task,
-  use *Replace credentials* on it. Gemini cannot change a trigger in place, so Cronsole builds a replacement
-  with the same schedule, prompt and agent — creating the new one **before** removing the old, so a
-  failure leaves the working trigger alone — and the task keeps its run history, favourite and
-  collections even though the trigger gets a new id. A paused trigger stays paused. You will need to
-  retype any tokens, because Cronsole never read the old ones.
-- **A trigger's schedule is fixed once it exists.** *Edit schedule* is unavailable on a Gemini task,
-  and that is the preview API's boundary rather than a missing feature: its update endpoint accepts a
-  trigger's status and display name and rejects the schedule outright. To move a trigger, change it
-  in Google AI Studio, or delete it here and create it again — a new trigger gets a new id, so
-  Cronsole treats it as a new task rather than the same one on a new schedule. The same is true of
-  the prompt, which is why *Edit action* is unavailable too.
+- **Recreate with changes rebuilds one trigger, and says so.** To change a prompt, a schedule, a
+  token or a tool list on a single task, use *Recreate with changes* on it. Gemini cannot change a
+  trigger in place, so Cronsole builds a replacement — creating the new one **before** removing the
+  old, so a failure leaves the working trigger alone — and the task keeps its run history, favourite
+  and collections even though the trigger gets a new id. A paused trigger stays paused. You will need
+  to retype any hand-typed tokens, because Cronsole never read the old ones; a saved server needs
+  nothing retyped.
+- **What you leave alone is copied from Gemini, not from Cronsole.** The fields you do not touch are
+  read off the trigger a moment before the rebuild, so rotating a token cannot quietly revert a
+  prompt someone changed in Google's console since the last sync.
+- **Nothing here is edited *in place*, and that is the API's boundary.** *Edit schedule* and *Edit
+  action* stay unavailable on a Gemini task because its update endpoint accepts a status and a
+  display name and rejects the schedule outright — and the prompt lives in the same immutable
+  interaction. A rebuild is a different act with a new trigger id at the end of it, which is why
+  Cronsole names it *recreate* rather than pretending to save.
 - **Deleting is real, and disconnecting is not.** *Delete* on a task removes the trigger from Gemini.
   *Disconnect* on the source forgets the key and the tracked rows, and leaves every trigger running
   exactly as before.

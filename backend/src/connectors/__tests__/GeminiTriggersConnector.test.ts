@@ -894,3 +894,143 @@ describe('a create refused before the platform is contacted says so', () => {
     expect(createTriggerMock).toHaveBeenCalled();
   });
 });
+
+/**
+ * **A recreate carries changes, and everything it is not changing comes from the
+ * platform.**
+ *
+ * The verb was `rotateCredentials` and only ever swapped a tool list, which left
+ * the ordinary case — iterating on a prompt — as a full retype in the Duplicate
+ * form plus a manual delete. The machinery was already the whole answer; these
+ * tests pin the two properties that make widening it safe: an omitted field is
+ * read back off the platform rather than resent from Cronsole's row, and a
+ * schedule inherited from a trigger in a real zone is **converted**, because
+ * `createTrigger` always writes `time_zone: UTC`.
+ */
+describe('recreating a trigger with changes', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const ready = (over: Record<string, unknown> = {}) => {
+    getTriggerMock.mockResolvedValue({ ok: true, data: trigger(over) } as never);
+    createTriggerMock.mockResolvedValue({ ok: true, data: trigger({ id: 'trg_new', ...over }) } as never);
+    deleteTriggerMock.mockResolvedValue({ ok: true } as never);
+  };
+
+  const sent = () => createTriggerMock.mock.calls[0]![1] as unknown as Record<string, unknown>;
+
+  it('sends a new prompt and keeps the platform’s schedule', async () => {
+    ready();
+
+    const result = await connector.rotateCredentials!('trg_abc', [], [], config(), {
+      prompt: 'Review open PRs and mail me the summary'
+    });
+
+    expect(result.success).toBe(true);
+    expect(sent()).toMatchObject({
+      input: 'Review open PRs and mail me the summary',
+      schedule: '0 9 * * *'
+    });
+  });
+
+  it('sends a new schedule and keeps the platform’s prompt', async () => {
+    ready();
+
+    await connector.rotateCredentials!('trg_abc', [], [], config(), { schedule: '30 6 * * 1' });
+
+    expect(sent()).toMatchObject({ schedule: '30 6 * * 1', input: 'Review open PRs' });
+  });
+
+  it('changes nothing when asked for nothing — the rotation case, unchanged', async () => {
+    ready();
+
+    await connector.rotateCredentials!('trg_abc', [], [], config());
+
+    expect(sent()).toMatchObject({ schedule: '0 9 * * *', input: 'Review open PRs' });
+  });
+
+  it('converts an inherited schedule out of the platform’s own zone', async () => {
+    // The latent half of this change. `createTrigger` writes `time_zone: UTC`
+    // unconditionally, so echoing a New York expression back would move the
+    // trigger by the offset with nothing on screen saying so — and a rotation is
+    // the last moment anyone would look for a schedule change.
+    ready({ schedule: '0 9 * * *', timeZone: 'America/New_York' });
+
+    await connector.rotateCredentials!('trg_abc', [], [], config());
+
+    expect(sent().schedule).not.toBe('0 9 * * *');
+    // 09:00 New York is 13:00 or 14:00 UTC depending on the date the test runs;
+    // the assertion is that it was shifted and stayed a legal 5-field cron, not
+    // which side of a DST boundary today happens to fall on.
+    expect(String(sent().schedule)).toMatch(/^0 1[34] \* \* \*$/);
+  });
+
+  it('refuses a zone it cannot resolve, with the reason and the way past it', async () => {
+    ready({ schedule: '0 9 * * *', timeZone: 'Mars/Olympus_Mons' });
+
+    const result = await connector.rotateCredentials!('trg_abc', [], [], config());
+
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/Set one explicitly/);
+    expect(createTriggerMock).not.toHaveBeenCalled();
+  });
+
+  it('rebuilds a trigger whose prompt the platform never reported, when one is supplied', async () => {
+    // The old guard refused on any missing field. A field the caller is
+    // *replacing* does not need to have been readable — refusing there would
+    // make an unreadable trigger permanently unfixable, which is the opposite of
+    // what this verb is for.
+    ready({ input: null });
+
+    const result = await connector.rotateCredentials!('trg_abc', [], [], config(), { prompt: 'Do the thing' });
+
+    expect(result.success).toBe(true);
+    expect(sent()).toMatchObject({ input: 'Do the thing' });
+  });
+
+  it('still refuses when the prompt is missing and nothing replaces it', async () => {
+    ready({ input: null });
+
+    const result = await connector.rotateCredentials!('trg_abc', [], [], config());
+
+    expect(result.success).toBe(false);
+    expect(createTriggerMock).not.toHaveBeenCalled();
+  });
+
+  it('reports the replacement as the platform describes it, not as it was asked for', async () => {
+    // What the caller writes to its row. Echoing the request would put
+    // Cronsole's intention on the dashboard under the platform's name — the
+    // shape of #82, where a prompt is written as a string and read back
+    // differently.
+    getTriggerMock.mockResolvedValue({ ok: true, data: trigger() } as never);
+    createTriggerMock.mockResolvedValue({
+      ok: true,
+      data: trigger({
+        id: 'trg_new',
+        schedule: '30 6 * * 1',
+        input: 'Normalized by Gemini',
+        nextRunTime: new Date('2026-09-01T06:30:00Z')
+      })
+    } as never);
+    deleteTriggerMock.mockResolvedValue({ ok: true } as never);
+
+    const result = await connector.rotateCredentials!('trg_abc', [], [], config(), { schedule: '30 6 * * 1' });
+
+    expect(result).toMatchObject({
+      newExternalId: 'trg_new',
+      newSchedule: '30 6 * * 1',
+      newPrompt: 'Normalized by Gemini',
+      newNextRunTime: new Date('2026-09-01T06:30:00Z')
+    });
+  });
+
+  it('names what changed in the message, because "recreated" alone does not', async () => {
+    ready();
+
+    const result = await connector.rotateCredentials!('trg_abc', [], [], config(), {
+      prompt: 'New prompt',
+      schedule: '30 6 * * 1'
+    });
+
+    expect(result.message).toMatch(/a new prompt and a new schedule/);
+  });
+});

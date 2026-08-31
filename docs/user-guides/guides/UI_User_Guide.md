@@ -675,15 +675,16 @@ task modal or **Sources › Claude**. Two things it also does, both stated in it
 - **It changes nothing at claude.ai.** The routine still exists and still runs on its own
   schedule. You are disconnecting Cronsole from it, not deleting it.
 
-### Changing a Gemini trigger — Duplicate and Replace credentials
+### Changing a Gemini trigger — Recreate with changes, and Duplicate
 
 A Gemini trigger is **immutable once it exists**. Google's update endpoint takes a status and a
 display name and rejects everything else, so *Edit schedule* and *Edit action* both read
 **Unsupported** — a boundary of the preview API, not a missing feature. Two buttons exist because of
-it, and both say **recreate** rather than *save*.
+it, and both say **recreate** rather than *save*. They answer different questions: *Recreate with
+changes* changes **this** trigger; *Duplicate* makes **another** one.
 
 **Duplicate** opens the New Task form filled in from this trigger — name, schedule, prompt, tools and
-allowlist. It is how you change a prompt: duplicate, edit, delete the original. The schedule comes
+allowlist. Use it when you want a second, similar trigger and the original stays. The schedule comes
 back in **your** timezone on the way in, so a duplicate of an 08:00 local trigger is not created at
 08:00 UTC.
 
@@ -692,8 +693,11 @@ back in **your** timezone on the way in, so a duplicate of an 08:00 local trigge
   server the new trigger could not authenticate to would fail later, on a schedule, as somebody
   else's 401 — so the row is left out and you add it deliberately.
 
-**Replace credentials** rebuilds **one** trigger with new tokens or a different tool list. The
-replacement is created *before* the original is removed, so a failure leaves the working trigger
+**Recreate with changes** rebuilds **one** trigger with a new prompt, a new schedule, new tokens or a
+different tool list — whichever of those you touch. It is the only way to edit a Gemini trigger, and
+the fields it leaves alone are copied from the trigger **as it stands on Gemini right now**, not from
+Cronsole's last sync: rotating a token cannot revert a prompt somebody changed in Google's console.
+The replacement is created *before* the original is removed, so a failure leaves the working trigger
 alone; a paused trigger stays paused; and the task keeps its run history, favourite and collections
 even though Gemini assigns a new trigger id. If the replacement is created and the original cannot be
 deleted, that is reported as a **failure**, not a note — that schedule now fires twice.

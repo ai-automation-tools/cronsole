@@ -1411,8 +1411,10 @@ Next run: ${task.nextRunTime}` : '')
         '(3) Grant only the tools the task needs — every tool is reach the agent keeps for as long as the ' +
         'trigger exists. ' +
         'A trigger is IMMUTABLE once created: Gemini\'s update endpoint takes only a status and a display ' +
-        'name, so there is no edit. Changing a prompt means create-then-delete. Get it right the first time, ' +
-        'and confirm the prompt with the user before calling this. ' +
+        'name, so there is no in-place edit. From here, changing a prompt means create-then-delete, which ' +
+        'yields a NEW task — in the Cronsole UI, "Recreate with changes" rebuilds the trigger and keeps the ' +
+        'task\'s history. Get it right the first time, and confirm the prompt with the user before calling ' +
+        'this. ' +
         'Credentials: use `preset` to name a saved MCP server. NEVER put a bearer token in this call — ' +
         'there is no field for one, deliberately. The credential lives on the Cronsole connection and is ' +
         'resolved server-side, so it never passes through this conversation. An unknown preset name is ' +
@@ -1501,8 +1503,10 @@ Next run: ${task.nextRunTime}` : '')
 
         return ok(
           `Created Gemini trigger "${name}" on ${schedule} (UTC).${grant}\n` +
-          'This trigger cannot be edited — Gemini takes only a status and a display name on update. ' +
-          'To change the prompt or the schedule, create a replacement and delete this one. ' +
+          'This trigger cannot be edited in place — Gemini takes only a status and a display name on ' +
+          'update. To change the prompt or the schedule, use "Recreate with changes" on the task in ' +
+          'Cronsole: it rebuilds the trigger and keeps this task. From here it is create-a-replacement-' +
+          'then-delete, which makes a new task instead. ' +
           'Check what it actually did with list_platform_runs, and read the STEP LIST rather than the ' +
           'status: a run that finished without doing the job still reports completed.',
           {
@@ -2330,8 +2334,10 @@ Next run: ${task.nextRunTime}` : '')
         'scheduled invocation (the same agent, prompt and sandbox, on the same execution list), so do not ' +
         'carry the GitHub/Vercel assumption onto it. What it refuses is CHANGING a trigger that already ' +
         'exists: `updateAction` and `updateSchedule` are both unsupported, because the preview API\'s update ' +
-        'endpoint takes only a trigger\'s status and display name. Edit either in Google AI Studio, or ' +
-        'delete and recreate — which yields a NEW task, not the same one changed. ' +
+        'endpoint takes only a trigger\'s status and display name. Over MCP that means create-then-delete, ' +
+        'which yields a NEW task and loses this one\'s run history, favourite and collections. Say so, and ' +
+        'say what does work: the Cronsole UI has "Recreate with changes" on a Gemini task, which rebuilds ' +
+        'the trigger with a new prompt or schedule and KEEPS the task — usually what the user wants. ' +
         'What a platform reports also depends on the install: Claude Code supports `create` and ' +
         '`setStatus` when Cronsole can read your Claude Code session, and refuses both when it cannot — ' +
         'which is exactly why this matrix is worth calling rather than assumed. ' +

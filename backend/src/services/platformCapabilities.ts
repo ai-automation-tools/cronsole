@@ -262,8 +262,9 @@ export const PLATFORM_DESCRIPTORS: Record<string, PlatformDescriptor> = {
     // is broken rather than absent.
     summary:
       'Scheduled triggers on the Gemini API\'s managed agents. Cronsole lists, runs, pauses, creates ' +
-      'and deletes them, and reads their real run outcomes. A trigger\'s schedule and prompt are fixed ' +
-      'once it exists — the preview API can change neither — so both are edited in Google AI Studio.',
+      'and deletes them, and reads their real run outcomes. A trigger cannot be changed in place — the ' +
+      'preview API takes only a status and a display name — so a new prompt or schedule is a rebuild: ' +
+      'Recreate with changes on the task does it and keeps the task\'s history.',
     // Experimental, and for the same reason Claude's row is: `v1beta` triggers
     // are documented as a **preview** of the Managed Agents API and may change
     // shape without notice. That is a statement about the API underneath, not

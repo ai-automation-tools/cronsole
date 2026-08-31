@@ -12,49 +12,49 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Security
+- **`req.user` is resolved from the database, not from the token's claims** (2026-08-28). Closes the
+  last open **P0** item.
+
+  `authenticateToken` verified a signature and then believed everything the payload said. Two things
+  followed from that. A **correctly-signed token for a deleted account stayed valid for its whole
+  life** — up to `never`, for an API token, which is the credential the MCP server holds. And
+  `req.user.email` was whatever was true on the day the token was signed, with nothing anywhere that
+  could ever correct it. Only `id` is read today, which is exactly the shape of thing that stays
+  harmless right up until something reads the other field.
+
+  `checkToken` — still the one definition the REST middleware and the Socket.IO handshake share — now
+  ends with a primary-key read of the `User` row and returns **that row's** id and email. A missing
+  row is a `403` that **says what is actually wrong**: `This account no longer exists`, not
+  *"invalid or expired"*, because a caller told the token expired would go and try to log in with
+  credentials that are also gone. A database that cannot answer is a `503`, the same fail-closed rule
+  the revocation lookup already followed — being unable to ask has never been permission to assume
+  yes. A signed token carrying no usable `id` is refused before the query rather than throwing inside
+  it, and a **revoked API token is still refused first**, so the cheap no stays cheap.
+
+  **What this costs, stated rather than buried:** one indexed read per authenticated request. The
+  browser session was deliberately designed to avoid that — it carries no `jti`, so verifying it used
+  to touch nothing. The trade is now the other way round: an identity nobody re-checks is not an
+  identity, and the row is the only thing that can answer *does this user exist right now*. §9,
+  `DESIGN_NOTES.md` and the skill's invariants table all say so in the same change.
+
+  `verifyToken` was **deleted** with it. Its own doc comment said the Socket.IO UI channel used it;
+  that channel moved to `checkToken` when revocation shipped, so by 2026-08-28 only its test still
+  called it. Left in place it would have been a second, *trusting* definition of the exact thing this
+  change exists to stop doing — and the next caller wanting an identity would have found the cheap
+  one first.
+
+  Pinned at both layers: the unit suite covers the deleted account, the stale email claim, the
+  fail-closed DB error, the id-less token and the revocation ordering; one integration test drives it
+  through the real middleware against real Postgres, because the subject *is* the database read and a
+  stubbed test would only be asserting its own fixture. That test was confirmed to fail (`200`
+  instead of `403`) with the lookup short-circuited.
+
 ### Added
-- **Recreate with changes — a Gemini trigger's prompt and schedule are editable at last**
-  (2026-08-31). *Replace credentials* on a Gemini task is now **Recreate with changes**, and it
-  carries a new prompt or a new schedule alongside the tools and tokens it always carried.
-
-  Gemini's task definition is immutable — Google's update endpoint takes a status and a display name
-  and rejects everything else — so until now the way to fix a prompt was: Duplicate, retype, create,
-  then delete the original by hand, losing that task's run history, favourite and collections in the
-  process. The machinery to do it properly was already here and only ever carried a tool list. It
-  reads the trigger, builds the replacement **before** retiring the original, inherits a paused
-  status, and **rekeys the Cronsole row** so nothing hanging off it is lost.
-
-  **What you leave alone is copied from Gemini, not from Cronsole's copy of it.** Untouched fields
-  are read off the trigger a moment before the rebuild, so rotating a token cannot silently revert a
-  prompt somebody changed in Google's console since the last sync. Afterwards the task is written
-  from what the platform reports the replacement to be, rather than from what was asked for.
-
-  **It is still called *recreate*, and Edit schedule / Edit action are still Unsupported** — those
-  mean *change in place*, which this API cannot do, and a rebuild is a different act with a new
-  trigger id at the end of it. What changed is that both refusals now **name the path that works**
-  instead of reading as a dead end.
-
-- **The sidebar reorders — Collections, Pinned and Sources each keep the order you put them in**
-  (2026-08-27). Drag a row up or down inside its own section and it takes the place of the row you
-  drop it on; **Alt+↑ / Alt+↓** does the same one step at a time, so arranging the rail never needs
-  a pointer.
-
-  **A row cannot leave its section.** The three bands are three different kinds of record — a
-  collection holds the tasks you put in it, a pin tracks a folder, a source is a system — and a
-  platform sitting among your collections would say something untrue about it.
-
-  **Sources are alphabetical until you move one**, and a platform you have never dragged keeps its
-  alphabetical place at the bottom of the list. That is also where a source shipped in a later
-  version arrives, so adding a connector never reshuffles a sidebar somebody arranged. Folders
-  *inside* a source stay alphabetical: they come and go with your tasks, so a hand order there would
-  be a list of names that quietly stopped matching the tree.
-
-  **One gesture, three stores.** A pin's order is the `railPins` array it already lives in, a
-  source's is a new `sourceOrder` preference, and a collection's is the `position` column the schema
-  has carried since collections shipped. A fourth record holding "the rail's order" would be a second
-  definition of the collection order the server already serves, free to disagree with it — and the
-  disagreement would show up only as a rail that reshuffles itself on reload.
-
+- **Four extended-tier templates** (2026-08-27): `native-ffmpeg-transcode` and `native-image-resize`
+  (Cronsole-native, the catalog's first `media`-category templates), `ntf-email-alert` (SMTP email
+  alerts), and `native-script-pending-reboot` (fails when Windows has an update-required reboot
+  pending). Registry rebuilt via `npm run registry:build`.
 - **Calendar view — which of your tasks run on which day** (2026-08-26). A fifth view mode beside
   Grid, List, Kanban and Schedule, in **Month** or **Week**.
 

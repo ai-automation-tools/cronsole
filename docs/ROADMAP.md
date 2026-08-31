@@ -31,7 +31,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 
 | Area | State | What is left |
 |---|---|---|
-| **P0 — Security** | 🟢 substantially closed | one item: resolve `req.user` from the DB |
+| **P0 — Security** | 🟢 **closed** *(2026-08-28)* | nothing open |
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(themes done 2026-08-24)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
@@ -389,7 +389,7 @@ of that list which have since shipped are in Part II.
 
 <a id="p0-security"></a>
 
-## 🟡 P0 — Security hardening
+## 🟢 P0 — Security hardening
 
 <!--
   Linked as `#p0-security`, not by heading slug. This heading has carried dates and been edited
@@ -397,16 +397,11 @@ of that list which have since shipped are in Part II.
   scripts/check-doc-links.mjs). A heading whose text is expected to change wants a stable anchor.
 -->
 
-*Closed 2026-07-09, reopened 2026-08-13 for one gap, **substantially closed again 2026-08-15**.
-The five original items and the two shipped halves of the API-token work are in
-[Part II](#completed--p0-security). One item remains, and it gates nothing.*
-
-- [ ] **Resolve `req.user` from the database instead of trusting the `email` claim.**
-      `authenticateToken` verifies the signature and assigns `req.user` straight from the payload;
-      it never checks the `id` against the DB. A correctly-signed token for a deleted user stays
-      valid for its full life, and the `email` claim is whatever the signer typed. Harmless today
-      because only `id` is used for scoping — and exactly the kind of thing that stays harmless
-      until something reads `req.user.email`. Small, and independent of everything else.
+*Closed 2026-07-09, reopened 2026-08-13 for one gap, substantially closed again 2026-08-15, and
+**fully closed 2026-08-28** when `req.user` stopped being read out of the token's claims. Every
+item is in [Part II](#completed--p0-security). **Nothing is open here.** New security work lands
+back in this section as it is found — a closed tier is a statement about the list, not a claim that
+the class is finished.*
 
 ---
 
@@ -1656,6 +1651,16 @@ verification pass — is still open above, narrowed to the half that needs a tok
 
 ## Completed — P0 Security
 
+- [x] **`req.user` is resolved from the database, not from the token's claims** — `checkToken` ends
+      with a primary-key read of `User` and returns that row's id and email, so a correctly-signed
+      token for a **deleted account** no longer stays valid for its whole life (up to `never`, for
+      the API token the MCP server holds) and the `email` claim can no longer be stale. The missing
+      row is its own `403` — *"This account no longer exists"*, not *"invalid or expired"* — a DB
+      that cannot answer is a `503` on the revocation lookup's fail-closed rule, and a revoked API
+      token is still refused **before** the read. Costs one indexed read per authenticated request,
+      which is the property the `jti`-free browser session was designed to avoid: traded on purpose
+      and stated in §9 rather than buried. `verifyToken` — a payload-trusting sibling with no caller
+      left — was deleted with it, so `checkToken` is the one door *(2026-08-28)*.
 - [x] **API tokens (a) `JWT_EXPIRES_IN`** — defaults to `24h`, validated by probe-signing at boot
       rather than by pattern-matching; login and setup return `expiresIn`; the guide's hand-minting
       instructions are gone *(2026-08-15)*.

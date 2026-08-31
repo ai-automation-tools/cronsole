@@ -51,10 +51,58 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   instead of `403`) with the lookup short-circuited.
 
 ### Added
+
+- **Recreate with changes — a Gemini trigger's prompt and schedule are editable at last**
+  (2026-08-31). *Replace credentials* on a Gemini task is now **Recreate with changes**, and it
+  carries a new prompt or a new schedule alongside the tools and tokens it always carried.
+
+  Gemini's task definition is immutable — Google's update endpoint takes a status and a display name
+  and rejects everything else — so until now the way to fix a prompt was: Duplicate, retype, create,
+  then delete the original by hand, losing that task's run history, favourite and collections in the
+  process. The machinery to do it properly was already here and only ever carried a tool list. It
+  reads the trigger, builds the replacement **before** retiring the original, inherits a paused
+  status, and **rekeys the Cronsole row** so nothing hanging off it is lost.
+
+  **What you leave alone is copied from Gemini, not from Cronsole's copy of it.** Untouched fields
+  are read off the trigger a moment before the rebuild, so rotating a token cannot silently revert a
+  prompt somebody changed in Google's console since the last sync. Afterwards the task is written
+  from what the platform reports the replacement to be, rather than from what was asked for.
+
+  The Sources tab's own description of Gemini says this too: it used to end *"both are edited in
+  Google AI Studio"*, which stopped being true the moment this shipped.
+
+  **It is still called *recreate*, and Edit schedule / Edit action are still Unsupported** — those
+  mean *change in place*, which this API cannot do, and a rebuild is a different act with a new
+  trigger id at the end of it. What changed is that both refusals now **name the path that works**
+  instead of reading as a dead end.
+
+
 - **Four extended-tier templates** (2026-08-27): `native-ffmpeg-transcode` and `native-image-resize`
   (Cronsole-native, the catalog's first `media`-category templates), `ntf-email-alert` (SMTP email
   alerts), and `native-script-pending-reboot` (fails when Windows has an update-required reboot
   pending). Registry rebuilt via `npm run registry:build`.
+
+- **The sidebar reorders — Collections, Pinned and Sources each keep the order you put them in**
+  (2026-08-27). Drag a row up or down inside its own section and it takes the place of the row you
+  drop it on; **Alt+↑ / Alt+↓** does the same one step at a time, so arranging the rail never needs
+  a pointer.
+
+  **A row cannot leave its section.** The three bands are three different kinds of record — a
+  collection holds the tasks you put in it, a pin tracks a folder, a source is a system — and a
+  platform sitting among your collections would say something untrue about it.
+
+  **Sources are alphabetical until you move one**, and a platform you have never dragged keeps its
+  alphabetical place at the bottom of the list. That is also where a source shipped in a later
+  version arrives, so adding a connector never reshuffles a sidebar somebody arranged. Folders
+  *inside* a source stay alphabetical: they come and go with your tasks, so a hand order there would
+  be a list of names that quietly stopped matching the tree.
+
+  **One gesture, three stores.** A pin's order is the `railPins` array it already lives in, a
+  source's is a new `sourceOrder` preference, and a collection's is the `position` column the schema
+  has carried since collections shipped. A fourth record holding "the rail's order" would be a second
+  definition of the collection order the server already serves, free to disagree with it — and the
+  disagreement would show up only as a rail that reshuffles itself on reload.
+
 - **Calendar view — which of your tasks run on which day** (2026-08-26). A fifth view mode beside
   Grid, List, Kanban and Schedule, in **Month** or **Week**.
 

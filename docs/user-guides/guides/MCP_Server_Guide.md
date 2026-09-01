@@ -47,7 +47,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`create_native_check_task`** | "Check every 5 minutes that my API returns healthy, and alert me if not" | `POST /api/tasks/native` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |
 | **`get_task_history`** | "Did last night's backup work?" — runs **Cronsole** performed | `GET /api/tasks/:id/executions` |
-| **`create_gemini_trigger`** | "Every Monday, summarise my repos and email me" — creates a scheduled Gemini agent | `POST /api/tasks` |
+| **`create_gemini_trigger`** | "Every Monday, summarise my repos and email me" — creates a scheduled Gemini agent; reports back anything Cronsole's prompt preflight noticed | `POST /api/tasks` |
 | **`list_platform_runs`** | "Why did my scheduled task fail?" — runs the **platform** recorded, which on Gemini, GitHub, Vercel and Windows is where they all are | `GET /api/tasks/:id/platform-runs` |
 | **`get_run_output`** | "What did that run actually do?" — the output and the **step list**, one run at a time | `GET /api/tasks/:id/platform-runs/:runId/output` |
 | **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" — or **"set this task up on my other machine"**, which asks for the *portable* format instead. Two formats: `native` (default — Task Scheduler XML, or Cronsole JSON) is the faithful backup; `format: 'template'` is portable, **drops platform-specific settings so it is not a backup**, and is the only one that works with the agent offline or on a **Claude routine** | `GET /api/tasks/:id/export[?format=]` |

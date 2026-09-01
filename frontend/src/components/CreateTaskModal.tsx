@@ -13,6 +13,8 @@ import { HelpButton } from './HelpButton';
 import { sourceTopicId } from '../data/help';
 import { NativeJobFields } from './edit/NativeJobFields';
 import { TaskSecretsFields, type PendingSecret } from './edit/TaskSecretsFields';
+import { PromptPreflightNotes } from './PromptPreflightNotes';
+import { usePromptPreflight } from '../hooks/usePromptPreflight';
 import { AgentReachEditor } from './AgentReachEditor';
 import { reachPayload, type AgentToolDraft } from '../utils/agentReach';
 import {
@@ -174,6 +176,10 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const isClaude = platform === 'CLAUDE_CODE';
   const isGemini = platform === 'GEMINI_TRIGGERS';
+  // Preflight the prompt as it is typed, on the two platforms whose action IS a
+  // prompt. Warnings only — nothing below reads this when deciding whether the
+  // form can be submitted.
+  const promptWarnings = usePromptPreflight(prompt, isGemini || isClaude);
   // Native is what is left over, so a new platform has to be named above or it
   // silently inherits the native job form — four job-type tabs over a platform
   // that has none.
@@ -325,7 +331,10 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
         isWindows
           ? `Windows task "${name}" created under the \\Cronsole\\ scheduler folder.`
           : isGemini
-            ? `Gemini trigger "${name}" created. Its agent has no network allowlist — add domains in Google AI Studio if the prompt needs them.`
+            // The allowlist is set HERE, under Tools and network access — the
+            // sentence used to send people to Google AI Studio, which is neither
+            // where Cronsole writes it nor where they are standing.
+            ? `Gemini trigger "${name}" created${agentAllowlist.length === 0 ? ' with no network allowlist — its agent reaches nothing outside its own sandbox. Add domains under Tools and network access if the prompt needs them (a trigger asked to email a report will quietly write a file instead).' : '.'}`
             : `Cronsole task "${name}" created. It runs on the backend scheduler — no Windows entry.`,
         'success'
       );
@@ -630,6 +639,10 @@ export const CreateTaskModal = ({ onClose, initial }: CreateTaskModalProps) => {
               <p className="text-[10px] text-subtle-foreground italic">
                 Runs on the managed agent set in the Sources tab.
               </p>
+              {/* Before the trigger exists is the only cheap moment: this agent
+                  fails at 03:00 to an empty room, and each of these rules was
+                  paid for by a run that did. */}
+              <PromptPreflightNotes warnings={promptWarnings} />
 
               {/*
                 Reach is part of creating an autonomous task, not an advanced

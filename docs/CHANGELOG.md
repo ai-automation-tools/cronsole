@@ -52,6 +52,26 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Cronsole checks a prompt before it runs unattended** (2026-08-31). Type a prompt for a Gemini
+  trigger or a Claude routine and Cronsole now says what it noticed, under the box, as you type.
+
+  Three things, each one a run that really failed. **A prompt that asks a question** — nobody
+  answers at 03:00, so the run stalls rather than failing. **Characters pasted in from a terminal or
+  a chat bubble** (`▎`, box rules, zero-width spaces) — invisible in the box, and the agent reads
+  them as part of the instruction and ignores what they chop up. **An instruction to email something
+  with no address in it** — the agent writes a file instead and reports success.
+
+  They are **notes, not blockers**: nothing here stops you creating the task, and the panel says so.
+  None of the three is certainly wrong, and a task manager that refuses a prompt it merely dislikes
+  is worse than one that mentions it. They appear in the create form **and** in *Recreate with
+  changes*, which is where a Gemini prompt is normally edited, and an assistant creating a trigger
+  over MCP gets the same notes back to pass on.
+
+  Also fixed: creating a Gemini trigger with no network allowlist told you to add domains **in Google
+  AI Studio**. They are added right there in the form, under *Tools and network access* — the last of
+  those stale pointers, in the sentence you read a second after creating an agent that could not
+  reach anything.
+
 - **A Gemini template family, and templates can now carry a tool grant** (2026-08-31). Three
   scheduled-agent templates — **Daily Digest by Email**, **Weekly Repo Report** and **Page Watch** —
   in a new **Gemini Triggers** pack, applied straight onto the platform from the Templates tab or

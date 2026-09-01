@@ -1445,6 +1445,10 @@ Next run: ${task.nextRunTime}` : '')
         'report failure explicitly, or an agent that cannot finish a step narrates success instead. ' +
         '(3) Grant only the tools the task needs — every tool is reach the agent keeps for as long as the ' +
         'trigger exists. ' +
+        'Cronsole preflights the prompt server-side and returns `promptWarnings` — a question nobody can ' +
+        'answer at 03:00, characters pasted in from a terminal gutter, a mail instruction with no ' +
+        'recipient. They are NOTES, not errors: the trigger is created either way. Tell the user what ' +
+        'came back rather than rewriting their prompt yourself. ' +
         'A trigger is IMMUTABLE once created: Gemini\'s update endpoint takes only a status and a display ' +
         'name, so there is no in-place edit. From here, changing a prompt means create-then-delete, which ' +
         'yields a NEW task — in the Cronsole UI, "Recreate with changes" rebuilds the trigger and keeps the ' +
@@ -1527,7 +1531,11 @@ Next run: ${task.nextRunTime}` : '')
         if (agentTools.length) body.agentTools = agentTools;
         if (allowlist?.length) body.agentAllowlist = allowlist;
 
-        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks', body);
+        const result = await client.post<{
+          message?: string;
+          task?: TaskRow;
+          promptWarnings?: { code: string; message: string }[];
+        }>('/tasks', body);
 
         // The connector's own sentence, which states what was granted and where
         // any credential now lives. Leading with it rather than with "created"
@@ -1536,8 +1544,18 @@ Next run: ${task.nextRunTime}` : '')
           ? `\n${result.message}`
           : '';
 
+        // The server's prompt preflight, forwarded verbatim. The browser gets
+        // these as it types; there is no such moment here, so the same judgement
+        // rides back on the response — and it is REPORTED rather than acted on,
+        // because none of the rules is certainly right and the trigger already
+        // exists. Say them to the user; do not silently rewrite their prompt.
+        const notes = result.promptWarnings?.length
+          ? '\nWORTH TELLING THE USER about the prompt (these are notes, not errors — the trigger was ' +
+            'created):\n' + result.promptWarnings.map(w => `- ${w.message}`).join('\n')
+          : '';
+
         return ok(
-          `Created Gemini trigger "${name}" on ${schedule} (UTC).${grant}\n` +
+          `Created Gemini trigger "${name}" on ${schedule} (UTC).${grant}${notes}\n` +
           'This trigger cannot be edited in place — Gemini takes only a status and a display name on ' +
           'update. To change the prompt or the schedule, use "Recreate with changes" on the task in ' +
           'Cronsole: it rebuilds the trigger and keeps this task. From here it is create-a-replacement-' +
@@ -1551,6 +1569,7 @@ Next run: ${task.nextRunTime}` : '')
             toolsGranted: tools ?? [],
             presetsGranted: presets ?? [],
             allowlist: allowlist ?? [],
+            promptWarnings: result.promptWarnings ?? [],
             task: result.task ?? null
           }
         );

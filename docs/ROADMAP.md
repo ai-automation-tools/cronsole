@@ -102,7 +102,8 @@ falsified.**
 > **C shipped 2026-08-31** — *Replace credentials* became *Recreate with changes*, so a prompt or a
 > schedule can be changed on the one platform where editing is impossible. **D shipped 2026-08-31**
 > too — a Gemini template family, and with it the finding that a hosted-agent template is a prompt
-> *plus a grant*. **E is open**, and so is the skill gap below. The diagnosis that
+> *plus a grant*. **E and the skill gap shipped 2026-08-31 too** — a server-side prompt preflight
+> on both surfaces, and §2a of `task-authoring.md`. **The block is closed.** The diagnosis that
 > follows is kept rather than trimmed: it is the reasoning that changed a §9 invariant, and the next
 > rule whose stated reason is a lifecycle claim should be re-read the same way.
 
@@ -232,13 +233,30 @@ wrong.
       session. Calling it `direct` promises a one-click apply that fails; calling it `manual` hides a
       connector that works.
 
-- [ ] **E. Prompt preflight at create** *(lowest of the five, and earned)*. Three real failures in one
-      session, none of them a Cronsole defect and all of them catchable before the trigger exists:
-      a prompt that **asks the user a question** (an unattended agent stalls — nobody answers at
-      15:00 on the 1st), a prompt carrying **pasted gutter characters** (`▎`) that chopped the
-      instruction into fragments the agent ignored, and an **email instruction with no `from`/`to`**.
-      A warning, never a refusal: none of these is certainly wrong, and a task manager that refuses
-      a prompt it merely dislikes is worse than one that mentions it.
+- [x] **E. Prompt preflight at create** — **shipped 2026-08-31**. The three failures of 2026-08-25,
+      each caught before the trigger exists: a prompt that **asks the user a question** or hands back
+      a choice (an unattended agent stalls — nobody answers at 15:00 on the 1st), **pasted gutter
+      characters** (`▎`, box rules, zero-width spaces) that chop the instruction into fragments, and
+      an **email instruction with no recipient**. A **warning, never a refusal**, as specified —
+      nothing gates the submit button, and the panel says so out loud, because a reader who cannot
+      dismiss a note by ignoring it stops reading the panel.
+
+      **Two things the build settled.** It is the **server's** judgement
+      (`services/promptPreflight.ts`, `POST /api/tools/prompt-preflight`), not a browser lint: a
+      second copy would be free to disagree with the one an MCP-created trigger is judged by, and
+      the MCP surface has no typing moment at all — so the same warnings ride back on the create
+      response and `create_gemini_trigger` reports them. And the response carries **`checked`**
+      beside `warnings`, because an empty list otherwise cannot be told from a preflight that
+      silently did nothing — the schedule-conversion rule (*a refusal must state its reason*) applied
+      to a check that found none.
+
+      It renders in **two** places, and the second is the one that matters more: `RecreateTriggerModal`
+      is where a Gemini prompt is normally written, since the platform's definition is immutable and
+      every edit after the first arrives there.
+
+      One thing found while wiring it: the create toast still told people to add network-allowlist
+      domains **in Google AI Studio** — the last of the AI Studio references, in the one sentence a
+      user reads immediately after creating a trigger whose sandbox reaches nothing.
 
 **MCP server — one real gap, and one thing that must wait for A.**
 
@@ -281,9 +299,9 @@ wrong.
 
 **The skill — one gap, and it is the one that caused the failures above.**
 
-- [ ] **How to author a prompt for an unattended agent**, in
-      [`references/task-authoring.md`](../skills/cronsole/references/task-authoring.md), which is
-      today entirely Windows-command-centric and says nothing about the unit of work on a hosted
+- [x] **How to author a prompt for an unattended agent** — **shipped 2026-08-31** as **§2a** of
+      [`references/task-authoring.md`](../skills/cronsole/references/task-authoring.md), which was
+      entirely Windows-command-centric and said nothing about the unit of work on a hosted
       source. Three rules, all paid for on 2026-08-25: **never let the prompt offer a choice**
       (a question becomes a stall when nobody is there to answer it — give the parameter or tell it
       to pick); **always instruct it to report failure explicitly** (an agent that cannot finish a

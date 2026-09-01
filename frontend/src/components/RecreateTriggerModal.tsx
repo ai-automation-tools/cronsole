@@ -6,6 +6,8 @@ import { api } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useScheduleZone } from '../hooks/useScheduleZone';
 import { ScheduleBuilder } from './ScheduleBuilder';
+import { PromptPreflightNotes } from './PromptPreflightNotes';
+import { usePromptPreflight } from '../hooks/usePromptPreflight';
 import { ScheduleZoneHint } from './ScheduleZoneHint';
 import { AgentReachEditor } from './AgentReachEditor';
 import { reachPayload, type AgentToolDraft } from '../utils/agentReach';
@@ -101,6 +103,7 @@ export function RecreateTriggerModal({
   const storedSchedule = zone.toUtc(schedule);
 
   const promptChanged = prompt.trim() !== initialPrompt.trim() && prompt.trim().length > 0;
+  const promptWarnings = usePromptPreflight(prompt, true);
   const scheduleChanged = schedule.trim() !== initialSchedule.trim() && schedule.trim().length > 0;
   // A cron the browser cannot convert has no honest UTC form to send, and the
   // hint below already says why — so the button refuses rather than posting a
@@ -181,6 +184,11 @@ export function RecreateTriggerModal({
             }
             className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-xs text-foreground outline-none focus:border-gemini transition-colors resize-y leading-relaxed"
           />
+          {/* The same panel as the create form, because **this** is where a
+              Gemini prompt is normally written: the platform's definition is
+              immutable, so every prompt edit after the first arrives here. A
+              preflight that only ran at create would miss most of them. */}
+          <PromptPreflightNotes warnings={promptWarnings} />
         </div>
 
         <div className="space-y-2">

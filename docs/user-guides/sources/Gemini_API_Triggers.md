@@ -116,6 +116,16 @@ Three rules, each paid for by a real failed run.
 3. **Paste plain text.** A prompt copied out of a terminal can carry gutter characters (`▎`) that chop
    the instruction into fragments the agent ignores.
 
+**Cronsole checks for these as you type.** Under the prompt box — in the create form *and* in
+**Recreate with changes**, which is where a prompt is normally edited here — a panel names what it
+noticed: a question nobody will answer, characters pasted in from something rendered (including
+zero-width ones you cannot see), and an instruction to send mail with no address in it.
+
+They are **notes, not blockers.** Nothing in that panel stops you creating the trigger, and it is
+meant to be overruled: a prompt may legitimately contain a question mark, and a rule you cannot
+ignore by simply not acting on it is one you stop reading. What the panel cannot check is rule 2 —
+only you know whether the prompt says what to do when a step fails.
+
 ## 🔁 Changing one — Recreate with changes, and Duplicate
 
 A trigger is **immutable once it exists**. Google's update endpoint takes a status and a display name

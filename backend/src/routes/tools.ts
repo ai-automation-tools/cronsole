@@ -28,6 +28,7 @@ import {
   routineEditSchema
 } from '../services/claudeRoutines.js';
 import { getClaudeCredential } from '../services/claudeOAuth.js';
+import { preflightPrompt, PROMPT_PREFLIGHT_RULES } from '../services/promptPreflight.js';
 import {
   readConfig as readGitHubConfig,
   redactConfig as redactGitHubConfig,
@@ -1785,6 +1786,30 @@ const DEFAULT_ANALYTICS_DAYS = 30;
 
 /** Default silence before a scheduled task is worth asking about. */
 const DEFAULT_IDLE_DAYS = 30;
+
+/**
+ * Preflight a prompt that is about to run unattended.
+ *
+ * On `/api/tools` because it is about no task in particular — there is nothing
+ * to create yet, which is the whole point of a *pre*flight.
+ *
+ * It answers **warnings, never a verdict**: a `200` with an empty list means
+ * nothing was noticed, not that the prompt is good. Declining to judge and
+ * saying "no problem here" must not be the same code path (§9), which is why the
+ * response also carries `checked` — the rules that actually ran — so a caller can
+ * tell "three rules found nothing" from "the preflight did nothing".
+ */
+const promptPreflightSchema = z.object({
+  prompt: z.string().max(20000)
+});
+
+router.post('/prompt-preflight', validateBody(promptPreflightSchema), async (req: Request, res: Response) => {
+  const { prompt } = req.body as { prompt: string };
+  res.json({
+    warnings: preflightPrompt(prompt),
+    checked: PROMPT_PREFLIGHT_RULES
+  });
+});
 
 const analyticsQuerySchema = z.object({
   days: z.coerce.number().int().positive().max(730).optional(),

@@ -622,6 +622,15 @@ Non-negotiable rules. **Every one has a reason recorded in
   came to read.
 - **Absence of evidence is `unknown`, never `ok`**, and a claim never travels without its source.
   Disabled is not unhealthy. Never mix populations in one summary.
+- **A preflight warns; it never refuses, and it says what it looked for.**
+  `services/promptPreflight.ts` is the one definition (`POST /api/tools/prompt-preflight`, the form
+  as you type; the same list on the create response, for a caller with no typing moment). Not one of
+  its rules is certainly right — a prompt may legitimately hold a question mark — so **nothing gates
+  a submit** and the panel says so, because a note a reader cannot dismiss by ignoring it is a note
+  they stop reading. It returns `checked` beside `warnings` for the schedule-conversion reason: *"we
+  looked and found nothing"* and *"nothing looked"* must not be the same response. It renders in
+  **two** places, and `RecreateTriggerModal` is the more important — a Gemini definition is
+  immutable, so every prompt edit after the first arrives there.
 - **A diagnostic reports; it does not repair** — three of four agent-health incidents were the readout
   lying, so a "restart the agent" button would have restarted a working agent forever, and looked
   like it worked. A check may not fail its siblings; a check with nothing to measure is omitted, not

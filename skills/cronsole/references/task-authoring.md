@@ -109,6 +109,70 @@ every parameter into arbitrary code.
 
 ---
 
+## 2a. Compose the prompt (hosted agents — Gemini, Claude routines)
+
+On a hosted source the unit of work is **a sentence for an agent**, not a command line, and
+nothing in §2 applies: there is no executable, no tokenizer, no quoting problem. There is a
+different problem, and it is worse, because **it fails silently**.
+
+> **The three rules below were each paid for by a real failed run on 2026-08-25.** None of them
+> was a Cronsole defect. All three were catchable before the trigger existed, which is why
+> Cronsole now preflights the prompt server-side (`services/promptPreflight.ts`) and returns
+> `promptWarnings` on the create — shown live in the form, forwarded by
+> `create_gemini_trigger`. They are **notes, never refusals**: not one is certainly wrong, and a
+> task manager that refuses a prompt it merely dislikes is worse than one that mentions it.
+
+### 1. Never let the prompt offer a choice
+
+Nobody answers a question at 03:00. A prompt that asks *"which repositories should I include?"*
+or says *"let me know if you'd prefer the short form"* does not fail — it **stalls**, and the
+run is over before anything happened.
+
+**Give the parameter, or tell the agent to pick and say which it picked.** The second is often
+better: it is honest about the ambiguity, and the report says what was chosen.
+
+```
+BAD   Summarize the news. Which topics should I cover?
+GOOD  Summarize the news about Postgres releases and CVEs. If a story is ambiguous,
+      include it and say why you were unsure.
+```
+
+### 2. Always instruct it to report failure explicitly
+
+An agent that cannot finish a step **narrates success instead**. It will describe the digest it
+would have sent. The run's status is `completed`, because `completed` means *the agent finished
+its turn* — it is not a claim that the job was done.
+
+Every prompt ends with a sentence like: *"If any step fails, say so explicitly in your final
+message and name the step that failed, rather than summarizing what you would have produced."*
+
+### 3. Read the step list, not the status
+
+This is a rule for **you**, checking afterwards, and it is the reason the run panel shows steps
+at all. Use `list_platform_runs` → `get_run_output` and read `steps`. An agent asked to research
+and email a report finishes `completed` having called only `write_file`; no status anywhere can
+show that, and the step list is the only place it is visible.
+
+### The two invisible ones
+
+- **Pasted gutter characters.** `▎`, `│`, box-drawing rules, zero-width spaces — they arrive by
+  copying a prompt out of a terminal, a diff, or a chat bubble. The agent reads them as part of
+  the instruction and chops it into fragments it ignores. **You cannot see them in the
+  textarea.** Retype rather than paste, and if you must paste, read the preflight panel.
+- **Mail with no recipient.** *"Email the digest"* with no address: the agent writes a file
+  instead and reports success. Name the address — and remember that **reach is a separate
+  grant**: a trigger with no `mcp_server` cannot send mail however clearly the prompt says to,
+  and one with no network allowlist reaches nothing outside its own sandbox.
+
+### Reach is half the task
+
+On Gemini the prompt and the **tool grant** are one decision, not two. State what you are
+granting before you create it — the agent keeps that reach for as long as the trigger exists —
+and grant only what the task needs. `create_gemini_trigger` takes built-ins by name and MCP
+servers **by preset name**, so no bearer token ever enters a tool call.
+
+---
+
 ## 3. Get the schedule right
 
 **All schedules are 5-field cron in UTC.** Not local time. The UI converts for display; you
@@ -285,6 +349,11 @@ Before you call `create_task` on a real machine:
    error hangs forever.
 8. After creating: **run it and verify from outside Cronsole** (`LastTaskResult` + a side effect).
 9. If it was a test: **delete it**.
+
+On a **hosted agent** (Gemini, a Claude routine) items 3–6 do not apply and three others take
+their place (§2a): the prompt **offers no choice**, it **demands explicit failure reporting**,
+and the **grant** covers what it is told to do. Then verify by reading the run's **step list**,
+never its status.
 
 ## Canonical sources
 

@@ -110,6 +110,14 @@ export interface TemplateParameter {
   options?: string[];
 }
 
+export interface TemplateAgentTool {
+  /** `mcp_server`, `google_search`, `url_context`, … */
+  type: string;
+  name?: string;
+  /** The name of a saved MCP server on the platform connection. */
+  preset?: string;
+}
+
 export interface Template {
   id: string;
   name: string;
@@ -123,6 +131,16 @@ export interface Template {
   category?: string;
   commandTemplate?: string | null;
   parameters?: TemplateParameter[] | null;
+  /**
+   * The reach this template grants on a hosted agent target (Gemini) — a
+   * **reference, never a value**: `preset` names a saved MCP server on the
+   * user's own connection, and there is no `url` and no `headers` here because
+   * the registry schema never reads them.
+   *
+   * Shown before Apply rather than after, because reach is the consequential
+   * half of creating an autonomous task.
+   */
+  agentTools?: TemplateAgentTool[] | null;
   /** Free-form tags (git, build, ai, …) — distinct from the single `category`. */
   tags?: string[];
   isStarter?: boolean;

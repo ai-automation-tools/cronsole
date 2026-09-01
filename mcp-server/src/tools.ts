@@ -100,7 +100,17 @@ const CREATABLE_PLATFORMS = ['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'] as cons
 // capability from every install that HAS the session, which is the same mistake
 // the frontend's `CREATABLE_PLATFORMS` constant made until it was deleted. Call
 // `list_platforms` (or `list_claude_routines` → `session.mode`) to know first.
-const TEMPLATE_TARGET_PLATFORMS = [...CREATABLE_PLATFORMS, 'CLAUDE_CODE'] as const;
+//
+// GEMINI_TRIGGERS joined on 2026-08-31 with the Gemini Triggers pack, on the same
+// argument and with one addition: such a template carries a TOOL GRANT as well as
+// a prompt, so applying it can hand a saved MCP server's credential to Google.
+// The grant is declared by the template and resolved server-side — this wrapper
+// neither reads it nor sends one, which is why there is no tools parameter below.
+const TEMPLATE_TARGET_PLATFORMS = [
+  ...CREATABLE_PLATFORMS,
+  'CLAUDE_CODE',
+  'GEMINI_TRIGGERS'
+] as const;
 
 const ALL_PLATFORMS = [
   'WINDOWS_TASK_SCHEDULER',
@@ -173,6 +183,15 @@ interface TemplateRow {
   scheduleExpression: string | null;
   targetPlatforms: string[];
   parameters: TemplateParameter[] | null;
+  /**
+   * The reach a hosted-agent template grants (Gemini). A reference and never a
+   * value: `preset` is the name of a saved MCP server on the user's own
+   * connection, and the API has no `url` / `headers` to return here because the
+   * registry schema never reads them. Surfaced because an assistant applying
+   * such a template is granting an unattended agent that reach on the user's
+   * behalf, and cannot say so without reading it.
+   */
+  agentTools: { type: string; name?: string; preset?: string }[] | null;
 }
 
 // GET /api/tasks/folders. `writable: false` folders are returned rather than
@@ -458,6 +477,10 @@ const compactTemplate = (t: TemplateRow) => ({
   isStarter: t.isStarter,
   targetPlatforms: t.targetPlatforms,
   defaultSchedule: t.scheduleExpression,
+  // Omitted rather than sent as [] when a template grants nothing, so "no tools"
+  // and "this platform has no such concept" do not render as the same empty
+  // list to a model deciding what to tell the user.
+  ...(t.agentTools?.length ? { agentTools: t.agentTools } : {}),
   parameters: (t.parameters ?? []).map(p => ({
     name: p.key,
     label: p.label,
@@ -610,7 +633,11 @@ export function registerTools(
       description:
         'List the Cronsole template catalog (starters + use-case patterns) with each template\'s id, category, tags, ' +
         'target platforms, default schedule, and declared parameters — use this to find a template id and its required ' +
-        'parameters before calling create_task_from_template.',
+        'parameters before calling create_task_from_template. ' +
+        'A hosted-agent template (GEMINI_TRIGGERS) also carries `agentTools`: the reach the created trigger is ' +
+        'granted, kept for as long as the trigger exists. TELL THE USER what it grants before applying one. A tool ' +
+        'with a `preset` names a SAVED MCP server on their Gemini connection — the credential lives there, is sent ' +
+        'to Google at create time, and an unsaved name is refused with the list rather than passed through.',
       inputSchema: {
         search: z
           .string()
@@ -890,7 +917,15 @@ export function registerTools(
         'A CLAUDE_CODE template is different in kind: its command is a PROMPT, and applying it creates a real ' +
         'Claude Code routine that Anthropic runs in the cloud. That needs a Claude Code session on the machine ' +
         'running the backend — check list_claude_routines → session.mode first; without one the call returns 400 ' +
-        'with what to do about it.',
+        'with what to do about it. ' +
+        'A GEMINI_TRIGGERS template is a PROMPT PLUS A GRANT: applying it creates a real trigger Google runs ' +
+        'unattended, with the tools the template declares (web search, page reading, or an MCP server) for as long ' +
+        'as the trigger exists. Where it names an MCP server it names a SAVED server on the user\'s Gemini ' +
+        'connection — the credential lives there and is sent to Google at create time, and an unsaved name is ' +
+        'refused with the list of saved servers rather than creating a trigger that cannot authenticate. ' +
+        'Read the template\'s `agentTools` with list_templates and TELL THE USER what the trigger will be able to ' +
+        'do before calling this. A Gemini trigger cannot be edited in place afterwards — changing its prompt or ' +
+        'schedule means "Recreate with changes" on the task in Cronsole.',
       inputSchema: {
         templateId: z.string().describe('The template id (from list_templates).'),
         platform: z
@@ -898,7 +933,7 @@ export function registerTools(
           .default('WINDOWS_TASK_SCHEDULER')
           .describe(
             'Where to create the task. Use one of the template\'s own compatibleTargets — applying a Windows ' +
-            'template to CLAUDE_CODE would hand its command line to a model as a prompt.'
+            'template to CLAUDE_CODE or GEMINI_TRIGGERS would hand its command line to a model as a prompt.'
           ),
         name: z
           .string()
@@ -1410,6 +1445,10 @@ Next run: ${task.nextRunTime}` : '')
         'report failure explicitly, or an agent that cannot finish a step narrates success instead. ' +
         '(3) Grant only the tools the task needs — every tool is reach the agent keeps for as long as the ' +
         'trigger exists. ' +
+        'Cronsole preflights the prompt server-side and returns `promptWarnings` — a question nobody can ' +
+        'answer at 03:00, characters pasted in from a terminal gutter, a mail instruction with no ' +
+        'recipient. They are NOTES, not errors: the trigger is created either way. Tell the user what ' +
+        'came back rather than rewriting their prompt yourself. ' +
         'A trigger is IMMUTABLE once created: Gemini\'s update endpoint takes only a status and a display ' +
         'name, so there is no in-place edit. From here, changing a prompt means create-then-delete, which ' +
         'yields a NEW task — in the Cronsole UI, "Recreate with changes" rebuilds the trigger and keeps the ' +
@@ -1492,7 +1531,11 @@ Next run: ${task.nextRunTime}` : '')
         if (agentTools.length) body.agentTools = agentTools;
         if (allowlist?.length) body.agentAllowlist = allowlist;
 
-        const result = await client.post<{ message?: string; task?: TaskRow }>('/tasks', body);
+        const result = await client.post<{
+          message?: string;
+          task?: TaskRow;
+          promptWarnings?: { code: string; message: string }[];
+        }>('/tasks', body);
 
         // The connector's own sentence, which states what was granted and where
         // any credential now lives. Leading with it rather than with "created"
@@ -1501,8 +1544,18 @@ Next run: ${task.nextRunTime}` : '')
           ? `\n${result.message}`
           : '';
 
+        // The server's prompt preflight, forwarded verbatim. The browser gets
+        // these as it types; there is no such moment here, so the same judgement
+        // rides back on the response — and it is REPORTED rather than acted on,
+        // because none of the rules is certainly right and the trigger already
+        // exists. Say them to the user; do not silently rewrite their prompt.
+        const notes = result.promptWarnings?.length
+          ? '\nWORTH TELLING THE USER about the prompt (these are notes, not errors — the trigger was ' +
+            'created):\n' + result.promptWarnings.map(w => `- ${w.message}`).join('\n')
+          : '';
+
         return ok(
-          `Created Gemini trigger "${name}" on ${schedule} (UTC).${grant}\n` +
+          `Created Gemini trigger "${name}" on ${schedule} (UTC).${grant}${notes}\n` +
           'This trigger cannot be edited in place — Gemini takes only a status and a display name on ' +
           'update. To change the prompt or the schedule, use "Recreate with changes" on the task in ' +
           'Cronsole: it rebuilds the trigger and keeps this task. From here it is create-a-replacement-' +
@@ -1516,6 +1569,7 @@ Next run: ${task.nextRunTime}` : '')
             toolsGranted: tools ?? [],
             presetsGranted: presets ?? [],
             allowlist: allowlist ?? [],
+            promptWarnings: result.promptWarnings ?? [],
             task: result.task ?? null
           }
         );

@@ -47,7 +47,7 @@ speaks MCP over **stdio** and authenticates as **one user** via a token you prov
 | **`create_native_check_task`** | "Check every 5 minutes that my API returns healthy, and alert me if not" | `POST /api/tasks/native` |
 | **`convert_schedule`** | "Will `0 9 * * 1` convert cleanly to a Windows trigger?", "when will this actually run?" | `POST /api/tasks/preview` |
 | **`get_task_history`** | "Did last night's backup work?" — runs **Cronsole** performed | `GET /api/tasks/:id/executions` |
-| **`create_gemini_trigger`** | "Every Monday, summarise my repos and email me" — creates a scheduled Gemini agent | `POST /api/tasks` |
+| **`create_gemini_trigger`** | "Every Monday, summarise my repos and email me" — creates a scheduled Gemini agent; reports back anything Cronsole's prompt preflight noticed | `POST /api/tasks` |
 | **`list_platform_runs`** | "Why did my scheduled task fail?" — runs the **platform** recorded, which on Gemini, GitHub, Vercel and Windows is where they all are | `GET /api/tasks/:id/platform-runs` |
 | **`get_run_output`** | "What did that run actually do?" — the output and the **step list**, one run at a time | `GET /api/tasks/:id/platform-runs/:runId/output` |
 | **`export_task`** | "Show me exactly what that task is registered to run", "back this task up" — or **"set this task up on my other machine"**, which asks for the *portable* format instead. Two formats: `native` (default — Task Scheduler XML, or Cronsole JSON) is the faithful backup; `format: 'template'` is portable, **drops platform-specific settings so it is not a backup**, and is the only one that works with the agent offline or on a **Claude routine** | `GET /api/tasks/:id/export[?format=]` |
@@ -138,11 +138,19 @@ I lose?".
 `create_task_from_template` fills the template's `{{placeholder}}` parameters from the values
 you pass. `create_task` is gated to the platforms a **command line** can be scheduled on
 (**Windows Task Scheduler** + **Cronsole-native**); `create_task_from_template` also accepts
-**`CLAUDE_CODE`**, because a Claude template's "command" is a *prompt* — applying one creates a
-real Claude Code routine, with optional **`repositoryUrls`** for the repositories it may check
-out. That last one needs a Claude Code session on the machine running the backend; without one
-the call returns a `400` saying so, so ask your assistant to check
-`list_claude_routines` → `session.mode` first. Their optional **`folder`** chooses the
+**`CLAUDE_CODE`** and **`GEMINI_TRIGGERS`**, because on both a template's "command" is a
+*prompt*. Applying a Claude one creates a real Claude Code routine, with optional
+**`repositoryUrls`** for the repositories it may check out. That one needs a Claude Code session
+on the machine running the backend; without one the call returns a `400` saying so, so ask your
+assistant to check `list_claude_routines` → `session.mode` first.
+A **Gemini** template is a prompt *plus a grant*: it carries **`agentTools`**, the reach the
+created trigger keeps for as long as it exists, and `list_templates` returns it so your assistant
+can tell you what it will be able to do before it creates anything. Where a tool names a
+**saved MCP server** (`preset`), the credential lives on your Gemini connection and is sent to
+Google at create time — the template never holds one, and a name you have not saved is refused
+with the list of the ones you have rather than creating a trigger that cannot authenticate. A
+Gemini trigger cannot be edited afterwards; changing its prompt or schedule is **Recreate with
+changes** on the task. Their optional **`folder`** chooses the
 real Task Scheduler folder the task lands in — default `\Cronsole`, and it becomes the task's
 category in Cronsole. Any *other* folder must already exist: removing a Task Scheduler folder
 needs elevation, so Cronsole won't leave behind one you'd have to delete by hand. **`list_folders`

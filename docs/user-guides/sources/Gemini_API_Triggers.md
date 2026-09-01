@@ -93,6 +93,17 @@ Open **Tools and network access** to grant reach. It starts empty and stays empt
 > fails faster than the work could possibly take is a rejected configuration, not a failed attempt:
 > look at the tools, not the prompt.
 
+### From a template
+
+The **Templates** tab carries a **Gemini Triggers** pack — *Daily Digest by Email*, *Weekly Repo
+Report*, *Page Watch* — and applying one creates a real trigger, prompt and tools together.
+
+A template names a **saved server**, never a credential: the digest template asks which of your
+saved MCP servers should send the mail, and if you name one you have not saved, Cronsole refuses and
+lists the ones you have rather than creating a trigger that cannot authenticate. The Apply screen
+lists what the trigger will be able to do **before** you press the button — that list is the part
+worth reading, because the trigger keeps that reach for as long as it exists.
+
 ## 📝 Writing a prompt for an unattended agent
 
 Three rules, each paid for by a real failed run.
@@ -104,6 +115,16 @@ Three rules, each paid for by a real failed run.
    email as sent."*
 3. **Paste plain text.** A prompt copied out of a terminal can carry gutter characters (`▎`) that chop
    the instruction into fragments the agent ignores.
+
+**Cronsole checks for these as you type.** Under the prompt box — in the create form *and* in
+**Recreate with changes**, which is where a prompt is normally edited here — a panel names what it
+noticed: a question nobody will answer, characters pasted in from something rendered (including
+zero-width ones you cannot see), and an instruction to send mail with no address in it.
+
+They are **notes, not blockers.** Nothing in that panel stops you creating the trigger, and it is
+meant to be overruled: a prompt may legitimately contain a question mark, and a rule you cannot
+ignore by simply not acting on it is one you stop reading. What the panel cannot check is rule 2 —
+only you know whether the prompt says what to do when a step fails.
 
 ## 🔁 Changing one — Recreate with changes, and Duplicate
 

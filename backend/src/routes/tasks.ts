@@ -9,6 +9,7 @@ import { serializeConfig, deserializeConfig } from '../auth/connectionConfig.js'
 import { notifyTasksChanged } from '../ws/uiChannel.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { TaskService } from '../services/TaskService.js';
+import { preflightPrompt } from '../services/promptPreflight.js';
 import { validateJob, NativeJob } from '../services/NativeTaskExecutor.js';
 import { buildNativeJob } from '../services/nativeJob.js';
 import { missingSecretRefs, secretRefsIn } from '../services/jobSecrets.js';
@@ -683,6 +684,11 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
       message: 'Task created successfully',
       task: created,
       conversion: { warnings: conversionWarnings, lossy: conversionLossy },
+      // Empty rather than absent, for the reason `foldersCreated` beside it is:
+      // a caller must be able to read "nothing to report" rather than infer it
+      // from a missing key. A native command is not a prompt, so there is
+      // nothing here to preflight — which is a different fact from "not checked".
+      promptWarnings: [],
       foldersCreated: []
     });
   }
@@ -728,6 +734,16 @@ router.post('/', validateBody(createTaskSchema), async (req: Request, res: Respo
     message: result.message || 'Task created successfully',
     task: upserted[0],
     conversion: { warnings: conversionWarnings, lossy: conversionLossy },
+    // **What the form saw as you typed, repeated to a caller that has no form.**
+    // The browser preflights the prompt live; an MCP create has no such moment,
+    // so the same judgement rides back on the response rather than existing only
+    // on one of the two surfaces. Present-and-empty on a platform whose command
+    // is not a prompt, never absent — "nothing noticed" and "not checked" are
+    // different facts, and the second one is what a missing key would mean.
+    promptWarnings:
+      platform === PlatformType.GEMINI_TRIGGERS || platform === PlatformType.CLAUDE_CODE
+        ? preflightPrompt(command)
+        : [],
     // Always present (empty array when nothing was created), never conditional:
     // Cronsole creating a folder is the exception to a standing invariant, so
     // the caller must be able to read the answer rather than infer it from an

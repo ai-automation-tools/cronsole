@@ -62,7 +62,16 @@ const renderModal = (over: Partial<Task> = {}) => {
 };
 
 const submit = () => fireEvent.click(screen.getByRole('button', { name: /^Recreate/i }));
-const body = () => vi.mocked(api.post).mock.calls[0]![1] as Record<string, unknown>;
+// Selected by URL, not by index: the form also preflights the prompt as you
+// type (POST /tools/prompt-preflight), and an index would silently start
+// asserting about the wrong request the day any other call is added.
+const body = () => {
+  const call = vi.mocked(api.post).mock.calls.find(([url]) =>
+    String(url).includes('rotate-credentials')
+  );
+  if (!call) throw new Error('the recreate request was never sent');
+  return call[1] as Record<string, unknown>;
+};
 
 beforeEach(() => {
   vi.clearAllMocks();

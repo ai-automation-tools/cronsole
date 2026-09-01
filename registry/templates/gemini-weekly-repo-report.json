@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "id": "gemini-weekly-repo-report",
+  "name": "Trigger: Weekly Repo Report",
+  "description": "A Gemini trigger that reads a public repository once a week and reports what shipped, what stalled, and what a user of the project would notice.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "ai",
+    "gemini",
+    "trigger",
+    "report",
+    "github"
+  ],
+  "icon": "GitBranch",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 15 * * 1"
+  },
+  "commandTemplate": "Read {{repoUrl}} and report on the last seven days: what merged, what is still open and has stopped moving, and any release or breaking change a user of the project would notice. Write it as short plain sentences grouped under those three headings, each entry with the pull request or issue it came from. Judge staleness by the dates on the page rather than asking what counts as stalled. If the repository cannot be read, say that explicitly instead of reporting an empty week.",
+  "parameters": [
+    {
+      "key": "repoUrl",
+      "label": "Repository URL",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The public repository to read, e.g. https://github.com/owner/name."
+    }
+  ],
+  "agentTools": [
+    {
+      "type": "url_context"
+    },
+    {
+      "type": "google_search"
+    }
+  ],
+  "compatibleTargets": [
+    "gemini"
+  ]
+}

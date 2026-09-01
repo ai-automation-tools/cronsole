@@ -396,6 +396,15 @@ model Template {
   // from the command string — so a template stores the spec the executor reads
   // rather than one re-guessed at apply time.
   nativeJob         Json?
+  // The reach a template grants on a hosted agent target (Gemini), as
+  // [{ type, name?, preset? }] — a **reference, never a value**. `preset` names a
+  // saved MCP server on the user's own connection; the registry schema reads no
+  // `url` and no `headers`, so a published template cannot carry a credential
+  // and nothing downstream has to remember to strip one.
+  //
+  // Null for every template that grants nothing, which is all of them until a
+  // Gemini template is applied.
+  agentTools        Json?
   tags              String[]         @default([])            // free-form tags (e.g. git, build, ai) — distinct from the single `category`
   isStarter         Boolean          @default(false)         // true = Tier A curated starter
   icon              String?          // lucide icon name for the card

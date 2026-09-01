@@ -100,8 +100,10 @@ falsified.**
 
 > **A and B shipped 2026-08-25** — saved MCP servers with a one-gesture rotation, and Duplicate.
 > **C shipped 2026-08-31** — *Replace credentials* became *Recreate with changes*, so a prompt or a
-> schedule can be changed on the one platform where editing is impossible. **D and E are open**, and
-> so is the skill gap below. The diagnosis that
+> schedule can be changed on the one platform where editing is impossible. **D shipped 2026-08-31**
+> too — a Gemini template family, and with it the finding that a hosted-agent template is a prompt
+> *plus a grant*. **E and the skill gap shipped 2026-08-31 too** — a server-side prompt preflight
+> on both surfaces, and §2a of `task-authoring.md`. **The block is closed.** The diagnosis that
 > follows is kept rather than trimmed: it is the reasoning that changed a §9 invariant, and the next
 > rule whose stated reason is a lifecycle claim should be re-read the same way.
 
@@ -191,19 +193,70 @@ wrong.
       another** (#82 the prompt, #83 the executions array), and the first found by widening a verb
       rather than by driving the API.
 
-- [ ] **D. A Gemini template family** *(after A)*. "Daily digest by email", "weekly repo report" —
-      target-agnostic, compiled at apply time, tools carried **by preset reference**. Save-as-template
-      already refuses a secret-bearing job, and that rule applies here unchanged and for the same
-      reason. Blocked on **A**, because without a reference there is nothing a template could carry
-      except a blank to fill in.
+- [x] **D. A Gemini template family** — **shipped 2026-08-31**. Three templates in a **Gemini
+      Triggers** pack: *Daily Digest by Email*, *Weekly Repo Report*, *Page Watch* — extended rather
+      than `core`, like the Claude routines, because the platform is a `v1beta` preview that needs an
+      API key on the connection.
 
-- [ ] **E. Prompt preflight at create** *(lowest of the five, and earned)*. Three real failures in one
-      session, none of them a Cronsole defect and all of them catchable before the trigger exists:
-      a prompt that **asks the user a question** (an unattended agent stalls — nobody answers at
-      15:00 on the 1st), a prompt carrying **pasted gutter characters** (`▎`) that chopped the
-      instruction into fragments the agent ignored, and an **email instruction with no `from`/`to`**.
-      A warning, never a refusal: none of these is certainly wrong, and a task manager that refuses
-      a prompt it merely dislikes is worse than one that mentions it.
+      **What the build found is that a hosted-agent template is not a prompt, it is a prompt plus a
+      grant.** Every other template in the catalog describes something to *run*; an agent has to be
+      *given* reach as well, and the two are not separable — a digest prompt with no mail server
+      finishes `completed` and mails nothing, which is the failure `list_platform_runs`' step list
+      exists to make visible. So `agentTools` is a field on the template (and its own Prisma column,
+      not a second meaning for `nativeJob` or a corner of `parameters`), and the Apply screen states
+      the grant **before** the button rather than confirming it after: §9 already says reach is the
+      consequential half of creating an autonomous task, and that argument does not start at the
+      connector.
+
+      **The credential rule needed nothing new, which is the point.** The registry schema reads
+      `type`, `name` and `preset` — there is no `url` and no `headers` for a token to sit in, at
+      either end, so a published template cannot carry one and no reader downstream is a forgotten
+      `delete` away from publishing it. `toToolSummary` / `readAllowlist`'s rule, one layer up.
+      `preset` may hold a `{{placeholder}}`, so the digest template makes *which saved server* a
+      parameter, and `resolveToolPresets` refuses an unsaved name with the list exactly as it already
+      did — the apply path needed no branch of its own for it.
+
+      **And driving the apply live found a defect no test could**: the
+      `refusedBeforeCalling` split shipped on `POST /api/tasks` and never reached
+      `POST /api/templates/:id/apply`, so *"No saved MCP server called X. Saved servers: resend."* —
+      a mistake carrying its own fix — arrived as a `500`, telling the caller to retry a request that
+      can never succeed. Both suites were green because both stub the connector. The route's own
+      comment already stated the rule while applying half of it, which is
+      [#77](troubleshooting/README.md#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file)'s
+      shape one more time; the reusable rule is that a connector gaining a new *kind of answer* is a
+      grep for every caller of `createTask`, not a fix to the route the report names
+      ([#87](troubleshooting/README.md#87-applying-a-template-answers-500-over-a-message-that-names-its-own-fix)).
+
+      One thing the gallery needed that the app did not: **a fourth target mode**. `direct`,
+      `session` and `manual` could not hold Gemini — a real controller, but only once an API key is
+      on the connection, which a static page can no more know than it can know about a Claude
+      session. Calling it `direct` promises a one-click apply that fails; calling it `manual` hides a
+      connector that works.
+
+- [x] **E. Prompt preflight at create** — **shipped 2026-08-31**. The three failures of 2026-08-25,
+      each caught before the trigger exists: a prompt that **asks the user a question** or hands back
+      a choice (an unattended agent stalls — nobody answers at 15:00 on the 1st), **pasted gutter
+      characters** (`▎`, box rules, zero-width spaces) that chop the instruction into fragments, and
+      an **email instruction with no recipient**. A **warning, never a refusal**, as specified —
+      nothing gates the submit button, and the panel says so out loud, because a reader who cannot
+      dismiss a note by ignoring it stops reading the panel.
+
+      **Two things the build settled.** It is the **server's** judgement
+      (`services/promptPreflight.ts`, `POST /api/tools/prompt-preflight`), not a browser lint: a
+      second copy would be free to disagree with the one an MCP-created trigger is judged by, and
+      the MCP surface has no typing moment at all — so the same warnings ride back on the create
+      response and `create_gemini_trigger` reports them. And the response carries **`checked`**
+      beside `warnings`, because an empty list otherwise cannot be told from a preflight that
+      silently did nothing — the schedule-conversion rule (*a refusal must state its reason*) applied
+      to a check that found none.
+
+      It renders in **two** places, and the second is the one that matters more: `RecreateTriggerModal`
+      is where a Gemini prompt is normally written, since the platform's definition is immutable and
+      every edit after the first arrives there.
+
+      One thing found while wiring it: the create toast still told people to add network-allowlist
+      domains **in Google AI Studio** — the last of the AI Studio references, in the one sentence a
+      user reads immediately after creating a trigger whose sandbox reaches nothing.
 
 **MCP server — one real gap, and one thing that must wait for A.**
 
@@ -246,9 +299,9 @@ wrong.
 
 **The skill — one gap, and it is the one that caused the failures above.**
 
-- [ ] **How to author a prompt for an unattended agent**, in
-      [`references/task-authoring.md`](../skills/cronsole/references/task-authoring.md), which is
-      today entirely Windows-command-centric and says nothing about the unit of work on a hosted
+- [x] **How to author a prompt for an unattended agent** — **shipped 2026-08-31** as **§2a** of
+      [`references/task-authoring.md`](../skills/cronsole/references/task-authoring.md), which was
+      entirely Windows-command-centric and said nothing about the unit of work on a hosted
       source. Three rules, all paid for on 2026-08-25: **never let the prompt offer a choice**
       (a question becomes a stall when nobody is there to answer it — give the parameter or tell it
       to pick); **always instruct it to report failure explicitly** (an agent that cannot finish a

@@ -12,6 +12,7 @@ import {
   WindowsTrigger
 } from '../utils/scheduler-conversion.js';
 import { StructuredAction } from '../utils/commandParser.js';
+import type { AgentToolInput } from '../connectors/platform.interface.js';
 import {
   resolveTemplateParams,
   substituteStructuredCommand,
@@ -314,6 +315,31 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
         )
       : template.nativeJob ?? undefined;
 
+  /**
+   * The reach a hosted-agent template grants — Gemini only, because it is the
+   * one platform where a template's action is a prompt *plus* a grant. A prompt
+   * telling an agent to email a digest with no `mcp_server` runs to `completed`
+   * and mails nothing, so the tools are part of the template rather than
+   * something the user has to remember at the Apply button.
+   *
+   * Substituted with the same JSON walker `nativeJob` uses (each field is
+   * exactly one value with no tokenizer downstream), so a template can offer
+   * `preset: '{{mcpServer}}'` and let the user pick which saved server to use.
+   *
+   * The stored shape holds `type`, `name` and `preset` and nothing else — the
+   * registry schema reads no `url` and no `headers` — so what is cast here
+   * cannot contain a credential. `resolveToolPresets` in the connector turns a
+   * preset name into the real url + headers, and refuses an unknown one with the
+   * list rather than passing through a server the agent cannot authenticate to.
+   */
+  const finalAgentTools =
+    template.agentTools && parameters !== undefined
+      ? substituteNativeJob(
+          template.agentTools,
+          resolveTemplateParams(template.parameters, parameters)
+        )
+      : template.agentTools ?? undefined;
+
   // Never register a task with unfilled {{placeholders}} (see Templates.md §5).
   // The parameters path already threw on unfilled keys; this guards the legacy path.
   if (finalCommand.includes('{{')) {
@@ -365,6 +391,9 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
       action: structuredAction,
       folder: finalFolder,
       ...(finalNativeJob !== undefined ? { nativeJob: finalNativeJob } : {}),
+      ...(finalAgentTools !== undefined
+        ? { agentTools: finalAgentTools as AgentToolInput[] }
+        : {}),
       ...(repositoryUrls ? { repositoryUrls } : {})
     }
   );
@@ -378,7 +407,18 @@ router.post('/:id/apply', validateBody(applySchema), async (req: Request, res: R
     // A platform with no create API at all is a client error, not a server one —
     // the same split `POST /api/tasks` makes. A `500` invites a retry that can
     // never succeed.
-    return res.status(verbDeclaredUnsupported(platform, 'create') ? 400 : 500)
+    //
+    // **And so is a refusal the connector reached without calling out.**
+    // `refusedBeforeCalling` shipped on `POST /api/tasks` and was not read here,
+    // so applying a Gemini template that named an unsaved MCP server answered
+    // `500` with the sentence *"No saved MCP server called X. Saved servers:
+    // resend."* — a mistake carrying its own fix, delivered in the register of
+    // "the platform is down". Found by driving the apply live; the route's own
+    // comment already stated the rule it was only half applying, which is #77's
+    // shape. One expression, two callers, same split.
+    const clientMistake =
+      verbDeclaredUnsupported(platform, 'create') || result.refusedBeforeCalling === true;
+    return res.status(clientMistake ? 400 : 500)
       .json({ error: result.message || 'Failed to apply template' });
   }
 

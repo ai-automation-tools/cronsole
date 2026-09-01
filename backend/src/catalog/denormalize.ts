@@ -23,7 +23,8 @@ import {
 } from './normalize.js';
 import type {
   RegistryTemplate,
-  RegistryParameter
+  RegistryParameter,
+  RegistryAgentTool
 } from './schema.js';
 
 /** Invert a forward `{ key -> enumValue }` map into `{ enumValue -> key }`. */
@@ -59,6 +60,8 @@ export interface DbTemplateLike {
   parameters?: unknown;
   /** Set only for SCRIPT / CHECK templates; see `nativeJobAction`. */
   nativeJob?: unknown;
+  /** Set only for hosted-agent templates; see `toRegistryAgentTools`. */
+  agentTools?: unknown;
   tags?: string[];
   scriptType: ScriptType;
   os: OsTarget;
@@ -107,6 +110,26 @@ function toRegistryParameters(raw: unknown): RegistryParameter[] | undefined {
       if (Array.isArray(p.options)) param.options = p.options.map(String);
       if (typeof p.help === 'string') param.help = p.help;
       return param;
+    });
+}
+
+/**
+ * Normalize the stored `agentTools` JSON back into the v1 shape.
+ *
+ * Reads `type`, `name` and `preset` and nothing else, which is the same refusal
+ * the schema makes on the way in: even a row hand-edited to hold a `headers`
+ * block cannot export one. The rule is enforced at both ends rather than at one,
+ * because export is the direction where a leak would travel.
+ */
+function toRegistryAgentTools(raw: unknown): RegistryAgentTool[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  return raw
+    .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
+    .map((t) => {
+      const tool: RegistryAgentTool = { type: String(t.type) };
+      if (typeof t.name === 'string') tool.name = t.name;
+      if (typeof t.preset === 'string') tool.preset = t.preset;
+      return tool;
     });
 }
 
@@ -169,6 +192,8 @@ export function denormalizeTemplate(t: DbTemplateLike): RegistryTemplate {
   if (t.tags && t.tags.length) template.tags = t.tags;
   const parameters = toRegistryParameters(t.parameters);
   if (parameters) template.parameters = parameters;
+  const agentTools = toRegistryAgentTools(t.agentTools);
+  if (agentTools) template.agentTools = agentTools;
 
   return template;
 }

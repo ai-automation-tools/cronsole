@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-08-27T14:26:28.376Z",
+  "updatedAt": "2026-09-01T00:30:06.757Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1664,6 +1664,66 @@
       ],
       "path": "templates/claude-routine-release-notes.json",
       "sha256": "cdaeed4fa658155b66558cafc09f2c578a4b63e88834b37f07dab1ab9134bea9"
+    },
+    {
+      "id": "gemini-daily-email-digest",
+      "name": "Trigger: Daily Digest by Email",
+      "description": "A Gemini trigger that researches a topic every morning and emails the digest through one of your saved MCP servers -- the credential stays on the connection and is never retyped.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "gemini",
+        "trigger",
+        "digest",
+        "email"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "gemini"
+      ],
+      "path": "templates/gemini-daily-email-digest.json",
+      "sha256": "35d8e5ed6ff37174e082e8ff05569cec27bf85377edbad37d1de0ea1a7646a73"
+    },
+    {
+      "id": "gemini-weekly-repo-report",
+      "name": "Trigger: Weekly Repo Report",
+      "description": "A Gemini trigger that reads a public repository once a week and reports what shipped, what stalled, and what a user of the project would notice.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "gemini",
+        "trigger",
+        "report",
+        "github"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "gemini"
+      ],
+      "path": "templates/gemini-weekly-repo-report.json",
+      "sha256": "460f688bbb8161166084cc93ef6f4a19cb5e99815a50779d91586ae7b2b3621a"
+    },
+    {
+      "id": "gemini-page-watch",
+      "name": "Trigger: Page Watch",
+      "description": "A Gemini trigger that reads one page every day and reports only what changed since yesterday -- a pricing page, a status page, a changelog.",
+      "category": "monitoring",
+      "tags": [
+        "ai",
+        "gemini",
+        "trigger",
+        "monitoring",
+        "watch"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "gemini"
+      ],
+      "path": "templates/gemini-page-watch.json",
+      "sha256": "493074e3077d82c85cba04a5f956cf2b5a89eec388cecb41dd33c674ee882681"
     }
   ],
   "packs": [
@@ -1812,6 +1872,18 @@
       ],
       "path": "packs/claude-routines.json",
       "sha256": "9f4e7b9cfaf667f0774c012ee716602d317f14603f1c5f3e32d27c36838661eb"
+    },
+    {
+      "id": "gemini-triggers",
+      "name": "Gemini Triggers",
+      "description": "Scheduled Gemini agents - a prompt Google runs in its own sandbox: a morning digest emailed through a saved MCP server, a weekly repository report, a daily page watch.",
+      "templateIds": [
+        "gemini-daily-email-digest",
+        "gemini-weekly-repo-report",
+        "gemini-page-watch"
+      ],
+      "path": "packs/gemini-triggers.json",
+      "sha256": "764d90acd8585188e6aee8f9b4069ed3e5ce6fb446e13d6d64b504e853949aa9"
     },
     {
       "id": "system-utilities",

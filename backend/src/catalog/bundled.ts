@@ -2046,6 +2046,104 @@ const claudeRoutinesPack: RegistryTemplate[] = [
   }
 ];
 
+/**
+ * Gemini API triggers -- a prompt Google runs on a schedule, on its own managed
+ * agent, in a sandbox.
+ *
+ * Their own family rather than extra targets on the Claude routines above, for
+ * the reason those are their own family: same shape on the card, different
+ * execution model. A Claude routine gets a repository checkout and no tool
+ * grant; a Gemini trigger gets no checkout and a grant that IS half the
+ * template -- an agent told to email a digest with no `mcp_server` runs to
+ * `completed` and mails nothing. Listing both as compatible targets would put a
+ * prompt on a platform it is wrong for.
+ *
+ * **The three rules in every prompt here were each paid for by a failed run**
+ * (see ROADMAP > Gemini usability): never offer a choice, because nobody
+ * answers a question at 07:00; always say to report failure explicitly, because
+ * an agent that cannot finish a step narrates success instead; and name the
+ * output, because `completed` only means the agent finished its turn.
+ *
+ * Extended rather than `core`, like the Claude routines: the platform is a
+ * `v1beta` preview and needs an API key on the connection, so these are browsed
+ * and imported rather than auto-synced into every fresh install.
+ */
+const geminiTriggersPack: RegistryTemplate[] = [
+  {
+    schemaVersion: '1.0',
+    id: 'gemini-daily-email-digest',
+    name: 'Trigger: Daily Digest by Email',
+    description:
+      'A Gemini trigger that researches a topic every morning and emails the digest through one of your saved MCP servers -- the credential stays on the connection and is never retyped.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'ai-agent',
+    tags: ['ai', 'gemini', 'trigger', 'digest', 'email'],
+    icon: 'Mail',
+    trigger: sched('0 11 * * 1-5'),
+    commandTemplate:
+      'Research {{topic}} and write a digest of what changed in the last 24 hours. Keep it to the {{length}} form: the developments that matter, one sentence each, with the source link. Then email it to {{recipient}} with the subject "{{topic}} digest" using the email tool available to you. Do not ask which stories to include or which address to use, both are given above. If the research or the send fails, say so explicitly in your final message and name the step that failed rather than summarizing what you would have sent.',
+    parameters: [
+      { key: 'topic', label: 'Topic', type: 'text', default: '', required: true, help: 'What to research each morning, e.g. Postgres release notes and CVEs.' },
+      { key: 'length', label: 'Digest length', type: 'select', options: ['short', 'detailed'], default: 'short', required: true, help: 'How much detail to include.' },
+      { key: 'recipient', label: 'Send to', type: 'text', default: '', required: true, help: 'The address the digest is emailed to.' },
+      { key: 'mailServer', label: 'Email MCP server', type: 'text', default: 'resend', required: true, help: 'The name of a saved MCP server on your Gemini connection that can send mail. Save one on the Sources tab first -- the token lives there, not in this template.' }
+    ],
+    agentTools: [
+      { type: 'google_search' },
+      { type: 'url_context' },
+      { type: 'mcp_server', preset: '{{mailServer}}' }
+    ],
+    compatibleTargets: ['gemini']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'gemini-weekly-repo-report',
+    name: 'Trigger: Weekly Repo Report',
+    description:
+      'A Gemini trigger that reads a public repository once a week and reports what shipped, what stalled, and what a user of the project would notice.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'dev-workflow',
+    tags: ['ai', 'gemini', 'trigger', 'report', 'github'],
+    icon: 'GitBranch',
+    trigger: sched('0 15 * * 1'),
+    commandTemplate:
+      'Read {{repoUrl}} and report on the last seven days: what merged, what is still open and has stopped moving, and any release or breaking change a user of the project would notice. Write it as short plain sentences grouped under those three headings, each entry with the pull request or issue it came from. Judge staleness by the dates on the page rather than asking what counts as stalled. If the repository cannot be read, say that explicitly instead of reporting an empty week.',
+    parameters: [
+      { key: 'repoUrl', label: 'Repository URL', type: 'text', default: '', required: true, help: 'The public repository to read, e.g. https://github.com/owner/name.' }
+    ],
+    agentTools: [
+      { type: 'url_context' },
+      { type: 'google_search' }
+    ],
+    compatibleTargets: ['gemini']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'gemini-page-watch',
+    name: 'Trigger: Page Watch',
+    description:
+      'A Gemini trigger that reads one page every day and reports only what changed since yesterday -- a pricing page, a status page, a changelog.',
+    runtime: 'ai-prompt',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['ai', 'gemini', 'trigger', 'monitoring', 'watch'],
+    icon: 'Eye',
+    trigger: sched('0 13 * * *'),
+    commandTemplate:
+      'Read {{pageUrl}} and describe what changed since your previous run, paying attention to {{watchFor}}. Report the changes only. If nothing relevant changed, say no change in one line rather than restating the page, and quote the old and new wording for anything that did change. If the page could not be loaded, say so explicitly: an unreachable page is not the same as an unchanged one.',
+    parameters: [
+      { key: 'pageUrl', label: 'Page URL', type: 'text', default: '', required: true, help: 'The page to watch, e.g. a pricing, status or changelog page.' },
+      { key: 'watchFor', label: 'Watch for', type: 'text', default: 'prices, plan limits and anything marked new or deprecated', required: true, help: 'What on the page matters, so an unrelated edit is not reported as news.' }
+    ],
+    agentTools: [
+      { type: 'url_context' }
+    ],
+    compatibleTargets: ['gemini']
+  }
+];
+
 /** The full bundled catalog: core (auto-synced) + extended (gallery/import-only), Registry v1 shape. */
 export const bundledCatalog: RegistryTemplate[] = [
   ...patterns,
@@ -2055,5 +2153,6 @@ export const bundledCatalog: RegistryTemplate[] = [
   ...extendedPack,
   ...nativePack,
   ...nativeScriptCheckPack,
-  ...claudeRoutinesPack
+  ...claudeRoutinesPack,
+  ...geminiTriggersPack
 ];

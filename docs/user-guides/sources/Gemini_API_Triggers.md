@@ -93,6 +93,17 @@ Open **Tools and network access** to grant reach. It starts empty and stays empt
 > fails faster than the work could possibly take is a rejected configuration, not a failed attempt:
 > look at the tools, not the prompt.
 
+### From a template
+
+The **Templates** tab carries a **Gemini Triggers** pack — *Daily Digest by Email*, *Weekly Repo
+Report*, *Page Watch* — and applying one creates a real trigger, prompt and tools together.
+
+A template names a **saved server**, never a credential: the digest template asks which of your
+saved MCP servers should send the mail, and if you name one you have not saved, Cronsole refuses and
+lists the ones you have rather than creating a trigger that cannot authenticate. The Apply screen
+lists what the trigger will be able to do **before** you press the button — that list is the part
+worth reading, because the trigger keeps that reach for as long as it exists.
+
 ## 📝 Writing a prompt for an unattended agent
 
 Three rules, each paid for by a real failed run.

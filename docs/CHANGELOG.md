@@ -52,6 +52,38 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **A Gemini template family, and templates can now carry a tool grant** (2026-08-31). Three
+  scheduled-agent templates — **Daily Digest by Email**, **Weekly Repo Report** and **Page Watch** —
+  in a new **Gemini Triggers** pack, applied straight onto the platform from the Templates tab or
+  over MCP.
+
+  A Gemini template is the first one whose action is a prompt **plus a grant**. Every other template
+  in the catalog describes something to run; an agent has to be *given* reach as well, and a prompt
+  telling one to email a digest with no mail server runs to `completed` and mails nothing. So a
+  template now declares `agentTools`, and the Apply screen shows what the trigger will be able to do
+  **before** you press the button — reach is the consequential half of creating an autonomous task,
+  so it is stated where the decision is made rather than confirmed afterwards.
+
+  **A template carries a reference, never a credential.** Where a tool is an MCP server, the template
+  names a **saved server on your own Gemini connection** — the registry schema has no `url` and no
+  `headers` to put a token in, at either end, so a published template cannot leak one and nothing
+  downstream (the row, an export, an archive, a log line, an MCP response) has to remember to strip
+  it. The digest template makes the server a *parameter*, so applying it asks which of your saved
+  servers to use. A name you have not saved is refused **with the list of the ones you have**, rather
+  than creating a trigger that would fail later, on a schedule, as somebody else's 401.
+
+  **Fixed in the same change:** applying a template could answer a `500` over a message that named
+  its own fix — *"No saved MCP server called X. Saved servers: resend."* The apply route never read
+  the connector's `refusedBeforeCalling`, so a mistake you could correct arrived in the register of
+  "the platform is down", and retrying sent the identical bad request. It is a `400` now, as the
+  same refusal already was when creating a task directly.
+
+  Over MCP, `create_task_from_template` accepts `GEMINI_TRIGGERS` and `list_templates` returns
+  `agentTools`, so an assistant can tell you what a trigger will be able to do before it creates one.
+  The gallery names the grant too, and lists Gemini as its own kind of target: a real connector, but
+  one that needs an API key on the connection — which a static page can no more know than it can know
+  about a Claude Code session.
+
 - **Recreate with changes — a Gemini trigger's prompt and schedule are editable at last**
   (2026-08-31). *Replace credentials* on a Gemini task is now **Recreate with changes**, and it
   carries a new prompt or a new schedule alongside the tools and tokens it always carried.

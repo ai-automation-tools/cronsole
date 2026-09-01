@@ -63,6 +63,7 @@ export const TARGET_TO_PLATFORM: Record<string, PlatformType | undefined> = {
   macos: PlatformType.MACOS_LAUNCHD,
   'claude-code': PlatformType.CLAUDE_CODE,
   chatgpt: PlatformType.CHATGPT,
+  gemini: PlatformType.GEMINI_TRIGGERS,
   linux: undefined
 };
 
@@ -85,6 +86,15 @@ export interface NormalizedTemplate {
    * would make a template that *stopped* having a job keep its old one forever.
    */
   nativeJob: Prisma.InputJsonValue | typeof Prisma.DbNull;
+  /**
+   * The reach a hosted-agent template grants, as [{ type, name?, preset? }].
+   *
+   * `Prisma.DbNull` rather than plain `null` for the same reason `nativeJob` is:
+   * on a nullable Json column Prisma reserves `null` for "leave unchanged", so a
+   * template that *stopped* granting a tool would keep its old grant forever --
+   * and on this field a stale value is reach the template no longer declares.
+   */
+  agentTools: Prisma.InputJsonValue | typeof Prisma.DbNull;
   tags: string[];
   scriptType: ScriptType;
   os: OsTarget;
@@ -175,6 +185,9 @@ export function normalizeTemplate(t: RegistryTemplate): NormalizedTemplate {
     commandTemplate: command,
     parameters: (t.parameters ?? []) as Prisma.InputJsonValue,
     nativeJob: deriveNativeJob(t),
+    agentTools: t.agentTools?.length
+      ? (t.agentTools as unknown as Prisma.InputJsonValue)
+      : Prisma.DbNull,
     tags: t.tags ?? [],
     scriptType: t.runtime ? RUNTIME_TO_SCRIPT[t.runtime] : ScriptType.AI_PROMPT,
     os: t.os ? OS_TO_TARGET[t.os] : OsTarget.CROSS_PLATFORM,

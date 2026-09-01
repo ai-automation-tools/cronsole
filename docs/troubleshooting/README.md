@@ -34,6 +34,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
 | 86 | **`Stop-ScheduledTask` on a `\Cronsole-Stack\` task returns success and stops nothing** — the process it started keeps running, and `Start-ScheduledTask` does not bring it back either | **The task is not the process.** Every launcher task runs `wscript.exe` → `run-hidden.vbs`, which is fire-and-forget (`WScript.Shell.Run(cmd, 0, False)`), so the instance exits in under a second while what it launched runs on unparented. The task reads `Ready` while the agent holds a pid. Restarting is a property of the **script**, not the task: use `CronsoleRestart` (`cronsole.ps1 restart`), and never read a task's exit code as a statement about the stack | [→](#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing) |
+| 87 | **Applying a template answers `500` over a message that names its own fix** — e.g. *"No saved MCP server called X. Saved servers: resend."* | The `refusedBeforeCalling` split shipped on `POST /api/tasks` and **not** on `POST /api/templates/:id/apply`, so a refusal the connector reached *without contacting the platform* arrived in the register of "the platform is down". A `500` tells the caller to retry, and retrying an identical bad request never helps. Both routes now read `result.refusedBeforeCalling` beside `verbDeclaredUnsupported`. **The general lesson: when a connector gains a new answer, grep every route that calls `createTask`, not the one the ticket names** | [→](#87-applying-a-template-answers-500-over-a-message-that-names-its-own-fix) |
 | 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent elevated — `Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'` — then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
 | 85 | A Windows task's **Run History shows more runs than happened**, and the extras have **no start time** — a task that ran twice lists three or four. Separately, the **exit code** is present on some machines and missing on others | **Two ways of reading Task Scheduler in somebody else's terms.** (1) The event log is a **ring buffer**, so the oldest run in view is missing its `TASK_STARTED`; those leftovers were keyed by their own timestamps, one bucket each, turning **one** truncated run into three rows — the *"three nights read as twelve runs"* failure arriving through the orphan path. They now share one bucket, dated by their earliest surviving event, `partial` only when nothing settles the outcome; a truncated run that finished is still `completed` ([#74](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy)'s rule applied to a log). (2) The exit code was parsed out of the event's **English prose**; event 201 publishes `ResultCode` and `ActionName` as **named `EventData` fields** and renders them separately into a localized sentence, so the regex found nothing on a non-English Windows and the fact vanished silently. **Read named fields, never the rendered sentence** — and read them **by name**, since `EventRecord.Properties` is positional and the index differs per event id. Fixed 2026-08-25; the named-fields half needs an agent republish | [→](#85-one-windows-task-shows-three-runs-that-never-happened-all-of-them-undated) |
 | 84 | A **Gemini trigger fails in about five seconds**, start to finish, and opening the run says *"Gemini recorded this run as failed but attached no interaction to it, so there is nothing to read."* The prompt is fine and the task looks healthy in every other respect | **The trigger's configuration was rejected, and Cronsole was dropping the sentence that said so.** A run that fails faster than the work could possibly take is a **refused start**, not a failed attempt — look at the trigger definition, not the prompt. In the case that surfaced this, the trigger declared `filesystem`, a type the API's own supported list contains, and the platform answered *"Tool 'filesystem' is not allowed when interacting with this agent"*: **a capability list is not a permission list**, and the per-agent restriction is published nowhere. `GET …/executions` carries that reason in an `error` field beside `status`, and `toExecution` never read it — **the third field on this one connector present on the wire and unread** (#82 the prompt, #83 the executions array). Fixed 2026-08-25: the reason is the run's output, marked *Failed before the agent started*. Rebuild the trigger without the offending tool via **Recreate with changes** | [→](#84-a-gemini-run-fails-in-five-seconds-and-cronsole-says-there-is-nothing-to-read) |
@@ -5877,6 +5878,46 @@ The restarted agent was then confirmed **elevated** the way #74 measures it — 
 >    description, when deciding what a task does.
 
 *First hit: 2026-08-25.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+## 87. Applying a template answers `500` over a message that names its own fix
+
+**Symptom.** You apply a Gemini template and name an MCP server you have not saved. The response
+body is exactly right:
+
+```
+500 {"error":"No saved MCP server called \"definitely-not-saved\". Saved servers: resend."}
+```
+
+A sentence carrying its own fix, delivered with a status code that says *the server broke, try
+again*. Retrying sends the identical bad request and gets the identical answer.
+
+**Cause.** `PlatformConnector.createTask` returns `refusedBeforeCalling` for a refusal it reached
+without contacting the platform — an unknown tool type, a missing prompt, a preset with nothing
+behind it. `POST /api/tasks` reads it and answers `400`. `POST /api/templates/:id/apply` did not:
+it split on `verbDeclaredUnsupported(platform, 'create')` alone, which is false for Gemini (create
+*is* supported), so every connector refusal on the apply path fell through to `500`.
+
+Both callers now share the expression:
+
+```ts
+const clientMistake =
+  verbDeclaredUnsupported(platform, 'create') || result.refusedBeforeCalling === true;
+```
+
+**How it was found.** By driving the apply against the running backend, not by a test — the suites
+stub the connector, so both routes were green with one of them wrong. The route's own comment
+already stated the rule (*"a `500` invites a retry that can never succeed"*) while applying only
+half of it, which is [#77](#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file)'s
+shape: the line that knew the rule was the line that broke it.
+
+> **The reusable rule.** When a connector gains a new *kind of answer*, the fix belongs at every
+> route that calls it. Grep for the call, not for the symptom — there were two callers of
+> `createTask` and the ticket only ever named one.
+
+*First hit: 2026-08-31.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

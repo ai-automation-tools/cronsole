@@ -100,8 +100,9 @@ falsified.**
 
 > **A and B shipped 2026-08-25** — saved MCP servers with a one-gesture rotation, and Duplicate.
 > **C shipped 2026-08-31** — *Replace credentials* became *Recreate with changes*, so a prompt or a
-> schedule can be changed on the one platform where editing is impossible. **D and E are open**, and
-> so is the skill gap below. The diagnosis that
+> schedule can be changed on the one platform where editing is impossible. **D shipped 2026-08-31**
+> too — a Gemini template family, and with it the finding that a hosted-agent template is a prompt
+> *plus a grant*. **E is open**, and so is the skill gap below. The diagnosis that
 > follows is kept rather than trimmed: it is the reasoning that changed a §9 invariant, and the next
 > rule whose stated reason is a lifecycle claim should be re-read the same way.
 
@@ -191,11 +192,45 @@ wrong.
       another** (#82 the prompt, #83 the executions array), and the first found by widening a verb
       rather than by driving the API.
 
-- [ ] **D. A Gemini template family** *(after A)*. "Daily digest by email", "weekly repo report" —
-      target-agnostic, compiled at apply time, tools carried **by preset reference**. Save-as-template
-      already refuses a secret-bearing job, and that rule applies here unchanged and for the same
-      reason. Blocked on **A**, because without a reference there is nothing a template could carry
-      except a blank to fill in.
+- [x] **D. A Gemini template family** — **shipped 2026-08-31**. Three templates in a **Gemini
+      Triggers** pack: *Daily Digest by Email*, *Weekly Repo Report*, *Page Watch* — extended rather
+      than `core`, like the Claude routines, because the platform is a `v1beta` preview that needs an
+      API key on the connection.
+
+      **What the build found is that a hosted-agent template is not a prompt, it is a prompt plus a
+      grant.** Every other template in the catalog describes something to *run*; an agent has to be
+      *given* reach as well, and the two are not separable — a digest prompt with no mail server
+      finishes `completed` and mails nothing, which is the failure `list_platform_runs`' step list
+      exists to make visible. So `agentTools` is a field on the template (and its own Prisma column,
+      not a second meaning for `nativeJob` or a corner of `parameters`), and the Apply screen states
+      the grant **before** the button rather than confirming it after: §9 already says reach is the
+      consequential half of creating an autonomous task, and that argument does not start at the
+      connector.
+
+      **The credential rule needed nothing new, which is the point.** The registry schema reads
+      `type`, `name` and `preset` — there is no `url` and no `headers` for a token to sit in, at
+      either end, so a published template cannot carry one and no reader downstream is a forgotten
+      `delete` away from publishing it. `toToolSummary` / `readAllowlist`'s rule, one layer up.
+      `preset` may hold a `{{placeholder}}`, so the digest template makes *which saved server* a
+      parameter, and `resolveToolPresets` refuses an unsaved name with the list exactly as it already
+      did — the apply path needed no branch of its own for it.
+
+      **And driving the apply live found a defect no test could**: the
+      `refusedBeforeCalling` split shipped on `POST /api/tasks` and never reached
+      `POST /api/templates/:id/apply`, so *"No saved MCP server called X. Saved servers: resend."* —
+      a mistake carrying its own fix — arrived as a `500`, telling the caller to retry a request that
+      can never succeed. Both suites were green because both stub the connector. The route's own
+      comment already stated the rule while applying half of it, which is
+      [#77](troubleshooting/README.md#77-the-sources-tab-says-a-verb-failed-and-names-your-own-broken-file)'s
+      shape one more time; the reusable rule is that a connector gaining a new *kind of answer* is a
+      grep for every caller of `createTask`, not a fix to the route the report names
+      ([#87](troubleshooting/README.md#87-applying-a-template-answers-500-over-a-message-that-names-its-own-fix)).
+
+      One thing the gallery needed that the app did not: **a fourth target mode**. `direct`,
+      `session` and `manual` could not hold Gemini — a real controller, but only once an API key is
+      on the connection, which a static page can no more know than it can know about a Claude
+      session. Calling it `direct` promises a one-click apply that fails; calling it `manual` hides a
+      connector that works.
 
 - [ ] **E. Prompt preflight at create** *(lowest of the five, and earned)*. Three real failures in one
       session, none of them a Cronsole defect and all of them catchable before the trigger exists:

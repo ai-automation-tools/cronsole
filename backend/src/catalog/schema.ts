@@ -33,8 +33,41 @@ export const CATEGORIES = [
 ] as const;
 
 export const COMPAT_TARGETS = [
-  'windows', 'cronsole-native', 'macos', 'linux', 'claude-code', 'chatgpt'
+  'windows', 'cronsole-native', 'macos', 'linux', 'claude-code', 'chatgpt', 'gemini'
 ] as const;
+
+/**
+ * The reach a template grants on a hosted agent target.
+ *
+ * Only Gemini reads it today, and it is the half of a hosted-agent template the
+ * prompt cannot carry: an agent told to email a digest with no `mcp_server` runs
+ * to `completed` and mails nothing, so "which tools" is part of the template
+ * rather than something the user is expected to remember at apply time.
+ *
+ * **Three fields, and the two that are missing are the point.** There is no
+ * `url` and no `headers` here, so a published registry template can never carry
+ * a bearer token — the same rule `toToolSummary` / `readAllowlist` already
+ * enforce by never reading those fields (§9: a credential is dropped at the
+ * parse, never filtered downstream). Zod strips unknown keys by default, which
+ * is the behaviour wanted: a template authored with a `headers` block loses it
+ * here, at the boundary, rather than being refused and silently vanishing from
+ * a catalog that skips what it cannot parse.
+ *
+ * `preset` names a **saved MCP server on the applying user's own connection**,
+ * resolved server-side by `resolveToolPresets`. A name with nothing behind it is
+ * refused with the list of saved servers, never passed through as a
+ * credential-less server that would fail later, on a schedule, as somebody
+ * else's 401. It may carry a `{{placeholder}}`, so a template can let the user
+ * pick which saved server to use.
+ */
+export const registryAgentToolSchema = z.object({
+  /** `mcp_server`, `google_search`, `url_context`, … — validated by the connector. */
+  type: z.string().min(1),
+  /** An MCP server's name, or a function's. */
+  name: z.string().optional(),
+  /** The name of a saved MCP server on the user's platform connection. */
+  preset: z.string().optional()
+});
 
 export const registryParameterSchema = z.object({
   key: z.string().regex(/^\w+$/, 'Parameter key must be a bare identifier.'),
@@ -134,6 +167,11 @@ export const registryTemplateSchema = z
     // relies on must not change).
     commandTemplate: z.string().optional(),
     parameters: z.array(registryParameterSchema).optional(),
+    /**
+     * Hosted agent targets only. Absent ⇒ the template grants nothing, which is
+     * every template that predates Gemini and every command-line template.
+     */
+    agentTools: z.array(registryAgentToolSchema).optional(),
     compatibleTargets: z.array(z.enum(COMPAT_TARGETS)).min(1),
     execution: registryExecutionSchema.optional(),
     author: z.string().optional(),
@@ -145,6 +183,7 @@ export const registryTemplateSchema = z
 
 export type RegistryTemplate = z.infer<typeof registryTemplateSchema>;
 export type RegistryParameter = z.infer<typeof registryParameterSchema>;
+export type RegistryAgentTool = z.infer<typeof registryAgentToolSchema>;
 export type RegistryAction = z.infer<typeof registryActionSchema>;
 
 // --- Registry index (index.json) ---------------------------------------------

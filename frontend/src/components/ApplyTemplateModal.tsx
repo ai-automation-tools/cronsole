@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
-import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2, FolderTree } from 'lucide-react';
+import { XCircle, Clock, Loader2, ArrowRight, AlertTriangle, CheckCircle2, FolderTree, ShieldCheck } from 'lucide-react';
 import type { Template } from '../types';
 import { api } from '../api';
 import { platformLabel } from '../platform';
@@ -18,6 +18,28 @@ import { ScheduleBuilder } from './ScheduleBuilder';
 // value with quotes/spaces is always exactly one argument (templateCommand.ts).
 const resolveCommand = (tpl: string, values: Record<string, string>) =>
   tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in values ? values[k] : `{{${k}}}`));
+
+/**
+ * Plain-language names for the tools a Gemini template grants.
+ *
+ * A label rather than the wire word because this list is the *consequence*
+ * sentence — "url_context" tells a reader nothing about what the agent may
+ * reach. An unknown type falls back to its own name rather than being dropped:
+ * the connector refuses one it does not recognise, with the list, and a grant
+ * silently missing from this panel is the one thing worse than an ugly label.
+ */
+const GEMINI_TOOL_LABEL: Record<string, string> = {
+  google_search: 'Search the web',
+  url_context: 'Read web pages you name',
+  code_execution: 'Run code in Google’s sandbox',
+  bash: 'Run shell commands in Google’s sandbox',
+  filesystem: 'Read and write files in its sandbox',
+  file_search: 'Search files in its sandbox',
+  google_maps: 'Look up places and directions',
+  computer_use: 'Control a browser in its sandbox',
+  tool_search: 'Discover further tools',
+  mcp_server: 'Call an MCP server'
+};
 
 /** Mirrors DEFAULT_TASK_FOLDER in backend/src/utils/windowsTaskFolder.ts. */
 const DEFAULT_FOLDER = '\\Cronsole';
@@ -78,6 +100,8 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
   const [folder, setFolder] = useState(DEFAULT_FOLDER);
   const isWindows = platform === 'WINDOWS_TASK_SCHEDULER';
   const isClaude = platform === 'CLAUDE_CODE';
+  const isGemini = platform === 'GEMINI_TRIGGERS';
+  const grantedTools = template.agentTools ?? [];
   // Claude only: the repositories the routine may check out and work in. Never
   // defaulted and never guessed — a routine with no sources still runs, it
   // simply has no checkout, whereas attaching the wrong repository to an agent
@@ -344,6 +368,42 @@ export const ApplyTemplateModal = ({ template, onClose }: ApplyTemplateModalProp
                 <span className="not-italic"> a routine with no repository still runs, it just has no checkout</span>, so a
                 prompt that reads or edits code needs the repository attached here. Cronsole never guesses one:
                 the routine can commit, and attaching the wrong repo is not a mistake you can see before it happens.
+              </p>
+            </div>
+          )}
+
+          {isGemini && grantedTools.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-subtle-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck size={11} /> What this agent will be able to do
+              </label>
+              <ul className="text-[11px] text-foreground bg-background border border-border rounded-xl px-3 py-2.5 space-y-1">
+                {grantedTools.map((t, i) => (
+                  <li key={`${t.type}-${i}`} className="flex items-start gap-1.5">
+                    <span className="text-subtle-foreground shrink-0">•</span>
+                    <span>
+                      {GEMINI_TOOL_LABEL[t.type] ?? t.type}
+                      {t.preset && (
+                        <span className="text-subtle-foreground">
+                          {' '}— your saved server <span className="font-mono">{resolveCommand(t.preset, values) || t.preset}</span>
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {/* Stated before the click, not after. The trigger keeps this
+                  reach for as long as it exists, and a saved server's token is
+                  handed to Google at create time — so the sentence that names
+                  the grant is the one that belongs next to the button. An
+                  unsaved preset is not guessed at here: the server refuses it
+                  with the list of what is saved, which is the answer that
+                  carries its own fix. */}
+              <p className="text-[10px] text-subtle-foreground italic">
+                A Gemini trigger runs unattended in Google’s sandbox and keeps these tools for as long
+                as it exists.
+                <span className="not-italic"> A saved MCP server’s credential is sent to Google when the trigger is created</span> —
+                it lives on your Cronsole connection, so you never retype it, and it is never part of this template.
               </p>
             </div>
           )}

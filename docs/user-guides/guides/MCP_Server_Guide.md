@@ -138,11 +138,19 @@ I lose?".
 `create_task_from_template` fills the template's `{{placeholder}}` parameters from the values
 you pass. `create_task` is gated to the platforms a **command line** can be scheduled on
 (**Windows Task Scheduler** + **Cronsole-native**); `create_task_from_template` also accepts
-**`CLAUDE_CODE`**, because a Claude template's "command" is a *prompt* — applying one creates a
-real Claude Code routine, with optional **`repositoryUrls`** for the repositories it may check
-out. That last one needs a Claude Code session on the machine running the backend; without one
-the call returns a `400` saying so, so ask your assistant to check
-`list_claude_routines` → `session.mode` first. Their optional **`folder`** chooses the
+**`CLAUDE_CODE`** and **`GEMINI_TRIGGERS`**, because on both a template's "command" is a
+*prompt*. Applying a Claude one creates a real Claude Code routine, with optional
+**`repositoryUrls`** for the repositories it may check out. That one needs a Claude Code session
+on the machine running the backend; without one the call returns a `400` saying so, so ask your
+assistant to check `list_claude_routines` → `session.mode` first.
+A **Gemini** template is a prompt *plus a grant*: it carries **`agentTools`**, the reach the
+created trigger keeps for as long as it exists, and `list_templates` returns it so your assistant
+can tell you what it will be able to do before it creates anything. Where a tool names a
+**saved MCP server** (`preset`), the credential lives on your Gemini connection and is sent to
+Google at create time — the template never holds one, and a name you have not saved is refused
+with the list of the ones you have rather than creating a trigger that cannot authenticate. A
+Gemini trigger cannot be edited afterwards; changing its prompt or schedule is **Recreate with
+changes** on the task. Their optional **`folder`** chooses the
 real Task Scheduler folder the task lands in — default `\Cronsole`, and it becomes the task's
 category in Cronsole. Any *other* folder must already exist: removing a Task Scheduler folder
 needs elevation, so Cronsole won't leave behind one you'd have to delete by hand. **`list_folders`

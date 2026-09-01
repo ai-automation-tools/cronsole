@@ -700,6 +700,19 @@ Non-negotiable rules. **Every one has a reason recorded in
   templates are a promise the Apply button breaks.
 - A template is target-agnostic and compiled at apply time; a declared-but-uncompiled
   `compatibleTargets` entry is the honest "copy to set up manually" path, never a silent failure.
+- **On a hosted agent target a template is a prompt *plus a grant*, and the grant is a reference.**
+  `agentTools` (its own `Template` column — not a second meaning for `nativeJob`, not a corner of
+  `parameters`) holds `[{ type, name?, preset? }]` and **the two missing fields are the rule**: the
+  registry schema reads no `url` and no `headers`, at the parse *and* at the export, so a published
+  template can never carry a bearer token and no reader downstream (row, export, archive, log line,
+  MCP response) is one forgotten `delete` from publishing one — `toToolSummary` / `readAllowlist`'s
+  rule one layer up. The grant is not separable from the prompt: an agent told to email a digest
+  with no `mcp_server` finishes `completed` and mails nothing, which no status can show. `preset`
+  names a **saved server on the applying user's own connection**, may carry a `{{placeholder}}` so
+  the choice can be a parameter, and resolves through the connector's one `resolveToolPresets` — an
+  unsaved name is refused **with the list**, never passed through. And because reach is the
+  consequential half of an autonomous task, **the Apply screen states the grant before the button**,
+  not after.
 
 ---
 

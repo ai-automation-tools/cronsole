@@ -412,6 +412,8 @@
     table.params .req { color: var(--amber); font-family: var(--font-mono); font-size: 10.5px; }
     table.params .opt { color: var(--ink-3); font-family: var(--font-mono); font-size: 10.5px; }
     .targets { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tools { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+    .tools li { font-size: 13px; }
     .tg { font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; }
     .tg .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     .tg.real { background: var(--phosphor-soft); color: var(--phosphor); }
@@ -584,16 +586,39 @@
       windows: "direct",
       "cronsole-native": "direct",
       "claude-code": "session",
+      // Gemini is a fourth answer, not a rounding of the other three. It is a
+      // real controller -- Cronsole creates the trigger over Google's API -- but
+      // only once an API key is on the connection, which this page cannot know
+      // any more than it can know about a Claude session. Calling it "direct"
+      // would promise a one-click apply to a visitor with no key; calling it
+      // "manual" would hide a connector that works.
+      gemini: "key",
       macos: "manual",
       linux: "manual",
       chatgpt: "manual"
     };
     function targetMode(t) { return TARGET_MODE[t] || "manual"; }
+    // Plain-language names for a granted tool. The wire word says nothing about
+    // what the agent may reach, and an unknown type falls back to itself rather
+    // than being dropped -- a grant missing from this list is the one failure
+    // worse than an unpolished label.
+    var TOOL_LABEL = {
+      google_search: "Search the web",
+      url_context: "Read web pages you name",
+      code_execution: "Run code in Google's sandbox",
+      bash: "Run shell commands in Google's sandbox",
+      filesystem: "Read and write files in its sandbox",
+      file_search: "Search files in its sandbox",
+      google_maps: "Look up places and directions",
+      computer_use: "Control a browser in its sandbox",
+      tool_search: "Discover further tools",
+      mcp_server: "Call an MCP server"
+    };
     // Distribution tier: core templates ship built into Cronsole (auto-synced by
     // default); everything else is extended — browse here and import on demand.
     function availOf(t) { return t.core ? "core" : "extended"; }
     var AVAIL = { core: "Built-in", extended: "Import" };
-    var TGT = { windows: "Windows", "cronsole-native": "Cronsole", macos: "macOS", linux: "Linux", "claude-code": "Claude Code", chatgpt: "ChatGPT" };
+    var TGT = { windows: "Windows", "cronsole-native": "Cronsole", macos: "macOS", linux: "Linux", "claude-code": "Claude Code", chatgpt: "ChatGPT", gemini: "Gemini" };
     function lab(m, v) { return m[v] || v; }
 
     // ---------- icons ----------
@@ -1232,14 +1257,37 @@
         }).join("");
         paramsHtml = '<div class="sec"><p class="sec-label">Parameters</p><table class="params"><thead><tr><th>Placeholder</th><th>Description</th><th>Type</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
       }
+      // Reach granted, on a hosted agent target. Rendered next to the prompt
+      // rather than folded into it, because it is the half of the template the
+      // prompt cannot state: an agent told to email a digest with no MCP server
+      // finishes its turn and mails nothing. A `preset` is a *name on your own
+      // connection* -- there is no url and no headers in a published template,
+      // by construction -- so what is shown here is what the agent may reach,
+      // never what lets it reach.
+      var toolsHtml = "";
+      var tools = tpl.agentTools || [];
+      if (tools.length) {
+        var toolRows = tools.map(function (t) {
+          var label = TOOL_LABEL[t.type] || t.type;
+          var extra = t.preset ? ' <span class="sub">saved server <code>' + esc(t.preset) + '</code></span>'
+            : (t.name ? ' <span class="sub">' + esc(t.name) + '</span>' : "");
+          return '<li>' + esc(label) + extra + '</li>';
+        }).join("");
+        toolsHtml = '<div class="sec"><p class="sec-label">Tools granted</p><ul class="tools">' + toolRows + '</ul>' +
+          '<p class="note">The agent keeps these for as long as the trigger exists. A saved server is named here, never a credential: you pick which of your own saved MCP servers to use at apply time.</p></div>';
+      }
+
       var tgtList = tpl.compatibleTargets || [];
       var targets = tgtList.map(function (x) {
         var mode = targetMode(x);
-        return '<span class="tg ' + (mode === "direct" ? "real" : mode === "session" ? "cond" : "manual") + '"><span class="dot"></span>' + esc(lab(TGT, x)) + '</span>';
+        return '<span class="tg ' + (mode === "direct" ? "real" : (mode === "session" || mode === "key") ? "cond" : "manual") + '"><span class="dot"></span>' + esc(lab(TGT, x)) + '</span>';
       }).join("");
       var notes = [];
       if (tgtList.some(function (x) { return targetMode(x) === "session"; })) {
         notes.push('Claude Code routines are created by Cronsole where it can reach them — that needs a Claude Code session on the machine running the backend (sign in with the CLI, <code>/login</code>). Without one, Cronsole can still fire a routine you connected by token, and the Apply screen says so rather than failing at the click.');
+      }
+      if (tgtList.some(function (x) { return targetMode(x) === "key"; })) {
+        notes.push('Gemini triggers are created by Cronsole over Google\'s API once you have added a Gemini API key to the Gemini source. A template that grants an MCP server names a <em>saved server</em> on your own connection, never a token in the template - so applying one asks you which of your saved servers to use, and Cronsole refuses a name you have not saved rather than creating a trigger that cannot authenticate.');
       }
       if (tgtList.some(function (x) { return targetMode(x) === "manual"; })) {
         notes.push('Dimmed targets have no connector yet — an honest "copy to set up manually" path, never a silent failure.');
@@ -1266,7 +1314,7 @@
           '<div style="min-width:0"><h1>' + esc(tpl.name) + '</h1><div class="did">' + esc(tpl.id) + '</div>' +
           '<p class="dsub">' + esc(tpl.description) + '</p>' +
           '<div class="tcard-meta" style="margin-top:16px">' + (tpl.core ? '<span class="badge badge-core">Built-in</span>' : '<span class="badge badge-ext">Import</span>') + '<span class="badge badge-cat">' + esc(lab(CAT, tpl.category)) + '</span><span class="badge badge-os">' + esc(lab(OS, tpl.os)) + '</span><span class="badge badge-runtime">' + esc(lab(RT, tpl.runtime)) + '</span></div></div></div>' +
-        '<div class="detail-grid"><div>' + schedHtml + cmdHtml + paramsHtml + targetsHtml + '</div>' +
+        '<div class="detail-grid"><div>' + schedHtml + cmdHtml + paramsHtml + toolsHtml + targetsHtml + '</div>' +
         '<aside><div class="aside-card"><h3>' + (tpl.core ? 'Built into Cronsole' : 'Add to your Cronsole') + '</h3><p class="sub">' + (tpl.core ? 'This template ships by default — no import needed. You can still download it for reference.' : 'Download or copy, then import in the Templates tab.') + '</p>' +
           '<div class="aside-actions"><button class="btn btn-primary" data-dl>' + I.dl + ' Download JSON</button>' +
           '<button class="btn" data-copy>' + I.copy + ' Copy JSON</button>' +

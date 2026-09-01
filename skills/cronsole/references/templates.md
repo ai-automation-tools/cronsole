@@ -13,9 +13,19 @@ Load when touching the catalog, adding templates, or publishing the registry.
 updates without redeploying the app* — the entire point of the decoupling.
 
 A template is **target-agnostic** (**Trigger → Action → Execution Target**) and is *compiled*
-to a target's native config **at apply time**. Only **Windows** and **Cronsole-native** have
-real compilers today. A declared-but-uncompiled `compatibleTargets` entry is the honest
-"copy to set up manually" path — **never a silent failure**.
+to a target's native config **at apply time**. **Windows**, **Cronsole-native**, **`claude-code`**
+and **`gemini`** have real compilers today. A declared-but-uncompiled `compatibleTargets` entry is
+the honest "copy to set up manually" path — **never a silent failure**.
+
+**On a hosted agent target the action is a prompt *plus a grant*.** `agentTools`
+(`[{ type, name?, preset? }]`, stored in its own `Template.agentTools` column) says what the created
+agent may reach. It is not decoration and not separable from the prompt: a digest prompt granted no
+`mcp_server` finishes `completed` and mails nothing. **There is no `url` and no `headers` in the
+shape** — the schema refuses to read them on the way in *and* `denormalizeTemplate` refuses on the
+way out — so a published template cannot carry a credential, and every reader downstream is
+unchanged. `preset` names a **saved MCP server on the applying user's connection** and may hold a
+`{{placeholder}}`, so "which of your saved servers" can be an ordinary parameter; the connector's
+`resolveToolPresets` resolves it and refuses an unsaved name **with the list**.
 
 ## The pipeline
 

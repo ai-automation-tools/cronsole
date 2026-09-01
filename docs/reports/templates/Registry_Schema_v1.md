@@ -123,11 +123,32 @@ fields (and in the `commandTemplate` shorthand). Server-side validation is the e
 
 ### 2.3 `compatibleTargets` vocabulary
 
-`windows` · `cronsole-native` · `macos` · `linux` · `claude-code` · `chatgpt`
-(extensible). A target is **real** only when a compiler exists for it — `windows` and
-`cronsole-native` today. Others are declared-but-manual: the UI shows them muted with the
-honest "no agent or API yet — copy the command to set it up manually" note, exactly as the
-Apply modal already gates `CREATABLE_PLATFORMS`.
+`windows` · `cronsole-native` · `macos` · `linux` · `claude-code` · `chatgpt` · `gemini`
+(extensible). A target is **real** only when a compiler exists for it — `windows`,
+`cronsole-native`, `claude-code` and `gemini` today. Others are declared-but-manual: the UI
+shows them muted with the honest "no agent or API yet — copy the command to set it up manually"
+note. Which of the real ones is *selectable* is a fact about the install, answered by the
+capability matrix rather than by a list compiled into the bundle.
+
+### 2.4 `agentTools` — reach, on a hosted agent target
+
+Optional. `[{ type, name?, preset? }]`, read only by hosted agent targets (`gemini` today).
+
+On those targets the action is a **prompt plus a grant**, and the two are not separable: an agent
+told to email a digest with no `mcp_server` finishes its turn `completed` and mails nothing.
+
+**There is no `url` and no `headers` in this shape, at either end.** The parse does not read them and
+`denormalizeTemplate` does not write them, so a published registry template can never carry a bearer
+token and no reader downstream — the DB row, an export, an archive, a log line, an MCP tool response
+— is one forgotten `delete` away from publishing one. Unknown keys are *stripped* rather than
+refused, because a consumer skips a template it cannot parse and a template that silently vanishes
+from a catalog is worse than one that arrives with less reach than it asked for.
+
+`preset` names a **saved MCP server on the applying user's own platform connection**, resolved
+server-side at apply time; it may carry a `{{placeholder}}`, so which saved server to use can be an
+ordinary template parameter. A name with nothing behind it is refused **with the list of saved
+servers**, never passed through as a credential-less server that would fail later, on a schedule, as
+somebody else's 401.
 
 ---
 

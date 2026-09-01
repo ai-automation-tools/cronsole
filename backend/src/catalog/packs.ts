@@ -203,6 +203,25 @@ export const bundledPacks: BundledPack[] = [
   },
   {
     /**
+     * Separate from `ai-agents` and from `claude-routines` for the reason those
+     * two are separate from each other: same card, different execution model. A
+     * Gemini trigger runs on Google's managed agent with a **tool grant** and no
+     * checkout; a Claude routine runs against your repositories with a checkout
+     * and no grant. Merging them would imply a template applies to both, and
+     * each prompt here is written for one.
+     */
+    id: 'gemini-triggers',
+    name: 'Gemini Triggers',
+    description:
+      'Scheduled Gemini agents - a prompt Google runs in its own sandbox: a morning digest emailed through a saved MCP server, a weekly repository report, a daily page watch.',
+    templateIds: [
+      'gemini-daily-email-digest',
+      'gemini-weekly-repo-report',
+      'gemini-page-watch'
+    ]
+  },
+  {
+    /**
      * Added when packs became first-class (2026-07-28). Without it these eight
      * templates belonged to **no** pack, so "download every pack" would quietly
      * be less than the catalog — the kind of silent shortfall the pack bundles

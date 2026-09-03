@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ntf-sms-twilio-alert",
+  "name": "Send an SMS Alert (Twilio)",
+  "description": "Send a scheduled text message through the Twilio API — an alert channel for anyone who wants a message on their phone rather than a chat webhook or an email.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "notification",
+  "tags": [
+    "notification",
+    "sms",
+    "twilio",
+    "alert"
+  ],
+  "icon": "Smartphone",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * *"
+  },
+  "commandTemplate": "curl -fsS -X POST \"https://api.twilio.com/2010-04-01/Accounts/{{accountSid}}/Messages.json\" -u \"{{accountSid}}:{{authToken}}\" --data-urlencode \"To={{toNumber}}\" --data-urlencode \"From={{fromNumber}}\" --data-urlencode \"Body={{message}}\"",
+  "parameters": [
+    {
+      "key": "accountSid",
+      "label": "Twilio Account SID",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "Found on the Twilio Console dashboard."
+    },
+    {
+      "key": "authToken",
+      "label": "Twilio Auth Token",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "Found on the Twilio Console dashboard. Treat it like a password."
+    },
+    {
+      "key": "fromNumber",
+      "label": "From number",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "A Twilio phone number on your account, in E.164 format (e.g. +15551234567)."
+    },
+    {
+      "key": "toNumber",
+      "label": "To number",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The phone number to text, in E.164 format."
+    },
+    {
+      "key": "message",
+      "label": "Message",
+      "type": "text",
+      "default": "Cronsole scheduled alert",
+      "required": true,
+      "help": "The SMS body. Keep it short — long messages are billed as multiple segments."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

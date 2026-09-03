@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-certbot-renew",
+  "name": "Renew SSL Certificates (Certbot)",
+  "description": "Run certbot renew on a schedule so Let’s Encrypt certificates renew themselves before they expire. This renews — pair it with an expiry check for the alert half.",
+  "runtime": "executable",
+  "os": "macos",
+  "category": "system",
+  "tags": [
+    "system",
+    "macos",
+    "ssl",
+    "certbot",
+    "renewal"
+  ],
+  "icon": "ShieldCheck",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * *"
+  },
+  "commandTemplate": "certbot renew --quiet",
+  "parameters": [],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

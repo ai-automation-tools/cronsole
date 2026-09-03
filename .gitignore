@@ -134,6 +134,7 @@ docs/local/
 # Add a line here for every new folder in skills/ -- the setup script warns if you forget.
 # NOTE: must stay AFTER the !/.claude/skills/ re-include above -- last match wins.
 /.claude/skills/cronsole/
+/.claude/skills/source-doctor/
 
 # --- Local scratch / tooling artifacts ---
 temp/

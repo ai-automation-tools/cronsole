@@ -22,6 +22,7 @@ model, invariants, and hard-won traps **before** it starts editing.
 | Skill | What it gives an agent |
 |:---|:---|
 | [**🗓️ cronsole/**](cronsole/SKILL.md) | The whole system: architecture, the agent protocol, the template registry, testing layers, and the traps. Routes to canonical docs rather than duplicating them. |
+| [**🩺 source-doctor/**](source-doctor/SKILL.md) | A full test-and-fix session across every connected source, using the live `cronsole` MCP tools — classifies a "failed" task against known false signals before proposing a fix. |
 
 ## ⚙️ Installing it — run one script
 

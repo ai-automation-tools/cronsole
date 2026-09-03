@@ -4748,6 +4748,7 @@ code, because the two failures are different codes and neither is a timeout:
 | **502**, empty body | `tailscale serve` is fine; **its upstream is down** — look at `127.0.0.1:8080` |
 | **404 page not found**, `Content-Type: text/plain` | `tailscale serve` answered, but no handler matched the **Host** you sent. Curling the tailnet *IP* does this every time — the handler is keyed on the hostname. Send `-H 'Host: my-pc.my-tailnet.ts.net:8080'` |
 | Connection refused / timeout | Now it is Tailscale: node key expiry, MagicDNS, or the device left the tailnet ([Remote Access Guide](../user-guides/guides/Remote_Access_Guide.md)) |
+| Everything above passes **from the PC**, and only the phone fails | **Read the phone's row in `tailscale status` on the PC.** `offline, last seen 1d ago` means the phone's client went to sleep — the PC-side checks all pass because the PC is always on the tailnet, so they cannot see this. Opening the Tailscale app on the phone once wakes it (2026-09-03) |
 
 **Fix — make the opt-in something the self-heal can see (2026-08-20).**
 

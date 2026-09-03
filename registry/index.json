@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-09-01T00:30:06.757Z",
+  "updatedAt": "2026-09-03T14:19:38.044Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -1235,6 +1235,85 @@
       "sha256": "00d94d3e01107da7cc042851eadd589977ca48c1e69eb558df4990778a0c54e6"
     },
     {
+      "id": "ntf-sms-twilio-alert",
+      "name": "Send an SMS Alert (Twilio)",
+      "description": "Send a scheduled text message through the Twilio API — an alert channel for anyone who wants a message on their phone rather than a chat webhook or an email.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "sms",
+        "twilio",
+        "alert"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/ntf-sms-twilio-alert.json",
+      "sha256": "c5cf1c9acd1f20de46ae5d4c927d837365691621115e6b0c0f8151e476934bd6"
+    },
+    {
+      "id": "sys-certbot-renew",
+      "name": "Renew SSL Certificates (Certbot)",
+      "description": "Run certbot renew on a schedule so Let’s Encrypt certificates renew themselves before they expire. This renews — pair it with an expiry check for the alert half.",
+      "category": "system",
+      "tags": [
+        "system",
+        "macos",
+        "ssl",
+        "certbot",
+        "renewal"
+      ],
+      "runtime": "executable",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/sys-certbot-renew.json",
+      "sha256": "5e2a1f76e05ee32c2ed5914e349f4fbb8e5213284f5ba0a0b635090bc8d6e81c"
+    },
+    {
+      "id": "sys-postgres-vacuum",
+      "name": "Postgres Vacuum & Analyze",
+      "description": "Run VACUUM ANALYZE against a PostgreSQL database on a schedule to reclaim bloat and keep the query planner’s statistics current — routine maintenance, not a backup.",
+      "category": "system",
+      "tags": [
+        "system",
+        "database",
+        "postgres",
+        "maintenance"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/sys-postgres-vacuum.json",
+      "sha256": "5ba52c4b35344557c573468f95cb9374e15191c58e8d01f148535cdf0a8b8314"
+    },
+    {
+      "id": "mon-top-processes",
+      "name": "Log Top Processes by CPU",
+      "description": "Append the highest CPU-consuming processes to a log file on an interval, so a machine that suddenly runs hot has a paper trail of what was busy.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "cpu",
+        "processes"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-top-processes.json",
+      "sha256": "7f9cb89a3e66cd66e9513dc765252c2aa2682f5f929e7ef501c2aec91ac7ea6e"
+    },
+    {
       "id": "native-run-program",
       "name": "Run a Program (Cronsole)",
       "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
@@ -1810,10 +1889,11 @@
         "cln-old-files",
         "cln-recycle-bin",
         "dev-docker-prune",
-        "ai-claude-log-cleanup"
+        "ai-claude-log-cleanup",
+        "sys-postgres-vacuum"
       ],
       "path": "packs/backup-cleanup.json",
-      "sha256": "776fda1509137b249f004976f512800b3dcfb3c688b60e7c969162ac80453eae"
+      "sha256": "efa5c2f7e781d5473a4f56e4bd398bc2edd2a6c2665479cca4aed61d3b1c57a7"
     },
     {
       "id": "monitoring",
@@ -1825,12 +1905,13 @@
         "mon-service-health",
         "mon-log-error-scan",
         "mon-failed-scheduled-tasks",
+        "mon-top-processes",
         "dev-docker-compose-up",
         "tpl_starter_webhook_windows",
         "tpl_starter_webhook_macos"
       ],
       "path": "packs/monitoring.json",
-      "sha256": "020f87fbf8dc5f519c60e81f326712085d322da9d56f2275a1c15ac1dd0fc13d"
+      "sha256": "6e94520a62acb8e1896634cf836b1a48b644bc0a6faf0d3e64730983997481f3"
     },
     {
       "id": "cronsole-native",
@@ -1902,10 +1983,12 @@
         "ntf-discord-heartbeat",
         "ntf-log-heartbeat",
         "ntf-windows-broadcast-message",
-        "ntf-email-alert"
+        "ntf-email-alert",
+        "ntf-sms-twilio-alert",
+        "sys-certbot-renew"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "5bc6a1a6e09b47e5541d749beab7e178798459dfdad72fe4e32067e8a7192c23"
+      "sha256": "88dda23dae0e7e7a24d4638fb952b95d7eebbd869d5e09878fd4514e172a06ec"
     }
   ]
 }

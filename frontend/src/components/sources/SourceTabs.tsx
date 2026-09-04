@@ -21,6 +21,14 @@ import type { LucideIcon } from 'lucide-react';
  * with something to say, and hiding the tab would make an empty install
  * indistinguishable from a broken one. That is the rail's rule for its own
  * nodes, and this is navigation for the same reason.
+ *
+ * **Vertical sidebar at `md:` and up** (2026-09-05) — the same shape as
+ * `CategoryNav` (Settings, Tools), so the three tabbed screens read as one
+ * pattern rather than two. This stays its own component instead of folding
+ * into `CategoryNav` because the count-in-the-label and the roving-tabindex
+ * keyboard nav are both real tablist semantics `CategoryNav`'s plain button
+ * list does not carry — collapsing them would either drop the count or drop
+ * `role="tab"`/arrow-key movement, and there is only one consumer to serve.
  */
 
 export interface SourceTabDef<Id extends string> {
@@ -56,15 +64,29 @@ export const SourceTabs = <Id extends string>({ tabs, active, onSelect }: {
     refs.current[tabs[next].id]?.focus();
   };
 
+  const tabClass = (selected: boolean) =>
+    `flex items-center gap-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      selected
+        ? 'bg-raised text-foreground shadow-sm'
+        : 'text-muted-foreground hover:text-foreground hover:bg-raised/50'
+    }`;
+
+  const countClass = (selected: boolean) =>
+    `text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition-colors duration-150 ${
+      selected ? 'bg-foreground/10 text-foreground' : 'bg-foreground/5 text-subtle-foreground'
+    }`;
+
   return (
-    // Scrolls rather than wraps below 375px: a segmented control that reflows
-    // onto two rows stops reading as one control.
-    <div className="overflow-x-auto -mx-1 px-1 pb-1">
+    <>
+      {/* Desktop: a sticky vertical sidebar, same shape as CategoryNav. The
+          real tablist — one role="tab" per tab, only here, or the mobile
+          strip below would double every accessible name. */}
       <div
         role="tablist"
         aria-label="Sources"
+        aria-orientation="vertical"
         onKeyDown={onKeyDown}
-        className="inline-flex gap-1 p-1 rounded-xl bg-muted/40 border border-border w-max"
+        className="hidden md:flex md:w-52 shrink-0 flex-col gap-1 sticky top-6 self-start"
       >
         {tabs.map(tab => {
           const selected = tab.id === active;
@@ -79,25 +101,42 @@ export const SourceTabs = <Id extends string>({ tabs, active, onSelect }: {
               tabIndex={selected ? 0 : -1}
               title={tab.hint}
               onClick={() => onSelect(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                selected
-                  ? 'bg-raised text-foreground shadow-lg shadow-background/40'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-raised/50'
-              }`}
+              className={`${tabClass(selected)} px-3 py-2.5 text-left justify-between`}
             >
-              <tab.Icon size={14} className="shrink-0" />
-              {tab.label}
-              <span
-                className={`text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition-colors duration-150 ${
-                  selected ? 'bg-foreground/10 text-foreground' : 'bg-foreground/5 text-subtle-foreground'
-                }`}
-              >
-                {tab.count}
+              <span className="flex items-center gap-2.5">
+                <tab.Icon size={16} className="shrink-0" />
+                {tab.label}
               </span>
+              <span className={countClass(selected)}>{tab.count}</span>
             </button>
           );
         })}
       </div>
-    </div>
+
+      {/* Below md: the same horizontal scrollable strip CategoryNav uses —
+          plain buttons, not a second tablist. Scrolls rather than wraps below
+          375px: a control that reflows onto two rows stops reading as one. */}
+      <div className="md:hidden overflow-x-auto -mx-4 px-4 pb-1">
+        <div className="inline-flex gap-1 p-1 rounded-xl bg-muted/40 border border-border w-max">
+          {tabs.map(tab => {
+            const selected = tab.id === active;
+            return (
+              <button
+                key={`mobile-${tab.id}`}
+                type="button"
+                aria-current={selected ? 'page' : undefined}
+                title={tab.hint}
+                onClick={() => onSelect(tab.id)}
+                className={`${tabClass(selected)} px-3 py-2 text-xs`}
+              >
+                <tab.Icon size={14} className="shrink-0" />
+                {tab.label}
+                <span className={countClass(selected)}>{tab.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 };

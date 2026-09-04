@@ -4,6 +4,12 @@ export interface CategoryNavItem<Id extends string> {
   id: Id;
   label: string;
   Icon: LucideIcon;
+  /** Optional population count, rendered beside the label (the Sources tab's
+   *  "count is part of the label" rule) — omit it for destinations that
+   *  govern nothing countable, like Settings' categories or Tools' tools. */
+  count?: number;
+  /** Tooltip — what this destination is, in one line. */
+  hint?: string;
 }
 
 /**
@@ -33,6 +39,11 @@ export const CategoryNav = <Id extends string>({ items, active, onSelect, ariaLa
         : 'text-muted-foreground hover:text-foreground hover:bg-raised/50'
     }`;
 
+  const countClass = (selected: boolean) =>
+    `text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition-colors duration-150 ${
+      selected ? 'bg-foreground/10 text-foreground' : 'bg-foreground/5 text-subtle-foreground'
+    }`;
+
   return (
     <>
       <nav aria-label={ariaLabel} className="hidden md:flex md:w-52 shrink-0 flex-col gap-1 sticky top-6 self-start">
@@ -41,11 +52,15 @@ export const CategoryNav = <Id extends string>({ items, active, onSelect, ariaLa
             key={item.id}
             type="button"
             aria-current={item.id === active ? 'page' : undefined}
+            title={item.hint}
             onClick={() => onSelect(item.id)}
-            className={`${itemClass(item.id === active)} px-3 py-2.5 text-left`}
+            className={`${itemClass(item.id === active)} px-3 py-2.5 text-left justify-between`}
           >
-            <item.Icon size={16} className="shrink-0" />
-            {item.label}
+            <span className="flex items-center gap-2.5">
+              <item.Icon size={16} className="shrink-0" />
+              {item.label}
+            </span>
+            {item.count !== undefined && <span className={countClass(item.id === active)}>{item.count}</span>}
           </button>
         ))}
       </nav>
@@ -59,11 +74,13 @@ export const CategoryNav = <Id extends string>({ items, active, onSelect, ariaLa
               key={item.id}
               type="button"
               aria-current={item.id === active ? 'page' : undefined}
+              title={item.hint}
               onClick={() => onSelect(item.id)}
               className={`${itemClass(item.id === active)} px-3 py-2 whitespace-nowrap text-xs`}
             >
               <item.Icon size={14} className="shrink-0" />
               {item.label}
+              {item.count !== undefined && <span className={countClass(item.id === active)}>{item.count}</span>}
             </button>
           ))}
         </div>

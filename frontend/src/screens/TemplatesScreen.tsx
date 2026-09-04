@@ -32,6 +32,7 @@ import { TEMPLATE_RESOURCES } from '../data/templateResources';
 import { useToast } from '../hooks/useToast';
 import { HelpButton } from '../components/HelpButton';
 import { TemplateFilterBar, type TemplateFacet } from '../components/TemplateFilterBar';
+import { CategoryNav, type CategoryNavItem } from '../components/CategoryNav';
 
 // Human labels for the enum-ish template facets (see backend/src/seed.ts).
 const TEMPLATE_OS_LABELS: Record<string, string> = {
@@ -572,14 +573,32 @@ function summarizeImport(
   toast(`Imported ${summary}.${detail}`, result.errors.length ? 'error' : 'success');
 }
 
+/** Same contract as `ToolsScreen`'s `?tool=`/`SourcesScreen`'s `?focus=`: a
+ *  missing value is the default view ('all'). Unlike those two, the item
+ *  list is data-driven (which categories exist depends on the catalog), so
+ *  an unrecognised value is not corrected here — it falls through to the
+ *  content pane, which renders it as an honest zero templates rather than a
+ *  guess at what the reader meant. */
+function readCategory(search: string): string {
+  return new URLSearchParams(search).get('category') ?? 'all';
+}
+
 export const TemplatesScreen = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const openTemplate = (t: Template) => navigate(`/templates/${t.id}`);
+  // The Apply modal's route carries `?category=` through the round trip —
+  // otherwise opening a template from "Backup" and closing the modal would
+  // silently land back on "All".
+  const openTemplate = (t: Template) => navigate({ pathname: `/templates/${t.id}`, search: location.search });
+  const closeTemplate = () => navigate({ pathname: '/templates', search: location.search });
+  const activeCategory = readCategory(location.search);
+  // `replace` so paging through categories does not fill the back stack —
+  // the button that got you into Templates should still be one Back away.
+  const selectCategory = (next: string) =>
+    navigate({ pathname: '/templates', search: `?category=${next}` }, { replace: true });
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<TemplateKind>('all');
   const [selectedOs, setSelectedOs] = useState('All');
-  const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedTag, setSelectedTag] = useState('All');
   const [selectedTarget, setSelectedTarget] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -632,51 +651,58 @@ export const TemplatesScreen = () => {
 
   const all = useMemo(() => templates ?? [], [templates]);
 
-  // Narrow by the "kind" toggle + search first; the OS/category facets and the
-  // final grid all build off this so counts reflect the current constraints.
+  // The sidebar's scope, applied first: 'all' is everything, 'favorites' cuts
+  // across every category, anything else is a category id. Every other
+  // control (search, kind, the facets) narrows *within* this — the sidebar is
+  // navigation, not one of the filter chips (the dashboard rail's rule:
+  // excluded from the filter count, and `clearFilters` never resets it).
+  const categoryScoped = useMemo(() => {
+    if (activeCategory === 'favorites') return all.filter(t => t.isFavorite);
+    if (activeCategory === 'all') return all;
+    return all.filter(t => (t.category ?? 'OTHER') === activeCategory);
+  }, [all, activeCategory]);
+
+  // Narrow by the "kind" toggle + search next; the OS/target/tag facets and
+  // the final grid all build off this so counts reflect the current
+  // constraints.
   const searchKindFiltered = useMemo(() => {
-    let list = all;
+    let list = categoryScoped;
     if (kind === 'starters') list = list.filter(t => t.isStarter);
     else if (kind === 'patterns') list = list.filter(t => !t.isStarter);
     if (favoritesOnly) list = list.filter(t => t.isFavorite);
     if (search.trim()) list = list.filter(t => matchesTemplateSearch(t, search));
     return list;
-  }, [all, kind, favoritesOnly, search]);
+  }, [categoryScoped, kind, favoritesOnly, search]);
 
-  // Faceted OS / Category / Tag chips: each facet is counted over the list
+  // Faceted OS / Target / Tag chips: each facet is counted over the list
   // narrowed by the *other two* selections, so an empty combination drops out
   // instead of showing a 0-count chip.
   const narrow = useCallback((
     list: Template[],
-    opts: { os?: boolean; category?: boolean; tag?: boolean; target?: boolean }
+    opts: { os?: boolean; tag?: boolean; target?: boolean }
   ) => {
     let out = list;
     if (opts.os && selectedOs !== 'All') out = out.filter(t => (t.os ?? '') === selectedOs);
-    if (opts.category && selectedCategory !== 'All') out = out.filter(t => (t.category ?? '') === selectedCategory);
     if (opts.tag && selectedTag !== 'All') out = out.filter(t => (t.tags ?? []).includes(selectedTag));
     if (opts.target && selectedTarget !== 'All') out = out.filter(t => (t.targetPlatforms ?? []).includes(selectedTarget));
     return out;
-  }, [selectedOs, selectedCategory, selectedTag, selectedTarget]);
+  }, [selectedOs, selectedTag, selectedTarget]);
 
   const osFacets = useMemo(
-    () => buildTemplateFacet(narrow(searchKindFiltered, { category: true, tag: true, target: true }), t => t.os, selectedOs),
+    () => buildTemplateFacet(narrow(searchKindFiltered, { tag: true, target: true }), t => t.os, selectedOs),
     [searchKindFiltered, narrow, selectedOs]
   );
-  const categoryFacets = useMemo(
-    () => buildTemplateFacet(narrow(searchKindFiltered, { os: true, tag: true, target: true }), t => t.category, selectedCategory),
-    [searchKindFiltered, narrow, selectedCategory]
-  );
   const tagFacets = useMemo(
-    () => buildTemplateTagFacet(narrow(searchKindFiltered, { os: true, category: true, target: true }), selectedTag),
+    () => buildTemplateTagFacet(narrow(searchKindFiltered, { os: true, target: true }), selectedTag),
     [searchKindFiltered, narrow, selectedTag]
   );
   const targetFacets = useMemo(
-    () => buildTemplateTargetFacet(narrow(searchKindFiltered, { os: true, category: true, tag: true }), selectedTarget),
+    () => buildTemplateTargetFacet(narrow(searchKindFiltered, { os: true, tag: true }), selectedTarget),
     [searchKindFiltered, narrow, selectedTarget]
   );
 
   const filtered = useMemo(
-    () => narrow(searchKindFiltered, { os: true, category: true, tag: true, target: true }),
+    () => narrow(searchKindFiltered, { os: true, tag: true, target: true }),
     [searchKindFiltered, narrow]
   );
 
@@ -684,7 +710,6 @@ export const TemplatesScreen = () => {
   const patterns = useMemo(() => filtered.filter(t => !t.isStarter).sort(byFavoriteThenName), [filtered]);
 
   const osValues = useMemo(() => Array.from(osFacets.keys()).sort((a, b) => templateOsLabel(a).localeCompare(templateOsLabel(b))), [osFacets]);
-  const categoryValues = useMemo(() => Array.from(categoryFacets.keys()).sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b))), [categoryFacets]);
   const tagValues = useMemo(() => Array.from(tagFacets.keys()).sort((a, b) => a.localeCompare(b)), [tagFacets]);
   const targetValues = useMemo(
     () => Array.from(targetFacets.keys()).sort((a, b) => platformLabel(a).localeCompare(platformLabel(b))),
@@ -692,7 +717,9 @@ export const TemplatesScreen = () => {
   );
 
   /**
-   * The four facets, in the order they answer a reader's questions.
+   * The three facets left in the drawer, in the order they answer a reader's
+   * questions. Category moved to the sidebar (2026-09-05) — it now scopes the
+   * whole screen rather than sitting beside Target/OS/Tag as a fourth chip.
    *
    * **Target is first on purpose.** "What can I create this on?" is the opening
    * question now that the catalog holds Windows tasks, Cronsole-native jobs and
@@ -715,14 +742,34 @@ export const TemplatesScreen = () => {
         creatability(p) === 'no' ? 'Cronsole can’t create tasks here on this install' : undefined
     },
     { id: 'os', label: 'OS', values: osValues, counts: osFacets, selected: selectedOs, onSelect: setSelectedOs, labelFor: templateOsLabel },
-    { id: 'category', label: 'Category', values: categoryValues, counts: categoryFacets, selected: selectedCategory, onSelect: setSelectedCategory, labelFor: templateCategoryLabel },
     { id: 'tag', label: 'Tag', icon: Tag, values: tagValues, counts: tagFacets, selected: selectedTag, onSelect: setSelectedTag, labelFor: (t: string) => t }
   ], [
     targetValues, targetFacets, selectedTarget, creatability,
     osValues, osFacets, selectedOs,
-    categoryValues, categoryFacets, selectedCategory,
     tagValues, tagFacets, selectedTag
   ]);
+
+  // The sidebar itself: All, Favorites, then every category actually present
+  // in the catalog (never a static full enum — an empty category has nothing
+  // to click into, the same reason Sources only advertises what its matrix
+  // returns). Counts are over the *whole* catalog, not the current search/kind/
+  // facet state — the sidebar's population, independent of the other controls
+  // layered on top of it.
+  const categoryNav: CategoryNavItem<string>[] = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of all) {
+      const key = t.category ?? 'OTHER';
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const categories = Array.from(counts.entries())
+      .sort(([a], [b]) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b)))
+      .map(([id, count]) => ({ id, label: templateCategoryLabel(id), Icon: Tag, count }));
+    return [
+      { id: 'all', label: 'All', Icon: Library, count: all.length },
+      { id: 'favorites', label: 'Favorites', Icon: Star, count: all.filter(t => t.isFavorite).length },
+      ...categories
+    ];
+  }, [all]);
 
   if (isLoading) {
     return (
@@ -734,13 +781,19 @@ export const TemplatesScreen = () => {
   }
 
   const hasTemplates = all.length > 0;
-  const favoriteCount = all.filter(t => t.isFavorite).length;
-  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedCategory !== 'All' || selectedTag !== 'All' || selectedTarget !== 'All' || favoritesOnly || !!search.trim();
-  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedCategory('All'); setSelectedTag('All'); setSelectedTarget('All'); setFavoritesOnly(false); };
+  // Scoped to the sidebar's current category — the pill governs "favorites in
+  // what I'm looking at", not the whole catalog.
+  const favoriteCount = categoryScoped.filter(t => t.isFavorite).length;
+  // The sidebar is navigation, not a filter chip (the dashboard rail's rule):
+  // `activeCategory` never appears here or in `clearFilters`.
+  const hasActiveFilters = kind !== 'all' || selectedOs !== 'All' || selectedTag !== 'All' || selectedTarget !== 'All' || favoritesOnly || !!search.trim();
+  const clearFilters = () => { setSearch(''); setKind('all'); setSelectedOs('All'); setSelectedTag('All'); setSelectedTarget('All'); setFavoritesOnly(false); };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-end gap-3 flex-wrap">
+    // Same shell as ToolsScreen/SettingsScreen/SourcesScreen: centered column,
+    // zoomed 1.25x, a flex row with the category nav on the left.
+    <div className="animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto" style={{ zoom: 1.25 }}>
+      <div className="flex justify-between items-end gap-3 flex-wrap mb-6">
         <div>
           <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">
             Schedule Template Library
@@ -761,7 +814,7 @@ export const TemplatesScreen = () => {
         href="https://mikesailab.com/cronsole-registry/"
         target="_blank"
         rel="noopener noreferrer"
-        className="group flex items-center gap-4 bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-2xl p-4 hover:border-primary/40 transition-colors"
+        className="group flex items-center gap-4 bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-2xl p-4 hover:border-primary/40 transition-colors mb-6"
       >
         <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
           <Sparkles size={20} />
@@ -786,44 +839,50 @@ export const TemplatesScreen = () => {
           </p>
         </div>
       ) : (
-        <>
-          <TemplateFilterBar
-            search={search}
-            onSearch={setSearch}
-            kind={kind}
-            onKind={setKind}
-            favoritesOnly={favoritesOnly}
-            onFavoritesOnly={setFavoritesOnly}
-            favoriteCount={favoriteCount}
-            facets={facets}
-            hasActiveFilters={hasActiveFilters}
-            onClear={clearFilters}
-            shown={filtered.length}
-            total={all.length}
-          />
+        <div className="flex flex-col md:flex-row gap-6">
+          <CategoryNav items={categoryNav} active={activeCategory} onSelect={selectCategory} ariaLabel="Template categories" />
 
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[30vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
-              <Search size={40} className="text-subtle-foreground mb-4" />
-              <h3 className="text-lg font-bold text-foreground">No templates match your filters</h3>
-              <p className="text-subtle-foreground max-w-sm mt-2 mb-4">Try a different search or clear the filters to see all {all.length} templates.</p>
-              <button onClick={clearFilters} className="text-sm font-bold text-primary hover:text-primary-hover flex items-center gap-1.5">
-                <X size={15} /> Clear filters
-              </button>
-            </div>
-          ) : view === 'kanban' ? (
-            <TemplateKanban templates={filtered} onApply={openTemplate} onToggleFavorite={toggleFavorite} />
-          ) : (
-            <div className="space-y-10 pb-20">
-              <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={openTemplate} onToggleFavorite={toggleFavorite} creatability={creatability} />
-              <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={openTemplate} onToggleFavorite={toggleFavorite} creatability={creatability} />
-            </div>
-          )}
-        </>
+          <div className="flex-1 min-w-0 space-y-6">
+            <TemplateFilterBar
+              search={search}
+              onSearch={setSearch}
+              kind={kind}
+              onKind={setKind}
+              favoritesOnly={favoritesOnly}
+              onFavoritesOnly={setFavoritesOnly}
+              favoriteCount={favoriteCount}
+              facets={facets}
+              hasActiveFilters={hasActiveFilters}
+              onClear={clearFilters}
+              shown={filtered.length}
+              total={categoryScoped.length}
+            />
+
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[30vh] border-2 border-dashed border-border rounded-3xl p-10 text-center">
+                <Search size={40} className="text-subtle-foreground mb-4" />
+                <h3 className="text-lg font-bold text-foreground">No templates match your filters</h3>
+                <p className="text-subtle-foreground max-w-sm mt-2 mb-4">Try a different search or clear the filters to see all {categoryScoped.length} templates.</p>
+                {hasActiveFilters && (
+                  <button onClick={clearFilters} className="text-sm font-bold text-primary hover:text-primary-hover flex items-center gap-1.5">
+                    <X size={15} /> Clear filters
+                  </button>
+                )}
+              </div>
+            ) : view === 'kanban' ? (
+              <TemplateKanban templates={filtered} onApply={openTemplate} onToggleFavorite={toggleFavorite} />
+            ) : (
+              <div className="space-y-10 pb-20">
+                <TemplateGroup view={view} icon={Sparkles} title="Starters" subtitle="Parameterized building blocks — fill in the blanks and apply." templates={starters} onApply={openTemplate} onToggleFavorite={toggleFavorite} creatability={creatability} />
+                <TemplateGroup view={view} icon={Library} title="Use-case patterns" subtitle="Ready-made automations for common jobs." templates={patterns} onApply={openTemplate} onToggleFavorite={toggleFavorite} creatability={creatability} />
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {applyTarget && (
-        <ApplyTemplateModal template={applyTarget} onClose={() => navigate('/templates')} />
+        <ApplyTemplateModal template={applyTarget} onClose={closeTemplate} />
       )}
     </div>
   );

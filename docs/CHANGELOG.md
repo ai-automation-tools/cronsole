@@ -52,6 +52,66 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Resend — a fourth run-outcome webhook payload shape, and a setup-recipes help topic**
+  (2026-09-04). Payload shape now offers **Resend (email)** beside generic/discord/ntfy: pick it
+  and the Webhook URL field disappears (Resend has exactly one send-email endpoint, so Cronsole
+  always posts there regardless of what's stored) and two new fields appear — **To** (recipient)
+  and **From**, defaulting to `Cronsole <onboarding@resend.dev>` with a note that Resend's shared
+  sandbox address only delivers to the email on your own Resend account. The API key needed no new
+  storage of its own: it's a bearer token in the same write-only `Extra headers` field every other
+  shape already has, relabelled **Resend API key** for that shape.
+
+  **Neither `to` nor `from` is a credential** — the key is the header — so unlike `headers` they
+  round-trip through GET like `url` does, and a save that omits `headers` still keeps whatever key
+  is already stored (the same rule as before, now also proven with a real second field alongside it).
+
+  **The `?` beside *Enable webhook* now covers all four shapes, with concrete setup steps** for
+  each in a new *Setup recipes* section of the UI User Guide — ntfy (topic name, subscribe, done),
+  Discord (create a channel webhook), Resend (API key, sandbox-address caveat, verified domain for
+  sending to anyone else), and generic (point at your own collector or a no-code relay like n8n,
+  which is also how to bridge to a service — Resend included — that expects a different body shape
+  than Cronsole's own).
+
+- **Settings redesigned — a category sidebar instead of one long scroll** (2026-09-04). Account,
+  Connections, Appearance, Dashboard, Behavior, Notifications, Data & reset, About are now separate
+  pages behind a left-hand nav (a horizontal scrollable strip below `md`, the same shape
+  `SourceTabs` already uses), rather than eight cards stacked on one page. `?section=` is real
+  navigation — the `SourcesScreen` `?focus=` contract — so a reload or a shared link lands on the
+  same category instead of always resetting to the top. Nothing inside a category changed; this is
+  the container around them.
+
+- **A per-user run-outcome webhook — off by default, success and failure both selectable**
+  (2026-09-04). Settings → *Run-outcome webhook*: enable it, point it at a URL, and pick a payload
+  shape (generic JSON, Discord, or ntfy) — every task you own then fires it on success, failure, or
+  both, from the server, whether or not the dashboard is open.
+
+  **Off by default is a real off**, not a config file nobody found: there is no row at all until the
+  first save, `enabled` starts `false`, and the whole thing is a GET/PUT under
+  `/api/notifications/webhook`. It sits *beside* — and takes over from —
+  `CRONSOLE_FAILURE_WEBHOOK_URL`, which stays exactly what it always was: an operator-wide,
+  env-configured, failure-only fallback for a zero-config single-user install. A user with a channel
+  of their own enabled never reaches the env path; a user with none, or a disabled one, falls back to
+  it precisely as before — so an existing install's env webhook keeps behaving unchanged. `SUCCESS`
+  events only ever travel the new path; the env fallback has never spoken about them and still
+  doesn't.
+
+  **The credential rule is the one `PlatformConnection.config` already set.** `NotificationChannel.config`
+  is AES-256-GCM at the application layer, because the URL isn't sensitive but a header can be a
+  bearer token. No route ever returns a saved header — GET reports `hasHeaders` only, the
+  `redactPreset` shape one layer up (services/geminiTriggers.ts). **Omitting `headers` on a save
+  keeps whatever is already stored**, the same rule the Gemini MCP preset route already follows
+  (`routes/tools.ts`) and for the same reason: with no reveal endpoint, fixing a typo in the URL
+  must not force retyping a token you may not have to hand. Sending `headers: {}` clears them
+  explicitly.
+
+  `services/FailureNotificationService.ts` gained `notifyRunOutcome` / `queueRunNotification` as the
+  path both the manual-run route and `NativeScheduler`'s tick now call for **every** outcome, not just
+  failures; `sendFailureNotification` (env-only) is unchanged underneath it.
+
+  **Documented and given its own `?`** the same day: a new *Notifications and the run-outcome
+  webhook* section in the UI User Guide, and a `run-outcome-webhook` help topic reachable from the
+  `?` beside *Enable webhook* in Settings.
+
 - **Four new registry templates** (2026-09-03): Send an SMS Alert (Twilio) (`ntf-sms-twilio-alert`),
   Renew SSL Certificates (Certbot) (`sys-certbot-renew`), Postgres Vacuum & Analyze
   (`sys-postgres-vacuum`), and Log Top Processes by CPU (`mon-top-processes`).

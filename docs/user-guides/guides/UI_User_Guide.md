@@ -1155,6 +1155,40 @@ a phone. They follow your account rather than this browser.
   talks to the agent, and only once you open it.
 - **"N tasks aren't imported":** because of the above, tasks can exist on your machine that Cronsole is deliberately ignoring. Sync tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — add them from Sync › Add tasks from this machine."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. The message carries the button that adds them. If you don't want them, nothing is required — the message is informational, and it disappears once nothing is outstanding.
 
+### Notifications and the run-outcome webhook
+
+Settings has two notification blocks, and they answer different questions — *did something just happen while I'm looking* versus *tell me even when I'm not*.
+
+- **Settings → Notifications** is the browser-only half: a toast on a successful run or sync, a toast on a failed one, and an optional OS-level desktop notification for failures. All three live in this browser and only fire while a tab is open — close the dashboard and they stop, by design.
+- **Settings → Run-outcome webhook** is the server-side half, and it's **off by default**. Turn it on and Cronsole sends an HTTP POST to a URL you choose whenever a task **you own** runs — whether or not the dashboard is open, from any device. It's per-account, not per-browser: enable it once and it follows you to every address this install answers on, the same as the rest of Settings ([preference sync](#7-system-status--connections)).
+  - **Notify on failure** and **Notify on success** are independent switches. Turn on just failure for a quiet channel that only speaks up when something breaks, or add success too if you want a heartbeat.
+  - **Payload shape** picks the body Cronsole sends: **generic** (a JSON object with a `text` summary and a structured `event`, for your own collector or something like n8n/Zapier), **discord** (a ready-made embed for a Discord webhook URL), **ntfy** (plain text with `ntfy`'s `Title`/`Tags`/`Priority` headers), or **Resend** (an actual email — see below; it's the one shape with its own **To** and **From** fields instead of a bare URL, because sending mail needs a recipient and a sender in a way posting JSON doesn't).
+  - **Extra headers** — labelled **Resend API key** when that shape is selected — is where a bearer token or an API key goes, as JSON: `{"Authorization": "Bearer …"}`. There is no way to read a saved header back (Cronsole reports only *whether* one is stored, never its value), so **leaving the box blank on a later save keeps whatever is already there** — the same rule a saved Gemini MCP server preset follows. Type something to replace it, or save an explicit `{}` to clear it.
+- **If you run Cronsole yourself and set `CRONSOLE_FAILURE_WEBHOOK_URL`** in the backend's environment, that stays exactly what it always was: an operator-wide, failure-only fallback with no per-account toggle. The moment you enable your own webhook above, your account stops reaching that fallback — the two never both fire for the same run.
+
+### Setup recipes
+
+Four shapes, four different things to go set up first. None of these need Cronsole code — just an account with the target service and a URL or key to paste in.
+
+**ntfy — free, no signup, push-notifies a phone or a browser tab**
+1. Pick a topic name only you'd guess — it's the only thing standing in for auth on the public server (e.g. `cronsole-alerts-x7k2`).
+2. Subscribe to it: open the [ntfy app](https://ntfy.sh/app) (iOS/Android/web) and add that topic, or just visit `https://ntfy.sh/your-topic-name` in a browser tab and leave it open.
+3. In Cronsole: Webhook URL = `https://ntfy.sh/your-topic-name`, Payload shape = **ntfy**. No headers needed.
+
+**Discord — posts into a channel you already have**
+1. In Discord, go to the target channel's **Settings → Integrations → Webhooks → New Webhook**, name it, and copy its URL.
+2. In Cronsole: Webhook URL = the copied URL, Payload shape = **discord**. No headers needed.
+
+**Resend — an actual email**
+1. Get an API key from your [Resend dashboard](https://resend.com/api-keys) — it starts with `re_`.
+2. In Cronsole: Payload shape = **Resend**. **To** is where the email goes; **From** can be left as the default `Cronsole <onboarding@resend.dev>` for a quick test, **but that sandbox address only delivers to the email address on your own Resend account** — send to anyone else by verifying a domain in Resend first and using an address on it as **From**.
+3. Resend API key box: `{"Authorization":"Bearer re_your_key_here"}`.
+4. There's no Webhook URL field for Resend — Cronsole always posts to Resend's one send-email endpoint.
+
+**Generic — your own collector, or a no-code relay like n8n/Zapier**
+1. Point Webhook URL at whatever will receive it — your own endpoint, or a webhook-triggered workflow in something like n8n. Payload shape = **generic**.
+2. The body is `{ text, event }` — a one-line summary plus the structured fields (`taskId`, `taskName`, `platform`, `status`, `message`, …). A relay workflow reads `event` and does whatever it wants with it, including calling a service (Resend included) that expects a different shape than Cronsole sends natively.
+
 ---
 
 ## 8. In-app help

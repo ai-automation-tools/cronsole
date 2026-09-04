@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { HelpButton } from './HelpButton';
+import { SettingsNav, type SettingsNavItem } from './settings/SettingsNav';
+import { useNotificationChannel, type WebhookType } from '../hooks/useNotificationChannel';
 import {
   Palette,
   LayoutDashboard,
@@ -77,6 +80,34 @@ const VIEW_OPTIONS: { value: DashboardView; label: string; Icon: typeof Grid }[]
   { value: 'schedule', label: 'Schedule', Icon: Calendar },
   { value: 'calendar', label: 'Calendar', Icon: CalendarDays },
 ];
+
+type SettingsSection =
+  | 'account'
+  | 'connections'
+  | 'appearance'
+  | 'dashboard'
+  | 'behavior'
+  | 'notifications'
+  | 'data'
+  | 'about';
+
+const SETTINGS_NAV: SettingsNavItem<SettingsSection>[] = [
+  { id: 'account', label: 'Account', Icon: KeyRound },
+  { id: 'connections', label: 'Connections', Icon: Plug },
+  { id: 'appearance', label: 'Appearance', Icon: Palette },
+  { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { id: 'behavior', label: 'Behavior', Icon: SlidersHorizontal },
+  { id: 'notifications', label: 'Notifications', Icon: Bell },
+  { id: 'data', label: 'Data & reset', Icon: Database },
+  { id: 'about', label: 'About', Icon: Info },
+];
+
+/** Same contract as `SourcesScreen`'s `?focus=`: an unknown or missing value
+ *  falls back to the first category rather than rendering nothing. */
+function readSection(search: string): SettingsSection {
+  const value = new URLSearchParams(search).get('section');
+  return SETTINGS_NAV.some(item => item.id === value) ? (value as SettingsSection) : 'account';
+}
 
 // ---- Layout primitives -----------------------------------------------------
 
@@ -326,6 +357,194 @@ const ConnectionsSection = ({ timezone }: { timezone: Settings['timezone'] }) =>
   );
 };
 
+// ---- Run-outcome webhook (per-user, off by default) ------------------------
+
+/** Resend has exactly one endpoint for sending mail — never user-editable. */
+const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+
+const PAYLOAD_SHAPE_OPTIONS: { value: WebhookType; label: string }[] = [
+  { value: 'generic', label: 'Generic JSON' },
+  { value: 'discord', label: 'Discord' },
+  { value: 'ntfy', label: 'ntfy' },
+  { value: 'resend', label: 'Resend (email)' },
+];
+
+/**
+ * The server never echoes a saved header value back (only `hasHeaders`), so
+ * the Headers box is write-only. Leaving it blank on save keeps whatever is
+ * already stored — the `ToolPresetsManager` precedent — and typing something
+ * replaces it; there is no way to append to or edit one saved header value.
+ *
+ * `to` / `from` (resend only) are **not** credentials — the API key lives in
+ * a header — so they round-trip through GET like `url` does and need no
+ * "leave blank to keep" dance.
+ */
+const WebhookSection = () => {
+  const { data: channel, isLoading, save } = useNotificationChannel();
+  const { toast } = useToast();
+
+  const [enabled, setEnabled] = useState(false);
+  const [url, setUrl] = useState('');
+  const [type, setType] = useState<WebhookType>('generic');
+  const [headersText, setHeadersText] = useState('');
+  const [notifyOnFailure, setNotifyOnFailure] = useState(true);
+  const [notifyOnSuccess, setNotifyOnSuccess] = useState(false);
+  const [to, setTo] = useState('');
+  const [from, setFrom] = useState('');
+
+  // Hydrate local form state once from the server, then leave it to the user
+  // — re-syncing on every refetch would wipe an in-progress edit.
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (hydrated.current || !channel) return;
+    hydrated.current = true;
+    setEnabled(channel.enabled);
+    setUrl(channel.url ?? '');
+    setType(channel.type ?? 'generic');
+    setNotifyOnFailure(channel.notifyOnFailure);
+    setNotifyOnSuccess(channel.notifyOnSuccess);
+    setTo(channel.to ?? '');
+    setFrom(channel.from ?? '');
+  }, [channel]);
+
+  const isResend = type === 'resend';
+
+  const submit = () => {
+    let headers: Record<string, string> | undefined;
+    if (headersText.trim()) {
+      try {
+        headers = JSON.parse(headersText);
+      } catch {
+        toast('Headers must be valid JSON, e.g. {"Authorization":"Bearer …"}.', 'error');
+        return;
+      }
+    }
+    save.mutate(
+      {
+        enabled,
+        notifyOnFailure,
+        notifyOnSuccess,
+        url: isResend ? RESEND_ENDPOINT : url.trim() || undefined,
+        type,
+        headers,
+        to: isResend ? to.trim() || undefined : undefined,
+        from: isResend ? from.trim() || undefined : undefined
+      },
+      {
+        onSuccess: () => toast('Webhook settings saved.', 'success'),
+        onError: (err) => toast(errorMessage(err, 'Could not save webhook settings.'), 'error')
+      }
+    );
+  };
+
+  return (
+    <Section
+      icon={Bell}
+      title="Run-outcome webhook"
+      subtitle="Off by default. Point it at anywhere that accepts a POST — a generic collector, Discord, ntfy, or send email through Resend."
+    >
+      <Row
+        label="Enable webhook"
+        description="Sends a request from the server whenever a task you own runs, whether or not you have the dashboard open."
+        help={<HelpButton topic="run-outcome-webhook" />}
+      >
+        <Toggle checked={enabled} onChange={setEnabled} label="Enable run-outcome webhook" />
+      </Row>
+      {enabled && (
+        <>
+          <Row label="Notify on failure">
+            <Toggle checked={notifyOnFailure} onChange={setNotifyOnFailure} label="Notify on failure" />
+          </Row>
+          <Row label="Notify on success">
+            <Toggle checked={notifyOnSuccess} onChange={setNotifyOnSuccess} label="Notify on success" />
+          </Row>
+          <Row label="Payload shape">
+            <Select value={type} options={PAYLOAD_SHAPE_OPTIONS} onChange={v => setType(v as WebhookType)} />
+          </Row>
+          {isResend ? (
+            <>
+              <Row label="To" description="The address that receives the email.">
+                <input
+                  type="email"
+                  value={to}
+                  onChange={e => setTo(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full sm:w-80 bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary shadow-sm"
+                />
+              </Row>
+              <Row
+                label="From"
+                description={`Defaults to Cronsole <onboarding@resend.dev> — Resend's shared test address, which only delivers to the email on your Resend account. Use a verified domain to send to anyone else.`}
+              >
+                <input
+                  type="text"
+                  value={from}
+                  onChange={e => setFrom(e.target.value)}
+                  placeholder="Cronsole <alerts@yourdomain.com>"
+                  className="w-full sm:w-80 bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary shadow-sm"
+                />
+              </Row>
+              <Row
+                label="Resend API key"
+                description={
+                  channel?.hasHeaders
+                    ? 'A key is already saved. Leave blank to keep it, or type JSON to replace it — there is no way to read a saved value back.'
+                    : 'From your Resend dashboard, as: {"Authorization":"Bearer re_…"}'
+                }
+              >
+                <textarea
+                  value={headersText}
+                  onChange={e => setHeadersText(e.target.value)}
+                  placeholder={channel?.hasHeaders ? '(unchanged)' : '{"Authorization":"Bearer re_…"}'}
+                  rows={2}
+                  className="w-full sm:w-80 bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary shadow-sm"
+                />
+              </Row>
+            </>
+          ) : (
+            <>
+              <Row label="Webhook URL">
+                <input
+                  type="url"
+                  value={url}
+                  onChange={e => setUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="w-full sm:w-80 bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary shadow-sm"
+                />
+              </Row>
+              <Row
+                label="Extra headers"
+                description={
+                  channel?.hasHeaders
+                    ? 'A header is already saved. Leave blank to keep it, or type JSON to replace it — there is no way to read a saved value back.'
+                    : 'Optional JSON object, e.g. for a bearer token: {"Authorization":"Bearer …"}.'
+                }
+              >
+                <textarea
+                  value={headersText}
+                  onChange={e => setHeadersText(e.target.value)}
+                  placeholder={channel?.hasHeaders ? '(unchanged)' : '{}'}
+                  rows={2}
+                  className="w-full sm:w-80 bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary shadow-sm"
+                />
+              </Row>
+            </>
+          )}
+        </>
+      )}
+      <Row label="Save">
+        <button
+          onClick={submit}
+          disabled={isLoading || save.isPending}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50"
+        >
+          {save.isPending && <Loader2 size={14} className="animate-spin" />} Save webhook settings
+        </button>
+      </Row>
+    </Section>
+  );
+};
+
 // ---- Account (single-user local login) -------------------------------------
 
 const AccountSection = () => {
@@ -406,10 +625,18 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
   const { settings, syncStatus, update, replaceAll, reset } = useSettings();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('ok');
   const [apiOrigin, setApiOriginState] = useState(API_ORIGIN);
   const [apiOriginInput, setApiOriginInput] = useState(API_ORIGIN);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  const section = readSection(location.search);
+  // `replace` so paging through categories does not fill the back stack —
+  // the button that got you into Settings should still be one Back away.
+  const selectSection = (next: SettingsSection) =>
+    navigate({ pathname: '/settings', search: `?section=${next}` }, { replace: true });
 
   useEffect(() => subscribeBackendStatus(setBackendStatus), []);
   useEffect(() => subscribeApiOrigin(origin => {
@@ -526,228 +753,242 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20 max-w-3xl">
-      <div>
+    <div className="animate-in fade-in duration-500 pb-20 max-w-5xl">
+      <div className="mb-6">
         <h2 className="text-2xl font-bold mb-1">Settings</h2>
         <p className="text-muted-foreground">Preferences are saved in this browser.</p>
       </div>
 
-      {/* Account */}
-      <AccountSection />
+      <div className="flex flex-col md:flex-row gap-6">
+        <SettingsNav items={SETTINGS_NAV} active={section} onSelect={selectSection} />
 
-      {/* Connections */}
-      <ConnectionsSection timezone={settings.timezone} />
+        <div className="flex-1 min-w-0 max-w-3xl space-y-6">
+          {section === 'account' && <AccountSection />}
 
-      {/* Appearance */}
-      <Section icon={Palette} title="Appearance" subtitle="How Cronsole looks on this device.">
-        <Row label="Theme" description="Dark is the default. System follows your OS setting.">
-          <ThemeToggle />
-        </Row>
-      </Section>
+          {section === 'connections' && <ConnectionsSection timezone={settings.timezone} />}
 
-      {/* Dashboard defaults */}
-      <Section
-        icon={LayoutDashboard}
-        title="Dashboard defaults"
-        subtitle="What the dashboard shows when it first loads."
-      >
-        <Row label="Default view" description="The layout used when you open the dashboard.">
-          <Segmented value={settings.defaultView} options={VIEW_OPTIONS} onChange={v => update('defaultView', v)} />
-        </Row>
-        <Row label="Show disabled tasks" description="Off shows only active tasks by default.">
-          <Toggle
-            checked={settings.defaultShowDisabled}
-            onChange={v => update('defaultShowDisabled', v)}
-            label="Show disabled tasks by default"
-          />
-        </Row>
-        {/*
-          The persisted answer to "whose machine is this dashboard about".
+          {section === 'appearance' && (
+            <Section icon={Palette} title="Appearance" subtitle="How Cronsole looks on this device.">
+              <Row label="Theme" description="Dark is the default. System follows your OS setting.">
+                <ThemeToggle />
+              </Row>
+            </Section>
+          )}
 
-          Off hides `\Microsoft\…` — 257 of 352 rows on a real machine — so every
-          headline number and rail count is about tasks the user wrote. It is a
-          *default*, not a wall: the Filters popover still switches the lens for
-          a session, the "System" view still isolates them, and the dashboard
-          prints a line saying they are hidden and pointing back here.
-        */}
-        <Row
-          label="Show system tasks"
-          description="Off hides the tasks Windows itself owns (\Microsoft\…), which are usually most of them. You can still see them from the Filters menu or the System view."
-        >
-          <Toggle
-            checked={settings.showSystemTasks}
-            onChange={v => update('showSystemTasks', v)}
-            label="Show system tasks by default"
-          />
-        </Row>
-        <Row label="Default category filter">
-          <Select value={settings.defaultCategory} options={categoryOptions} onChange={v => update('defaultCategory', v)} />
-        </Row>
-        <Row label="Default platform filter">
-          <Select value={settings.defaultPlatform} options={platformOptions} onChange={v => update('defaultPlatform', v)} />
-        </Row>
-      </Section>
-
-      {/* Behavior */}
-      <Section icon={SlidersHorizontal} title="Behavior" subtitle="How Cronsole reacts to your actions.">
-        <Row label="Confirm before running a task" description="Ask for confirmation before triggering a task run.">
-          <Toggle
-            checked={settings.confirmBeforeRun}
-            onChange={v => update('confirmBeforeRun', v)}
-            label="Confirm before running a task"
-          />
-        </Row>
-        <Row
-          label="Schedule timezone"
-          description="The zone you read and write schedules in. Schedules are still stored — and sent to Windows, the API and the MCP tools — as UTC cron; this converts at the edge so you don't do the arithmetic yourself."
-        >
-          <Select value={settings.timezone} options={timezoneOptions} onChange={v => update('timezone', v)} />
-        </Row>
-      </Section>
-
-      {/* Notifications */}
-      <Section icon={Bell} title="Notifications" subtitle="How you're told about task activity.">
-        <Row label="Toast on success" description="Show a toast when a task runs or syncs successfully.">
-          <Toggle checked={settings.toastOnSuccess} onChange={v => update('toastOnSuccess', v)} label="Toast on success" />
-        </Row>
-        <Row label="Toast on failure" description="Show a toast when a task run or sync fails.">
-          <Toggle checked={settings.toastOnFailure} onChange={v => update('toastOnFailure', v)} label="Toast on failure" />
-        </Row>
-        <Row label="Desktop notification on failure" description="Also raise an OS notification when a task fails.">
-          <Toggle
-            checked={settings.desktopNotifyOnFailure}
-            onChange={requestDesktopNotifications}
-            label="Desktop notification on failure"
-          />
-        </Row>
-      </Section>
-
-      {/* Data */}
-      <Section icon={Database} title="Data & reset" subtitle="Preferences follow your account, not this browser.">
-        <Row
-          label="Preference sync"
-          description={SYNC_COPY[syncStatus]}
-          help={<HelpButton topic="preference-sync" />}
-        >
-          <SyncBadge status={syncStatus} />
-        </Row>
-        <Row label="Export settings" description="Download a snapshot of your preferences as a JSON file.">
-          <button
-            onClick={exportSettings}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
-          >
-            <Download size={14} /> Export
-          </button>
-        </Row>
-        <Row label="Import settings" description="Load preferences from a previously exported file. This replaces the copy on your account too.">
-          <button
-            onClick={() => importInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
-          >
-            <Upload size={14} /> Import
-          </button>
-          <input
-            ref={importInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={e => {
-              const file = e.target.files?.[0];
-              if (file) importSettings(file);
-              e.target.value = '';
-            }}
-          />
-        </Row>
-        <Row label="Reset quick links" description="Restore the default Sources tab quick links.">
-          <button
-            onClick={resetQuickLinks}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
-          >
-            <RotateCcw size={14} /> Reset links
-          </button>
-        </Row>
-        <Row label="Reset all preferences" description="Restore every setting on this page to its default.">
-          <button
-            onClick={() => {
-              reset();
-              resetApiOrigin();
-              toast('All preferences reset to defaults.', 'info');
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-danger/10 border border-danger/30 text-danger-text hover:bg-danger/20 transition-all active:scale-95"
-          >
-            <Trash2 size={14} /> Reset all
-          </button>
-        </Row>
-      </Section>
-
-      {/* About */}
-      <Section icon={Info} title="About" subtitle="Environment and useful links.">
-        <Row label="Version">
-          <span className="text-xs font-mono font-bold text-muted-foreground">MVP preview</span>
-        </Row>
-        <Row label="Backend">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold">
-            <span className={`h-1.5 w-1.5 rounded-full ${backendStatus === 'ok' ? 'bg-success' : 'bg-danger'}`} />
-            {backendStatus === 'ok' ? 'Reachable' : 'Unreachable'}
-          </span>
-        </Row>
-        <Row
-          label="API origin"
-          description={`Default from VITE_API_URL: ${DEFAULT_API_ORIGIN}. Override is saved in this browser.`}
-        >
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            <div className="relative">
-              <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle-foreground" />
-              <input
-                type="url"
-                value={apiOriginInput}
-                onChange={e => setApiOriginInput(e.target.value)}
-                placeholder="http://localhost:3000"
-                className="w-full sm:w-72 bg-background border border-border rounded-xl pl-8 pr-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary shadow-sm"
-              />
-            </div>
-            <button
-              onClick={saveApiOrigin}
-              disabled={apiOriginInput.trim().replace(/\/+$/, '') === apiOrigin}
-              className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+          {section === 'dashboard' && (
+            <Section
+              icon={LayoutDashboard}
+              title="Dashboard defaults"
+              subtitle="What the dashboard shows when it first loads."
             >
-              Save
-            </button>
-            <button
-              onClick={restoreDefaultApiOrigin}
-              disabled={apiOrigin === DEFAULT_API_ORIGIN}
-              className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-            >
-              Reset
-            </button>
-          </div>
-        </Row>
-        <Row label="Links">
-          <div className="flex items-center gap-2">
-            <a
-              href="https://github.com/michaelschecht/cronsole"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all"
-            >
-              <Code2 size={14} /> GitHub
-            </a>
-            <a
-              href="https://github.com/michaelschecht/cronsole/tree/main/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all"
-            >
-              <BookOpen size={14} /> Docs
-            </a>
-          </div>
-        </Row>
-      </Section>
+              <Row label="Default view" description="The layout used when you open the dashboard.">
+                <Segmented value={settings.defaultView} options={VIEW_OPTIONS} onChange={v => update('defaultView', v)} />
+              </Row>
+              <Row label="Show disabled tasks" description="Off shows only active tasks by default.">
+                <Toggle
+                  checked={settings.defaultShowDisabled}
+                  onChange={v => update('defaultShowDisabled', v)}
+                  label="Show disabled tasks by default"
+                />
+              </Row>
+              {/*
+                The persisted answer to "whose machine is this dashboard about".
 
-      <p className="flex items-center gap-2 text-[11px] text-subtle-foreground px-1">
-        <Activity size={11} className="text-success-text" />
-        Changes save automatically. Defaults: {Object.keys(DEFAULT_SETTINGS).length} preferences.
-      </p>
+                Off hides `\Microsoft\…` — 257 of 352 rows on a real machine — so every
+                headline number and rail count is about tasks the user wrote. It is a
+                *default*, not a wall: the Filters popover still switches the lens for
+                a session, the "System" view still isolates them, and the dashboard
+                prints a line saying they are hidden and pointing back here.
+              */}
+              <Row
+                label="Show system tasks"
+                description="Off hides the tasks Windows itself owns (\Microsoft\…), which are usually most of them. You can still see them from the Filters menu or the System view."
+              >
+                <Toggle
+                  checked={settings.showSystemTasks}
+                  onChange={v => update('showSystemTasks', v)}
+                  label="Show system tasks by default"
+                />
+              </Row>
+              <Row label="Default category filter">
+                <Select value={settings.defaultCategory} options={categoryOptions} onChange={v => update('defaultCategory', v)} />
+              </Row>
+              <Row label="Default platform filter">
+                <Select value={settings.defaultPlatform} options={platformOptions} onChange={v => update('defaultPlatform', v)} />
+              </Row>
+            </Section>
+          )}
+
+          {section === 'behavior' && (
+            <Section icon={SlidersHorizontal} title="Behavior" subtitle="How Cronsole reacts to your actions.">
+              <Row label="Confirm before running a task" description="Ask for confirmation before triggering a task run.">
+                <Toggle
+                  checked={settings.confirmBeforeRun}
+                  onChange={v => update('confirmBeforeRun', v)}
+                  label="Confirm before running a task"
+                />
+              </Row>
+              <Row
+                label="Schedule timezone"
+                description="The zone you read and write schedules in. Schedules are still stored — and sent to Windows, the API and the MCP tools — as UTC cron; this converts at the edge so you don't do the arithmetic yourself."
+              >
+                <Select value={settings.timezone} options={timezoneOptions} onChange={v => update('timezone', v)} />
+              </Row>
+            </Section>
+          )}
+
+          {section === 'notifications' && (
+            <>
+              <Section icon={Bell} title="Notifications" subtitle="How you're told about task activity.">
+                <Row label="Toast on success" description="Show a toast when a task runs or syncs successfully.">
+                  <Toggle checked={settings.toastOnSuccess} onChange={v => update('toastOnSuccess', v)} label="Toast on success" />
+                </Row>
+                <Row label="Toast on failure" description="Show a toast when a task run or sync fails.">
+                  <Toggle checked={settings.toastOnFailure} onChange={v => update('toastOnFailure', v)} label="Toast on failure" />
+                </Row>
+                <Row label="Desktop notification on failure" description="Also raise an OS notification when a task fails.">
+                  <Toggle
+                    checked={settings.desktopNotifyOnFailure}
+                    onChange={requestDesktopNotifications}
+                    label="Desktop notification on failure"
+                  />
+                </Row>
+              </Section>
+
+              <WebhookSection />
+            </>
+          )}
+
+          {section === 'data' && (
+            <Section icon={Database} title="Data & reset" subtitle="Preferences follow your account, not this browser.">
+              <Row
+                label="Preference sync"
+                description={SYNC_COPY[syncStatus]}
+                help={<HelpButton topic="preference-sync" />}
+              >
+                <SyncBadge status={syncStatus} />
+              </Row>
+              <Row label="Export settings" description="Download a snapshot of your preferences as a JSON file.">
+                <button
+                  onClick={exportSettings}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
+                >
+                  <Download size={14} /> Export
+                </button>
+              </Row>
+              <Row label="Import settings" description="Load preferences from a previously exported file. This replaces the copy on your account too.">
+                <button
+                  onClick={() => importInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
+                >
+                  <Upload size={14} /> Import
+                </button>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) importSettings(file);
+                    e.target.value = '';
+                  }}
+                />
+              </Row>
+              <Row label="Reset quick links" description="Restore the default Sources tab quick links.">
+                <button
+                  onClick={resetQuickLinks}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95"
+                >
+                  <RotateCcw size={14} /> Reset links
+                </button>
+              </Row>
+              <Row label="Reset all preferences" description="Restore every setting on this page to its default.">
+                <button
+                  onClick={() => {
+                    reset();
+                    resetApiOrigin();
+                    toast('All preferences reset to defaults.', 'info');
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-danger/10 border border-danger/30 text-danger-text hover:bg-danger/20 transition-all active:scale-95"
+                >
+                  <Trash2 size={14} /> Reset all
+                </button>
+              </Row>
+            </Section>
+          )}
+
+          {section === 'about' && (
+            <Section icon={Info} title="About" subtitle="Environment and useful links.">
+              <Row label="Version">
+                <span className="text-xs font-mono font-bold text-muted-foreground">MVP preview</span>
+              </Row>
+              <Row label="Backend">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold">
+                  <span className={`h-1.5 w-1.5 rounded-full ${backendStatus === 'ok' ? 'bg-success' : 'bg-danger'}`} />
+                  {backendStatus === 'ok' ? 'Reachable' : 'Unreachable'}
+                </span>
+              </Row>
+              <Row
+                label="API origin"
+                description={`Default from VITE_API_URL: ${DEFAULT_API_ORIGIN}. Override is saved in this browser.`}
+              >
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                  <div className="relative">
+                    <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle-foreground" />
+                    <input
+                      type="url"
+                      value={apiOriginInput}
+                      onChange={e => setApiOriginInput(e.target.value)}
+                      placeholder="http://localhost:3000"
+                      className="w-full sm:w-72 bg-background border border-border rounded-xl pl-8 pr-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary shadow-sm"
+                    />
+                  </div>
+                  <button
+                    onClick={saveApiOrigin}
+                    disabled={apiOriginInput.trim().replace(/\/+$/, '') === apiOrigin}
+                    className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={restoreDefaultApiOrigin}
+                    disabled={apiOrigin === DEFAULT_API_ORIGIN}
+                    className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </Row>
+              <Row label="Links">
+                <div className="flex items-center gap-2">
+                  <a
+                    href="https://github.com/michaelschecht/cronsole"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all"
+                  >
+                    <Code2 size={14} /> GitHub
+                  </a>
+                  <a
+                    href="https://github.com/michaelschecht/cronsole/tree/main/docs"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-background border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all"
+                  >
+                    <BookOpen size={14} /> Docs
+                  </a>
+                </div>
+              </Row>
+            </Section>
+          )}
+
+          <p className="flex items-center gap-2 text-[11px] text-subtle-foreground px-1">
+            <Activity size={11} className="text-success-text" />
+            Changes save automatically. Defaults: {Object.keys(DEFAULT_SETTINGS).length} preferences.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { prisma } from '../db.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { executeJob, NativeJob } from './NativeTaskExecutor.js';
 import { notifyTasksChanged } from '../ws/uiChannel.js';
-import { queueFailureNotification } from './FailureNotificationService.js';
+import { queueRunNotification } from './FailureNotificationService.js';
 import { readTaskSecrets, TaskSecretDecryptError } from './taskSecrets.js';
 
 const TICK_INTERVAL_MS = 30_000;
@@ -142,17 +142,15 @@ export class NativeScheduler {
             durationMs: result.durationMs
           }
         });
-        if (!result.success) {
-          queueFailureNotification({
-            task,
-            trigger: 'scheduled',
-            status: 'FAILURE',
-            message: result.log,
-            durationMs: result.durationMs,
-            executionId: execution.id,
-            triggeredAt: execution.triggeredAt
-          });
-        }
+        queueRunNotification({
+          task,
+          trigger: 'scheduled',
+          status: result.success ? 'SUCCESS' : 'FAILURE',
+          message: result.log,
+          durationMs: result.durationMs,
+          executionId: execution.id,
+          triggeredAt: execution.triggeredAt
+        });
         console.log(`[NativeScheduler] ran "${task.name}": ${result.success ? 'SUCCESS' : 'FAILURE'}`);
       }
 

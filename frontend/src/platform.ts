@@ -2,9 +2,10 @@
 // styling. Cronsole-native tasks get a distinct violet identity so they're
 // immediately separable from platform-synced tasks (docs/resources/Native_Tasks.md).
 import {
-  Activity, Bot, Cpu, FileCode, GitBranch, Globe, Laptop, Monitor, Sparkles, Terminal, Triangle, Zap,
+  Activity, Cpu, FileCode, Globe, Monitor, Terminal, Zap,
   type LucideIcon
 } from 'lucide-react';
+import { AppleGlyph, ClaudeCodeGlyph, GitHubActionsGlyph, GoogleGeminiGlyph, VercelGlyph } from './components/sources/BrandIcons';
 
 /**
  * A key that is safe to index *and* to split.
@@ -226,10 +227,29 @@ export const isNativePlatform = (p: string) => p === 'TASKHUB_NATIVE';
  * same glyphs for its cards. Two private maps of one fact is the §11a shape: the
  * rail and the Sources tab would have drifted into drawing the same platform two
  * ways, and neither would have failed a test while doing it.
+ *
+ * **Real brand marks where one is safe to reach for** (2026-09-05,
+ * `BrandIcons.tsx`) — GitHub Actions, Vercel, Claude Code, Google Gemini and
+ * Apple (for macOS) each get their actual glyph instead of a lucide
+ * approximation, because a user scanning this tab for "which service is
+ * this" already has the real mark memorized from every other place they meet
+ * it. **Windows and ChatGPT keep their lucide stand-ins** — Microsoft's and
+ * OpenAI's marks are the two simple-icons does not offer, which reads as a
+ * trademark-enforcement removal rather than a gap in the catalog, so hand-drawing
+ * either here would carry the same risk the removal exists to avoid. Cronsole's
+ * own row (`TASKHUB_NATIVE`) keeps `Zap` rather than the app's own multi-colour
+ * favicon: every other glyph in this map is one flat shape, and the favicon is a
+ * small dark scene with its own background — dropping it in would be the one
+ * tile that stops matching its neighbours.
+ *
+ * The five brand glyphs render in the brand's own real colour, not the tile's
+ * accent — see `BrandIcons.tsx` for why that is the one place in this codebase
+ * a hardcoded colour is the correct choice rather than the violation §9 warns
+ * against.
  */
 const SOURCE_ICON: Record<string, LucideIcon> = {
   WINDOWS_TASK_SCHEDULER: Monitor,
-  MACOS_LAUNCHD: Laptop,
+  MACOS_LAUNCHD: AppleGlyph,
   'TASKHUB_NATIVE:HTTP': Globe,
   'TASKHUB_NATIVE:EXEC': Terminal,
   // A stored script reads as a document; a check reads as a measurement. Both
@@ -238,25 +258,11 @@ const SOURCE_ICON: Record<string, LucideIcon> = {
   'TASKHUB_NATIVE:SCRIPT': FileCode,
   'TASKHUB_NATIVE:CHECK': Activity,
   TASKHUB_NATIVE: Zap,
-  CLAUDE_CODE: Bot,
+  CLAUDE_CODE: ClaudeCodeGlyph,
   CHATGPT: Cpu,
-  // lucide dropped its brand glyphs at v1, so there is no Octocat to reach for.
-  // A branch is the honest second choice: what Cronsole reads here is a workflow
-  // living in a repository, not the service's logo.
-  GITHUB_ACTIONS: GitBranch,
-  // Vercel's mark is a triangle, and lucide has one that is not a brand glyph —
-  // so unlike GitHub this is the shape the user already associates with the
-  // platform rather than a second choice. Outline, not filled: the tile behind
-  // it carries the identity colour, and a solid triangle at this size reads as
-  // a warning sign.
-  VERCEL_CRON: Triangle,
-  // A sparkle, which is Google's own glyph for Gemini across its products and
-  // the one shape a user already reads as "an AI did this on its own". It is
-  // deliberately not `Bot` — Claude Code holds that, and these two sources are
-  // the closest pair on the tab: both are prompts a cloud agent runs on a
-  // schedule, so a shared glyph would make the one real difference between them
-  // (which vendor) the only thing not shown.
-  GEMINI_TRIGGERS: Sparkles
+  GITHUB_ACTIONS: GitHubActionsGlyph,
+  VERCEL_CRON: VercelGlyph,
+  GEMINI_TRIGGERS: GoogleGeminiGlyph
 };
 
 export const sourceIcon = (key: string): LucideIcon =>

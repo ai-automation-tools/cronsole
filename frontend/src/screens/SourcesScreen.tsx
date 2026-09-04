@@ -55,6 +55,13 @@ import { HelpButton } from '../components/HelpButton';
  * derived in the browser; the server sends the verdict and the evidence behind
  * it, including `access`, which is a judgement and therefore the server's
  * (troubleshooting #20a).
+ *
+ * **Sidebar layout, centered, zoomed 1.25x** (2026-09-05) — the same shell as
+ * `ToolsScreen`/`SettingsScreen`: `max-w-6xl mx-auto`, a `flex` row with the
+ * nav on the left. `SourceTabs` itself became a vertical sidebar at `md:` and
+ * up (still the same tablist it always was) rather than being replaced by
+ * `CategoryNav` — the count-in-the-label and roving-tabindex arrow-key nav
+ * are real tablist semantics that component doesn't carry.
  */
 
 type Focus = 'connected' | 'available' | 'links';
@@ -107,12 +114,11 @@ export const SourcesScreen = () => {
   ];
 
   return (
-    // The width lives on the wrapper, not on each section, so the heading is
-    // aligned with the cards it introduces. Same `max-w-6xl mx-auto` as the
-    // Tools tab — the two screens are the same shape and must end their column
-    // in the same place.
-    <div className="space-y-6 animate-in fade-in duration-300 pb-20 max-w-6xl mx-auto">
-      <div>
+    // Same shell as ToolsScreen/SettingsScreen: centered column, zoomed 1.25x,
+    // a flex row with the nav on the left — the three tabbed screens end
+    // their column in the same place and read as one pattern.
+    <div className="animate-in fade-in duration-300 pb-20 max-w-6xl mx-auto" style={{ zoom: 1.25 }}>
+      <div className="mb-6">
         <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">
           Sources
           <HelpButton topic="platforms" size="md" />
@@ -122,10 +128,8 @@ export const SourcesScreen = () => {
         </p>
       </div>
 
-      <SourceTabs tabs={tabs} active={focus} onSelect={selectTab} />
-
       {isError && (
-        <div className="bg-surface border border-danger/30 rounded-2xl p-5 flex items-start gap-3 text-sm text-danger-text">
+        <div className="mb-6 bg-surface border border-danger/30 rounded-2xl p-5 flex items-start gap-3 text-sm text-danger-text">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-bold">Could not load the capability matrix</p>
@@ -136,93 +140,97 @@ export const SourcesScreen = () => {
         </div>
       )}
 
-      <div
-        role="tabpanel"
-        id={`source-panel-${focus}`}
-        aria-labelledby={`source-tab-${focus}`}
-        tabIndex={-1}
-        className="outline-none"
-      >
-        {focus === 'connected' && (
-          <div className="space-y-4">
-            {isLoading && !isError && <><SourceCardSkeleton /><SourceCardSkeleton /></>}
+      <div className="flex flex-col md:flex-row gap-6">
+        <SourceTabs tabs={tabs} active={focus} onSelect={selectTab} />
 
-            {connected.map(row => (
-              <ConnectedSourceCard
-                key={row.platform}
-                row={row}
-                shownSources={settings.shownSources}
-                onToggleShown={toggleShown}
-              />
-            ))}
+        <div
+          role="tabpanel"
+          id={`source-panel-${focus}`}
+          aria-labelledby={`source-tab-${focus}`}
+          tabIndex={-1}
+          className="flex-1 min-w-0 outline-none"
+        >
+          {focus === 'connected' && (
+            <div className="space-y-4">
+              {isLoading && !isError && <><SourceCardSkeleton /><SourceCardSkeleton /></>}
 
-            {!isLoading && !isError && connected.length === 0 && (
-              <EmptyState
-                Icon={Plug}
-                title="Nothing is connected yet"
-                body="A source connects when the Cronsole agent dials in, when the backend comes up, or when you fill in its panel. Available lists every source and what each one needs."
-                action={{ label: 'See what is available', onClick: () => selectTab('available') }}
-              />
-            )}
-          </div>
-        )}
-
-        {focus === 'available' && (
-          <div className="space-y-8">
-            {isLoading && !isError && <SourceCardSkeleton />}
-
-            {pending.length > 0 && (
-              <section className="space-y-3">
-                <SectionHeading
-                  title="Added to your sidebar"
-                  blurb="Listed in the sidebar, but nothing is connected behind them yet."
-                  count={pending.length}
+              {connected.map(row => (
+                <ConnectedSourceCard
+                  key={row.platform}
+                  row={row}
+                  shownSources={settings.shownSources}
+                  onToggleShown={toggleShown}
                 />
-                <div className="space-y-3">
-                  {pending.map(row => (
-                    <PendingSourceCard
-                      key={row.platform}
-                      row={row}
-                      shownSources={settings.shownSources}
-                      onToggleShown={toggleShown}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+              ))}
 
-            {offers.length > 0 && (
-              <section className="space-y-3">
-                <SectionHeading
-                  title="Not added"
-                  blurb="Adding one lists it in the sidebar so it has somewhere to be set up from. It stays empty until you connect it."
-                  count={offers.length}
+              {!isLoading && !isError && connected.length === 0 && (
+                <EmptyState
+                  Icon={Plug}
+                  title="Nothing is connected yet"
+                  body="A source connects when the Cronsole agent dials in, when the backend comes up, or when you fill in its panel. Available lists every source and what each one needs."
+                  action={{ label: 'See what is available', onClick: () => selectTab('available') }}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {offers.map(row => (
-                    <OfferSourceCard key={row.platform} row={row} onAdd={() => toggleShown(row.platform)} />
-                  ))}
-                </div>
+              )}
+            </div>
+          )}
+
+          {focus === 'available' && (
+            <div className="space-y-8">
+              {isLoading && !isError && <SourceCardSkeleton />}
+
+              {pending.length > 0 && (
+                <section className="space-y-3">
+                  <SectionHeading
+                    title="Added to your sidebar"
+                    blurb="Listed in the sidebar, but nothing is connected behind them yet."
+                    count={pending.length}
+                  />
+                  <div className="space-y-3">
+                    {pending.map(row => (
+                      <PendingSourceCard
+                        key={row.platform}
+                        row={row}
+                        shownSources={settings.shownSources}
+                        onToggleShown={toggleShown}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {offers.length > 0 && (
+                <section className="space-y-3">
+                  <SectionHeading
+                    title="Not added"
+                    blurb="Adding one lists it in the sidebar so it has somewhere to be set up from. It stays empty until you connect it."
+                    count={offers.length}
+                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {offers.map(row => (
+                      <OfferSourceCard key={row.platform} row={row} onAdd={() => toggleShown(row.platform)} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {!isLoading && !isError && unconnected.length === 0 && (
+                <EmptyState
+                  Icon={Compass}
+                  title="Every source is connected"
+                  body="There is nothing left to add. A scheduler Cronsole has no connector for can still live under Quick links."
+                  action={{ label: 'Open quick links', onClick: () => selectTab('links') }}
+                />
+              )}
+
+              <section className="space-y-3">
+                <SectionHeading title="Add a custom source" />
+                <AddCustomSourcePanel />
               </section>
-            )}
+            </div>
+          )}
 
-            {!isLoading && !isError && unconnected.length === 0 && (
-              <EmptyState
-                Icon={Compass}
-                title="Every source is connected"
-                body="There is nothing left to add. A scheduler Cronsole has no connector for can still live under Quick links."
-                action={{ label: 'Open quick links', onClick: () => selectTab('links') }}
-              />
-            )}
-
-            <section className="space-y-3">
-              <SectionHeading title="Add a custom source" />
-              <AddCustomSourcePanel />
-            </section>
-          </div>
-        )}
-
-        {focus === 'links' && <QuickLinksPanel />}
+          {focus === 'links' && <QuickLinksPanel />}
+        </div>
       </div>
     </div>
   );

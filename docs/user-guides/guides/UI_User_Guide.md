@@ -755,11 +755,18 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 - **Starters:** Parameterized building blocks (PowerShell / Python / shell script, HTTP ping, …). You fill in the blanks (script path, URL, arguments) when applying.
 - **Use-case patterns:** Ready-made automations for common jobs (e.g., *Daily Database Backup*, *Morning News Digest*).
 
+A left-hand sidebar lists **All**, **Favorites**, then every category actually present in the catalog
+(Backup, AI Agent, Cleanup, …), each with a count — the same shape **Settings** and **Tools** use.
+Picking one scopes the whole tab to that category; search, the type toggle and the facets below all
+narrow *within* it. Favorites cuts across every category, so it is the one item that ignores the
+"which category" question rather than answering it.
+
 ### Finding a template
+- **Category (sidebar):** narrows to one category, or to everything you've favorited regardless of category. Counts are over the whole catalog, independent of any other filter.
 - **Search:** Free-text search across name, description, command, category, and script type.
 - **Type toggle:** Show **All**, only **Starters**, or only **Patterns**.
-- **Target filter:** which system a template creates a task on — Windows, Cronsole, Claude Code, macOS. This is the first thing to filter by, and it is not the same as the OS row: a Cronsole-native job, a Claude routine and a git command are all *cross-platform*, and only the target says which of them you can actually create. A target Cronsole can't create on here is marked `*`.
-- **OS & Tags filters:** Faceted chips (with counts) narrow by operating system and category tag. Like the Dashboard chips, they only show combinations that actually have templates, and collapse when a single choice remains. Use **Clear** to reset everything.
+- **Target filter:** which system a template creates a task on — Windows, Cronsole, Claude Code, macOS. This is the first thing to filter by in the drawer, and it is not the same as the OS row: a Cronsole-native job, a Claude routine and a git command are all *cross-platform*, and only the target says which of them you can actually create. A target Cronsole can't create on here is marked `*`.
+- **OS & Tags filters:** Faceted chips (with counts) narrow by operating system and free-form tag. Like the Dashboard chips, they only show combinations that actually have templates, and collapse when a single choice remains. Use **Clear** to reset search/type/OS/tag/target — the sidebar category is navigation, not a filter, so it is unaffected.
 
 ### Applying a template
 - Each card shows its target platforms, script type, intended schedule — read in your schedule timezone, the same reading the Apply modal pre-fills — and the command it will run.
@@ -1058,9 +1065,10 @@ Cronsole — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection 
 ## 6. Sources — what Cronsole can actually do
 
 The **Sources** tab answers one question per platform — *what will happen if I click this?* — and
-one about the set: *what else could I be watching?* It is three views, and they split on **whether
-a source is connected** — not on whether your sidebar lists it. Those are two different facts, and
-the tab shows both: the views read *connected*, the eye switch on each card reads *listed*.
+one about the set: *what else could I be watching?* A left-hand nav lists three views — Connected,
+Available, Quick links, each with a count — and they split on **whether a source is connected** —
+not on whether your sidebar lists it. Those are two different facts, and the tab shows both: the
+nav reads *connected*, the eye switch on each card reads *listed*.
 
 ### Connected
 

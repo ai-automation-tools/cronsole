@@ -52,6 +52,49 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Real brand marks on the Sources tab, in each brand's real colour** (2026-09-05,
+  `components/sources/BrandIcons.tsx`) — GitHub Actions (`#2088FF`), Claude Code (`#D97757`) and
+  Google Gemini (`#8E75B2`) render in their official hex rather than a lucide approximation or the
+  app's own role-token accent (`--claude` is violet; Anthropic's real colour is nothing like it).
+  Path data and hex values are vendored from `simple-icons` (a handful of `d` strings, not a
+  dependency — that project's own advice for using only a few of its icons). This is the one place
+  in the codebase a hardcoded colour is correct rather than the violation CLAUDE.md §9 normally
+  warns against: a brand's identity colour is fixed and external to Cronsole's own theme, unlike a
+  raw Tailwind palette utility standing in for a role token.
+
+  **Apple and Vercel are real brand marks too, but not a literal `#000`.** Both brands' real colour
+  is black, and both brands' own guidelines print the mark white on a dark surface — so on Cronsole's
+  dark-by-default background, a literal black fill would be the *least* faithful choice available. These
+  two instead follow `--foreground` (black in light mode, white in dark mode), matching how the marks
+  actually get used everywhere else. Windows and ChatGPT keep their lucide stand-ins: Microsoft's and
+  OpenAI's marks are the two `simple-icons` does not offer, which reads as a trademark-enforcement
+  removal rather than a gap, so hand-drawing either here would carry the same risk. Cronsole's own row
+  keeps `Zap` rather than its multi-colour favicon, which is a small scene with its own background
+  rather than one flat shape — the one glyph that would stop matching its neighbours. The tile
+  background behind every icon is unchanged; only the glyph itself carries the new colour.
+
+- **Sources and Templates redesigned into the same category-sidebar shape as Settings and Tools**
+  (2026-09-05), centered and zoomed 1.25x to match.
+
+  **Sources** keeps its existing three-view split (Connected / Available / Quick links) — that part
+  is unchanged, including the count-in-the-label and the roving-tabindex keyboard nav a tablist needs
+  — but `SourceTabs` now renders as a sticky vertical sidebar at `md:` and up instead of a horizontal
+  segmented control, matching `CategoryNav`'s look without becoming `CategoryNav`: the count and the
+  arrow-key tablist semantics are real, and `CategoryNav`'s plain button list does not carry them.
+
+  **Templates** gains a real sidebar for the first time: **All**, **Favorites**, then every category
+  actually present in the catalog (never a static enum — an empty category has nothing to click
+  into), each with a count over the whole catalog. Picking one scopes the tab; search, the type
+  toggle, and the OS/Target/Tag facets all narrow *within* it. The **Category** facet moved out of
+  the filter drawer into the sidebar — it now governs the whole screen instead of sitting beside
+  Target/OS/Tag as a fourth chip — and, per the dashboard rail's rule, the sidebar selection is
+  navigation rather than a filter: `Clear` and the active-filter count never touch it. The Apply
+  modal's route (`/templates/:id`) now carries the sidebar's `?category=` through the round trip, so
+  closing it lands back on the category you were browsing rather than resetting to *All*.
+
+  `CategoryNav` itself gained an optional per-item `count` (Settings' and Tools' items still omit it)
+  so Templates' sidebar could report a population the same way Sources' tabs always have.
+
 - **Settings and Tools centered, and 25% bigger** (2026-09-05). Settings' outer container was
   missing the `mx-auto` Tools already had, so it rendered flush against the left edge instead of
   centered — fixed, and both now carry a `zoom: 1.25` on top, scaling the sidebar, cards and text

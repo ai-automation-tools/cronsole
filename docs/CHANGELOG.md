@@ -52,6 +52,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **A labelled help pill, for the one topic that outgrew a bare `?`** (2026-09-04). `HelpButton`
+  gained an opt-in `label` prop — every other `?` on every other screen is unchanged — used once so
+  far: *Enable webhook* now reads **`? How to set this up`** as a bordered pill instead of a tiny
+  gray circle, because that topic went from "what is this" to five points and two doc links once
+  Resend shipped, and a reader scanning the row for an affordance was easy to miss.
+
 - **Resend — a fourth run-outcome webhook payload shape, and a setup-recipes help topic**
   (2026-09-04). Payload shape now offers **Resend (email)** beside generic/discord/ntfy: pick it
   and the Webhook URL field disappears (Resend has exactly one send-email endpoint, so Cronsole

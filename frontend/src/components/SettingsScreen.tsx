@@ -150,7 +150,7 @@ const Row = ({
 }) => (
   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4">
     <div className="min-w-0">
-      <div className="text-sm font-semibold text-foreground flex items-center">{label}{help}</div>
+      <div className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-y-1">{label}{help}</div>
       {description && <div className="text-xs text-subtle-foreground mt-0.5 max-w-md">{description}</div>}
     </div>
     <div className="shrink-0">{children}</div>
@@ -446,7 +446,7 @@ const WebhookSection = () => {
       <Row
         label="Enable webhook"
         description="Sends a request from the server whenever a task you own runs, whether or not you have the dashboard open."
-        help={<HelpButton topic="run-outcome-webhook" />}
+        help={<HelpButton topic="run-outcome-webhook" label="How to set this up" className="ml-2" />}
       >
         <Toggle checked={enabled} onChange={setEnabled} label="Enable run-outcome webhook" />
       </Row>

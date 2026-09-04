@@ -23,6 +23,13 @@ import { helpTopic } from '../data/help';
  *
  * An unknown topic id renders **nothing** rather than a button that opens an
  * empty modal, so a typo is a missing affordance rather than a dead end.
+ *
+ * **`label` is the deliberate exception to "tiny and everywhere."** A topic
+ * that only ever answers "what is this?" earns the bare `?`; one that is
+ * genuinely a how-to — several setup paths, not a single fact — reads as a
+ * labelled pill instead, so a reader scans the row and sees an affordance
+ * rather than having to already know the icon opens something. Omit it and
+ * every other `?` on every other screen is unchanged.
  */
 
 interface HelpButtonProps {
@@ -30,15 +37,35 @@ interface HelpButtonProps {
   topic: string;
   /** `sm` for inline label rows, `md` beside a heading. */
   size?: 'sm' | 'md';
+  /** Renders a labelled pill instead of a bare icon — see above. */
+  label?: string;
   className?: string;
 }
 
-export const HelpButton = ({ topic, size = 'sm', className = '' }: HelpButtonProps) => {
+export const HelpButton = ({ topic, size = 'sm', label, className = '' }: HelpButtonProps) => {
   const [open, setOpen] = useState(false);
   const found = helpTopic(topic);
   if (!found) return null;
 
   const px = size === 'sm' ? 13 : 16;
+
+  if (label) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`Help: ${found.title}`}
+          title={`${label} — ${found.title}`}
+          className={`inline-flex items-center gap-1.5 shrink-0 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-foreground hover:bg-primary/20 hover:border-primary/50 transition-colors active:scale-95 ${className}`}
+        >
+          <HelpCircle size={14} />
+          {label}
+        </button>
+        {open && <HelpModal topic={topic} onClose={() => setOpen(false)} />}
+      </>
+    );
+  }
 
   return (
     <>

@@ -76,6 +76,10 @@ function contrast(a: Hsl, b: Hsl): number {
 const dark = tokens('.dark');
 const light = tokens('.light');
 const root = tokens(':root');
+const dracula = tokens('.dracula');
+const nord = tokens('.nord');
+const solarized = tokens('.solarized');
+const tokyoNight = tokens('.tokyo-night');
 
 const SURFACES = ['background', 'surface', 'raised', 'muted'] as const;
 
@@ -128,7 +132,11 @@ const INDICATORS = [
 
 const THEMES: [string, Record<string, Hsl>][] = [
   ['dark', dark],
-  ['light', light]
+  ['light', light],
+  ['dracula', dracula],
+  ['nord', nord],
+  ['solarized', solarized],
+  ['tokyo-night', tokyoNight]
 ];
 
 describe(':root mirrors .dark exactly', () => {

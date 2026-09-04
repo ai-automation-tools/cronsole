@@ -19,11 +19,17 @@
           var mode = localStorage.getItem('cronsole.theme')
             || localStorage.getItem('taskhub.theme')
             || 'dark';
-          var dark =
-            mode === 'dark' ||
-            (mode === 'system' &&
-              window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.classList.add(dark ? 'dark' : 'light');
+          // Named palettes (kept in sync with NAMED_THEMES in useTheme.ts) apply
+          // directly; light/dark/system still resolve against the OS.
+          if (mode === 'dracula' || mode === 'nord' || mode === 'solarized' || mode === 'tokyo-night') {
+            document.documentElement.classList.add(mode);
+          } else {
+            var dark =
+              mode === 'dark' ||
+              (mode === 'system' &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.classList.add(dark ? 'dark' : 'light');
+          }
         } catch (e) {
           document.documentElement.classList.add('dark');
         }

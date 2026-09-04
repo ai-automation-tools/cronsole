@@ -52,6 +52,12 @@
 
 /* Default = dark, so the first paint before hydration matches Cronsole's default. */
 :root {
+  /* Without this, a native control (a <select>'s open dropdown, a scrollbar,
+     a date picker) renders with the browser's light-mode chrome regardless
+     of theme — white-on-white for a <select> whose text inherits our
+     near-white --foreground. This is the actual fix; colouring individual
+     <option> elements is a per-control patch for a page-wide problem. */
+  color-scheme: dark;
   --background: 0 0% 4%;
   --surface: 0 0% 7%;
   /* The step that was missing: a panel that sits *above* surface. Without it,
@@ -139,6 +145,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: 0 0% 4%;
   --surface: 0 0% 7%;
   --raised: 0 0% 11%;
@@ -210,6 +217,7 @@
 }
 
 .light {
+  color-scheme: light;
   --background: 0 0% 100%;
   --surface: 0 0% 97%;
   /* Light is the **mirror** of dark, not a re-invention: the same separations
@@ -273,6 +281,232 @@
   --gemini: 231 72% 48%;
   --gemini-text: 231 64% 38%;
   --ring: 262 83% 58%;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * NAMED PALETTES (added 2026-09-04)
+ * ---------------------------------------------------------------------------
+ * Three editor-inspired dark themes, alongside the default `.dark`. Each
+ * re-tints the *fill* ladder (`background` → `border`) and the `primary`
+ * family to the palette's real hue, at the same lightness `.dark` already
+ * uses for every one of those tokens.
+ *
+ * `foreground` / `muted-foreground` / `subtle-foreground` stay a plain,
+ * zero-saturation grey (`.dark`'s exact values) rather than picking up the
+ * theme's hue too: `themeContrast.test.ts` holds every one of them to 4.5:1
+ * against *all four* fills at once (background/surface/raised/muted), which
+ * is a much tighter margin than a single-surface check. A tinted grey at
+ * `.dark`'s lightness cleared some of those four and missed others by a few
+ * hundredths — the same lightness, a hue-dependent few percent of relative
+ * luminance either way. Zero saturation is exactly the case that already
+ * passes; a hue would be a real gain in identity for a real risk of a token
+ * that silently fails contrast on one surface out of four.
+ *
+ * `primary` is retuned by more than hue for the same reason: the frost/blue
+ * accents in Nord and Solarized read visibly lighter than a violet at the
+ * same HSL lightness (blue's channel weights luminance more), so their
+ * `--primary` runs several points darker to keep white
+ * `--primary-foreground` text at 4.5:1.
+ *
+ * Solarized's fill saturation is lower than the other two for the identical
+ * reason: its signature teal (H192) at `.dark`'s saturation read too close in
+ * relative luminance to the desaturated `subtle-foreground` sitting on top of
+ * it, failing the same 4.5:1 by a hundredth. Less saturation, not less
+ * lightness, is what buys the margin back without moving the text role.
+ */
+
+.dracula {
+  color-scheme: dark;
+  --background: 232 22% 10%;
+  --surface: 232 20% 14%;
+  --raised: 232 18% 18%;
+  --muted: 232 16% 22%;
+  --border: 232 14% 32%;
+  --foreground: 0 0% 97%;
+  --muted-foreground: 0 0% 71%;
+  --subtle-foreground: 0 0% 63%;
+  --primary: 265 89% 58%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 265 84% 60%;
+  --primary-text: 265 90% 76%;
+  /* Everything below is Cronsole's own semantic/brand colour, not part of
+     Dracula's identity — copied unchanged from `.dark` on purpose. */
+  --success: 160 84% 26%;
+  --success-foreground: 0 0% 100%;
+  --success-hover: 158 74% 30%;
+  --success-text: 158 64% 52%;
+  --warning: 38 92% 50%;
+  --warning-text: 43 96% 56%;
+  --danger: 0 84% 50%;
+  --danger-foreground: 0 0% 100%;
+  --danger-text: 0 91% 71%;
+  --danger-surface: 0 75% 12%;
+  --danger-surface-text: 0 86% 92%;
+  --isolate: 350 89% 60%;
+  --isolate-text: 351 95% 71%;
+  --info: 199 89% 48%;
+  --info-text: 198 93% 60%;
+  --system: 258 90% 66%;
+  --system-text: 255 92% 76%;
+  --neutral-text: 215 20% 65%;
+  --native: 258 90% 66%;
+  --native-text: 255 92% 76%;
+  --claude: 270 91% 65%;
+  --claude-text: 270 95% 75%;
+  --chatgpt: 160 84% 39%;
+  --chatgpt-text: 158 64% 52%;
+  --github: 213 18% 55%;
+  --github-text: 213 27% 72%;
+  --vercel: 0 0% 62%;
+  --vercel-text: 0 0% 72%;
+  --gemini: 231 84% 70%;
+  --gemini-text: 231 90% 80%;
+  --ring: 265 83% 62%;
+}
+
+.tokyo-night {
+  color-scheme: dark;
+  --background: 225 22% 10%;
+  --surface: 225 20% 14%;
+  --raised: 225 18% 18%;
+  --muted: 225 16% 22%;
+  --border: 225 14% 32%;
+  --foreground: 0 0% 97%;
+  --muted-foreground: 0 0% 71%;
+  --subtle-foreground: 0 0% 63%;
+  --primary: 221 79% 46%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 221 74% 50%;
+  --primary-text: 221 79% 72%;
+  /* Copied unchanged from `.dark` — see the note above `.dracula`. */
+  --success: 160 84% 26%;
+  --success-foreground: 0 0% 100%;
+  --success-hover: 158 74% 30%;
+  --success-text: 158 64% 52%;
+  --warning: 38 92% 50%;
+  --warning-text: 43 96% 56%;
+  --danger: 0 84% 50%;
+  --danger-foreground: 0 0% 100%;
+  --danger-text: 0 91% 71%;
+  --danger-surface: 0 75% 12%;
+  --danger-surface-text: 0 86% 92%;
+  --isolate: 350 89% 60%;
+  --isolate-text: 351 95% 71%;
+  --info: 199 89% 48%;
+  --info-text: 198 93% 60%;
+  --system: 258 90% 66%;
+  --system-text: 255 92% 76%;
+  --neutral-text: 215 20% 65%;
+  --native: 258 90% 66%;
+  --native-text: 255 92% 76%;
+  --claude: 270 91% 65%;
+  --claude-text: 270 95% 75%;
+  --chatgpt: 160 84% 39%;
+  --chatgpt-text: 158 64% 52%;
+  --github: 213 18% 55%;
+  --github-text: 213 27% 72%;
+  --vercel: 0 0% 62%;
+  --vercel-text: 0 0% 72%;
+  --gemini: 231 84% 70%;
+  --gemini-text: 231 90% 80%;
+  --ring: 221 74% 50%;
+}
+
+.nord {
+  color-scheme: dark;
+  --background: 220 20% 7%;
+  --surface: 220 18% 11%;
+  --raised: 220 16% 15%;
+  --muted: 220 14% 19%;
+  --border: 220 12% 29%;
+  --foreground: 0 0% 97%;
+  --muted-foreground: 0 0% 73%;
+  --subtle-foreground: 0 0% 65%;
+  --primary: 193 65% 33%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 193 60% 37%;
+  --primary-text: 193 65% 68%;
+  /* Copied unchanged from `.dark` — see the note above `.dracula`. */
+  --success: 160 84% 26%;
+  --success-foreground: 0 0% 100%;
+  --success-hover: 158 74% 30%;
+  --success-text: 158 64% 52%;
+  --warning: 38 92% 50%;
+  --warning-text: 43 96% 56%;
+  --danger: 0 84% 50%;
+  --danger-foreground: 0 0% 100%;
+  --danger-text: 0 91% 71%;
+  --danger-surface: 0 75% 12%;
+  --danger-surface-text: 0 86% 92%;
+  --isolate: 350 89% 60%;
+  --isolate-text: 351 95% 71%;
+  --info: 199 89% 48%;
+  --info-text: 198 93% 60%;
+  --system: 258 90% 66%;
+  --system-text: 255 92% 76%;
+  --neutral-text: 215 20% 65%;
+  --native: 258 90% 66%;
+  --native-text: 255 92% 76%;
+  --claude: 270 91% 65%;
+  --claude-text: 270 95% 75%;
+  --chatgpt: 160 84% 39%;
+  --chatgpt-text: 158 64% 52%;
+  --github: 213 18% 55%;
+  --github-text: 213 27% 72%;
+  --vercel: 0 0% 62%;
+  --vercel-text: 0 0% 72%;
+  --gemini: 231 84% 70%;
+  --gemini-text: 231 90% 80%;
+  --ring: 193 60% 46%;
+}
+
+.solarized {
+  color-scheme: dark;
+  --background: 192 18% 6%;
+  --surface: 192 16% 10%;
+  --raised: 192 14% 14%;
+  --muted: 192 12% 18%;
+  --border: 192 10% 28%;
+  --foreground: 0 0% 97%;
+  --muted-foreground: 0 0% 71%;
+  --subtle-foreground: 0 0% 63%;
+  --primary: 205 69% 40%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 205 64% 42%;
+  --primary-text: 205 69% 68%;
+  /* Copied unchanged from `.dark` — see the note above `.dracula`. */
+  --success: 160 84% 26%;
+  --success-foreground: 0 0% 100%;
+  --success-hover: 158 74% 30%;
+  --success-text: 158 64% 52%;
+  --warning: 38 92% 50%;
+  --warning-text: 43 96% 56%;
+  --danger: 0 84% 50%;
+  --danger-foreground: 0 0% 100%;
+  --danger-text: 0 91% 71%;
+  --danger-surface: 0 75% 12%;
+  --danger-surface-text: 0 86% 92%;
+  --isolate: 350 89% 60%;
+  --isolate-text: 351 95% 71%;
+  --info: 199 89% 48%;
+  --info-text: 198 93% 60%;
+  --system: 258 90% 66%;
+  --system-text: 255 92% 76%;
+  --neutral-text: 215 20% 65%;
+  --native: 258 90% 66%;
+  --native-text: 255 92% 76%;
+  --claude: 270 91% 65%;
+  --claude-text: 270 95% 75%;
+  --chatgpt: 160 84% 39%;
+  --chatgpt-text: 158 64% 52%;
+  --github: 213 18% 55%;
+  --github-text: 213 27% 72%;
+  --vercel: 0 0% 62%;
+  --vercel-text: 0 0% 72%;
+  --gemini: 231 84% 70%;
+  --gemini-text: 231 90% 80%;
+  --ring: 205 64% 44%;
 }
 
 /*

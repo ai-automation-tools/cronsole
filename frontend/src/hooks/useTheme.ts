@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system' | 'dracula' | 'nord' | 'solarized' | 'tokyo-night';
 
 const STORAGE_KEY = 'cronsole.theme';
+
+/** Named palettes: a fixed theme, not resolved against the OS like `dark`/`light`/`system` are. */
+const NAMED_THEMES = ['dracula', 'nord', 'solarized', 'tokyo-night'] as const;
+
+/** Every class `applyTheme` ever stamps on `<html>` — kept mutually exclusive. */
+const ALL_THEME_CLASSES = ['dark', 'light', ...NAMED_THEMES] as const;
+
+const VALID_MODES: readonly ThemeMode[] = ['light', 'dark', 'system', ...NAMED_THEMES];
 
 /**
  * Dark is Cronsole's default, not an opt-in (CLAUDE.md §9) — the token set, the
@@ -25,15 +33,18 @@ function systemPrefersDark(): boolean {
 function readStored(): ThemeMode {
   if (typeof window === 'undefined') return DEFAULT_MODE;
   const v = window.localStorage.getItem(STORAGE_KEY);
-  return v === 'light' || v === 'dark' || v === 'system' ? v : DEFAULT_MODE;
+  return v && (VALID_MODES as readonly string[]).includes(v) ? (v as ThemeMode) : DEFAULT_MODE;
 }
 
 /** Resolve a mode to a concrete theme and stamp it on <html>. */
 function applyTheme(mode: ThemeMode) {
-  const dark = mode === 'dark' || (mode === 'system' && systemPrefersDark());
   const root = document.documentElement;
-  root.classList.toggle('dark', dark);
-  root.classList.toggle('light', !dark);
+  const resolved = (NAMED_THEMES as readonly string[]).includes(mode)
+    ? mode
+    : mode === 'dark' || (mode === 'system' && systemPrefersDark())
+      ? 'dark'
+      : 'light';
+  for (const cls of ALL_THEME_CLASSES) root.classList.toggle(cls, cls === resolved);
 }
 
 /**

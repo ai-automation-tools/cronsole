@@ -52,6 +52,38 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Four named themes — Dracula, Nord, Solarized, Tokyo Night — alongside Light, Dark, and System**
+  (2026-09-04, `hooks/useTheme.ts`, `index.css`, `ThemeToggle.tsx`). `ThemeMode` grows from a 3-way
+  toggle to a 7-way `<select>` (a button row stopped fitting), and `applyTheme` now resolves to one of
+  six mutually-exclusive `<html>` classes instead of two — the named palettes are fixed choices, not
+  resolved against the OS the way `system` is. Tokyo Night (added 2026-09-05, on request for a
+  distinctly blue option) reuses Dracula's exact fill-lightness recipe rather than a new one: its real
+  background hue (H235) sits only a few degrees from Dracula's (H232), so the same ladder passed the
+  contrast suite first try — the accent (`primary` at H221, a royal blue) is what actually carries the
+  theme's identity apart from Dracula's violet.
+
+  Also fixed the same day: **no stylesheet in the app declared `color-scheme`**, so a native `<select>`'s
+  open dropdown rendered with the browser's light-mode popup chrome regardless of theme, while its text
+  still inherited the page's near-white `--foreground` — white-on-white in every dark-family theme. Each
+  theme class now sets `color-scheme: dark` or `light` to match, which is the correct fix for every
+  native control (dropdowns, scrollbars, date pickers) rather than a patch on `ThemeToggle` alone.
+
+  Each named theme re-tints the fill ladder (`background` → `border`) and `primary` to the palette's
+  real hue. Cronsole's own semantic/brand tokens (`success`, `danger`, `github`, `claude`, …) are
+  copied unchanged from `.dark` — a theme pick is about the workspace's look, not a reason for
+  GitHub's dot to change colour. `foreground` / `muted-foreground` / `subtle-foreground` stay
+  zero-saturation grey rather than picking up the theme's hue too: `themeContrast.test.ts` holds each
+  of them to 4.5:1 against all four fills at once, and a tinted grey at the same lightness cleared
+  some of those four and missed others by a few hundredths of a point — WCAG relative luminance is
+  hue-sensitive even when HSL lightness is held constant, which is also why each fill ladder sits a few
+  points darker than the source palette's real values (a genuinely light-for-a-dark-theme background,
+  like Nord's, leaves no headroom for the copied `-text` roles against `muted`) and why Solarized's
+  signature teal runs at a lower saturation than Dracula's or Nord's tint (teal inflates luminance more
+  than violet or blue-grey at the same lightness). `primary` in Nord and Solarized similarly runs
+  several points darker than the same trick would suggest, since a blue/cyan accent reads lighter than
+  a violet one at identical HSL lightness and still has to clear 4.5:1 under white
+  `--primary-foreground` text.
+
 - **Real brand marks on the Sources tab, in each brand's real colour** (2026-09-05,
   `components/sources/BrandIcons.tsx`) — GitHub Actions (`#2088FF`), Claude Code (`#D97757`) and
   Google Gemini (`#8E75B2`) render in their official hex rather than a lucide approximation or the

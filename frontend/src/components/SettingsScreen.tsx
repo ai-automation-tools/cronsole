@@ -847,7 +847,10 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
 
           {section === 'appearance' && (
             <Section icon={Palette} title="Appearance" subtitle="How Cronsole looks on this device.">
-              <Row label="Theme" description="Dark is the default. System follows your OS setting.">
+              <Row
+                label="Theme"
+                description="Dark is the default. System follows your OS setting. Dracula, Nord, Solarized, and Tokyo Night are fixed palettes."
+              >
                 <ThemeToggle />
               </Row>
             </Section>

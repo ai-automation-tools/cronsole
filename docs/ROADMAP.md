@@ -33,7 +33,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 |---|---|---|
 | **P0 — Security** | 🟢 **closed** *(2026-08-28)* | nothing open |
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
-| **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(themes done 2026-08-24)* |
+| **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(light/dark contrast done 2026-08-24; Dracula/Nord/Solarized/Tokyo Night themes done 2026-09-04/05)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |

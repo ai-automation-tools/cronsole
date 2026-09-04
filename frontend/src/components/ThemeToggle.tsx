@@ -1,61 +1,50 @@
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon, Monitor, Ghost, Snowflake, Sunset, MoonStar, type LucideIcon } from 'lucide-react';
 import { useTheme, type ThemeMode } from '../hooks/useTheme';
 
-const OPTIONS: { mode: ThemeMode; label: string; Icon: typeof Sun }[] = [
+const OPTIONS: { mode: ThemeMode; label: string; Icon: LucideIcon }[] = [
   { mode: 'light', label: 'Light', Icon: Sun },
   { mode: 'dark', label: 'Dark', Icon: Moon },
   { mode: 'system', label: 'System', Icon: Monitor },
+  { mode: 'dracula', label: 'Dracula', Icon: Ghost },
+  { mode: 'nord', label: 'Nord', Icon: Snowflake },
+  { mode: 'solarized', label: 'Solarized', Icon: Sunset },
+  { mode: 'tokyo-night', label: 'Tokyo Night', Icon: MoonStar },
 ];
 
 /**
- * `compact` drops the written labels, leaving three icons.
+ * A native `<select>` rather than the button row this used to be: six modes
+ * no longer fit as a segmented group without wrapping or shrinking below a
+ * tappable size, and a `<select>` scales to a sixth (or tenth) option for
+ * free. The current mode's icon sits beside it since an `<option>` can't
+ * carry one of its own.
  *
- * For the top toolbar, where a labelled three-way group is most of the space the
- * nav needs. The label survives as `title` **and** `aria-label` rather than being
- * dropped — an icon-only control still has to be named to a screen reader, and
- * "Light theme" is the name whether or not it is drawn.
+ * `compact` (the top toolbar) tightens the padding and drops the border in
+ * favour of `muted`, matching the old control's weight in that bar.
  */
 export const ThemeToggle = ({ compact = false }: { compact?: boolean } = {}) => {
   const { theme, setTheme } = useTheme();
+  const current = OPTIONS.find(o => o.mode === theme) ?? OPTIONS[1]!;
 
   return (
     <div
-      role="group"
-      aria-label="Theme"
-      /*
-        The compact variant drops the border and sits on `muted` instead of a
-        bordered `surface` panel. In the top toolbar the bordered box was the
-        heaviest element in the bar — a three-way preference outweighing the
-        navigation, which is backwards. Borderless keeps it at the same visual
-        weight as a nav item, which is what it is.
-      */
-      className={`flex items-center gap-0.5 rounded-xl ${
-        compact ? 'bg-muted/60 p-0.5' : 'border border-border bg-surface gap-1 p-1'
+      className={`flex items-center gap-1.5 rounded-xl ${
+        compact ? 'bg-muted/60 px-2 py-1' : 'border border-border bg-surface px-3 py-2'
       }`}
     >
-      {OPTIONS.map(({ mode, label, Icon }) => {
-        const active = theme === mode;
-        return (
-          <button
-            key={mode}
-            type="button"
-            onClick={() => setTheme(mode)}
-            aria-pressed={active}
-            aria-label={`${label} theme`}
-            title={`${label} theme`}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95 ${
-              compact ? 'px-1.5 py-1' : 'px-2 py-1.5'
-            } ${
-              active
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Icon size={13} />
-            {!compact && <span>{label}</span>}
-          </button>
-        );
-      })}
+      <current.Icon size={13} className="shrink-0 text-muted-foreground" aria-hidden />
+      <select
+        value={theme}
+        onChange={e => setTheme(e.target.value as ThemeMode)}
+        aria-label="Theme"
+        title="Theme"
+        className="bg-transparent text-[11px] font-bold text-foreground outline-none cursor-pointer"
+      >
+        {OPTIONS.map(({ mode, label }) => (
+          <option key={mode} value={mode}>
+            {label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 };

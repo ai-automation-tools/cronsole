@@ -3,6 +3,12 @@ import { render, screen, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { ToolsScreen } from '../ToolsScreen';
 
+// This is the browser project (tsconfig.app.json has no `node` types), but
+// `require` below is real at runtime under vitest — see the note ahead of
+// `vi.hoisted`. Declared locally rather than adding `node` to the project's
+// types, which would grant every file in `src/` a Node global it should not have.
+declare const require: (id: string) => typeof import('react');
+
 /**
  * The property this pins is the one `ToolCard`'s removed per-card disclosure
  * used to guarantee: a tool nobody has selected never mounts (nine of the ten

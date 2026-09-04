@@ -1,13 +1,20 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import type { ExecutionStatus, PlatformType, Task } from '@prisma/client';
+import { getNotificationChannel } from './notificationChannels.js';
 
 export type FailureNotificationTrigger = 'manual' | 'scheduled';
-export type FailureWebhookType = 'generic' | 'discord' | 'ntfy';
+export type FailureWebhookType = 'generic' | 'discord' | 'ntfy' | 'resend';
 
+/**
+ * `SUCCESS` joined `FAILURE` / `TIMEOUT` here so a run's outcome is one event
+ * shape regardless of which way it went — `notifyRunOutcome` below is the
+ * only thing that reads a `SUCCESS` event; the legacy env-webhook path
+ * (`sendFailureNotification`) never did and still refuses one (see there).
+ */
 export interface FailureNotificationEvent {
   task: Pick<Task, 'id' | 'userId' | 'platform' | 'externalId' | 'name'>;
   trigger: FailureNotificationTrigger;
-  status: Extract<ExecutionStatus, 'FAILURE' | 'TIMEOUT'>;
+  status: Extract<ExecutionStatus, 'FAILURE' | 'TIMEOUT' | 'SUCCESS'>;
   message: string;
   durationMs?: number | null;
   executionId?: string;
@@ -23,7 +30,14 @@ interface FailureWebhookConfig {
   url: string;
   type: FailureWebhookType;
   headers: Record<string, string>;
+  /** `resend` only — recipient and sender address. The API key rides in `headers.Authorization`. */
+  to?: string;
+  from?: string;
 }
+
+/** Resend has exactly one endpoint for this. Ignoring `config.url` here means a
+ *  stored typo or a stale value can never send a would-be email nowhere. */
+const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
 const WEBHOOK_URL_ENV = 'CRONSOLE_FAILURE_WEBHOOK_URL';
 const WEBHOOK_TYPE_ENV = 'CRONSOLE_FAILURE_WEBHOOK_TYPE';
@@ -94,7 +108,8 @@ function truncate(value: string, length = 900): string {
 function formatText(event: FailureNotificationEvent): string {
   const when = (event.triggeredAt ?? new Date()).toISOString();
   const duration = event.durationMs == null ? '' : ` in ${event.durationMs}ms`;
-  return `Cronsole ${event.trigger} run failed${duration}: ${event.task.name} (${event.task.platform}) at ${when}. ${event.message}`;
+  const verb = event.status === 'SUCCESS' ? 'succeeded' : 'failed';
+  return `Cronsole ${event.trigger} run ${verb}${duration}: ${event.task.name} (${event.task.platform}) at ${when}. ${event.message}`;
 }
 
 function eventPayload(event: FailureNotificationEvent) {
@@ -116,6 +131,7 @@ function eventPayload(event: FailureNotificationEvent) {
 function requestFor(config: FailureWebhookConfig, event: FailureNotificationEvent): AxiosRequestConfig {
   const text = truncate(formatText(event));
   const baseHeaders = { ...config.headers };
+  const isFailure = event.status !== 'SUCCESS';
 
   if (config.type === 'discord') {
     return {
@@ -126,8 +142,8 @@ function requestFor(config: FailureWebhookConfig, event: FailureNotificationEven
       data: {
         content: text,
         embeds: [{
-          title: 'Cronsole run failed',
-          color: 0xdc2626,
+          title: isFailure ? 'Cronsole run failed' : 'Cronsole run succeeded',
+          color: isFailure ? 0xdc2626 : 0x16a34a,
           fields: [
             { name: 'Task', value: event.task.name, inline: true },
             { name: 'Platform', value: String(event.task.platform), inline: true },
@@ -141,15 +157,35 @@ function requestFor(config: FailureWebhookConfig, event: FailureNotificationEven
     };
   }
 
+  if (config.type === 'resend') {
+    const subject = `Cronsole ${isFailure ? 'failure' : 'success'}: ${event.task.name}`;
+    return {
+      url: RESEND_ENDPOINT,
+      method: 'POST',
+      timeout: DEFAULT_TIMEOUT_MS,
+      // The API key is a bearer token in `headers.Authorization` — the same
+      // write-only `Extra headers` field every other type already uses, so
+      // Resend needed no credential storage of its own.
+      headers: { 'Content-Type': 'application/json', ...baseHeaders },
+      data: {
+        from: config.from || 'Cronsole <onboarding@resend.dev>',
+        to: config.to,
+        subject,
+        text
+      },
+      validateStatus: (status) => status >= 200 && status < 300
+    };
+  }
+
   if (config.type === 'ntfy') {
     return {
       url: config.url,
       method: 'POST',
       timeout: DEFAULT_TIMEOUT_MS,
       headers: {
-        Title: `Cronsole failed: ${event.task.name}`,
-        Tags: 'warning',
-        Priority: 'high',
+        Title: `Cronsole ${isFailure ? 'failed' : 'succeeded'}: ${event.task.name}`,
+        Tags: isFailure ? 'warning' : 'white_check_mark',
+        Priority: isFailure ? 'high' : 'default',
         ...baseHeaders
       },
       data: text,
@@ -208,5 +244,48 @@ export function queueFailureNotification(event: FailureNotificationEvent): void 
 
 export async function flushFailureNotifications(): Promise<void> {
   await Promise.allSettled(Array.from(pendingNotifications));
+}
+
+/**
+ * The path every run outcome — success or failure — should go through.
+ *
+ * A user's own `NotificationChannel` (off by default) takes over the moment
+ * it is `enabled`, and it is the only path that ever sends a `SUCCESS` event
+ * — the env webhook above has only ever spoken about failures, and stays
+ * that way for a user who hasn't opted into anything of their own, so a
+ * zero-config single-user install is unchanged.
+ *
+ * ponytail: one DB read (`userId` is the primary key) per run, including
+ * every success once a channel exists — no caching yet. Add a short-lived
+ * in-memory cache, invalidated on save, if that read shows up under load.
+ */
+export async function notifyRunOutcome(event: FailureNotificationEvent): Promise<FailureNotificationResult> {
+  const channel = await getNotificationChannel(event.task.userId);
+
+  if (channel?.enabled && channel.config) {
+    const wants = event.status === 'SUCCESS' ? channel.notifyOnSuccess : channel.notifyOnFailure;
+    if (!wants) return { sent: false, reason: 'not_configured' };
+
+    try {
+      await axios.request(requestFor(channel.config, event));
+      return { sent: true };
+    } catch (error) {
+      console.warn(`[FailureNotification] delivery failed: ${safeFailureMessage(error)}`);
+      return { sent: false, reason: 'delivery_failed' };
+    }
+  }
+
+  // No channel of this user's own (or one that exists but is off) — the
+  // legacy operator-wide env webhook, which never offered a SUCCESS event.
+  if (event.status === 'SUCCESS') return { sent: false, reason: 'not_configured' };
+  return sendFailureNotification(event);
+}
+
+/** `queueFailureNotification`'s twin for both outcomes — see `notifyRunOutcome`. */
+export function queueRunNotification(event: FailureNotificationEvent): void {
+  const pending = notifyRunOutcome(event).finally(() => {
+    pendingNotifications.delete(pending);
+  });
+  pendingNotifications.add(pending);
 }
 

@@ -1271,6 +1271,61 @@ const preferenceSync: HelpTopic = {
   }
 };
 
+const runOutcomeWebhook: HelpTopic = {
+  id: 'run-outcome-webhook',
+  title: 'Run-outcome webhook',
+  summary:
+    'An opt-in, per-account webhook that fires whenever a task you own runs — off by default, ' +
+    'and unlike the toast/desktop notifications above it, it fires from the server whether or ' +
+    'not the dashboard is open.',
+  points: [
+    {
+      label: 'Separate from the toast and desktop notifications above it',
+      body:
+        'Those live in this browser and stop the moment the tab closes. This one is server-side ' +
+        'and per-account, so it follows you the same way preference sync does — enable it once, ' +
+        'not once per browser.'
+    },
+    {
+      label: 'Failure and success are independent switches',
+      body:
+        'Turn on just failure for a channel that only speaks up when something breaks, or add ' +
+        'success too for a heartbeat. Neither is on until you enable the webhook itself.'
+    },
+    {
+      label: 'Headers are write-only',
+      body:
+        'There is no endpoint that reads a saved header back — only whether one is stored. ' +
+        'Leaving the Extra headers box blank on a later save keeps what is already there; typing ' +
+        'something replaces it; saving an explicit {} clears it. The same rule a saved Gemini MCP ' +
+        'server preset follows, for the same reason.'
+    },
+    {
+      label: 'Takes over from the operator env webhook, per account',
+      body:
+        'A self-hosted install can set CRONSOLE_FAILURE_WEBHOOK_URL as a zero-config, failure-only ' +
+        'fallback for everyone with nothing enabled. The moment your own webhook is on, your ' +
+        'account stops reaching that fallback — the two never both fire for the same run.'
+    },
+    {
+      label: 'Four payload shapes, for four different targets',
+      body:
+        'ntfy needs nothing but a topic name and push-notifies a phone or browser tab. Discord ' +
+        'posts a formatted embed to a channel webhook. Resend sends an actual email — the one ' +
+        'shape with its own To/From fields, because it is not a generic collector. Generic sends ' +
+        'plain JSON to anywhere that will read it, your own collector included. The guide below ' +
+        'has step-by-step setup for each.'
+    }
+  ],
+  doc: {
+    label: 'UI User Guide › Notifications and the run-outcome webhook',
+    url: uiGuide('notifications-and-the-run-outcome-webhook')
+  },
+  more: [
+    { label: 'UI User Guide › Setup recipes', url: uiGuide('setup-recipes') }
+  ]
+};
+
 const templates: HelpTopic = {
   id: 'templates',
   title: 'Templates',
@@ -1641,7 +1696,8 @@ const TOPIC_LIST: HelpTopic[] = [
   taskExport,
   diagnostics,
   taskHealth,
-  preferenceSync
+  preferenceSync,
+  runOutcomeWebhook
 ];
 
 export const HELP_TOPICS: Record<string, HelpTopic> = Object.fromEntries(

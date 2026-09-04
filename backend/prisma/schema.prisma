@@ -29,6 +29,7 @@ model User {
   deletedTasks   DeletedTaskArchive[]
   apiTokens      ApiToken[]
   preferences    UserPreference?
+  notificationChannel NotificationChannel?
 
   @@index([email])
 }
@@ -621,4 +622,33 @@ model UserPreference {
   /// why concurrent edits from two browsers are resolved by recency and not by
   /// field-level merge.
   updatedAt DateTime @updatedAt
+}
+
+/// A user's own opt-in webhook for task run outcomes — off by default
+/// (`enabled` starts `false`, and there is no row at all until the first
+/// save). Separate from `CRONSOLE_FAILURE_WEBHOOK_*`
+/// (services/FailureNotificationService.ts), which stays the operator-wide,
+/// env-configured, failure-only fallback for a zero-config single-user
+/// install; a row here takes over for that user once `enabled` is true,
+/// including the choice of success vs. failure the env var never offered.
+///
+/// `config` is encrypted the same way `PlatformConnection.config` is — the
+/// URL itself isn't sensitive, but `headers` can carry a bearer token, and
+/// one encrypted column makes that a database-wide rule instead of a
+/// per-field one every future reader has to remember. Nullable because a row
+/// can exist with notifications toggled off and no webhook typed yet.
+model NotificationChannel {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  enabled         Boolean  @default(false)
+  notifyOnFailure Boolean  @default(true)
+  notifyOnSuccess Boolean  @default(false)
+
+  /// AES-256-GCM ciphertext (`iv:tag:payload`) of `{ url, type, headers }`.
+  /// Never returned by any route — GET reports `hasHeaders` only, the
+  /// `redactPreset` shape one layer up (services/geminiTriggers.ts).
+  config          String?
+
+  updatedAt       DateTime @updatedAt
 }

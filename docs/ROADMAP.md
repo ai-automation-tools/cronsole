@@ -645,6 +645,22 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 - [ ] **Template registry — optional follow-up**: index signing, beyond the per-file sha256.
 - [ ] **Cross-platform template targets — follow-up (b)**: real export artifacts (cron line,
       launchd plist, Claude routine payload). Lands as connectors and the POSIX agent do.
+- [~] **Per-user monitoring/notification channels — webhook shipped 2026-09-04** *(requested
+      2026-09-04)*. A user's own opt-in run-outcome notifications, off by default, with a choice of
+      which outcomes to hear about — distinct from `CRONSOLE_FAILURE_WEBHOOK_URL`
+      (`services/FailureNotificationService.ts`), which is an operator-wide env var, configured
+      outside the app, that only ever spoke about failures. That one stays as the zero-config
+      fallback for a single-user install with nobody signed in to flip a toggle; a user's own
+      `NotificationChannel` takes over the moment it's enabled. See CHANGELOG 2026-09-04.
+      **Resend (email) shipped 2026-09-04** as a fourth payload shape, alongside generic/discord/
+      ntfy — the one shape with its own `to`/`from` fields rather than a bare URL, since sending
+      mail needs a recipient and sender a generic POST doesn't. The API key still rides in the
+      existing `headers` field; no new credential-storage shape was needed. A help topic on the
+      section covers setup recipes for all four (`docs/user-guides/guides/UI_User_Guide.md` §
+      *Setup recipes*).
+      **Left**: channels beyond a webhook (SMS, push via a vendor SDK); a delivery history/log
+      (today a failed send is only a `console.warn`); and a rate limit or digest mode for a
+      flapping task, which could otherwise fire a request per run.
 - [ ] **Settings agent-pairing panel** *(deferred)*: waits on the per-user pairing-code flow.
 - [ ] **Tools tab — further candidate tools** *(candidates only, none scheduled)*: scheduled
       automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed

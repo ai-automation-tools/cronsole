@@ -19,7 +19,7 @@ import {
   setTaskSecret,
   TaskSecretError
 } from '../services/taskSecrets.js';
-import { queueFailureNotification } from '../services/FailureNotificationService.js';
+import { queueRunNotification } from '../services/FailureNotificationService.js';
 import { computeNextRun } from '../utils/cron-next.js';
 import { convertCronToWindowsTrigger, WindowsTrigger } from '../utils/scheduler-conversion.js';
 import { toStructuredAction } from '../utils/commandParser.js';
@@ -2195,17 +2195,15 @@ router.post('/:id/run', async (req: Request, res: Response) => {
       durationMs
     }
   });
-  if (!result.success) {
-    queueFailureNotification({
-      task,
-      trigger: 'manual',
-      status: 'FAILURE',
-      message: result.message || 'Failed to trigger',
-      durationMs,
-      executionId: execution.id,
-      triggeredAt: execution.triggeredAt
-    });
-  }
+  queueRunNotification({
+    task,
+    trigger: 'manual',
+    status: result.success ? 'SUCCESS' : 'FAILURE',
+    message: result.message || (result.success ? 'Triggered from web dashboard' : 'Failed to trigger'),
+    durationMs,
+    executionId: execution.id,
+    triggeredAt: execution.triggeredAt
+  });
   notifyTasksChanged(userId);
 
   if (result.success) {

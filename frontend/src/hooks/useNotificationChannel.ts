@@ -15,6 +15,8 @@ export interface NotificationChannel {
   enabled: boolean;
   notifyOnFailure: boolean;
   notifyOnSuccess: boolean;
+  /** Empty = every task you own. Non-empty narrows to just these `Task.id`s. */
+  taskIds: string[];
   url: string | null;
   type: WebhookType | null;
   hasHeaders: boolean;
@@ -27,6 +29,7 @@ export interface SaveNotificationChannelInput {
   enabled: boolean;
   notifyOnFailure: boolean;
   notifyOnSuccess: boolean;
+  taskIds?: string[];
   url?: string;
   type?: WebhookType;
   headers?: Record<string, string>;

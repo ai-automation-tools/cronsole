@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ScheduleTesterTool } from '../tools/ScheduleTesterTool';
-import { openToolCard } from './helpers/toolCard';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({ api: { post: vi.fn() } }));
@@ -14,7 +13,6 @@ const renderTool = () => {
       <ScheduleTesterTool />
     </QueryClientProvider>
   );
-  openToolCard('schedule-tester');
 };
 
 /** The #14 shape: a once-a-year cron that registers as an hourly trigger. */

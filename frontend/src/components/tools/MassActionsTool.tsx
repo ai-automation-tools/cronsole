@@ -370,7 +370,6 @@ export const MassActionsTool = () => {
 
   return (
     <ToolCard
-      id="mass-actions"
       icon={Layers}
       title="Mass actions"
       titleAdornment={<HelpButton topic="mass-actions" />}

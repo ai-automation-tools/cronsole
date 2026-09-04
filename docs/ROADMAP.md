@@ -658,6 +658,10 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       existing `headers` field; no new credential-storage shape was needed. A help topic on the
       section covers setup recipes for all four (`docs/user-guides/guides/UI_User_Guide.md` §
       *Setup recipes*).
+      **Per-task scope shipped 2026-09-05** — *Which tasks*: all tasks (default) or only specific
+      ones, an empty `taskIds` meaning "every task" rather than a second mode flag. The route
+      verifies task ownership before saving; no join table, since a dangling id from a deleted task
+      just matches nothing at read time.
       **Left**: channels beyond a webhook (SMS, push via a vendor SDK); a delivery history/log
       (today a failed send is only a `console.warn`); and a rate limit or digest mode for a
       flapping task, which could otherwise fire a request per run.

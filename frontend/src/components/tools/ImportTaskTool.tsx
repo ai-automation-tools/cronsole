@@ -108,7 +108,6 @@ export const ImportTaskTool = () => {
 
   return (
     <ToolCard
-      id="import-task"
       icon={FileJson}
       title="Import a task"
       titleAdornment={<HelpButton topic="task-import" />}

@@ -169,7 +169,6 @@ export const BulkExportTool = () => {
 
   return (
     <ToolCard
-      id="backup"
       icon={FolderDown}
       title="Back up scheduled tasks"
       description={<>

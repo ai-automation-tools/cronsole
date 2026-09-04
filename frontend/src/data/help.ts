@@ -1315,6 +1315,14 @@ const runOutcomeWebhook: HelpTopic = {
         'shape with its own To/From fields, because it is not a generic collector. Generic sends ' +
         'plain JSON to anywhere that will read it, your own collector included. The guide below ' +
         'has step-by-step setup for each.'
+    },
+    {
+      label: 'Which tasks is every task by default, one field read two ways',
+      body:
+        'Switch to Only selected and pick just the one or two you actually want to hear about — ' +
+        'there is no separate mode flag, an empty selection simply means every task, so there is ' +
+        'no way to save "all tasks" while a stale pick list is still attached. Selecting zero with ' +
+        'Only selected chosen refuses to save rather than silently widening back to everything.'
     }
   ],
   doc: {

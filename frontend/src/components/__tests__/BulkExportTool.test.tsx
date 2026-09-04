@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { BulkExportTool } from '../tools/BulkExportTool';
-import { openToolCard } from './helpers/toolCard';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({
@@ -37,7 +36,6 @@ const renderTool = () => {
   );
   // The card is closed until it is opened, and its body does not mount before
   // that, so every test here opens it first.
-  openToolCard('backup');
   return result;
 };
 

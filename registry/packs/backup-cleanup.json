@@ -401,6 +401,49 @@
       "compatibleTargets": [
         "windows"
       ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "sys-postgres-vacuum",
+      "name": "Postgres Vacuum & Analyze",
+      "description": "Run VACUUM ANALYZE against a PostgreSQL database on a schedule to reclaim bloat and keep the query planner’s statistics current — routine maintenance, not a backup.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "system",
+      "tags": [
+        "system",
+        "database",
+        "postgres",
+        "maintenance"
+      ],
+      "icon": "Database",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 4 * * 0"
+      },
+      "commandTemplate": "psql -U {{dbUser}} -d {{dbName}} -c \"VACUUM ANALYZE;\"",
+      "parameters": [
+        {
+          "key": "dbUser",
+          "label": "Database user",
+          "type": "text",
+          "default": "postgres",
+          "required": true,
+          "help": "The PostgreSQL role to connect as."
+        },
+        {
+          "key": "dbName",
+          "label": "Database name",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The database to vacuum."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
     }
   ]
 }

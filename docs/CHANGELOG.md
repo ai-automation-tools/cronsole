@@ -52,6 +52,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Four new registry templates** (2026-09-03): Send an SMS Alert (Twilio) (`ntf-sms-twilio-alert`),
+  Renew SSL Certificates (Certbot) (`sys-certbot-renew`), Postgres Vacuum & Analyze
+  (`sys-postgres-vacuum`), and Log Top Processes by CPU (`mon-top-processes`).
+
 - **Cronsole checks a prompt before it runs unattended** (2026-08-31). Type a prompt for a Gemini
   trigger or a Claude routine and Cronsole now says what it noticed, under the box, as you type.
 

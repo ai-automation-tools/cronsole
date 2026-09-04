@@ -202,6 +202,48 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "mon-top-processes",
+      "name": "Log Top Processes by CPU",
+      "description": "Append the highest CPU-consuming processes to a log file on an interval, so a machine that suddenly runs hot has a paper trail of what was busy.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "cpu",
+        "processes"
+      ],
+      "icon": "Cpu",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-Process | Sort-Object CPU -Descending | Select-Object -First {{topN}} Name, CPU, WorkingSet | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "topN",
+          "label": "Number of processes",
+          "type": "text",
+          "default": "10",
+          "required": true,
+          "help": "How many top CPU-consuming processes to record."
+        },
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\top-processes.log",
+          "required": true,
+          "help": "Where to append the process snapshot."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "dev-docker-compose-up",
       "name": "Docker Compose Self-Heal",
       "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern Cronsole uses for its own stack).",

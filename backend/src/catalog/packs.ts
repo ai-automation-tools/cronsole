@@ -125,7 +125,8 @@ export const bundledPacks: BundledPack[] = [
       'cln-old-files',
       'cln-recycle-bin',
       'dev-docker-prune',
-      'ai-claude-log-cleanup'
+      'ai-claude-log-cleanup',
+      'sys-postgres-vacuum'
     ]
   },
   {
@@ -139,6 +140,7 @@ export const bundledPacks: BundledPack[] = [
       'mon-service-health',
       'mon-log-error-scan',
       'mon-failed-scheduled-tasks',
+      'mon-top-processes',
       'dev-docker-compose-up',
       'tpl_starter_webhook_windows',
       'tpl_starter_webhook_macos'
@@ -244,7 +246,9 @@ export const bundledPacks: BundledPack[] = [
       'ntf-discord-heartbeat',
       'ntf-log-heartbeat',
       'ntf-windows-broadcast-message',
-      'ntf-email-alert'
+      'ntf-email-alert',
+      'ntf-sms-twilio-alert',
+      'sys-certbot-renew'
     ]
   }
 ];

@@ -1288,6 +1288,78 @@ const extendedPack: RegistryTemplate[] = [
       { key: 'body', label: 'Body', type: 'text', default: 'Scheduled alert from Cronsole.', required: true, help: 'The email body text. Avoid single quotes (they close the PowerShell string).' }
     ],
     compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ntf-sms-twilio-alert',
+    name: 'Send an SMS Alert (Twilio)',
+    description: 'Send a scheduled text message through the Twilio API \u2014 an alert channel for anyone who wants a message on their phone rather than a chat webhook or an email.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'notification',
+    tags: ['notification', 'sms', 'twilio', 'alert'],
+    icon: 'Smartphone',
+    trigger: sched('0 8 * * *'),
+    commandTemplate: 'curl -fsS -X POST "https://api.twilio.com/2010-04-01/Accounts/{{accountSid}}/Messages.json" -u "{{accountSid}}:{{authToken}}" --data-urlencode "To={{toNumber}}" --data-urlencode "From={{fromNumber}}" --data-urlencode "Body={{message}}"',
+    parameters: [
+      { key: 'accountSid', label: 'Twilio Account SID', type: 'text', default: '', required: true, help: 'Found on the Twilio Console dashboard.' },
+      { key: 'authToken', label: 'Twilio Auth Token', type: 'text', default: '', required: true, help: 'Found on the Twilio Console dashboard. Treat it like a password.' },
+      { key: 'fromNumber', label: 'From number', type: 'text', default: '', required: true, help: 'A Twilio phone number on your account, in E.164 format (e.g. +15551234567).' },
+      { key: 'toNumber', label: 'To number', type: 'text', default: '', required: true, help: 'The phone number to text, in E.164 format.' },
+      { key: 'message', label: 'Message', type: 'text', default: 'Cronsole scheduled alert', required: true, help: 'The SMS body. Keep it short \u2014 long messages are billed as multiple segments.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-certbot-renew',
+    name: 'Renew SSL Certificates (Certbot)',
+    description: 'Run certbot renew on a schedule so Let\u2019s Encrypt certificates renew themselves before they expire. This renews \u2014 pair it with an expiry check for the alert half.',
+    runtime: 'executable',
+    os: 'macos',
+    category: 'system',
+    tags: ['system', 'macos', 'ssl', 'certbot', 'renewal'],
+    icon: 'ShieldCheck',
+    trigger: sched('0 3 * * *'),
+    commandTemplate: 'certbot renew --quiet',
+    parameters: [],
+    compatibleTargets: ['macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'sys-postgres-vacuum',
+    name: 'Postgres Vacuum & Analyze',
+    description: 'Run VACUUM ANALYZE against a PostgreSQL database on a schedule to reclaim bloat and keep the query planner\u2019s statistics current \u2014 routine maintenance, not a backup.',
+    runtime: 'executable',
+    os: 'cross-platform',
+    category: 'system',
+    tags: ['system', 'database', 'postgres', 'maintenance'],
+    icon: 'Database',
+    trigger: sched('0 4 * * 0'),
+    commandTemplate: 'psql -U {{dbUser}} -d {{dbName}} -c "VACUUM ANALYZE;"',
+    parameters: [
+      { key: 'dbUser', label: 'Database user', type: 'text', default: 'postgres', required: true, help: 'The PostgreSQL role to connect as.' },
+      { key: 'dbName', label: 'Database name', type: 'text', default: '', required: true, help: 'The database to vacuum.' }
+    ],
+    compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'mon-top-processes',
+    name: 'Log Top Processes by CPU',
+    description: 'Append the highest CPU-consuming processes to a log file on an interval, so a machine that suddenly runs hot has a paper trail of what was busy.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'monitoring',
+    tags: ['monitoring', 'windows', 'cpu', 'processes'],
+    icon: 'Cpu',
+    trigger: sched('0 * * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Get-Process | Sort-Object CPU -Descending | Select-Object -First {{topN}} Name, CPU, WorkingSet | Format-Table -AutoSize | Out-File -Append \'{{logPath}}\'"',
+    parameters: [
+      { key: 'topN', label: 'Number of processes', type: 'text', default: '10', required: true, help: 'How many top CPU-consuming processes to record.' },
+      { key: 'logPath', label: 'Log file path', type: 'path', default: 'C:\\logs\\top-processes.log', required: true, help: 'Where to append the process snapshot.' }
+    ],
+    compatibleTargets: ['windows']
   }
 ];
 

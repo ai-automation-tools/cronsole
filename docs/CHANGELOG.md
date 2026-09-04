@@ -52,6 +52,48 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Settings and Tools centered, and 25% bigger** (2026-09-05). Settings' outer container was
+  missing the `mx-auto` Tools already had, so it rendered flush against the left edge instead of
+  centered — fixed, and both now carry a `zoom: 1.25` on top, scaling the sidebar, cards and text
+  together rather than just widening the column.
+
+- **The Tools tab redesigned into a category sidebar** (2026-09-05), the same shape Settings just
+  got: all ten tools listed by name in a left-hand nav (a horizontal scrollable strip below `md`),
+  `?tool=` real navigation, one tool filling the main area instead of ten stacked cards. Supersedes
+  the 2026-08-18 "collapsed to a menu" card design.
+
+  **The property that design existed for still had to hold, and now lives one layer up.** Nine of
+  the ten tools fire a query the moment they mount, so a tool nobody has selected must still never
+  be in the DOM — previously a closed card's job, now `ToolsScreen`'s: a tool's component mounts the
+  first time its id is selected and stays mounted, `hidden` (not unmounted), whenever it isn't the
+  active one. A half-built mass action or a loaded restore plan survives switching to another tool
+  and back, same as it survived a card being closed.
+
+  **`ToolCard` lost the disclosure it used to own** — it is now just the header + body shell, and
+  `Settings.openTools` (the per-card open/closed preference) is gone with it, along with the
+  `Dashboard.tsx` handoff that used to force the Restore card open for a dropped Windows backup;
+  that now selects `?tool=restore` directly. The category-nav component itself moved out of
+  `components/settings/` to `components/CategoryNav.tsx` and is generic over both screens' ids —
+  Settings' sidebar is unchanged, just sharing the component Tools now uses too.
+
+- **Per-task scope for the run-outcome webhook — monitor just the one or two you care about**
+  (2026-09-05). A new **Which tasks** control: **All tasks** (the existing, unchanged default) or
+  **Only selected**, a filterable checkbox list of the tasks you own (system tasks excluded, same
+  default as everywhere else in the app).
+
+  **An empty `taskIds` means every task — an allowlist by absence, not a second mode flag.** The
+  same rule an empty Gemini `tools` array already follows on a trigger. That is what makes "All
+  tasks" and "Only selected with nothing picked" impossible to conflate: there is no boolean that
+  could disagree with the list, and choosing **Only selected** with zero boxes checked refuses to
+  save rather than silently reverting to everything.
+
+  `PUT /api/notifications/webhook` verifies every id in `taskIds` belongs to the caller before
+  saving — the one genuine IDOR surface a task-scoped webhook opens, since a foreign id landing in
+  the list unchecked would otherwise be indistinguishable from a typo until read time. `taskIds`
+  itself needed no encryption (a `Task.id` is not a secret) and no join table — a stray id left by
+  a since-deleted task simply matches nothing at read time, the same tolerance `RailPin` already
+  extends to a target that has disappeared.
+
 - **A labelled help pill, for the one topic that outgrew a bare `?`** (2026-09-04). `HelpButton`
   gained an opt-in `label` prop — every other `?` on every other screen is unchanged — used once so
   far: *Enable webhook* now reads **`? How to set this up`** as a bordered pill instead of a tiny

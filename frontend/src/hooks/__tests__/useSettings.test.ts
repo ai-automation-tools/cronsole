@@ -102,8 +102,8 @@ describe('useSettings account sync', () => {
     it('does not ignore array order', () => {
       expect(
         sameSettings(
-          { openTools: ['restore', 'export'] } as Partial<Settings>,
-          { openTools: ['export', 'restore'] } as Partial<Settings>
+          { shownSources: ['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE'] } as Partial<Settings>,
+          { shownSources: ['TASKHUB_NATIVE', 'WINDOWS_TASK_SCHEDULER'] } as Partial<Settings>
         )
       ).toBe(false);
     });

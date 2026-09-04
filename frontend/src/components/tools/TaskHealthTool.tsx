@@ -111,7 +111,6 @@ export const TaskHealthTool = () => {
 
   return (
     <ToolCard
-      id="task-health"
       icon={Activity}
       title="Task health"
       titleAdornment={<HelpButton topic="task-health" />}

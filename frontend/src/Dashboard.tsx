@@ -237,18 +237,16 @@ const Dashboard = () => {
    * decisions that ride inside the agent's signature. That flow has one
    * definition and this must not become a second one.
    *
-   * The card is opened on the way, so the user lands on their file with a plan
-   * running — not on a Tools tab where they have to find the right card and pick
-   * the file again. The toast says where they went; a screen that changes under
-   * you without a reason is the same defect as a refusal with no explanation.
+   * The Restore tool is selected on the way, so the user lands on their file
+   * with a plan running — not on a Tools tab where they have to find the right
+   * tool and pick the file again. The toast says where they went; a screen
+   * that changes under you without a reason is the same defect as a refusal
+   * with no explanation.
    */
   const handleWindowsBackup = (file: File) => {
     stageRestore([file]);
-    if (!settings.openTools.includes('restore')) {
-      update('openTools', [...settings.openTools, 'restore']);
-    }
     setShowImportFile(false);
-    navigate('/tools');
+    navigate('/tools?tool=restore');
     toast(`${file.name} is a Windows backup — opened in Tools › Restore.`, 'info');
   };
 

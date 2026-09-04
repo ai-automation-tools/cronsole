@@ -782,11 +782,12 @@ The **Templates** tab is a library of prebuilt automation patterns, organized in
 
 The **Tools** tab holds the things that act across *all* your tasks rather than one of them.
 
-Every tool is a card that stays closed until you ask for it: the tab lists each one by name and by
-what it is for, and **Show** along the foot of a card opens the tool itself. Cronsole remembers
-which cards you left open, so a tool you are working in is still open when you come back. Closing
-one hides it — it does not reset it, so a half-built mass action or a loaded restore plan is still
-there when you open it again. A card you have never opened has asked your machine for nothing.
+A left-hand sidebar lists all ten by name — the same shape **Settings** uses. Pick one and it fills
+the main area; the rest stay out of the way rather than sitting on screen as ten stacked cards. A
+tool you have never selected has asked your machine for nothing — most of them fire a request the
+moment they appear, so the tab opening does not mean ten queries firing at once. Switching to
+another tool does not reset the one you left: a half-built mass action or a loaded restore plan is
+still there when you switch back.
 
 ### Mass actions
 
@@ -1162,6 +1163,7 @@ Settings has two notification blocks, and they answer different questions — *d
 - **Settings → Notifications** is the browser-only half: a toast on a successful run or sync, a toast on a failed one, and an optional OS-level desktop notification for failures. All three live in this browser and only fire while a tab is open — close the dashboard and they stop, by design.
 - **Settings → Run-outcome webhook** is the server-side half, and it's **off by default**. Turn it on and Cronsole sends an HTTP POST to a URL you choose whenever a task **you own** runs — whether or not the dashboard is open, from any device. It's per-account, not per-browser: enable it once and it follows you to every address this install answers on, the same as the rest of Settings ([preference sync](#7-system-status--connections)).
   - **Notify on failure** and **Notify on success** are independent switches. Turn on just failure for a quiet channel that only speaks up when something breaks, or add success too if you want a heartbeat.
+  - **Which tasks** defaults to **All tasks**. Switch to **Only selected** to monitor just the one or two you actually care about — a filterable, checkbox list of your own tasks (system tasks excluded, same as everywhere else). There's no separate "scope mode" stored alongside the pick list: an empty selection *is* "all tasks", so choosing **Only selected** with nothing checked refuses to save rather than quietly reverting to everything.
   - **Payload shape** picks the body Cronsole sends: **generic** (a JSON object with a `text` summary and a structured `event`, for your own collector or something like n8n/Zapier), **discord** (a ready-made embed for a Discord webhook URL), **ntfy** (plain text with `ntfy`'s `Title`/`Tags`/`Priority` headers), or **Resend** (an actual email — see below; it's the one shape with its own **To** and **From** fields instead of a bare URL, because sending mail needs a recipient and a sender in a way posting JSON doesn't).
   - **Extra headers** — labelled **Resend API key** when that shape is selected — is where a bearer token or an API key goes, as JSON: `{"Authorization": "Bearer …"}`. There is no way to read a saved header back (Cronsole reports only *whether* one is stored, never its value), so **leaving the box blank on a later save keeps whatever is already there** — the same rule a saved Gemini MCP server preset follows. Type something to replace it, or save an explicit `{}` to clear it.
 - **If you run Cronsole yourself and set `CRONSOLE_FAILURE_WEBHOOK_URL`** in the backend's environment, that stays exactly what it always was: an operator-wide, failure-only fallback with no per-account toggle. The moment you enable your own webhook above, your account stops reaching that fallback — the two never both fire for the same run.

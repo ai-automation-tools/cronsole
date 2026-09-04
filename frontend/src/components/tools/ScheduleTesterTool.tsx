@@ -82,7 +82,6 @@ export const ScheduleTesterTool = () => {
 
   return (
     <ToolCard
-      id="schedule-tester"
       icon={CalendarClock}
       title="Schedule tester"
       description={<>

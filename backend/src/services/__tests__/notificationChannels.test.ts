@@ -28,11 +28,12 @@ beforeEach(() => {
 });
 
 describe('notificationChannels', () => {
-  it('redacts an unconfigured channel to off, no url, no headers', () => {
+  it('redacts an unconfigured channel to off, no url, no headers, no task scope', () => {
     expect(redactChannel(null)).toEqual({
       enabled: false,
       notifyOnFailure: true,
       notifyOnSuccess: false,
+      taskIds: [],
       url: null,
       type: null,
       hasHeaders: false,
@@ -75,6 +76,7 @@ describe('notificationChannels', () => {
       enabled: true,
       notifyOnFailure: true,
       notifyOnSuccess: true,
+      taskIds: [],
       url: 'https://hooks.example.com/cronsole',
       type: 'discord',
       hasHeaders: true,
@@ -179,6 +181,40 @@ describe('notificationChannels', () => {
       from: 'Cronsole <alerts@example.com>',
       hasHeaders: true
     }));
+  });
+
+  it('narrows the channel to specific tasks, and widens back to all on an empty list', async () => {
+    let stored: any = null;
+    upsert.mockImplementation(async ({ create, update }: any) => {
+      stored = { userId: 'u1', ...(stored ?? create), ...update, updatedAt: new Date() };
+      return stored;
+    });
+    findUnique.mockImplementation(async () => stored);
+
+    const scoped = await saveNotificationChannel('u1', {
+      enabled: true,
+      notifyOnFailure: true,
+      notifyOnSuccess: false,
+      url: 'https://hooks.example.com/cronsole',
+      type: 'generic',
+      taskIds: ['task-1', 'task-2']
+    });
+
+    expect(scoped.taskIds).toEqual(['task-1', 'task-2']);
+    expect(redactChannel(scoped).taskIds).toEqual(['task-1', 'task-2']);
+
+    const widened = await saveNotificationChannel('u1', {
+      enabled: true,
+      notifyOnFailure: true,
+      notifyOnSuccess: false,
+      url: 'https://hooks.example.com/cronsole',
+      type: 'generic'
+    });
+
+    // Omitted, not "kept" — unlike headers, taskIds has no reveal problem to
+    // work around, so a caller always resends the current scope. Widens to
+    // every task, the same as never having scoped it.
+    expect(widened.taskIds).toEqual([]);
   });
 
   it('stores no config when disabling with no url typed', async () => {

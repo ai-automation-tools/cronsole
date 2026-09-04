@@ -68,7 +68,6 @@ export const ConnectPackTool = () => {
 
   return (
     <ToolCard
-      id="connect-pack"
       icon={Bot}
       title="Connect another AI tool"
       titleAdornment={data && <span className="text-[10px] font-bold uppercase tracking-widest text-subtle-foreground">v{data.version}</span>}

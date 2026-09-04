@@ -1,26 +1,30 @@
 import type { LucideIcon } from 'lucide-react';
 
-export interface SettingsNavItem<Id extends string> {
+export interface CategoryNavItem<Id extends string> {
   id: Id;
   label: string;
   Icon: LucideIcon;
 }
 
 /**
- * Settings' own left-hand category nav. Vertical and sticky at `md:` and up —
- * the typical settings-screen shape (Account, Connections, … each its own
- * page rather than one long scroll). Below `md` it becomes the same
- * horizontal scrollable strip `SourceTabs` uses, minus counts: these are
- * destinations, not populations, so there is nothing to report a size for.
+ * A screen's own left-hand category nav — Settings' Account/Connections/…,
+ * Tools' ten tools. Vertical and sticky at `md:` and up, so one category's
+ * content fills the main area instead of the screen being one long scroll of
+ * every category stacked. Below `md` it becomes the same horizontal
+ * scrollable strip `SourceTabs` uses, minus counts: these are destinations,
+ * not populations, so there is nothing to report a size for.
  *
- * `?section=` is real navigation (the `SourcesScreen` `?focus=` contract),
- * not local `useState` — a reload or a shared link lands on the same category
- * instead of always resetting to the first one.
+ * `?section=`/`?tool=` is real navigation (the `SourcesScreen` `?focus=`
+ * contract), not local `useState` — a reload or a shared link lands on the
+ * same category instead of always resetting to the first one. Each screen
+ * owns its own query param name and read/fallback function; this component
+ * only ever sees the resolved `active` id.
  */
-export const SettingsNav = <Id extends string>({ items, active, onSelect }: {
-  items: readonly SettingsNavItem<Id>[];
+export const CategoryNav = <Id extends string>({ items, active, onSelect, ariaLabel }: {
+  items: readonly CategoryNavItem<Id>[];
   active: Id;
   onSelect: (id: Id) => void;
+  ariaLabel: string;
 }) => {
   const itemClass = (selected: boolean) =>
     `flex items-center gap-2.5 rounded-xl text-sm font-bold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring ${
@@ -31,7 +35,7 @@ export const SettingsNav = <Id extends string>({ items, active, onSelect }: {
 
   return (
     <>
-      <nav aria-label="Settings" className="hidden md:flex md:w-52 shrink-0 flex-col gap-1 sticky top-6 self-start">
+      <nav aria-label={ariaLabel} className="hidden md:flex md:w-52 shrink-0 flex-col gap-1 sticky top-6 self-start">
         {items.map(item => (
           <button
             key={item.id}

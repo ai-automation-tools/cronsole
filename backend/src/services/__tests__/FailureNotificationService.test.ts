@@ -183,6 +183,7 @@ describe('notifyRunOutcome', () => {
       enabled: true,
       notifyOnFailure: true,
       notifyOnSuccess: true,
+      taskIds: [],
       config: { url: 'https://hooks.example.com/mine', type: 'generic' as const, headers: {} },
       updatedAt: new Date()
     });
@@ -200,6 +201,7 @@ describe('notifyRunOutcome', () => {
       enabled: true,
       notifyOnFailure: false,
       notifyOnSuccess: true,
+      taskIds: [],
       config: { url: 'https://hooks.example.com/mine', type: 'generic' as const, headers: {} },
       updatedAt: new Date()
     });
@@ -218,6 +220,7 @@ describe('notifyRunOutcome', () => {
       enabled: true,
       notifyOnFailure: true,
       notifyOnSuccess: false,
+      taskIds: [],
       config: {
         // A stale/wrong url must never matter for resend — the real endpoint
         // always wins.
@@ -251,6 +254,7 @@ describe('notifyRunOutcome', () => {
       enabled: true,
       notifyOnFailure: true,
       notifyOnSuccess: false,
+      taskIds: [],
       config: {
         url: 'https://api.resend.com/emails',
         type: 'resend' as const,
@@ -268,11 +272,33 @@ describe('notifyRunOutcome', () => {
     }));
   });
 
+  it('only fires for a task in taskIds, and fires for every task when the list is empty', async () => {
+    mockedGetChannel.mockResolvedValue({
+      enabled: true,
+      notifyOnFailure: true,
+      notifyOnSuccess: false,
+      taskIds: ['some-other-task-id'],
+      config: { url: 'https://hooks.example.com/mine', type: 'generic' as const, headers: {} },
+      updatedAt: new Date()
+    });
+    vi.mocked(axios.request).mockResolvedValue({ status: 204 });
+
+    // `event.task.id` is 'task-1' — not in the scope.
+    const out = await notifyRunOutcome(event);
+    expect(out).toEqual({ sent: false, reason: 'out_of_scope' });
+    expect(axios.request).not.toHaveBeenCalled();
+
+    const inScope = await notifyRunOutcome({ ...event, task: { ...event.task, id: 'some-other-task-id' } });
+    expect(inScope).toEqual({ sent: true });
+    expect(axios.request).toHaveBeenCalledTimes(1);
+  });
+
   it('sends nothing when the channel exists but is disabled, and does not fall back to the env webhook', async () => {
     mockedGetChannel.mockResolvedValue({
       enabled: false,
       notifyOnFailure: true,
       notifyOnSuccess: false,
+      taskIds: [],
       config: { url: 'https://hooks.example.com/mine', type: 'generic' as const, headers: {} },
       updatedAt: new Date()
     });

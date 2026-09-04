@@ -645,6 +645,18 @@ model NotificationChannel {
   notifyOnFailure Boolean  @default(true)
   notifyOnSuccess Boolean  @default(false)
 
+  /// **Empty means every task you own** — the same "absence is a boundary,
+  /// not a filter" rule an empty `tools` array follows on a Gemini trigger.
+  /// Non-empty narrows the channel to just these `Task.id`s ("I only want to
+  /// hear about these one or two"). No FK/cascade on purpose: a stray id left
+  /// behind by a deleted task matches nothing at read time (`event.task.id`
+  /// can never equal it again) and is harmless, the same tolerance
+  /// `RailPin` extends to a target that has disappeared — cheaper than a join
+  /// table for what is typically a handful of ids. The route validates every
+  /// id against this user's own tasks at write time, so a stale id is the
+  /// only kind that can ever land here.
+  taskIds         String[] @default([])
+
   /// AES-256-GCM ciphertext (`iv:tag:payload`) of `{ url, type, headers }`.
   /// Never returned by any route — GET reports `hasHeaders` only, the
   /// `redactPreset` shape one layer up (services/geminiTriggers.ts).

@@ -29,7 +29,6 @@ export const DiagnosticsTool = () => {
   return (
     <>
       <ToolCard
-        id="diagnostics"
         icon={Stethoscope}
         title="System diagnostics"
         titleAdornment={<HelpButton topic="diagnostics" />}

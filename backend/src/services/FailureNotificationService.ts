@@ -23,7 +23,7 @@ export interface FailureNotificationEvent {
 
 export interface FailureNotificationResult {
   sent: boolean;
-  reason?: 'not_configured' | 'delivery_failed' | 'invalid_headers';
+  reason?: 'not_configured' | 'delivery_failed' | 'invalid_headers' | 'out_of_scope';
 }
 
 interface FailureWebhookConfig {
@@ -263,6 +263,14 @@ export async function notifyRunOutcome(event: FailureNotificationEvent): Promise
   const channel = await getNotificationChannel(event.task.userId);
 
   if (channel?.enabled && channel.config) {
+    // Empty `taskIds` means every task — an allowlist by absence, the same
+    // rule an empty Gemini `tools` array follows. Checked before the
+    // success/failure gate so "wrong task" and "wrong outcome" stay two
+    // distinct, debuggable reasons rather than one catch-all.
+    if (channel.taskIds.length > 0 && !channel.taskIds.includes(event.task.id)) {
+      return { sent: false, reason: 'out_of_scope' };
+    }
+
     const wants = event.status === 'SUCCESS' ? channel.notifyOnSuccess : channel.notifyOnFailure;
     if (!wants) return { sent: false, reason: 'not_configured' };
 

@@ -24,6 +24,8 @@ export interface NotificationChannelRow {
   enabled: boolean;
   notifyOnFailure: boolean;
   notifyOnSuccess: boolean;
+  /** Empty = every task you own. Not encrypted — a `Task.id` is not a secret. */
+  taskIds: string[];
   /** Decrypted. Null when nothing has been saved yet. */
   config: NotificationChannelConfig | null;
   updatedAt: Date;
@@ -33,6 +35,7 @@ export interface RedactedNotificationChannel {
   enabled: boolean;
   notifyOnFailure: boolean;
   notifyOnSuccess: boolean;
+  taskIds: string[];
   url: string | null;
   type: NotificationWebhookType | null;
   /** Never the header values themselves — the `redactPreset` shape. */
@@ -46,6 +49,7 @@ const UNCONFIGURED: RedactedNotificationChannel = {
   enabled: false,
   notifyOnFailure: true,
   notifyOnSuccess: false,
+  taskIds: [],
   url: null,
   type: null,
   hasHeaders: false,
@@ -61,6 +65,7 @@ export async function getNotificationChannel(userId: string): Promise<Notificati
     enabled: row.enabled,
     notifyOnFailure: row.notifyOnFailure,
     notifyOnSuccess: row.notifyOnSuccess,
+    taskIds: row.taskIds,
     config: row.config ? (decryptConfig(row.config) as NotificationChannelConfig) : null,
     updatedAt: row.updatedAt
   };
@@ -72,6 +77,7 @@ export function redactChannel(row: NotificationChannelRow | null): RedactedNotif
     enabled: row.enabled,
     notifyOnFailure: row.notifyOnFailure,
     notifyOnSuccess: row.notifyOnSuccess,
+    taskIds: row.taskIds,
     url: row.config?.url ?? null,
     type: row.config?.type ?? null,
     hasHeaders: Object.keys(row.config?.headers ?? {}).length > 0,
@@ -97,6 +103,9 @@ export async function saveNotificationChannel(
     enabled: boolean;
     notifyOnFailure: boolean;
     notifyOnSuccess: boolean;
+    /** Empty (or omitted) = every task you own. The route has already
+     *  verified every id here belongs to this user. */
+    taskIds?: string[];
     url?: string;
     type?: NotificationWebhookType;
     headers?: Record<string, string>;
@@ -118,6 +127,7 @@ export async function saveNotificationChannel(
     enabled: input.enabled,
     notifyOnFailure: input.notifyOnFailure,
     notifyOnSuccess: input.notifyOnSuccess,
+    taskIds: input.taskIds ?? [],
     config: config ? encryptConfig(config) : null
   };
 
@@ -131,6 +141,7 @@ export async function saveNotificationChannel(
     enabled: row.enabled,
     notifyOnFailure: row.notifyOnFailure,
     notifyOnSuccess: row.notifyOnSuccess,
+    taskIds: row.taskIds,
     config,
     updatedAt: row.updatedAt
   };

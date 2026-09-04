@@ -1,7 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { RestoreTool } from '../tools/RestoreTool';
-import { openToolCard } from './helpers/toolCard';
 import { stageRestore } from '../../utils/restoreHandoff';
 import { api } from '../../api';
 
@@ -33,13 +32,8 @@ const planResponse = (overrides: Partial<{
   }
 });
 
-/**
- * Render the card and open it. The body is closed by default and does not mount
- * until the disclosure is clicked, so nothing below exists before this runs.
- */
 const renderTool = () => {
   render(<RestoreTool />);
-  openToolCard('restore');
 };
 
 /** Drop files onto the hidden "choose files" input, the way a picker would. */
@@ -211,7 +205,6 @@ describe('RestoreTool — a file handed over by Import', () => {
   it('takes the handoff exactly once', async () => {
     stageRestore([xmlFile('Nightly.xml')]);
     const first = render(<RestoreTool />);
-    openToolCard('restore');
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     first.unmount();
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { HelpButton } from './HelpButton';
-import { SettingsNav, type SettingsNavItem } from './settings/SettingsNav';
+import { CategoryNav, type CategoryNavItem } from './CategoryNav';
 import { useNotificationChannel, type WebhookType } from '../hooks/useNotificationChannel';
 import {
   Palette,
@@ -91,7 +91,7 @@ type SettingsSection =
   | 'data'
   | 'about';
 
-const SETTINGS_NAV: SettingsNavItem<SettingsSection>[] = [
+const SETTINGS_NAV: CategoryNavItem<SettingsSection>[] = [
   { id: 'account', label: 'Account', Icon: KeyRound },
   { id: 'connections', label: 'Connections', Icon: Plug },
   { id: 'appearance', label: 'Appearance', Icon: Palette },
@@ -378,8 +378,13 @@ const PAYLOAD_SHAPE_OPTIONS: { value: WebhookType; label: string }[] = [
  * `to` / `from` (resend only) are **not** credentials — the API key lives in
  * a header — so they round-trip through GET like `url` does and need no
  * "leave blank to keep" dance.
+ *
+ * **Scope is an allowlist by absence, not a second boolean.** An empty
+ * `taskIds` means every task, so "All tasks" and "Only selected" are one
+ * field read two ways rather than a mode flag that could disagree with it —
+ * there is no way to save "All tasks" while `taskIds` still holds stale ids.
  */
-const WebhookSection = () => {
+const WebhookSection = ({ tasks }: { tasks?: Task[] }) => {
   const { data: channel, isLoading, save } = useNotificationChannel();
   const { toast } = useToast();
 
@@ -391,6 +396,9 @@ const WebhookSection = () => {
   const [notifyOnSuccess, setNotifyOnSuccess] = useState(false);
   const [to, setTo] = useState('');
   const [from, setFrom] = useState('');
+  const [scopeAll, setScopeAll] = useState(true);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [taskFilter, setTaskFilter] = useState('');
 
   // Hydrate local form state once from the server, then leave it to the user
   // — re-syncing on every refetch would wipe an in-progress edit.
@@ -405,11 +413,33 @@ const WebhookSection = () => {
     setNotifyOnSuccess(channel.notifyOnSuccess);
     setTo(channel.to ?? '');
     setFrom(channel.from ?? '');
+    setScopeAll(channel.taskIds.length === 0);
+    setSelectedTaskIds(channel.taskIds);
   }, [channel]);
 
   const isResend = type === 'resend';
 
+  // System tasks (`\Microsoft\…`) are hidden by the same default the
+  // dashboard uses — a picker meant for "just my one or two tasks" drowning
+  // in a few hundred OS-owned rows defeats the point of scoping at all.
+  const pickableTasks = useMemo(
+    () => (tasks ?? []).filter(t => !t.isSystem),
+    [tasks]
+  );
+  const filteredTasks = useMemo(() => {
+    const q = taskFilter.trim().toLowerCase();
+    if (!q) return pickableTasks;
+    return pickableTasks.filter(t => t.name.toLowerCase().includes(q));
+  }, [pickableTasks, taskFilter]);
+
+  const toggleTask = (id: string) =>
+    setSelectedTaskIds(ids => (ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]));
+
   const submit = () => {
+    if (!scopeAll && selectedTaskIds.length === 0) {
+      toast('Pick at least one task, or switch back to All tasks.', 'error');
+      return;
+    }
     let headers: Record<string, string> | undefined;
     if (headersText.trim()) {
       try {
@@ -424,6 +454,7 @@ const WebhookSection = () => {
         enabled,
         notifyOnFailure,
         notifyOnSuccess,
+        taskIds: scopeAll ? [] : selectedTaskIds,
         url: isResend ? RESEND_ENDPOINT : url.trim() || undefined,
         type,
         headers,
@@ -458,6 +489,53 @@ const WebhookSection = () => {
           <Row label="Notify on success">
             <Toggle checked={notifyOnSuccess} onChange={setNotifyOnSuccess} label="Notify on success" />
           </Row>
+          <Row
+            label="Which tasks"
+            description={scopeAll ? 'Every task you own.' : `${selectedTaskIds.length} task${selectedTaskIds.length === 1 ? '' : 's'} selected.`}
+          >
+            <Segmented
+              value={scopeAll ? 'all' : 'selected'}
+              options={[{ value: 'all', label: 'All tasks' }, { value: 'selected', label: 'Only selected' }]}
+              onChange={v => setScopeAll(v === 'all')}
+            />
+          </Row>
+          {!scopeAll && (
+            <div className="px-6 pb-4 -mt-2">
+              <input
+                type="text"
+                value={taskFilter}
+                onChange={e => setTaskFilter(e.target.value)}
+                placeholder="Filter by name…"
+                className="w-full sm:w-80 bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground outline-none focus:border-primary shadow-sm mb-2"
+              />
+              <div className="w-full sm:w-80 max-h-56 overflow-y-auto rounded-xl border border-border bg-background divide-y divide-border/50">
+                {filteredTasks.length === 0 ? (
+                  <div className="px-3 py-4 text-xs text-subtle-foreground italic text-center">
+                    {tasks === undefined
+                      ? 'Loading your tasks…'
+                      : pickableTasks.length === 0
+                        ? 'No tasks to pick from yet.'
+                        : 'No tasks match that filter.'}
+                  </div>
+                ) : (
+                  filteredTasks.map(t => (
+                    <label key={t.id} className="flex items-center gap-2.5 px-3 py-2 text-xs cursor-pointer hover:bg-muted/40">
+                      <input
+                        type="checkbox"
+                        checked={selectedTaskIds.includes(t.id)}
+                        onChange={() => toggleTask(t.id)}
+                        className="shrink-0 accent-primary"
+                      />
+                      <span className="min-w-0 flex-1 truncate font-semibold text-foreground">{t.name}</span>
+                      <span className="shrink-0 text-[10px] uppercase font-bold tracking-wider text-subtle-foreground">
+                        {platformLabel(t.platform)}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
           <Row label="Payload shape">
             <Select value={type} options={PAYLOAD_SHAPE_OPTIONS} onChange={v => setType(v as WebhookType)} />
           </Row>
@@ -753,14 +831,14 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 pb-20 max-w-5xl">
+    <div className="animate-in fade-in duration-500 pb-20 max-w-5xl mx-auto" style={{ zoom: 1.25 }}>
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-1">Settings</h2>
         <p className="text-muted-foreground">Preferences are saved in this browser.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
-        <SettingsNav items={SETTINGS_NAV} active={section} onSelect={selectSection} />
+        <CategoryNav items={SETTINGS_NAV} active={section} onSelect={selectSection} ariaLabel="Settings" />
 
         <div className="flex-1 min-w-0 max-w-3xl space-y-6">
           {section === 'account' && <AccountSection />}
@@ -855,7 +933,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
                 </Row>
               </Section>
 
-              <WebhookSection />
+              <WebhookSection tasks={tasks} />
             </>
           )}
 

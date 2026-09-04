@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ImportTaskTool } from '../tools/ImportTaskTool';
-import { openToolCard } from './helpers/toolCard';
 import { api } from '../../api';
 
 vi.mock('../../api', () => ({
@@ -39,7 +38,6 @@ const renderTool = () => {
       <ImportTaskTool />
     </QueryClientProvider>
   );
-  openToolCard('import-task');
   return result;
 };
 

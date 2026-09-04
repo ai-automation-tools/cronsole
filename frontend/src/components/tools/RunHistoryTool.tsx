@@ -88,7 +88,6 @@ export const RunHistoryTool = () => {
 
   return (
     <ToolCard
-      id="run-history"
       icon={FileSpreadsheet}
       title="Export run history"
       description={<>

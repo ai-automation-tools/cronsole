@@ -565,3 +565,23 @@ body {
   color: hsl(var(--foreground));
   font-feature-settings: "rlig" 1, "calt" 1;
 }
+
+/*
+ * The Settings/Tools/Sources/Templates shell reads "25% bigger" on desktop —
+ * a deliberate call for a screen of dense controls read at arm's length from
+ * a keyboard. `zoom` is not responsive on its own: applied as a plain inline
+ * style it scaled every one of those four screens up on every viewport,
+ * including a phone, where the same controls need *more* width, not less —
+ * the reported "general rendering issues" and a nav strip forced to overflow
+ * or wrap. Below `md` this returns to 1 — the same breakpoint `CategoryNav`
+ * and `SourceTabs` already switch their own layout on, so the shell and its
+ * nav agree on where "desktop" starts rather than each drawing its own line.
+ */
+.desktop-zoom-125 {
+  zoom: 1;
+}
+@media (min-width: 768px) {
+  .desktop-zoom-125 {
+    zoom: 1.25;
+  }
+}

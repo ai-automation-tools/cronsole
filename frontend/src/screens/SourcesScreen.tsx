@@ -117,7 +117,7 @@ export const SourcesScreen = () => {
     // Same shell as ToolsScreen/SettingsScreen: centered column, zoomed 1.25x,
     // a flex row with the nav on the left — the three tabbed screens end
     // their column in the same place and read as one pattern.
-    <div className="animate-in fade-in duration-300 pb-20 max-w-6xl mx-auto" style={{ zoom: 1.25 }}>
+    <div className="animate-in fade-in duration-300 pb-20 max-w-6xl mx-auto desktop-zoom-125">
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">
           Sources

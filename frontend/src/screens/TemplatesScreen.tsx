@@ -791,8 +791,9 @@ export const TemplatesScreen = () => {
 
   return (
     // Same shell as ToolsScreen/SettingsScreen/SourcesScreen: centered column,
-    // zoomed 1.25x, a flex row with the category nav on the left.
-    <div className="animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto" style={{ zoom: 1.25 }}>
+    // zoomed 1.25x at md:+ only (index.css .desktop-zoom-125), a flex row
+    // with the category nav on the left.
+    <div className="animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto desktop-zoom-125">
       <div className="flex justify-between items-end gap-3 flex-wrap mb-6">
         <div>
           <h2 className="text-2xl font-bold mb-1 flex items-center gap-1.5">

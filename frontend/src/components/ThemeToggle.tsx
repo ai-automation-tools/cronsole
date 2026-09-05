@@ -39,8 +39,17 @@ export const ThemeToggle = ({ compact = false }: { compact?: boolean } = {}) => 
         title="Theme"
         className="bg-transparent text-[11px] font-bold text-foreground outline-none cursor-pointer"
       >
+        {/*
+          `color-scheme` on the theme classes (index.css) is not enough on its
+          own: Chromium on Windows draws a <select>'s open list with the native
+          combo-box popup, which several versions ignore `color-scheme` for and
+          render with the OS's light chrome regardless of the page's theme —
+          white popup, near-white --foreground text, invisible. Colouring each
+          <option> directly works around it: Chromium does honour
+          background-color/color set on the option itself.
+        */}
         {OPTIONS.map(({ mode, label }) => (
-          <option key={mode} value={mode}>
+          <option key={mode} value={mode} className="bg-background text-foreground">
             {label}
           </option>
         ))}

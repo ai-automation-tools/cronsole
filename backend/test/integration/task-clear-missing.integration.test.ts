@@ -120,3 +120,78 @@ describe('DELETE /tasks/missing', () => {
     expect(res.body.deleted).toBe(1);
   });
 });
+
+describe('GET /tasks/missing/summary', () => {
+  let owner: Awaited<ReturnType<typeof createUser>>;
+
+  beforeEach(async () => {
+    owner = await createUser('clear-missing-summary@example.com');
+  });
+
+  it('reports 0 across the board when nothing is missing', async () => {
+    await createWindowsTask(owner.user.id, 'Healthy', TaskStatus.ACTIVE);
+
+    const res = await request(app)
+      .get('/api/tasks/missing/summary')
+      .set('Authorization', owner.auth)
+      .expect(200);
+
+    expect(res.body).toEqual({ count: 0, categories: [], favorites: 0, collections: 0, secrets: 0 });
+  });
+
+  it('groups the scope by category and counts what a re-import will not restore', async () => {
+    const gone1 = await createWindowsTask(owner.user.id, 'Vanished-1'); // category: Edge-Radar
+    const gone2 = await createWindowsTask(owner.user.id, 'Vanished-2'); // category: Edge-Radar
+    const otherFolder = await prisma.task.create({
+      data: {
+        userId: owner.user.id,
+        platform: PlatformType.WINDOWS_TASK_SCHEDULER,
+        externalId: '\\Backups\\Nightly',
+        name: 'Nightly',
+        category: 'Backups',
+        status: TaskStatus.MISSING,
+        metadata: { command: 'echo hi' }
+      }
+    });
+
+    await prisma.taskFavorite.create({ data: { userId: owner.user.id, taskId: gone1.id } });
+    const collection = await prisma.taskCollection.create({
+      data: { userId: owner.user.id, name: 'Important' }
+    });
+    await prisma.taskCollectionMember.create({
+      data: { collectionId: collection.id, taskId: gone1.id }
+    });
+    await prisma.taskSecret.create({ data: { taskId: gone2.id, data: 'iv:tag:payload' } });
+
+    const res = await request(app)
+      .get('/api/tasks/missing/summary')
+      .set('Authorization', owner.auth)
+      .expect(200);
+
+    expect(res.body.count).toBe(3);
+    expect(res.body.categories).toEqual(
+      expect.arrayContaining([
+        { category: 'Edge-Radar', count: 2 },
+        { category: 'Backups', count: 1 }
+      ])
+    );
+    expect(res.body.favorites).toBe(1);
+    expect(res.body.collections).toBe(1);
+    expect(res.body.secrets).toBe(1);
+
+    // Never another user's rows.
+    expect(otherFolder.userId).toBe(owner.user.id);
+  });
+
+  it("never counts another user's missing tasks", async () => {
+    const other = await createUser('other-clear-missing-summary@example.com');
+    await createWindowsTask(other.user.id, 'Theirs-Gone');
+
+    const res = await request(app)
+      .get('/api/tasks/missing/summary')
+      .set('Authorization', owner.auth)
+      .expect(200);
+
+    expect(res.body.count).toBe(0);
+  });
+});

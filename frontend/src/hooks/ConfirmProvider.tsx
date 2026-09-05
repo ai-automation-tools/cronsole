@@ -18,12 +18,14 @@ const CONFIRM_BTN: Record<NonNullable<ConfirmOptions['tone']>, string> = {
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [options, setOptions] = useState<ConfirmOptions | null>(null);
+  const [typed, setTyped] = useState('');
   const resolverRef = useRef<((value: boolean) => void) | null>(null);
   // Focus Cancel first so a stray Enter on a destructive dialog doesn't confirm.
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   const confirm = useCallback<ConfirmFn>(options => {
     setOptions(options);
+    setTyped('');
     return new Promise<boolean>(resolve => {
       resolverRef.current = resolve;
     });
@@ -36,6 +38,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   };
 
   const tone = options?.tone ?? 'default';
+  const mustType = options?.requireTypedConfirmation;
+  const canConfirm = !mustType || typed.trim() === mustType;
 
   return (
     <ConfirmContext.Provider value={confirm}>
@@ -71,6 +75,20 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               )}
             </div>
           </div>
+          {mustType && (
+            <div className="mt-4 space-y-2 bg-warning/10 border border-warning/30 rounded-xl p-4">
+              <p className="text-xs text-warning-text font-bold">
+                Type <strong>{mustType}</strong> to confirm.
+              </p>
+              <input
+                value={typed}
+                onChange={e => setTyped(e.target.value)}
+                aria-label={`Type ${mustType} to confirm`}
+                placeholder={`Type ${mustType} here`}
+                className="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+          )}
           <div className="mt-6 flex justify-end gap-3">
             <button
               ref={cancelRef}
@@ -81,7 +99,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             </button>
             <button
               onClick={() => settle(true)}
-              className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${CONFIRM_BTN[tone]}`}
+              disabled={!canConfirm}
+              className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${CONFIRM_BTN[tone]}`}
             >
               {options.confirmText ?? 'Confirm'}
             </button>

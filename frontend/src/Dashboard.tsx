@@ -23,6 +23,7 @@ import { useLiveTaskUpdates } from './hooks/useLiveTaskUpdates';
 import { describeUntracked, describeCoverage, type SyncResponse } from './utils/syncSummary';
 import { stageRestore } from './utils/restoreHandoff';
 import { taskDetailRoute, taskDetailReturn } from './utils/taskRoute';
+import { needsTypedConfirmation } from './utils/massActions';
 
 
 
@@ -194,14 +195,44 @@ const Dashboard = () => {
   // already reported them gone, so there's nothing left to delete out there.
   const clearMissingMutation = useMutation({
     mutationFn: async (count: number) => {
+      const { data: summary } = await api.get('/tasks/missing/summary') as {
+        data: {
+          count: number;
+          categories: Array<{ category: string; count: number }>;
+          favorites: number;
+          collections: number;
+          secrets: number;
+        };
+      };
+
+      // The scope in words — what `254 selected` can't say, and the same
+      // reason the Mass Actions console names a scope instead of a count.
+      const scopeLine = summary.categories.length
+        ? summary.categories.map(c => `"${c.category}" (${c.count})`).join(', ')
+        : 'no folders reported';
+
+      // What a re-import will NOT bring back — everything else on the row
+      // (run history) is already named in the body below.
+      const lost: string[] = [];
+      if (summary.favorites > 0) lost.push(`${summary.favorites} star${summary.favorites === 1 ? '' : 's'}`);
+      if (summary.collections > 0) {
+        lost.push(`${summary.collections} collection membership${summary.collections === 1 ? '' : 's'}`);
+      }
+      if (summary.secrets > 0) lost.push(`${summary.secrets} saved secret${summary.secrets === 1 ? '' : 's'}`);
+
       const ok = await confirm({
         title: `Clear ${count} missing task${count === 1 ? '' : 's'}?`,
         message:
-          `These are tracked in Cronsole but were not found on their platform at the last sync — ` +
-          `usually because you deleted them natively. This removes Cronsole's records and their run ` +
-          `history. Nothing on your machine is touched. If one still exists, the next sync re-imports it.`,
+          `Across ${scopeLine}. These are tracked in Cronsole but were not found on their platform at ` +
+          `the last sync — usually because you deleted them natively. This removes Cronsole's records ` +
+          `and their run history. Nothing on your machine is touched. If one still exists, the next ` +
+          `sync re-imports it.` +
+          (lost.length ? `\n\nNot recoverable by a re-import: ${lost.join(', ')}.` : ''),
         confirmText: `Clear ${count}`,
-        tone: 'danger'
+        tone: 'danger',
+        // Friction scales with blast radius, same threshold the Mass Actions
+        // console uses past 25 tasks.
+        requireTypedConfirmation: needsTypedConfirmation(count) ? String(count) : undefined
       });
       if (!ok) throw new Error('Cancelled');
       const res = await api.delete('/tasks/missing');

@@ -113,29 +113,32 @@ export const SourceTabs = <Id extends string>({ tabs, active, onSelect }: {
         })}
       </div>
 
-      {/* Below md: the same horizontal scrollable strip CategoryNav uses —
-          plain buttons, not a second tablist. Scrolls rather than wraps below
-          375px: a control that reflows onto two rows stops reading as one. */}
-      <div className="md:hidden overflow-x-auto -mx-4 px-4 pb-1">
-        <div className="inline-flex gap-1 p-1 rounded-xl bg-muted/40 border border-border w-max">
-          {tabs.map(tab => {
-            const selected = tab.id === active;
-            return (
-              <button
-                key={`mobile-${tab.id}`}
-                type="button"
-                aria-current={selected ? 'page' : undefined}
-                title={tab.hint}
-                onClick={() => onSelect(tab.id)}
-                className={`${tabClass(selected)} px-3 py-2 text-xs`}
-              >
-                <tab.Icon size={14} className="shrink-0" />
+      {/* Below md: a full-width stacked list, same row shape as the desktop
+          sidebar — plain buttons, not a second tablist (role="tab" stays on
+          the desktop block only, or the accessible name doubles). A
+          horizontal scrollable strip shipped here first (2026-09-05) and cut
+          every tab off mid-item at the screen edge with no affordance
+          hinting there was more to swipe to. */}
+      <div className="md:hidden flex flex-col gap-1 w-full">
+        {tabs.map(tab => {
+          const selected = tab.id === active;
+          return (
+            <button
+              key={`mobile-${tab.id}`}
+              type="button"
+              aria-current={selected ? 'page' : undefined}
+              title={tab.hint}
+              onClick={() => onSelect(tab.id)}
+              className={`${tabClass(selected)} w-full px-3 py-2.5 text-left justify-between`}
+            >
+              <span className="flex items-center gap-2.5">
+                <tab.Icon size={16} className="shrink-0" />
                 {tab.label}
-                <span className={countClass(selected)}>{tab.count}</span>
-              </button>
-            );
-          })}
-        </div>
+              </span>
+              <span className={countClass(selected)}>{tab.count}</span>
+            </button>
+          );
+        })}
       </div>
     </>
   );

@@ -100,7 +100,7 @@ export const ToolsScreen = () => {
     // The same `max-w-6xl` the Sources tab uses. Both screens are a single
     // column of full-width content, so they have to agree on where that
     // column ends — otherwise two tabs of the same app read as two layouts.
-    <div className="animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto" style={{ zoom: 1.25 }}>
+    <div className="animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto desktop-zoom-125">
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-1">Tools</h2>
         <p className="text-muted-foreground">Act on many tasks at once, check task health, diagnose the system itself, see what failed or stalled, try a schedule, back up, import and restore tasks, and connect AI tools.</p>

@@ -831,7 +831,7 @@ export const SettingsScreen = ({ tasks }: { tasks?: Task[] }) => {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 pb-20 max-w-5xl mx-auto" style={{ zoom: 1.25 }}>
+    <div className="animate-in fade-in duration-500 pb-20 max-w-5xl mx-auto desktop-zoom-125">
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-1">Settings</h2>
         <p className="text-muted-foreground">Preferences are saved in this browser.</p>

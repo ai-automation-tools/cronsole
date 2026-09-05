@@ -16,9 +16,13 @@ export interface CategoryNavItem<Id extends string> {
  * A screen's own left-hand category nav — Settings' Account/Connections/…,
  * Tools' ten tools. Vertical and sticky at `md:` and up, so one category's
  * content fills the main area instead of the screen being one long scroll of
- * every category stacked. Below `md` it becomes the same horizontal
- * scrollable strip `SourceTabs` uses, minus counts: these are destinations,
- * not populations, so there is nothing to report a size for.
+ * every category stacked. Below `md` it is still vertical, just not sticky
+ * and not width-constrained: a full-width stacked list, one row per
+ * category. A horizontal scrollable strip shipped here first (2026-09-04)
+ * and cut every row off mid-item at the screen edge with no affordance
+ * hinting there was more to swipe to — indistinguishable from a rendering
+ * bug on a real phone. Every category fits in the normal page scroll
+ * instead, at the cost of more vertical space than a strip would take.
  *
  * `?section=`/`?tool=` is real navigation (the `SourcesScreen` `?focus=`
  * contract), not local `useState` — a reload or a shared link lands on the
@@ -65,25 +69,26 @@ export const CategoryNav = <Id extends string>({ items, active, onSelect, ariaLa
         ))}
       </nav>
 
-      {/* Scrolls rather than wraps below 375px — a control that reflows onto
-          two rows stops reading as one control (the SourceTabs rule). */}
-      <div className="md:hidden overflow-x-auto -mx-4 px-4 pb-1">
-        <div className="inline-flex gap-1 p-1 rounded-xl bg-muted/40 border border-border w-max">
-          {items.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              aria-current={item.id === active ? 'page' : undefined}
-              title={item.hint}
-              onClick={() => onSelect(item.id)}
-              className={`${itemClass(item.id === active)} px-3 py-2 whitespace-nowrap text-xs`}
-            >
-              <item.Icon size={14} className="shrink-0" />
+      {/* Below md: a full-width stacked list, same row shape as the desktop
+          sidebar minus the sticky/width constraints — every category sits in
+          the page's own scroll rather than behind an off-screen swipe. */}
+      <div className="md:hidden flex flex-col gap-1 w-full">
+        {items.map(item => (
+          <button
+            key={item.id}
+            type="button"
+            aria-current={item.id === active ? 'page' : undefined}
+            title={item.hint}
+            onClick={() => onSelect(item.id)}
+            className={`${itemClass(item.id === active)} w-full px-3 py-2.5 text-left justify-between`}
+          >
+            <span className="flex items-center gap-2.5">
+              <item.Icon size={16} className="shrink-0" />
               {item.label}
-              {item.count !== undefined && <span className={countClass(item.id === active)}>{item.count}</span>}
-            </button>
-          ))}
-        </div>
+            </span>
+            {item.count !== undefined && <span className={countClass(item.id === active)}>{item.count}</span>}
+          </button>
+        ))}
       </div>
     </>
   );

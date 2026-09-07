@@ -511,27 +511,6 @@ see [Part II](#completed--p1-correctness--honesty).
       subtrees is structurally different from scattered attrition**, and the difference is
       computable. See [troubleshooting #74](troubleshooting/README.md#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy).
 
-- [ ] **`Clear N missing` states its scope in words, and its friction scales** *(logged
-      2026-08-23, same incident)*. `DELETE /api/tasks/missing` makes **no platform call** — it drops
-      Cronsole's rows and their `ExecutionLog`, writes no `TaskExclusion`, and the next sync
-      re-imports everything as **new rows**. So the machine is never at risk and the headline damage
-      is nil. What does **not** come back is everything hanging off the old row id: stars
-      (`TaskFavorite`), collection membership, `TaskSecret`, run history, and any rename or custom
-      category — silently, and only for the tasks a user cared enough about to have annotated.
-      The route's own comment states the premise that fails: *"MISSING means the platform already
-      reported the task gone, so there is nothing left to remove and no confirmation to obtain."*
-      The platform reported nothing; a blinded agent did. **A control may not derive its own
-      safety from a status whose trustworthiness it cannot check.**
-      So: name the scope in words rather than as a bare count (*"89 tasks across
-      `\Microsoft\Windows\UpdateOrchestrator`, `\TPM`, … "*), apply the
-      `TYPE_TO_CONFIRM_THRESHOLD` rule the Mass Actions console already earns past 25, and **say
-      what is lost that a re-import will not restore** — the count of stars, collection memberships
-      and secrets about to be dropped, which is the only part that is not recoverable. Everything
-      needed to compute that is already on the row.
-      *(The route is otherwise written defensively and should stay that way — its guard against a
-      stale Prisma client making `TaskStatus.MISSING` undefined, which would widen the `where` to
-      every task the user owns, is exactly right.)*
-
 - [ ] **The E2E suite writes real rows into live data** *(logged 2026-08-23)*. A run leaves
       `\E2E\Mock Nightly Backup` tracked against the developer's own account, which then goes
       MISSING when the mock agent disconnects and sits on the dashboard forever. Same family as
@@ -1762,6 +1741,18 @@ verification pass — is still open above, narrowed to the half that needs a tok
 
 ## Completed — P1 Correctness & honesty
 
+- [x] **`Clear N missing` states its scope in words, and its friction scales** *(2026-09-04,
+      logged 2026-08-23)*. New `GET /api/tasks/missing/summary` groups the MISSING rows by category
+      and counts favorites, collection memberships and secrets across them — everything a re-import
+      does **not** restore, since it creates a new row rather than reattaching history. The dashboard
+      reads it before the confirm dialog opens: the scope now reads *"Across "Backups" (45), "TPM"
+      (32), …"* instead of a bare count, and the count of what's non-recoverable is stated in the
+      same message. Past `TYPE_TO_CONFIRM_THRESHOLD` (25) the dialog requires the count to be typed,
+      via a new generic `requireTypedConfirmation` option on `useConfirm`/`ConfirmProvider` rather
+      than a second bespoke modal — it reuses the Mass Actions console's existing threshold and
+      `needsTypedConfirmation` rather than re-deriving one. The route's own comment, previously
+      stating the "no confirmation to obtain" premise the roadmap item names as false, now says what
+      obtains it and where.
 - [x] **`get_task_health` summarized a different population than it listed** — `tier`,
       `includeSystem` and `limit` moved into the route, `counts` taken after the system lens but
       before the tier filter, and the response carries its `scope` *(2026-08-13,

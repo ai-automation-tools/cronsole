@@ -1402,6 +1402,42 @@ router.get('/discover', async (req: Request, res: Response) => {
   res.json(discovery);
 });
 
+// Preview for the confirmation dialog above `DELETE /missing`: the scope in
+// words (by category, since that's the Windows folder a user actually reasons
+// in) and the counts that a re-import will NOT bring back — stars, collection
+// membership and secrets all cascade with the row. Read-only; everything it
+// reports comes off the same MISSING rows the delete below will remove.
+router.get('/missing/summary', async (req: Request, res: Response) => {
+  const userId = (req as AuthRequest).user!.id;
+
+  const missing = await prisma.task.findMany({
+    where: { userId, status: TaskStatus.MISSING },
+    select: { id: true, category: true }
+  });
+
+  if (missing.length === 0) {
+    res.json({ count: 0, categories: [], favorites: 0, collections: 0, secrets: 0 });
+    return;
+  }
+
+  const ids = missing.map(t => t.id);
+  const byCategory = new Map<string, number>();
+  for (const t of missing) {
+    byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + 1);
+  }
+  const categories = [...byCategory.entries()]
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const [favorites, collections, secrets] = await Promise.all([
+    prisma.taskFavorite.count({ where: { taskId: { in: ids } } }),
+    prisma.taskCollectionMember.count({ where: { taskId: { in: ids } } }),
+    prisma.taskSecret.count({ where: { taskId: { in: ids } } })
+  ]);
+
+  res.json({ count: ids.length, categories, favorites, collections, secrets });
+});
+
 // Bulk-remove every task the last sync found absent from its platform.
 //
 // MUST stay above `DELETE /:id` — Express matches in declaration order, so the
@@ -1410,10 +1446,14 @@ router.get('/discover', async (req: Request, res: Response) => {
 //
 // Unlike the single delete below this deliberately does NOT ask the platform to
 // delete anything: MISSING means the platform already reported the task gone, so
-// there is nothing left to remove and no confirmation to obtain. It only drops
-// Cronsole's own rows (and their logs). Benign in the race where a task came back
-// but no sync has run yet: the row is deleted, then the next sync re-imports it,
-// because reconciliation is what set MISSING in the first place.
+// there is nothing left to remove *there*. It only drops Cronsole's own rows
+// (and their logs) — which is exactly what the frontend's confirmation dialog
+// has to obtain first, since a re-import creates a new row and everything keyed
+// on the old row's id (stars, collection membership, secrets) does not come
+// back with it. See `GET /missing/summary` above, which is what that dialog
+// reads. Benign in the race where a task came back but no sync has run yet: the
+// row is deleted, then the next sync re-imports it, because reconciliation is
+// what set MISSING in the first place.
 router.delete('/missing', async (req: Request, res: Response) => {
   const userId = (req as AuthRequest).user!.id;
 

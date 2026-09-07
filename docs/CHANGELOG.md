@@ -12,6 +12,27 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Changed
+
+- **`Clear N Missing` now states its scope in words, names what a re-import won't restore, and
+  costs a typed count past 25** (2026-09-04, ROADMAP P1). The confirmation used to say only a bare
+  count — the same dialog for 3 tasks and 254 — and never mentioned that the stars, collection
+  memberships and saved secrets hanging off a MISSING row are not covered by "the next sync
+  re-imports it": a re-import creates a **new** row, and everything keyed on the old row's id is
+  gone with it.
+
+  New read-only `GET /api/tasks/missing/summary` (`routes/tasks.ts`) groups the MISSING rows by
+  category — *"Across "Backups" (45), "TPM" (32), …"* — and counts favorites, collection
+  memberships and secrets across them, all indexed lookups on the same id list `DELETE /missing`
+  already computes. The dashboard fetches it right before the confirm dialog opens and folds both
+  into the message.
+
+  The typed-confirmation gate itself is new on `useConfirm`/`ConfirmProvider`
+  (`requireTypedConfirmation`) rather than a second bespoke modal — the Mass Actions console's
+  `TYPE_TO_CONFIRM_THRESHOLD` / `needsTypedConfirmation` (`utils/massActions.ts`) already existed
+  for exactly this friction-scales-with-blast-radius rule; this reuses them instead of re-deriving
+  the threshold for a second dialog.
+
 ### Security
 - **`req.user` is resolved from the database, not from the token's claims** (2026-08-28). Closes the
   last open **P0** item.

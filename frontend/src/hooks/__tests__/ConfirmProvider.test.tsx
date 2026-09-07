@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ConfirmProvider } from '../ConfirmProvider';
 import { useConfirm } from '../useConfirm';
 
-function Consumer() {
+function Consumer({ requireTypedConfirmation }: { requireTypedConfirmation?: string } = {}) {
   const confirm = useConfirm();
   const [result, setResult] = useState('none');
   return (
@@ -17,7 +17,8 @@ function Consumer() {
                 title: 'Delete task?',
                 message: 'Are you sure?',
                 confirmText: 'Delete',
-                tone: 'danger'
+                tone: 'danger',
+                requireTypedConfirmation
               })
             )
           )
@@ -30,10 +31,10 @@ function Consumer() {
   );
 }
 
-const setup = () =>
+const setup = (requireTypedConfirmation?: string) =>
   render(
     <ConfirmProvider>
-      <Consumer />
+      <Consumer requireTypedConfirmation={requireTypedConfirmation} />
     </ConfirmProvider>
   );
 
@@ -89,5 +90,23 @@ describe('ConfirmProvider / useConfirm', () => {
 
     await waitFor(() => expect(screen.getByTestId('result')).toHaveTextContent('false'));
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('disables the confirm button until the required text is typed', async () => {
+    setup('89');
+    fireEvent.click(screen.getByText('ask'));
+    await screen.findByRole('alertdialog');
+
+    const confirmBtn = screen.getByRole('button', { name: 'Delete' });
+    expect(confirmBtn).toBeDisabled();
+
+    fireEvent.click(confirmBtn);
+    expect(screen.getByTestId('result')).toHaveTextContent('none');
+
+    fireEvent.change(screen.getByLabelText('Type 89 to confirm'), { target: { value: '89' } });
+    expect(confirmBtn).toBeEnabled();
+
+    fireEvent.click(confirmBtn);
+    await waitFor(() => expect(screen.getByTestId('result')).toHaveTextContent('true'));
   });
 });

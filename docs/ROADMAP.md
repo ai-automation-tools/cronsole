@@ -666,6 +666,15 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
       (today a failed send is only a `console.warn`); and a rate limit or digest mode for a
       flapping task, which could otherwise fire a request per run.
 - [ ] **Settings agent-pairing panel** *(deferred)*: waits on the per-user pairing-code flow.
+      **Concrete gap found 2026-09-07**: this is also why the Sources tab has no disconnect/remove
+      control for `WINDOWS_TASK_SCHEDULER` (and will not for a future macOS/launchd agent either) —
+      unlike GitHub/Vercel/Gemini, an agent-paired platform has no `PlatformConnection` row to
+      delete. Today `AGENT_PAIRING_SECRET` is one shared env var (`ws/agentAuth.ts`) mapping every
+      authenticated agent to a hardcoded placeholder user, so there is no per-agent row to revoke —
+      only a global secret rotation, which evicts every paired agent at once. Real per-agent
+      "remove this source" needs the per-user pairing model this bullet already waits on: an
+      `AgentPairing`-shaped row keyed by agent identity, a route to disable one row, then the
+      Sources-tab control.
 - [ ] **Tools tab — further candidate tools** *(candidates only, none scheduled)*: scheduled
       automatic backups (backend writes, not the elevated agent) · snapshot diff ("what changed
       since your last backup"). Rule for the tab: everything on it must be genuinely cross-cutting,

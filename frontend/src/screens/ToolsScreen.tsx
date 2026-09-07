@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
   Layers,
@@ -91,10 +91,19 @@ export const ToolsScreen = () => {
   const selectTool = (next: ToolId) =>
     navigate({ pathname: '/tools', search: `?tool=${next}` }, { replace: true });
 
+  // "Storing information from previous renders" (React docs) rather than an
+  // effect: an effect here would setState unconditionally on every commit,
+  // which is exactly what triggers the cascading extra render the
+  // react-hooks/set-state-in-effect rule flags. Comparing against a tracked
+  // previous value and adjusting state during render, guarded so it only
+  // fires the render where activeTool actually changed, needs no effect at
+  // all for a value that is purely a function of the route.
   const [visited, setVisited] = useState<Set<ToolId>>(() => new Set([activeTool]));
-  useEffect(() => {
+  const [prevActiveTool, setPrevActiveTool] = useState(activeTool);
+  if (activeTool !== prevActiveTool) {
+    setPrevActiveTool(activeTool);
     setVisited(prev => (prev.has(activeTool) ? prev : new Set(prev).add(activeTool)));
-  }, [activeTool]);
+  }
 
   return (
     // The same `max-w-6xl` the Sources tab uses. Both screens are a single

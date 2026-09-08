@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 88 | A **sidebar source you hid earlier the same day is back**, with no error and no toast — toggling it off again visibly works, every time you watch it happen | **A local edit made while a preferences read was already in flight got silently overwritten by that read's stale answer.** `hydrate()` trusted whatever the GET returned even when `current` had moved on since the read started, so a toggle applied before the round trip finished lost to the fact the round trip actually answered. Fixed 2026-09-07: `hydrate()` now checks whether `current` changed while it was awaiting the read, and pushes the newer local edit instead of adopting the stale one | [→](#88-a-sidebar-source-you-hid-earlier-the-same-day-is-back-with-nothing-that-says-why) |
 | 86 | **`Stop-ScheduledTask` on a `\Cronsole-Stack\` task returns success and stops nothing** — the process it started keeps running, and `Start-ScheduledTask` does not bring it back either | **The task is not the process.** Every launcher task runs `wscript.exe` → `run-hidden.vbs`, which is fire-and-forget (`WScript.Shell.Run(cmd, 0, False)`), so the instance exits in under a second while what it launched runs on unparented. The task reads `Ready` while the agent holds a pid. Restarting is a property of the **script**, not the task: use `CronsoleRestart` (`cronsole.ps1 restart`), and never read a task's exit code as a statement about the stack | [→](#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing) |
 | 87 | **Applying a template answers `500` over a message that names its own fix** — e.g. *"No saved MCP server called X. Saved servers: resend."* | The `refusedBeforeCalling` split shipped on `POST /api/tasks` and **not** on `POST /api/templates/:id/apply`, so a refusal the connector reached *without contacting the platform* arrived in the register of "the platform is down". A `500` tells the caller to retry, and retrying an identical bad request never helps. Both routes now read `result.refusedBeforeCalling` beside `verbDeclaredUnsupported`. **The general lesson: when a connector gains a new answer, grep every route that calls `createTask`, not the one the ticket names** | [→](#87-applying-a-template-answers-500-over-a-message-that-names-its-own-fix) |
 | 74 | **Dozens of Windows tasks flip to MISSING in one sync**, and the dashboard offers to *Clear 89 missing*. The agent is connected and reads **HEALTHY**; nothing errored; the tasks are plainly still in Task Scheduler | **The agent is running unelevated and cannot see them.** `\Microsoft\Windows\UpdateOrchestrator\`, `\TPM\`, `\Pluton\`, `\WindowsUpdate\`, `\License Manager\`, `\DeviceDirectoryClient\` and friends are ACL'd against non-elevated readers, so an agent started by hand from a normal shell enumerates a smaller machine and `reconcileMissingTasks` faithfully marks the difference. **The tell is the shape**: whole subtrees vanish at once rather than scattered tasks, and they are exactly the protected ones. Compare `(Get-ScheduledTask).Count` elevated vs unelevated — if they differ, that is your answer. Restart the agent elevated — `Start-ScheduledTask -TaskPath '\Cronsole-Stack\' -TaskName 'CronsoleRestart'` — then Sync; MISSING self-heals | [→](#74-dozens-of-windows-tasks-go-missing-in-one-sync-and-the-agent-is-healthy) |
@@ -5919,6 +5920,51 @@ shape: the line that knew the rule was the line that broke it.
 > `createTask` and the ticket only ever named one.
 
 *First hit: 2026-08-31.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 88. A sidebar source you hid earlier the same day is back, with nothing that says why
+
+**Symptom.** You turn off a source's *In sidebar* switch — it disappears, you move on. Later the
+same session, or the next time you open the dashboard, it is back. No error, no toast, nothing in
+the network log complaining. Toggling it off again works, in front of you, every time you watch it
+happen.
+
+**Cause.** Preferences sync as one whole document (`UserPreference`, troubleshooting
+[#72](#72-the-sidebar-is-half-empty-at-a-second-address)) and a write is gated on having completed
+a read first (`pushEnabled` in `useSettings.ts`) — the safety property that stops a browser that
+has never synced from flattening an account's real preferences with its own defaults. That gate has
+a hole: it says nothing about an edit that lands **while a read is already in flight**, or right
+after `schedulePush` retries a read instead of the write it declined to send
+([`useSettings.test.ts`](../../frontend/src/hooks/__tests__/useSettings.test.ts) already asserted
+that retry-a-read behavior without ever checking what happens to the edit once that retried read
+lands). Toggling a source updates `current` and localStorage immediately — the UI is not lying to
+you — but the read in flight was launched *before* your click and answers with the *old* document.
+`hydrate()` used to trust that answer unconditionally: `applyRemote` overwrote `current`, including
+the edit that had not been pushed yet, with no warning anywhere. The edit local to a browser that
+had chosen something real was discarded by a fact from before that choice was made.
+
+**The tell.** It reads as "did that even save?" rather than as an error, because nothing fails —
+the toggle works, then a read that was already in progress silently un-does it a few hundred
+milliseconds to a few seconds later. Reproduced by mocking a delayed `GET /api/preferences` and
+calling `setSetting` before it resolves
+(`frontend/src/hooks/__tests__/useSettings.test.ts` › *"keeps an edit made while the initial hydrate
+is still in flight"*).
+
+**Fixed 2026-09-07.** `hydrate()` snapshots `current` before awaiting the read; if `current` has
+moved on by the time the read answers, that is a newer local edit and it is pushed instead of being
+clobbered by the stale answer. The whole-document, most-recent-edit-wins model (#72's caution) is
+unchanged — this only fixes *which* edit actually was the most recent, since network completion
+order and wall-clock edit order are not the same thing.
+
+> **The reusable rule.** A gate built to protect against one direction of clobber (an empty browser
+> overwriting a real account) can still allow the other direction (a real edit overwritten by a
+> read that started before it) unless the code checks for it explicitly. "We already have a test
+> for the retry" is not the same claim as "we have a test for what the retry does to the edit."
+
+*First hit: 2026-09-07.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

@@ -172,6 +172,43 @@ describe('useSettings account sync', () => {
       expect(mod.getSettings().railPins).toEqual([]);
       expect(put).not.toHaveBeenCalled();
     });
+
+    /**
+     * The clobber a burst timing window used to allow: an edit lands in the
+     * gap between page load and the first hydrate's GET resolving. The old
+     * code let `applyRemote` win unconditionally, silently reverting a toggle
+     * that had already rendered as applied — with nothing on screen to say so.
+     * A newer local edit must win over an in-flight read that started before it.
+     */
+    it('keeps an edit made while the initial hydrate is still in flight, rather than reverting it', async () => {
+      vi.resetModules();
+      const apiMod = await import('../../api');
+
+      let resolveGet!: (value: { data: { data: Partial<Settings> | null } }) => void;
+      const pending = new Promise<{ data: { data: Partial<Settings> | null } }>(resolve => {
+        resolveGet = resolve;
+      });
+      const get = vi.spyOn(apiMod.api, 'get').mockReturnValue(pending as never);
+      const put = vi.spyOn(apiMod.api, 'put').mockResolvedValue({ data: {} });
+      apiMod.setAuthToken('test-session-token');
+
+      const mod = await import('../useSettings');
+      stop = mod.startSettingsSync();
+      expect(get).toHaveBeenCalledTimes(1);
+
+      // The edit happens before the read answers — it is the newer fact.
+      mod.setSetting('railCollapsed', true);
+
+      // The read finally answers, with a value that predates the edit above.
+      resolveGet({ data: { railCollapsed: false } });
+      await vi.waitFor(() => expect(mod.getSettingsSyncStatus()).toBe('synced'));
+
+      expect(mod.getSettings().railCollapsed).toBe(true);
+      await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+      expect((put.mock.calls[0]![1] as { data: Settings }).data).toMatchObject({
+        railCollapsed: true
+      });
+    }, 10000);
   });
 
   describe('push', () => {

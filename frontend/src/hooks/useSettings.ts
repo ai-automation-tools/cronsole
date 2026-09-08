@@ -334,11 +334,31 @@ async function push(value: Settings): Promise<void> {
  * adopted wholesale; *no* stored blob with local changes seeds the account; and
  * no stored blob with untouched defaults does nothing at all, leaving the
  * account never-stored so the next device with real preferences can seed it.
+ *
+ * **A local edit made while this read is in flight must win, never be silently
+ * discarded.** `persist()` can run at any time — including in the gap between
+ * page load and the first successful hydrate, or right after `schedulePush`
+ * retries a read instead of a declined write. Without the check below, that
+ * edit sits in `current` until this GET resolves and then `applyRemote`
+ * overwrites it with the answer to a question asked *before* the edit
+ * happened — a toggle that visibly worked, then reverted itself a moment
+ * later with nothing on screen to explain why. `current` is reassigned by
+ * reference on every `persist()`, so comparing the reference is enough to
+ * detect this without a timestamp.
  */
 async function hydrate(): Promise<void> {
   setStatus('syncing');
+  const before = current;
   try {
     const { data } = await api.get<{ data: Partial<Settings> | null }>(SYNC_PATH);
+    if (current !== before) {
+      // The local edit is strictly newer than what this read answered — push
+      // it rather than adopt a now-stale remote copy over it.
+      pushEnabled = true;
+      schedulePush();
+      setStatus('synced');
+      return;
+    }
     if (data?.data) {
       applyRemote(data.data);
     } else if (!isDefaultSettings(current)) {

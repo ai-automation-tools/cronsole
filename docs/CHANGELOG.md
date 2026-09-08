@@ -12,6 +12,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Fixed
+
+- **A preference edit made while the initial sync read is still in flight no longer gets silently
+  reverted** (2026-09-07, troubleshooting #88). Toggling a source out of the sidebar (or any other
+  preference) right after page load — or right after `schedulePush` retries a read instead of a
+  declined write — could be overwritten a moment later when that in-flight read resolved with the
+  old document: `hydrate()` trusted the answer unconditionally even when the local copy had already
+  moved on. The toggle visibly worked, then reverted itself with nothing on screen to explain why.
+  `hydrate()` now snapshots the local state before awaiting the read and pushes the newer local
+  edit instead of adopting a now-stale remote one when they disagree.
+
 ### Changed
 
 - **Sources tab cards collapse to just their header by default** (2026-09-07). `ConnectedSourceCard`

@@ -122,6 +122,7 @@ describe('SourcesScreen', () => {
   it('tells an unconnected source what would actually connect it', async () => {
     renderScreen('?focus=available');
     const pending = await screen.findByTestId('pending-source-TASKHUB_NATIVE');
+    fireEvent.click(within(pending).getByRole('button', { name: /show details/i }));
 
     // Cronsole-native has nothing to fill in, so it gets the sentence and no
     // button — a Connect control that cannot connect anything is worse.
@@ -135,6 +136,7 @@ describe('SourcesScreen', () => {
     fireEvent.click(within(offer).getByRole('button', { name: /add to sidebar/i }));
 
     const pending = screen.getByTestId('pending-source-GITHUB_ACTIONS');
+    fireEvent.click(within(pending).getByRole('button', { name: /show details/i }));
     const setUp = within(pending).getByRole('button', { name: /set up github actions/i });
 
     fireEvent.click(setUp);
@@ -194,7 +196,7 @@ describe('SourcesScreen', () => {
     // Visible without expanding anything: collapsing a card is a density
     // decision and must never make the screen quieter when something is wrong.
     expect(within(card).getByText(/did not answer/i)).toBeInTheDocument();
-    expect(within(card).getByRole('button', { name: /capabilities and evidence/i }))
+    expect(within(card).getByRole('button', { name: /show details/i }))
       .toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -202,7 +204,7 @@ describe('SourcesScreen', () => {
     renderScreen();
     const card = await screen.findByTestId('platform-row-WINDOWS_TASK_SCHEDULER');
 
-    fireEvent.click(within(card).getByRole('button', { name: /capabilities and evidence/i }));
+    fireEvent.click(within(card).getByRole('button', { name: /show details/i }));
 
     expect(within(card).getByRole('columnheader', { name: /last failure/i })).toBeInTheDocument();
   });

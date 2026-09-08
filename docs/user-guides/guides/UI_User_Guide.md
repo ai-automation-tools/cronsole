@@ -1072,18 +1072,18 @@ nav reads *connected*, the eye switch on each card reads *listed*.
 
 ### Connected
 
-Each connected source gets a card with its identity glyph, its health, whether it is a
-**controller** or an **observer**, and four figures: tracked tasks, last real sync, last verified,
-and how many of its verbs are verified.
-
-**Capabilities and evidence** expands the card into the per-verb detail — ten chips (Sync, List
-folders, Run now, Create, Enable/disable, Edit schedule, Edit action, Export, Restore, Delete) and
-a table giving each verb's state, when it last succeeded, and when it last failed and why. The
-disclosure says how many verbs are verified and how many are unproven before you open it.
+Each connected source collapses to just its header by default — identity glyph, name, whether it
+is a **controller** or an **observer**, its health pill, and its one-line summary. **Show details**
+expands the card into everything else at once: the four figures (tracked tasks, last real sync,
+last verified, how many verbs are verified), the platform's own setup panel where it has one, and
+the per-verb evidence — ten chips (Sync, List folders, Run now, Create, Enable/disable, Edit
+schedule, Edit action, Export, Restore, Delete) and a table giving each verb's state, when it last
+succeeded, and when it last failed and why. The toggle says how many verbs are verified and how
+many are unproven before you open it.
 
 **Nothing about a problem is behind that disclosure.** A degraded reason, and any verb that failed
-more recently than it succeeded, are shown on the card itself — collapsing a card makes it shorter,
-never quieter.
+more recently than it succeeded, are shown on the card itself even collapsed — collapsing a card
+makes it shorter, never quieter.
 
 **The three states, and why the middle one exists:**
 
@@ -1107,8 +1107,9 @@ switch says so rather than going missing.
 Everything Cronsole can connect to that is **not connected**, in two groups.
 
 **Added to your sidebar** comes first, because it is the group with something to do: sources you
-asked for that have nothing behind them yet. Each says what would actually connect it, and the
-answer takes one of two shapes:
+asked for that have nothing behind them yet. Each also collapses to just its header — glyph, name,
+"Not connected" pill — with a **Show details** toggle that reveals what would actually connect it.
+The answer takes one of two shapes:
 
 - **Something to fill in** — Claude Code, GitHub Actions, Vercel Cron and Gemini API Triggers are
   registered by hand, so **Set up** opens that panel in place.

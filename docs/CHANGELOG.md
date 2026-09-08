@@ -14,6 +14,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Sources tab cards collapse to just their header by default** (2026-09-07). `ConnectedSourceCard`
+  and `PendingSourceCard` used to always render the four-stat grid (or the setup hint/button) below
+  the identity row, so a screen with several sources read as a stack of paragraphs before you had
+  opened anything. Both now show only the glyph, name, badges, health pill and one-line summary up
+  front, with a single **Show details** toggle revealing the stats, the platform's hand-composed
+  panel, the capability chips/table, and the doc link together. A degraded reason and any verb that
+  failed more recently than it succeeded still break out above the toggle, uncollapsed — collapsing
+  a card must never make it quieter exactly when something is wrong.
+
 - **`Clear N Missing` now states its scope in words, names what a re-import won't restore, and
   costs a typed count past 25** (2026-09-04, ROADMAP P1). The confirmation used to say only a bare
   count — the same dialog for 3 tasks and 254 — and never mentioned that the stars, collection

@@ -26,11 +26,15 @@ import { SourceDocLink } from './SourceDocLink';
 /**
  * A source you added to your sidebar that has nothing connected behind it.
  *
- * **The state this redesign exists for.** It used to render a full capability
- * matrix with the words "Not connected" in the corner, which names the problem
- * and offers nothing to do about it. Now the card leads with the one sentence
- * that says what would actually connect it, and then splits on a real
- * difference rather than on copy:
+ * **Just the header by default** (2026-09-07). The setup hint, the *Set up*
+ * button, the hand-composed panel and the doc link all sit behind a single
+ * "Show details" disclosure — the same pattern `ConnectedSourceCard` uses —
+ * so a row of added-but-unconnected sources reads as a list of names rather
+ * than a stack of "what now?" paragraphs. The status pill still says "Not
+ * connected" up front; expanding is what tells you what to do about it.
+ *
+ * Inside the disclosure the card still splits on a real difference rather
+ * than on copy:
  *
  *  - **Composed by hand** (Claude, GitHub) — there is something to fill in, so
  *    *Set up* opens that panel right here.
@@ -45,8 +49,10 @@ export const PendingSourceCard = ({ row, shownSources, onToggleShown }: {
   onToggleShown: (platform: string) => void;
 }) => {
   const setup = sourceSetupHint(row.platform);
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   const panelId = useId();
+  const setupPanelId = useId();
   const visibility = sourceVisibility(row, shownSources);
 
   return (
@@ -54,7 +60,7 @@ export const PendingSourceCard = ({ row, shownSources, onToggleShown }: {
       data-testid={`pending-source-${row.platform}`}
       className="bg-surface border border-border rounded-2xl overflow-hidden"
     >
-      <div className="p-5 space-y-4">
+      <div className="p-5">
         <div className="flex items-start gap-3.5 flex-wrap sm:flex-nowrap">
           <SourceTile platform={row.platform} />
 
@@ -68,54 +74,74 @@ export const PendingSourceCard = ({ row, shownSources, onToggleShown }: {
             <SidebarToggle row={row} visibility={visibility} onToggle={() => onToggleShown(row.platform)} />
           </div>
         </div>
-
-        <div className="flex items-start gap-2.5 text-[11px] text-muted-foreground bg-raised border border-border rounded-xl px-3 py-2.5 leading-relaxed">
-          <Info size={13} className="shrink-0 mt-0.5 text-subtle-foreground" />
-          <p>{setup.hint}</p>
-        </div>
-
-        {setup.hasPanel && !open && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-expanded={false}
-            aria-controls={panelId}
-            className="bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-lg shadow-primary/20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-          >
-            Set up {row.label}
-          </button>
-        )}
-
-        {/*
-          Below the setup control rather than beside it. Reading how a source
-          works is what you do BEFORE connecting it — this is the card that says
-          "you have added this and not set it up yet", so the guide is the more
-          useful of the two things on offer more often than you would think.
-        */}
-        <SourceDocLink platform={row.platform} label={row.label} />
       </div>
 
-      {setup.hasPanel && open && (
-        <div id={panelId}>
-          {/*
-            The same panels the connected card holds, so setting a source up and
-            maintaining it later are the same surface rather than two that drift.
-          */}
-          {row.platform === 'CLAUDE_CODE' && <ClaudeRoutinesPanel />}
-          {row.platform === 'GITHUB_ACTIONS' && <GitHubReposPanel />}
-          {row.platform === 'VERCEL_CRON' && <VercelProjectsPanel />}
-          {row.platform === 'GEMINI_TRIGGERS' && <GeminiTriggersPanel />}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="w-full border-t border-border px-5 py-3 text-[11px] font-bold text-subtle-foreground hover:text-foreground hover:bg-raised/60 flex items-center gap-2 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      >
+        <ChevronDown
+          size={13}
+          className={`shrink-0 transition-transform duration-200 ${expanded ? 'rotate-0' : '-rotate-90'}`}
+        />
+        {expanded ? 'Hide details' : 'Show details'}
+      </button>
 
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-expanded
-            aria-controls={panelId}
-            className="w-full border-t border-border px-5 py-2.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground hover:bg-raised/60 flex items-center gap-1.5 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-          >
-            <ChevronDown size={12} className="shrink-0" />
-            Close setup
-          </button>
+      {expanded && (
+        <div id={panelId} className="border-t border-border animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="p-5 space-y-4">
+            <div className="flex items-start gap-2.5 text-[11px] text-muted-foreground bg-raised border border-border rounded-xl px-3 py-2.5 leading-relaxed">
+              <Info size={13} className="shrink-0 mt-0.5 text-subtle-foreground" />
+              <p>{setup.hint}</p>
+            </div>
+
+            {setup.hasPanel && !setupOpen && (
+              <button
+                type="button"
+                onClick={() => setSetupOpen(true)}
+                aria-expanded={false}
+                aria-controls={setupPanelId}
+                className="bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-150 active:scale-[0.98] shadow-lg shadow-primary/20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              >
+                Set up {row.label}
+              </button>
+            )}
+
+            {/*
+              Below the setup control rather than beside it. Reading how a source
+              works is what you do BEFORE connecting it — this is the card that says
+              "you have added this and not set it up yet", so the guide is the more
+              useful of the two things on offer more often than you would think.
+            */}
+            <SourceDocLink platform={row.platform} label={row.label} />
+          </div>
+
+          {setup.hasPanel && setupOpen && (
+            <div id={setupPanelId}>
+              {/*
+                The same panels the connected card holds, so setting a source up and
+                maintaining it later are the same surface rather than two that drift.
+              */}
+              {row.platform === 'CLAUDE_CODE' && <ClaudeRoutinesPanel />}
+              {row.platform === 'GITHUB_ACTIONS' && <GitHubReposPanel />}
+              {row.platform === 'VERCEL_CRON' && <VercelProjectsPanel />}
+              {row.platform === 'GEMINI_TRIGGERS' && <GeminiTriggersPanel />}
+
+              <button
+                type="button"
+                onClick={() => setSetupOpen(false)}
+                aria-expanded
+                aria-controls={setupPanelId}
+                className="w-full border-t border-border px-5 py-2.5 text-[11px] font-bold text-subtle-foreground hover:text-foreground hover:bg-raised/60 flex items-center gap-1.5 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              >
+                <ChevronDown size={12} className="shrink-0" />
+                Close setup
+              </button>
+            </div>
+          )}
         </div>
       )}
     </article>

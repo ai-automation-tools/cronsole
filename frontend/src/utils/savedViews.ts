@@ -162,6 +162,7 @@ export function viewFiltersFrom(filters: TaskFilters): TaskFilters {
     ...filters,
     source: DEFAULT_FILTERS.source,
     category: DEFAULT_FILTERS.category,
+    folderPath: DEFAULT_FILTERS.folderPath,
     favorites: DEFAULT_FILTERS.favorites,
     collection: DEFAULT_FILTERS.collection
   };
@@ -245,7 +246,7 @@ function oneOf<T extends string>(raw: string | null, allowed: T[], fallback: T):
 
 /** Every param this module writes — the caller uses it to spot a bare URL. */
 export const FILTER_PARAM_KEYS = [
-  'view', 'status', 'system', 'outcome', 'due', 'fav', 'source', 'platform', 'category', 'collection', 'q'
+  'view', 'status', 'system', 'outcome', 'due', 'fav', 'source', 'platform', 'category', 'folder', 'collection', 'q'
 ] as const;
 
 /**
@@ -293,6 +294,7 @@ export function filtersToParams(
     // reproduce what you see.
     if (filters.source !== DEFAULT_FILTERS.source) params.set('source', filters.source);
     if (filters.category !== DEFAULT_FILTERS.category) params.set('category', filters.category);
+    if (filters.folderPath !== DEFAULT_FILTERS.folderPath) params.set('folder', filters.folderPath);
     if (filters.favorites !== DEFAULT_FILTERS.favorites) params.set('fav', filters.favorites);
     if (filters.collection !== DEFAULT_FILTERS.collection) params.set('collection', filters.collection);
     return params;
@@ -304,6 +306,7 @@ export function filtersToParams(
   if (filters.favorites !== DEFAULT_FILTERS.favorites) params.set('fav', filters.favorites);
   if (filters.source !== DEFAULT_FILTERS.source) params.set('source', filters.source);
   if (filters.category !== DEFAULT_FILTERS.category) params.set('category', filters.category);
+  if (filters.folderPath !== DEFAULT_FILTERS.folderPath) params.set('folder', filters.folderPath);
   if (filters.collection !== DEFAULT_FILTERS.collection) params.set('collection', filters.collection);
   if (filters.search.trim()) params.set('q', filters.search.trim());
   return params;
@@ -332,6 +335,7 @@ export function filtersFromParams(
         ...found.filters,
         source: readSource(params),
         category: params.get('category') || DEFAULT_FILTERS.category,
+        folderPath: params.get('folder') || DEFAULT_FILTERS.folderPath,
         favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites),
         collection: params.get('collection') || DEFAULT_FILTERS.collection
       };
@@ -345,6 +349,7 @@ export function filtersFromParams(
     favorites: oneOf(params.get('fav'), FAVORITES, DEFAULT_FILTERS.favorites),
     source: readSource(params),
     category: params.get('category') || DEFAULT_FILTERS.category,
+    folderPath: params.get('folder') || DEFAULT_FILTERS.folderPath,
     collection: params.get('collection') || DEFAULT_FILTERS.collection,
     search: params.get('q') || ''
   };

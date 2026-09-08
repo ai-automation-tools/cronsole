@@ -200,7 +200,7 @@ describe('useSettings account sync', () => {
       mod.setSetting('railCollapsed', true);
 
       // The read finally answers, with a value that predates the edit above.
-      resolveGet({ data: { railCollapsed: false } });
+      resolveGet({ data: { data: { railCollapsed: false } } });
       await vi.waitFor(() => expect(mod.getSettingsSyncStatus()).toBe('synced'));
 
       expect(mod.getSettings().railCollapsed).toBe(true);

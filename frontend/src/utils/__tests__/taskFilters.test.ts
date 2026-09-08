@@ -11,11 +11,13 @@ import {
   matchesFavorites,
   matchesCollection,
   matchesOutcome,
+  matchesFolderPath,
   matchesSource,
   matchesStatus,
   matchesSystem,
   needsHealthData,
   nextRunOf,
+  windowsSubfolderPath,
   withheldBy,
   type HealthTier
 } from '../taskFilters';
@@ -481,6 +483,49 @@ describe('matchesSource — the outer lens', () => {
 
   it('is a prefix rule, not a substring rule', () => {
     expect(matchesSource(task('a', { source: 'TASKHUB_NATIVE_V2' }), 'TASKHUB_NATIVE')).toBe(false);
+  });
+});
+
+describe('windowsSubfolderPath', () => {
+  it('is empty for a task directly in its root folder', () => {
+    expect(windowsSubfolderPath(task('a', { externalId: '\\Backup\\a' }))).toEqual([]);
+  });
+
+  it('returns every segment between the root folder and the task name', () => {
+    expect(windowsSubfolderPath(task('a', { externalId: '\\Backup\\Old\\Nightly\\a' })))
+      .toEqual(['Old', 'Nightly']);
+  });
+
+  it('is empty for an id with no folder at all', () => {
+    expect(windowsSubfolderPath(task('a', { externalId: '\\a' }))).toEqual([]);
+  });
+
+  it('is empty for a non-Windows id, no platform check needed', () => {
+    expect(windowsSubfolderPath(task('a', { platform: 'CLAUDE_CODE', externalId: 'trig_abc123' })))
+      .toEqual([]);
+  });
+});
+
+describe('matchesFolderPath', () => {
+  it('matches everything under All', () => {
+    expect(matchesFolderPath(task('a', { externalId: '\\Backup\\Old\\a' }), 'All')).toBe(true);
+  });
+
+  it('matches the exact subfolder', () => {
+    expect(matchesFolderPath(task('a', { externalId: '\\Backup\\Old\\a' }), 'Old')).toBe(true);
+  });
+
+  it('matches a descendant of the selected subfolder', () => {
+    expect(matchesFolderPath(task('a', { externalId: '\\Backup\\Old\\Nightly\\a' }), 'Old')).toBe(true);
+  });
+
+  it('does not match a sibling that merely shares a prefix', () => {
+    // "Back" must not match "Backups" — a segment boundary, not a substring.
+    expect(matchesFolderPath(task('a', { externalId: '\\Root\\Backups\\a' }), 'Back')).toBe(false);
+  });
+
+  it('does not match a task with no subfolder', () => {
+    expect(matchesFolderPath(task('a', { externalId: '\\Backup\\a' }), 'Old')).toBe(false);
   });
 });
 

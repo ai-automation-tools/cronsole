@@ -84,6 +84,7 @@ describe('SourceRail', () => {
     expect(onSelect).toHaveBeenCalledWith({
       source: 'WINDOWS_TASK_SCHEDULER',
       category: 'AI-Tools',
+      folderPath: 'All',
       favorites: 'any',
       collection: 'All'
     });
@@ -98,7 +99,7 @@ describe('SourceRail', () => {
     );
 
     fireEvent.click(await screen.findByText('Claude Code'));
-    expect(onSelect).toHaveBeenCalledWith({ source: 'CLAUDE_CODE', category: 'All', favorites: 'any', collection: 'All' });
+    expect(onSelect).toHaveBeenCalledWith({ source: 'CLAUDE_CODE', category: 'All', folderPath: 'All', favorites: 'any', collection: 'All' });
   });
 
   it('shows platform health beside the platform it describes', async () => {
@@ -131,10 +132,43 @@ describe('SourceRail', () => {
     expect(onSelect).toHaveBeenCalledWith({
       source: 'WINDOWS_TASK_SCHEDULER',
       category: 'Microsoft\\Windows\\Defrag',
+      folderPath: 'All',
       favorites: 'any',
       collection: 'All',
       system: 'include'
     });
+  });
+
+  it('expands an ordinary folder to reveal its own subfolders', async () => {
+    // Regression: the folder row's chevron used to be gated on `isGroup`, true
+    // only for the \Microsoft\ disclosure — so an ordinary folder with real
+    // subfolders (data present, `node.children` populated) rendered no way to
+    // open it at all. Selecting its label filtered; nothing revealed the folder
+    // underneath it.
+    const onSelect = renderRail(
+      [
+        task({ category: 'AI-Tools', externalId: '\\AI-Tools\\a' }),
+        task({ category: 'AI-Tools', externalId: '\\AI-Tools\\Backups\\b' })
+      ],
+      { source: 'WINDOWS_TASK_SCHEDULER' }
+    );
+
+    await screen.findByText('AI-Tools');
+    expect(screen.queryByText('Backups')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Expand AI-Tools'));
+    expect(await screen.findByText('Backups')).toBeInTheDocument();
+
+    // AI-Tools itself is still selectable independent of the chevron.
+    fireEvent.click(screen.getByText('AI-Tools'));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'AI-Tools', folderPath: 'All' })
+    );
+
+    fireEvent.click(screen.getByText('Backups'));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'AI-Tools', folderPath: 'Backups' })
+    );
   });
 
   it('discloses that the system group is being held back, and stops once it is not', async () => {
@@ -210,6 +244,7 @@ describe('SourceRail', () => {
       expect(onSelect).toHaveBeenCalledWith({
         source: 'WINDOWS_TASK_SCHEDULER',
         category: 'All',
+        folderPath: 'All',
         favorites: 'any',
         collection: 'All'
       });

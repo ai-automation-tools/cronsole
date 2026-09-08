@@ -885,7 +885,12 @@ const ChildRow = ({
         depth={1}
         Icon={isGroup ? EyeOff : null}
         dot={null}
-        expandable={isGroup && !!node.children?.length}
+        // Was `isGroup && …`, back when only the `\Microsoft\` disclosure ever
+        // had children at this depth. An ordinary folder is selectable AND can
+        // now hold its own subfolders, so it needs the same chevron a selectable
+        // `SubfolderRow` already gets one level down — selecting and expanding
+        // are independent controls (label vs. chevron), not opposites.
+        expandable={!!node.children?.length}
         open={open}
         onToggle={() => onToggle(node.key)}
         onSelect={onSelect}
@@ -894,20 +899,83 @@ const ChildRow = ({
       {open && node.children && (
         <ul className="mt-px ml-[15px] pl-1.5 border-l border-border/70 space-y-px">
           {node.children.map(leaf => (
-            <li key={leaf.key}>
-              <Row
-                node={leaf}
-                selected={isRailNodeSelected(leaf, filters)}
-                depth={2}
-                Icon={null}
-                dot={null}
-                expandable={false}
-                open={false}
-                onToggle={() => {}}
-                onSelect={onSelect}
-                action={<PinButton node={leaf} pins={pins} onTogglePin={onTogglePin} />}
-              />
-            </li>
+            <SubfolderRow
+              key={leaf.key}
+              node={leaf}
+              depth={2}
+              filters={filters}
+              isOpen={isOpen}
+              onToggle={onToggle}
+              onSelect={onSelect}
+              pins={pins}
+              onTogglePin={onTogglePin}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+};
+
+/**
+ * A folder row beneath the category, and — recursively — everything nested
+ * under it. `ChildRow` above renders the category itself (depth 1, always a
+ * Windows folder or the `\Microsoft\` group); this renders every level a
+ * Windows subfolder tree actually has, however deep that goes on a given
+ * machine. It used to be a fixed, non-expandable leaf at depth 2 because
+ * `category` only ever carried the root folder — folders deeper than that had
+ * nowhere in the tree to appear.
+ */
+const SubfolderRow = ({
+  node,
+  depth,
+  filters,
+  isOpen,
+  onToggle,
+  onSelect,
+  pins,
+  onTogglePin
+}: {
+  node: RailNode;
+  depth: number;
+  filters: TaskFilters;
+  isOpen: (key: string) => boolean;
+  onToggle: (key: string) => void;
+  onSelect: (patch: Partial<TaskFilters>) => void;
+  pins: RailPin[];
+  onTogglePin?: (node: RailNode) => void;
+}) => {
+  const open = isOpen(node.key);
+  const children = node.children;
+
+  return (
+    <li>
+      <Row
+        node={node}
+        selected={isRailNodeSelected(node, filters)}
+        depth={depth}
+        Icon={null}
+        dot={null}
+        expandable={!!children?.length}
+        open={open}
+        onToggle={() => onToggle(node.key)}
+        onSelect={onSelect}
+        action={<PinButton node={node} pins={pins} onTogglePin={onTogglePin} />}
+      />
+      {open && children && (
+        <ul className="mt-px ml-[15px] pl-1.5 border-l border-border/70 space-y-px">
+          {children.map(child => (
+            <SubfolderRow
+              key={child.key}
+              node={child}
+              depth={depth + 1}
+              filters={filters}
+              isOpen={isOpen}
+              onToggle={onToggle}
+              onSelect={onSelect}
+              pins={pins}
+              onTogglePin={onTogglePin}
+            />
           ))}
         </ul>
       )}
@@ -1002,13 +1070,16 @@ const PinButton = ({
 };
 
 /**
- * Indentation per level. A literal per depth, so nothing computes a class name.
+ * Indentation per level.
  *
- * Small numbers, because the guide rails now carry the depth: each nested list
- * indents itself and draws a hairline, so the row only needs breathing room from
- * that line rather than enough padding to imply a level on its own.
+ * Small and constant regardless of depth, because the guide rails carry the
+ * depth: each nested list indents itself and draws a hairline, so the row only
+ * needs breathing room from that line rather than enough padding to imply a
+ * level on its own. A Windows subfolder tree can go deeper than the two levels
+ * this used to be sized for, so it is a constant rather than an array a fourth
+ * level would index past.
  */
-const PAD = ['pl-1.5', 'pl-1.5', 'pl-1.5'];
+const PAD = 'pl-1.5';
 
 const Row = ({
   node,
@@ -1186,7 +1257,7 @@ const Row = ({
             ? `${node.count} tasks the OS owns. The dashboard hides these by default — open the group to look inside one folder.`
             : node.label
         }
-        className={`flex h-full min-w-0 flex-1 items-center gap-1.5 ${PAD[depth]} text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-md ${
+        className={`flex h-full min-w-0 flex-1 items-center gap-1.5 ${PAD} text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-md ${
           selected
             ? 'text-foreground'
             : selectable

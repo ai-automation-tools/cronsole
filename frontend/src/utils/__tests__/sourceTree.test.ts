@@ -82,6 +82,7 @@ describe('buildSourceTree — top level', () => {
     expect(fav.patch).toEqual({
       source: 'All',
       category: 'All',
+      folderPath: 'All',
       favorites: 'only',
       collection: 'All'
     });
@@ -182,6 +183,7 @@ describe('buildSourceTree — level 2 grouping', () => {
     expect(find(tree, 'Programs')!.patch).toEqual({
       source: 'TASKHUB_NATIVE:EXEC',
       category: 'All',
+      folderPath: 'All',
       favorites: 'any',
       collection: 'All'
     });
@@ -221,6 +223,7 @@ describe('buildSourceTree — level 2 grouping', () => {
     expect(find(tree, 'Checks')!.patch).toEqual({
       source: 'TASKHUB_NATIVE:CHECK',
       category: 'All',
+      folderPath: 'All',
       favorites: 'any',
       collection: 'All'
     });
@@ -263,6 +266,7 @@ describe('buildSourceTree — the \\Microsoft\\ group', () => {
     expect(group.children![0].patch).toEqual({
       source: 'WINDOWS_TASK_SCHEDULER',
       category: 'Microsoft\\Windows\\Chkdsk',
+      folderPath: 'All',
       favorites: 'any',
       collection: 'All',
       system: 'include'
@@ -395,6 +399,7 @@ describe('buildSourceTree — collections', () => {
     expect(find(tree, 'View2')!.patch).toEqual({
       source: 'All',
       category: 'All',
+      folderPath: 'All',
       favorites: 'any',
       collection: 'c1'
     });
@@ -533,5 +538,48 @@ describe('pinned rail locations', () => {
     });
 
     expect(tree.find(n => n.key === 'pin:pin-1')!.label).toBe('AI-Maintenance');
+  });
+});
+
+describe('buildSourceTree — Windows subfolders', () => {
+  it('nests subfolders under their category to whatever depth exists', () => {
+    const tree = buildSourceTree({
+      population: [
+        task({ category: 'AI-Tools', externalId: '\\AI-Tools\\a' }),
+        task({ category: 'AI-Tools', externalId: '\\AI-Tools\\Backups\\b' }),
+        task({ category: 'AI-Tools', externalId: '\\AI-Tools\\Backups\\Old\\c' }),
+        task({ category: 'AI-Tools', externalId: '\\AI-Tools\\Backups\\Old\\d' })
+      ],
+      filters: filters()
+    });
+
+    // The category row still counts its whole subtree, unchanged.
+    const category = find(tree, 'AI-Tools')!;
+    expect(category.count).toBe(4);
+
+    const backups = category.children!.find(n => n.label === 'Backups')!;
+    expect(backups.count).toBe(3);
+    expect(backups.patch).toEqual({
+      source: 'WINDOWS_TASK_SCHEDULER',
+      category: 'AI-Tools',
+      folderPath: 'Backups',
+      favorites: 'any',
+      collection: 'All'
+    });
+
+    const old = backups.children!.find(n => n.label === 'Old')!;
+    expect(old.count).toBe(2);
+    expect(old.patch).toMatchObject({ category: 'AI-Tools', folderPath: 'Backups/Old' });
+    // No task goes any deeper, so this is a leaf.
+    expect(old.children).toBeUndefined();
+  });
+
+  it('leaves a category with no subfolders childless', () => {
+    const tree = buildSourceTree({
+      population: [task({ category: 'AI-Tools', externalId: '\\AI-Tools\\a' })],
+      filters: filters()
+    });
+
+    expect(find(tree, 'AI-Tools')!.children).toBeUndefined();
   });
 });

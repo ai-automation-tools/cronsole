@@ -93,6 +93,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **The source rail now shows Windows Task Scheduler subfolders, nested to whatever depth the
+  machine actually has, and lets you navigate into one** (2026-09-08). It used to stop at the root
+  folder — `category` (`extractCategory`) has only ever carried the root segment, which is load-bearing
+  for sync's `trackedCategories`, `TaskExclusion`, bulk recategorize and template folder targeting, so
+  none of that changed. Instead a new rail-only dimension, `TaskFilters.folderPath` (segments joined
+  with `/`, `'All'` meaning no further narrowing), is derived client-side from `externalId` — the same
+  field the server already derives `category` from — and treated exactly like `category`/`source`: reset
+  by every rail node, excluded from `filtersEqual`/`activeFilterCount`, and stripped from saved views.
+  `RailNode.children` was already a recursive type (the `\Microsoft\` group used it one level down); only
+  `sourceTree.ts`'s folder branch and `SourceRail.tsx`'s `ChildRow` were hardcoded to two levels — the
+  latter is now `SubfolderRow`, recursing to whatever depth exists rather than rendering a fixed leaf.
+
 - **Four named themes — Dracula, Nord, Solarized, Tokyo Night — alongside Light, Dark, and System**
   (2026-09-04, `hooks/useTheme.ts`, `index.css`, `ThemeToggle.tsx`). `ThemeMode` grows from a 3-way
   toggle to a 7-way `<select>` (a button row stopped fitting), and `applyTheme` now resolves to one of

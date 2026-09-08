@@ -1,5 +1,5 @@
 import type { Task } from '../types';
-import type { TaskFilters } from './taskFilters';
+import { windowsSubfolderPath, type TaskFilters } from './taskFilters';
 import { sourceLabel, sourceSubtypeLabel, sourcePlatform, platformSourceLabel } from '../platform';
 import { pinKey, pinIdFromKey, type RailPin } from './railPins';
 import { byStoredOrder } from './railOrder';
@@ -151,6 +151,69 @@ function tally(tasks: Task[], keyOf: (t: Task) => string): Map<string, number> {
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   return counts;
+}
+
+/** Bucket tasks by a key, keeping the tasks — `tally` for callers that need
+ * to recurse into a bucket rather than just count it. */
+function groupBy(tasks: Task[], keyOf: (t: Task) => string): Map<string, Task[]> {
+  const groups = new Map<string, Task[]>();
+  for (const t of tasks) {
+    const k = keyOf(t);
+    const bucket = groups.get(k);
+    if (bucket) bucket.push(t);
+    else groups.set(k, [t]);
+  }
+  return groups;
+}
+
+/**
+ * A category's own Windows subfolders, nested to whatever depth the machine
+ * actually has. `parentSegments` is the chain already consumed by the
+ * ancestors — `[]` at the category's direct children.
+ *
+ * Works unmodified for the `\Microsoft\` group too (`extraPatch` carries its
+ * `system: 'include'`): `windowsSubfolderPath` reads `externalId`, which every
+ * task has regardless of which side of the system lens it's on.
+ *
+ * A category with no subfolders — or a platform whose ids aren't Windows
+ * paths at all — yields `[]` from `windowsSubfolderPath` for every task, so
+ * this returns `undefined` and the row stays a leaf. No platform check needed.
+ */
+function subfolderChildren(
+  tasks: Task[],
+  platform: string,
+  category: string,
+  parentSegments: string[],
+  extraPatch: Partial<TaskFilters> = {}
+): RailNode[] | undefined {
+  const depth = parentSegments.length;
+  const groups = groupBy(
+    tasks.filter(t => windowsSubfolderPath(t).length > depth),
+    t => windowsSubfolderPath(t)[depth]
+  );
+  if (groups.size === 0) return undefined;
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([segment, inSegment]) => {
+      const segments = [...parentSegments, segment];
+      return {
+        key: `${platform}/${category}/${segments.join('/')}`,
+        label: segment,
+        // The whole subtree under this subfolder, not just its direct tasks —
+        // matches how the category row above already counts every subfolder
+        // beneath it.
+        count: inSegment.length,
+        patch: {
+          ...RAIL_SCOPE_RESET,
+          source: platform,
+          category,
+          folderPath: segments.join('/'),
+          ...extraPatch
+        },
+        children: subfolderChildren(inSegment, platform, category, segments, extraPatch)
+      } satisfies RailNode;
+    });
 }
 
 export interface SourceTreeInput {
@@ -317,11 +380,12 @@ export function buildSourceTree({
    * see it is empty, and so you can still click it to take it away.
    */
   const nodeByKey = new Map<string, RailNode>();
+  const indexNode = (node: RailNode) => {
+    nodeByKey.set(node.key, node);
+    for (const child of node.children ?? []) indexNode(child);
+  };
   for (const row of sourceRows) {
-    for (const child of row.children ?? []) {
-      nodeByKey.set(child.key, child);
-      for (const leaf of child.children ?? []) nodeByKey.set(leaf.key, leaf);
-    }
+    for (const child of row.children ?? []) indexNode(child);
   }
 
   const pinRows = pins.map((p): RailNode => {
@@ -396,6 +460,7 @@ export function railSectionOf(key: string): RailSection {
 const RAIL_SCOPE_RESET = {
   source: ALL_SOURCES,
   category: 'All',
+  folderPath: 'All',
   favorites: 'any',
   collection: 'All'
 } as const satisfies Partial<TaskFilters>;
@@ -450,13 +515,14 @@ function childrenFor(
       // whatever the user has labelled things. Same dimension either way — and
       // observed rather than structural, because a folder Cronsole has no task
       // in is a folder Cronsole cannot know exists.
-      Array.from(tally(personal, t => t.category || UNCATEGORIZED))
+      Array.from(groupBy(personal, t => t.category || UNCATEGORIZED).entries())
         .sort(([a], [b]) => byFolderName(a, b))
-        .map(([category, count]) => ({
+        .map(([category, inCategory]) => ({
           key: `${platform}/${category}`,
           label: category,
-          count,
-          patch: { ...RAIL_SCOPE_RESET, source: platform, category }
+          count: inCategory.length,
+          patch: { ...RAIL_SCOPE_RESET, source: platform, category },
+          children: subfolderChildren(inCategory, platform, category, [])
         }));
 
   if (system.length > 0) {
@@ -494,19 +560,22 @@ function systemGroup(platform: string, system: Task[], showsSystem: boolean): Ra
     label: 'System tasks',
     count: system.length,
     withheld: !showsSystem,
-    children: Array.from(tally(system, t => t.category || UNCATEGORIZED))
+    children: Array.from(groupBy(system, t => t.category || UNCATEGORIZED).entries())
       .sort(([a], [b]) => byFolderName(a, b))
-      .map(([category, count]) => ({
+      .map(([category, inCategory]) => ({
         key: `${platform}/__system__/${category}`,
         label: category,
-        count,
+        count: inCategory.length,
         // `include`, never `only`. See the note above.
         patch: {
           ...RAIL_SCOPE_RESET,
           source: platform,
           category,
           system: 'include' as const
-        }
+        },
+        children: subfolderChildren(inCategory, platform, category, [], {
+          system: 'include' as const
+        })
       }))
   };
 }

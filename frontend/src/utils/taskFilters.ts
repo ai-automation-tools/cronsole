@@ -62,6 +62,22 @@ export interface TaskFilters {
   /** `'All'` or an exact category (`'Uncategorized'` for tasks with none). */
   category: string;
   /**
+   * A Windows subfolder path *beneath* `category` (the root folder), joined with
+   * `/` — e.g. `'Backups'` or `'Backups/Old'`. `'All'` means no further
+   * narrowing: every task under the root category, subfoldered or not, which is
+   * the behavior this dimension didn't used to exist to change.
+   *
+   * A rail-only dimension, exactly like `category` — excluded from
+   * `filtersEqual`/`activeFilterCount`/`viewFiltersFrom` for the same reason: the
+   * rail is navigation, and it is always showing its own selection on screen.
+   * It is a third dimension rather than folding into `category` because
+   * `category`'s root-folder meaning is load-bearing elsewhere (sync's
+   * `trackedCategories`, `TaskExclusion`, bulk recategorize, template folder
+   * targeting) — none of that reads any deeper than the root, and changing what
+   * `category` means would have moved all of it.
+   */
+  folderPath: string;
+  /**
    * `'All'`, or the id of a **collection** — a named set of tasks the user
    * hand-picked.
    *
@@ -102,6 +118,7 @@ export const DEFAULT_FILTERS: TaskFilters = {
   favorites: 'any',
   source: 'All',
   category: 'All',
+  folderPath: 'All',
   collection: 'All',
   search: ''
 };
@@ -191,6 +208,36 @@ export function matchesSource(task: Task, filter: string): boolean {
   if (filter === 'All') return true;
   const key = task.source ?? task.platform;
   return key === filter || key.startsWith(`${filter}${SOURCE_SEP}`);
+}
+
+/**
+ * A Windows task's subfolder path *beneath its root category*, as segments —
+ * `\Work\Backups\Old\Nightly` (category `Work`) yields `['Backups', 'Old']`.
+ *
+ * Derived from `externalId` rather than a server-sent field: the server already
+ * derives `category` from this same path (`extractCategory`, root segment
+ * only) and nothing downstream needs the deeper segments, so there was never a
+ * reason to send them separately. Empty for any task whose id isn't a
+ * multi-segment Windows path — which every other platform's id naturally is
+ * not, so this needs no platform check to stay a no-op elsewhere.
+ */
+export function windowsSubfolderPath(task: Task): string[] {
+  const parts = task.externalId.split(/[\\/]/).filter(p => p.length > 0);
+  // parts: [category, ...subfolders, taskName]. Fewer than 3 means no subfolder.
+  return parts.length > 2 ? parts.slice(1, -1) : [];
+}
+
+/**
+ * The subfolder lens — an exact folder or any of its descendants.
+ *
+ * `filter` is segments joined with `/` (never `\`, which is what Windows paths
+ * already use and would make a prefix check ambiguous against a folder named
+ * with one). Boundary-checked so `Back` cannot match `Backups`.
+ */
+export function matchesFolderPath(task: Task, filter: string): boolean {
+  if (filter === 'All') return true;
+  const path = windowsSubfolderPath(task).join('/');
+  return path === filter || path.startsWith(`${filter}/`);
 }
 
 /**
@@ -303,6 +350,7 @@ export type FilterDimension =
   | 'favorites'
   | 'source'
   | 'category'
+  | 'folderPath'
   | 'collection'
   | 'due'
   | 'outcome'
@@ -369,6 +417,7 @@ export function applyTaskFiltersExcept(
       (skip('category') ||
         filters.category === 'All' ||
         (task.category || 'Uncategorized') === filters.category) &&
+      (skip('folderPath') || matchesFolderPath(task, filters.folderPath)) &&
       (skip('collection') || matchesCollection(task, filters.collection)) &&
       (skip('due') || matchesDue(task, filters.due, options.now, zone)) &&
       (skip('outcome') || matchesOutcome(task, filters.outcome, options.tiers)) &&
@@ -473,9 +522,9 @@ export function withheldBy(
 /**
  * Are two filter sets the same question? Used to name the active view.
  *
- * **`source`, `category` and `favorites` are all excluded** — together they are
- * the source rail, which is *navigation*, and navigation must not invalidate the
- * slice you are looking through. "Failures" and "Failures, in Windows ›
+ * **`source`, `category`, `folderPath` and `favorites` are all excluded** —
+ * together they are the source rail, which is *navigation*, and navigation must
+ * not invalidate the slice you are looking through. "Failures" and "Failures, in Windows ›
  * AI-Tools" are the same question asked in two places, so the view chip stays
  * lit for both; so is "Failures, starred only".
  *

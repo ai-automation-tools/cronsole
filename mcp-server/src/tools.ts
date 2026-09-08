@@ -169,6 +169,7 @@ interface WindowsTrigger {
   startBoundary: string;
   daysInterval?: number;
   daysOfWeek?: string[];
+  daysOfMonth?: number[];
   repetition?: { interval: string; duration?: string };
 }
 
@@ -417,6 +418,10 @@ function describeTrigger(t: WindowsTrigger): string {
   const parts: string[] = [t.type];
   if (t.startBoundary) parts.push(`at ${t.startBoundary}`);
   if (t.daysOfWeek?.length) parts.push(`on ${t.daysOfWeek.join(', ')}`);
+  // Without this a Monthly trigger reads "Monthly at 09:00" — which day of the
+  // month is the entire content of the answer, and a partial reading of a shape
+  // is worse than none.
+  if (t.daysOfMonth?.length) parts.push(`on day ${t.daysOfMonth.join(', ')} of the month`);
   if (t.daysInterval && t.daysInterval > 1) parts.push(`every ${t.daysInterval} days`);
   if (t.repetition?.interval) {
     const dur = t.repetition.duration ? ` for ${t.repetition.duration}` : '';

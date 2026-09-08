@@ -77,6 +77,17 @@ some places and poorer in others, so the conversion is where surprises live.
 - **A cron Windows cannot express natively is replaced with an hourly trigger** and Cronsole says so
   in a warning. It only ever runs *more* often than you asked — never less — but read the warning
   rather than the confidence score.
+- **Monthly converts exactly** *(since 2026-09-08)*. `0 9 1 * *` and a list or range of days
+  (`0 9 1,15 * *`) build a real Windows monthly trigger; before this they hit the fallback above,
+  which is ~8,760 runs a year for a schedule asking for 12. A day past the 28th converts too and
+  warns that it skips the shorter months — the same as cron, which does not shorten February.
+- **Two monthly shapes are refused rather than approximated.** A *specific month* (`0 4 1 1 *`,
+  once a year) still hits the hourly fallback: a Windows trigger can restrict its months but
+  Cronsole's cron contract has nowhere to keep that, so it is not claimed. And a monthly time whose
+  UTC form lands on a **different local calendar date** on this machine is rejected at create time
+  with that reason — a Windows monthly trigger names a fixed day of the month, and shifting it
+  across midnight would mean the 31st in January and the 28th in March. Pick a time that stays on
+  the same local date.
 - **Across a daylight-saving change a Windows task keeps its local clock time.** A Cronsole-native
   task shifts by an hour, because Cronsole runs the stored UTC expression directly. Same cron, two
   behaviours, and the difference is real.

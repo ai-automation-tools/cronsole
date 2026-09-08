@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Xml;
 using Microsoft.Win32.TaskScheduler;
 
@@ -12,10 +13,18 @@ namespace Cronsole.Agent
     /// </summary>
     public static class TriggerBuilder
     {
-        public static Trigger Build(TriggerSpec spec)
+        /// <param name="zone">
+        /// The zone UTC boundaries are converted into. Defaults to the machine's,
+        /// which is the only value production ever passes; it is a parameter so a
+        /// test can pin a zone instead of asserting whatever the runner happens to
+        /// be in. The Monthly arm below is the one that genuinely behaves
+        /// differently by offset, so it needs a way to be tested at one.
+        /// </param>
+        public static Trigger Build(TriggerSpec spec, TimeZoneInfo? zone = null)
         {
             if (spec == null) throw new ArgumentNullException(nameof(spec));
 
+            zone ??= TimeZoneInfo.Local;
             var utcTime = ParseTimeOfDay(spec.StartBoundary);
 
             switch (spec.Type)
@@ -24,7 +33,7 @@ namespace Cronsole.Agent
                 {
                     var trigger = new DailyTrigger
                     {
-                        StartBoundary = UtcTimeToLocalToday(utcTime),
+                        StartBoundary = UtcTimeToLocalToday(utcTime, zone),
                         DaysInterval = (short)(spec.DaysInterval ?? 1)
                     };
                     ApplyRepetition(trigger, spec.Repetition);
@@ -46,7 +55,7 @@ namespace Cronsole.Agent
                     var localStarts = new List<DateTime>();
                     foreach (var dayName in spec.DaysOfWeek)
                     {
-                        localStarts.Add(NextUtcOccurrenceAsLocal(dayName, utcTime));
+                        localStarts.Add(NextUtcOccurrenceAsLocal(dayName, utcTime, zone));
                     }
 
                     // OR the flags together; a day named twice collapses to one.
@@ -69,6 +78,52 @@ namespace Cronsole.Agent
                     return trigger;
                 }
 
+                case "Monthly":
+                {
+                    if (spec.DaysOfMonth == null || spec.DaysOfMonth.Count == 0)
+                        throw new ArgumentException("Monthly trigger requires daysOfMonth.");
+
+                    // A monthly day-of-month does NOT survive a UTC->local day
+                    // roll the way a weekday does. Weekly can shift Sunday to
+                    // Saturday because a week is always 7 days; a month is not
+                    // always the same length, so "UTC day 1" is local day 31 in
+                    // January, 28 in March, and 30 in May. There is no single
+                    // DaysOfMonth value that means all three, and picking one
+                    // would run the task on the wrong date for eleven months of
+                    // the year while Cronsole reported the cron it was given.
+                    //
+                    // So the only exact case is the one with no day roll at all,
+                    // and every other is refused by name rather than approximated.
+                    // The user's fix is a local time that stays on the same date,
+                    // which the message says.
+                    var localStart = UtcTimeToLocalToday(utcTime, zone);
+                    var utcToday = DateTime.SpecifyKind(DateTime.UtcNow.Date.Add(utcTime), DateTimeKind.Utc);
+                    if (localStart.Date != utcToday.Date)
+                    {
+                        throw new ArgumentException(
+                            $"A monthly schedule at {spec.StartBoundary} UTC falls on a different " +
+                            "calendar day in this machine's local time, and a Windows monthly " +
+                            "trigger fires on a fixed day of the month - which would be the wrong " +
+                            "date in months of a different length. Pick a time of day that stays " +
+                            "on the same local date.");
+                    }
+
+                    foreach (var day in spec.DaysOfMonth)
+                    {
+                        if (day < 1 || day > 31)
+                            throw new ArgumentException($"Invalid day of month '{day}' (expected 1-31).");
+                    }
+
+                    var monthly = new MonthlyTrigger
+                    {
+                        StartBoundary = localStart,
+                        DaysOfMonth = spec.DaysOfMonth.Distinct().OrderBy(d => d).ToArray(),
+                        MonthsOfYear = MonthsOfTheYear.AllMonths
+                    };
+                    ApplyRepetition(monthly, spec.Repetition);
+                    return monthly;
+                }
+
                 case "Time":
                 {
                     // Interval schedules (e.g. */30 * * * *) arrive as Time
@@ -80,13 +135,13 @@ namespace Cronsole.Agent
                     {
                         var trigger = new DailyTrigger
                         {
-                            StartBoundary = UtcTimeToLocalToday(utcTime),
+                            StartBoundary = UtcTimeToLocalToday(utcTime, zone),
                             DaysInterval = 1
                         };
                         ApplyRepetition(trigger, spec.Repetition);
                         return trigger;
                     }
-                    return new TimeTrigger { StartBoundary = UtcTimeToLocalToday(utcTime) };
+                    return new TimeTrigger { StartBoundary = UtcTimeToLocalToday(utcTime, zone) };
                 }
 
                 default:
@@ -114,13 +169,13 @@ namespace Cronsole.Agent
             throw new ArgumentException($"Invalid startBoundary '{startBoundary}' (expected HH:mm).");
         }
 
-        private static DateTime UtcTimeToLocalToday(TimeSpan utcTime)
+        private static DateTime UtcTimeToLocalToday(TimeSpan utcTime, TimeZoneInfo zone)
         {
             var utc = DateTime.SpecifyKind(DateTime.UtcNow.Date.Add(utcTime), DateTimeKind.Utc);
-            return utc.ToLocalTime();
+            return TimeZoneInfo.ConvertTimeFromUtc(utc, zone);
         }
 
-        private static DateTime NextUtcOccurrenceAsLocal(string dayName, TimeSpan utcTime)
+        private static DateTime NextUtcOccurrenceAsLocal(string dayName, TimeSpan utcTime, TimeZoneInfo zone)
         {
             if (!Enum.TryParse<DayOfWeek>(dayName, true, out var targetDay))
                 throw new ArgumentException($"Invalid day of week '{dayName}'.");
@@ -130,7 +185,7 @@ namespace Cronsole.Agent
             {
                 candidate = candidate.AddDays(1);
             }
-            return candidate.ToLocalTime();
+            return TimeZoneInfo.ConvertTimeFromUtc(candidate, zone);
         }
 
         private static DaysOfTheWeek ToDaysOfTheWeek(DayOfWeek day) => day switch

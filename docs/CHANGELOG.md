@@ -93,6 +93,28 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **A monthly schedule now registers as a real Windows monthly trigger instead of ~8,760 runs a
+  year** (2026-09-08, ROADMAP *Next up*). `scheduler-conversion.ts` had no monthly pattern, so
+  `0 9 1 * *` fell through to the replaced-with-hourly fallback — 12 runs asked for, 8,760
+  registered. That was tolerable while a monthly cron was something you had to know to type; the
+  schedule picker made it a one-click choice, and the only thing between it and a wrong task was a
+  warning. Windows Task Scheduler's `Monthly` trigger is now built end to end: `WindowsTrigger`
+  gained `daysOfMonth`, the converter handles a single day, a list and a range (`0 9 1,15 * *`,
+  `0 9 1-3 * *`) in both directions at confidence 1.0, and the agent's `TriggerBuilder` /
+  `TriggerReader` gained the matching arms. Three shapes are deliberately still **not** monthly,
+  each refused with its reason rather than approximated: a **specific month** (`0 4 1 1 *`, once a
+  year) — `WindowsTrigger` carries no `monthsOfYear`, so it stays in the honest hourly fallback and
+  a Windows monthly trigger with restricted months reads back as *no schedule* rather than as
+  "every month"; **run-on-last-day**, which is cron's `L` and refused at the other end of the
+  converter already; and a monthly time whose UTC form lands on a **different local calendar
+  date**, which the agent refuses by name — a weekday can be rolled across the boundary because a
+  week is always seven days, a day of the month cannot, since the same roll means the 31st in
+  January and the 28th in March. A day past the 28th converts exactly and now warns that it skips
+  the shorter months, which is cron's own behaviour. `canonicalizeTrigger` appends `daysOfMonth`
+  **only** for a Monthly trigger, on both sides byte-for-byte: an unconditional eighth field would
+  have changed the signed canonical form of every Daily, Weekly and Time trigger and failed every
+  create against an agent that had not been republished.
+
 - **The source rail now shows Windows Task Scheduler subfolders, nested to whatever depth the
   machine actually has, and lets you navigate into one** (2026-09-08). It used to stop at the root
   folder — `category` (`extractCategory`) has only ever carried the root segment, which is load-bearing

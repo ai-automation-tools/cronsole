@@ -253,7 +253,7 @@ namespace Cronsole.Agent
             var daysOfWeek = trigger.DaysOfWeek != null ? string.Join(",", trigger.DaysOfWeek) : "";
             var repInterval = trigger.Repetition?.Interval ?? "";
             var repDuration = trigger.Repetition?.Duration ?? "";
-            return string.Join("|", new[]
+            var fields = new List<string>
             {
                 "trigger",
                 trigger.Type,
@@ -262,7 +262,19 @@ namespace Cronsole.Agent
                 daysOfWeek,
                 repInterval,
                 repDuration
-            });
+            };
+            // Appended ONLY for a Monthly trigger, matching the backend exactly.
+            // An unconditional eighth field would change the canonical string of
+            // every Daily, Weekly and Time trigger, so an agent on either side of
+            // the change would fail the signature on every create - a new
+            // schedule type breaking every existing one.
+            if (trigger.Type == "Monthly")
+            {
+                fields.Add(trigger.DaysOfMonth != null
+                    ? string.Join(",", trigger.DaysOfMonth.Select(d => d.ToString(CultureInfo.InvariantCulture)))
+                    : "");
+            }
+            return string.Join("|", fields);
         }
 
         public static string Hmac(string key, string message)

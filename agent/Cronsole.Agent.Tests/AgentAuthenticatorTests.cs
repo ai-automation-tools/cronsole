@@ -140,6 +140,15 @@ namespace Cronsole.Agent.Tests
                 StartBoundary = "03:00",
                 DaysInterval = 1
             }).Should().Be("trigger|Daily|03:00|1|||");
+
+            // Monthly appends an eighth field; every other type must NOT, or a
+            // create signed by one side of this change fails against the other.
+            AgentAuthenticator.CanonicalizeTrigger(new TriggerSpec
+            {
+                Type = "Monthly",
+                StartBoundary = "09:00",
+                DaysOfMonth = new List<int> { 1, 15 }
+            }).Should().Be("trigger|Monthly|09:00|||||1,15");
         }
 
         [Fact]

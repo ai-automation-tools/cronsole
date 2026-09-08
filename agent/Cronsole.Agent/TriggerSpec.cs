@@ -10,10 +10,15 @@ namespace Cronsole.Agent
     /// </summary>
     public class TriggerSpec
     {
-        public string Type { get; set; } = "Daily"; // Daily | Weekly | Time
+        public string Type { get; set; } = "Daily"; // Daily | Weekly | Monthly | Time
         public string StartBoundary { get; set; } = "00:00";
         public int? DaysInterval { get; set; }
         public List<string>? DaysOfWeek { get; set; }
+        /// <summary>
+        /// Days of the month (1-31) a Monthly trigger fires on, every month.
+        /// Only ever set when <see cref="Type"/> is "Monthly".
+        /// </summary>
+        public List<int>? DaysOfMonth { get; set; }
         public RepetitionSpec? Repetition { get; set; }
     }
 

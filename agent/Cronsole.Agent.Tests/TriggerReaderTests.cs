@@ -30,6 +30,38 @@ namespace Cronsole.Agent.Tests
         }
 
         [Fact]
+        public void Monthly_ReadsDaysOfMonth()
+        {
+            var spec = TriggerReader.Read(new MonthlyTrigger
+            {
+                StartBoundary = Utc(9, 0),
+                DaysOfMonth = new[] { 1, 15 },
+                MonthsOfYear = MonthsOfTheYear.AllMonths
+            });
+
+            spec.Should().NotBeNull();
+            spec!.Type.Should().Be("Monthly");
+            spec.StartBoundary.Should().Be("09:00");
+            spec.DaysOfMonth.Should().Equal(new[] { 1, 15 });
+        }
+
+        [Fact]
+        public void Monthly_WithRestrictedMonthsIsUnreadable()
+        {
+            // "Every January the 1st" has no 5-field cron here — TriggerSpec
+            // carries no month field — so it stays scheduleless rather than being
+            // reported as "the 1st of every month", which runs 12x as often.
+            var spec = TriggerReader.Read(new MonthlyTrigger
+            {
+                StartBoundary = Utc(9, 0),
+                DaysOfMonth = new[] { 1 },
+                MonthsOfYear = MonthsOfTheYear.January
+            });
+
+            spec.Should().BeNull();
+        }
+
+        [Fact]
         public void Weekly_ReadsDaysOfWeek()
         {
             var spec = TriggerReader.Read(new WeeklyTrigger

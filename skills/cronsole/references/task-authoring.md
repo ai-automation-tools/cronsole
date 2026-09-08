@@ -200,8 +200,14 @@ convert_schedule '0 9 * * 1-5'
 **disable** it (§5), or create it and delete it when done. Never reach for an exotic cron to
 mean "never".
 
-Recognized shapes: daily (`0 9 * * *`), weekly (`0 9 * * 1-5`), monthly (`0 3 1 * *`), minute
-step (`*/15 * * * *`), hour step (`0 */4 * * *`). Everything else hits the fallback.
+Recognized shapes: daily (`0 9 * * *`), weekly (`0 9 * * 1-5`), monthly (`0 3 1 * *`, and a list
+or range of days — `0 3 1,15 * *`), minute step (`*/15 * * * *`), hour step (`0 */4 * * *`).
+Everything else hits the fallback — including a **specific month** (`0 4 1 1 *`), which is why that
+stays the canonical once-a-year example even though monthly itself became exact on 2026-09-08.
+Monthly has one refusal the others do not: a time whose UTC form lands on a **different local
+calendar date** on the agent's machine is rejected by name at create time, because a fixed
+day-of-month cannot be rolled across the boundary the way a weekday can — a week is always seven
+days, a month is not.
 
 ---
 

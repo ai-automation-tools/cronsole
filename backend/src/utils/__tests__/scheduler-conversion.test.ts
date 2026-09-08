@@ -30,6 +30,18 @@ describe('canonicalizeTrigger', () => {
     ).toBe('trigger|Weekly|09:30||Monday,Wednesday|PT30M|P1D');
   });
 
+  it('appends daysOfMonth for a Monthly trigger only', () => {
+    // 8 fields for Monthly, 7 for everything else. The asymmetry is deliberate:
+    // an eighth field on every type would break the signature of every create
+    // against an agent on the other side of this change. AgentAuthenticatorTests
+    // pins the same two strings on the C# side.
+    expect(
+      canonicalizeTrigger({ type: 'Monthly', startBoundary: '09:00', daysOfMonth: [1, 15] })
+    ).toBe('trigger|Monthly|09:00|||||1,15');
+    expect(canonicalizeTrigger({ type: 'Daily', startBoundary: '09:00', daysInterval: 1 }))
+      .toBe('trigger|Daily|09:00|1|||');
+  });
+
   it('round-trips a real converted trigger through the canonical form', () => {
     const { trigger } = convertCronToWindowsTrigger('0 3 * * *');
     // Daily 03:00 → no days/repetition, so trailing fields are empty.
@@ -48,6 +60,59 @@ describe('Schedule Conversion Utility', () => {
         daysInterval: 1
       });
       expect(res.warnings).toHaveLength(0);
+    });
+
+    it('converts a monthly cron to a Monthly trigger', () => {
+      // The item this closes: `0 9 1 * *` used to fall through to the replaced-
+      // with-hourly fallback — ~8,760 runs a year for a schedule asking for 12.
+      const res = convertCronToWindowsTrigger('0 9 1 * *');
+      expect(res.confidence).toBe(1.0);
+      expect(res.lossy).toBeUndefined();
+      expect(res.trigger).toEqual({
+        type: 'Monthly',
+        startBoundary: '09:00',
+        daysOfMonth: [1]
+      });
+      expect(res.warnings).toHaveLength(0);
+    });
+
+    it('keeps every day a monthly list or range names', () => {
+      expect(convertCronToWindowsTrigger('30 6 1,15 * *').trigger).toEqual({
+        type: 'Monthly',
+        startBoundary: '06:30',
+        daysOfMonth: [1, 15]
+      });
+      expect(convertCronToWindowsTrigger('30 6 1-3 * *').trigger).toEqual({
+        type: 'Monthly',
+        startBoundary: '06:30',
+        daysOfMonth: [1, 2, 3]
+      });
+    });
+
+    it('warns that a day past the 28th skips the short months', () => {
+      const res = convertCronToWindowsTrigger('0 9 31 * *');
+      expect(res.confidence).toBe(1.0);
+      expect(res.warnings.join(' ')).toMatch(/does not exist in every month/);
+    });
+
+    it('does not treat a restricted month as monthly', () => {
+      // "0 4 1 1 *" is once a year. There is no monthsOfYear on WindowsTrigger,
+      // so this must stay in the honest replaced fallback rather than being
+      // registered as the 1st of every month.
+      const res = convertCronToWindowsTrigger('0 4 1 1 *');
+      expect(res.trigger?.type).toBe('Time');
+      expect(res.lossy).toBe('replaced');
+    });
+
+    it('does not treat a day-of-month AND weekday cron as monthly', () => {
+      // Cron ORs the two fields; a Windows trigger cannot, so it falls back.
+      const res = convertCronToWindowsTrigger('0 9 1 * 1');
+      expect(res.lossy).toBe('replaced');
+    });
+
+    it('refuses an out-of-range day of the month', () => {
+      expect(convertCronToWindowsTrigger('0 9 0 * *').lossy).toBe('replaced');
+      expect(convertCronToWindowsTrigger('0 9 32 * *').lossy).toBe('replaced');
     });
 
     it('converts standard weekly cron correctly', () => {
@@ -259,7 +324,9 @@ describe('Schedule Conversion Utility', () => {
     });
 
     it('handles complex cron with a fallback trigger and warnings', () => {
-      const res = convertCronToWindowsTrigger('5 4 1-5 * *');
+      // Was '5 4 1-5 * *' until the Monthly arm landed and made that exact. A
+      // day-of-month AND a weekday is cron's OR, which no Windows trigger has.
+      const res = convertCronToWindowsTrigger('5 4 1-5 * 3');
       expect(res.confidence).toBe(0.7);
       expect(res.trigger?.type).toBe('Time');
       expect(res.warnings.length).toBeGreaterThan(0);
@@ -328,6 +395,31 @@ describe('Schedule Conversion Utility', () => {
   });
 
   describe('convertWindowsTriggerToCron', () => {
+    it('reverses a Monthly trigger back to the cron it came from', () => {
+      const res = convertWindowsTriggerToCron({
+        type: 'Monthly',
+        startBoundary: '09:00',
+        daysOfMonth: [15, 1]
+      });
+      expect(res.confidence).toBe(1.0);
+      expect(res.cron).toBe('0 9 1,15 * *');
+    });
+
+    it('round-trips a monthly cron unchanged', () => {
+      const { trigger } = convertCronToWindowsTrigger('0 9 1 * *');
+      expect(convertWindowsTriggerToCron(trigger!).cron).toBe('0 9 1 * *');
+    });
+
+    it('falls back rather than inventing a day for a malformed Monthly trigger', () => {
+      // Read off a real machine, not necessarily written by us.
+      const res = convertWindowsTriggerToCron({
+        type: 'Monthly',
+        startBoundary: '09:00',
+        daysOfMonth: [99]
+      });
+      expect(res.confidence).toBeLessThan(1);
+    });
+
     // The read path: WindowsAgentConnector reverses a real task's trigger to store
     // it as cron. Keeping only the first day would import a Mon/Wed/Fri task and
     // display it as Mondays-only, at full confidence.

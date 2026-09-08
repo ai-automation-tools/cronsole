@@ -441,8 +441,8 @@ export const DashboardScreen = ({
   /**
    * The population the **source rail** counts over: every task passing every
    * lens the rail does not own — status, outcome, due, search — with the rail's
-   * own dimensions (source, category, favorites) and the system lens all
-   * neutralized.
+   * own dimensions (source, category, folderPath, favorites) and the system
+   * lens all neutralized.
    *
    * Three things about it are deliberate.
    *
@@ -463,6 +463,11 @@ export const DashboardScreen = ({
    * can never count the alternatives. **`collection` is in the list for the same
    * reason** — it is a rail dimension, so with a 4-task collection selected an
    * un-neutralized population would have every source row reading at most 4.
+   * **`folderPath` joined them for the identical reason** when Windows
+   * subfolders shipped: selecting one narrowed `population` itself, so every
+   * *other* Windows folder — and every non-Windows source — vanished from the
+   * rail the moment you opened a subfolder, rather than just narrowing what
+   * the selected row's own count included.
    *
    * And it is one list, not three counts. `buildSourceTree` buckets it, so the
    * root, the source rows and the folder rows are partitions of a single pass —
@@ -477,6 +482,7 @@ export const DashboardScreen = ({
           ...viewFilters,
           source: 'All',
           category: 'All',
+          folderPath: 'All',
           favorites: 'any',
           collection: 'All',
           system: 'include'

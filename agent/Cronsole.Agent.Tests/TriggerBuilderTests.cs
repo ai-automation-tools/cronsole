@@ -151,8 +151,80 @@ namespace Cronsole.Agent.Tests
         [Fact]
         public void UnknownType_Throws()
         {
-            var act = () => TriggerBuilder.Build(new TriggerSpec { Type = "Monthly", StartBoundary = "08:00" });
+            var act = () => TriggerBuilder.Build(new TriggerSpec { Type = "AtLogon", StartBoundary = "08:00" });
             act.Should().Throw<ArgumentException>().WithMessage("*Unsupported trigger type*");
+        }
+
+        [Fact]
+        public void Monthly_WithoutDays_Throws()
+        {
+            var act = () => TriggerBuilder.Build(new TriggerSpec { Type = "Monthly", StartBoundary = "08:00" });
+            act.Should().Throw<ArgumentException>().WithMessage("*daysOfMonth*");
+        }
+
+        [Fact]
+        public void Monthly_BuildsAMonthlyTriggerOnTheDaysGiven()
+        {
+            // Noon UTC is the same calendar day in every real offset (-12..+14),
+            // so this test is timezone-independent without pinning a zone.
+            var trigger = TriggerBuilder.Build(new TriggerSpec
+            {
+                Type = "Monthly",
+                StartBoundary = "12:00",
+                DaysOfMonth = new List<int> { 15, 1, 15 }
+            });
+
+            var monthly = trigger.Should().BeOfType<MonthlyTrigger>().Subject;
+            monthly.DaysOfMonth.Should().Equal(new[] { 1, 15 });
+            monthly.MonthsOfYear.Should().Be(MonthsOfTheYear.AllMonths);
+        }
+
+        [Fact]
+        public void Monthly_RefusesABoundaryThatLandsOnAnotherLocalDate()
+        {
+            // 00:30 UTC is the previous evening in every Americas zone. A Windows
+            // monthly trigger names a fixed day of the month, and "the day before
+            // the 1st" is the 31st, the 30th or the 28th depending on the month —
+            // no single value is right, so the build refuses rather than picking
+            // one and running on the wrong date for most of the year.
+            var hawaii = TimeZoneInfo.CreateCustomTimeZone("t-10", TimeSpan.FromHours(-10), "t-10", "t-10");
+            var act = () => TriggerBuilder.Build(new TriggerSpec
+            {
+                Type = "Monthly",
+                StartBoundary = "00:30",
+                DaysOfMonth = new List<int> { 1 }
+            }, hawaii);
+
+            act.Should().Throw<ArgumentException>().WithMessage("*different*local*");
+        }
+
+        [Fact]
+        public void Monthly_AcceptsTheSameBoundaryWhereItStaysOnTheDate()
+        {
+            // The same spec, one zone over in the other direction: 00:30 UTC is
+            // still the 1st in Berlin, so it converts exactly.
+            var berlin = TimeZoneInfo.CreateCustomTimeZone("t+1", TimeSpan.FromHours(1), "t+1", "t+1");
+            var trigger = TriggerBuilder.Build(new TriggerSpec
+            {
+                Type = "Monthly",
+                StartBoundary = "00:30",
+                DaysOfMonth = new List<int> { 1 }
+            }, berlin);
+
+            trigger.Should().BeOfType<MonthlyTrigger>()
+                .Which.StartBoundary.TimeOfDay.Should().Be(TimeSpan.FromMinutes(90));
+        }
+
+        [Fact]
+        public void Monthly_RejectsADayOutsideTheMonth()
+        {
+            var act = () => TriggerBuilder.Build(new TriggerSpec
+            {
+                Type = "Monthly",
+                StartBoundary = "12:00",
+                DaysOfMonth = new List<int> { 32 }
+            });
+            act.Should().Throw<ArgumentException>().WithMessage("*day of month*");
         }
 
         [Fact]

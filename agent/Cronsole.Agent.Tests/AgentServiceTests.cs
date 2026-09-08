@@ -244,6 +244,55 @@ namespace Cronsole.Agent.Tests
         }
 
         [Fact]
+        public void TaskList_Emit_ProjectsEveryTriggerSpecField()
+        {
+            // The wire serializer preserves member names, so AgentService hand-writes
+            // a camelCase projection of TriggerSpec. A field added to the spec and
+            // forgotten there is invisible: the trigger still arrives, just without
+            // that field, and the server's reverse converter quietly drops to its
+            // fallback — the task reads as having no schedule at all. So assert the
+            // *shape*, by reflection, rather than one field: this fails for the next
+            // field too, which is the whole reason it exists.
+            _mockScheduler.Setup(s => s.ListTasks()).Returns(new List<AgentTaskInfo>
+            {
+                new AgentTaskInfo
+                {
+                    Path = @"\Cronsole\Monthly",
+                    Name = "Monthly",
+                    State = "ACTIVE",
+                    Trigger = new TriggerSpec
+                    {
+                        Type = "Monthly",
+                        StartBoundary = "09:00",
+                        DaysOfMonth = new List<int> { 1, 15 }
+                    }
+                }
+            });
+
+            object? emitted = null;
+            _mockSocket.Setup(s => s.EmitAsync("task:full_list", It.IsAny<object>()))
+                .Callback<string, object>((_, payload) => emitted = payload)
+                .Returns(Task.CompletedTask);
+
+            _socketHandlers["task:list"].Invoke(new Mock<ISocketResponse>().Object);
+
+            var json = JsonSerializer.Serialize(emitted);
+            // The emit is wrapped in a one-element array: [{ tasks: [...] }].
+            var trigger = JsonDocument.Parse(json).RootElement[0]
+                .GetProperty("tasks")[0].GetProperty("trigger");
+
+            foreach (var property in typeof(TriggerSpec).GetProperties())
+            {
+                var camel = char.ToLowerInvariant(property.Name[0]) + property.Name.Substring(1);
+                trigger.TryGetProperty(camel, out _).Should()
+                    .BeTrue($"TriggerSpec.{property.Name} must be projected as '{camel}' in AgentService.SerializeTrigger");
+            }
+
+            trigger.GetProperty("daysOfMonth").EnumerateArray()
+                .Select(e => e.GetInt32()).Should().Equal(new[] { 1, 15 });
+        }
+
+        [Fact]
         public void TaskCreate_Event_Failure_EchoesTheRealNameSoTheServerCanMatchIt()
         {
             // Regression: the failure path emitted name = "unknown" (the real name was

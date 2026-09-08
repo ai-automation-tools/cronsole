@@ -41,6 +41,33 @@ namespace Cronsole.Agent
                         Repetition = ReadRepetition(weekly.Repetition)
                     };
 
+                case MonthlyTrigger monthly:
+                    // Only the exactly-expressible shape is read; everything else
+                    // is null, which the server renders as "no direct schedule".
+                    // A monthly trigger has three ways of meaning something a
+                    // 5-field cron cannot say, and reporting any of them as
+                    // "M H D * *" would put a schedule on the dashboard that the
+                    // task does not have:
+                    //   - restricted months (every January) - cron's month field
+                    //     has no home in TriggerSpec, by design;
+                    //   - the last day of the month - cron's 'L' is refused at
+                    //     the other end of this converter;
+                    //   - a local start that lands on a different UTC calendar
+                    //     day, where no fixed day-of-month is right in every
+                    //     month. See TriggerBuilder for why the week's trick of
+                    //     rolling the day does not work here.
+                    if (monthly.RunOnLastDayOfMonth) return null;
+                    if (monthly.MonthsOfYear != MonthsOfTheYear.AllMonths) return null;
+                    if (UtcDayShift(monthly.StartBoundary) != 0) return null;
+                    if (monthly.DaysOfMonth == null || monthly.DaysOfMonth.Length == 0) return null;
+                    return new TriggerSpec
+                    {
+                        Type = "Monthly",
+                        StartBoundary = ToUtcHhmm(monthly.StartBoundary),
+                        DaysOfMonth = new List<int>(monthly.DaysOfMonth),
+                        Repetition = ReadRepetition(monthly.Repetition)
+                    };
+
                 case TimeTrigger time:
                     return new TriggerSpec
                     {

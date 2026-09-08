@@ -251,6 +251,11 @@ is. See [troubleshooting #45](../../../docs/troubleshooting/README.md#45-cronsol
   unsigned field on a signed command lets an on-path attacker redirect the write. The message
   strings in `agentAuth.ts` and `AgentAuthenticator.cs` must match **byte-for-byte**, and both
   suites pin the same golden HMAC vectors; change one side alone and every command is rejected.
+  **A field added to the canonical trigger is appended conditionally, per trigger type** — 2026-09-08's
+  `daysOfMonth` is written only for a `Monthly` trigger. Unconditionally, it would change the
+  canonical form of every Daily, Weekly and Time trigger, so the new schedule type would break
+  every create against an agent that had not been republished; conditionally, an old agent verifies
+  the signature and then refuses the unknown trigger type by name.
 - **The agent re-validates what it is told.** It holds the elevation and calls
   `RegisterTaskDefinition` (which **silently overwrites** a same-named task in the same
   folder), so `TaskFolderPath` duplicates the backend's folder rules on purpose. A signed

@@ -174,6 +174,7 @@ namespace Cronsole.Agent
                 startBoundary = spec.StartBoundary,
                 daysInterval = spec.DaysInterval,
                 daysOfWeek = spec.DaysOfWeek,
+                daysOfMonth = spec.DaysOfMonth,
                 repetition = spec.Repetition == null ? null : (object)new
                 {
                     interval = spec.Repetition.Interval,

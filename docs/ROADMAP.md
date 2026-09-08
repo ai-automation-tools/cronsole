@@ -39,14 +39,17 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
-**Leading the queue as of 2026-08-31:** [**Gemini usability**](#gemini-usability) — **A and B
-shipped 2026-08-25**: an MCP server is saved once on the connection and referenced by name, and a
-trigger can be duplicated instead of retyped. That required **changing a §9 invariant** whose stated
-reason ("the value is needed exactly once") live use falsified. **C shipped 2026-08-31** — the
-recreate path now carries a prompt and a schedule, so a Gemini trigger is editable at all, and
-widening it uncovered a silent timezone shift on every rebuild of a trigger created outside
-Cronsole. Two of the five items remain, and **E (prompt preflight)** is the next self-contained
-one. Behind it, the
+**Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
+the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
+2026-09-08** and closed the 2026-08-18 pair's second half. The worst of them is that **a `MISSING`
+Claude row cannot be removed by anything**: `untrack_task` 400s for `CLAUDE_CODE`,
+`disconnect_claude_routine` only reaches *declared* routines, and OAuth mode produces tracked rows
+that nothing declares — two are stranded on the dev machine. Alongside it, [periodic
+sync](#import-sync-split) is the one remaining item of its block and the larger build.
+*(The [**Gemini usability**](#gemini-usability) block led this queue from 2026-08-25 and closed
+2026-08-31, all five items. It is worth re-reading for one thing: it **changed a §9 invariant**
+whose stated reason — "the value is needed exactly once" — live use falsified, which is the
+argument for re-reading any rule whose justification is a lifecycle claim.)* Behind it, the
 [source-onboarding requests](#sources-onboarding) — **all five landed the same day.** The fifth,
 GitHub Actions' live verification, ran against a real repository and immediately earned its keep:
 it found a defect no unit test could see ([#75](troubleshooting/README.md#75-a-github-repository-is-watched-sync-succeeds-and-no-workflows-ever-arrive)),
@@ -391,15 +394,31 @@ moved to [P2](#open--ui--product): `--border` needs a second token.
       lives in the host's environment) but needs Claude routines. Neither is a thing to document as
       the answer.
 
-- [ ] **A Monthly trigger for the Windows agent** *(surfaced 2026-08-18 by the schedule picker)*.
-      `scheduler-conversion.ts` has no monthly pattern, so `0 9 1 * *` falls to the replaced-with-
-      hourly fallback: ~8,760 runs a year for a schedule that asked for 12. That was tolerable
-      while a monthly cron was something you had to know to type; the picker makes it a one-click
-      choice, and the only thing standing between it and a wrong task is a warning. The work is a
-      `Monthly` arm end to end — `WindowsTrigger` already declares the type, but `TriggerSpec`,
-      `TriggerBuilder`, `canonicalizeTrigger`/`CanonicalizeTrigger` (both sides, byte-for-byte)
-      and `convertWindowsTriggerToCron` do not have it. Until then the picker offers the shape and
-      the server's warning is what tells the truth about it.
+- [x] **A Monthly trigger for the Windows agent** *(surfaced 2026-08-18 by the schedule picker;
+      shipped 2026-09-08)*. `scheduler-conversion.ts` had no monthly pattern, so `0 9 1 * *` fell
+      to the replaced-with-hourly fallback: ~8,760 runs a year for a schedule that asked for 12.
+      The `Monthly` arm now runs end to end — `WindowsTrigger.daysOfMonth`, both converter
+      directions (a single day, a list and a range, all at confidence 1.0), `TriggerSpec`,
+      `TriggerBuilder`, `TriggerReader`, and `canonicalizeTrigger`/`CanonicalizeTrigger` on both
+      sides byte-for-byte.
+      **Three shapes stayed refusals rather than becoming approximations**, and the third is the
+      one worth remembering: a **specific month** (`0 4 1 1 *`) has no home in `WindowsTrigger` —
+      there is deliberately no `monthsOfYear`, so it keeps the honest hourly fallback and a
+      restricted-month trigger read off a machine reports *no schedule* rather than "every month";
+      **run-on-last-day** is cron's `L`, already refused at the other end; and a monthly time whose
+      UTC form lands on a **different local calendar date** is refused by the agent with that
+      reason. That last one is the finding: the weekly arm rolls a UTC day to the local day it
+      really lands on, and the obvious move was to copy it — but a week is always seven days and a
+      month is not, so the same roll means the 31st in January, the 28th in March and the 30th in
+      May. No single `DaysOfMonth` is right, and picking one would have run the task on the wrong
+      date for eleven months of the year while Cronsole displayed the cron it was given.
+      **One deployment detail is load-bearing**: `daysOfMonth` is appended to the signed canonical
+      trigger string **only** for a Monthly trigger. An unconditional eighth field would have
+      changed the canonical form of every Daily, Weekly and Time trigger, so a new schedule type
+      would have broken every create against an agent that had not been republished — conditional,
+      an old agent verifies the signature and then refuses the trigger by name, which is an error
+      the user can act on. `TriggerBuilder` also gained an optional `TimeZoneInfo` so the
+      offset-dependent arm can be tested at a pinned zone rather than at the runner's.
 
 <a id="follow-ups-2026-08-13"></a>
 

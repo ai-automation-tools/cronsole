@@ -487,11 +487,15 @@ five-field expression, and switching between the two writes nothing by itself.
   rewrite a schedule you opened to read.
 - **A monthly schedule is not clamped.** Cron does not shorten February: a task set to the 31st
   simply does not run in a month that has no 31st. The picker says so where you choose the day.
-- **Monthly has no Windows trigger today.** Windows Task Scheduler is driven by triggers, not by
-  cron, and Cronsole's converter has no monthly form — so a monthly cron on a Windows task is
-  *replaced* by an hourly trigger, which is what the warning under the field tells you before you
-  save. Use it for Cronsole-native tasks, or say so out loud on Windows. (Cronsole-native runs the
-  expression itself, so every shape above is exact there.)
+- **Monthly registers as a real Windows monthly trigger** *(since 2026-09-08 — it used to be
+  replaced by an hourly one, ~8,760 runs a year for a schedule asking for 12)*. `0 9 1 * *` and a
+  list or range of days (`0 9 1,15 * *`) both convert exactly. Two things it still cannot do, and
+  it says so rather than approximating: a **specific month** (`0 4 1 1 *`, once a year) has no
+  Windows-trigger form here and is still replaced by the hourly fallback; and a monthly time whose
+  UTC form lands on a **different local calendar day** is refused by the agent with that reason —
+  a week is always seven days so a weekday can be rolled, but a month is not always the same
+  length, so no single day-of-month would be right all year. Pick a time that stays on the same
+  local date. (Cronsole-native runs the expression itself, so every shape above is exact there.)
 
 Editable for Cronsole-native tasks and for Windows tasks whose trigger can be represented as a
 cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits

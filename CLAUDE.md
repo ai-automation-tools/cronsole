@@ -167,6 +167,16 @@ Non-negotiable rules. **Every one has a reason recorded in
   expression they cannot hold. They judge no platform's fidelity; that is the server's.
 - **A refusal to convert must state its reason.** Declining to answer and answering "no problem here"
   must never be the same code path ([#60](docs/troubleshooting/README.md#60-a-schedule-is-stored-78-hours-off-and-the-ui-says-the-timezone-doesnt-matter)).
+- **A weekday can be rolled across the UTC boundary; a day of the month cannot.** The agent
+  resolves a `Weekly` trigger's UTC day+time to the local day it really lands on, because a week is
+  always seven days. A `Monthly` trigger names a *fixed day of the month*, and the same roll would
+  mean the 31st in January, the 28th in March and the 30th in May — no single value is right, so
+  `TriggerBuilder` **refuses a monthly boundary that changes the local calendar date** and
+  `TriggerReader` returns `null` for one rather than reporting a day the task does not run on.
+  The other two unreadable monthly shapes are the same rule: a **restricted month set** (cron's
+  month field has no home in `WindowsTrigger`, deliberately — see `daysOfMonth`) and
+  **run-on-last-day** (cron's `L`, refused at the other end of the converter). A specific month
+  therefore still reaches the replaced-with-hourly fallback, and says so.
 - `(platform, externalId)` is unique. `PlatformConnection.config` is AES-256-GCM encrypted at the
   application layer; never log decrypted values.
 - **`name` and `category` are Cronsole labels** — sync overwrites neither, and a rename is DB-only, so

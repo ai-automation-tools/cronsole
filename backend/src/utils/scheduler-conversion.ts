@@ -5,6 +5,16 @@ export interface WindowsTrigger {
   startBoundary: string; // "HH:mm"
   daysInterval?: number;
   daysOfWeek?: string[];
+  /**
+   * Days of the month a Monthly trigger fires on, 1-31, every month. Only ever
+   * set on `type: 'Monthly'`.
+   *
+   * There is deliberately no `monthsOfYear` companion: cron's month field would
+   * have to survive the round trip too, and a Monthly trigger whose months are
+   * restricted has no honest 5-field cron here — `TriggerReader` returns null
+   * for one rather than reporting it as "every month".
+   */
+  daysOfMonth?: number[];
   repetition?: {
     interval: string; // e.g. "PT30M"
     duration?: string; // e.g. "P1D"
@@ -48,7 +58,7 @@ export function canonicalizeTrigger(trigger: WindowsTrigger | null | undefined):
   const daysOfWeek = (trigger.daysOfWeek ?? []).join(',');
   const repInterval = trigger.repetition?.interval ?? '';
   const repDuration = trigger.repetition?.duration ?? '';
-  return [
+  const fields = [
     'trigger',
     trigger.type,
     trigger.startBoundary,
@@ -56,7 +66,19 @@ export function canonicalizeTrigger(trigger: WindowsTrigger | null | undefined):
     daysOfWeek,
     repInterval,
     repDuration
-  ].join('|');
+  ];
+  // `daysOfMonth` is appended ONLY for a Monthly trigger, and that condition is
+  // the whole point rather than a shortcut. Appending an eighth field
+  // unconditionally would change the canonical string of every Daily, Weekly and
+  // Time trigger, so every create would fail the signature check against any
+  // agent that has not been republished — a schedule type nobody asked for
+  // breaking every schedule type they did. Conditional, an old agent verifies
+  // the signature and then refuses the Monthly trigger by name, which is the
+  // error the user can act on.
+  if (trigger.type === 'Monthly') {
+    fields.push((trigger.daysOfMonth ?? []).join(','));
+  }
+  return fields.join('|');
 }
 
 export interface ReverseResult {
@@ -107,6 +129,38 @@ function parseCronDaysOfWeek(dow: string): string[] | null {
 
   if (indices.size === 0) return null;
   return [...indices].sort((a, b) => a - b).map(index => CRON_DAY_NAMES[index]);
+}
+
+/**
+ * Parses a cron day-of-month field into the 1-31 days a Windows Monthly trigger
+ * expects, handling a single day (`1`), a list (`1,15`) and a range (`1-5`).
+ *
+ * Same contract as `parseCronDaysOfWeek` one field over, for the same reason:
+ * `parseInt('1-5')` is `1`, which would turn "the first five days" into "the
+ * first" at full confidence. Returns `null` for anything unparseable or out of
+ * range, and for `*` — a wildcard day-of-month is not a monthly schedule at all,
+ * it is the daily/weekly case the caller has already handled.
+ */
+function parseCronDaysOfMonth(dom: string): number[] | null {
+  const days = new Set<number>();
+
+  for (const part of dom.split(',')) {
+    const range = part.match(/^(\d+)-(\d+)$/);
+    if (range) {
+      const start = Number(range[1]);
+      const end = Number(range[2]);
+      if (start < 1 || end > 31 || start > end) return null;
+      for (let day = start; day <= end; day++) days.add(day);
+      continue;
+    }
+    if (!/^\d+$/.test(part)) return null;
+    const day = Number(part);
+    if (day < 1 || day > 31) return null;
+    days.add(day);
+  }
+
+  if (days.size === 0) return null;
+  return [...days].sort((a, b) => a - b);
 }
 
 /**
@@ -229,7 +283,43 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
     }
   }
 
-  // 3. Hourly at specific minute: "M * * * *"
+  // 3. Monthly on one or more days of the month: "M H D[,D|-D] * *"
+  //
+  // The month field must be `*`: a Windows Monthly trigger can restrict its
+  // months, but `WindowsTrigger` deliberately carries no `monthsOfYear`, so
+  // "every January" falls through to the replaced fallback below rather than
+  // being registered as "every month".
+  if (isSpecificTime && dom !== '*' && month === '*' && dow === '*') {
+    const daysOfMonth = parseCronDaysOfMonth(dom);
+    if (daysOfMonth) {
+      const timeStr = timeOf(hourNum, minNum);
+      // A day past the 28th simply does not occur in every month, under cron or
+      // under Windows — both skip it. Worth saying out loud because "monthly" is
+      // read as "twelve times a year", and 31 means seven.
+      const rare = daysOfMonth.filter(day => day > 28);
+      if (rare.length > 0) {
+        warnings.push(
+          `Day ${rare.join(', ')} of the month does not exist in every month, so this ` +
+          'schedule skips the months that are shorter — the same as cron. Use day 28 or ' +
+          'earlier for a run in every month.'
+        );
+      }
+      return {
+        // Exact: Windows fires on these days of the month, every month, at this
+        // time. The skipped short months are cron's behaviour too, so nothing is
+        // lost in the conversion and the confidence stays 1.0.
+        confidence: 1.0,
+        trigger: {
+          type: 'Monthly',
+          startBoundary: timeStr,
+          daysOfMonth
+        },
+        warnings
+      };
+    }
+  }
+
+  // 4. Hourly at specific minute: "M * * * *"
   if (minNum !== null && hour === '*' && dom === '*' && month === '*' && dow === '*') {
     const timeStr = timeOf(0, minNum);
     return {
@@ -246,7 +336,7 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
     };
   }
 
-  // 4. Periodic minutes: "*/M * * * *"
+  // 5. Periodic minutes: "*/M * * * *"
   if (hour === '*' && dom === '*' && month === '*' && dow === '*') {
     const intervalMins = parseStepField(min);
     if (intervalMins !== null) {
@@ -280,7 +370,7 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
     }
   }
 
-  // 5. Periodic hours: "0 */H * * *"
+  // 6. Periodic hours: "0 */H * * *"
   if (minNum === 0 && dom === '*' && month === '*' && dow === '*') {
     const intervalHours = parseStepField(hour);
     if (intervalHours !== null) {
@@ -344,7 +434,8 @@ export function convertCronToWindowsTrigger(cron: string): ConversionResult {
     'REPLACED — not approximated — with a fixed hourly trigger: every hour from 00:00, about ' +
     '24 runs a day (~8,760 a year). The original expression is discarded entirely, and the ' +
     'replacement only ever runs MORE often than you asked. Use a schedule Windows can express ' +
-    '(a daily/weekly time, or an even */N step), or create it disabled and enable it when needed ' +
+    '(a daily/weekly/monthly time, or an even */N step), or create it disabled and enable it when ' +
+    'needed ' +
     '— do not encode "rarely" in the cron.'
   );
   return {
@@ -419,6 +510,24 @@ export function convertWindowsTriggerToCron(trigger: WindowsTrigger): ReverseRes
           warnings
         };
       }
+    }
+  }
+
+  if (trigger.type === 'Monthly' && trigger.daysOfMonth && trigger.daysOfMonth.length > 0) {
+    const time = parseStartBoundary(trigger.startBoundary);
+    // Every day the trigger names becomes a cron day, for the reason the weekly
+    // arm above keeps all of its days: a Monthly trigger routinely names several
+    // and keeping only the first would drop the rest silently. Out-of-range days
+    // fall through to the fallback rather than being clamped — this reads real
+    // machines, where the trigger was not necessarily written by us.
+    const inRange = trigger.daysOfMonth.every(day => Number.isInteger(day) && day >= 1 && day <= 31);
+    if (time && inRange) {
+      const dom = [...new Set(trigger.daysOfMonth)].sort((a, b) => a - b).join(',');
+      return {
+        confidence: 1.0,
+        cron: `${time.min} ${time.hour} ${dom} * *`,
+        warnings
+      };
     }
   }
 

@@ -15,19 +15,19 @@ import { SourceDocLink } from './SourceDocLink';
  * A source that is connected: what it can do, what it has actually done, and
  * the evidence behind both.
  *
- * **Summary up front, evidence behind one disclosure** (2026-08-24). The card
- * used to render the four stats, the whole capability chip wall, two
- * explanatory paragraphs and a second disclosure holding the table — so four
- * connected sources filled three screens and the stat you wanted was always
- * below the fold. What stays visible is what you scan: identity, health, and
- * the four numbers. What moved is the per-verb detail, which you go looking for
- * rather than sweep past.
+ * **Just the header by default, everything else behind one disclosure**
+ * (2026-09-07). The card used to always show four stats plus a second nested
+ * disclosure for the capability table — so four connected sources filled three
+ * screens before you had opened anything. Now the only thing rendered by
+ * default is identity: tile, name, badges, one-line summary, health pill. A
+ * single "Show details" toggle reveals the stats, the platform's own setup
+ * panel, the capability chips and table, and the doc link together.
  *
  * **A problem is never behind the disclosure.** `healthReason` and any verb that
- * failed more recently than it succeeded break out above it, always. Collapsing
- * a card is a density decision; it must never become a way for the screen to get
- * quieter exactly when something is wrong — which is the class of dishonesty
- * `getHealth` was fixed for (troubleshooting #40).
+ * failed more recently than it succeeded break out above the toggle, always.
+ * Collapsing a card is a density decision; it must never become a way for the
+ * screen to get quieter exactly when something is wrong — which is the class
+ * of dishonesty `getHealth` was fixed for (troubleshooting #40).
  *
  * Nothing here is derived in the browser. The server sends the verdict and the
  * evidence behind it — including `access`, which is a judgement and therefore
@@ -54,7 +54,7 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
       data-testid={`platform-row-${row.platform}`}
       className="bg-surface border border-border rounded-2xl overflow-hidden transition-colors duration-150 hover:border-border/80"
     >
-      <div className="p-5 space-y-5">
+      <div className="p-5 space-y-3">
         <div className="flex items-start gap-3.5 flex-wrap sm:flex-nowrap">
           <SourceTile platform={row.platform} />
 
@@ -68,22 +68,6 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
             <SidebarToggle row={row} visibility={visibility} onToggle={() => onToggleShown(row.platform)} />
           </div>
         </div>
-
-        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4 text-[11px] pt-4 border-t border-border">
-          <Stat label="Tracked tasks" value={String(row.taskCount)} />
-          {/*
-            Absent, not "just now". A sync timestamp is only ever a real one:
-            Cronsole-native reports none because this database IS its source of
-            truth, so it has nothing to be stale against (troubleshooting #40).
-          */}
-          <Stat label="Last sync" value={row.lastSync ? timeAgo(row.lastSync) : '—'} muted={!row.lastSync} />
-          <Stat
-            label="Last verified"
-            value={row.lastVerifiedAt ? timeAgo(row.lastVerifiedAt) : 'Never'}
-            muted={!row.lastVerifiedAt}
-          />
-          <Stat label="Verified verbs" value={`${verified} of ${row.capabilities.length}`} />
-        </dl>
 
         {row.healthReason && (
           <p className="text-[11px] text-warning-text bg-warning/10 border border-warning/30 rounded-xl px-3 py-2.5 leading-relaxed">
@@ -108,42 +92,6 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
         )}
       </div>
 
-      {/*
-        Claude is the only platform whose connection a user composes by hand:
-        Anthropic issues a bearer token per routine and exposes no API to list
-        them, so nothing can be discovered and the registry has to be typed in.
-        The panel lives inside the platform's own card because that is where
-        someone goes when the card says "Not connected".
-      */}
-      {row.platform === 'CLAUDE_CODE' && <ClaudeRoutinesPanel />}
-
-      {/*
-        GitHub is the second hand-composed connection, and the first read-only
-        one. The panel lives in the platform's own card for the same reason
-        Claude's does, and it opens by saying what Cronsole will *not* do,
-        because a card of `unsupported` cells otherwise reads as a fault rather
-        than as the shape of the integration.
-      */}
-      {row.platform === 'GITHUB_ACTIONS' && <GitHubReposPanel />}
-
-      {/*
-        Vercel is the third hand-composed connection and the second read-only
-        one. Its panel opens by saying two things rather than GitHub's one: what
-        Cronsole will not do, and — the surprise GitHub does not have — that
-        Vercel publishes no cron run history, so these tasks stay at `unknown`
-        health however well they are running.
-      */}
-      {row.platform === 'VERCEL_CRON' && <VercelProjectsPanel />}
-
-      {/*
-        Gemini is the fourth hand-composed connection and the **first hosted one
-        that can act**, which is what its panel has to lead with: a reader who
-        has met GitHub and Vercel here has learned that a hosted source is
-        read-only, and would otherwise carry that assumption onto a row full of
-        buttons that work.
-      */}
-      {row.platform === 'GEMINI_TRIGGERS' && <GeminiTriggersPanel />}
-
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -155,7 +103,7 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
           size={13}
           className={`shrink-0 transition-transform duration-200 ${expanded ? 'rotate-0' : '-rotate-90'}`}
         />
-        Capabilities and evidence
+        {expanded ? 'Hide details' : 'Show details'}
         <span className="ml-auto flex items-center gap-2.5 tabular-nums font-black">
           <span className="text-success-text">{verified} verified</span>
           {declared > 0 && <span className="text-neutral-text">{declared} unproven</span>}
@@ -164,7 +112,59 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
 
       {expanded && (
         <div id={panelId} className="border-t border-border animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="p-5 space-y-3">
+          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4 text-[11px] p-5">
+            <Stat label="Tracked tasks" value={String(row.taskCount)} />
+            {/*
+              Absent, not "just now". A sync timestamp is only ever a real one:
+              Cronsole-native reports none because this database IS its source
+              of truth, so it has nothing to be stale against (troubleshooting #40).
+            */}
+            <Stat label="Last sync" value={row.lastSync ? timeAgo(row.lastSync) : '—'} muted={!row.lastSync} />
+            <Stat
+              label="Last verified"
+              value={row.lastVerifiedAt ? timeAgo(row.lastVerifiedAt) : 'Never'}
+              muted={!row.lastVerifiedAt}
+            />
+            <Stat label="Verified verbs" value={`${verified} of ${row.capabilities.length}`} />
+          </dl>
+
+          {/*
+            Claude is the only platform whose connection a user composes by
+            hand: Anthropic issues a bearer token per routine and exposes no
+            API to list them, so nothing can be discovered and the registry
+            has to be typed in. The panel lives inside the platform's own card
+            because that is where someone goes when the card says "Not connected".
+          */}
+          {row.platform === 'CLAUDE_CODE' && <ClaudeRoutinesPanel />}
+
+          {/*
+            GitHub is the second hand-composed connection, and the first
+            read-only one. The panel lives in the platform's own card for the
+            same reason Claude's does, and it opens by saying what Cronsole
+            will *not* do, because a card of `unsupported` cells otherwise
+            reads as a fault rather than as the shape of the integration.
+          */}
+          {row.platform === 'GITHUB_ACTIONS' && <GitHubReposPanel />}
+
+          {/*
+            Vercel is the third hand-composed connection and the second
+            read-only one. Its panel opens by saying two things rather than
+            GitHub's one: what Cronsole will not do, and — the surprise GitHub
+            does not have — that Vercel publishes no cron run history, so
+            these tasks stay at `unknown` health however well they are running.
+          */}
+          {row.platform === 'VERCEL_CRON' && <VercelProjectsPanel />}
+
+          {/*
+            Gemini is the fourth hand-composed connection and the **first
+            hosted one that can act**, which is what its panel has to lead
+            with: a reader who has met GitHub and Vercel here has learned that
+            a hosted source is read-only, and would otherwise carry that
+            assumption onto a row full of buttons that work.
+          */}
+          {row.platform === 'GEMINI_TRIGGERS' && <GeminiTriggersPanel />}
+
+          <div className="border-t border-border p-5 space-y-3">
             <div className="flex flex-wrap gap-1.5">
               {row.capabilities.map(cell => <CapabilityChip key={cell.verb} cell={cell} />)}
             </div>
@@ -230,17 +230,12 @@ export const ConnectedSourceCard = ({ row, shownSources, onToggleShown }: {
               </tbody>
             </table>
           </div>
+
+          <div className="p-5 border-t border-border">
+            <SourceDocLink platform={row.platform} label={row.label} />
+          </div>
         </div>
       )}
-
-      {/*
-        Outside the capability disclosure on purpose. Everything above answers
-        "what can this do"; this answers "how do I use it", which is the
-        question somebody has while the card is still collapsed.
-      */}
-      <div className="pt-4 border-t border-border">
-        <SourceDocLink platform={row.platform} label={row.label} />
-      </div>
     </article>
   );
 };

@@ -25,6 +25,39 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The sidebar was rebuilt around a filter field, chips and row caps** (2026-09-09). It had grown
+  to four stacked bands, each with a hairline rule, an uppercase heading and its own fold, over 44px
+  rows carrying a 28px bordered icon tile — six platforms cost 264px before a single folder, and on
+  a machine with 394 Windows tasks the only route to a source you have *not* added sat below the
+  whole tree, off screen. Five changes:
+  - **A filter field at the top** narrows the whole rail by name — sources, folders, collections and
+    pins. Matching branches open, and so does a band you had folded shut, so a section you closed
+    months ago cannot quietly answer "no results". Escape clears it, and so does collapsing the
+    sidebar — at icon width nothing would be left on screen to say the rail was still narrowed. It
+    filters the **sidebar, not your tasks** (the field says so, and so does its empty state), and it
+    is presentation only: nothing about it reaches the URL or the task filters, and **nothing about
+    it reaches a reorder** — dragging a chip while filtered still reports the whole band, or the
+    rows you could not see would be dropped from the stored order.
+  - **Collections and Pinned are chips** instead of rows. Six of them cost two wrapped lines instead
+    of six 32px rows, and each keeps its name, its count, its selected state and — on a pin — the
+    control that takes it away. They are still two separately foldable bands.
+  - **No list draws unbounded.** Every band and every folder list stops at four rows and says how
+    many it is holding back (*Show 11 more folders*). A list of filter *matches* is never capped —
+    that would hide the row you typed for — but the children a match drags along with it are. The
+    **System tasks** group is never capped either: it sorts last and its whole job is stating what
+    is held back, so a plain cap would hide it first on the machines with most to disclose.
+  - **Rows lost their icon tiles**, so a source glyph now carries its platform's identity colour
+    (`sourceAccentGlyph`, the same table the Sources cards read), and the health dot moved into a
+    gutter of its own where the states read as a column.
+  - **A utility bar is pinned to the bottom** of the panel holding the collapse toggle, *Explore
+    sources*, *Manage sources* and the help `?`. Those four used to sit under the tree and fold with
+    it; they are out of the scroll now, so folding the tree can no longer take away the only route
+    to a platform you have not added.
+
+  Health is **not** exception-only, which was drawn and rejected: a platform with no connection
+  already draws no dot, so hiding the healthy one would make *connected and fine* and *not
+  connected* the same absence.
+
 - **Sources tab cards collapse to just their header by default** (2026-09-07). `ConnectedSourceCard`
   and `PendingSourceCard` used to always render the four-stat grid (or the setup hint/button) below
   the identity row, so a screen with several sources read as a stack of paragraphs before you had

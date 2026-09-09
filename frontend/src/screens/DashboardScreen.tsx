@@ -275,7 +275,13 @@ export const DashboardScreen = ({
   );
 
   // Escape closes the drawer. Only bound while it is open, so it cannot steal
-  // the key from the search box's own clear-on-Escape.
+  // the key from the task search box's own clear-on-Escape.
+  //
+  // The rail's filter field lives *inside* this drawer and also clears on
+  // Escape, so it stops the event when it has a query to clear — otherwise one
+  // press would clear the field and dismiss the panel holding it. That guard is
+  // in `SourceRail`, at the field, because only the field knows whether there
+  // is anything to clear.
   useEffect(() => {
     if (!railOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -692,8 +698,14 @@ export const DashboardScreen = ({
           The token is a real 5% step in light and 3% in dark, which is what
           makes the panel read as chrome rather than as page.
         */
-        className={`hidden md:flex flex-col shrink-0 self-start sticky top-0 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-border bg-surface transition-[width] duration-200 ${
-          railCollapsed ? 'w-[4.5rem] px-2 py-4' : 'w-72 px-3 py-4'
+        /*
+          No padding and no scroll here: the rail owns both now, because its
+          utility bar is pinned to the bottom of the panel and a footer inside a
+          scrolling box scrolls with it. The panel is a fixed-height flex column;
+          `SourceRail` splits it into a scrolling region and that bar.
+        */
+        className={`hidden md:flex flex-col shrink-0 self-start sticky top-0 h-[calc(100vh-3.5rem)] overflow-hidden border-r border-border bg-surface transition-[width] duration-200 ${
+          railCollapsed ? 'w-[4.5rem]' : 'w-72'
         }`}
       >
         <SourceRail
@@ -725,8 +737,8 @@ export const DashboardScreen = ({
             onClick={() => setRailOpen(false)}
             aria-hidden
           />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-background border-r border-border p-4 overflow-y-auto animate-in slide-in-from-left duration-200">
-            <div className="flex items-center justify-between mb-3">
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-hidden bg-background border-r border-border animate-in slide-in-from-left duration-200">
+            <div className="flex shrink-0 items-center justify-between px-4 pt-4 pb-3">
               <span className="font-bold text-sm">Sources</span>
               <button
                 onClick={() => setRailOpen(false)}

@@ -111,22 +111,29 @@ The **rail down the left of the dashboard** is where you navigate. It is a tree,
 and it answers *where a task lives* before anything else asks *which slice of it you want*:
 
 ```
+  🔍 Filter sources and folders
+    All sources                403
+  ★ Favorites                   12
+
+COLLECTIONS                      +
+  ( AI-Lab 24 ) ( Prompt Library 9 )
+  ( Nightly 6 ) ( Deploys 4 ) ( +2 )
+
+PINNED
+  ( \Cronsole 14 ) ( \AI_Agents 31 )
+
 SOURCES
-  All sources          269
-  ★ Favorites            6
-▾ ● Windows Task Scheduler  254
-     AI-Maintenance         12
-     AI-Tools                8
-     Claude                  5
-     Uncategorized          41
-   ⃠ System tasks            HIDDEN   257
-▸ ● Cronsole (Native)         12
-      HTTP jobs               7
-      Scripts                 5
-▸ ● Claude Code                3
+▾ ● Windows Task Scheduler     357
+     AI-Maintenance             12
+     AI-Tools                    8
+     Backups                     4
+     Claude                      5
+     ▸ Show 11 more folders
+   ⃠ System tasks     HIDDEN    300
+▸ ● Cronsole (Native)           12
+▸ ● Claude Code                  3
   ─────────────────────────────
-  🔍 Explore sources
-  ⚙  Manage sources
+  ◧  🔍 Explore sources   ⚙  ?
 ```
 
 **Level 1 is the system.** *All sources* and **Favorites** lead, separated by a rule from the
@@ -160,7 +167,12 @@ old sidebar's "System Status" panel used to give, moved next to the thing it des
   so in its own label and states the count, so nothing is quietly fenced off. Open it and pick a
   folder to look inside one. The group itself only expands — it is a disclosure, not a filter.
 
-**Collapse it** with the button at the top of the rail. Collapsed, it becomes a narrow column of
+**Collections and Pinned are chips**, not rows — two separate bands, each with its own heading and
+its own fold, because a collection holds what you put in it and a pin tracks a folder. A chip keeps
+everything a row carried: its name, its count, whether it is selected, and (on a pin) the `×` that
+takes it off. Six of them cost two lines instead of six.
+
+**Collapse the rail** with the leftmost button in the bottom bar. Collapsed, it becomes a narrow column of
 icons — each system with its health dot and its count, names on hover — and the folder level is
 **dropped rather than shrunk**, because a Task Scheduler folder name has nowhere to go at that
 width and a column of tooltips is worse than admitting the tree needs room. The choice is
@@ -170,13 +182,41 @@ On a phone the rail is a drawer: tap **Sources** beside the page heading. The br
 heading is what tells you where you are while it is closed. The drawer always opens at full width —
 an icons-only tree inside a panel you had to tap open would be two gestures to reach one folder.
 
-**Two buttons sit under the tree**, because the rail lists the sources you *have* and says nothing
-about the ones you could:
+**The bar along the bottom holds the rail's own controls** — collapse, the two source routes, and
+help — rather than the tree's destinations. It does not scroll with the tree, so on a machine with a
+few hundred Windows tasks they stay where you left them:
 
 - **Explore sources** — every source Cronsole can connect to, including the ones you have not added
   and the schedulers it can only bookmark. It opens the **Sources** tab at its *Available* section.
 - **Manage sources** — the same tab at *Connected*: connect, disconnect, and show or hide each
   one.
+
+These two matter more than they look: the rail lists the sources you *have* and says nothing about
+the ones you could, so without a route to the rest, "not added yet" and "missing" would be the same
+empty sidebar.
+
+#### Filtering the sidebar
+
+The box at the top narrows **the rail itself** — sources, folders, collections and pins, by name.
+Matching folders open so you can see the hit — as does a folded band, so a section you shut months
+ago cannot quietly answer "no results". **Escape** clears it, and collapsing the sidebar clears it
+too, since at icon width there would be nothing on screen to say the rail was still narrowed.
+
+It filters the sidebar, **not your tasks**. To search task names, use the search box and *Filters*
+above the task list. Nothing about this filter is saved or put in the link: a sidebar still narrowed
+tomorrow morning would read as a platform that had disappeared.
+
+When it finds nothing it says what it looked at, and when it finds something it names the sources it
+searched without a match — "found nothing" and "looked at nothing" are different facts and they
+would otherwise look identical.
+
+#### Long lists stop at four
+
+Every band and every folder list draws four rows, then a **Show 11 more folders** control stating
+exactly how many are behind it. One platform with fifteen Task Scheduler folders cannot take over
+the whole sidebar, and nothing is ever hidden without its count beside it. Filter matches are never
+capped — that would hide the row you typed for — and neither is the **System tasks** group, whose
+whole job is telling you what is being held back.
 
 **A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code,
 GitHub Actions, Vercel Cron and Gemini API Triggers are shown once you add them from *Explore*, which

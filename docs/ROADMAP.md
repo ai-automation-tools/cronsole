@@ -578,6 +578,16 @@ Shipped P2 work is in [Part II](#completed--p2-product-value).
 
 ### Dashboard IA redesign — pass 2 *(requested 2026-08-15; pass 1 shipped)*
 
+- [x] **Sidebar decrowding — shipped 2026-09-09.** Four stacked bands, each with a rule, a heading
+      and a fold, over 44px rows carrying a 28px icon tile: six platforms cost 264px before a single
+      folder, and *Explore / Manage sources* sat below the tree, off screen on a 394-task machine.
+      Now: a **filter field** narrowing the whole rail by name (presentation state, never a
+      `TaskFilters` field); **Collections and Pinned as chips** (still two bands, two folds);
+      **every list capped** at four rows with the remainder stated; **identity colour on the source
+      glyph** now the tile is gone, with health in a gutter of its own; and a **utility bar pinned to
+      the bottom** holding collapse, both source routes and the help `?`. Health stays four-state —
+      exception-only was drawn and rejected, since an unconnected platform already draws no dot.
+      See CHANGELOG 2026-09-09 and §9.
 - [ ] **Scoping.** Views filtered to the source they make sense for (*System* is Windows-only and
       reads `0` everywhere else); source-scoped header actions, so **Sync** and **Import** state
       which platform they mean; per-source empty states, so a connected platform with nothing

@@ -453,6 +453,47 @@ Non-negotiable rules. **Every one has a reason recorded in
   URL, a route away from the dashboard must carry it and a route back must know where it came
   from** — `utils/taskRoute.ts` is the one definition of that round trip (query on the detail URL so
   it survives a reload; origin path in history state, validated as an in-app path).
+- **The rail's filter field narrows *routes*, never the list, so it is presentation state and
+  never a `TaskFilters` field** (`utils/railFilter.ts`, local `useState` in `SourceRail`). Putting
+  it in the URL would make two links that show the same tasks — branch expansion's rule, one
+  control over. It is also not persisted: a narrowed rail is something you are doing right now, and
+  finding the sidebar still filtered tomorrow reads as a platform that has disappeared. The two
+  **scopes are exempt from it** — *All sources* and *Favorites* mean "stop narrowing", and a query
+  matching nothing must still leave a route back to everything. A node survives if it matches **or**
+  a descendant does, and the two cases keep different children: a node that matched keeps all of
+  its (so you can drill in), a node on the path to a hit keeps only the hits. It reports what it
+  **searched** beside what it found, `SyncOutcome.notes`' rule in the UI. Two things it may
+  **never** narrow: **a reorder still reports the whole band** — `orderBy` drops every record the
+  reported list does not name, so reporting the filtered rows destroys the rest (five pins, a query
+  matching two, one drag, three pins gone from a synced preference); and **a fold may not swallow a
+  hit** — the three band folds are persisted, so a query must open them the way it opens a branch,
+  or a shut band answers with a heading, a coverage note and nothing at all.
+- **No rail list draws unbounded, and none truncates silently.** Every band and every folder list
+  stops at `RAIL_ROW_CAP` and states the remainder (*Show 11 more folders*) — one definition in
+  `capRows`, one over the cap left alone because *Show 1 more* costs a row to save a row. **A list
+  of filter matches is never capped and a list a match dragged along with it always is**: capping
+  the first hides the row you typed for, lifting the second turns one hit on `AI-Lab` into all
+  eight of its subfolders (`FilteredRail.liftedLists`). **A disclosure is never capped either** —
+  the `\Microsoft\` group sorts last and exists to say what is held back, so a plain cap would hide
+  it first on the machines with most to disclose, and behind a fold is most of the way to fenced.
+  *Show more* is one-way — the band's own fold already puts the whole thing away.
+- **A declared list is chips; an observed tree is rows.** Collections and Pinned are flat, named and
+  short, so they render as wrapping chips — but they stay **two bands with two headings and two
+  independent folds**, because a pin is not a collection and the shape may not blur what the type
+  split exists to state. A chip keeps everything its row carried: name, count, selected state, and
+  the unpin control. The source tree stays rows because it nests and its counts scan as a column.
+- **A rail row states its platform on the glyph, and only its identity** (`sourceAccentGlyph`, the
+  same `PLATFORM_ACCENT` table the Sources cards read). The tile that used to carry identity in its
+  *background* is gone, so the colour moved onto the icon; health stays a dot in its own gutter,
+  because reading *which source* and *how it is doing* off one colour is what the two-token split
+  exists to stop. **Health is not exception-only**: a platform with no connection already draws no
+  dot, so suppressing the healthy one makes *connected and fine* and *not connected* the same
+  absence — drawn, rejected, and pinned by a test.
+- **The rail's own controls leave the scroll.** The collapse toggle, *Explore sources*, *Manage
+  sources* and the help `?` live in a bar pinned to the bottom of the panel. They used to sit under
+  the tree and fold with it, which put the only route to a platform you have **not** added off
+  screen on any real machine — and that route existing is what makes an opt-in default set safe
+  rather than indistinguishable from a missing platform.
 - **The source rail is navigation, and navigation must not invalidate the slice.** Its dimensions
   (source, category, favorites, collection) are excluded from `filtersEqual` and `activeFilterCount`
   *by omission* — legal only because a rail selection is never hidden. Every node applies

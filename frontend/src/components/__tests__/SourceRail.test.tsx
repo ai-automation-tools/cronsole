@@ -45,12 +45,22 @@ const renderRail = (
 
 beforeEach(() => {
   seq = 0;
-  vi.mocked(api.get).mockResolvedValue({
-    data: [
-      { platform: 'WINDOWS_TASK_SCHEDULER', state: 'HEALTHY' },
-      { platform: 'CLAUDE_CODE', state: 'OFFLINE' }
-    ]
-  } as never);
+  // Routed by endpoint rather than one payload for every GET. The blanket mock
+  // handed the *connections* array to `useCollections` too, so every collection
+  // row was built from `{platform, state}` and carried `label: undefined` — a
+  // shape no server produces, quietly pinning the rail against it.
+  vi.mocked(api.get).mockImplementation((url: string) =>
+    Promise.resolve(
+      url.includes('/tasks/health')
+        ? {
+            data: [
+              { platform: 'WINDOWS_TASK_SCHEDULER', state: 'HEALTHY' },
+              { platform: 'CLAUDE_CODE', state: 'OFFLINE' }
+            ]
+          }
+        : { data: [] }
+    ) as never
+  );
 });
 
 describe('SourceRail', () => {
@@ -110,6 +120,22 @@ describe('SourceRail', () => {
       await screen.findByTitle('Windows Task Scheduler — Online')
     ).toBeInTheDocument();
     expect(screen.getByTitle('Claude Code — Offline')).toBeInTheDocument();
+  });
+
+  it('states health for a healthy platform too, so silence cannot mean two things', async () => {
+    // The 2026-09 pass drew an exception-only readout — nothing on a healthy
+    // source, a mark on everything else — and it was rejected here rather than
+    // in review. A platform with NO connection already renders no dot, so
+    // suppressing the healthy one makes "connected and fine" and "not connected
+    // at all" the same absence. §9: absence of evidence is `unknown`, never `ok`.
+    renderRail([task(), task({ platform: 'GEMINI_TRIGGERS', source: 'GEMINI_TRIGGERS' })]);
+
+    // Windows is HEALTHY per the mocked connections and says so.
+    expect(await screen.findByTitle('Windows Task Scheduler — Online')).toBeInTheDocument();
+    // Gemini has no connection row at all: it makes no health claim, and the
+    // absence of one is not a claim of health.
+    const gemini = screen.getByTitle('Gemini API Triggers');
+    expect(gemini).toBeInTheDocument();
   });
 
   it('the \\Microsoft\\ group expands but never selects', async () => {
@@ -298,6 +324,8 @@ describe('SourceRail collections band', () => {
     renderBand();
     const band = await screen.findByTestId('collections-band');
     // The control that makes a collection belongs to the section it makes into.
+    // It is the `+` in the band's own heading now rather than a footer row —
+    // same place in the tree, one row cheaper.
     expect(within(band).getByRole('button', { name: /new collection/i })).toBeInTheDocument();
   });
 
@@ -372,23 +400,17 @@ describe('SourceRail collections band', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers Explore and Manage under the tree, and only while the tree is open', async () => {
-    renderBand({ sourcesCollapsed: false });
-    const sources = await screen.findByTestId('sources-band');
-
-    // The rail lists the sources you have; these are the only route to the ones
-    // you do not — which is what makes an opt-in default set safe rather than
-    // indistinguishable from a missing platform.
-    expect(within(sources).getByRole('button', { name: /explore sources/i })).toBeInTheDocument();
-    expect(within(sources).getByRole('button', { name: /manage sources/i })).toBeInTheDocument();
-  });
-
-  it('hides the two actions while the Sources tree is folded', async () => {
+  it('offers Explore and Manage from the utility bar, whatever the tree is doing', async () => {
+    // They used to sit under the tree and fold with it. On a machine with six
+    // platforms and fifteen folders that put the only route to a source you have
+    // NOT added below the fold — which is the thing that makes an opt-in default
+    // set safe rather than indistinguishable from a missing platform. They are
+    // out of the scroll now, so folding the tree cannot take them with it.
     renderBand({ sourcesCollapsed: true });
-    const sources = await screen.findByTestId('sources-band');
-    // Folding a section hides what it holds. Two buttons surviving the fold
-    // would be the section refusing to close.
-    expect(within(sources).queryByRole('button', { name: /explore sources/i })).toBeNull();
+    await screen.findByTestId('sources-band');
+
+    expect(screen.getByRole('button', { name: /explore sources/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /manage sources/i })).toBeInTheDocument();
   });
 
   it('lists Cronsole-native on a fresh install even with no native tasks', async () => {
@@ -483,6 +505,239 @@ describe('SourceRail collections band', () => {
   });
 });
 
+/**
+ * The filter field — the rail's own lens, over routes rather than over tasks.
+ */
+describe('SourceRail filter', () => {
+  const type = (value: string) =>
+    fireEvent.change(screen.getByLabelText('Filter sources and folders'), { target: { value } });
+
+  it('narrows the tree to matching folders and opens the branch holding them', async () => {
+    renderRail([
+      task({ category: 'AI-Tools' }),
+      task({ category: 'Backups' }),
+      task({ category: 'Reports' })
+    ]);
+    await screen.findByText('Windows Task Scheduler');
+    // Nothing is expanded to begin with — filters are on All sources.
+    expect(screen.queryByText('AI-Tools')).not.toBeInTheDocument();
+
+    type('back');
+
+    // A match opens its branch: delivering the row you asked for by name, folded
+    // shut inside its parent, would hide the answer inside the result.
+    expect(screen.getByText('Backups')).toBeInTheDocument();
+    expect(screen.queryByText('AI-Tools')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reports')).not.toBeInTheDocument();
+  });
+
+  it('never filters away the two scopes', async () => {
+    // They are not search results — they are the two rows that mean "stop
+    // narrowing", and a query matching nothing must still leave a route back.
+    renderRail([task({ category: 'AI-Tools' })]);
+    await screen.findByText('Windows Task Scheduler');
+
+    type('zzz-nothing-matches');
+
+    expect(screen.getByText('All sources')).toBeInTheDocument();
+    expect(screen.getByText('Favorites')).toBeInTheDocument();
+  });
+
+  it('says what it searched when it found nothing, and offers the way out', async () => {
+    renderRail([task({ category: 'AI-Tools' })]);
+    await screen.findByText('Windows Task Scheduler');
+
+    type('payroll');
+
+    // "Found nothing" and "looked at nothing" render identically as an absence,
+    // so the empty state states its coverage — SyncOutcome.notes' rule, in the UI.
+    expect(screen.getByText(/Nothing here is called/)).toBeInTheDocument();
+    expect(screen.getByText(/filters the sidebar, not your tasks/)).toBeInTheDocument();
+
+    // Two ways out, deliberately: the `x` in the field, and a button where the
+    // reader's eyes already are. Clicking the second one.
+    const clears = screen.getAllByRole('button', { name: /clear filter/i });
+    expect(clears).toHaveLength(2);
+    fireEvent.click(clears[1]);
+    expect(screen.getByText('Windows Task Scheduler')).toBeInTheDocument();
+  });
+
+  it('names the sources it looked in and did not match', async () => {
+    renderRail([
+      task({ category: 'AI-Tools' }),
+      task({ platform: 'CLAUDE_CODE', source: 'CLAUDE_CODE', category: 'Routines' })
+    ]);
+    await screen.findByText('Claude Code');
+
+    type('ai-tools');
+
+    // Every source that was looked at and did not match is named — Cronsole
+    // (Native) is in the default `shownSources` and so was searched too.
+    const note = screen.getByText(/No match in/);
+    expect(note).toHaveTextContent('Searched 3 sources');
+    expect(note).toHaveTextContent('Claude Code');
+    expect(note).toHaveTextContent('Cronsole (Native)');
+  });
+
+  it('opens a folded band rather than swallowing a hit inside it', async () => {
+    // The three band folds are persisted preferences. Someone who shut Sources
+    // months ago and then types a folder name would otherwise get a heading, a
+    // coverage note, and nothing on screen — and `nothingMatched` is false, so
+    // even the empty state that would explain it never renders.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <SourceRail
+            population={[task({ category: 'Backups' }), task({ category: 'Reports' })]}
+            filters={{ ...DEFAULT_FILTERS }}
+            onSelect={vi.fn()}
+            sourcesCollapsed
+            onToggleSourcesCollapsed={vi.fn()}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByTestId('sources-band');
+    expect(screen.queryByText('Windows Task Scheduler')).toBeNull();
+
+    type('backups');
+
+    expect(screen.getByText('Windows Task Scheduler')).toBeInTheDocument();
+    expect(screen.getByText('Backups')).toBeInTheDocument();
+    // The chevron follows rather than claiming shut over an open band.
+    expect(screen.getByRole('button', { name: /collapse sources/i })).toBeInTheDocument();
+  });
+
+  it('drops the query when the rail collapses, so nothing narrows invisibly', async () => {
+    // At 72px there is no field, no clear button and no empty state. A query
+    // surviving would leave platforms missing from the icon rail with nothing
+    // saying why — indistinguishable from a source that disappeared.
+    const onToggleCollapsed = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <SourceRail
+            population={[task({ category: 'Backups' })]}
+            filters={DEFAULT_FILTERS}
+            onSelect={vi.fn()}
+            onToggleCollapsed={onToggleCollapsed}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByText('Windows Task Scheduler');
+
+    type('payroll');
+    expect(screen.getByText(/Nothing here is called/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    expect(onToggleCollapsed).toHaveBeenCalled();
+    expect(screen.getByLabelText('Filter sources and folders')).toHaveValue('');
+  });
+
+  it('Escape clears it', async () => {
+    renderRail([task({ category: 'AI-Tools' })]);
+    await screen.findByText('Windows Task Scheduler');
+
+    const field = screen.getByLabelText('Filter sources and folders');
+    fireEvent.change(field, { target: { value: 'payroll' } });
+    expect(screen.getByText(/Nothing here is called/)).toBeInTheDocument();
+
+    fireEvent.keyDown(field, { key: 'Escape' });
+    expect(screen.queryByText(/Nothing here is called/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Caps — no list draws itself unbounded, and none hides rows silently.
+ */
+describe('SourceRail row caps', () => {
+  const folders = (n: number) =>
+    Array.from({ length: n }, (_, i) => task({ category: `Folder-${String(i).padStart(2, '0')}` }));
+
+  it('caps a long folder list and says how many it is holding back', async () => {
+    renderRail(folders(15), { source: 'WINDOWS_TASK_SCHEDULER' });
+    await screen.findByText('Folder-00');
+
+    // Four shown, eleven behind one control that states the remainder — a cap
+    // with no count is a silent truncation.
+    expect(screen.getByText('Folder-03')).toBeInTheDocument();
+    expect(screen.queryByText('Folder-04')).not.toBeInTheDocument();
+
+    const more = screen.getByRole('button', { name: 'Show 11 more folders' });
+    fireEvent.click(more);
+    expect(screen.getByText('Folder-14')).toBeInTheDocument();
+  });
+
+  it('never puts the system disclosure behind the cap', async () => {
+    // It sorts last and its whole job is saying that 300 tasks are held back, so
+    // a plain cap would hide it first on exactly the machines with most to
+    // disclose. §9 wants it disclosed, not fenced — and behind a fold is most of
+    // the way to fenced.
+    renderRail(
+      [...folders(15), task({ category: 'Microsoft\\Windows\\Defrag', isSystem: true })],
+      { source: 'WINDOWS_TASK_SCHEDULER' }
+    );
+    await screen.findByText('Folder-00');
+
+    expect(screen.getByText('System tasks')).toBeInTheDocument();
+    // The cap counts the folders it governs and not the disclosure it exempts.
+    expect(screen.getByRole('button', { name: 'Show 11 more folders' })).toBeInTheDocument();
+  });
+
+  it('leaves a list one over the cap alone', async () => {
+    // "Show 1 more" costs a row to save a row and hides something for no gain.
+    renderRail(folders(5), { source: 'WINDOWS_TASK_SCHEDULER' });
+    await screen.findByText('Folder-00');
+    expect(screen.getByText('Folder-04')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show 1 more/i })).toBeNull();
+  });
+
+  it('lifts the cap on a list of matches — capping one would hide the hit', async () => {
+    renderRail(folders(15), { source: 'WINDOWS_TASK_SCHEDULER' });
+    await screen.findByText('Folder-00');
+
+    fireEvent.change(screen.getByLabelText('Filter sources and folders'), {
+      target: { value: 'folder-0' }
+    });
+
+    // Folder-00 … Folder-09 all match: ten rows, well past the cap, all drawn.
+    // Capping a result set would put the row you typed for behind a "Show 6
+    // more" you have no reason to expect.
+    expect(screen.getByText('Folder-00')).toBeInTheDocument();
+    expect(screen.getByText('Folder-09')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /more folders/i })).toBeNull();
+  });
+
+  it('still caps the children a match dragged along with it', async () => {
+    // The other half of the same rule, and the half a blanket "no caps while
+    // filtering" got wrong on a real machine: typing `ai` matched `AI-Lab` and
+    // emptied all eight of its subfolders onto the rail. Those subfolders are
+    // not hits — the folder above them is — so they keep their cap.
+    renderRail(
+      [
+        ...Array.from({ length: 9 }, (_, i) =>
+          task({ category: 'AI-Lab', externalId: `\\AI-Lab\\Sub-${i}\\t${i}` })
+        ),
+        task({ category: 'Reports' })
+      ],
+      { source: 'WINDOWS_TASK_SCHEDULER' }
+    );
+    await screen.findByText('AI-Lab');
+
+    fireEvent.change(screen.getByLabelText('Filter sources and folders'), {
+      target: { value: 'ai-lab' }
+    });
+
+    expect(screen.getByText('AI-Lab')).toBeInTheDocument();
+    expect(screen.getByText('Sub-0')).toBeInTheDocument();
+    expect(screen.queryByText('Sub-8')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show 5 more folders' })).toBeInTheDocument();
+  });
+});
+
 describe('SourceRail reordering', () => {
   /**
    * The keyboard path, which is the one jsdom can drive — HTML5 drag events
@@ -537,6 +792,54 @@ describe('SourceRail reordering', () => {
     const onReorder = railWithSources();
     fireEvent.keyDown(await screen.findByText('Cronsole (Native)'), { key: 'ArrowDown' });
     expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('reports the WHOLE band even while the rail is filtered', async () => {
+    // `orderBy` drops every record the reported list does not name — that is
+    // stated in its own doc as a precondition: the caller hands in the band's
+    // own rows. Reporting the *filtered* rows breaks it, and on the Pinned band
+    // it is destructive: five pins, a query matching two, one drag, and the
+    // other three are written out of a synced preference for good.
+    //
+    // The cap never had this problem (hidden rows stay in the key list, only
+    // the rendering is trimmed) and the filter must not either.
+    const onReorder = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <SourceRail
+            population={[
+              task({ platform: 'WINDOWS_TASK_SCHEDULER' }),
+              task({ platform: 'TASKHUB_NATIVE', source: 'TASKHUB_NATIVE:HTTP' }),
+              task({ platform: 'CLAUDE_CODE', source: 'CLAUDE_CODE' })
+            ]}
+            filters={DEFAULT_FILTERS}
+            onSelect={vi.fn()}
+            onReorder={onReorder}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByText('Claude Code');
+
+    // Narrow to one row, then move it.
+    fireEvent.change(screen.getByLabelText('Filter sources and folders'), {
+      target: { value: 'windows' }
+    });
+    fireEvent.keyDown(screen.getByText('Windows Task Scheduler'), {
+      key: 'ArrowUp',
+      altKey: true
+    });
+
+    // Every platform is named, not just the one on screen.
+    expect(onReorder).toHaveBeenCalledTimes(1);
+    const [section, keys] = onReorder.mock.calls[0];
+    expect(section).toBe('source');
+    expect(keys).toHaveLength(3);
+    expect(keys).toEqual(
+      expect.arrayContaining(['WINDOWS_TASK_SCHEDULER', 'TASKHUB_NATIVE', 'CLAUDE_CODE'])
+    );
   });
 
   it('draws the sources in the stored order', async () => {

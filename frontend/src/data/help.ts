@@ -109,6 +109,19 @@ const sources: HelpTopic = {
         'capabilities, so the Sources tab does not split them.'
     },
     {
+      label: 'The filter box narrows the sidebar, not your tasks',
+      body:
+        'Type in the box at the top to narrow the rail itself — sources, folders, collections ' +
+        'and pins, by name. Matching folders open so you can see the hit. Escape clears it. To ' +
+        'search task names instead, use the search and filters above the task list.'
+    },
+    {
+      label: 'Long lists stop at four and say what is left',
+      body:
+        'A source with fifteen folders shows four and a "Show 11 more folders" control, so one ' +
+        'platform cannot own the whole sidebar. Nothing is ever hidden without its count.'
+    },
+    {
       label: 'It composes with views',
       body:
         'Moving around the rail does not reset the view bar. Select Windows, then a folder, ' +
@@ -136,15 +149,17 @@ const sources: HelpTopic = {
       label: 'A fresh install lists two sources',
       body:
         'Windows Task Scheduler and Cronsole-native — the two that need no credential. Everything ' +
-        'else is added from Explore sources, below the tree. A sidebar of empty rows waiting on ' +
-        'tokens nobody has yet is how a first run teaches you that most of the product is broken.'
+        'else is added from Explore sources, at the foot of the sidebar. A sidebar of empty rows ' +
+        'waiting on tokens nobody has yet is how a first run teaches you that most of the product ' +
+        'is broken.'
     },
     {
-      label: 'Explore and Manage are under the tree',
+      label: 'Explore and Manage are at the foot of the sidebar',
       body:
         'Explore sources shows everything Cronsole can connect to, including what you have not ' +
         'added. Manage sources is where you connect, disconnect, and choose which sources this ' +
-        'sidebar lists. A source holding tasks can never be hidden, and connecting one shows it.'
+        'sidebar lists. Both sit in the bar along the bottom with the collapse toggle, so they ' +
+        'stay put however far down the tree you have scrolled.'
     },
     {
       label: 'Drag a source into the order you want',

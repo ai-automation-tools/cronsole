@@ -281,16 +281,69 @@ export const sourceIcon = (key: string): LucideIcon =>
  * Windows has no token of its own and uses `primary`, matching the badge it
  * already wears on every task card.
  */
+const PLATFORM_ACCENT: Record<string, { tile: string; rule: string; glyph: string }> = {
+  WINDOWS_TASK_SCHEDULER: {
+    tile: 'bg-primary/10 text-foreground',
+    rule: 'bg-primary/40',
+    glyph: 'text-primary-text'
+  },
+  TASKHUB_NATIVE: {
+    tile: 'bg-native/10 text-native-text',
+    rule: 'bg-native/40',
+    glyph: 'text-native-text'
+  },
+  CLAUDE_CODE: {
+    tile: 'bg-claude/10 text-claude-text',
+    rule: 'bg-claude/40',
+    glyph: 'text-claude-text'
+  },
+  CHATGPT: {
+    tile: 'bg-chatgpt/10 text-chatgpt-text',
+    rule: 'bg-chatgpt/40',
+    glyph: 'text-chatgpt-text'
+  },
+  GITHUB_ACTIONS: {
+    tile: 'bg-github/10 text-github-text',
+    rule: 'bg-github/40',
+    glyph: 'text-github-text'
+  },
+  VERCEL_CRON: {
+    tile: 'bg-vercel/10 text-vercel-text',
+    rule: 'bg-vercel/40',
+    glyph: 'text-vercel-text'
+  },
+  GEMINI_TRIGGERS: {
+    tile: 'bg-gemini/10 text-gemini-text',
+    rule: 'bg-gemini/40',
+    glyph: 'text-gemini-text'
+  }
+};
+
+const NO_ACCENT = {
+  tile: 'bg-muted text-muted-foreground',
+  rule: 'bg-border',
+  glyph: 'text-muted-foreground'
+};
+
 export const platformAccent = (p: string): { tile: string; rule: string } =>
-  ({
-    WINDOWS_TASK_SCHEDULER: { tile: 'bg-primary/10 text-foreground', rule: 'bg-primary/40' },
-    TASKHUB_NATIVE: { tile: 'bg-native/10 text-native-text', rule: 'bg-native/40' },
-    CLAUDE_CODE: { tile: 'bg-claude/10 text-claude-text', rule: 'bg-claude/40' },
-    CHATGPT: { tile: 'bg-chatgpt/10 text-chatgpt-text', rule: 'bg-chatgpt/40' },
-    GITHUB_ACTIONS: { tile: 'bg-github/10 text-github-text', rule: 'bg-github/40' },
-    VERCEL_CRON: { tile: 'bg-vercel/10 text-vercel-text', rule: 'bg-vercel/40' },
-    GEMINI_TRIGGERS: { tile: 'bg-gemini/10 text-gemini-text', rule: 'bg-gemini/40' }
-  }[p] ?? { tile: 'bg-muted text-muted-foreground', rule: 'bg-border' });
+  PLATFORM_ACCENT[p] ?? NO_ACCENT;
+
+/**
+ * A platform's identity colour on a **bare glyph** — no tile behind it.
+ *
+ * The third face of `platformAccent`, and it exists because the rail dropped the
+ * tile. A tile could carry identity in its *background* and leave the icon
+ * neutral (`text-foreground` on Windows, above); with the tile gone the glyph is
+ * the only thing left that can say which source a row is, so the colour moves
+ * onto it. Same table, so a platform cannot be violet on a card and grey here.
+ *
+ * The `-text` half of the pair, never the accent: this is drawn on the page
+ * background, which is the flip a raw utility cannot express. It says *which*
+ * source and never *how it is doing* — the health dot beside it owns that, and
+ * reading both off one colour is the thing the two-token split exists to stop.
+ */
+export const sourceAccentGlyph = (key: string): string =>
+  (PLATFORM_ACCENT[sourcePlatform(key)] ?? NO_ACCENT).glyph;
 
 /**
  * What actually makes this source connect — for a card that says *Not connected*.

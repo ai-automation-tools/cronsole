@@ -37,6 +37,25 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Two live credentials were found in git history, and both are now revoked** (2026-09-09,
+  troubleshooting #89). The 2026-07-13 audit called history clean. A full scan of all 9,269 objects
+  with the repo's own `scripts/secret-patterns.mjs` found two it had missed: a **Google API key**
+  inside an abandoned AI-Studio scaffold zip committed at the very first commit, and a **dev JWT**
+  once hardcoded into `Dashboard.tsx` carrying a **2036** expiry. Everything else that matched was a
+  test fixture or documentation prose naming a `-----BEGIN …-----` header line.
+
+  Both are dead: the key was deleted in its GCP project, and the token now answers `403` against the
+  running backend, whose `JWT_SECRET` is not the `docker-compose` dev default it was signed with.
+  Neither was as bad as it first looked — the key carried no Gemini API scope, only Firebase ones —
+  but it had **no application restrictions at all**, so Identity Toolkit and Firestore were reachable
+  by anyone holding it, with Security Rules the only thing in the way.
+
+  The repo was also **squashed to a single public root** (633 commits → 1), with the full history
+  preserved locally as a verified bundle. **The squash does not remove that history from GitHub**, and
+  nothing tells you so: 231 permanent `refs/pull/*/head` refs still serve it, while the commit count,
+  the branch list and `git log` all report a clean single-commit repo. That is survivable only because
+  the credentials are revoked — which was always the step that actually mattered.
+
 - **The README says what does not work yet** (2026-09-09). A *Status* section answers the two
   questions the feature list never did: **will it run on my machine** — Windows fully, macOS/Linux
   partially, because the backend and dashboard run anywhere Docker does but nothing yet drives

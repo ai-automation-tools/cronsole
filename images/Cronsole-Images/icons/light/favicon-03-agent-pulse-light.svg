@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">TaskHub Agent Pulse light favicon concept</title>
+  <desc id="desc">A light square TaskHub icon showing an outbound agent pulse connecting local tasks to a cloud hub.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e5e7eb"/>
+    </linearGradient>
+    <linearGradient id="line" x1="52" y1="182" x2="198" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#059669"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="url(#bg)"/>
+  <rect x="44" y="60" width="168" height="136" rx="24" fill="#ffffff" stroke="#d4d4d8" stroke-width="8"/>
+  <path d="M68 94h54M68 126h34M68 158h75" stroke="#d1d5db" stroke-width="13" stroke-linecap="round"/>
+  <path d="M68 94h34M68 126h22M68 158h48" stroke="#059669" stroke-width="13" stroke-linecap="round"/>
+  <path d="M99 182c20-45 47-60 89-72" fill="none" stroke="url(#line)" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="99" cy="182" r="18" fill="#059669"/>
+  <circle cx="188" cy="110" r="23" fill="#7c3aed"/>
+  <path d="M180 110h16M188 102v16" stroke="#f5f3ff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M152 60l-7 20h21l-25 46 7-31h-21z" fill="#eab308"/>
+</svg>

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mon-service-health",
+  "name": "Log Service Status",
+  "description": "Record whether a Windows service is running, on an interval.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "monitoring",
+  "tags": [
+    "monitoring",
+    "windows",
+    "service",
+    "health"
+  ],
+  "icon": "HeartPulse",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/30 * * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Get-Service -Name '{{serviceName}}' | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+  "parameters": [
+    {
+      "key": "serviceName",
+      "label": "Service name",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The service short name to check."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\service.log",
+      "required": true,
+      "help": "Where to append the status."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

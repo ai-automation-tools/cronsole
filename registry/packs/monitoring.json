@@ -1,0 +1,376 @@
+{
+  "cronsoleCatalogVersion": "1.0",
+  "pack": {
+    "id": "monitoring",
+    "name": "Monitoring",
+    "description": "Watch what matters — health checks, webhooks, disk reports, and status pings on a schedule."
+  },
+  "templates": [
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-disk-report",
+      "name": "Log Disk Usage",
+      "description": "Append free/used disk space for every drive to a log file.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "disk",
+        "report"
+      ],
+      "icon": "HardDrive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-PSDrive -PSProvider FileSystem | Select-Object Name, Used, Free | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\disk.log",
+          "required": true,
+          "help": "Where to append the disk snapshot."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-ping-host",
+      "name": "Ping Host & Log",
+      "description": "Check whether a host is reachable and append the result to a log.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "network",
+        "uptime"
+      ],
+      "icon": "Activity",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/15 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Test-Connection -ComputerName '{{host}}' -Count 2 | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "host",
+          "label": "Host / IP",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The hostname or IP to ping."
+        },
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\ping.log",
+          "required": true,
+          "help": "Where to append the ping result."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-service-health",
+      "name": "Log Service Status",
+      "description": "Record whether a Windows service is running, on an interval.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "service",
+        "health"
+      ],
+      "icon": "HeartPulse",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/30 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-Service -Name '{{serviceName}}' | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "serviceName",
+          "label": "Service name",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "The service short name to check."
+        },
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\service.log",
+          "required": true,
+          "help": "Where to append the status."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-log-error-scan",
+      "name": "Scan a Log for Errors",
+      "description": "Search a log file for a pattern and fail the run when it matches, so a job that writes its problems to a file instead of alerting you still turns into something you can see. Supply the log to read and the text or regular expression that counts as trouble.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "logs",
+        "alert"
+      ],
+      "icon": "FileSearch",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/20 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"if (Select-String -Path '{{logPath}}' -Pattern '{{pattern}}' -Quiet) { exit 1 }\"",
+      "parameters": [
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "The file to search. A wildcard such as C:\\logs\\*.log reads every matching file."
+        },
+        {
+          "key": "pattern",
+          "label": "Pattern that means trouble",
+          "type": "text",
+          "default": "ERROR",
+          "required": true,
+          "help": "Text or a regular expression. A match exits non-zero, which Cronsole records as a failed run. Avoid single quotes (they close the PowerShell string)."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-failed-scheduled-tasks",
+      "name": "Report Failed Scheduled Tasks",
+      "description": "Append every Windows scheduled task whose last run reported a non-zero result to a report file, so a task that has been failing quietly for a week shows up somewhere you read. Supply the file to append the report to.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "scheduler",
+        "report"
+      ],
+      "icon": "CalendarClock",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 13 * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-ScheduledTask | Get-ScheduledTaskInfo | Where-Object LastTaskResult -ne 0 | Format-Table TaskName, LastRunTime, LastTaskResult | Out-File -Append '{{reportPath}}'\"",
+      "parameters": [
+        {
+          "key": "reportPath",
+          "label": "Report file path",
+          "type": "path",
+          "default": "C:\\reports\\failed-tasks.txt",
+          "required": true,
+          "help": "Where to append the list of failing tasks. Reading every task needs the run to be elevated on most machines."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "mon-top-processes",
+      "name": "Log Top Processes by CPU",
+      "description": "Append the highest CPU-consuming processes to a log file on an interval, so a machine that suddenly runs hot has a paper trail of what was busy.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "cpu",
+        "processes"
+      ],
+      "icon": "Cpu",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Get-Process | Sort-Object CPU -Descending | Select-Object -First {{topN}} Name, CPU, WorkingSet | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+      "parameters": [
+        {
+          "key": "topN",
+          "label": "Number of processes",
+          "type": "text",
+          "default": "10",
+          "required": true,
+          "help": "How many top CPU-consuming processes to record."
+        },
+        {
+          "key": "logPath",
+          "label": "Log file path",
+          "type": "path",
+          "default": "C:\\logs\\top-processes.log",
+          "required": true,
+          "help": "Where to append the process snapshot."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "dev-docker-compose-up",
+      "name": "Docker Compose Self-Heal",
+      "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern Cronsole uses for its own stack).",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "dev",
+        "docker",
+        "self-heal",
+        "monitoring"
+      ],
+      "icon": "RefreshCw",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/10 * * * *"
+      },
+      "commandTemplate": "docker compose -f \"{{composeFile}}\" up -d",
+      "parameters": [
+        {
+          "key": "composeFile",
+          "label": "Compose file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the docker-compose.yml. up -d is idempotent — running containers are left alone."
+        }
+      ],
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_webhook_windows",
+      "name": "Webhook / HTTP Ping (Windows)",
+      "description": "Call a URL on a schedule using Invoke-WebRequest.",
+      "runtime": "http",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "windows",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "icon": "Globe",
+      "isStarter": true,
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/15 * * * *"
+      },
+      "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri '{{url}}' -Method {{method}} -UseBasicParsing\"",
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The endpoint to call."
+        },
+        {
+          "key": "method",
+          "label": "HTTP method",
+          "type": "select",
+          "default": "GET",
+          "required": true,
+          "options": [
+            "GET",
+            "POST"
+          ],
+          "help": "HTTP verb for the request."
+        }
+      ],
+      "compatibleTargets": [
+        "windows"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tpl_starter_webhook_macos",
+      "name": "Webhook / HTTP Ping (macOS)",
+      "description": "Call a URL on a schedule using curl.",
+      "runtime": "http",
+      "os": "macos",
+      "category": "monitoring",
+      "tags": [
+        "macos",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "icon": "Globe",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/15 * * * *"
+      },
+      "commandTemplate": "curl -fsS -X {{method}} \"{{url}}\"",
+      "parameters": [
+        {
+          "key": "method",
+          "label": "HTTP method",
+          "type": "select",
+          "default": "GET",
+          "required": true,
+          "options": [
+            "GET",
+            "POST"
+          ],
+          "help": "HTTP verb for the request."
+        },
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The endpoint to call."
+        }
+      ],
+      "compatibleTargets": [
+        "macos"
+      ]
+    }
+  ]
+}

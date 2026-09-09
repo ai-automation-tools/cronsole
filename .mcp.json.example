@@ -1,0 +1,78 @@
+{
+  "//": [
+    "Copy to .mcp.json (gitignored) on a fresh clone: cp .mcp.json.example .mcp.json",
+    "Which MCP servers your CLI loads is a per-machine choice, so the real file is not tracked.",
+    "All secrets are ${ENV} references - never paste a literal token here or in .mcp.json.",
+    "",
+    "cronsole: this repo's own MCP server (mcp-server/). Needs `cd mcp-server && npm run build`",
+    "first, a running backend, and CRONSOLE_TOKEN set in your environment.",
+    "See docs/user-guides/guides/MCP_Server_Guide.md and mcp-server/.env.example."
+  ],
+  "mcpServers": {
+    "cronsole": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "./mcp-server/dist/index.js"
+      ],
+      "env": {
+        "CRONSOLE_TOKEN": "${CRONSOLE_TOKEN}",
+        "CRONSOLE_API_URL": "http://localhost:3000/api"
+      }
+    },
+      "playwright": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "@playwright/mcp@latest"
+      ]
+    },
+      "nanobanana": {
+      "command": "uvx",
+      "args": [
+        "nanobanana-mcp-server@latest"
+      ],
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      }
+    },
+       "serper": {
+      "command": "uvx",
+      "args": [
+        "serper-mcp-server"
+      ]
+    },
+      "github": {
+        "type": "http",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "headers": {
+          "Authorization": "Bearer ${GITHUB_COPILOT_TOKEN}"
+        }
+      },
+          "notion": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@suekou/mcp-notion-server"
+      ],
+      "env": {
+        "NOTION_API_TOKEN": "${NOTION_API_TOKEN}"
+      }
+    },
+      "context7": {
+        "command": "npx",
+        "args": ["-y", "@upstash/context7-mcp@latest"]
+      },
+      "elevenlabs": {
+        "command": "uvx",
+        "args": ["elevenlabs-mcp"],
+        "env": {
+          "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY}"
+        }
+      }
+    }
+  }

@@ -1,0 +1,177 @@
+import { PlatformType, TaskStatus } from '@prisma/client';
+import { prisma } from '../db.js';
+import { computeNextRun } from '../utils/cron-next.js';
+import { executeJob, NativeJob } from './NativeTaskExecutor.js';
+import { notifyTasksChanged } from '../ws/uiChannel.js';
+import { queueRunNotification } from './FailureNotificationService.js';
+import { readTaskSecrets, TaskSecretDecryptError } from './taskSecrets.js';
+
+const TICK_INTERVAL_MS = 30_000;
+// Due times missed by more than this (server downtime) are skipped, not fired.
+export const MISSED_RUN_GRACE_MS = 5 * 60_000;
+
+/**
+ * In-process scheduler for TASKHUB_NATIVE tasks: fires due tasks, logs each run
+ * to ExecutionLog, and advances nextRunTime. Single-instance only for MVP
+ * (docs/resources/Native_Tasks.md).
+ */
+/**
+ * What the scheduler can say about itself, for the diagnostics report.
+ *
+ * `lastTickAt` is stamped when a tick **finishes**, not when one is scheduled —
+ * a timer that fires into a wedged tick would otherwise keep writing a fresh
+ * timestamp while nothing was actually being evaluated, which is the shape of
+ * troubleshooting #40 (a verdict from a precondition) applied to a clock.
+ */
+export interface SchedulerStatus {
+  running: boolean;
+  lastTickAt: Date | null;
+  lastTickError: string | null;
+  tickIntervalMs: number;
+}
+
+/**
+ * Run one due task, resolving its stored secrets first (ADR 0003).
+ *
+ * A store that cannot be decrypted is reported as **this task's** failure, with
+ * its own reason, rather than thrown into the tick — one task whose
+ * `ENCRYPTION_KEY` no longer matches must not stop every other task from
+ * running, and a scheduler error is a line in a console nobody is reading.
+ */
+async function runWithSecrets(
+  taskId: string,
+  job: NativeJob
+): Promise<{ success: boolean; log: string; durationMs: number }> {
+  let secrets: Record<string, string>;
+  try {
+    secrets = await readTaskSecrets(taskId);
+  } catch (err) {
+    if (err instanceof TaskSecretDecryptError) {
+      return { success: false, log: err.message, durationMs: 0 };
+    }
+    throw err;
+  }
+  return executeJob(job, secrets);
+}
+
+export class NativeScheduler {
+  private timer: NodeJS.Timeout | null = null;
+  private ticking = false;
+  private lastTickAt: Date | null = null;
+  private lastTickError: string | null = null;
+
+  async start() {
+    await this.backfillNextRunTimes();
+    this.timer = setInterval(() => void this.tick(), TICK_INTERVAL_MS);
+    console.log('[NativeScheduler] started (tick every 30s)');
+  }
+
+  stop() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  /**
+   * Read-only self-report. `running` is the timer's existence, which is a real
+   * fact about this process — but on its own it is exactly the "socket object
+   * exists" evidence #40 rejected, so `lastTickAt` travels with it and the
+   * diagnostics check reads both.
+   */
+  status(): SchedulerStatus {
+    return {
+      running: this.timer !== null,
+      lastTickAt: this.lastTickAt,
+      lastTickError: this.lastTickError,
+      tickIntervalMs: TICK_INTERVAL_MS
+    };
+  }
+
+  /** Ensure every active native task has a nextRunTime (new deploys, crashed writes). */
+  private async backfillNextRunTimes() {
+    const missing = await prisma.task.findMany({
+      where: { platform: PlatformType.TASKHUB_NATIVE, status: TaskStatus.ACTIVE, nextRunTime: null }
+    });
+    for (const task of missing) {
+      const next = task.schedule ? computeNextRun(task.schedule) : null;
+      await prisma.task.update({ where: { id: task.id }, data: { nextRunTime: next } });
+    }
+    if (missing.length > 0) {
+      console.log(`[NativeScheduler] backfilled nextRunTime for ${missing.length} task(s)`);
+    }
+  }
+
+  async tick(now: Date = new Date()) {
+    if (this.ticking) return; // don't overlap slow ticks
+    this.ticking = true;
+    try {
+      const due = await prisma.task.findMany({
+        where: {
+          platform: PlatformType.TASKHUB_NATIVE,
+          status: TaskStatus.ACTIVE,
+          nextRunTime: { lte: now }
+        }
+      });
+
+      // Collect users whose tasks changed this tick, so open dashboards get one
+      // live push per user instead of one per task.
+      const changedUsers = new Set<string>();
+
+      for (const task of due) {
+        const next = task.schedule ? computeNextRun(task.schedule, now) : null;
+        const missedBy = now.getTime() - (task.nextRunTime?.getTime() ?? now.getTime());
+
+        // Advance the schedule first so a crash mid-run can't double-fire.
+        await prisma.task.update({ where: { id: task.id }, data: { nextRunTime: next } });
+        changedUsers.add(task.userId);
+
+        if (missedBy > MISSED_RUN_GRACE_MS) {
+          console.log(`[NativeScheduler] skipping missed run for "${task.name}" (late by ${Math.round(missedBy / 1000)}s)`);
+          continue;
+        }
+
+        const job = (task.metadata as any)?.job as NativeJob | undefined;
+        const result = job
+          ? await runWithSecrets(task.id, job)
+          : { success: false, log: 'Task has no job spec in metadata.job', durationMs: 0 };
+
+        const execution = await prisma.executionLog.create({
+          data: {
+            taskId: task.id,
+            status: result.success ? 'SUCCESS' : 'FAILURE',
+            log: `[scheduled] ${result.log}`,
+            durationMs: result.durationMs
+          }
+        });
+        queueRunNotification({
+          task,
+          trigger: 'scheduled',
+          status: result.success ? 'SUCCESS' : 'FAILURE',
+          message: result.log,
+          durationMs: result.durationMs,
+          executionId: execution.id,
+          triggeredAt: execution.triggeredAt
+        });
+        console.log(`[NativeScheduler] ran "${task.name}": ${result.success ? 'SUCCESS' : 'FAILURE'}`);
+      }
+
+      // Push one live update per affected user's open dashboards.
+      for (const userId of changedUsers) notifyTasksChanged(userId);
+      this.lastTickError = null;
+    } catch (error) {
+      console.error('[NativeScheduler] tick error:', error);
+      // Kept rather than only logged: a scheduler that is running and failing
+      // every tick is indistinguishable from a healthy one in the console of a
+      // container nobody is watching, and it is the exact state in which native
+      // tasks silently stop firing.
+      this.lastTickError = error instanceof Error ? error.message : String(error);
+    } finally {
+      // Stamped in `finally` so a failed tick still counts as a tick. The
+      // question this answers is "is the loop alive", and a tick that threw is
+      // evidence that it is — the error is reported separately, beside it.
+      this.lastTickAt = new Date();
+      this.ticking = false;
+    }
+  }
+}
+
+export const nativeScheduler = new NativeScheduler();

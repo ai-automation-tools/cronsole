@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-flush-dns",
+  "name": "Flush DNS Cache",
+  "description": "Clear the Windows DNS resolver cache.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "network",
+    "dns"
+  ],
+  "icon": "Network",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 6 * * *"
+  },
+  "commandTemplate": "ipconfig /flushdns",
+  "parameters": [],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

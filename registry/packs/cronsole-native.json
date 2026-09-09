@@ -1,0 +1,682 @@
+{
+  "cronsoleCatalogVersion": "1.0",
+  "pack": {
+    "id": "cronsole-native",
+    "name": "Cronsole Native",
+    "description": "Jobs Cronsole schedules and runs itself — no agent, no Task Scheduler entry. Programs and scripts on the Cronsole host, plus HTTP uptime checks and heartbeats."
+  },
+  "templates": [
+    {
+      "schemaVersion": "1.0",
+      "id": "native-run-program",
+      "name": "Run a Program (Cronsole)",
+      "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "executable"
+      ],
+      "icon": "PlayCircle",
+      "isStarter": true,
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "commandTemplate": "\"{{exePath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "exePath",
+          "label": "Executable path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the program, as seen by the machine running the Cronsole backend. On a Dockerized stack that is the container, not your desktop."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-node-script",
+      "name": "Node Script (Cronsole)",
+      "description": "Run a Node.js script on the Cronsole host on a schedule.",
+      "runtime": "node",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "node"
+      ],
+      "icon": "FileCode",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 6 * * *"
+      },
+      "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the .js/.mjs file on the machine running the Cronsole backend."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-python-script",
+      "name": "Python Script (Cronsole)",
+      "description": "Run a Python script on the Cronsole host on a schedule.",
+      "runtime": "python",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "python"
+      ],
+      "icon": "FileTerminal",
+      "isStarter": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 6 * * *"
+      },
+      "commandTemplate": "python \"{{scriptPath}}\" {{args}}",
+      "parameters": [
+        {
+          "key": "scriptPath",
+          "label": "Script file path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the .py file on the machine running the Cronsole backend. `python` must be on that machine’s PATH."
+        },
+        {
+          "key": "args",
+          "label": "Arguments",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "help": "Optional command-line arguments."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-git-pull",
+      "name": "Keep a Repo Fresh (Cronsole)",
+      "description": "Pull the latest commits into a local repository on the Cronsole host — the agent-free version of Git Sync.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "dev-workflow",
+      "tags": [
+        "cronsole-native",
+        "git",
+        "sync"
+      ],
+      "icon": "GitBranch",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 */6 * * *"
+      },
+      "commandTemplate": "git -C \"{{repoPath}}\" pull --ff-only",
+      "parameters": [
+        {
+          "key": "repoPath",
+          "label": "Repository path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the repository on the machine running the Cronsole backend. `--ff-only` refuses rather than creating a merge nobody reviewed."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-http-uptime-check",
+      "name": "Uptime Check (Cronsole)",
+      "description": "Call a URL every few minutes and record whether it answered. Runs in Cronsole itself — no agent, and it works on a machine with no Task Scheduler.",
+      "runtime": "http",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "http",
+        "monitoring",
+        "uptime"
+      ],
+      "icon": "Activity",
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/5 * * * *"
+      },
+      "commandTemplate": "{{url}}",
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The endpoint to GET. A non-2xx response is recorded as a failed run, which is what makes this a check rather than a ping."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-http-heartbeat",
+      "name": "Monitor Heartbeat (Cronsole)",
+      "description": "Ping a dead-man’s-switch URL (Healthchecks.io, Better Stack, Cronitor) on a schedule so an outside monitor notices when Cronsole itself stops.",
+      "runtime": "http",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "http",
+        "monitoring",
+        "heartbeat"
+      ],
+      "icon": "HeartPulse",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 * * * *"
+      },
+      "commandTemplate": "{{url}}",
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The heartbeat URL your monitor gave you. It alerts when the ping stops — which is the one failure a scheduler cannot report about itself."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-script-starter",
+      "name": "Write a Script (Cronsole)",
+      "description": "A starting point for a scheduled script you write in Cronsole itself. Nothing needs to exist on disk — the body is stored with the task and runs under the interpreter you pick.",
+      "runtime": "node",
+      "os": "cross-platform",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "starter"
+      ],
+      "icon": "FileCode",
+      "isStarter": true,
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 7 * * *"
+      },
+      "action": {
+        "kind": "script",
+        "interpreter": "node",
+        "body": "// Runs on the machine hosting the Cronsole backend.\n// Anything printed here lands in the task's run history.\n// A non-zero exit is recorded as a failed run.\n\nconst startedAt = new Date();\nconsole.log(`Ran at ${startedAt.toISOString()}`);\n\n// Replace this with the work.\n// process.exit(1) to record a failure.\n"
+      },
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-script-powershell-disk-report",
+      "name": "PowerShell Disk Report (Cronsole)",
+      "description": "Print free space for every fixed drive on the Cronsole host, so the numbers land in the run history and you can read them back over time.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "powershell",
+        "monitoring",
+        "disk"
+      ],
+      "icon": "HardDrive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 8 * * *"
+      },
+      "action": {
+        "kind": "script",
+        "interpreter": "powershell",
+        "body": "# Needs PowerShell on the machine running the Cronsole backend.\n# That is your desktop for a normal install, and the CONTAINER on a\n# Dockerized stack — where these drives are the container’s, not yours.\n\nGet-CimInstance Win32_LogicalDisk -Filter \"DriveType=3\" |\n  ForEach-Object {\n    $freeGb  = [math]::Round($_.FreeSpace / 1GB, 1)\n    $totalGb = [math]::Round($_.Size / 1GB, 1)\n    \"{0} {1} GB free of {2} GB\" -f $_.DeviceID, $freeGb, $totalGb\n  }\n"
+      },
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-script-ssl-cert-expiry",
+      "name": "SSL Certificate Expiry Check (Cronsole)",
+      "description": "Connect to a host over TLS and fail the run when its certificate expires within your warning window. Cronsole has no certificate probe yet, so this uses a Node script and the built-in tls module rather than a check job.",
+      "runtime": "node",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "monitoring",
+        "ssl",
+        "tls",
+        "certificate"
+      ],
+      "icon": "ShieldAlert",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "action": {
+        "kind": "script",
+        "interpreter": "node",
+        "body": "// Runs on the machine hosting the Cronsole backend, using the built-in tls module.\n// A non-zero exit records a failed run, same as a check that fails.\nconst tls = require(\"tls\");\n\nconst host = \"{{host}}\";\nconst port = Number(\"{{port}}\");\nconst warnDays = Number(\"{{warnDays}}\");\n\nconst socket = tls.connect({ host, port, servername: host, timeout: 10000 }, () => {\n  const cert = socket.getPeerCertificate();\n  socket.end();\n  if (!cert || !cert.valid_to) {\n    console.error(\"No certificate returned by \" + host + \":\" + port);\n    process.exitCode = 1;\n    return;\n  }\n  const expiresAt = new Date(cert.valid_to);\n  const daysLeft = Math.floor((expiresAt.getTime() - Date.now()) / 86400000);\n  console.log(\"Certificate for \" + host + \" expires \" + expiresAt.toISOString() + \" (\" + daysLeft + \" days left).\");\n  if (daysLeft < warnDays) {\n    console.error(\"Fewer than \" + warnDays + \" days remain.\");\n    process.exitCode = 1;\n  }\n});\n\nsocket.on(\"error\", (err) => {\n  console.error(\"TLS connection to \" + host + \":\" + port + \" failed: \" + err.message);\n  process.exitCode = 1;\n});\n\nsocket.on(\"timeout\", () => {\n  console.error(\"TLS connection to \" + host + \":\" + port + \" timed out.\");\n  socket.destroy();\n  process.exitCode = 1;\n});\n"
+      },
+      "parameters": [
+        {
+          "key": "host",
+          "label": "Host",
+          "type": "string",
+          "required": true,
+          "help": "Hostname to connect to, resolved from the machine running the Cronsole backend."
+        },
+        {
+          "key": "port",
+          "label": "Port",
+          "type": "number",
+          "default": "443",
+          "required": true,
+          "help": "TLS port to connect to."
+        },
+        {
+          "key": "warnDays",
+          "label": "Warn within (days)",
+          "type": "number",
+          "default": "14",
+          "required": true,
+          "help": "Fail the run when fewer than this many days remain before the certificate expires."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-check-endpoint-healthy",
+      "name": "Endpoint Health Check (Cronsole)",
+      "description": "Call a URL and require the response to actually say it is healthy — not just return 200. A failure here is a fact about your system, so it is worth alerting on.",
+      "runtime": "http",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "uptime"
+      ],
+      "icon": "Activity",
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/5 * * * *"
+      },
+      "action": {
+        "kind": "check",
+        "probe": {
+          "kind": "http",
+          "url": "{{url}}",
+          "method": "GET",
+          "expectStatus": {
+            "min": 200,
+            "max": 299
+          },
+          "expectBodyContains": "{{expectText}}"
+        }
+      },
+      "parameters": [
+        {
+          "key": "url",
+          "label": "URL",
+          "type": "url",
+          "default": "",
+          "required": true,
+          "help": "The health endpoint to call, e.g. https://example.com/healthz."
+        },
+        {
+          "key": "expectText",
+          "label": "Response must contain",
+          "type": "string",
+          "default": "ok",
+          "required": true,
+          "help": "Text that must appear in the response body. This is what makes it a health check rather than a ping — a 200 without this fails."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-check-backup-fresh",
+      "name": "Backup Freshness Check (Cronsole)",
+      "description": "Fail if a backup file has not been written recently — the dead-man switch for a job that stopped silently. A missing file fails too.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "backup",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "backup",
+        "monitoring"
+      ],
+      "icon": "ShieldCheck",
+      "core": true,
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "action": {
+        "kind": "check",
+        "probe": {
+          "kind": "fileFresh",
+          "path": "{{filePath}}",
+          "maxAgeMinutes": "{{maxAgeMinutes}}"
+        }
+      },
+      "parameters": [
+        {
+          "key": "filePath",
+          "label": "File to watch",
+          "type": "string",
+          "required": true,
+          "help": "Path as seen by the machine running the Cronsole backend — the container on a Dockerized stack, not your desktop. A path that is only valid on your PC will report the file as missing."
+        },
+        {
+          "key": "maxAgeMinutes",
+          "label": "Fail if older than (minutes)",
+          "type": "number",
+          "default": "1440",
+          "required": true,
+          "help": "Default is 24 hours, which suits a nightly backup. Leave headroom for the job to finish."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-check-disk-space",
+      "name": "Disk Space Check (Cronsole)",
+      "description": "Fail when free space on a volume drops below your floor, so you hear about it before something else fails for a reason that looks unrelated.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "disk"
+      ],
+      "icon": "HardDrive",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 */6 * * *"
+      },
+      "action": {
+        "kind": "check",
+        "probe": {
+          "kind": "diskFree",
+          "path": "{{volumePath}}",
+          "minFreeBytes": "{{minFreeBytes}}"
+        }
+      },
+      "parameters": [
+        {
+          "key": "volumePath",
+          "label": "Path on the volume",
+          "type": "string",
+          "default": "C:\\",
+          "required": true,
+          "help": "Any path on the volume to measure, as seen by the machine running the Cronsole backend."
+        },
+        {
+          "key": "minFreeBytes",
+          "label": "Minimum free space (bytes)",
+          "type": "number",
+          "default": "10737418240",
+          "required": true,
+          "help": "Default is 10 GB. In bytes, because that is what the check stores — 1 GB is 1073741824."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-check-port-open",
+      "name": "Port Reachable Check (Cronsole)",
+      "description": "Confirm something still accepts connections on a host and port — a database, a broker, an internal service with no HTTP endpoint to call.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "network"
+      ],
+      "icon": "PlugZap",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "*/10 * * * *"
+      },
+      "action": {
+        "kind": "check",
+        "probe": {
+          "kind": "tcp",
+          "host": "{{host}}",
+          "port": "{{port}}"
+        }
+      },
+      "parameters": [
+        {
+          "key": "host",
+          "label": "Host",
+          "type": "string",
+          "required": true,
+          "help": "Resolved from the machine running the Cronsole backend, so an internal name has to be reachable from there."
+        },
+        {
+          "key": "port",
+          "label": "Port",
+          "type": "number",
+          "default": "5432",
+          "required": true,
+          "help": "The check succeeds if a TCP connection is accepted within 15 seconds. It does not log in or send anything."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-script-pending-reboot",
+      "name": "Pending Reboot Check (Cronsole)",
+      "description": "Fail the run when Windows has installed updates that need a restart to finish — the gap between kicking off an update scan and actually knowing a reboot is owed.",
+      "runtime": "powershell",
+      "os": "windows",
+      "category": "system",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "system",
+        "windows",
+        "updates"
+      ],
+      "icon": "AlertTriangle",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 9 * * *"
+      },
+      "action": {
+        "kind": "script",
+        "interpreter": "powershell",
+        "body": "# Runs on the machine hosting the Cronsole backend, which must be a Windows host.\n# A non-zero exit records a failed run, which is what makes this an alert rather than a status log.\n\n$pending = $false\nif (Test-Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending\") { $pending = $true }\nif (Test-Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired\") { $pending = $true }\n\nif ($pending) {\n  Write-Output \"A reboot is pending.\"\n  exit 1\n} else {\n  Write-Output \"No reboot pending.\"\n}\n"
+      },
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-ffmpeg-transcode",
+      "name": "Transcode Video (ffmpeg)",
+      "description": "Re-encode a video file to H.264 with ffmpeg on the machine hosting Cronsole, useful for shrinking recordings dropped into a watch folder before they pile up on disk.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "media",
+      "tags": [
+        "cronsole-native",
+        "media",
+        "video",
+        "ffmpeg"
+      ],
+      "icon": "Film",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 2 * * *"
+      },
+      "commandTemplate": "ffmpeg -y -i \"{{inputFile}}\" -c:v libx264 -crf {{quality}} \"{{outputFile}}\"",
+      "parameters": [
+        {
+          "key": "inputFile",
+          "label": "Source video path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Absolute path to the source video file, as seen by the machine running the Cronsole backend. ffmpeg must already be on that machine’s PATH."
+        },
+        {
+          "key": "outputFile",
+          "label": "Output video path",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Where to write the transcoded file. Must be a different path than the source — ffmpeg cannot write over the file it is reading."
+        },
+        {
+          "key": "quality",
+          "label": "CRF quality",
+          "type": "text",
+          "default": "23",
+          "required": true,
+          "help": "The x264 CRF value. Lower means higher quality and a larger file; 18 to 28 is the usual range."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "native-image-resize",
+      "name": "Resize Images in a Folder (ImageMagick)",
+      "description": "Batch-resize every image matching a pattern to a maximum width using ImageMagick, on the machine hosting Cronsole — a way to keep a photo drop folder from filling disk with full-resolution originals.",
+      "runtime": "executable",
+      "os": "cross-platform",
+      "category": "media",
+      "tags": [
+        "cronsole-native",
+        "media",
+        "images",
+        "imagemagick"
+      ],
+      "icon": "ImageDown",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 3 * * *"
+      },
+      "commandTemplate": "magick mogrify -path \"{{outputDir}}\" -resize {{maxWidth}} \"{{inputPattern}}\"",
+      "parameters": [
+        {
+          "key": "inputPattern",
+          "label": "Input file pattern",
+          "type": "text",
+          "default": "",
+          "required": true,
+          "help": "Files to resize, as a path or wildcard such as C:\\photos\\*.jpg, resolved on the machine running the Cronsole backend. ImageMagick must already be installed there."
+        },
+        {
+          "key": "outputDir",
+          "label": "Output folder",
+          "type": "path",
+          "default": "",
+          "required": true,
+          "help": "Where the resized copies are written. Use a different folder than the input — mogrify overwrites files in place otherwise."
+        },
+        {
+          "key": "maxWidth",
+          "label": "Max width (pixels)",
+          "type": "text",
+          "default": "1920",
+          "required": true,
+          "help": "Images wider than this are scaled down proportionally; images already narrower are left unchanged."
+        }
+      ],
+      "compatibleTargets": [
+        "cronsole-native"
+      ]
+    }
+  ]
+}

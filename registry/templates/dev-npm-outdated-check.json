@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-npm-outdated-check",
+  "name": "Dependency Update Check (npm)",
+  "description": "Write an npm outdated report for a project on a schedule.",
+  "runtime": "node",
+  "os": "windows",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "node",
+    "npm",
+    "dependencies"
+  ],
+  "icon": "PackageSearch",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * 1"
+  },
+  "commandTemplate": "cmd.exe /c \"cd /d {{projectPath}} && npm outdated > {{reportPath}} 2>&1\"",
+  "parameters": [
+    {
+      "key": "projectPath",
+      "label": "Project path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Folder containing package.json (avoid spaces in the path)."
+    },
+    {
+      "key": "reportPath",
+      "label": "Report file path",
+      "type": "path",
+      "default": "C:\\reports\\npm-outdated.txt",
+      "required": true,
+      "help": "Where to write the outdated report. Note: npm outdated exits non-zero when updates exist, so the run shows as failed exactly when there is something to update."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

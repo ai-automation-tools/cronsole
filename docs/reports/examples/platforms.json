@@ -1,0 +1,18 @@
+// ============================================================================
+// POST /platforms/windows/agent/register — pairing handshake
+// ============================================================================
+// Request
+{ "machineName": "DESKTOP-ABC", "publicKey": "..." }
+
+// Response 201
+{ "agentId": "agt_123", "pairingSecret": "secret", "wsUrl": "wss://..." }
+
+
+// ============================================================================
+// POST /platforms/claude/connect — store Claude API key
+// ============================================================================
+// Request
+{ "apiKey": "sk-ant-..." }
+
+// Response 200
+{ "platformId": "plat_claude_1", "routinesCount": 12 }

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_claude_routine",
+  "name": "Claude Code Routine",
+  "description": "Run a natural-language Claude Code routine on a schedule.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "claude-code"
+  ],
+  "icon": "Sparkles",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * *"
+  },
+  "commandTemplate": "{{prompt}}",
+  "parameters": [
+    {
+      "key": "prompt",
+      "label": "Prompt",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The natural-language instruction for the agent."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

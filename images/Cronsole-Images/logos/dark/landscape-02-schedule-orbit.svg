@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Cronsole Schedule Orbit landscape logo concept</title>
+  <desc id="desc">A wide Cronsole wordmark with clock and orbit icon for website and repository branding.</desc>
+  <defs>
+    <radialGradient id="iconBg" cx="50%" cy="42%" r="72%">
+      <stop offset="0" stop-color="#1f2937"/>
+      <stop offset="0.54" stop-color="#0b0b0f"/>
+      <stop offset="1" stop-color="#050505"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="76" y1="58" x2="276" y2="288" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="0.58" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" rx="40" fill="#070707"/>
+  <rect x="72" y="72" width="216" height="216" rx="48" fill="url(#iconBg)"/>
+  <circle cx="180" cy="180" r="70" fill="#09090b" stroke="url(#ring)" stroke-width="11"/>
+  <path d="M180 130v30M180 200v30M130 180h30M200 180h30" stroke="#52525b" stroke-width="8" stroke-linecap="round"/>
+  <path d="M180 144v40l30 17" fill="none" stroke="#f4f4f5" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M120 140c27-34 77-45 116-22" fill="none" stroke="#10b981" stroke-width="9" stroke-linecap="round"/>
+  <path d="M239 220c-27 33-77 44-117 21" fill="none" stroke="#8b5cf6" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="238" cy="128" r="18" fill="#10b981"/>
+  <circle cx="121" cy="232" r="15" fill="#8b5cf6"/>
+  <text x="344" y="176" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">Cronsole</text>
+  <text x="350" y="232" fill="#a1a1aa" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Schedules, agents, and automations in sync</text>
+  <path d="M964 180h42l18-34 32 70 21-36h45" fill="none" stroke="#10b981" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-image-resize",
+  "name": "Resize Images in a Folder (ImageMagick)",
+  "description": "Batch-resize every image matching a pattern to a maximum width using ImageMagick, on the machine hosting Cronsole — a way to keep a photo drop folder from filling disk with full-resolution originals.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "media",
+  "tags": [
+    "cronsole-native",
+    "media",
+    "images",
+    "imagemagick"
+  ],
+  "icon": "ImageDown",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 3 * * *"
+  },
+  "commandTemplate": "magick mogrify -path \"{{outputDir}}\" -resize {{maxWidth}} \"{{inputPattern}}\"",
+  "parameters": [
+    {
+      "key": "inputPattern",
+      "label": "Input file pattern",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "Files to resize, as a path or wildcard such as C:\\photos\\*.jpg, resolved on the machine running the Cronsole backend. ImageMagick must already be installed there."
+    },
+    {
+      "key": "outputDir",
+      "label": "Output folder",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Where the resized copies are written. Use a different folder than the input — mogrify overwrites files in place otherwise."
+    },
+    {
+      "key": "maxWidth",
+      "label": "Max width (pixels)",
+      "type": "text",
+      "default": "1920",
+      "required": true,
+      "help": "Images wider than this are scaled down proportionally; images already narrower are left unchanged."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

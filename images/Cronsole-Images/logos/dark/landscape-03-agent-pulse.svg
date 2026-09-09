@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Cronsole Agent Pulse landscape logo concept</title>
+  <desc id="desc">A wide Cronsole wordmark with terminal, pulse, and cloud hub icon for product branding.</desc>
+  <defs>
+    <linearGradient id="iconBg" x1="72" y1="72" x2="288" y2="288" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#121212"/>
+      <stop offset="1" stop-color="#050505"/>
+    </linearGradient>
+    <linearGradient id="pulse" x1="116" y1="232" x2="242" y2="132" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" rx="40" fill="#080808"/>
+  <rect x="72" y="72" width="216" height="216" rx="48" fill="url(#iconBg)" stroke="#27272a" stroke-width="5"/>
+  <rect x="102" y="108" width="156" height="120" rx="22" fill="#09090b" stroke="#27272a" stroke-width="7"/>
+  <path d="M126 142h54M126 172h34M126 202h75" stroke="#3f3f46" stroke-width="12" stroke-linecap="round"/>
+  <path d="M126 142h34M126 172h22M126 202h48" stroke="#10b981" stroke-width="12" stroke-linecap="round"/>
+  <path d="M154 234c19-43 44-58 84-70" fill="none" stroke="url(#pulse)" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="154" cy="234" r="17" fill="#10b981"/>
+  <circle cx="238" cy="164" r="21" fill="#8b5cf6"/>
+  <path d="M231 164h14M238 157v14" stroke="#f5f3ff" stroke-width="7" stroke-linecap="round"/>
+  <path d="M206 108l-7 20h21l-25 46 7-31h-21z" fill="#facc15"/>
+  <text x="344" y="176" fill="#f4f4f5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="0">Cronsole</text>
+  <text x="350" y="232" fill="#a1a1aa" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0">Run local scheduled tasks from anywhere</text>
+  <g transform="translate(955 118)">
+    <path d="M36 92h134c23 0 42-18 42-41s-19-41-42-41c-14 0-27 7-35 18-9-16-26-26-45-26-28 0-51 22-51 50v3h-3c-20 0-36 16-36 36 0 1 0 1 0 1z" fill="#111113" stroke="#27272a" stroke-width="4"/>
+    <path d="M54 68h112" stroke="#8b5cf6" stroke-width="10" stroke-linecap="round"/>
+    <path d="M54 68h62" stroke="#10b981" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>

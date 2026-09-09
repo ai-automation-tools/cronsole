@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-ffmpeg-transcode",
+  "name": "Transcode Video (ffmpeg)",
+  "description": "Re-encode a video file to H.264 with ffmpeg on the machine hosting Cronsole, useful for shrinking recordings dropped into a watch folder before they pile up on disk.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "media",
+  "tags": [
+    "cronsole-native",
+    "media",
+    "video",
+    "ffmpeg"
+  ],
+  "icon": "Film",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 2 * * *"
+  },
+  "commandTemplate": "ffmpeg -y -i \"{{inputFile}}\" -c:v libx264 -crf {{quality}} \"{{outputFile}}\"",
+  "parameters": [
+    {
+      "key": "inputFile",
+      "label": "Source video path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the source video file, as seen by the machine running the Cronsole backend. ffmpeg must already be on that machine’s PATH."
+    },
+    {
+      "key": "outputFile",
+      "label": "Output video path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Where to write the transcoded file. Must be a different path than the source — ffmpeg cannot write over the file it is reading."
+    },
+    {
+      "key": "quality",
+      "label": "CRF quality",
+      "type": "text",
+      "default": "23",
+      "required": true,
+      "help": "The x264 CRF value. Lower means higher quality and a larger file; 18 to 28 is the usual range."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

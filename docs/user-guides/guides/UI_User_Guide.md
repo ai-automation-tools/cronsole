@@ -1,0 +1,1295 @@
+<a id="ui-user-guide-top"></a>
+
+<h1 align="center">🖥️ UI User Guide</h1>
+
+<p align="center">
+  <em>Every screen in Cronsole, in the order you meet them — the dashboard, the source rail,
+  creating and editing a task, the Sources tab and the Tools tab.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/audience-end_users-2ea44f?style=for-the-badge" alt="Audience: end users">
+  <img src="https://img.shields.io/badge/covers-every_screen-8B5CF6?style=for-the-badge" alt="Covers every screen">
+  <img src="https://img.shields.io/badge/in--app_help-the_?_buttons-0078D4?style=for-the-badge" alt="In-app help: the ? buttons">
+</p>
+
+---
+
+Every screen in **Cronsole**, in the order you meet them: the dashboard and its filters, the source rail, creating and editing a task, the Sources tab, and the Tools tab. Written to be read start to finish once, then jumped into by heading.
+
+> **In a hurry?** Every screen has **?** buttons next to the things that most often surprise
+> people. Each one explains that control in place and links back here. See
+> [In-app help](#8-in-app-help) for the full list.
+>
+> **Looking for one particular system?** The [Sources Guide](Sources_Guide.md) covers Windows
+> Task Scheduler, Cronsole (HTTP), Cronsole (Scripts) and Claude Code one at a time — what
+> Cronsole can and can't do with each.
+
+---
+
+## 1. The Dashboard
+
+The Dashboard is your "one pane of glass" for monitoring every scheduled task in your ecosystem.
+
+### The health strip
+
+A single line under the title, answering *"is anything wrong, and what did Cronsole last do?"* —
+so deciding what to do next doesn't mean hunting for it. Three facts:
+
+- **Connection.** *"All 2 platforms online"*, or the platform that isn't, with the reason. It
+  names a platform only when something is wrong with it.
+- **Last sync.** How long ago Cronsole last pulled your task list. This is a **real sync**, never
+  a heartbeat: if the agent is alive but nothing has synced since yesterday, it says *"Synced 19h
+  ago"*, and adds *"agent replied 2m ago"* so both facts are visible. **Never synced** is a
+  legitimate answer and appears as those words.
+- **Last command.** The most recent thing Cronsole asked a platform to do and how it went —
+  including when it **failed**, in red with the platform's reason. Before anything has been run
+  it says *"No commands run yet"* rather than showing a tick it hasn't earned.
+
+At the right-hand end sits **Diagnose**, which opens the same panel as *Run checks* on the Tools
+tab — see [System diagnostics](#system-diagnostics). The strip gives you the verdict; the panel
+gives you the evidence behind it, which is what says whether *"Windows offline"* means the agent
+never connected or that one request timed out overnight.
+
+### Task Cards
+Each task is represented by a card showing:
+- **Platform Badge:** Identifies where the task lives (e.g., Windows, Claude, or Cronsole-native).
+*   **Favorite star:** Star a task so it shows under **Favorites** in the source rail — see *Favorites* below.
+*   **Status Indicator:** A green dot for `ACTIVE` tasks and a gray dot for `DISABLED` tasks.
+*   **Local Category:** A folder icon showing the Cronsole-specific category.
+*   **External ID:** The native path or ID used by the source platform.
+*   **Schedule:** When the task runs, in plain words — *"Daily at 8:00 AM PDT"* — read in your
+    **schedule timezone** (Settings › Schedule timezone), the same reading the details modal gives.
+    Two other things it may say, both facts rather than gaps: a **raw cron expression**, when the
+    schedule is a shape Cronsole won't put into words rather than guess at it; and **"No cron
+    schedule"**, when the task runs on a trigger cron can't express at all (boot, logon, an event,
+    or on demand only). Hover for the stored UTC cron behind the reading.
+*   **Last Updated:** The last time Cronsole synced state for this task.
+
+### Quick Actions
+- **Run Now (Play Icon):** Manually triggers the task immediately. This requires a confirmation dialog to prevent accidental triggers.
+- **Clone (Copy Icon):** Duplicates a task as a starting point for a new one.
+- **View Details:** Clicking anywhere on the card (except the action icons) opens the **Task Details** modal (see §2) — hovering the card names this in its footer. By keyboard, Tab to the task's **title** and press Enter; the title is the card's real control, so the dashboard's main action is not mouse-only.
+
+### Creating a Cronsole-native task
+
+**New Task › Cronsole** creates a task that lives only inside Cronsole — nothing appears in Windows
+Task Scheduler, and it runs whether or not the agent is connected. Two kinds:
+
+- **HTTP request** — call a URL on a schedule. Webhooks, health checks, poking a deploy hook.
+- **Run a program** — a script or executable, with its exit code, duration and output recorded in
+  the run history. This is a **real** result, unlike a Windows task where a success only means the
+  agent accepted the start.
+
+Three things worth knowing about *Run a program*:
+
+- **There is no shell.** The command is split into a program and its arguments, so `&&`, `|` and
+  `>` are ordinary characters rather than operators. If you genuinely need them, name the shell
+  yourself — `cmd.exe /c "…"` or `/bin/sh -c "…"`.
+- **It says where it will run, before you click.** A native task runs wherever the Cronsole
+  *backend* runs. Normally that is your machine — but if you run the backend in Docker, the task
+  runs **inside the container**, where your paths and tools do not exist. The modal states which,
+  so a task never fails as "executable not found" for a file you can see in Explorer.
+- **Your Cronsole secrets are not passed to it.** The program gets a minimal environment plus
+  anything you set explicitly in the form's **Environment** field — not Cronsole's own, which holds
+  the key that encrypts your stored platform credentials. See
+  [Environment variables](#environment-variables).
+
+And one thing that applies to all four kinds: **if the job needs a credential, put it in
+[Secrets](#secrets) rather than in the job**. The New Task form has a Secrets section; anything you
+enter there is saved encrypted along with the task, in the same request.
+
+**Use a Windows task instead** for anything that must run as your logged-in user, or keep running
+when Cronsole is down.
+
+Both kinds can be changed afterwards — including an HTTP job's URL — from the task modal's
+Action panel. See [Editing a task](#editing-a-task).
+
+### Source — where a task comes from
+
+The **rail down the left of the dashboard** is where you navigate. It is a tree, two levels deep,
+and it answers *where a task lives* before anything else asks *which slice of it you want*:
+
+```
+  🔍 Filter sources and folders
+    All sources                403
+  ★ Favorites                   12
+
+COLLECTIONS                      +
+  ( AI-Lab 24 ) ( Prompt Library 9 )
+  ( Nightly 6 ) ( Deploys 4 ) ( +2 )
+
+PINNED
+  ( \Cronsole 14 ) ( \AI_Agents 31 )
+
+SOURCES
+▾ ● Windows Task Scheduler     357
+     AI-Maintenance             12
+     AI-Tools                    8
+     Backups                     4
+     Claude                      5
+     ▸ Show 11 more folders
+   ⃠ System tasks     HIDDEN    300
+▸ ● Cronsole (Native)           12
+▸ ● Claude Code                  3
+  ─────────────────────────────
+  ◧  🔍 Explore sources   ⚙  ?
+```
+
+**Level 1 is the system.** *All sources* and **Favorites** lead, separated by a rule from the
+platforms below — those two are scopes over everything rather than one system each. Then one row per
+platform you have tasks from **or are
+connected to**. The coloured dot is that platform's connection health — this is the same reading the
+old sidebar's "System Status" panel used to give, moved next to the thing it describes.
+
+**Level 2 is whatever that system groups by**, which is genuinely different per platform:
+
+| Source | Level 2 is… |
+|---|---|
+| **Windows Task Scheduler** | your **Task Scheduler folders** — `\AI-Maintenance\`, `\AI-Tools\`, and the rest, exactly as they are on the machine |
+| **Cronsole (Native)** | the **job type** — *HTTP jobs* and *Scripts*. These used to be two top-level sources; a platform sitting beside a job type was two levels of concept in one list. **Both are always listed**, empty or not: there are exactly two, always, so *Scripts* disappearing because you have not written a script task yet would read as a missing feature |
+| **Claude Code** and others | the category label the task carries |
+
+- **Moving around the rail never changes your view.** Pick *Failures*, then walk from Windows into
+  `AI-Tools` and on to Claude — *Failures* stays lit the whole way, because navigating is not
+  filtering. Both constraints are on screen: the rail row is lit, the page heading names the source,
+  and the line under it is a breadcrumb (*Windows Task Scheduler › AI-Tools*).
+- **Picking a source clears the folder.** A folder belongs to the system it came from, so switching
+  to Claude cannot leave you inside a Windows folder that Claude has never heard of.
+- **The counts are scoped to what you would actually see.** Every number is taken under all your
+  *other* filters, so it predicts the click. That is also why a row can legitimately read `0`.
+- **A row can read `0` for two different reasons**, and both are useful: nothing from that source
+  survives your current view, or you are connected to it and have imported nothing yet. The row
+  stays either way — it is navigation, and an empty destination still needs a route to it.
+- **`\Microsoft\` is one collapsed *System tasks* group at the bottom**, not twenty folders mixed
+  in with yours. Windows keeps ~257 of its own there and the dashboard hides them by default; a
+  **HIDDEN** badge on the row says so while that is true, and the group states
+  so in its own label and states the count, so nothing is quietly fenced off. Open it and pick a
+  folder to look inside one. The group itself only expands — it is a disclosure, not a filter.
+
+**Collections and Pinned are chips**, not rows — two separate bands, each with its own heading and
+its own fold, because a collection holds what you put in it and a pin tracks a folder. A chip keeps
+everything a row carried: its name, its count, whether it is selected, and (on a pin) the `×` that
+takes it off. Six of them cost two lines instead of six.
+
+**Collapse the rail** with the leftmost button in the bottom bar. Collapsed, it becomes a narrow column of
+icons — each system with its health dot and its count, names on hover — and the folder level is
+**dropped rather than shrunk**, because a Task Scheduler folder name has nowhere to go at that
+width and a column of tooltips is worse than admitting the tree needs room. The choice is
+remembered between visits.
+
+On a phone the rail is a drawer: tap **Sources** beside the page heading. The breadcrumb under the
+heading is what tells you where you are while it is closed. The drawer always opens at full width —
+an icons-only tree inside a panel you had to tap open would be two gestures to reach one folder.
+
+**The bar along the bottom holds the rail's own controls** — collapse, the two source routes, and
+help — rather than the tree's destinations. It does not scroll with the tree, so on a machine with a
+few hundred Windows tasks they stay where you left them:
+
+- **Explore sources** — every source Cronsole can connect to, including the ones you have not added
+  and the schedulers it can only bookmark. It opens the **Sources** tab at its *Available* section.
+- **Manage sources** — the same tab at *Connected*: connect, disconnect, and show or hide each
+  one.
+
+These two matter more than they look: the rail lists the sources you *have* and says nothing about
+the ones you could, so without a route to the rest, "not added yet" and "missing" would be the same
+empty sidebar.
+
+#### Filtering the sidebar
+
+The box at the top narrows **the rail itself** — sources, folders, collections and pins, by name.
+Matching folders open so you can see the hit — as does a folded band, so a section you shut months
+ago cannot quietly answer "no results". **Escape** clears it, and collapsing the sidebar clears it
+too, since at icon width there would be nothing on screen to say the rail was still narrowed.
+
+It filters the sidebar, **not your tasks**. To search task names, use the search box and *Filters*
+above the task list. Nothing about this filter is saved or put in the link: a sidebar still narrowed
+tomorrow morning would read as a platform that had disappeared.
+
+When it finds nothing it says what it looked at, and when it finds something it names the sources it
+searched without a match — "found nothing" and "looked at nothing" are different facts and they
+would otherwise look identical.
+
+#### Long lists stop at four
+
+Every band and every folder list draws four rows, then a **Show 11 more folders** control stating
+exactly how many are behind it. One platform with fifteen Task Scheduler folders cannot take over
+the whole sidebar, and nothing is ever hidden without its count beside it. Filter matches are never
+capped — that would hide the row you typed for — and neither is the **System tasks** group, whose
+whole job is telling you what is being held back.
+
+**A fresh install lists two sources** — Windows Task Scheduler and Cronsole-native. Claude Code,
+GitHub Actions, Vercel Cron and Gemini API Triggers are shown once you add them from *Explore*, which
+is why the button is there rather than a first run listing six platforms of which two are real. Two rules make hiding safe: **a
+source holding tasks is never hidden**, and **connecting one shows it**.
+
+The **?** beside the *Sources* heading opens the same breakdown in the app, for the source you are
+on. For what each source can actually do — and the things that catch people out on each one — see
+the [Sources Guide](Sources_Guide.md), whose
+[Adding a source](Sources_Guide.md#adding-a-source) section covers writing a connector for a
+platform Cronsole does not have yet.
+
+### Saved views
+Across the top of the dashboard is a row of **views** — named filter combinations, so the question
+you actually ask ("what's failing?", "what runs today?") is one click instead of four filters
+rebuilt from scratch on every visit. Seven ship built in:
+
+| View | Shows |
+|---|---|
+| **All** | Every task, with no lens at all — including the ones Windows owns and anything disabled or missing. The one click that means "stop hiding things". |
+| **Mine** | Every task you own, at any status — including disabled and missing. Hides the tasks Windows itself owns. **This is what a bare dashboard URL opens on** while *Settings › Show system tasks* is off, which is its default. Turn that setting on and a bare URL opens on **All** instead. |
+| **My jobs** | Your active tasks. Hides Windows' own tasks and anything disabled or missing. |
+| **Failures** | Tasks the health check rates *critical* or *needs attention*. |
+| **Due today** | Tasks whose next run falls on today's date, in your **schedule timezone** (Settings › Schedule timezone) so it agrees with the times printed on the cards. |
+| **Disabled** | Only the tasks you've parked. Note this **isolates** them — it is not the same as *Filters › Status › All statuses*, which merely stops hiding them. |
+| **System** | Only the tasks Windows itself owns under `\Microsoft\`, which the dashboard hides by default. |
+
+> **System tasks are hidden by default.** On a real machine `\Microsoft\…` is most of what Task
+> Scheduler holds — 257 of 352 on the box this was built against — so leaving them in makes every
+> count, folder and view about somebody else's tasks. The dashboard says so in a line above the list,
+> with the number and a link to **Settings › Dashboard defaults › Show system tasks**, which is the
+> switch that changes it for good. The `N system hidden` chip beside **Filters** still reveals them
+> for the current session, and the **System** view still isolates them.
+
+- **Saving your own:** change any filters and the row shows a **Custom** chip plus **Save view**. Name it and it becomes a chip of its own, with a count, kept between visits. Delete one with the `×` on its chip — that only removes the name; the tasks and the filters you're currently looking at are untouched.
+- **Every view is a link.** The URL carries the view (`?view=failures`) or the individual filters, so you can bookmark one or paste it to another machine. A link to a saved view *someone else* made falls back to the normal dashboard rather than showing you nothing.
+- **The counts are honest about what they don't know.** *Failures* is answered by the health check (the same one on the Tools tab), which has to read every task first. Until it finishes, the chip shows **`–`, not `0`** — because `0` would claim nothing is failing, and the app hasn't looked yet. A banner above the list says the same thing while it loads. A task with no run evidence at all counts as *unmeasured*, not as passing.
+- **Changing a filter drops you to Custom — except the rail.** The chip goes dark on purpose: once you narrow "Failures" by a lens you cannot see, the list is no longer what that label says it is. **The source rail is the exception** — both of its levels are — because a rail selection is never hidden: the row is lit, the heading names the source and the breadcrumb names the folder. With *Windows Task Scheduler › AI-Tools* selected and *Failures* lit, all three constraints are on screen, so no chip is lying.
+
+### Favorites
+Click the **star** on any task — on a card, a list row, a kanban card, the Schedule timeline, or in
+the task's own detail modal — to mark it a favorite. Stars are yours alone and change nothing on the
+platform, so starring works fine with the agent offline.
+
+- **Favorites is a row in the source rail**, second from the top, under *All sources*. It used to be
+  a chip in the views bar; starred-is-a-place is where people look for it, and as a rail row it
+  **composes with whichever view is lit** instead of replacing it — *Failures* + *Favorites* is your
+  failing starred tasks, and both controls say so together.
+- **The dashboard opens on *All*, not on your favorites.** It briefly opened on Favorites; showing
+  you a subset you picked weeks ago, and then having to explain itself, turned out to be worse than
+  simply showing everything.
+- **A star still outranks the defaults.** A bare URL opens on **All** — every status, system
+  included — so clicking Favorites from a fresh load shows every starred task, including disabled,
+  missing and OS-owned ones. It narrows only if you have deliberately picked a narrowing view, and
+  that view is lit on screen while it does.
+- **Un-tracking or deleting a task takes its star with it.** Starring is a preference about a task
+  Cronsole tracks, not a record that outlives it (unlike a **removed** task, which Cronsole
+  remembers so sync doesn't re-import it).
+
+### Collections
+A **collection** is a set of tasks you pick by hand and give a name — "Morning checks", "Client
+work", "View2". It appears in the **Collections** section of the source rail — its own band between
+*Favorites* and your platforms, ruled off top and bottom — with its own count. The band **folds
+shut** from the chevron beside its heading, which keeps its tally visible while it is closed so a
+fold can never quietly hide twelve rows. **Pinned** is a second band just like it, directly below;
+the two fold independently.
+
+**A collection is not a saved filter, and that distinction is the whole feature.** A view stores
+*conditions* (active, failing, due today) and shows whatever matches them right now. A collection
+stores *the tasks themselves*. That is the only way to group four things that have nothing in
+common except that you care about them together — a Claude routine, two Windows tasks in different
+folders, and a Cronsole-native check, one of them disabled. No filter can describe that set, because
+there is no shared property to filter on.
+
+- **Add a task from the bookmark button**, which sits next to the star wherever a task appears —
+  every card in Grid, every row in List, every Kanban and Schedule entry, and the detail modal
+  (where it is labelled *Add to collection* in full). It opens a checklist of your collections;
+  ticking one adds the task immediately. **You can create a collection from there too**, with the
+  task already in it — the moment you notice a task needs a home is the moment you want the home.
+- **The button carries a number** once a task is in something, so you can see at a glance which
+  tasks are already filed without opening anything.
+- **A task can be in any number of collections.** That is why the control is a checklist rather than
+  a star: one task, many sets.
+- **Collections compose with your view**, exactly like Favorites. Selecting one keeps whichever view
+  is lit, so *Failures* + your collection is the failing tasks in it. Selecting one also clears any
+  source, folder or starred scope — a collection spans systems, so it cannot sit "inside" one.
+- **Manage, rename and delete** from *Manage collections*, at the foot of the Collections section
+  itself — the control that makes a collection sits in the band it makes into.
+- **Deleting a collection never deletes tasks.** It removes the grouping; the tasks stay in Cronsole
+  and keep running, and the confirmation says so with the count.
+- **Removing a task from Cronsole takes it out of any collection holding it** — the same rule as the
+  star. A membership is a preference about a task Cronsole tracks, not a record that outlives it.
+- Collections are yours alone, change nothing on any platform, and work with the agent offline.
+
+### Pinned
+A folder you use constantly can be lifted out of the tree and parked in its own **Pinned** section,
+directly below Collections. Hover a folder or job type in the source rail and click the **+** beside
+its name; it appears above with a **pin** icon. Click the pin again — on the folder in the tree, or
+on the pinned row — to take it back off. Nothing about the folder changes; the tree keeps it either
+way.
+
+**Pinned is a separate section from Collections because they are separate kinds of thing.** A
+collection holds exactly the tasks you put in it. A pin is a *place*, and it keeps tracking that
+place — put a new task in `\Cronsole\AI-Maintenance\` tomorrow and the pinned row counts it that
+day, with no action from you. That is the reason pinning does not simply build a collection out of
+the folder's current contents: a set named after a folder that had quietly stopped matching it would
+be worse than no shortcut at all.
+
+The sidebar has **four sections**, top to bottom: the two scopes (*All sources*, *Favorites*), then
+**Collections**, **Pinned**, and **Sources** — the platform tree. The last three each carry a
+heading with a chevron and **fold independently**; a folded section keeps its count on screen, so
+folding one never hides how much is in it. They look and behave alike on purpose.
+
+**Pinned appears only once you have pinned something**, and goes when you unpin the last one; unlike
+Collections it carries no *New…* button, because pinning happens on a folder in the tree rather than
+from the band. The button at the very top of the sidebar collapses the **whole** rail to icons,
+which is a different thing from folding a section.
+
+Two consequences worth knowing:
+
+- **A pinned row and its folder in the tree always print the same number**, because they are the
+  same row shown twice — the pin reads the folder's count rather than tallying its own. Selecting
+  either lights both.
+- **A pin outlives what it points at.** Rename the folder and the pin follows it. Empty the folder,
+  disconnect the platform, or remove its last task, and the pin stays where it is reading `0` — it
+  is a place you declared, so it does not vanish out from under you, and you can still click it to
+  remove it.
+
+Pins follow your account, like your other dashboard preferences (the rail's collapsed state, your
+saved views): they sync through Cronsole's own preference store, so the sidebar you arranged on the
+desktop is the sidebar your phone draws. They change nothing on any platform and are yours alone.
+
+### Reordering the sidebar
+**Collections, Pinned and Sources each keep the order you put them in.** Drag a row up or down
+inside its own section — a collection among collections, a platform among platforms. A row cannot
+leave its section, because the three sections are three different kinds of thing and a platform
+sitting among your collections would say something untrue about it.
+
+- **Drop a row on another and it takes that row's place**, everything in between shifting by one.
+- **Or use the keyboard**: focus a row and press **Alt+↑ / Alt+↓**. It is the same move one step at
+  a time, so you never need a pointer to arrange the rail.
+- **Sources start alphabetical and stay that way until you drag one.** A platform you have never
+  moved keeps its alphabetical place at the bottom of the list, which is also where a source that
+  ships in a later version of Cronsole arrives — adding one never reshuffles a rail you arranged.
+- **The order follows your account**, like the rest of your sidebar preferences. Collection order is
+  stored with the collections themselves; pins and sources are preferences.
+- **Arranging happens on a desktop.** Dragging needs a pointer and the shortcut needs a keyboard, so
+  the mobile drawer draws the order you set elsewhere rather than offering its own.
+- Folders *inside* a source stay alphabetical. They come and go with your tasks, so a hand order
+  there would be a list of names that quietly stopped matching the tree.
+
+### Calendar
+The fifth view mode. Grid, List, Kanban and Schedule all answer *"what do I have"*; the calendar
+answers *"what happens next Tuesday"*, which none of them could — the Schedule timeline comes
+closest and still orders tasks by their **next** run, one instant each, so a task that fires every
+weekday appears exactly once and the shape of a week is invisible.
+
+- **Month or Week.** Month draws a fixed six-week grid (so the page doesn't jump height when you
+  step forward); Week draws seven full-height columns. `‹` `›` step, **Today** comes back.
+- **It draws the slice you're already in.** Every filter, the source rail, the search box and the
+  ownership lens still apply — a calendar is a *layout*, not a second question. Narrowing to a
+  collection or a folder re-draws the same grid over fewer tasks and costs no round trip.
+- **Days are days in your *schedule* timezone** (Settings › Schedule timezone), which is named on
+  the header beside the month. Schedules are stored as UTC cron, so `0 9 * * *` lands on a different
+  calendar day in Berlin than in Los Angeles, and an unlabelled grid would be the same unmarked
+  clock reading the rest of the app refuses to print.
+- **A task that runs six times on a Tuesday is one chip, not six.** The chip carries the first time
+  and `×6`; hovering lists the times. A month cell shows three and then `+N more`, which expands in
+  place.
+- **Tasks that run too often to draw say so.** A task firing every five minutes has thousands of
+  runs in a six-week grid. Cronsole lists the first few hundred and then prints a line above the
+  grid naming how many tasks were cut short — because a month whose second half looks empty reads
+  as *"it stopped running"*, which is the most expensive wrong thing a calendar can say. **Switch to
+  Week** and the same tasks fit completely.
+- **Tasks with no place on a calendar are named, not dropped.** A Windows task triggered at logon
+  has no cron and never will; a GitHub workflow whose schedule Cronsole couldn't read carries the
+  reason it couldn't. Both are listed under the grid, with the reason, and clicking one opens it —
+  silently omitting them would be indistinguishable from them having been deleted.
+
+### Views, Search & Filters
+- **View modes:** Switch between **Grid**, **List**, **Kanban** (active vs. disabled columns), **Schedule** (sorted by next run) and **Calendar** (a month or week grid — see above) using the toggle on the right. The layout is **not** part of a saved view — picking a view changes which tasks you see, never how they're drawn.
+- **Search:** The search box filters by task name, category, path, command, and schedule. Press `/` to jump to it and `Esc` to clear; a match counter shows how many tasks matched.
+- **The Filters button** holds status and ownership. *(Neither source nor folder is in here — both are the **source rail** on the left. The button's count ignores them too, because a badge may only count what its own menu can clear.)* The number on it is how many filters are set, so a closed menu can never hide *that* you're filtered. Inside:
+  - **Status** — *Active only* (the default), *All statuses*, or **isolate** just the *Disabled* or just the *Missing* ones. Isolating is not the same as including: it shows you **less**, and an isolated state appears as its own pill outside the menu so it can't be mistaken for normal.
+  - **Ownership** — Windows keeps hundreds of its own scheduled tasks under `\Microsoft\`; on a typical machine they outnumber yours roughly 3:1, so Cronsole hides them by default. This is **independent of Status**, so the normal view is *yours **and** active* — either can be opened up without touching the other. The choice is remembered between visits, and the section only appears if you've actually imported some.
+- **What a filter is hiding is never inside the menu.** Two of these lenses are defaults you didn't pick today, and they hold rows back while looking like a neutral starting state — so they say so on the toolbar itself: `189 system hidden`, `10 inactive hidden`. Each is also the button that undoes it. The rail's two dimensions don't need this: the rail shows its own selection, and the folder also appears as a **pill** you can read and dismiss (`Backups ×`) — which is what names it on a phone, where the rail is closed.
+- **Counts describe the view you're in, not the whole dashboard.** A count beside a filter is a promise about what clicking it will reveal, so it's taken over everything the *other* filters allow. With Favorites selected and two stars, the status filter counts against those two — not against all 269.
+
+---
+
+## 2. Task Details
+
+Clicking a task card opens the **Task Details** modal, which has two tabs.
+
+### Overview
+Instead of raw data, the Overview parses the task's synced configuration into readable panels:
+- **Summary:** Status, last result (success/failure), next run, and last run.
+- **Schedule:** A human-readable description (e.g. *"Daily at 9:00 AM PDT"*) alongside the underlying cron expression. Schedules are **stored** in UTC but **read and written in your own timezone** — Pacific by default, changeable under Settings → Behavior → Schedule timezone. If Cronsole can't express the trigger as cron (boot, logon, event, or on-demand tasks), it says so honestly rather than guessing.
+- **Action:** What the task actually runs — an HTTP request for Cronsole-native tasks, or the executable/arguments/working directory for Windows tasks. If your agent build doesn't yet report a task's action, the panel says so rather than showing a blank.
+- **Settings:** Scheduler state, whether the task is enabled, the account it runs as, run level, logon type, author, and description — shown when the agent reports them.
+- **Raw platform metadata:** The full untouched sync payload is still available under a collapsible section at the bottom.
+
+### Run History
+The second tab lists recorded runs with their status, timestamp, duration, and a log snippet — so you can answer "did it actually run, and did it work?"
+
+### Exporting one task
+
+The **Export** button in the task's footer downloads its definition, and it asks which of two you
+want — because "export this task" is really two different requests.
+
+- **Native** puts *this exact task* back on *this platform*. A Windows task gives you Task
+  Scheduler XML — the real definition, read off your machine, which restores onto any Windows PC
+  through [Restore tasks from a backup](#restore-tasks-from-a-backup). A Cronsole-native task gives
+  you Cronsole JSON, which comes back through [Import a task](#import-a-task).
+- **Portable template** recreates the task on *any install*. It is the same shape as the templates
+  in the catalog, so it imports on the Templates tab and can then be applied to whichever platform
+  suits — which is what you want for moving a task to a different machine, or to a colleague.
+
+**The portable one is deliberately lossy, and the menu says so before you click.** It drops
+platform-specific settings — the account the task runs as, its run level, any extra actions —
+because no other platform can honour them. That is the price of it working anywhere, and it is why
+both options exist rather than one universal file: a format that could faithfully restore a Windows
+task would have to carry all of that, at which point it *is* Task Scheduler XML. A merged version
+would be the worst outcome — a file that looks like a faithful backup, restores a task running as
+the wrong account, and succeeds, so nothing warns you.
+
+Two smaller things worth knowing:
+
+- **Portable works where native can't.** With the Windows agent offline there is nothing to read the
+  XML from, and a **Claude routine** has no definition Cronsole can fetch at all — its routine lives
+  at claude.ai. The portable template still describes what the task runs in both cases.
+- **Neither adds anything to your template library.** Getting a portable file used to mean **Save as
+  template** first, which left a template behind that you then had to live with.
+
+Some tasks can't be templated, and the refusal says which fact stopped it: a task with no
+cron-expressible schedule (a boot or logon trigger isn't one), or with more than one action.
+
+## Changing many tasks at once
+
+Bulk changes live in one place: **Mass actions**, on the [Tools tab](#mass-actions). There are no
+checkboxes on the dashboard — a selection can't be checked once it's more than a handful of rows
+(*"254 selected"* tells you nothing you can verify), and it couldn't act on more than 100 tasks
+anyway. Mass actions works the other way round: you say *what* you want to change, then *which*
+tasks, and you see exactly which ones before anything happens.
+
+To change a single task, open it and use the buttons in the task modal.
+
+### Editing a task
+
+One **Edit** button in the modal footer opens everything editable about the task in a single
+form: its name, its category, its schedule, and what it runs. *(Until 13 August 2026 those were
+four separate controls in four places — a pencil by the title, a "Change" link on the category
+card, an "Edit" in the Action panel and an "Edit Schedule" in the footer — each opening
+something different.)*
+
+The Edit button is **never disabled**, because name and category can be changed on every
+source. Anything this particular task *cannot* change says so, in words, inside the form —
+rather than being a greyed-out button with the explanation hidden in a tooltip you can't read
+on a phone.
+
+#### Saving: one button, reported part by part
+
+Behind the one form there are still **three different writes**, and they do not fail alike:
+the labels are Cronsole's own database row, while a Windows schedule or command change is a
+request to the agent that Windows can refuse.
+
+So **Save sends only what you changed, and each part reports its own result.** If the agent is
+offline while you renamed a task and changed its schedule, the rename lands, the schedule
+doesn't, and the form says exactly that — *"1 of 2 parts saved"* — keeping the failed part
+filled in so pressing Save again retries only what's outstanding. Nothing is rolled back:
+undoing the successful half would need the same agent that just failed.
+
+Closing with unsaved changes asks first.
+
+#### Name and category
+
+Both are **Cronsole labels. Neither touches your machine.**
+
+- A Windows task's real name is the last segment of its Task Scheduler path, and that path is
+  how Cronsole addresses it — every command it sends, every sync that matches it. Renaming the
+  path would make it a *different task*, so Cronsole doesn't. The editor says which name Task
+  Scheduler will keep using, before you save.
+- Once the two differ, the task modal says so too — *"Renamed in Cronsole — Task Scheduler
+  still calls it X"* — and keeps the real path on screen. Otherwise you'd go looking in Task
+  Scheduler for a name that was never there.
+- Changing the category does **not** move the task to a different Task Scheduler folder.
+- Both survive a sync: sync overwrites only platform facts (status, schedule, next run).
+  *(Until 12 August 2026 sync wrote the name back on every pass, which is why renaming wasn't
+  offered at all.)*
+- Renames can't collide the way a *created* task's name can — the duplicate check exists
+  because a new Windows task's name becomes its path, and a rename never touches the path.
+
+#### Schedule
+
+**Two registers, one field: a picker and the cron it compiles to.** Every place Cronsole takes a
+schedule — Edit task, New task, Apply template, and the Schedule tester — opens on **Simple**:
+pick *Daily*, *Weekly*, *Monthly*, *Hourly / every N hours* or *Every N minutes*, pick a time from
+a clock control, tick the weekdays you want. The **Cron** tab holds the same schedule as a
+five-field expression, and switching between the two writes nothing by itself.
+
+- **The expression is always on screen.** Simple prints the cron it has built underneath the
+  controls, and — as everywhere else — the stored UTC form sits below that. The picker is a way
+  to *write* cron, not a replacement for it: cron is still what Cronsole stores, what the API and
+  the MCP tools speak, and what is signed in the command sent to the agent.
+- **Simple is unavailable rather than approximate.** An expression the five shapes cannot hold —
+  a range or a list (`0 9-17 * * 1-5`), a specific month, an `L` or a `#` — leaves the Simple tab
+  disabled and says why. It is never snapped to the nearest shape, because that would silently
+  rewrite a schedule you opened to read.
+- **A monthly schedule is not clamped.** Cron does not shorten February: a task set to the 31st
+  simply does not run in a month that has no 31st. The picker says so where you choose the day.
+- **Monthly registers as a real Windows monthly trigger** *(since 2026-09-08 — it used to be
+  replaced by an hourly one, ~8,760 runs a year for a schedule asking for 12)*. `0 9 1 * *` and a
+  list or range of days (`0 9 1,15 * *`) both convert exactly. Two things it still cannot do, and
+  it says so rather than approximating: a **specific month** (`0 4 1 1 *`, once a year) has no
+  Windows-trigger form here and is still replaced by the hourly fallback; and a monthly time whose
+  UTC form lands on a **different local calendar day** is refused by the agent with that reason —
+  a week is always seven days so a weekday can be rolled, but a month is not always the same
+  length, so no single day-of-month would be right all year. Pick a time that stays on the same
+  local date. (Cronsole-native runs the expression itself, so every shape above is exact there.)
+
+Editable for Cronsole-native tasks and for Windows tasks whose trigger can be represented as a
+cron expression. Cronsole-native edits update the backend scheduler immediately; Windows edits
+need the local agent, because Cronsole changes the real Task Scheduler trigger first. Boot,
+logon, event and on-demand Windows triggers stay read-only until Cronsole has a dedicated safe
+editor for those trigger types — the form says so instead of hiding the section.
+
+#### What it runs
+
+This does one of two quite different things.
+
+**Windows tasks** — Cronsole asks the agent to rewrite the real Task Scheduler entry, and
+records nothing until Windows confirms. The agent must be online, and the platform can refuse
+(an admin-owned task will). Available for tasks with a single reported command; a multi-action
+task, or one the agent hasn't described yet, says which of those it is.
+
+**Cronsole-native tasks** — the row *is* the task, so the write *is* the change. Nothing can
+refuse it and it works with the agent offline. You can change an HTTP job's URL, method,
+headers and body, or a script job's command line and working directory — the URL in particular
+used to require deleting the task and starting over, which threw away its run history.
+
+Four things to know about the native side:
+
+- **Headers take either form.** Paste `Authorization: Bearer …` lines straight out of an API's
+  docs, or JSON. Something it can't read blocks the save rather than being quietly sent as no
+  headers.
+- **Run a program and Write a script take an environment.** See
+  [Environment variables](#environment-variables) below.
+- **You can convert an HTTP job into a script job, and the other way round** — but the job is
+  **replaced, not merged**. The two kinds share no fields, so switching discards the other
+  type's: the form names exactly what goes before you click. The task keeps its name, schedule,
+  category and run history. The one exception is the **environment**, which means the same thing
+  on both program and script jobs and so carries across that pair — the warning says so, and
+  says the opposite when you switch to a kind that has none.
+- **A script job says where it will run** — your machine, or inside the container if you run
+  the backend in Docker. Same statement as the New Task form, for the same reason.
+
+A **Claude routine's** prompt is defined at claude.ai; Cronsole can schedule and fire it, not
+rewrite it.
+
+#### Environment variables
+
+**Run a program** and **Write a script** both take an **Environment** — extra variables handed to
+the process when it starts. One `NAME=value` per line, or JSON:
+
+```
+API_BASE=https://api.example.com
+LOG_LEVEL=debug
+API_TOKEN=${secret.API_TOKEN}
+```
+
+- **It is added to a minimal environment, not to Cronsole's.** The program does *not* inherit the
+  backend's own variables — that process holds the key encrypting every platform credential you
+  have stored. What you write here, plus a small base, is everything the child gets.
+- **A value may be a secret; a name may not.** `${secret.API_TOKEN}` in a value is substituted at
+  run time and taken back out of the run log. In a *name* it is refused — the form will not accept
+  one, because a variable called `${secret.…}` hides which variable was set without protecting
+  anything. See [Secrets](#secrets).
+- **Everything after the first `=` is the value.** `CONN=host=db;port=5432` is one variable, not
+  three. Blank lines and `#` lines are ignored, so a block pasted out of a `.env` file works.
+- **Something it can't read blocks the save**, naming the environment — it is never quietly sent
+  as no environment, which would leave a job running without the credential it was written to use.
+
+Until 2026-08-24 this field existed in the API and the MCP tools but had no control in the app, so
+a secret could be stored on a task and then referenced from the one field you could not edit.
+
+#### Secrets
+
+A Cronsole-native job frequently needs a credential — a bearer token in a header, an API key in an
+environment variable, a webhook URL that *is* its own authentication. **Put it in Secrets, not in
+the job.**
+
+A secret is a **name and a value**. The value is stored AES-256-GCM encrypted, exactly like your
+platform credentials; the job refers to it by name:
+
+```
+${secret.API_TOKEN}
+```
+
+Write that anywhere the credential belongs and Cronsole substitutes the real value when the task
+runs:
+
+| Kind of job | Where a `${secret.NAME}` works |
+|---|---|
+| Call a URL | the URL, any header value, the request body |
+| Run a program | any argument, any environment value |
+| Write a script | the script body, any environment value |
+| Check something | an endpoint check's URL and header values |
+
+Not in a program's *executable*, a script's *interpreter*, or a check's *assertions* — Cronsole
+refuses those by name, because a secret hiding which program runs makes the run log unreadable
+without protecting anything.
+
+**What you get for using it:**
+
+- **The value is never shown again.** No screen and no API returns it. To change one you replace
+  it; there is nothing to read it back with, including for Cronsole itself outside the moment a
+  task runs.
+- **It is taken back out of the run log.** If a job prints its token, the history shows
+  `${secret.API_TOKEN}` where the value was — so you can still see *which* secret was involved.
+  This is a genuine safety net and not a guarantee: it works by matching the stored value, so a
+  script that encodes its token before printing defeats it.
+- **It never leaves this install.** Exporting the task exports the job — including the
+  `${secret.…}` references, so the file says what it needs — and none of the values. Same for the
+  archive Cronsole writes before a delete. Import the file elsewhere and you enter the values there.
+- **Deleting the task destroys them.** Unlike the archive, which deliberately outlives the row,
+  the secrets go with it.
+- **Editing the job never touches them.** *What it runs* replaces the whole job; the secrets are a
+  separate thing on the task, so they survive every edit. They are also written **immediately**,
+  one at a time — they are not part of *Save changes*.
+
+**A reference with nothing behind it is a task that will not start**, and Cronsole says so at every
+point it could: the Secrets section marks it *Not set*, creating or importing such a task reports it
+by name, and the run itself refuses with *"this job refers to a secret that is not set"* rather than
+firing a request with a blank credential.
+
+Two smaller rules, both stated where they bite:
+
+- **A secret must be at least four characters.** Redaction is a text match over the job's output, so
+  a one- or two-character value would blank those characters out of every word the task prints.
+- **A task with secrets cannot be saved as a template.** A template is portable content: it would
+  either carry your credential into the catalog or produce a task that applies cleanly and then
+  refuses to run. Export it as a **task file** instead.
+
+If Cronsole reports that stored secrets **cannot be decrypted**, `ENCRYPTION_KEY` has changed since
+they were saved. The values are unrecoverable — re-enter them.
+
+*(AI assistants can see which secrets a task uses and which are missing, through the
+`list_task_secrets` MCP tool. None of them can set a value: a tool call is a chat transcript.)*
+
+### Removing a task — two very different buttons
+The modal footer offers **two** ways to make a task go away, and they are not interchangeable.
+
+**Remove from Cronsole** *(the safe one)* — takes the task off your dashboard and forgets its
+Cronsole run history. **The scheduled task itself is not touched:** it stays on the machine and
+keeps running on its own schedule. Use this when you imported a folder you didn't mean to, or
+when you simply don't want to look at a task any more.
+- Future syncs **won't** pull it back — Cronsole remembers that you removed it, so a routine
+  a plain **Sync** can't silently undo your choice.
+- To get it back, run **Sync › Add tasks from this machine** and re-select its category. The picker shows an amber
+  **+N removed** badge on any category that would bring removed tasks back, so you see the
+  number before you commit, and the toast afterwards tells you how many returned.
+- Not offered for Cronsole-native tasks — those exist only inside Cronsole, so there's nothing
+  left to keep.
+- **Not offered for Claude routines either** — see *Disconnecting a Claude routine* below.
+  Clicking it there is refused with the reason, rather than appearing to work.
+
+**Delete from Windows** *(the irreversible one, styled red)* — deletes the real Task Scheduler
+entry. The task stops existing and will never run again.
+- The real entry goes **first**, via the local agent; the Cronsole record only goes once the
+  platform confirms — Cronsole never claims a task is gone while it still exists on your machine.
+  If the agent is offline the delete is refused and the task stays.
+- Some Windows tasks were registered by an elevated process and carry admin-only permissions;
+  Cronsole will tell you when a task can only be deleted from an elevated Task Scheduler (or by
+  running the agent elevated).
+- For a **Cronsole-native** task the button is just **Delete** — it removes the task and its run
+  history, and nothing exists outside Cronsole to clean up.
+
+> [!TIP]
+> If your goal is a tidier dashboard, you almost always want **Remove from Cronsole**. Deleting
+> to clean up a view destroys automation that may have been running for years.
+
+### Disconnecting a Claude routine
+
+A Claude routine gets a third button instead: **Disconnect routine**. It is the only way to
+take one off the dashboard, and *"Remove from Cronsole"* is refused for these on purpose.
+
+The reason is that a routine is on your dashboard because **you declared it**. Anthropic
+exposes no endpoint to list routines, so Cronsole's list is your own connection config — there
+is no machine to be re-imported from, and no "don't re-import this" to remember. Removing the
+row alone left the declaration in place, so the next sync brought the task straight back while
+Cronsole's list of removed tasks read empty. *(If you hit that loop before 12 August 2026, that
+was it — [troubleshooting #47](../../troubleshooting/README.md#47-a-claude-task-keeps-coming-back-after-remove-from-cronsole).)*
+
+**Disconnect routine** removes the declaration and the tracked task together, from either the
+task modal or **Sources › Claude**. Two things it also does, both stated in its confirmation:
+
+- **It forgets the stored API token**, which claude.ai shows exactly once and will not show
+  again. Reconnecting means generating a new token there. This is precisely why it isn't folded
+  into "Remove from Cronsole" — a button may not spend something its label doesn't mention.
+- **It changes nothing at claude.ai.** The routine still exists and still runs on its own
+  schedule. You are disconnecting Cronsole from it, not deleting it.
+
+### Changing a Gemini trigger — Recreate with changes, and Duplicate
+
+A Gemini trigger is **immutable once it exists**. Google's update endpoint takes a status and a
+display name and rejects everything else, so *Edit schedule* and *Edit action* both read
+**Unsupported** — a boundary of the preview API, not a missing feature. Two buttons exist because of
+it, and both say **recreate** rather than *save*. They answer different questions: *Recreate with
+changes* changes **this** trigger; *Duplicate* makes **another** one.
+
+**Duplicate** opens the New Task form filled in from this trigger — name, schedule, prompt, tools and
+allowlist. Use it when you want a second, similar trigger and the original stays. The schedule comes
+back in **your** timezone on the way in, so a duplicate of an 08:00 local trigger is not created at
+08:00 UTC.
+
+- A **saved MCP server** carries across as a reference, so nothing secret is typed twice.
+- A **hand-typed** MCP server is dropped rather than copied. Cronsole never read its token, and a
+  server the new trigger could not authenticate to would fail later, on a schedule, as somebody
+  else's 401 — so the row is left out and you add it deliberately.
+
+**Recreate with changes** rebuilds **one** trigger with a new prompt, a new schedule, new tokens or a
+different tool list — whichever of those you touch. It is the only way to edit a Gemini trigger, and
+the fields it leaves alone are copied from the trigger **as it stands on Gemini right now**, not from
+Cronsole's last sync: rotating a token cannot revert a prompt somebody changed in Google's console.
+The replacement is created *before* the original is removed, so a failure leaves the working trigger
+alone; a paused trigger stays paused; and the task keeps its run history, favourite and collections
+even though Gemini assigns a new trigger id. If the replacement is created and the original cannot be
+deleted, that is reported as a **failure**, not a note — that schedule now fires twice.
+
+> [!TIP]
+> To rotate one token across **every** trigger that uses it, don't use this button task by task. Save
+> the server once under **Sources › Gemini API Triggers › Saved MCP servers**, then edit it there and
+> press **Push this credential to N triggers**. Each is rebuilt and the result is reported per task.
+> See the [Sources Guide](Sources_Guide.md#gemini-api-triggers).
+
+> **Note on schedule times:** every clock time in the app — the Schedule panel, the cron fields you type into, the preset chips, and absolute next/last-run timestamps — follows **Settings → Behavior → Schedule timezone**. It defaults to **Pacific**; you can pick another zone, your machine's, or UTC.
+>
+> Schedules are still **stored** as UTC cron, which is what the API, the MCP tools and Windows Task Scheduler see, so each cron field prints the stored UTC expression beside it. Two cases are called out rather than guessed at: a schedule pinned to a specific date whose conversion crosses midnight can't be expressed in cron, so it stays in UTC and says so; and across a daylight-saving change a **Windows** task keeps its local clock time while a **Cronsole-native** task shifts by an hour, because Cronsole runs the stored UTC expression directly.
+
+---
+
+## 3. Task Categorization & Organization
+
+Cronsole allows you to organize tasks into local folders (categories).
+
+### Automatic Initial Categorization
+When you first sync with a platform (like Windows Task Scheduler), Cronsole **automatically imports the existing folder structure**. 
+- A Windows task at `\Microsoft\Windows\UpdateOrchestrator\Reboot` will be automatically placed in the `Microsoft\Windows\UpdateOrchestrator` category.
+- This gives you an organized starting point that mirrors your current environment.
+
+### Local Overrides
+Your categorization in Cronsole is **local and persistent**. 
+- If you move a task to a "Critical" category in Cronsole, it will **stay there** even after subsequent syncs. 
+- Cronsole will not overwrite your manual categorization with the source platform's folder structure once the task is imported.
+
+### Viewing Categories
+Categories live under **Filters › Category** on the Dashboard toolbar:
+- **"All":** every task the other filters allow.
+- **Dynamic list:** each category with matching tasks appears with a live count. Categories with nothing under the current filters drop out rather than showing a zero.
+- Picking one puts a **pill** on the toolbar (`Backups ×`) so you can see and clear it without reopening the menu.
+
+### Re-categorizing a Task (Two Ways)
+1. **Directly on the Card** — a shortcut for the one-word change:
+   - Hover over the **Folder Icon** or the category text.
+   - Click the text to turn it into an input field.
+   - Type your new category name and press **Enter** to save.
+2. **In the task editor** — alongside everything else about the task:
+   - Click a task card to open the modal, then **Edit**.
+   - Change the **Category** field and press **Save changes**.
+
+Neither moves the task to a different Task Scheduler folder — the category is a Cronsole
+label. To change many tasks at once, use [Mass actions](#mass-actions) on the Tools tab, which
+counts how many would be detached from their folder *before* you commit.
+
+---
+
+## 4. Templates
+
+The **Templates** tab is a library of prebuilt automation patterns, organized into two groups:
+- **Starters:** Parameterized building blocks (PowerShell / Python / shell script, HTTP ping, …). You fill in the blanks (script path, URL, arguments) when applying.
+- **Use-case patterns:** Ready-made automations for common jobs (e.g., *Daily Database Backup*, *Morning News Digest*).
+
+A left-hand sidebar lists **All**, **Favorites**, then every category actually present in the catalog
+(Backup, AI Agent, Cleanup, …), each with a count — the same shape **Settings** and **Tools** use.
+Picking one scopes the whole tab to that category; search, the type toggle and the facets below all
+narrow *within* it. Favorites cuts across every category, so it is the one item that ignores the
+"which category" question rather than answering it.
+
+### Finding a template
+- **Category (sidebar):** narrows to one category, or to everything you've favorited regardless of category. Counts are over the whole catalog, independent of any other filter.
+- **Search:** Free-text search across name, description, command, category, and script type.
+- **Type toggle:** Show **All**, only **Starters**, or only **Patterns**.
+- **Target filter:** which system a template creates a task on — Windows, Cronsole, Claude Code, macOS. This is the first thing to filter by in the drawer, and it is not the same as the OS row: a Cronsole-native job, a Claude routine and a git command are all *cross-platform*, and only the target says which of them you can actually create. A target Cronsole can't create on here is marked `*`.
+- **OS & Tags filters:** Faceted chips (with counts) narrow by operating system and free-form tag. Like the Dashboard chips, they only show combinations that actually have templates, and collapse when a single choice remains. Use **Clear** to reset search/type/OS/tag/target — the sidebar category is navigation, not a filter, so it is unaffected.
+
+### Applying a template
+- Each card shows its target platforms, script type, intended schedule — read in your schedule timezone, the same reading the Apply modal pre-fills — and the command it will run.
+- Click **"Apply Template"** to open the creation flow. For starters, you'll fill in the required parameters (validated as you go). Cronsole then registers the new task on your machine via the local agent (Windows) or the relevant API.
+- **Task name:** prefilled with the template's name but yours to edit — give each applied task its own name if you reuse a template. A name that matches a task Cronsole already created **in the same folder** is **rejected** (instead of Windows silently overwriting the existing task), and names with characters Windows forbids (`\ / : * ? " < > |`, trailing dots) are refused with a clear message.
+- **Task Scheduler folder** *(Windows only)*: choose where the task actually lives in Windows Task Scheduler. The list is read from your machine and defaults to `\Cronsole`. **This is also the task's category in Cronsole** — for a Windows task the category *is* its top-level folder, which is why an imported task shows up under `Microsoft` or whatever folder it really lives in. Because the collision check is per folder, the same name in two different folders is fine: `\Cronsole\Backup` and `\Work\Backup` are genuinely different Windows tasks.
+  - **Only folders that already exist are offered.** Cronsole creates exactly one folder — its own `\Cronsole`, which it also removes again once the last task in it is deleted. It won't create any other, because deleting a Task Scheduler folder needs admin rights: a folder Cronsole made would be permanent, and only *you* could clear it. To file tasks somewhere new, create the folder in Task Scheduler first and it'll appear in the list.
+  - `\Microsoft\` isn't offered. Windows keeps its own scheduled tasks there, and creating one with a matching name would **silently overwrite** a real system task — no error, no warning. Cronsole refuses it rather than hand you that footgun.
+  - If the agent is offline the list can't be read; you can still create in `\Cronsole`.
+- **Other platforms** keep Cronsole's own categories — only Windows has a real folder hierarchy to point at.
+- **Cronsole-native templates** (*Run a Program*, *Node Script*, *Uptime Check*, …) need no agent at all: Cronsole schedules and runs them itself. The trade-off is **where** they run — on the machine running the Cronsole backend, which on a Dockerized stack is *inside the container*, against a filesystem that is not your desktop. If a script must run as you, or keep running when Cronsole is stopped, use a Windows template instead.
+- **Claude Code templates** are prompts, not commands. Applying one creates a real **routine** that Anthropic runs in the cloud on your schedule — so the Apply screen shows *Resolved prompt* rather than *Resolved command*, and offers a **Repositories** box for the repos the routine may check out (one URL per line; a routine with no repository still runs, it just has no checkout). This needs you to be signed in to the Claude Code CLI on the machine running Cronsole; if you aren't, the platform button is greyed out and the modal says what to do instead of failing when you click Create.
+- **What's greyed out is about *your* install, not about the template.** The platform buttons and the "Compatible with" badges come from the same capability check the [Sources tab](#6-sources--what-cronsole-can-actually-do) shows, so a target that works here is offered here. While that check is still loading nothing is marked either way — Cronsole would rather say nothing for a moment than tell you a platform is unavailable and be wrong.
+- **Schedule:** the field is labelled with the zone it reads in (`Schedule (cron · PDT)`), quick preset chips fill common crons in that same zone, and a plain-language preview under the field ("Runs daily at 8:00 AM PDT") confirms what the cron means before you create anything. The stored UTC expression is printed underneath. Conversion warnings appear when a cron can't map cleanly onto a native Windows trigger.
+- The created task appears on the Dashboard immediately — no need to wait for a sync.
+
+---
+
+## 5. Tools — health, analytics, backup and restore
+
+The **Tools** tab holds the things that act across *all* your tasks rather than one of them.
+
+A left-hand sidebar lists all ten by name — the same shape **Settings** uses. Pick one and it fills
+the main area; the rest stay out of the way rather than sitting on screen as ten stacked cards. A
+tool you have never selected has asked your machine for nothing — most of them fire a request the
+moment they appear, so the tab opening does not mean ten queries firing at once. Switching to
+another tool does not reset the one you left: a half-built mass action or a loaded restore plan is
+still there when you switch back.
+
+### Mass actions
+
+The one place Cronsole changes many tasks at once. It works in two steps, in that order:
+
+1. **What do you want to do?** A list of four actions, each saying what it does and what it leaves
+   alone:
+   - **Enable tasks** — turn them back on so they run on their schedules again.
+   - **Disable tasks** — stop them running, without deleting anything. Reversible.
+   - **Move to a category** — relabel them in Cronsole. Nothing moves on your machine.
+   - **Remove from Cronsole** — stop tracking them here; they keep running on their platform.
+     Cronsole-native tasks and Claude routines are **refused individually and named** — for
+     those two the Cronsole row *is* the task (or the declaration), so there is nothing to
+     stop tracking. One refusal never halts the rest of the batch.
+2. **Which tasks?** Opens on **By category** — the way your tasks are already organised, and a
+   deliberately narrow starting point rather than "everything". Switch to **all tasks**, or narrow
+   by **platform**, **status** or **health** instead. The card then lists exactly which tasks would
+   change, before anything happens. **All actions** takes you back.
+
+- **Windows' own tasks are excluded unless you ask for them**, and the number kept out is printed
+  next to the checkbox. On a typical machine that is most of them.
+- **The count is what would actually change**, never the scope size. A scope of 80 tasks where 70
+  are already running gives you *Enable 10*, and says so: *"80 in scope, 70 need no change"*.
+- **Big changes must be typed, not clicked.** At 25 tasks or more the confirmation asks you to type
+  the number. This is the point of the whole surface: a dialog you can dismiss with the same click
+  in the same place stops being a decision once you have seen it a few times.
+- **The confirmation names the scope in words** — *"Scope: the Backups category"* — because a bare
+  count is not something you can check.
+- **Large runs are split into batches of 100** and reported as they go. If the agent disappears
+  partway, the run stops and everything after that point is listed as not attempted rather than
+  silently dropped. Re-running the same scope is safe: anything already done comes back as
+  *already so*.
+- **Enable and disable can be undone** with one click, which puts back exactly the tasks that
+  changed. Removing from Cronsole is undone by re-importing, and recategorizing cannot be undone —
+  so the card says that instead of offering a button that would not work.
+
+Exporting in bulk stays in **Back up scheduled tasks** below, and importing stays on the Dashboard,
+where task discovery lives.
+
+### System diagnostics
+
+Answers *"is **Cronsole** working?"*, which is a different question from *"are my tasks working?"*
+and has to be answered first — a wedged agent makes every Windows task look unhealthy, and the fix
+is not in any of those tasks.
+
+Open it from **Run checks** here, or from **Diagnose** at the right-hand end of the Dashboard's
+health strip. Both open the same panel.
+
+Each check gives you a verdict **and the evidence behind it**, because the evidence is the part
+that tells you what to do. *"Windows offline"* is one sentence covering four different situations;
+the panel shows which:
+
+- **Backend process** — uptime, and the server's own clock in UTC. A backend whose clock has
+  drifted fires everything at the wrong time while every stored schedule still looks correct.
+- **Database** — that a real query round-trips, and how long it took.
+- **Windows agent** — whether a socket exists, which machine the agent is on, when it connected,
+  when it last said anything, and **when a request last timed out, naming the verb**. That last
+  line is usually the answer: a timeout two minutes ago and one from nine hours ago produce the
+  same status colour and mean entirely different things.
+- **Task list freshness** — the last real sync per platform.
+- **Cronsole-native scheduler** — whether the loop is running, when it last completed a tick, and
+  how many native tasks are overdue past the grace window. A loop that exists but has stopped
+  ticking reports as a problem, because "running" alone is not evidence that anything ran.
+- **Template catalog** — where templates are being loaded from and whether the last sync worked. A
+  failed catalog sync is deliberately non-fatal, which is exactly why it is otherwise invisible.
+- **API tokens** — any that have expired or expire within a week. An expired token does not fail
+  loudly at the tool using it: an MCP client reports its tools as *missing*.
+- **Browser origins** — which origins may reach the API. Harmless when unset locally; it matters
+  the moment you put Cronsole behind a tunnel.
+
+Three things worth knowing about how to read it:
+
+- **"Not measured" is not "OK".** A check that could not run says so, and the overall verdict ranks
+  it *above* passing — a panel reporting "all clear" over something it never measured would be
+  worse than one admitting the gap.
+- **The panel names the machine it measured**, at the top. On a Dockerized stack the backend
+  measures the *container* — its clock, its filesystem — not yours.
+- **Nothing here changes anything.** Every check is a read; there are no repair buttons. That is
+  deliberate rather than cautious: several past "the agent is down" alarms turned out to be the
+  status readout itself being wrong, and a repair button would have been restarting a healthy agent
+  and looking like it worked.
+
+**What it cannot cover:** these checks run *inside* the Cronsole backend, so they can say nothing
+about a backend, database or Docker engine that is not running. If the dashboard will not load at
+all, nothing here can answer — that is what the `Cronsole-Stack` startup tasks are for. They run
+from Windows Task Scheduler, outside the stack, and restart it without needing any of it to work.
+
+### Task health
+
+Answers *"which of my tasks need attention?"* — the question a few hundred rows can't answer by
+scrolling. It always gives you an answer, including when the answer is "nothing".
+
+By default you see only the **summary**: how many tasks are critical, need a look, are unmeasured,
+and are healthy. **Show N tasks needing attention** opens the list, worst first; a **Collapse**
+button appears at the bottom once you've opened the whole thing, so you don't have to scroll back
+up to close what you scrolled down to read.
+
+Expand any row to see the **signals** behind it, each with the evidence it came from — *"Windows
+recorded exit code 2 for the run at 2026-07-27T03:00"*, *"Windows missed 2 scheduled starts as of
+the sync at …"*. The score shown there ranks the list; it is not a grade, and it never appears
+without the signals that produced it.
+
+Four states, and the third one matters:
+
+- **Critical** — the last run failed, several runs in a row failed, or the task has gone missing
+  from the platform.
+- **Attention** — missed starts, never run, overdue against its own schedule, a run stopped before
+  it finished, or a native job suddenly taking much longer than usual.
+- **Unknown** — Cronsole has **no evidence** about this task. Most often that means the Windows
+  agent predates run-result reporting: republish it and the tasks become measurable. Unmeasured is
+  deliberately not shown as healthy.
+- **Healthy** — counted in the header, not listed.
+
+Windows' own `\Microsoft\` tasks are **hidden by default**, the same way the dashboard's Personal
+filter hides them, with the count shown so you can bring them back. A **disabled** task is never
+counted as unhealthy — parking a task is a normal thing to do, and the card says so rather than
+nagging about a task you switched off on purpose. **Open task** jumps straight to it on the
+Dashboard.
+
+---
+
+### Execution analytics
+
+Three questions the per-task history can't answer, in one card: **Failures**, **Duration**, and
+**Idle**. Pick a period (7, 30 or 90 days) for the first two.
+
+**Failures** shows the totals for the period and one bar per day, stacked succeeded / failed /
+pending. Hover a bar — or tab to it — and the line above the chart names that day and its numbers.
+Days with no runs are drawn as empty columns on purpose: a chart that skipped them would draw a
+straight line across an outage.
+
+Two things about this chart are worth knowing:
+
+- **It counts runs Cronsole *performed*** — runs you started from the dashboard, and Cronsole-native
+  jobs Cronsole runs itself. A Windows task firing on its own schedule isn't recorded, so an empty
+  period means Cronsole triggered nothing, **not** that nothing ran. For "did this actually work?",
+  use **Task health**, which reads Windows' own result.
+- **The totals are always exact.** If a period has more runs than the chart can draw, the bars cover
+  a shorter, complete stretch and the card says so — rather than showing a full-width chart with
+  data missing from the middle.
+
+**Duration** answers *"which tasks are getting slower?"* by comparing each task's recent runs against
+its own earlier baseline (median, so one slow night isn't a trend). **Only Cronsole-native tasks
+appear here.** For a Windows task, the recorded duration is how long the agent took to *accept* the
+start — not how long the job took — so including them would rank handshakes instead of work. On a
+Windows-only machine this list is legitimately empty, and the card says how many runs it left out
+and why.
+
+**Idle** lists scheduled tasks with no run in the last 30 days, each with the evidence behind it.
+Windows tasks are judged from **Windows' own last-run time**, not from Cronsole's records — which is
+why this works for tasks Cronsole has never triggered. Anything it can't judge is counted separately
+rather than dropped:
+
+- **Disabled** and **on demand** — not running is what these are supposed to do.
+- **Never run** — a different fact from "ran, but a while ago", and a different fix.
+- **No run data from the agent** — usually an agent that predates run reporting. Republish it.
+
+`\Microsoft\` tasks are hidden by default with the count shown, the same as everywhere else.
+
+---
+
+### Import a task
+
+Turns a saved definition back into a running task. Two sources, one card: a `.json` file you
+exported, and the tasks Cronsole archived when you deleted them.
+
+**Importing a file.** Click **Choose a task .json** and pick the file the task modal's **Export**
+button produced. The task is created immediately and starts running on the schedule in the file —
+Cronsole tells you when it will first fire, because that schedule is stored in UTC and may not be
+the time you remember setting.
+
+- **It creates a new task every time.** Nothing is matched up or overwritten, so importing the same
+  file twice leaves you with two tasks. That is deliberate: matching on name would silently replace
+  a task you had edited since.
+- **Cronsole-native tasks only.** This is about where a definition lives, not about favouritism: a
+  Cronsole-native task exists entirely inside Cronsole, so its file contains everything needed to
+  rebuild it. A Windows task's real definition lives in Task Scheduler on your machine, and comes
+  back as `.xml` through **Restore tasks from a backup** below. Hand this card a Windows file and it
+  says so, and points you there — the Dashboard's **Import** button goes one better and opens Restore
+  with the file already loaded.
+- The same import is offered in two other places, all three sharing one code path so they accept
+  the same files and explain a bad one the same way: the **New Task** modal, under the platform
+  buttons, and the Dashboard's **Import** button, which additionally accepts a Windows backup and
+  hands it to Restore.
+
+**Bringing back a deleted task.** Under **Deleted tasks** you'll find Cronsole-native tasks you
+removed, newest first, each with the number of run records kept alongside it. **Restore** rebuilds
+one.
+
+- **What you get back is a new task, not the old one resurrected.** It runs the same job on the same
+  schedule, but it has a new id and **its old run history does not come back** — those runs happened
+  to a task that no longer exists, and pretending otherwise would make the history claim something
+  Cronsole can't stand behind.
+- **The archive stays in the list after you restore from it.** It is the record that the deletion
+  happened, so restoring doesn't erase it — which also means clicking Restore twice gives you two
+  tasks.
+- **Only Cronsole-native deletions are here.** Cronsole archives one of those before deleting it,
+  and refuses to delete at all if it can't. A deleted Windows task can't be archived this way,
+  because its definition is on the machine and Cronsole would need the agent online just to read it
+  — so back those up ahead of time with **Back up scheduled tasks**. Any row that can't be restored
+  says why, in the row.
+
+### Back up scheduled tasks
+
+Saves Windows Task Scheduler tasks as native XML — either every folder on the machine, or one
+folder you pick.
+
+- **It exports what is on the machine, not just what Cronsole imported.** The tasks most at risk of
+  being lost are the ones nothing else is tracking, so those are exactly the ones a backup has to
+  include.
+- Windows' own `\Microsoft\` tasks are **excluded by default and counted out loud** — on a real
+  machine they outnumber yours roughly 3:1 and would bury what you came for.
+- On Chromium browsers you pick a destination folder and the export mirrors your Task Scheduler
+  folder tree into it. Everywhere else it downloads as a single `.zip`. Both include a
+  `_cronsole-export.json` manifest listing exactly what was saved — and what was skipped or failed.
+- **The files contain each task's full command line and the account it runs as.** If any of your
+  tasks pass secrets on the command line, treat the export like a password.
+
+### Restore tasks from a backup
+
+Puts **Windows** tasks back. Feed it the `.zip`, the folder you exported to, or individual
+`.xml` files. A Cronsole-native task's `.json` goes to **Import a task** above — the file picker
+here accepts `.json` because an export folder contains a manifest, not because it can read a task
+definition from one.
+
+- **You always see a plan before anything is written.** Picking files runs a dry run: Cronsole works
+  out what would happen to every file — *restore* / *replace* / *skip* / *refuse* — by checking what
+  is really on your machine, and changes nothing. The button underneath then tells you how many
+  tasks it will actually change.
+- **Overwrite is off by default.** A task that already exists is left exactly as it is and reported
+  as skipped. Turn on **Overwrite tasks that already exist** only when replacing the live task is
+  what you mean — Windows replaces a same-named task without asking.
+- **Recreate missing folders** is on by default, because the folder tree is part of what you backed
+  up. Every folder it creates is listed in the plan. One thing worth knowing before you click:
+  those folders are created by the agent, which runs with administrator rights, so **removing one
+  later needs an elevated Task Scheduler**. The same is true of the restored tasks themselves —
+  delete them through Cronsole (or an elevated Task Scheduler), not from a normal PowerShell prompt.
+- Some files are refused rather than restored, and the plan says why: a task that belongs under
+  `\Microsoft\` (Windows' own — a name collision there would silently destroy a real system task),
+  a file that isn't a task definition, or two files that would land on the same task path.
+- **Restoring a task does not add it to Cronsole.** It puts the task back on the machine; use
+  **Sync › Add tasks from this machine** on the Dashboard if you want Cronsole to track it too.
+
+### Export run history
+
+Downloads every recorded run across all your tasks as a CSV — the answer to *"what failed this
+month?"*, which the per-task history (20 rows at a time) can't give you. Pick a period, optionally
+narrow to failures, and the button tells you how many runs the file will hold before you download it.
+
+**Read the `runKind` column before you read `status`.** The history covers runs **Cronsole
+performed** — tasks you ran from the dashboard, and Cronsole-native jobs it runs itself:
+
+- `native-execution` — Cronsole ran the job, so `status` and `durationMs` describe the actual work.
+- `manual-trigger` — Cronsole asked the Windows agent to start the task. `SUCCESS` means Windows
+  accepted the start; the task's own outcome isn't in that row, and the duration is the round trip.
+
+A Windows task firing on its own schedule isn't recorded at all, so an empty period means Cronsole
+triggered nothing — **not** that nothing ran. (For "did this actually work?", the **Task health**
+panel below reads Windows' own result instead.)
+
+### Connect an AI tool
+
+Downloads a small instruction pack that teaches Claude, Codex, or Cursor how to drive *your*
+Cronsole — see the [MCP Server Guide](MCP_Server_Guide.md) for the connection itself.
+
+---
+
+## 6. Sources — what Cronsole can actually do
+
+The **Sources** tab answers one question per platform — *what will happen if I click this?* — and
+one about the set: *what else could I be watching?* A left-hand nav lists three views — Connected,
+Available, Quick links, each with a count — and they split on **whether a source is connected** —
+not on whether your sidebar lists it. Those are two different facts, and the tab shows both: the
+nav reads *connected*, the eye switch on each card reads *listed*.
+
+### Connected
+
+Each connected source collapses to just its header by default — identity glyph, name, whether it
+is a **controller** or an **observer**, its health pill, and its one-line summary. **Show details**
+expands the card into everything else at once: the four figures (tracked tasks, last real sync,
+last verified, how many verbs are verified), the platform's own setup panel where it has one, and
+the per-verb evidence — ten chips (Sync, List folders, Run now, Create, Enable/disable, Edit
+schedule, Edit action, Export, Restore, Delete) and a table giving each verb's state, when it last
+succeeded, and when it last failed and why. The toggle says how many verbs are verified and how
+many are unproven before you open it.
+
+**Nothing about a problem is behind that disclosure.** A degraded reason, and any verb that failed
+more recently than it succeeded, are shown on the card itself even collapsed — collapsing a card
+makes it shorter, never quieter.
+
+**The three states, and why the middle one exists:**
+
+| State | Means |
+|:--|:--|
+| **Verified** | This has actually worked on *this machine*. The row carries the timestamp that proved it. |
+| **Declared** | Cronsole will attempt it, but it has never been observed to succeed here. **Not a promise.** |
+| **Unsupported** | Cronsole cannot do this on this platform — the request would be refused. Shown struck through. |
+
+A fresh install shows almost everything as *Declared*, and that is correct rather than pessimistic:
+nothing has been tried yet. Use a verb once and its chip turns *Verified* with a timestamp. This is
+deliberate — a table that claimed capabilities from the code rather than from your machine would be
+a specification, and you already have one of those.
+
+Each card also carries a **Show in sidebar** switch. Turning it off drops an empty source out of
+the rail without disconnecting anything; **a source holding tasks cannot be hidden**, and its
+switch says so rather than going missing.
+
+### Available
+
+Everything Cronsole can connect to that is **not connected**, in two groups.
+
+**Added to your sidebar** comes first, because it is the group with something to do: sources you
+asked for that have nothing behind them yet. Each also collapses to just its header — glyph, name,
+"Not connected" pill — with a **Show details** toggle that reveals what would actually connect it.
+The answer takes one of two shapes:
+
+- **Something to fill in** — Claude Code, GitHub Actions, Vercel Cron and Gemini API Triggers are
+  registered by hand, so **Set up** opens that panel in place.
+- **Nothing to fill in** — Windows connects when the Cronsole agent is running; Cronsole-native
+  connects whenever the backend is up. These get the sentence and no button, because nothing you
+  could type would connect them.
+
+**Not added** holds the rest — today Claude Code, GitHub Actions, Vercel Cron and Gemini API
+Triggers on a fresh install. Each card says what the source *is* and whether it is a **controller**
+(Cronsole can change things there) or an **observer** (it can only read). Being hosted does not
+decide which: GitHub Actions and Vercel Cron are observers, and Gemini API Triggers is a controller. Adding one lists it in the sidebar and moves it into the group
+above; **it connects nothing on its own.** This view is what makes hiding a source safe: nothing
+you turn off becomes unfindable.
+
+The view ends with **Add a custom source**. A source is a **connector** compiled into the backend,
+not a plugin you can drop in — so adding one means a pull request against the repository, and the
+answer may be that a bookmark is the honest shape for it. It links to
+[Sources Guide › Adding a source](Sources_Guide.md#adding-a-source), which covers the three shapes
+a source can take, what a connector must answer, and what will not be accepted.
+
+### Quick links
+
+Bookmarks to schedulers Cronsole has no connector for — ChatGPT, Gemini, Jules, and any you add.
+**Nothing is read or written through them** and no task from one appears on your dashboard, which
+is why they get their own view instead of a place among the real sources. Each tile shows the
+link's host, and its remove button is always there rather than appearing on hover, so it works on
+a phone. They follow your account rather than this browser.
+
+## 7. System Status & Connections
+
+- **Sidebar:** Shows a live per-platform health summary plus a "synced N ago" indicator. The four states mean different things, and the difference matters:
+  - **Online** — the agent is connected and has not failed to answer.
+  - **Degraded** — the agent is *connected but not answering*: a request to it timed out recently, and the reason names which one. This is the state that used to read as Online. An agent can be running, with a healthy-looking connection, and still be wedged — so if things that need the agent are failing while the dot is green, look here first, then restart the stack ([troubleshooting #40](../../troubleshooting/README.md#40-the-sidebar-says-windows-is-online-and-synced-just-now-while-every-agent-request-times-out)).
+  - **Offline** — nothing is connected.
+  - **Not checked** — Cronsole has no *current* evidence either way. **This is not a problem, and not a milder warning.** Two things produce it: a platform that has never been exercised (a Claude routine you have added but not yet run — Claude Code offers no way to check one without firing it), or a failure old enough that nothing since has confirmed or contradicted it.
+
+    That second case is the common one, and it is worth understanding. Cronsole does not poll your agent in the background — deciding it is healthy costs a real request, and doing that on a timer would mean a synthetic request per open browser tab. So if a request timed out last night and you did not use Cronsole afterwards, *nothing has happened since* to tell Cronsole either way. It reports **Degraded** for the first 15 minutes, while that failure still describes the present, and **Not checked** after that.
+
+    **To get a current answer, press Sync.** It is a read-only round trip and it replaces the stale verdict with a real one. Reach for restarting the stack only if Sync actually fails — a restart clears this state whether or not anything was wrong, which makes it look like a fix ([troubleshooting #48](../../troubleshooting/README.md#48-windows-sits-at-degraded-for-hours-while-the-agent-is-perfectly-healthy)).
+- **"synced N ago" is about syncing, not about being connected.** It appears only once a sync has actually happened, so a freshly connected agent shows **no** indicator rather than "just now". If it is missing, nothing has been pulled from that platform yet — press **Sync**. Cronsole-native never shows one at all: its tasks live in Cronsole's own database, so there is nothing for it to sync *from*, and Settings shows its last sync as **Never** on purpose.
+- **Settings → Connections:** A fuller view of each platform's state, reason, and last sync, with a **Check now** button to refresh on demand. **Check now** re-reads status; it does not sync, so it will not change "synced N ago".
+- **Settings → About → API origin:** Shows the backend URL the dashboard is using. You can override it in the browser when testing a different backend; **Reset** returns to the configured `VITE_API_URL` default.
+- **Import takes a file; Sync reads this machine.** That is the whole distinction, and it is now the
+  difference between two buttons rather than a question one of them asks. **Import** creates a task
+  from a file an export produced — a Cronsole task `.json` is rebuilt on the spot, and a Windows
+  backup (`.xml`, or the `.zip` an export produced) opens in **Tools → Restore**, which shows you
+  what it would do to your machine before writing. **Sync** talks to the machine.
+- **Sync has two gestures.** Pressing **Sync** re-pulls status and schedules for the categories you
+  already track and adds nothing new. The caret beside it opens **Add tasks from this machine**, the
+  discovery picker — the only thing that can start tracking a folder you have never picked.
+  **A plain refresh cannot discover a folder**, deliberately: adding a folder forgets the untracks
+  inside it, and a routine refresh must never undo a removal you made on purpose. Only the picker
+  talks to the agent, and only once you open it.
+- **"N tasks aren't imported":** because of the above, tasks can exist on your machine that Cronsole is deliberately ignoring. Sync tells you when that's the case — *"Synced. 26 tasks in 2 folders aren't imported — add them from Sync › Add tasks from this machine."* Windows' own `\Microsoft\` tasks are excluded from that count (there are usually a few hundred, and counting them would make the message constant), so the number means *your* tasks. The message carries the button that adds them. If you don't want them, nothing is required — the message is informational, and it disappears once nothing is outstanding.
+
+### Notifications and the run-outcome webhook
+
+Settings has two notification blocks, and they answer different questions — *did something just happen while I'm looking* versus *tell me even when I'm not*.
+
+- **Settings → Notifications** is the browser-only half: a toast on a successful run or sync, a toast on a failed one, and an optional OS-level desktop notification for failures. All three live in this browser and only fire while a tab is open — close the dashboard and they stop, by design.
+- **Settings → Run-outcome webhook** is the server-side half, and it's **off by default**. Turn it on and Cronsole sends an HTTP POST to a URL you choose whenever a task **you own** runs — whether or not the dashboard is open, from any device. It's per-account, not per-browser: enable it once and it follows you to every address this install answers on, the same as the rest of Settings ([preference sync](#7-system-status--connections)).
+  - **Notify on failure** and **Notify on success** are independent switches. Turn on just failure for a quiet channel that only speaks up when something breaks, or add success too if you want a heartbeat.
+  - **Which tasks** defaults to **All tasks**. Switch to **Only selected** to monitor just the one or two you actually care about — a filterable, checkbox list of your own tasks (system tasks excluded, same as everywhere else). There's no separate "scope mode" stored alongside the pick list: an empty selection *is* "all tasks", so choosing **Only selected** with nothing checked refuses to save rather than quietly reverting to everything.
+  - **Payload shape** picks the body Cronsole sends: **generic** (a JSON object with a `text` summary and a structured `event`, for your own collector or something like n8n/Zapier), **discord** (a ready-made embed for a Discord webhook URL), **ntfy** (plain text with `ntfy`'s `Title`/`Tags`/`Priority` headers), or **Resend** (an actual email — see below; it's the one shape with its own **To** and **From** fields instead of a bare URL, because sending mail needs a recipient and a sender in a way posting JSON doesn't).
+  - **Extra headers** — labelled **Resend API key** when that shape is selected — is where a bearer token or an API key goes, as JSON: `{"Authorization": "Bearer …"}`. There is no way to read a saved header back (Cronsole reports only *whether* one is stored, never its value), so **leaving the box blank on a later save keeps whatever is already there** — the same rule a saved Gemini MCP server preset follows. Type something to replace it, or save an explicit `{}` to clear it.
+- **If you run Cronsole yourself and set `CRONSOLE_FAILURE_WEBHOOK_URL`** in the backend's environment, that stays exactly what it always was: an operator-wide, failure-only fallback with no per-account toggle. The moment you enable your own webhook above, your account stops reaching that fallback — the two never both fire for the same run.
+
+### Setup recipes
+
+Four shapes, four different things to go set up first. None of these need Cronsole code — just an account with the target service and a URL or key to paste in.
+
+**ntfy — free, no signup, push-notifies a phone or a browser tab**
+1. Pick a topic name only you'd guess — it's the only thing standing in for auth on the public server (e.g. `cronsole-alerts-x7k2`).
+2. Subscribe to it: open the [ntfy app](https://ntfy.sh/app) (iOS/Android/web) and add that topic, or just visit `https://ntfy.sh/your-topic-name` in a browser tab and leave it open.
+3. In Cronsole: Webhook URL = `https://ntfy.sh/your-topic-name`, Payload shape = **ntfy**. No headers needed.
+
+**Discord — posts into a channel you already have**
+1. In Discord, go to the target channel's **Settings → Integrations → Webhooks → New Webhook**, name it, and copy its URL.
+2. In Cronsole: Webhook URL = the copied URL, Payload shape = **discord**. No headers needed.
+
+**Resend — an actual email**
+1. Get an API key from your [Resend dashboard](https://resend.com/api-keys) — it starts with `re_`.
+2. In Cronsole: Payload shape = **Resend**. **To** is where the email goes; **From** can be left as the default `Cronsole <onboarding@resend.dev>` for a quick test, **but that sandbox address only delivers to the email address on your own Resend account** — send to anyone else by verifying a domain in Resend first and using an address on it as **From**.
+3. Resend API key box: `{"Authorization":"Bearer re_your_key_here"}`.
+4. There's no Webhook URL field for Resend — Cronsole always posts to Resend's one send-email endpoint.
+
+**Generic — your own collector, or a no-code relay like n8n/Zapier**
+1. Point Webhook URL at whatever will receive it — your own endpoint, or a webhook-triggered workflow in something like n8n. Payload shape = **generic**.
+2. The body is `{ text, event }` — a one-line summary plus the structured fields (`taskId`, `taskName`, `platform`, `status`, `message`, …). A relay workflow reads `event` and does whatever it wants with it, including calling a service (Resend included) that expects a different shape than Cronsole sends natively.
+
+---
+
+## 8. In-app help
+
+Cronsole explains itself in place. Two entry points, doing different jobs:
+
+- **Help Center** — the button in the Dashboard header. The hub: a getting-started walkthrough,
+  links to every guide, and a **Help by topic** index of everything below.
+- **? buttons** — small circled question marks next to individual controls. Each opens the
+  same modal on **one topic**: what the control is, the two or three things that surprise
+  people about it, and a link to the section of the docs that covers it in full. Every topic
+  view has *Browse all help* at the bottom, so a specific answer is never a dead end.
+
+Where the **?** buttons are, and what each one answers:
+
+| Where | Answers |
+|:--|:--|
+| Dashboard › **Source** bar | What a source is, and how each one differs → [Sources Guide](Sources_Guide.md) |
+| Dashboard › **Views** row | Saved views, what a view is, why changing a filter drops you to *Custom* |
+| Dashboard › **Filters** row | Status, ownership and category — and what the defaults are hiding |
+| **New Task** › Platform | The selected platform, in place — the help changes as you switch between Cronsole, Windows and Claude |
+| **New Task** › Schedule | Cron, your schedule timezone, and what is stored |
+| **New Task** › Job type | HTTP request vs. Run a program |
+| **New Task** › Command / Program | The no-shell rule, and where the job will actually run |
+| **Task details** header | Rename, edit, remove, delete, disconnect — which button does what |
+| **Templates** header | The catalog, starters vs. patterns, applying and saving |
+| **Sources** › each source row | That source specifically, including what it cannot do |
+| **Tools** › Mass actions | Scope-first bulk changes, and the typed confirmation |
+| **Tools** › Task health | The four tiers, and why *Unknown* is not *Healthy* |
+| **Import** | Import vs. Sync — the distinction that costs people the most time |
+
+Every one of these links to a heading in this repo's docs. If you follow a link and it lands
+somewhere unhelpful, that's a bug worth reporting — the links are checked by a test precisely
+because a stale help link fails silently.
+
+---
+
+*Last Updated: August 12, 2026*
+
+<p align="right"><sub><a href="#ui-user-guide-top">back to top</a></sub></p>
+
+---
+
+<p align="center">
+  <a href="../README.md">← User Guides</a> ·
+  <a href="../../README.md">Docs home</a> ·
+  <a href="Sources_Guide.md">Sources Guide →</a>
+</p>
+

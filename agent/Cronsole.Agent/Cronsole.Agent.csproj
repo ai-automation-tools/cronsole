@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SocketIOClient" Version="4.0.4" />
+    <PackageReference Include="TaskScheduler" Version="2.12.2" />
+    <!-- Reads Microsoft-Windows-TaskScheduler/Operational, the only place a
+         Windows task says WHY it failed. The task object itself carries an
+         exit code and nothing else. See TaskHistoryReader. -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.0" />
+  </ItemGroup>
+
+  <!-- Copy config beside the exe so AppContext.BaseDirectory lookup works for a
+       published/installed agent too, not just `dotnet run` from the project dir. -->
+  <ItemGroup>
+    <None Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.json')" />
+    <None Include="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.Local.json')" />
+  </ItemGroup>
+
+</Project>

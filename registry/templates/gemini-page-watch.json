@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "id": "gemini-page-watch",
+  "name": "Trigger: Page Watch",
+  "description": "A Gemini trigger that reads one page every day and reports only what changed since yesterday -- a pricing page, a status page, a changelog.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "ai",
+    "gemini",
+    "trigger",
+    "monitoring",
+    "watch"
+  ],
+  "icon": "Eye",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 13 * * *"
+  },
+  "commandTemplate": "Read {{pageUrl}} and describe what changed since your previous run, paying attention to {{watchFor}}. Report the changes only. If nothing relevant changed, say no change in one line rather than restating the page, and quote the old and new wording for anything that did change. If the page could not be loaded, say so explicitly: an unreachable page is not the same as an unchanged one.",
+  "parameters": [
+    {
+      "key": "pageUrl",
+      "label": "Page URL",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The page to watch, e.g. a pricing, status or changelog page."
+    },
+    {
+      "key": "watchFor",
+      "label": "Watch for",
+      "type": "text",
+      "default": "prices, plan limits and anything marked new or deprecated",
+      "required": true,
+      "help": "What on the page matters, so an unrelated edit is not reported as news."
+    }
+  ],
+  "agentTools": [
+    {
+      "type": "url_context"
+    }
+  ],
+  "compatibleTargets": [
+    "gemini"
+  ]
+}

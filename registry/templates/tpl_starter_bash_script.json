@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_bash_script",
+  "name": "Shell Script (bash)",
+  "description": "Run a shell script with bash on macOS or Linux.",
+  "runtime": "bash",
+  "os": "macos",
+  "category": "other",
+  "tags": [
+    "macos",
+    "shell",
+    "bash"
+  ],
+  "icon": "Terminal",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * *"
+  },
+  "commandTemplate": "/bin/bash \"{{scriptPath}}\" {{args}}",
+  "parameters": [
+    {
+      "key": "scriptPath",
+      "label": "Script file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the script on the target machine."
+    },
+    {
+      "key": "args",
+      "label": "Arguments",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional command-line arguments."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "claude-routine-ci-failure-digest",
+  "name": "Routine: CI Failure Digest",
+  "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "ai",
+    "claude-code",
+    "routine",
+    "ci",
+    "tests"
+  ],
+  "icon": "Siren",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 13 * * 1-5"
+  },
+  "commandTemplate": "Look at the CI runs for {{repo}} over the last 24 hours. Group the failures by likely root cause, separate genuine breakage from flaky tests, and name the commit each one most likely came from. Keep it to the shortest summary that is still actionable.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The repository whose CI runs to read."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

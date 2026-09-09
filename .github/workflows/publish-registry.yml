@@ -1,0 +1,120 @@
+# Mirror the generated template registry to the public cronsole-registry repo,
+# on the merge that changes it.
+#
+# Why this exists: registry/ is drift-tested, so an *unbuilt* artifact reddens
+# CI. Nothing caught an *unpublished* one. The hosted registry and the gallery
+# page are read by other people's machines, so the gap between "merged" and
+# "published" was a window where main told one story and the public URL told an
+# older one -- closed only by remembering to run a PowerShell script on one
+# specific Windows machine.
+#
+# The local script (scripts/publish-registry.ps1) stays: it is the manual path,
+# it is idempotent, and it is what you reach for when this workflow is broken.
+# The two do the same mirroring, deliberately -- see registry-drift.yml for the
+# backstop that catches THIS workflow failing quietly.
+name: Publish registry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'registry/**'
+      - 'registry-site/**'
+      - '.github/workflows/publish-registry.yml'
+  workflow_dispatch:
+
+# Never let two publishes race: the mirror is a wholesale replace, so an
+# out-of-order push would serve an older catalog than main. Queue, don't cancel
+# -- a cancelled publish is an unpublished one, which is the thing we are fixing.
+concurrency:
+  group: publish-registry
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Mirror registry to cronsole-registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cronsole (source of truth)
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      # Fail loudly and early rather than at the push step, where the error is
+      # an opaque permission denial. A missing key is a setup problem with a
+      # one-line fix; it should read like one.
+      - name: Require the deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.REGISTRY_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::REGISTRY_DEPLOY_KEY is not set. Add a deploy key with write access to michaelschecht/cronsole-registry as a repository secret -- see docs/install/guides/Registry_Publishing_Guide.md"
+            exit 1
+          fi
+
+      - name: Checkout cronsole-registry (publish target)
+        uses: actions/checkout@v4
+        with:
+          repository: michaelschecht/cronsole-registry
+          ssh-key: ${{ secrets.REGISTRY_DEPLOY_KEY }}
+          path: target
+
+      # Mirrors scripts/publish-registry.ps1 exactly. Replace index.json +
+      # templates/ + packs/ WHOLESALE, so a removed template or pack actually
+      # disappears -- a deleted pack that keeps serving its old bundle is a URL
+      # that still works and no longer should. Everything else in the target
+      # (README.md, .nojekyll, .gitattributes, docs/) belongs to the public repo
+      # and is never touched.
+      - name: Mirror the generated artifact
+        run: |
+          set -euo pipefail
+          test -f source/registry/index.json || {
+            echo "::error::source/registry/index.json is missing -- run 'npm run registry:build' in backend/ and commit registry/"
+            exit 1
+          }
+          cp source/registry/index.json target/index.json
+          for dir in templates packs; do
+            rm -rf "target/$dir"
+            if [ ! -d "source/registry/$dir" ]; then
+              echo "::error::source/registry/$dir is missing -- the index would reference paths that 404. Run 'npm run registry:build'."
+              exit 1
+            fi
+            cp -r "source/registry/$dir" "target/$dir"
+          done
+
+      # The gallery site is its own file, not part of the generated JSON
+      # artifact, so it lands flat at the clone root beside index.json. Copying
+      # the whole directory (minus two names) means adding CSS/JS/images later
+      # Just Works.
+      #
+      # CNAME is excluded defensively: it decides which domain a Pages repo
+      # answers on, so a stray one in registry-site/ would hand a domain to the
+      # REGISTRY repo -- moving the registry JSON off its documented URL and
+      # breaking catalog sync for every install that opted in. Domains belong to
+      # the target repo, never to mirrored content. README.md is excluded for
+      # the same reason: the public repo owns its own front page.
+      - name: Mirror the gallery site
+        run: |
+          set -euo pipefail
+          test -f source/registry-site/index.html || {
+            echo "::error::registry-site/index.html is missing -- the gallery page would 404"
+            exit 1
+          }
+          find source/registry-site -maxdepth 1 -type f \
+            ! -name 'README.md' ! -name 'CNAME' \
+            -exec cp {} target/ \;
+
+      - name: Commit and push if changed
+        working-directory: target
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Registry already up to date -- nothing to publish.'
+            exit 0
+          fi
+          git commit -q -m "Publish registry (cronsole@${GITHUB_SHA:0:7})"
+          git push -q origin HEAD:main
+          echo "Published. GitHub Pages will rebuild shortly (https://mikesailab.com/cronsole-registry)."

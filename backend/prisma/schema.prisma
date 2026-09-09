@@ -1,0 +1,666 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  platforms      PlatformConnection[]
+  tasks          Task[]
+  templates      Template[]
+  favorites      TemplateFavorite[]
+  taskFavorites  TaskFavorite[]
+  collections    TaskCollection[]
+  exclusions     TaskExclusion[]
+  capabilities   PlatformCapability[]
+  deletedTasks   DeletedTaskArchive[]
+  apiTokens      ApiToken[]
+  preferences    UserPreference?
+  notificationChannel NotificationChannel?
+
+  @@index([email])
+}
+
+/// First-hand evidence that a platform verb actually worked on this machine.
+///
+/// The Platforms tab reports what Cronsole can do with each platform. Deriving
+/// that from the connector object alone would produce a **spec table** — a claim
+/// about the code rather than about this install — and the whole point of the
+/// screen is to answer "what will actually happen if I click this", which a spec
+/// table cannot. It is the same rule `getHealth` learned the hard way
+/// (troubleshooting #40): a verdict derived from something that cannot change
+/// when the subject fails is not evidence.
+///
+/// So a verb the connector implements but has never been observed to succeed
+/// reads **declared**, not **yes**, and only a row here promotes it to
+/// **verified**. Absence of a row is absence of evidence, never a negative
+/// verdict — exactly the rule the health scorer uses for a missing agent field.
+///
+/// Failure is recorded alongside success rather than replacing it: a verb that
+/// worked in March and failed this morning is a different fact from one that has
+/// never worked, and collapsing them loses the half the user needs.
+///
+/// Per-user, because the platform is reachable only through *this* user's
+/// connection — one tenant's working agent is no evidence for another's.
+model PlatformCapability {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id])
+  platform          PlatformType
+
+  /// One of CAPABILITY_VERBS (services/platformCapabilities.ts). A string and
+  /// not an enum on purpose: adding a verb must not need a migration, and an
+  /// unrecognized value is simply ignored on read rather than breaking the page.
+  verb              String
+
+  lastSuccessAt     DateTime?
+  lastFailureAt     DateTime?
+  /// Why the last failure failed, as the platform said it. Cleared on success —
+  /// a stale reason filed under a working verb is the mistake `healthReason`
+  /// already made once.
+  lastFailureReason String?
+
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([userId, platform, verb])
+  @@index([userId, platform])
+}
+
+model PlatformConnection {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  platform  PlatformType
+
+  // Encrypted at application level (AES-256-GCM)
+  // Contains API keys, agent IDs, pairing secrets
+  config    Json
+
+  isActive  Boolean      @default(true)
+  lastSync  DateTime?
+
+  // Health & Diagnostics
+  //
+  // Born UNKNOWN, not HEALTHY. A connection that has just been written has
+  // contacted its platform exactly never, so `@default(HEALTHY)` made every
+  // Platforms card read *Online* from the instant it was created until the next
+  // poll corrected it — a verdict derived from the row existing, which is
+  // troubleshooting #40 one layer down.
+  healthState       HealthState @default(UNKNOWN)
+  healthReason      String?
+  apiVersion        String?
+  fallbackActive    Boolean     @default(false)
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([userId, platform])
+  @@index([userId, platform])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  platform    PlatformType
+
+  // Platform's native ID (e.g., Windows task path, Claude routine ID)
+  externalId  String
+
+  name        String
+  category    String       @default("Uncategorized")
+  schedule    String?      // Normalized 5-field cron (UTC)
+  nextRunTime DateTime?
+  status      TaskStatus   @default(ACTIVE)
+  quickLink   String?      // Deep link to native UI
+
+  // Extra platform-specific data
+  metadata    Json?
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  executions  ExecutionLog[]
+  favorites   TaskFavorite[]
+  collections TaskCollectionMember[]
+  secrets     TaskSecret?
+
+  @@unique([platform, externalId])
+  @@index([userId, platform])
+  @@index([nextRunTime])
+  @@index([category])
+}
+
+/// The encrypted secrets a Cronsole-native job refers to by name — ADR 0003.
+///
+/// **A table, not a column on Task, and that *is* the security property.** Prisma
+/// returns every scalar field of a model by default, so a `Task.secretsEncrypted`
+/// column would ride into `prisma.task.findMany()` — and therefore into every task
+/// list, every export, every `DeletedTaskArchive.bundle` and every MCP read —
+/// unless all of them remembered to exclude it. A rule each call site has to
+/// remember is the rule the next call site forgets. A relation is absent unless
+/// explicitly `include`d, so the default read cannot leak it.
+///
+/// One row per task holding **all** of its secrets, because they are written and
+/// read as a set: `data` is `encryptConfig({ [name]: value })` — the same
+/// AES-256-GCM envelope `PlatformConnection.config` uses, from the same key.
+///
+/// Keyed on the **Task row with a cascade**, which is `TaskFavorite`'s shape and
+/// the deliberate opposite of `TaskExclusion`: an exclusion has to *outlive* the
+/// row it describes or the next sync undoes your removal, while a secret must not
+/// — deleting a task destroying its credential is the only honest reading of the
+/// gesture. Nothing else in Cronsole may copy the plaintext anywhere that outlives
+/// this row.
+model TaskSecret {
+  taskId    String   @id
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  /// AES-256-GCM ciphertext (`iv:tag:payload`) of a JSON object of name → value.
+  /// Never logged, never returned by any route, never included in an export.
+  data      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Per-user "starred" flag for a tracked task. A join model rather than a column
+/// for the same reason TemplateFavorite is one: the flag belongs to a viewer,
+/// not to the task, and multi-tenancy would otherwise make one user's star
+/// another user's.
+///
+/// Deliberately keyed on the **Task row** (cascade), unlike TaskExclusion, which
+/// is keyed on `(platform, externalId)` precisely *because* it must outlive the
+/// row it describes. The two are opposites on purpose: an exclusion is a memory
+/// of a task you removed, so it has to survive the removal or the next sync
+/// undoes your work; a favorite is a preference about a task Cronsole is
+/// tracking, so when you untrack or delete it the star going with it is the
+/// honest outcome. Sync `upsert`s on `(platform, externalId)`, so ids are stable
+/// across syncs and a MISSING task keeps both its row and its star.
+/// A named, hand-picked set of tasks — "the four things I check every morning".
+///
+/// **Membership is declared, not derived, and that is the whole point.** A saved
+/// view is a *query*: it stores filters and its contents are whatever matches
+/// today. A collection stores the tasks themselves, so it can hold two Claude
+/// routines and two Windows tasks that share no property a filter could name.
+/// Neither can express the other, which is why this is a table rather than
+/// another field on SavedView.
+///
+/// It is `TaskFavorite` made plural and named, and it inherits that model's
+/// decisions for that model's reasons: a per-user join rather than a column
+/// (multi-tenancy would make one user's collection everyone's), and keyed on the
+/// **Task row with a cascade** — a collection is a preference about tasks
+/// Cronsole is *tracking*, so when a task is untracked or deleted its membership
+/// goes with it. The contrast with TaskExclusion still holds: an exclusion must
+/// outlive the row it describes, a membership must not.
+///
+/// `name` is unique per user because the rail renders one row per collection,
+/// and two rows reading "Morning checks" is a UI with no way to tell you which
+/// is which.
+model TaskCollection {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+
+  /// Explicit rail order. Saved views are an unordered array and the roadmap
+  /// already flags that as a gap to retrofit — starting ordered costs one column
+  /// now and a migration later.
+  position  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   TaskCollectionMember[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+/// One task's membership in one collection.
+///
+/// Cascades from **both** sides: deleting the collection drops its memberships
+/// (they describe nothing without it), and deleting the task drops them too
+/// (same rule as a favorite — a membership that outlived its task would put a
+/// row in a collection that resolves to nothing, or worse, re-attach to a
+/// re-imported task the user never added).
+model TaskCollectionMember {
+  id           String         @id @default(cuid())
+  collectionId String
+  collection   TaskCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  taskId       String
+  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+
+  @@unique([collectionId, taskId])
+  @@index([collectionId])
+  @@index([taskId])
+}
+
+model TaskFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, taskId])
+  @@index([userId])
+}
+
+/// A task the user removed from Cronsole while it still exists on the platform.
+///
+/// Untrack deletes the Task row (Cronsole's own record) but never touches the
+/// real scheduler entry — so without this table the very next sync that includes
+/// its category would re-import it, correctly by the sync's logic and yet
+/// indistinguishable from "untrack didn't work". Silently undoing a user's
+/// action on a timer is the invisible-fence failure this project keeps paying
+/// for, so the exclusion is remembered.
+///
+/// Keyed on `externalId`, the platform's native identity — the same key
+/// `Task.@@unique([platform, externalId])` uses — and deliberately NOT on
+/// `Task.category`, which the user can rename (troubleshooting #20a: never look
+/// up by a user-editable label).
+///
+/// This is a second place that answers "which tasks do we track", which is
+/// exactly the shape that caused #20a. It is kept safe by being subtractive
+/// only: it can remove a task from a sync, never add one, so the include-set
+/// still has a single definition in `extractCategory`.
+model TaskExclusion {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  platform   PlatformType
+
+  /// Platform-native id of the excluded task (e.g. the Windows task path).
+  externalId String
+
+  /// Kept for the UI: "removed 3 days ago" is the difference between a
+  /// deliberate exclusion and a mystery absence.
+  createdAt  DateTime     @default(now())
+
+  @@unique([userId, platform, externalId])
+  @@index([userId, platform])
+}
+
+/// The definition of a task, captured immediately before it was deleted.
+///
+/// Written by `DELETE /api/tasks/:id/native` — the narrow, native-only route the
+/// MCP server wraps — *before* the delete transaction runs, and the delete is
+/// refused if this write fails. A backup that only succeeds when you did not
+/// need it is worse than no backup, so the archive is a precondition of the
+/// destruction rather than a best-effort side effect.
+///
+/// Deliberately holds **no relation to Task**, and therefore no cascade: the
+/// whole point is to outlive the row it describes. This is the `TaskExclusion`
+/// shape, not the `TaskFavorite` one — a favorite is a preference about a
+/// tracked task and should die with it; an archive is a memory of a task that is
+/// already gone. Wiring it to `Task` with a cascade would delete the backup in
+/// the same transaction that made it necessary.
+///
+/// `taskId` is kept as a plain string for exactly that reason — it is a record
+/// of which id the task *had*, not a pointer to a row that still exists.
+///
+/// `bundle` is the same export bundle `GET /api/tasks/:id/export` returns
+/// (`cronsoleTaskVersion`), built by one shared function so the archive and the
+/// download can never drift into two formats. `executions` holds the last 20
+/// ExecutionLog rows, which the delete transaction destroys: for a native task
+/// those are real outcome evidence, so without them the archive cannot answer
+/// "was it working before I deleted it?".
+model DeletedTaskArchive {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+
+  /// The id the task had. Not a foreign key — that row is gone by design.
+  taskId     String
+  platform   PlatformType
+  externalId String
+  name       String
+
+  /// Export bundle, identical in shape to GET /api/tasks/:id/export.
+  bundle     Json
+
+  /// Up to the last 20 ExecutionLog rows, destroyed by the delete transaction.
+  executions Json
+
+  /// What performed the delete, e.g. "mcp". Answers "did an agent do this?"
+  deletedVia String       @default("api")
+  createdAt  DateTime     @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, platform, externalId])
+}
+
+model ExecutionLog {
+  id            String          @id @default(cuid())
+  taskId        String
+  task          Task            @relation(fields: [taskId], references: [id])
+  triggeredAt   DateTime        @default(now())
+  status        ExecutionStatus @default(PENDING)
+
+  // Snippet of output or error message
+  log           String?         @db.Text
+
+  // Wall-clock execution time (null for legacy rows / fire-and-forget runs)
+  durationMs    Int?
+
+  // Platform's execution instance ID
+  platformRunId String?
+
+  @@index([taskId, triggeredAt(sort: Desc)])
+  // Cross-task history — "what failed this month?" reads a time range across
+  // every task the user owns, which the per-task index above cannot serve
+  // (its leading column is taskId). Ownership lives on Task, not here, so the
+  // query joins and then filters/sorts on this column.
+  @@index([triggeredAt(sort: Desc)])
+}
+
+model Template {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id])
+  name              String
+  description       String?      @db.Text
+
+  sourcePlatform    PlatformType
+  targetPlatforms   PlatformType[]
+
+  scheduleExpression String       // The cron string
+  command            String?      // Resolved, ready-to-run command (placeholders substituted)
+
+  // --- Template catalog metadata (see docs/resources/Templates.md) ---
+  scriptType        ScriptType       @default(AI_PROMPT)      // runtime this template targets
+  os                OsTarget         @default(CROSS_PLATFORM) // OS the script runs on
+  category          TemplateCategory @default(OTHER)         // for UI grouping/filtering
+  commandTemplate   String?          @db.Text                // command with {{placeholders}}
+  parameters        Json?            // [{ key, label, type, default, required, help }]
+  // A full Cronsole-native job spec, for templates whose action cannot be
+  // expressed as a command line: SCRIPT (the body is the template) and CHECK
+  // (a probe with expectations). Null for every other template, which still
+  // resolves through `command` / `commandTemplate` exactly as before.
+  //
+  // Applied by CronsoleNativeConnector, which prefers this over deriving a job
+  // from the command string — so a template stores the spec the executor reads
+  // rather than one re-guessed at apply time.
+  nativeJob         Json?
+  // The reach a template grants on a hosted agent target (Gemini), as
+  // [{ type, name?, preset? }] — a **reference, never a value**. `preset` names a
+  // saved MCP server on the user's own connection; the registry schema reads no
+  // `url` and no `headers`, so a published template cannot carry a credential
+  // and nothing downstream has to remember to strip one.
+  //
+  // Null for every template that grants nothing, which is all of them until a
+  // Gemini template is applied.
+  agentTools        Json?
+  tags              String[]         @default([])            // free-form tags (e.g. git, build, ai) — distinct from the single `category`
+  isStarter         Boolean          @default(false)         // true = Tier A curated starter
+  icon              String?          // lucide icon name for the card
+  // Provenance for prune-on-sync: true = auto-synced from the bundled/registry
+  // catalog (catalogSync owns it and may prune it when it's no longer `core`);
+  // false = user-authored (imported or saved-as-template) — never pruned.
+  managed           Boolean          @default(false)
+
+  isPublic          Boolean      @default(false)
+  upvotes           Int          @default(0)
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  favorites         TemplateFavorite[]
+
+  @@index([isPublic, upvotes(sort: Desc)])
+  @@index([isStarter, os])
+}
+
+// Per-user "favorited" flag for a shared catalog template. Kept in a join model
+// (not a column on Template) so favoriting never mutates the shared seeded
+// catalog — it's the honest per-user personalization signal that replaced the
+// removed fake upvotes.
+model TemplateFavorite {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  templateId String
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, templateId])
+  @@index([userId])
+}
+
+enum PlatformType {
+  WINDOWS_TASK_SCHEDULER
+  MACOS_LAUNCHD          // future macOS agent (launchd/cron) — catalog-only until built
+  CLAUDE_CODE
+  CHATGPT
+  JULES
+  OPEN_CLAW
+  HERMES
+  TASKHUB_NATIVE         // scheduled + executed by the Cronsole backend itself (docs/resources/Native_Tasks.md)
+  GITHUB_ACTIONS         // read-only observer: scheduled workflows on repositories you name
+  VERCEL_CRON            // read-only observer: cron jobs declared by the projects you name
+  GEMINI_TRIGGERS        // controller: scheduled triggers on the Gemini API's managed agents
+}
+
+enum ScriptType {
+  POWERSHELL    // .ps1   — Windows (and PS Core on macOS/Linux)
+  BATCH         // .bat/.cmd — Windows only
+  BASH          // .sh    — macOS/Linux
+  ZSH           // .sh    — macOS default shell
+  PYTHON        // python / python3
+  NODE          // node
+  APPLESCRIPT   // osascript — macOS only
+  VBSCRIPT      // cscript — Windows legacy
+  EXECUTABLE    // run an .exe / binary directly
+  HTTP          // curl / Invoke-WebRequest — a scheduled webhook call
+  AI_PROMPT     // Claude Code routine / ChatGPT automation (natural-language)
+}
+
+enum OsTarget {
+  WINDOWS
+  MACOS
+  LINUX
+  CROSS_PLATFORM
+}
+
+enum TemplateCategory {
+  BACKUP
+  CLEANUP
+  MONITORING
+  DEV_WORKFLOW
+  DATA_SYNC
+  AI_AGENT
+  NOTIFICATION
+  MEDIA
+  SYSTEM
+  OTHER
+}
+
+enum TaskStatus {
+  ACTIVE
+  DISABLED
+  UNKNOWN
+  DELETED
+  // Tracked in Cronsole but absent from the platform on the last full sync — a
+  // native delete, or (indistinguishably from here) an offline agent / an
+  // unreadable ACL'd folder. Set by reconciliation, never by a user: it is
+  // self-healing (the next sync that sees the task restores ACTIVE/DISABLED)
+  // and honest (the dashboard stops claiming a vanished task is active + due)
+  // instead of the old silent hard-delete. See docs/ROADMAP.md › "Reconcile
+  // tracked tasks that no longer exist on the platform".
+  MISSING
+}
+
+enum ExecutionStatus {
+  SUCCESS
+  FAILURE
+  TIMEOUT
+  PENDING
+}
+
+/**
+ * What Cronsole can honestly say about a platform right now.
+ *
+ * UNKNOWN is not a fourth severity between healthy and degraded — it is the
+ * absence of a verdict, and it exists because the other three all assert
+ * something. Two situations produce it, and both used to borrow DEGRADED:
+ *
+ *  - **Never exercised.** A connection that has been configured but never used.
+ *    Claude Code is the standing case: its only endpoint fires the user's
+ *    routine, so there is no probe, and before the first run there is nothing
+ *    to report.
+ *  - **Evidence that has expired.** A request timeout proves the agent was not
+ *    answering at that moment. It is never renewed, so it goes stale — see
+ *    WindowsAgentConnector.getHealth.
+ *
+ * Rendering it as DEGRADED overstates (a warning nobody can act on, which is
+ * how the strip sat amber for ten hours over a healthy agent); rendering it as
+ * HEALTHY understates, and that is the confident lie. Neither is available now.
+ */
+enum HealthState {
+  HEALTHY
+  DEGRADED
+  OFFLINE
+  UNKNOWN
+}
+
+
+/// A long-lived credential for a non-browser client — the MCP server above all,
+/// which is a stdio process that cannot re-authenticate when a session lapses.
+///
+/// The row exists to make revocation possible, which is what makes a
+/// never-expiring token safe to offer at all. Before this, the only way to kill a
+/// leaked token was rotating JWT_SECRET, which signs out every client at once.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// What it is for, in the user's words ("Claude Code on my desktop").
+  name       String
+
+  /// The token's `jti` claim. We store THIS, never the token or a hash of it:
+  /// the signature already proves authenticity, so the only thing the database
+  /// needs to answer is "has this one been revoked?". Storing anything more
+  /// would be a second copy of a credential with no use for it.
+  jti        String    @unique
+
+  /// NULL means never expires. Deliberately nullable rather than a sentinel date
+  /// far in the future — "no expiry" is a different fact from "expires in 2099",
+  /// and only one of them survives contact with a date comparison.
+  expiresAt  DateTime?
+
+  /// Throttled to roughly once a minute (see authenticateToken) so an active
+  /// client does not turn every request into a write.
+  lastUsedAt DateTime?
+
+  /// Set instead of deleting the row, so a revoked token stays visible as a
+  /// thing that once existed rather than silently vanishing from the list.
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([jti])
+}
+
+
+/// The browser-preferences blob, so it follows the user instead of the browser.
+///
+/// **This is one row of opaque JSON, and that is the point.** Everything in it
+/// — the rail pins, the saved views, which bands are folded, the authoring
+/// timezone — is a preference that means nothing to any other user and that no
+/// server-side code reads or acts on. It is stored here for exactly one reason:
+/// `localStorage` is scoped to an **origin**, and the same person reaching the
+/// same install at `http://localhost:8080` and at
+/// `http://desktop.tail-scale.ts.net:8080` is handed two different stores. Half
+/// the source rail followed them across (collections and favorites are rows) and
+/// half did not (pins and views were `localStorage`), which reads as a bug
+/// because the two halves sit in the same sidebar.
+///
+/// It does **not** make a pin a resource. `utils/railPins.ts` argues a pin holds
+/// no foreign key, names no platform and cannot be shared — all still true. What
+/// that argument never considered is one user at two origins, and syncing the
+/// blob answers that without turning a preference into an entity: the shape
+/// stays entirely the frontend's, and the server never opens it.
+///
+/// So `data` is deliberately `Json` and deliberately unvalidated beyond a size
+/// cap (routes/preferences.ts). A server-side schema here would be a **second
+/// definition of `Settings`** that has to be edited in lockstep with the first,
+/// and the failure when they drift is silent: a backend one release behind would
+/// reject or strip a field a newer browser just wrote, losing a preference the
+/// user set. The blob is per-user private data the server only ever hands back
+/// to the one account that stored it, so there is nothing here for it to judge.
+///
+/// Keyed on `userId` as the primary key rather than a `cuid()` with a unique
+/// index: there is exactly one of these per user, and a schema that can express
+/// two is a schema where a merge conflict is representable.
+model UserPreference {
+  /// Both the primary key and the foreign key — one row per user, enforced by
+  /// the shape rather than by a constraint someone can drop.
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The `cronsole.settings` blob verbatim. Opaque here; see above.
+  data      Json
+
+  /// Last write wins between devices, and this is how a client can tell which
+  /// write it is looking at. Not a merge base — see routes/preferences.ts for
+  /// why concurrent edits from two browsers are resolved by recency and not by
+  /// field-level merge.
+  updatedAt DateTime @updatedAt
+}
+
+/// A user's own opt-in webhook for task run outcomes — off by default
+/// (`enabled` starts `false`, and there is no row at all until the first
+/// save). Separate from `CRONSOLE_FAILURE_WEBHOOK_*`
+/// (services/FailureNotificationService.ts), which stays the operator-wide,
+/// env-configured, failure-only fallback for a zero-config single-user
+/// install; a row here takes over for that user once `enabled` is true,
+/// including the choice of success vs. failure the env var never offered.
+///
+/// `config` is encrypted the same way `PlatformConnection.config` is — the
+/// URL itself isn't sensitive, but `headers` can carry a bearer token, and
+/// one encrypted column makes that a database-wide rule instead of a
+/// per-field one every future reader has to remember. Nullable because a row
+/// can exist with notifications toggled off and no webhook typed yet.
+model NotificationChannel {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  enabled         Boolean  @default(false)
+  notifyOnFailure Boolean  @default(true)
+  notifyOnSuccess Boolean  @default(false)
+
+  /// **Empty means every task you own** — the same "absence is a boundary,
+  /// not a filter" rule an empty `tools` array follows on a Gemini trigger.
+  /// Non-empty narrows the channel to just these `Task.id`s ("I only want to
+  /// hear about these one or two"). No FK/cascade on purpose: a stray id left
+  /// behind by a deleted task matches nothing at read time (`event.task.id`
+  /// can never equal it again) and is harmless, the same tolerance
+  /// `RailPin` extends to a target that has disappeared — cheaper than a join
+  /// table for what is typically a handful of ids. The route validates every
+  /// id against this user's own tasks at write time, so a stale id is the
+  /// only kind that can ever land here.
+  taskIds         String[] @default([])
+
+  /// AES-256-GCM ciphertext (`iv:tag:payload`) of `{ url, type, headers }`.
+  /// Never returned by any route — GET reports `hasHeaders` only, the
+  /// `redactPreset` shape one layer up (services/geminiTriggers.ts).
+  config          String?
+
+  updatedAt       DateTime @updatedAt
+}

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-scheduled-reboot",
+  "name": "Scheduled Reboot (Windows)",
+  "description": "Restart the machine on a schedule after a warning delay — useful for applying pending updates during a maintenance window. Signs out every session, so schedule it only when no one is expected to be active.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "reboot",
+    "maintenance"
+  ],
+  "icon": "Power",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 4 * * 0"
+  },
+  "commandTemplate": "shutdown /r /t {{delaySeconds}} /c \"{{comment}}\"",
+  "parameters": [
+    {
+      "key": "delaySeconds",
+      "label": "Warning delay (seconds)",
+      "type": "text",
+      "default": "60",
+      "required": true,
+      "help": "How long signed-in users see the restart warning before it happens."
+    },
+    {
+      "key": "comment",
+      "label": "Restart message",
+      "type": "text",
+      "default": "Scheduled maintenance restart",
+      "required": true,
+      "help": "Text shown in the shutdown warning dialog. Avoid quote characters."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

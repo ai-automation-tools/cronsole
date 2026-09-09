@@ -1,0 +1,47 @@
+{
+  "//": [
+    "Cronsole Connect Pack v1.11 - MCP server wiring.",
+    "Newer copy: https://cronsole.mikesailab.com",
+    "",
+    "Merge the `cronsole` entry below into your host's MCP config:",
+    "  Claude Code  ->  .mcp.json in your project root, or ~/.claude.json",
+    "  Claude Desktop -> claude_desktop_config.json",
+    "  Cursor / Codex / others -> whatever file that host documents; the shape is the same.",
+    "",
+    "Replace <PATH-TO-CRONSOLE> with where you installed Cronsole. The MCP server runs",
+    "dist/, not src/ - run `cd mcp-server && npm run build` once before first use, and",
+    "again after any update, or your change is invisible.",
+    "",
+    "CRONSOLE_TOKEN is a ${ENV} reference on purpose so this file never holds the secret.",
+    "Export it in the environment you launch the host from. On Windows a newly set",
+    "variable needs a FRESH terminal - a process inherits its parent's environment, so",
+    "restarting the host inside an old terminal will not pick it up.",
+    "",
+    "If CRONSOLE_TOKEN is unset, the literal text ${CRONSOLE_TOKEN} is forwarded and the API",
+    "answers 403 Invalid or expired token - which reads like an expired JWT and sends you",
+    "debugging auth instead of your environment. The server detects that and refuses to",
+    "start, so the tools go MISSING rather than erroring.",
+    "",
+    "CRONSOLE_MCP_ALLOW_DESTRUCTIVE is omitted deliberately. Leaving it off keeps the",
+    "delete_task tool ABSENT from the tool list. The reversible verbs",
+    "(set_task_status, update_task_schedule, update_task_action) are always available -",
+    "prefer disabling a task over deleting it.",
+    "",
+    "If you do turn it on, know what it can and cannot reach: delete_task deletes",
+    "CRONSOLE-NATIVE tasks only and refuses every other platform with a 400, Windows",
+    "included - so no MCP tool can destroy a scheduled task on your machine. Cronsole",
+    "also archives the definition and last 20 runs BEFORE deleting, and refuses the",
+    "delete if that backup fails. Deleting is gated; UNDOING one is not - list_task_archives and restore_task_archive are always available."
+  ],
+  "mcpServers": {
+    "cronsole": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["<PATH-TO-CRONSOLE>/mcp-server/dist/index.js"],
+      "env": {
+        "CRONSOLE_API_URL": "http://localhost:3000/api",
+        "CRONSOLE_TOKEN": "${CRONSOLE_TOKEN}"
+      }
+    }
+  }
+}

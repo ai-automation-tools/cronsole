@@ -1,0 +1,12 @@
+# The static template registry is content-addressed: each template's sha256 in
+# index.json is computed over the file's exact bytes. Force LF so a checkout
+# never rewrites line endings (which would break every checksum). The generator
+# (backend: npm run registry:build) always writes LF.
+registry/** text eol=lf
+
+# The gallery page is published byte-for-byte to two GitHub Pages hosts, and the
+# drift check compares sha256 over what they serve. A CRLF working tree makes
+# that comparison fail on Windows and pass on Linux for the same commit -- and
+# makes the manual PowerShell publish copy different bytes than CI does. Pin LF
+# so the file on disk is the file that gets served.
+registry-site/** text eol=lf

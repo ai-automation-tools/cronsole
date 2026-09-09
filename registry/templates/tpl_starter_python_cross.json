@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_python_cross",
+  "name": "Python Script (cross-platform)",
+  "description": "Run a Python script on Windows or macOS (interpreter resolved at apply-time).",
+  "runtime": "python",
+  "os": "cross-platform",
+  "category": "other",
+  "tags": [
+    "python",
+    "script"
+  ],
+  "icon": "FileCode",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * *"
+  },
+  "commandTemplate": "python \"{{scriptPath}}\" {{args}}",
+  "parameters": [
+    {
+      "key": "scriptPath",
+      "label": "Script file path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the script on the target machine."
+    },
+    {
+      "key": "args",
+      "label": "Arguments",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional command-line arguments."
+    }
+  ],
+  "compatibleTargets": [
+    "windows",
+    "macos"
+  ]
+}

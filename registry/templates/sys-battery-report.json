@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sys-battery-report",
+  "name": "Generate Battery Report",
+  "description": "Write a laptop battery health report to an HTML file.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "system",
+    "windows",
+    "power",
+    "report"
+  ],
+  "icon": "BatteryCharging",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 8 * * 1"
+  },
+  "commandTemplate": "powercfg /batteryreport /output \"{{outFile}}\"",
+  "parameters": [
+    {
+      "key": "outFile",
+      "label": "Report output path",
+      "type": "path",
+      "default": "C:\\reports\\battery-report.html",
+      "required": true,
+      "help": "Where to write the battery report (.html)."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

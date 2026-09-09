@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_powershell_inline",
+  "name": "PowerShell Inline Command",
+  "description": "Run an inline PowerShell command without a script file.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "other",
+  "tags": [
+    "windows",
+    "powershell"
+  ],
+  "icon": "Terminal",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 * * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"{{command}}\"",
+  "parameters": [
+    {
+      "key": "command",
+      "label": "Command",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The command/code to run inline."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

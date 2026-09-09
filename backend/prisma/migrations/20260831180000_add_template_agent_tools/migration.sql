@@ -1,0 +1,26 @@
+-- Adds `Template.agentTools` — the reach a template grants on a hosted agent
+-- target, carried as a **reference and never a value**.
+--
+-- Gemini is the first target whose unit of work is a prompt *plus a grant*: the
+-- prompt alone is half a template, because an agent asked to email a digest with
+-- no `mcp_server` is a run that narrates success and mails nothing. So the
+-- template has to say which tools the trigger gets.
+--
+-- It is its own column rather than a second meaning for `nativeJob` (a
+-- Cronsole-native job spec) or a corner of `parameters` (user-filled values):
+-- one column, one fact, and every existing reader is unchanged.
+--
+-- **What may live here is bounded by the parse, not by a filter downstream.**
+-- `registryAgentToolSchema` reads `type`, `name` and `preset` and nothing else,
+-- so no `url` and no `headers` — a published template can never carry somebody's
+-- bearer token, and no reader downstream (export, archive, MCP response, log
+-- line) is one forgotten `delete` away from publishing one. `preset` is the name
+-- of a saved MCP server on the user's own Gemini connection, resolved
+-- server-side at apply time; a name with nothing behind it is refused with the
+-- list, exactly as `resolveToolPresets` already refuses one.
+--
+-- Nullable with no backfill: every template that exists today grants nothing,
+-- which is what NULL means here.
+--
+-- See docs/ROADMAP.md › "Gemini usability" item D.
+ALTER TABLE "Template" ADD COLUMN IF NOT EXISTS "agentTools" JSONB;

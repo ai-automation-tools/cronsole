@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "id": "claude-routine-issue-triage",
+  "name": "Routine: Issue Triage",
+  "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "dev-workflow",
+  "tags": [
+    "ai",
+    "claude-code",
+    "routine",
+    "github",
+    "triage"
+  ],
+  "icon": "ListChecks",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 14 * * 1-5"
+  },
+  "commandTemplate": "Review issues opened in {{repo}} since your last run. For each one: summarize it in a sentence, label it by area and severity, and say whether it looks like a regression of recent work. Post the triage as a comment on each issue. Do not change code.",
+  "parameters": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The owner/name of the repo to triage. Attach the same repository to the routine so it has a checkout."
+    }
+  ],
+  "compatibleTargets": [
+    "claude-code"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_chatgpt_link",
+  "name": "ChatGPT Automation (link)",
+  "description": "Quick-link to create a ChatGPT automation (no public API — opens native UI).",
+  "runtime": "ai-prompt",
+  "os": "cross-platform",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "chatgpt"
+  ],
+  "icon": "MessageSquare",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * *"
+  },
+  "commandTemplate": "{{prompt}}",
+  "parameters": [
+    {
+      "key": "prompt",
+      "label": "Prompt",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The natural-language instruction for the agent."
+    }
+  ],
+  "compatibleTargets": [
+    "chatgpt"
+  ]
+}

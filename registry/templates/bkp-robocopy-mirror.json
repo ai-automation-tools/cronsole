@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-robocopy-mirror",
+  "name": "Mirror Folder (robocopy)",
+  "description": "Mirror a directory to a backup location with robocopy /MIR.",
+  "runtime": "executable",
+  "os": "windows",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "windows",
+    "robocopy",
+    "sync"
+  ],
+  "icon": "FolderSync",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 1 * * *"
+  },
+  "commandTemplate": "robocopy \"{{sourceDir}}\" \"{{destDir}}\" /MIR /R:2 /W:5",
+  "parameters": [
+    {
+      "key": "sourceDir",
+      "label": "Source folder",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "The directory to mirror from."
+    },
+    {
+      "key": "destDir",
+      "label": "Destination folder",
+      "type": "path",
+      "default": "C:\\backups\\mirror",
+      "required": true,
+      "help": "The backup directory. /MIR makes it match the source exactly (deletes extras)."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

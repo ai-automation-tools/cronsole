@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "id": "tpl_starter_shell_inline_macos",
+  "name": "Inline Shell Command (macOS)",
+  "description": "Run an inline shell command via zsh.",
+  "runtime": "zsh",
+  "os": "macos",
+  "category": "other",
+  "tags": [
+    "macos",
+    "shell"
+  ],
+  "icon": "Terminal",
+  "isStarter": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 * * * *"
+  },
+  "commandTemplate": "/bin/zsh -c \"{{command}}\"",
+  "parameters": [
+    {
+      "key": "command",
+      "label": "Command",
+      "type": "text",
+      "default": "",
+      "required": true,
+      "help": "The command/code to run inline."
+    }
+  ],
+  "compatibleTargets": [
+    "macos"
+  ]
+}

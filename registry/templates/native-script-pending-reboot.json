@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-pending-reboot",
+  "name": "Pending Reboot Check (Cronsole)",
+  "description": "Fail the run when Windows has installed updates that need a restart to finish — the gap between kicking off an update scan and actually knowing a reboot is owed.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "system",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "system",
+    "windows",
+    "updates"
+  ],
+  "icon": "AlertTriangle",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * *"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "powershell",
+    "body": "# Runs on the machine hosting the Cronsole backend, which must be a Windows host.\n# A non-zero exit records a failed run, which is what makes this an alert rather than a status log.\n\n$pending = $false\nif (Test-Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending\") { $pending = $true }\nif (Test-Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired\") { $pending = $true }\n\nif ($pending) {\n  Write-Output \"A reboot is pending.\"\n  exit 1\n} else {\n  Write-Output \"No reboot pending.\"\n}\n"
+  },
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

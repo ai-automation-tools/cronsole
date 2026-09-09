@@ -1,0 +1,102 @@
+# Mirror the gallery page to Cronsole's public front door, on the merge that
+# changes it.
+#
+# The same registry-site/index.html is served from two hosts with different
+# jobs: mikesailab.com/cronsole-registry (beside the registry JSON it reads) and
+# cronsole.mikesailab.com (the front door). publish-registry.yml handles the
+# first. This handles the second, and the pair exists so "one page, two hosts"
+# cannot quietly become one page, one host and one stale copy -- which is what
+# happened whenever someone ran one publish script and not the other.
+#
+# The page is built to work at both addresses: it tries ./index.json first and
+# falls back to the canonical registry origin when it is not co-located (GitHub
+# Pages sends Access-Control-Allow-Origin: *).
+name: Publish front door
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'registry-site/**'
+      - '.github/workflows/publish-frontdoor.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: publish-frontdoor
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Mirror the gallery page to cronsole-site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cronsole (source of truth)
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Require the deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.SITE_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::SITE_DEPLOY_KEY is not set. Add a deploy key with write access to michaelschecht/cronsole-site as a repository secret -- see docs/install/guides/Registry_Publishing_Guide.md"
+            exit 1
+          fi
+
+      - name: Checkout cronsole-site (publish target)
+        uses: actions/checkout@v4
+        with:
+          repository: michaelschecht/cronsole-site
+          ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
+          path: target
+
+      # The custom domain lives or dies by this file, and it is NOT mirrored from
+      # here -- it is infrastructure owned by the target repo, not content. If it
+      # has gone missing, say so now: publishing over a repo whose CNAME is absent
+      # produces a page nobody can reach at the documented address, and the push
+      # itself would succeed.
+      - name: Check the custom domain is still configured
+        run: |
+          set -euo pipefail
+          if [ ! -f target/CNAME ]; then
+            echo "::error::No CNAME in cronsole-site -- cronsole.mikesailab.com will not serve this. Restore it before relying on the custom domain."
+            exit 1
+          fi
+          echo "Custom domain: $(cat target/CNAME)"
+
+      # Copy every flat file in registry-site/, not just index.html, so adding CSS
+      # or JS later reaches BOTH hosts. publish-registry.yml already does this;
+      # the old PowerShell pair did not agree -- publish-registry.ps1 copied the
+      # directory and publish-frontdoor.ps1 copied one file, so a second asset
+      # would have reached one host and not the other, and the page would have
+      # rendered differently at two addresses that are supposed to be the same
+      # page.
+      #
+      # README.md and CNAME belong to the target repo: its own front-page readme,
+      # and the domain it answers on.
+      - name: Mirror the gallery page
+        run: |
+          set -euo pipefail
+          test -f source/registry-site/index.html || {
+            echo "::error::registry-site/index.html is missing -- the front door would 404"
+            exit 1
+          }
+          find source/registry-site -maxdepth 1 -type f \
+            ! -name 'README.md' ! -name 'CNAME' \
+            -exec cp {} target/ \;
+
+      - name: Commit and push if changed
+        working-directory: target
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Front door already up to date -- nothing to publish.'
+            exit 0
+          fi
+          git commit -q -m "Publish front door (cronsole@${GITHUB_SHA:0:7})"
+          git push -q origin HEAD:main
+          echo "Published. GitHub Pages will rebuild shortly (https://$(cat CNAME))."

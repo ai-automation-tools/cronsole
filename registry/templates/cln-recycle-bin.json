@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "id": "cln-recycle-bin",
+  "name": "Empty Recycle Bin",
+  "description": "Empty the Windows Recycle Bin on a schedule.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "cleanup",
+  "tags": [
+    "cleanup",
+    "windows",
+    "disk"
+  ],
+  "icon": "Trash2",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 5 * * 0"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
+  "parameters": [],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

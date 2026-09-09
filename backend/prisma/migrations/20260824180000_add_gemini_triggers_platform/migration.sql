@@ -1,0 +1,23 @@
+-- Adds GEMINI_TRIGGERS to PlatformType — Cronsole's **first hosted controller**.
+--
+-- The two hosted sources that came before it (GitHub Actions, Vercel Cron) are
+-- read-only observers, and both refuse `run` for the same reason: the API they
+-- could call would not produce the *scheduled* invocation. Gemini's does. A
+-- trigger is a persistent resource with a documented endpoint per verb —
+-- `GET /v1beta/triggers`, `POST …/{id}/executions`, `PATCH …/{id}`,
+-- `POST /v1beta/triggers`, `DELETE …/{id}` — and Google's own docs note that
+-- pausing a trigger stops its scheduled executions *without* affecting manual
+-- ones, which is the statement that a manual execution is the same machinery
+-- rather than a lookalike.
+--
+-- It also reports run outcomes (`GET …/{id}/executions`), so it gets a real arm
+-- in `scoreTask` rather than the permanent `unknown` Vercel is owed — plus one
+-- signal neither observer can produce: a trigger **auto-pauses after
+-- `max_consecutive_failures`**, and publishes the count on the resource.
+--
+-- Nothing else in this file: a new PlatformType needs no table, no column and no
+-- backfill. `PlatformConnection`, `Task`, `TaskExclusion` and `PlatformCapability`
+-- are all keyed on the enum and gain the value for free.
+--
+-- See docs/ROADMAP.md › "Sources — where a task comes from".
+ALTER TYPE "PlatformType" ADD VALUE IF NOT EXISTS 'GEMINI_TRIGGERS';

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ai-claude-repo-digest",
+  "name": "Claude Code Repo Digest",
+  "description": "A read-only Claude Code run that summarizes a repository into a Markdown digest on a schedule (e.g. weekly). Tools are locked to read/search only; the printed digest is written to a report file.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "ai-agent",
+  "tags": [
+    "ai",
+    "llm",
+    "cli",
+    "agents",
+    "claude-code",
+    "report"
+  ],
+  "icon": "ScrollText",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * 1"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools 'Read,Grep,Glob' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{reportPath}}'\"",
+  "parameters": [
+    {
+      "key": "repoPath",
+      "label": "Repository path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the local git repository."
+    },
+    {
+      "key": "prompt",
+      "label": "Digest prompt",
+      "type": "text",
+      "default": "Summarize the notable changes, open TODOs, and anything that looks risky in this repository into a concise Markdown digest.",
+      "required": true,
+      "help": "What to summarize. Read-only tools only — avoid single quotes."
+    },
+    {
+      "key": "maxTurns",
+      "label": "Max turns",
+      "type": "text",
+      "default": "8",
+      "required": true,
+      "help": "Abort the run after this many agentic turns."
+    },
+    {
+      "key": "model",
+      "label": "Model",
+      "type": "select",
+      "default": "sonnet",
+      "required": true,
+      "options": [
+        "sonnet",
+        "opus",
+        "haiku"
+      ],
+      "help": "Claude model alias to run."
+    },
+    {
+      "key": "reportPath",
+      "label": "Report file path",
+      "type": "path",
+      "default": "C:\\reports\\repo-digest.md",
+      "required": true,
+      "help": "Where the Markdown digest is written."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

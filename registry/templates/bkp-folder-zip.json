@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "bkp-folder-zip",
+  "name": "Backup Folder to Zip",
+  "description": "Compress a folder into a .zip archive on a schedule.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "backup",
+  "tags": [
+    "backup",
+    "windows",
+    "archive",
+    "zip"
+  ],
+  "icon": "Archive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 2 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Compress-Archive -Path '{{sourcePath}}' -DestinationPath '{{destZip}}' -Force\"",
+  "parameters": [
+    {
+      "key": "sourcePath",
+      "label": "Folder to back up",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Folder (or glob) to compress. Avoid single quotes in the path."
+    },
+    {
+      "key": "destZip",
+      "label": "Destination .zip",
+      "type": "path",
+      "default": "C:\\backups\\backup.zip",
+      "required": true,
+      "help": "Where to write the archive. -Force overwrites an existing file."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

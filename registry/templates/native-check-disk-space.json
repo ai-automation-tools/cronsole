@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-check-disk-space",
+  "name": "Disk Space Check (Cronsole)",
+  "description": "Fail when free space on a volume drops below your floor, so you hear about it before something else fails for a reason that looks unrelated.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "check",
+    "monitoring",
+    "disk"
+  ],
+  "icon": "HardDrive",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 */6 * * *"
+  },
+  "action": {
+    "kind": "check",
+    "probe": {
+      "kind": "diskFree",
+      "path": "{{volumePath}}",
+      "minFreeBytes": "{{minFreeBytes}}"
+    }
+  },
+  "parameters": [
+    {
+      "key": "volumePath",
+      "label": "Path on the volume",
+      "type": "string",
+      "default": "C:\\",
+      "required": true,
+      "help": "Any path on the volume to measure, as seen by the machine running the Cronsole backend."
+    },
+    {
+      "key": "minFreeBytes",
+      "label": "Minimum free space (bytes)",
+      "type": "number",
+      "default": "10737418240",
+      "required": true,
+      "help": "Default is 10 GB. In bytes, because that is what the check stores — 1 GB is 1073741824."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

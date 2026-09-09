@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-run-program",
+  "name": "Run a Program (Cronsole)",
+  "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
+  "runtime": "executable",
+  "os": "cross-platform",
+  "category": "other",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "executable"
+  ],
+  "icon": "PlayCircle",
+  "isStarter": true,
+  "core": true,
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 7 * * *"
+  },
+  "commandTemplate": "\"{{exePath}}\" {{args}}",
+  "parameters": [
+    {
+      "key": "exePath",
+      "label": "Executable path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Absolute path to the program, as seen by the machine running the Cronsole backend. On a Dockerized stack that is the container, not your desktop."
+    },
+    {
+      "key": "args",
+      "label": "Arguments",
+      "type": "text",
+      "default": "",
+      "required": false,
+      "help": "Optional command-line arguments."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

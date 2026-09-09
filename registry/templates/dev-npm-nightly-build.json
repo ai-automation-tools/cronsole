@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "id": "dev-npm-nightly-build",
+  "name": "Nightly Build (npm)",
+  "description": "Run an npm script (build, lint, …) for a project every night and capture the log.",
+  "runtime": "node",
+  "os": "windows",
+  "category": "dev-workflow",
+  "tags": [
+    "dev",
+    "node",
+    "npm",
+    "build",
+    "ci"
+  ],
+  "icon": "Hammer",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 4 * * *"
+  },
+  "commandTemplate": "cmd.exe /c \"cd /d {{projectPath}} && npm run {{script}} > {{logPath}} 2>&1\"",
+  "parameters": [
+    {
+      "key": "projectPath",
+      "label": "Project path",
+      "type": "path",
+      "default": "",
+      "required": true,
+      "help": "Folder containing package.json (avoid spaces in the path)."
+    },
+    {
+      "key": "script",
+      "label": "npm script",
+      "type": "text",
+      "default": "build",
+      "required": true,
+      "help": "The package.json script to run, e.g. build or lint."
+    },
+    {
+      "key": "logPath",
+      "label": "Log file path",
+      "type": "path",
+      "default": "C:\\logs\\nightly-build.log",
+      "required": true,
+      "help": "Where to write the build output."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

@@ -1,0 +1,184 @@
+# Pinned explicitly, and deliberately still "taskhub" (2026-07-31).
+#
+# Without this line Compose derives the project name from the DIRECTORY name, which
+# makes the folder on disk silently decide which volumes the stack mounts. Renaming
+# the checkout would have created a brand-new empty `cronsole_postgres_data` and booted
+# an empty Postgres — the database orphaned rather than lost, but indistinguishable
+# from data loss at the moment you see it.
+#
+# It stays `taskhub` for the same reason POSTGRES_USER/POSTGRES_DB below do: the volume
+# `taskhub_postgres_data` holds the one thing here that cannot be rebuilt from the repo.
+# Renaming it buys nothing a user ever sees and risks everything. Docker identity and
+# product branding are separate namespaces; only one of them is allowed to be pretty.
+name: taskhub
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskhub
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: taskhub
+    ports:
+      # Loopback-only, like the proxy below. `"5432:5432"` publishes Postgres on every
+      # interface — which on this machine means the Tailscale and VPN tunnel addresses
+      # too — and the password three lines up is literally `password`. Host tooling
+      # (the backend, psql, migrations) all connect over localhost and are unaffected.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # The backend's boot seed runs a query immediately and dies if the DB refuses it
+    # (troubleshooting #23). After an unclean shutdown Postgres spends several seconds in
+    # crash recovery answering `FATAL: the database system is starting up`, so "container
+    # started" is not the signal the backend needs — "accepting connections" is.
+    # NOTE: pg_isready ignores -U/-d when deciding its exit code — it answers "is the
+    # server accepting connections", not "can this role reach this database". It returns 0
+    # for a role and database that do not exist. These args were left naming `cronsole`
+    # by a rename pass (the real role/db are `taskhub`, protected above), and nothing
+    # failed, because nothing here could. They are correct now so they stop implying a
+    # check that isn't happening; if you ever need to verify auth, that is a psql query.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskhub -d taskhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      # Loopback-only. This Redis has no password set at all, so publishing it on every
+      # interface is the sharpest edge in the stack — unauthenticated Redis reachable
+      # over the network is a well-known RCE path, not just a data-exposure one.
+      - "127.0.0.1:6379:6379"
+
+  # NOTE: backend and frontend are OPT-IN (`profiles: [docker]`), so a plain
+  # `docker compose up -d` starts db + redis ONLY. That matches the stack's actual
+  # design (scripts/cronsole.ps1): Postgres/Redis in Docker, backend + frontend + agent
+  # as host processes. Running both copies at once is what caused troubleshooting #23 —
+  # the container grabbed :3000, the host backend then couldn't bind it, and when the
+  # container crashed the port was held by a dead process. Run the containerized
+  # variant explicitly instead:  docker compose --profile docker up -d
+  backend:
+    profiles: ["docker"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: npm run dev
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      # Database is `taskhub` (POSTGRES_DB above), not `cronsole`. A rename pass moved
+      # this half and left the service definition alone; commit 2b195c4 fixed the same
+      # bug in backend/.env.example and in the healthcheck, and missed this line.
+      DATABASE_URL: postgresql://taskhub:password@db:5432/taskhub
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+      # The backend fail-fasts without these. Values below are DEV-ONLY defaults so
+      # `docker compose up` boots out of the box; override them (host env or a root
+      # .env) for anything real. JWT_SECRET must be >= 16 chars, ENCRYPTION_KEY
+      # EXACTLY 32, AGENT_PAIRING_SECRET >= 16 and matched by the agent's
+      # CRONSOLE_PAIRING_SECRET (see docs/setup/README.md).
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev_encryption_key_32_chars_1234}
+      AGENT_PAIRING_SECRET: ${AGENT_PAIRING_SECRET:-dev-pairing-secret-change-me}
+      # Frontend origin(s) allowed to open the browser live-update socket.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:7373}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    profiles: ["docker"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "127.0.0.1:7373:7373"
+    environment:
+      VITE_API_URL: http://localhost:3000
+    depends_on:
+      - backend
+
+  # ---------------------------------------------------------------------------
+  # Remote access (OPT-IN — see docs/user-guides/guides/Remote_Access_Guide.md)
+  # ---------------------------------------------------------------------------
+  # Two profiles, because the proxy is useful without the tunnel but the tunnel is
+  # useless without the proxy:
+  #
+  #   docker compose --profile proxy  up -d   proxy only — verify at 127.0.0.1:8080
+  #   docker compose --profile remote up -d   proxy + cloudflared (the real thing)
+  #
+  # Neither starts on a plain `docker compose up -d`.
+  proxy:
+    profiles: ["proxy", "remote"]
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The PRODUCTION BUILD, not the Vite dev server. Build it with
+      # `npm run build:remote` in frontend/ (mode `remote` => VITE_API_URL=same-origin).
+      # This is a build artifact mounted read-only, which means it can go stale the
+      # same way agent/publish/ and mcp-server/dist/ do: edit the frontend, forget the
+      # rebuild, and the phone keeps serving the old dashboard while the dev server on
+      # :7373 shows the new one. Nothing errors. See troubleshooting #53.
+      - ./frontend/dist:/srv:ro
+    ports:
+      # Bound to LOOPBACK deliberately. The whole point of the tunnel is that nothing
+      # is reachable except through it, and `8080:80` would publish the dashboard to
+      # every device on the LAN — an unauthenticated-at-the-network-layer copy of the
+      # thing Cloudflare Access is being asked to guard. cloudflared reaches this over
+      # the compose network, not through a published port, so nothing needs this except
+      # you, testing, on this machine.
+      - "127.0.0.1:8080:80"
+    environment:
+      # Where the backend actually is. Default suits the normal host-run stack
+      # (scripts/cronsole.ps1 runs the backend as a host process); set it to
+      # `backend:3000` when running the containerized `--profile docker` variant.
+      CRONSOLE_BACKEND_UPSTREAM: ${CRONSOLE_BACKEND_UPSTREAM:-host.docker.internal:3000}
+    extra_hosts:
+      # Docker Desktop provides host.docker.internal already; Linux does not, and
+      # without this the proxy resolves nothing and every /api call 502s.
+      - "host.docker.internal:host-gateway"
+
+  tunnel:
+    profiles: ["remote"]
+    image: cloudflare/cloudflared:2025.8.1
+    restart: unless-stopped
+    # --no-autoupdate: an unattended binary swap under a process that is the only
+    # route to your machine is not a thing to do silently. Update by changing the
+    # pinned tag above, which is reviewable.
+    command: tunnel --no-autoupdate run
+    environment:
+      # From the Cloudflare Zero Trust dashboard (Networks -> Tunnels -> your
+      # tunnel -> Install connector). This is a CREDENTIAL — it belongs in the
+      # gitignored root .env, never in this file.
+      #
+      # Deliberately `:-` (empty default) and NOT `:?` (required). Compose
+      # interpolates the WHOLE file before it selects a profile, so a required
+      # variable here fails every command against this file — `docker compose up -d`
+      # for Postgres and Redis included. A tunnel credential must not be a
+      # precondition for starting the database. Verified, not assumed: with `:?`,
+      # `docker compose config --services` errored outright. See troubleshooting #54.
+      #
+      # The cost is that an unset token surfaces at `docker compose logs tunnel`
+      # rather than at `up`. It cannot be caught earlier here — the image is
+      # distroless, so there is no shell to wrap the command in a check.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - proxy
+
+volumes:
+  postgres_data:

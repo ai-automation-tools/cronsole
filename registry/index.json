@@ -1,0 +1,1994 @@
+{
+  "registryVersion": "1.0",
+  "updatedAt": "2026-09-03T14:19:38.044Z",
+  "templates": [
+    {
+      "id": "tpl_daily_database_backup",
+      "name": "Daily Database Backup",
+      "description": "Back up a PostgreSQL database on a schedule with pg_dump.",
+      "category": "backup",
+      "tags": [
+        "windows",
+        "backup",
+        "database",
+        "postgres"
+      ],
+      "core": true,
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_daily_database_backup.json",
+      "sha256": "3a8caeca781b4fe3690ea76520ec68604e376e3ab93cdc7037ea8f032c490d90"
+    },
+    {
+      "id": "tpl_morning_news_digest",
+      "name": "Morning News Digest",
+      "description": "Summarize top stories from your news sources into a daily digest.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "digest",
+        "news"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code",
+        "chatgpt"
+      ],
+      "path": "templates/tpl_morning_news_digest.json",
+      "sha256": "92a941072262d05c4e3f964ec126b82684d3ed4fb5aa6d28564dec41cf1ca1ee"
+    },
+    {
+      "id": "tpl_weekly_system_cleanup",
+      "name": "Weekly System Cleanup",
+      "description": "Delete temporary files on a schedule to reclaim disk space.",
+      "category": "cleanup",
+      "tags": [
+        "windows",
+        "cleanup",
+        "disk"
+      ],
+      "core": true,
+      "runtime": "batch",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_weekly_system_cleanup.json",
+      "sha256": "311c4a7525377ee116eed57779e3a2efe4461af374c94c763c35dd3c010ea151"
+    },
+    {
+      "id": "tpl_github_pr_triage",
+      "name": "GitHub PR Triage",
+      "description": "Triage new pull requests in a repo and label them by content.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "github",
+        "dev"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/tpl_github_pr_triage.json",
+      "sha256": "1d2365682dd091eaf4b825e441d493b86883fb13d68f8581b70cae2e03ad06ef"
+    },
+    {
+      "id": "dev-git-fetch-prune",
+      "name": "Git Fetch & Prune",
+      "description": "Keep a local repository fresh: fetch all remotes and prune deleted remote branches.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "git",
+        "sync",
+        "hygiene"
+      ],
+      "core": true,
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-git-fetch-prune.json",
+      "sha256": "28519f8d5499ac384b9c347cb585099e650ccf89a6d90c84fa5c19030aff9db0"
+    },
+    {
+      "id": "dev-git-maintenance",
+      "name": "Git Repo Maintenance",
+      "description": "Run git maintenance (gc, commit-graph, prefetch) to keep a large repository fast.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "git",
+        "hygiene"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-git-maintenance.json",
+      "sha256": "87f36dc866f5f8a5c4263fa6b78af868d429cc3eb4214d78bdbff6f70ed06281"
+    },
+    {
+      "id": "dev-git-autocommit-push",
+      "name": "Git Auto-Commit & Push",
+      "description": "Snapshot a working repository on a schedule: stage everything, commit, and push.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "git",
+        "backup"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-git-autocommit-push.json",
+      "sha256": "5fb5d1c129bc1a81c39d29fcaf5b158065d07f6e960d2d917161b6b9025e1d82"
+    },
+    {
+      "id": "dev-npm-outdated-check",
+      "name": "Dependency Update Check (npm)",
+      "description": "Write an npm outdated report for a project on a schedule.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "node",
+        "npm",
+        "dependencies"
+      ],
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-npm-outdated-check.json",
+      "sha256": "c16e2ebf9f5382bc0b3721449ab89b30ce5c082b69d5a02b38f835998619b499"
+    },
+    {
+      "id": "dev-npm-nightly-build",
+      "name": "Nightly Build (npm)",
+      "description": "Run an npm script (build, lint, …) for a project every night and capture the log.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "node",
+        "npm",
+        "build",
+        "ci"
+      ],
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-npm-nightly-build.json",
+      "sha256": "be85379842ba85e3b5292bbca6c4240b1f74cc63b161cb922cac7ad255a77eed"
+    },
+    {
+      "id": "dev-npm-test-run",
+      "name": "Scheduled Test Run (npm)",
+      "description": "Run a project test suite on a schedule and capture the log; a red run means failing tests.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "node",
+        "npm",
+        "test",
+        "ci"
+      ],
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/dev-npm-test-run.json",
+      "sha256": "4727faa48d5d435410324b4b86129e2091b3b7b0d2ca5900f908449c80135f7e"
+    },
+    {
+      "id": "dev-dotnet-build",
+      "name": ".NET Build",
+      "description": "Build a .NET project or solution with the dotnet CLI on a schedule.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "dotnet",
+        "build",
+        "ci"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-dotnet-build.json",
+      "sha256": "5ffc26e53b68130e515fffab4068eacd2b5203529d625d1b83df833cd6e60a6d"
+    },
+    {
+      "id": "dev-docker-prune",
+      "name": "Docker Cleanup (prune)",
+      "description": "Reclaim disk space by pruning unused Docker containers, networks, and images.",
+      "category": "cleanup",
+      "tags": [
+        "dev",
+        "docker",
+        "cleanup",
+        "disk"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-docker-prune.json",
+      "sha256": "132f1094a1379674ee54852b059c111561efdb91943755fa84206c616a240bed"
+    },
+    {
+      "id": "dev-docker-compose-up",
+      "name": "Docker Compose Self-Heal",
+      "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern Cronsole uses for its own stack).",
+      "category": "monitoring",
+      "tags": [
+        "dev",
+        "docker",
+        "self-heal",
+        "monitoring"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/dev-docker-compose-up.json",
+      "sha256": "b6b3b45c2625b4da4c56f59a7cadf21703645a66fe8ad00ad9befa1774ddc03e"
+    },
+    {
+      "id": "ai-claude-headless-run",
+      "name": "Claude Code Headless Run",
+      "description": "Run the Claude Code CLI unattended against a repo on a schedule with a fixed prompt. Non-interactive (`-p`), fenced by `--permission-mode dontAsk`, scoped to the tools you list, output captured to a log.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "claude-code"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-claude-headless-run.json",
+      "sha256": "d126357d247cf27ae852682e97938443aff9734cfb59632c73aaf95b43021eb8"
+    },
+    {
+      "id": "ai-claude-repo-digest",
+      "name": "Claude Code Repo Digest",
+      "description": "A read-only Claude Code run that summarizes a repository into a Markdown digest on a schedule (e.g. weekly). Tools are locked to read/search only; the printed digest is written to a report file.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "claude-code",
+        "report"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-claude-repo-digest.json",
+      "sha256": "35b1dcb1091b4df884727dc604c5a395de0def4fd72983fee25f94e32a790273"
+    },
+    {
+      "id": "ai-claude-autofix-commit",
+      "name": "Claude Code Auto-Fix & Commit",
+      "description": "Higher-trust: let Claude Code edit a repo and commit on a schedule. Still fenced by `--permission-mode dontAsk` — only the edit/git tools you list are pre-approved. Scope `--allowedTools` narrowly and review the log/commits.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "claude-code",
+        "git"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-claude-autofix-commit.json",
+      "sha256": "e22e94f33a6fc00fe797214d6b216f74508f101670689b8905e3e9826f01b26e"
+    },
+    {
+      "id": "ai-claude-log-cleanup",
+      "name": "Claude Code Log Cleanup",
+      "description": "Housekeeping companion for the scheduled Claude runs: delete run logs/digests older than a cutoff so they do not pile up. Read-nothing, deletes only matching files in one folder.",
+      "category": "cleanup",
+      "tags": [
+        "ai",
+        "cli",
+        "agents",
+        "cleanup",
+        "logs"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-claude-log-cleanup.json",
+      "sha256": "cd1549251e631f30594eb86c000bb49a52d8a197a76b72c9b5020021cde731ae"
+    },
+    {
+      "id": "ai-codex-headless-run",
+      "name": "Codex Headless Run",
+      "description": "Run Codex CLI non-interactively against a repo on a schedule with a fixed prompt. Uses `codex exec`, no approval prompts, an explicit sandbox, an ephemeral session, and captured output.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "codex"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-codex-headless-run.json",
+      "sha256": "5f5ee5422a6ac145c8a1189f63a9745aae37d1b670d362a9ab906f6625bc2168"
+    },
+    {
+      "id": "ai-codex-repo-digest",
+      "name": "Codex Repo Digest",
+      "description": "A read-only Codex run that summarizes a repository into a Markdown digest on a schedule. The final digest and full run stream are captured separately.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "codex",
+        "report"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-codex-repo-digest.json",
+      "sha256": "31be0c1ab595e5f149293ff10ea902ba680bb939e4d8fd6681e72d1920912cb9"
+    },
+    {
+      "id": "ai-codex-autofix-workspace",
+      "name": "Codex Auto-Fix Workspace",
+      "description": "Higher-trust: let Codex edit a repository on a schedule. Runs non-interactively with no approval prompts but stays inside the workspace-write sandbox; review the diff and logs before pushing.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "llm",
+        "cli",
+        "agents",
+        "codex",
+        "git"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ai-codex-autofix-workspace.json",
+      "sha256": "267af80d4e84f106eb1da8537878d69e348c8e80d07275a57c81eefc25556e89"
+    },
+    {
+      "id": "tpl_starter_powershell_script",
+      "name": "PowerShell Script",
+      "description": "Run a .ps1 PowerShell script file on a schedule.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "script",
+        "powershell"
+      ],
+      "isStarter": true,
+      "core": true,
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_powershell_script.json",
+      "sha256": "3773946cded1c0dd1b058431f86ae5ed7efd30131fcd868b28d75abf390f25e2"
+    },
+    {
+      "id": "tpl_starter_powershell_inline",
+      "name": "PowerShell Inline Command",
+      "description": "Run an inline PowerShell command without a script file.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "powershell"
+      ],
+      "isStarter": true,
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_powershell_inline.json",
+      "sha256": "9248c361d3bdc0aa1cfa827d736cd144082900b2ad71c6b04d147781d1c15cf8"
+    },
+    {
+      "id": "tpl_starter_batch_script",
+      "name": "Batch / CMD Script",
+      "description": "Run a .bat or .cmd batch file via cmd.exe.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "batch",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "batch",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_batch_script.json",
+      "sha256": "24bb19410009a290de2558ab711e8b2f194a78b0aa0e06c627a87fdaa0788fe3"
+    },
+    {
+      "id": "tpl_starter_python_windows",
+      "name": "Python Script (Windows)",
+      "description": "Run a Python script with the Windows python interpreter.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "python",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "python",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_python_windows.json",
+      "sha256": "a13794278d933a44e16148f68d24a447d59146d5b7676953ad7dbc1444c10b74"
+    },
+    {
+      "id": "tpl_starter_node_windows",
+      "name": "Node.js Script (Windows)",
+      "description": "Run a Node.js script with node on Windows.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "node",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "node",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_node_windows.json",
+      "sha256": "12c7561b172e9b676013f56bb9d1b996d06419be65cc9b27cb2d2a19b51388a4"
+    },
+    {
+      "id": "tpl_starter_run_exe",
+      "name": "Run a Program / .exe",
+      "description": "Launch an executable or binary directly on a schedule.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "executable"
+      ],
+      "isStarter": true,
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_run_exe.json",
+      "sha256": "bf5f5d31224fa113133c1d43e0c4f41f218d20f50978603a27ed79fb6fac2777"
+    },
+    {
+      "id": "tpl_starter_webhook_windows",
+      "name": "Webhook / HTTP Ping (Windows)",
+      "description": "Call a URL on a schedule using Invoke-WebRequest.",
+      "category": "monitoring",
+      "tags": [
+        "windows",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "isStarter": true,
+      "core": true,
+      "runtime": "http",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_webhook_windows.json",
+      "sha256": "b17c8e2308c14cfce4ea557c9df0dbde8d43a77c4ebce1c02a912f1af16abf7a"
+    },
+    {
+      "id": "tpl_starter_vbscript",
+      "name": "VBScript (legacy)",
+      "description": "Run a legacy .vbs script via cscript.",
+      "category": "other",
+      "tags": [
+        "windows",
+        "vbscript",
+        "legacy"
+      ],
+      "isStarter": true,
+      "runtime": "vbscript",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/tpl_starter_vbscript.json",
+      "sha256": "1a62b41f530859b301d8c03bde0ba7bc21dd921e63ec4d8da6f78d330f89b460"
+    },
+    {
+      "id": "tpl_starter_zsh_script",
+      "name": "Shell Script (zsh)",
+      "description": "Run a shell script with zsh, the macOS default shell.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell",
+        "zsh"
+      ],
+      "isStarter": true,
+      "runtime": "zsh",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_zsh_script.json",
+      "sha256": "5305ba1bc79d995474f957558f40d746e384392d2bde26718f9cda7a068007ff"
+    },
+    {
+      "id": "tpl_starter_bash_script",
+      "name": "Shell Script (bash)",
+      "description": "Run a shell script with bash on macOS or Linux.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell",
+        "bash"
+      ],
+      "isStarter": true,
+      "runtime": "bash",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_bash_script.json",
+      "sha256": "0254eecbf16e6f64066b6bbcbfcd95f3f98c24e011db8561fbcc6460e4dc872c"
+    },
+    {
+      "id": "tpl_starter_python_macos",
+      "name": "Python Script (macOS)",
+      "description": "Run a Python script with python3 on macOS.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "python",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "python",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_python_macos.json",
+      "sha256": "90016cbd3dac864b93c7d02cc9ebd7f211e9fba182f39720680b474d93c4db87"
+    },
+    {
+      "id": "tpl_starter_node_macos",
+      "name": "Node.js Script (macOS)",
+      "description": "Run a Node.js script with node on macOS.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "node",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "node",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_node_macos.json",
+      "sha256": "ea8f25872b2c5eef6835500cb26f38359f7404cefba5f2bbd2791c30aab17256"
+    },
+    {
+      "id": "tpl_starter_applescript",
+      "name": "AppleScript",
+      "description": "Run an AppleScript file via osascript.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "applescript"
+      ],
+      "isStarter": true,
+      "runtime": "applescript",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_applescript.json",
+      "sha256": "513d60a532f49367a9982cd120c89c4b167114bc514786963dc920dc2fdeeb59"
+    },
+    {
+      "id": "tpl_starter_shell_inline_macos",
+      "name": "Inline Shell Command (macOS)",
+      "description": "Run an inline shell command via zsh.",
+      "category": "other",
+      "tags": [
+        "macos",
+        "shell"
+      ],
+      "isStarter": true,
+      "runtime": "zsh",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_shell_inline_macos.json",
+      "sha256": "209c1cc617c5955072d23925a8afbaaa3cf9db006bafba54f1275f7d29782281"
+    },
+    {
+      "id": "tpl_starter_webhook_macos",
+      "name": "Webhook / HTTP Ping (macOS)",
+      "description": "Call a URL on a schedule using curl.",
+      "category": "monitoring",
+      "tags": [
+        "macos",
+        "http",
+        "monitoring",
+        "webhook"
+      ],
+      "isStarter": true,
+      "runtime": "http",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/tpl_starter_webhook_macos.json",
+      "sha256": "af76f249b81a7cf1760a3bebbf809571e655d8b84c2920c873bee460c5c2cb04"
+    },
+    {
+      "id": "tpl_starter_python_cross",
+      "name": "Python Script (cross-platform)",
+      "description": "Run a Python script on Windows or macOS (interpreter resolved at apply-time).",
+      "category": "other",
+      "tags": [
+        "python",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "python",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/tpl_starter_python_cross.json",
+      "sha256": "974e335c08d6b4549c0bec6a2ab583183a39e96948f1811e13909ffa61bc623c"
+    },
+    {
+      "id": "tpl_starter_node_cross",
+      "name": "Node.js Script (cross-platform)",
+      "description": "Run a Node.js script on Windows or macOS.",
+      "category": "other",
+      "tags": [
+        "node",
+        "script"
+      ],
+      "isStarter": true,
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/tpl_starter_node_cross.json",
+      "sha256": "d981191ea2a9666d5e094caeae3e0b6cd5f052cae4f25357f715f699869af9d3"
+    },
+    {
+      "id": "tpl_starter_git_sync",
+      "name": "Git Pull / Repo Sync",
+      "description": "Pull the latest commits for a local git repository on a schedule.",
+      "category": "dev-workflow",
+      "tags": [
+        "git",
+        "dev",
+        "sync"
+      ],
+      "isStarter": true,
+      "runtime": "bash",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/tpl_starter_git_sync.json",
+      "sha256": "c9b8b852df519b47da41b3c7beb9f6bd922f2547f0d88e4e6e68de2195f013b5"
+    },
+    {
+      "id": "tpl_starter_claude_routine",
+      "name": "Claude Code Routine",
+      "description": "Run a natural-language Claude Code routine on a schedule.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "claude-code"
+      ],
+      "isStarter": true,
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/tpl_starter_claude_routine.json",
+      "sha256": "0d7f60ce3de459cb5538916ff62c6c1811e93a3fc4b92d734d90bb0510fd94d2"
+    },
+    {
+      "id": "tpl_starter_chatgpt_link",
+      "name": "ChatGPT Automation (link)",
+      "description": "Quick-link to create a ChatGPT automation (no public API — opens native UI).",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "chatgpt"
+      ],
+      "isStarter": true,
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "chatgpt"
+      ],
+      "path": "templates/tpl_starter_chatgpt_link.json",
+      "sha256": "3caddc239f013473c087e17609e10ece1316a1a66f5e80ab507e8b87803d4560"
+    },
+    {
+      "id": "bkp-folder-zip",
+      "name": "Backup Folder to Zip",
+      "description": "Compress a folder into a .zip archive on a schedule.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "windows",
+        "archive",
+        "zip"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/bkp-folder-zip.json",
+      "sha256": "5da8d98f732b1d097dbe583c4da9011b7cda17d24ef87d49425af757ed7528d0"
+    },
+    {
+      "id": "bkp-robocopy-mirror",
+      "name": "Mirror Folder (robocopy)",
+      "description": "Mirror a directory to a backup location with robocopy /MIR.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "windows",
+        "robocopy",
+        "sync"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/bkp-robocopy-mirror.json",
+      "sha256": "43c17825048df6380dcae6cb6872a2f4ca6230f12075d1d296459566c11b4b74"
+    },
+    {
+      "id": "cln-old-files",
+      "name": "Delete Files Older Than N Days",
+      "description": "Prune files in a folder that are older than a cutoff, to reclaim disk.",
+      "category": "cleanup",
+      "tags": [
+        "cleanup",
+        "windows",
+        "disk",
+        "logs"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/cln-old-files.json",
+      "sha256": "4cc20a5c17da110a2ba345a0314914842fb0f3d241d0c24ae0bcd81557ae4160"
+    },
+    {
+      "id": "cln-recycle-bin",
+      "name": "Empty Recycle Bin",
+      "description": "Empty the Windows Recycle Bin on a schedule.",
+      "category": "cleanup",
+      "tags": [
+        "cleanup",
+        "windows",
+        "disk"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/cln-recycle-bin.json",
+      "sha256": "ac1f853e4383e2cafc31d07dbd85ff5c910183be64329612a39ed5f8731be8a9"
+    },
+    {
+      "id": "sys-restart-service",
+      "name": "Restart a Windows Service",
+      "description": "Restart a Windows service on a schedule (e.g. to recover a flaky one).",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "service"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-restart-service.json",
+      "sha256": "aae50bf104c77b048ef2fe3946af0da61064be4ab0e51ef5cb02c4c95acc7fbc"
+    },
+    {
+      "id": "sys-flush-dns",
+      "name": "Flush DNS Cache",
+      "description": "Clear the Windows DNS resolver cache.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "network",
+        "dns"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-flush-dns.json",
+      "sha256": "744ea019fa1a8404561fd29694147bd8719ba6f4f283c4f97f7329aad2904ee3"
+    },
+    {
+      "id": "sys-update-scan",
+      "name": "Trigger Windows Update Scan",
+      "description": "Kick off a Windows Update detection scan on a schedule.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "updates"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-update-scan.json",
+      "sha256": "945e57f469d30cabf1fc1b9b5a42b6cf99accec389f2957144baf821cbe861f2"
+    },
+    {
+      "id": "sys-battery-report",
+      "name": "Generate Battery Report",
+      "description": "Write a laptop battery health report to an HTML file.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "power",
+        "report"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-battery-report.json",
+      "sha256": "ab4c0c8cd7f9e60f15209ee314fd016d5d4744cb3cc3b076457d580f2a903e9e"
+    },
+    {
+      "id": "mon-disk-report",
+      "name": "Log Disk Usage",
+      "description": "Append free/used disk space for every drive to a log file.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "disk",
+        "report"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-disk-report.json",
+      "sha256": "b4158f6a3fd6699aa1f8cb0a534fa4ab7aa004d59f47a83262d123c83ecd7ca8"
+    },
+    {
+      "id": "mon-ping-host",
+      "name": "Ping Host & Log",
+      "description": "Check whether a host is reachable and append the result to a log.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "network",
+        "uptime"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-ping-host.json",
+      "sha256": "545974d695a6b031c3fe2edb56e2d85a4390b58fde28f1b38a8148f179043bd5"
+    },
+    {
+      "id": "mon-service-health",
+      "name": "Log Service Status",
+      "description": "Record whether a Windows service is running, on an interval.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "service",
+        "health"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-service-health.json",
+      "sha256": "9b005c3b62f46cd7a367f60e4aac7a8eb61fad9a57f8ca430960e270086c1ff1"
+    },
+    {
+      "id": "data-export-eventlog",
+      "name": "Export Windows Event Log",
+      "description": "Archive a Windows event log (System, Application, …) to an .evtx file.",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "windows",
+        "eventlog",
+        "archive"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/data-export-eventlog.json",
+      "sha256": "f6e92d052273ff823a6651e768bd13ad2aacf246e43c844b4618c09d37f2ec5f"
+    },
+    {
+      "id": "data-rclone-sync",
+      "name": "Sync Folder to Cloud (rclone)",
+      "description": "Sync a local folder to a configured rclone remote (S3, Drive, B2, …).",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "sync",
+        "cloud",
+        "rclone",
+        "backup"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/data-rclone-sync.json",
+      "sha256": "c768ed3420b9267f28c37a3d802fd9af2509f423777dee43016a444cbed5710b"
+    },
+    {
+      "id": "ntf-discord-heartbeat",
+      "name": "Discord Webhook Message",
+      "description": "Post a scheduled message to a Discord channel via a webhook.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "discord",
+        "webhook"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ntf-discord-heartbeat.json",
+      "sha256": "9d002f3c53d793a02d60a84c9e1f1ea876378ca08d678e5caa218de551186ccd"
+    },
+    {
+      "id": "ntf-log-heartbeat",
+      "name": "Heartbeat to Log File",
+      "description": "Append a timestamped line to a log — a simple \"am I still scheduled?\" check.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "heartbeat",
+        "logs"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ntf-log-heartbeat.json",
+      "sha256": "1bb767472b0cbf03a8df7c392bc23360e618eabd27e940c016a0ee94b669486a"
+    },
+    {
+      "id": "ntf-windows-broadcast-message",
+      "name": "Broadcast a Desktop Message (Windows)",
+      "description": "Pop up a message on every signed-in session using msg.exe — a local alert that needs no webhook, external service, or account to set up.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "alert",
+        "local"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ntf-windows-broadcast-message.json",
+      "sha256": "deb625a859fc34ddd9b722f87d56bdb6f1e12fd7c7978c0a744b5f8d95e489fa"
+    },
+    {
+      "id": "data-scp-upload",
+      "name": "Upload File via SCP",
+      "description": "Copy a local file to a remote server over SSH with scp, useful for shipping a report or backup off-box on a schedule.",
+      "category": "data-sync",
+      "tags": [
+        "data",
+        "sync",
+        "ssh",
+        "scp",
+        "upload"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/data-scp-upload.json",
+      "sha256": "626ec20502107497e79e1b737f0bb634ad6d4fc6331608fbb5b06f2d0ad5219e"
+    },
+    {
+      "id": "sys-scheduled-reboot",
+      "name": "Scheduled Reboot (Windows)",
+      "description": "Restart the machine on a schedule after a warning delay — useful for applying pending updates during a maintenance window. Signs out every session, so schedule it only when no one is expected to be active.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "reboot",
+        "maintenance"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-scheduled-reboot.json",
+      "sha256": "1daf00dc98f1813b636b11affdb9a6708f447c15d6d2ef6cd9270c45dcfd5ff5"
+    },
+    {
+      "id": "bkp-registry-export",
+      "name": "Backup a Registry Key",
+      "description": "Export a Windows Registry key to a .reg file on a schedule — a lightweight way to snapshot configuration before it drifts or before a risky change.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "windows",
+        "registry"
+      ],
+      "runtime": "executable",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/bkp-registry-export.json",
+      "sha256": "31a99a3e1b290692c8a86463fdae5f113836864c564913adf257510cdfc4d442"
+    },
+    {
+      "id": "bkp-system-restore-point",
+      "name": "Create a System Restore Point",
+      "description": "Create a Windows system restore point on a schedule, so there is a rollback point from before the week’s driver and application changes. This snapshots system state, not your files — pair it with a file backup rather than replacing one.",
+      "category": "backup",
+      "tags": [
+        "backup",
+        "windows",
+        "restore",
+        "system"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/bkp-system-restore-point.json",
+      "sha256": "50411090966077516f7faf4c7c164ca9736f3619efe174cafe1e0f95a9860106"
+    },
+    {
+      "id": "sys-defender-scan",
+      "name": "Run a Microsoft Defender Scan",
+      "description": "Start a Microsoft Defender antivirus scan on a schedule and let the run history record whether it completed. Choose a quick scan for a routine weekly sweep or a full scan when you can spare the machine for an hour.",
+      "category": "system",
+      "tags": [
+        "system",
+        "windows",
+        "security",
+        "antivirus"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/sys-defender-scan.json",
+      "sha256": "7fa642fd0b3769c0c74b94da41fea34e361eb29549eedc9cd52611088b48cf09"
+    },
+    {
+      "id": "mon-log-error-scan",
+      "name": "Scan a Log for Errors",
+      "description": "Search a log file for a pattern and fail the run when it matches, so a job that writes its problems to a file instead of alerting you still turns into something you can see. Supply the log to read and the text or regular expression that counts as trouble.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "logs",
+        "alert"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-log-error-scan.json",
+      "sha256": "f09f2e875fee4ca632d59f5b842674a37a0c9c29e82210728e4602e8ef5a5b0c"
+    },
+    {
+      "id": "mon-failed-scheduled-tasks",
+      "name": "Report Failed Scheduled Tasks",
+      "description": "Append every Windows scheduled task whose last run reported a non-zero result to a report file, so a task that has been failing quietly for a week shows up somewhere you read. Supply the file to append the report to.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "scheduler",
+        "report"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-failed-scheduled-tasks.json",
+      "sha256": "ec6c4f60e08c35a0901b4cd071e01c988dcd2f61ca08198911040bbb4825fe03"
+    },
+    {
+      "id": "ntf-email-alert",
+      "name": "Send an Email Alert (SMTP)",
+      "description": "Send a scheduled email through an SMTP relay using PowerShell — an alert channel for anyone who wants a message in their inbox rather than a chat webhook.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "email",
+        "smtp"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ntf-email-alert.json",
+      "sha256": "00d94d3e01107da7cc042851eadd589977ca48c1e69eb558df4990778a0c54e6"
+    },
+    {
+      "id": "ntf-sms-twilio-alert",
+      "name": "Send an SMS Alert (Twilio)",
+      "description": "Send a scheduled text message through the Twilio API — an alert channel for anyone who wants a message on their phone rather than a chat webhook or an email.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "sms",
+        "twilio",
+        "alert"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/ntf-sms-twilio-alert.json",
+      "sha256": "c5cf1c9acd1f20de46ae5d4c927d837365691621115e6b0c0f8151e476934bd6"
+    },
+    {
+      "id": "sys-certbot-renew",
+      "name": "Renew SSL Certificates (Certbot)",
+      "description": "Run certbot renew on a schedule so Let’s Encrypt certificates renew themselves before they expire. This renews — pair it with an expiry check for the alert half.",
+      "category": "system",
+      "tags": [
+        "system",
+        "macos",
+        "ssl",
+        "certbot",
+        "renewal"
+      ],
+      "runtime": "executable",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/sys-certbot-renew.json",
+      "sha256": "5e2a1f76e05ee32c2ed5914e349f4fbb8e5213284f5ba0a0b635090bc8d6e81c"
+    },
+    {
+      "id": "sys-postgres-vacuum",
+      "name": "Postgres Vacuum & Analyze",
+      "description": "Run VACUUM ANALYZE against a PostgreSQL database on a schedule to reclaim bloat and keep the query planner’s statistics current — routine maintenance, not a backup.",
+      "category": "system",
+      "tags": [
+        "system",
+        "database",
+        "postgres",
+        "maintenance"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "windows",
+        "macos"
+      ],
+      "path": "templates/sys-postgres-vacuum.json",
+      "sha256": "5ba52c4b35344557c573468f95cb9374e15191c58e8d01f148535cdf0a8b8314"
+    },
+    {
+      "id": "mon-top-processes",
+      "name": "Log Top Processes by CPU",
+      "description": "Append the highest CPU-consuming processes to a log file on an interval, so a machine that suddenly runs hot has a paper trail of what was busy.",
+      "category": "monitoring",
+      "tags": [
+        "monitoring",
+        "windows",
+        "cpu",
+        "processes"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/mon-top-processes.json",
+      "sha256": "7f9cb89a3e66cd66e9513dc765252c2aa2682f5f929e7ef501c2aec91ac7ea6e"
+    },
+    {
+      "id": "native-run-program",
+      "name": "Run a Program (Cronsole)",
+      "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "executable"
+      ],
+      "isStarter": true,
+      "core": true,
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-run-program.json",
+      "sha256": "20780c8d9332956bb75c61f61466de41f556ecea55f33ea6eac9be050dbf45ee"
+    },
+    {
+      "id": "native-node-script",
+      "name": "Node Script (Cronsole)",
+      "description": "Run a Node.js script on the Cronsole host on a schedule.",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "node"
+      ],
+      "isStarter": true,
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-node-script.json",
+      "sha256": "9d9c4cfe63ba3e2f59927d27d9fdf89c775b66fcbc745703d8955d3afd5f2069"
+    },
+    {
+      "id": "native-python-script",
+      "name": "Python Script (Cronsole)",
+      "description": "Run a Python script on the Cronsole host on a schedule.",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "python"
+      ],
+      "isStarter": true,
+      "runtime": "python",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-python-script.json",
+      "sha256": "4aadd3aabf3bca60780ebd647a0459f046858089aebbf9aa0ba5583c1686649c"
+    },
+    {
+      "id": "native-git-pull",
+      "name": "Keep a Repo Fresh (Cronsole)",
+      "description": "Pull the latest commits into a local repository on the Cronsole host — the agent-free version of Git Sync.",
+      "category": "dev-workflow",
+      "tags": [
+        "cronsole-native",
+        "git",
+        "sync"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-git-pull.json",
+      "sha256": "2dedb8f75c12be12f79fee36895581a79ae4c7df266ef579e15c2a639ffea031"
+    },
+    {
+      "id": "native-http-uptime-check",
+      "name": "Uptime Check (Cronsole)",
+      "description": "Call a URL every few minutes and record whether it answered. Runs in Cronsole itself — no agent, and it works on a machine with no Task Scheduler.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "http",
+        "monitoring",
+        "uptime"
+      ],
+      "core": true,
+      "runtime": "http",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-http-uptime-check.json",
+      "sha256": "95fd51b6bd9792aee2bf84df284455b9bf488594da0a4408a0501c8177952668"
+    },
+    {
+      "id": "native-http-heartbeat",
+      "name": "Monitor Heartbeat (Cronsole)",
+      "description": "Ping a dead-man’s-switch URL (Healthchecks.io, Better Stack, Cronitor) on a schedule so an outside monitor notices when Cronsole itself stops.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "http",
+        "monitoring",
+        "heartbeat"
+      ],
+      "runtime": "http",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-http-heartbeat.json",
+      "sha256": "d3801cb6b6d7c6261b13575252ba5908e6ad72068d6c0fe6682016d5f7a34654"
+    },
+    {
+      "id": "native-ffmpeg-transcode",
+      "name": "Transcode Video (ffmpeg)",
+      "description": "Re-encode a video file to H.264 with ffmpeg on the machine hosting Cronsole, useful for shrinking recordings dropped into a watch folder before they pile up on disk.",
+      "category": "media",
+      "tags": [
+        "cronsole-native",
+        "media",
+        "video",
+        "ffmpeg"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-ffmpeg-transcode.json",
+      "sha256": "cade8d13f01b8b5de34f8197c4e989ea19787030fbda1d22bf1fa8ddd4ae822c"
+    },
+    {
+      "id": "native-image-resize",
+      "name": "Resize Images in a Folder (ImageMagick)",
+      "description": "Batch-resize every image matching a pattern to a maximum width using ImageMagick, on the machine hosting Cronsole — a way to keep a photo drop folder from filling disk with full-resolution originals.",
+      "category": "media",
+      "tags": [
+        "cronsole-native",
+        "media",
+        "images",
+        "imagemagick"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-image-resize.json",
+      "sha256": "c6e2bfdcb6104a2a0fa8d0cffaec8522752819b6edd84aebc56ab8e51bdaf9f7"
+    },
+    {
+      "id": "native-script-starter",
+      "name": "Write a Script (Cronsole)",
+      "description": "A starting point for a scheduled script you write in Cronsole itself. Nothing needs to exist on disk — the body is stored with the task and runs under the interpreter you pick.",
+      "category": "other",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "starter"
+      ],
+      "isStarter": true,
+      "core": true,
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-starter.json",
+      "sha256": "cf2fd7d8dfe13a851b7742812ea39432e7303ca6ac290adc2a0e5fb31a1aef3f"
+    },
+    {
+      "id": "native-script-powershell-disk-report",
+      "name": "PowerShell Disk Report (Cronsole)",
+      "description": "Print free space for every fixed drive on the Cronsole host, so the numbers land in the run history and you can read them back over time.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "powershell",
+        "monitoring",
+        "disk"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-powershell-disk-report.json",
+      "sha256": "fed85c228fb8cdf0d6c86203535635f4714d2467f0e66c3524207dd1a1085f21"
+    },
+    {
+      "id": "native-check-endpoint-healthy",
+      "name": "Endpoint Health Check (Cronsole)",
+      "description": "Call a URL and require the response to actually say it is healthy — not just return 200. A failure here is a fact about your system, so it is worth alerting on.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "uptime"
+      ],
+      "core": true,
+      "runtime": "http",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-endpoint-healthy.json",
+      "sha256": "c1e465e4299e49fbb92c4a48ba56be599b34f85f9fd297bb24d7a70917d43933"
+    },
+    {
+      "id": "native-check-backup-fresh",
+      "name": "Backup Freshness Check (Cronsole)",
+      "description": "Fail if a backup file has not been written recently — the dead-man switch for a job that stopped silently. A missing file fails too.",
+      "category": "backup",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "backup",
+        "monitoring"
+      ],
+      "core": true,
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-backup-fresh.json",
+      "sha256": "ab9efcff89fd2101dbc1babeba0d3d262d874ca603a59bdb36250c52bcb9c0ae"
+    },
+    {
+      "id": "native-check-disk-space",
+      "name": "Disk Space Check (Cronsole)",
+      "description": "Fail when free space on a volume drops below your floor, so you hear about it before something else fails for a reason that looks unrelated.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "disk"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-disk-space.json",
+      "sha256": "34ecacbfe3d7ba2be19532c364b0ac1cd76171425a3ec95f0a1b330e8fd377b2"
+    },
+    {
+      "id": "native-script-ssl-cert-expiry",
+      "name": "SSL Certificate Expiry Check (Cronsole)",
+      "description": "Connect to a host over TLS and fail the run when its certificate expires within your warning window. Cronsole has no certificate probe yet, so this uses a Node script and the built-in tls module rather than a check job.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "monitoring",
+        "ssl",
+        "tls",
+        "certificate"
+      ],
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-ssl-cert-expiry.json",
+      "sha256": "929f2101a23d17f8b9602ef8903af4f8e85ecfd61c87a0674f683e6f75008265"
+    },
+    {
+      "id": "native-check-port-open",
+      "name": "Port Reachable Check (Cronsole)",
+      "description": "Confirm something still accepts connections on a host and port — a database, a broker, an internal service with no HTTP endpoint to call.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "check",
+        "monitoring",
+        "network"
+      ],
+      "runtime": "executable",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-check-port-open.json",
+      "sha256": "30bf12839dcb69167dcdb14518f18f0fdb8bcface08ddb200fccff3fc2a14836"
+    },
+    {
+      "id": "native-script-pending-reboot",
+      "name": "Pending Reboot Check (Cronsole)",
+      "description": "Fail the run when Windows has installed updates that need a restart to finish — the gap between kicking off an update scan and actually knowing a reboot is owed.",
+      "category": "system",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "system",
+        "windows",
+        "updates"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-pending-reboot.json",
+      "sha256": "f718f606c472f4c5b55b3df40c263b1fd0d1b25935dc9de7438bac80c82cbe65"
+    },
+    {
+      "id": "claude-routine-issue-triage",
+      "name": "Routine: Issue Triage",
+      "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "github",
+        "triage"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-issue-triage.json",
+      "sha256": "7c63080e77ac22d51be02f8f0c8dddd2c9bed3209b18f50110df1a55d652eeae"
+    },
+    {
+      "id": "claude-routine-dependency-review",
+      "name": "Routine: Dependency Review",
+      "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "dependencies",
+        "security"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-dependency-review.json",
+      "sha256": "f328f30effdc424528e209d41313412e02eb50c15dfb1e41f036587b302e0b64"
+    },
+    {
+      "id": "claude-routine-ci-failure-digest",
+      "name": "Routine: CI Failure Digest",
+      "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+      "category": "monitoring",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "ci",
+        "tests"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-ci-failure-digest.json",
+      "sha256": "378c643db203cac4b3c4e76a62df31bb8af221c98758916cee465f9f94e51ca2"
+    },
+    {
+      "id": "claude-routine-docs-drift",
+      "name": "Routine: Docs Drift Check",
+      "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "docs"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-docs-drift.json",
+      "sha256": "65261cefbf946af81ae8b35ad60d652d9cf6133202003c13b227fcf38a299831"
+    },
+    {
+      "id": "claude-routine-standup-digest",
+      "name": "Routine: Standup Digest",
+      "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "digest",
+        "report"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-standup-digest.json",
+      "sha256": "9e029cda298c06c1b0a80f539f3a35666df068f1b6329b8912dda5c6d692a4c8"
+    },
+    {
+      "id": "claude-routine-release-notes",
+      "name": "Routine: Release Notes Draft",
+      "description": "A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "claude-code",
+        "routine",
+        "release",
+        "changelog"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "claude-code"
+      ],
+      "path": "templates/claude-routine-release-notes.json",
+      "sha256": "cdaeed4fa658155b66558cafc09f2c578a4b63e88834b37f07dab1ab9134bea9"
+    },
+    {
+      "id": "gemini-daily-email-digest",
+      "name": "Trigger: Daily Digest by Email",
+      "description": "A Gemini trigger that researches a topic every morning and emails the digest through one of your saved MCP servers -- the credential stays on the connection and is never retyped.",
+      "category": "ai-agent",
+      "tags": [
+        "ai",
+        "gemini",
+        "trigger",
+        "digest",
+        "email"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "gemini"
+      ],
+      "path": "templates/gemini-daily-email-digest.json",
+      "sha256": "35d8e5ed6ff37174e082e8ff05569cec27bf85377edbad37d1de0ea1a7646a73"
+    },
+    {
+      "id": "gemini-weekly-repo-report",
+      "name": "Trigger: Weekly Repo Report",
+      "description": "A Gemini trigger that reads a public repository once a week and reports what shipped, what stalled, and what a user of the project would notice.",
+      "category": "dev-workflow",
+      "tags": [
+        "ai",
+        "gemini",
+        "trigger",
+        "report",
+        "github"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "gemini"
+      ],
+      "path": "templates/gemini-weekly-repo-report.json",
+      "sha256": "460f688bbb8161166084cc93ef6f4a19cb5e99815a50779d91586ae7b2b3621a"
+    },
+    {
+      "id": "gemini-page-watch",
+      "name": "Trigger: Page Watch",
+      "description": "A Gemini trigger that reads one page every day and reports only what changed since yesterday -- a pricing page, a status page, a changelog.",
+      "category": "monitoring",
+      "tags": [
+        "ai",
+        "gemini",
+        "trigger",
+        "monitoring",
+        "watch"
+      ],
+      "runtime": "ai-prompt",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "gemini"
+      ],
+      "path": "templates/gemini-page-watch.json",
+      "sha256": "493074e3077d82c85cba04a5f956cf2b5a89eec388cecb41dd33c674ee882681"
+    }
+  ],
+  "packs": [
+    {
+      "id": "starters",
+      "name": "Script Starters",
+      "description": "Blank-slate primitives for PowerShell, Bash, Python, Node, executables and HTTP — the fastest way to schedule any command.",
+      "templateIds": [
+        "tpl_starter_powershell_script",
+        "tpl_starter_powershell_inline",
+        "tpl_starter_batch_script",
+        "tpl_starter_python_windows",
+        "tpl_starter_node_windows",
+        "tpl_starter_run_exe",
+        "tpl_starter_webhook_windows",
+        "tpl_starter_vbscript",
+        "tpl_starter_zsh_script",
+        "tpl_starter_bash_script",
+        "tpl_starter_python_macos",
+        "tpl_starter_node_macos",
+        "tpl_starter_applescript",
+        "tpl_starter_shell_inline_macos",
+        "tpl_starter_webhook_macos",
+        "tpl_starter_python_cross",
+        "tpl_starter_node_cross",
+        "tpl_starter_git_sync",
+        "tpl_starter_claude_routine",
+        "tpl_starter_chatgpt_link"
+      ],
+      "path": "packs/starters.json",
+      "sha256": "6f45e6f6215e0ac4310d7e2996fefb876d6ccff221487db8d183fdaefc1a250d"
+    },
+    {
+      "id": "developer",
+      "name": "Developer Pack",
+      "description": "Keep repos fresh and toolchains healthy: git hygiene, npm checks, builds, tests, Docker upkeep.",
+      "templateIds": [
+        "dev-git-fetch-prune",
+        "dev-git-maintenance",
+        "dev-git-autocommit-push",
+        "dev-npm-outdated-check",
+        "dev-npm-nightly-build",
+        "dev-npm-test-run",
+        "dev-dotnet-build",
+        "dev-docker-prune",
+        "dev-docker-compose-up",
+        "tpl_github_pr_triage",
+        "tpl_starter_git_sync"
+      ],
+      "path": "packs/developer.json",
+      "sha256": "8ac7965bfde93aa10403aa486a6be0eaacd9ccbfc2ce16772789ac7911e70a55"
+    },
+    {
+      "id": "ai-agents",
+      "name": "AI & Agents",
+      "description": "Run Claude Code and Codex unattended — headless prompts, repo digests, autofix — plus AI prompt patterns.",
+      "templateIds": [
+        "ai-claude-headless-run",
+        "ai-claude-repo-digest",
+        "ai-claude-autofix-commit",
+        "ai-claude-log-cleanup",
+        "ai-codex-headless-run",
+        "ai-codex-repo-digest",
+        "ai-codex-autofix-workspace",
+        "tpl_morning_news_digest",
+        "tpl_github_pr_triage",
+        "tpl_starter_claude_routine",
+        "tpl_starter_chatgpt_link"
+      ],
+      "path": "packs/ai-agents.json",
+      "sha256": "b95c6f8d76ab3780974029405e94fb25538eb00a7be924517fa19e18ec9e0505"
+    },
+    {
+      "id": "backup-cleanup",
+      "name": "Backup & Cleanup",
+      "description": "Protect data and reclaim disk: scheduled database backups, folder mirrors, temp-file sweeps, and log rotation.",
+      "templateIds": [
+        "tpl_daily_database_backup",
+        "tpl_weekly_system_cleanup",
+        "bkp-folder-zip",
+        "bkp-robocopy-mirror",
+        "bkp-registry-export",
+        "bkp-system-restore-point",
+        "cln-old-files",
+        "cln-recycle-bin",
+        "dev-docker-prune",
+        "ai-claude-log-cleanup",
+        "sys-postgres-vacuum"
+      ],
+      "path": "packs/backup-cleanup.json",
+      "sha256": "efa5c2f7e781d5473a4f56e4bd398bc2edd2a6c2665479cca4aed61d3b1c57a7"
+    },
+    {
+      "id": "monitoring",
+      "name": "Monitoring",
+      "description": "Watch what matters — health checks, webhooks, disk reports, and status pings on a schedule.",
+      "templateIds": [
+        "mon-disk-report",
+        "mon-ping-host",
+        "mon-service-health",
+        "mon-log-error-scan",
+        "mon-failed-scheduled-tasks",
+        "mon-top-processes",
+        "dev-docker-compose-up",
+        "tpl_starter_webhook_windows",
+        "tpl_starter_webhook_macos"
+      ],
+      "path": "packs/monitoring.json",
+      "sha256": "6e94520a62acb8e1896634cf836b1a48b644bc0a6faf0d3e64730983997481f3"
+    },
+    {
+      "id": "cronsole-native",
+      "name": "Cronsole Native",
+      "description": "Jobs Cronsole schedules and runs itself — no agent, no Task Scheduler entry. Programs and scripts on the Cronsole host, plus HTTP uptime checks and heartbeats.",
+      "templateIds": [
+        "native-run-program",
+        "native-node-script",
+        "native-python-script",
+        "native-git-pull",
+        "native-http-uptime-check",
+        "native-http-heartbeat",
+        "native-script-starter",
+        "native-script-powershell-disk-report",
+        "native-script-ssl-cert-expiry",
+        "native-check-endpoint-healthy",
+        "native-check-backup-fresh",
+        "native-check-disk-space",
+        "native-check-port-open",
+        "native-script-pending-reboot",
+        "native-ffmpeg-transcode",
+        "native-image-resize"
+      ],
+      "path": "packs/cronsole-native.json",
+      "sha256": "b30447e6b1250aec0dd322436ce3264d10b9d78c41e589372ddccdc1e0698857"
+    },
+    {
+      "id": "claude-routines",
+      "name": "Claude Routines",
+      "description": "Scheduled Claude Code routines — cloud-run prompts against your repositories: issue triage, dependency review, CI digests, docs drift, standups.",
+      "templateIds": [
+        "claude-routine-issue-triage",
+        "claude-routine-dependency-review",
+        "claude-routine-ci-failure-digest",
+        "claude-routine-docs-drift",
+        "claude-routine-standup-digest",
+        "claude-routine-release-notes",
+        "tpl_starter_claude_routine"
+      ],
+      "path": "packs/claude-routines.json",
+      "sha256": "9f4e7b9cfaf667f0774c012ee716602d317f14603f1c5f3e32d27c36838661eb"
+    },
+    {
+      "id": "gemini-triggers",
+      "name": "Gemini Triggers",
+      "description": "Scheduled Gemini agents - a prompt Google runs in its own sandbox: a morning digest emailed through a saved MCP server, a weekly repository report, a daily page watch.",
+      "templateIds": [
+        "gemini-daily-email-digest",
+        "gemini-weekly-repo-report",
+        "gemini-page-watch"
+      ],
+      "path": "packs/gemini-triggers.json",
+      "sha256": "764d90acd8585188e6aee8f9b4069ed3e5ce6fb446e13d6d64b504e853949aa9"
+    },
+    {
+      "id": "system-utilities",
+      "name": "System & Utilities",
+      "description": "Windows housekeeping and plumbing: service restarts, DNS flushes, update scans, battery and event-log reports, cloud sync, and heartbeats.",
+      "templateIds": [
+        "sys-restart-service",
+        "sys-defender-scan",
+        "sys-flush-dns",
+        "sys-update-scan",
+        "sys-battery-report",
+        "sys-scheduled-reboot",
+        "data-export-eventlog",
+        "data-rclone-sync",
+        "data-scp-upload",
+        "ntf-discord-heartbeat",
+        "ntf-log-heartbeat",
+        "ntf-windows-broadcast-message",
+        "ntf-email-alert",
+        "ntf-sms-twilio-alert",
+        "sys-certbot-renew"
+      ],
+      "path": "packs/system-utilities.json",
+      "sha256": "88dda23dae0e7e7a24d4638fb952b95d7eebbd869d5e09878fd4514e172a06ec"
+    }
+  ]
+}

@@ -1,0 +1,295 @@
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
+import { taskDetailRoute } from '../../utils/taskRoute';
+import { useQuery } from '@tanstack/react-query';
+import { Activity, AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, ChevronUp, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
+import { api } from '../../api';
+import { HelpButton } from '../HelpButton';
+import { ToolCard } from './ToolCard';
+
+export type HealthTier = 'ok' | 'attention' | 'critical' | 'unknown';
+
+export interface HealthSignal {
+  code: string;
+  severity: 'critical' | 'warn' | 'info';
+  summary: string;
+  evidence: string;
+  weight: number;
+}
+
+export interface TaskHealth {
+  taskId: string;
+  name: string;
+  platform: string;
+  category: string;
+  /** Windows' own task, per the server's single definition. */
+  isSystem: boolean;
+  tier: HealthTier;
+  score: number | null;
+  signals: HealthSignal[];
+}
+
+interface HealthResponse {
+  evaluatedAt: string;
+  counts: { tasks: number; critical: number; attention: number; unknown: number; ok: number };
+  tasks: TaskHealth[];
+}
+
+const TIER_STYLE: Record<Exclude<HealthTier, 'ok'>, { label: string; dot: string; text: string }> = {
+  critical: { label: 'Critical', dot: 'bg-danger', text: 'text-danger-text' },
+  attention: { label: 'Attention', dot: 'bg-warning', text: 'text-warning-text' },
+  unknown: { label: 'Unknown', dot: 'bg-neutral-text', text: 'text-neutral-text' }
+};
+
+/**
+ * "Which of my tasks need attention?" — the question a 350-row dashboard cannot
+ * answer by scrolling.
+ *
+ * It lives on the **Tools** tab rather than the Dashboard: it reads across every
+ * task and acts on none, which is exactly what that tab is for, and a panel this
+ * tall was taking over the main content area on the one screen people use to do
+ * actual work.
+ *
+ * The design rule it exists to honor: **a score is a claim, so it never appears
+ * without its evidence.** Every row expands to the signals that produced it, and
+ * each signal names the field it came from. The number is labelled as a ranking,
+ * because that is all it is.
+ *
+ * `unknown` is its own tier rather than folded into "fine". A task Cronsole has no
+ * run evidence for is not healthy — it is unmeasured, and saying so is the
+ * difference between a dashboard and a reassurance.
+ */
+export const TaskHealthTool = () => {
+  const navigate = useNavigate();
+  // Same round trip as every other task-detail opener: closing returns here.
+  const location = useLocation();
+  const openTask = (taskId: string) => {
+    const r = taskDetailRoute(taskId, location);
+    navigate(r.to, r.options);
+  };
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  // Collapsed by default — the summary answers the question; the list is opt-in.
+  const [open, setOpen] = useState(false);
+  const [includeSystem, setIncludeSystem] = useState(false);
+
+  const { data, isLoading, error } = useQuery<HealthResponse>({
+    queryKey: ['task-health'],
+    queryFn: async () => (await api.get('/tools/task-health')).data
+  });
+
+  // Windows' own tasks are excluded by default, the same way the dashboard's
+  // Personal lens excludes them. Live testing made the case: on a real machine
+  // 4 of the 5 worst-scoring tasks were `\Microsoft\` entries the user will
+  // never act on — precisely the burial the lens exists to stop. They stay
+  // reachable behind the toggle, with the count named, because silently
+  // dropping 99 rows is the other half of the same mistake.
+  // ONE population, and every number below is drawn from it.
+  //
+  // This used to take three tiers from the personal-filtered list and the
+  // fourth (`Healthy`) from `data.counts.ok`, which is the whole machine. On a
+  // real 352-task box that printed `12 / 25 / 1 / 218` under the label "across
+  // 352 tasks" — a row summing to 256, mixing 38 personal tasks with 218 of
+  // everyone's. Mixing populations in one row is the same class of error as
+  // two mechanisms answering one question: nothing throws, and the numbers
+  // quietly stop describing anything.
+  //
+  // The server's `counts` are deliberately no longer read here. They summarize
+  // every task, and this card is scoped; keeping them as a shortcut for one
+  // tile is exactly how the two drifted apart.
+  const all = data?.tasks ?? [];
+  const scoped = includeSystem ? all : all.filter(t => !t.isSystem);
+  const systemHidden = includeSystem ? 0 : all.filter(t => t.isSystem).length;
+
+  const visible = scoped.filter(t => t.tier !== 'ok');
+  const shown = showAll ? visible : visible.slice(0, 6);
+
+  const critical = visible.filter(t => t.tier === 'critical').length;
+  const attention = visible.filter(t => t.tier === 'attention').length;
+  const unknown = visible.filter(t => t.tier === 'unknown').length;
+  const healthy = scoped.length - visible.length;
+
+  return (
+    <ToolCard
+      icon={Activity}
+      title="Task health"
+      titleAdornment={<HelpButton topic="task-health" />}
+      description={<>
+        Which tasks need attention, and the evidence behind each verdict — read from
+        Windows' own run results, not just Cronsole's records.
+      </>}
+    >
+
+      {isLoading && (
+        <div className="text-xs text-muted-foreground flex items-center gap-2">
+          <Loader2 size={14} className="animate-spin" /> Checking every task…
+        </div>
+      )}
+
+      {error && (
+        <div className="text-sm rounded-xl border border-warning/40 bg-warning/10 text-warning-text px-4 py-3">
+          Couldn't read task health right now.
+        </div>
+      )}
+
+      {data && (
+        <>
+          {/* The summary IS the default view. A card on a utility tab should
+              answer its question in one glance; the per-task detail is a
+              deliberate second click, not something that fills the tab.
+
+              Plain flow, no `flex-1` and no centring. Both were there to place
+              this block inside a card stretched to match a taller neighbour;
+              with one card per row the card is its own height and there is no
+              slack to distribute. Centring nothing still costs nothing, but it
+              reads as a rule that is doing something. */}
+          <div className="flex flex-col gap-3 border-t border-border pt-3">
+          {/* `data-testid` so the visual suite can mask it: these four numbers are
+              live task health, and an unmasked live count inside "static chrome"
+              is what made the Tools baseline fail on a digit change. */}
+          <div className="grid grid-cols-4 gap-2" data-testid="task-health-counts">
+            {[
+              { label: 'Critical', value: critical, className: 'text-danger-text' },
+              { label: 'Attention', value: attention, className: 'text-warning-text' },
+              { label: 'Unmeasured', value: unknown, className: 'text-neutral-text' },
+              { label: 'Healthy', value: healthy, className: 'text-success-text' }
+            ].map(stat => (
+              <div key={stat.label} className="text-center">
+                <div className={`text-2xl font-bold tabular-nums ${stat.value === 0 ? 'text-subtle-foreground' : stat.className}`}>
+                  {stat.value}
+                </div>
+                <div className="text-[10px] uppercase tracking-wide text-subtle-foreground font-semibold">
+                  {stat.label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
+            <span className="text-muted-foreground">
+              across {scoped.length} task{scoped.length === 1 ? '' : 's'}
+            </span>
+            {(systemHidden > 0 || includeSystem) && (
+              <button
+                onClick={() => { setIncludeSystem(!includeSystem); setShowAll(false); }}
+                aria-pressed={includeSystem}
+                className="font-semibold text-subtle-foreground hover:text-foreground transition-colors"
+              >
+                {includeSystem ? "Hide Windows' own" : `${systemHidden} system hidden`}
+              </button>
+            )}
+          </div>
+          </div>
+
+          <div className="pt-1">
+            {visible.length === 0 ? (
+              <div className="flex items-center gap-1.5 text-xs text-success-text font-semibold">
+                <ShieldCheck size={13} /> Nothing needs attention
+              </div>
+            ) : (
+              <button
+                onClick={() => { setOpen(!open); setShowAll(false); setExpanded(null); }}
+                aria-expanded={open}
+                className="w-full bg-background border border-border hover:border-primary px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+              >
+                {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                {open
+                  ? 'Hide the list'
+                  : `Show ${visible.length} task${visible.length === 1 ? '' : 's'} needing attention`}
+              </button>
+            )}
+          </div>
+
+          {open && visible.length > 0 && (
+            <ul className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-96 overflow-y-auto">
+              {shown.map(health => {
+                const style = TIER_STYLE[health.tier as Exclude<HealthTier, 'ok'>];
+                const isOpen = expanded === health.taskId;
+
+                return (
+                  <li key={health.taskId}>
+                    <button
+                      onClick={() => setExpanded(isOpen ? null : health.taskId)}
+                      aria-expanded={isOpen}
+                      className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-background/50 transition-colors"
+                    >
+                      {isOpen ? <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
+                              : <ChevronRight size={14} className="shrink-0 text-muted-foreground" />}
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${style.dot}`} aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold truncate">{health.name}</span>
+                        <span className="block text-xs text-muted-foreground truncate">
+                          {/* The headline signal, never the score on its own. */}
+                          {health.signals.find(s => s.severity !== 'info')?.summary ??
+                            health.signals[0]?.summary ??
+                            'No run evidence yet.'}
+                        </span>
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wide shrink-0 ${style.text}`}>
+                        {style.label}
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-4 pb-4 pl-11 space-y-2">
+                        {health.signals.map(signal => (
+                          <div key={signal.code} className="text-xs">
+                            <div className="flex items-start gap-1.5">
+                              {signal.severity === 'critical' && <AlertOctagon size={12} className="mt-0.5 shrink-0 text-danger-text" />}
+                              {signal.severity === 'warn' && <AlertTriangle size={12} className="mt-0.5 shrink-0 text-warning-text" />}
+                              {signal.severity === 'info' && <HelpCircle size={12} className="mt-0.5 shrink-0 text-muted-foreground" />}
+                              <span className="font-medium">{signal.summary}</span>
+                            </div>
+                            {/* The evidence is the point. A claim without its source
+                                is what this whole feature exists not to be. */}
+                            <div className="text-muted-foreground pl-[1.125rem] mt-0.5">{signal.evidence}</div>
+                          </div>
+                        ))}
+
+                        <div className="flex items-center justify-between gap-3 pt-1">
+                          <span className="text-[11px] text-subtle-foreground">
+                            Ranking score {health.score ?? '—'}{health.score !== null && '/100'} · orders this list, doesn't grade the task
+                          </span>
+                          <button
+                            onClick={() => openTask(health.taskId)}
+                            className="text-xs font-semibold text-primary hover:underline shrink-0"
+                          >
+                            Open task
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+
+              {visible.length > shown.length && (
+                <li>
+                  <button
+                    onClick={() => setShowAll(true)}
+                    className="w-full px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Show {visible.length - shown.length} more
+                  </button>
+                </li>
+              )}
+            </ul>
+          )}
+
+          {/* A way back out from the bottom. Once the whole list is open the
+              control that opened it has scrolled out of reach, and making
+              someone scroll up to close what they scrolled down to read is the
+              kind of small rudeness nobody reports and everybody feels. */}
+          {open && showAll && visible.length > 0 && (
+            <button
+              onClick={() => { setShowAll(false); setOpen(false); setExpanded(null); }}
+              className="w-full text-xs font-semibold text-muted-foreground hover:text-foreground border-t border-border pt-4 flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <ChevronUp size={13} /> Collapse
+            </button>
+          )}
+        </>
+      )}
+    </ToolCard>
+  );
+};

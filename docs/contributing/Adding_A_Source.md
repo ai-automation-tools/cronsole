@@ -33,7 +33,7 @@ in this document rather than in a reply three days later.
 
 ## 🧭 Before you write anything
 
-**Open a [source proposal issue](https://github.com/michaelschecht/cronsole/issues/new?template=new_source.md)
+**Open a [source proposal issue](https://github.com/ai-automation-tools/cronsole/issues/new?template=new_source.md)
 first.** It takes five minutes and asks the four questions that decide whether the connector is worth
 building — which shape it is, what its auth surface is, which verbs it can honestly support, and
 whether the platform reports run outcomes. Every one of those is cheap to answer in prose and

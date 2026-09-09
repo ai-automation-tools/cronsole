@@ -21,9 +21,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/michaelschecht/cronsole/issues">Report Bug</a>
+  <a href="https://github.com/ai-automation-tools/cronsole/issues">Report Bug</a>
   ·
-  <a href="https://github.com/michaelschecht/cronsole/issues">Request Feature</a>
+  <a href="https://github.com/ai-automation-tools/cronsole/issues">Request Feature</a>
 </p>
 
 <p align="center">
@@ -155,7 +155,7 @@ Full detail, dated and prioritized, in the [**Roadmap**](docs/ROADMAP.md).
 1. Clone the repo:
 
    ```bash
-   git clone https://github.com/michaelschecht/cronsole.git
+   git clone https://github.com/ai-automation-tools/cronsole.git
    cd cronsole
    ```
 

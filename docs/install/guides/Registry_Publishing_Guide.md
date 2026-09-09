@@ -98,7 +98,7 @@ The steps below are written for the registry key. Repeat them with `cronsole-sit
    `registry-deploy-key.pub`, and **tick "Allow write access"** — without it the push fails at the
    last step with a permission error that reads like a bad key.
 
-3. **Add the private half to the source repo.** In `michaelschecht/cronsole` →
+3. **Add the private half to the source repo.** In `ai-automation-tools/cronsole` →
    *Settings → Secrets and variables → Actions → New repository secret*. Name it exactly
    **`REGISTRY_DEPLOY_KEY`** and paste the entire contents of `registry-deploy-key`, including the
    `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END …-----` lines and the trailing newline.

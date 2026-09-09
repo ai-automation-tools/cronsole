@@ -17,7 +17,7 @@ sure the common prerequisites are in place, then continue with the guide for you
 ## 1. Clone
 
 ```bash
-git clone https://github.com/michaelschecht/cronsole.git
+git clone https://github.com/ai-automation-tools/cronsole.git
 cd cronsole
 ```
 

@@ -37,6 +37,22 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The repo moved to the `ai-automation-tools` organization** (2026-09-09). It is now
+  `ai-automation-tools/cronsole`; the old path redirects. Every bare `michaelschecht/cronsole`
+  reference was repointed across 14 files — issue templates, `DOCS_BASE` (the in-app `?` deep-links),
+  the Settings and Help links, the gallery page, the clone commands and the docs.
+
+  **The two publish workflows were deliberately left alone.** They target
+  `michaelschecht/cronsole-registry` and `-site`, which **stay on the personal account** — the
+  registry borrows the apex domain and its URL is frozen. So an org-owned repo now pushes to two
+  personal repos by SSH deploy key on every merge to `main`. That authenticates with the deploy key
+  rather than `GITHUB_TOKEN`, so org Actions policy does not govern it, and the org allows all
+  actions — but it is unproven until a publish actually runs. The daily drift workflows are the
+  canary.
+
+  Everything survived the transfer: visibility, Discussions, both Actions secrets, and branch
+  protection with all six required checks.
+
 - **Two live credentials were found in git history, and both are now revoked** (2026-09-09,
   troubleshooting #89). The 2026-07-13 audit called history clean. A full scan of all 9,269 objects
   with the repo's own `scripts/secret-patterns.mjs` found two it had missed: a **Google API key**

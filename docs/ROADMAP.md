@@ -1017,12 +1017,23 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 
 ### Repo goes public
 
-- [~] **Secret & history audit** — audit clean *(2026-07-13)*; personal machine paths scrubbed from
-      all nine tracked files that carried them, and the two publish scripts' `-WorkDir` defaults
-      turned into `CRONSOLE_REGISTRY_CLONE` / `CRONSOLE_SITE_CLONE` with the existing `%TEMP%`
-      fallback as the default *(2026-09-09)*. **Left:** squash to a fresh public root at publish
-      time. *(History still holds the old paths and one personal email — the squash is what removes
-      them, which is why it is a publish-time step rather than a doc edit.)*
+- [x] **Secret & history audit** — **closed 2026-09-09.** The 2026-07-13 pass called history clean;
+      a full scan of all 9,269 objects with the repo's own `scripts/secret-patterns.mjs` found **two
+      real credentials** it had missed, both now dead:
+      a Google API key inside an abandoned AI-Studio zip committed at the initial commit (deleted in
+      its GCP project — Firebase-scoped, no Gemini API, application restrictions **None**), and a dev
+      JWT hardcoded in `Dashboard.tsx` with a **2036** expiry (answers `403` against the live backend,
+      whose `JWT_SECRET` is not the compose dev default it was signed with). Everything else that
+      matched was a test fixture or prose naming a header line.
+      Personal machine paths were scrubbed from all nine tracked files that held them, and the repo was
+      **squashed to a single public root** (633 commits → 1; full history preserved locally at
+      `cronsole-pre-squash-2026-09-09.bundle`, verified complete).
+      **The squash does not remove the old history from GitHub** and nothing says so: 231
+      `refs/pull/*/head` refs still serve it, and every check you would run — commit count, branch
+      list, `git log` — reports success
+      ([#89](troubleshooting/README.md#89-you-squash-the-repo-to-a-fresh-public-root-and-the-old-history-is-still-downloadable)).
+      That is acceptable **only because both credentials are revoked**, which was always the step that
+      mattered. Dropping those refs would mean deleting and recreating the repo; not worth 231 PRs.
 - [~] **Repo hygiene for outsiders** — done *(2026-07-13)*. **Left:** branch protection on `main`
       (a GitHub setting; do it at publish).
 - [~] **Community scaffolding** — `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates and the

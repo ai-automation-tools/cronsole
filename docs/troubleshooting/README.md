@@ -5969,6 +5969,61 @@ order and wall-clock edit order are not the same thing.
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
 ---
+## 89. You squash the repo to a fresh public root and the old history is still downloadable
+
+**Symptom.** Preparing to go public, you squash the whole repo into one orphan commit, force-push it
+over `main`, and delete every other branch. `git rev-list --count HEAD` says `1`. The GitHub UI shows
+one commit. Everything looks done — and the pre-squash history, including whatever you squashed it to
+remove, is still fetchable by anyone who can read the repo.
+
+```bash
+git ls-remote origin | wc -l          # 233, on a repo with ONE branch
+git fetch origin refs/pull/1/head
+git cat-file -p FETCH_HEAD:src/templates/some-old.zip | wc -c   # 283338 - still there
+```
+
+**Cause.** GitHub creates a **permanent `refs/pull/<n>/head` ref for every pull request ever opened**,
+and those refs are not branches. Deleting branches does not touch them, force-pushing `main` does not
+touch them, and nothing in the UI lists them. Each one pins the commit it pointed at, which keeps that
+commit's entire ancestry reachable. 231 merged PRs meant 231 independent copies of the history the
+squash was supposed to destroy.
+
+The failure is silent in the specific way that matters: **every check you would naturally run reports
+success.** The commit count is 1. The branch list is one entry. `git log` is one line. The repo *is*
+squashed — the squash simply is not a delete.
+
+**Fix.** Do not reach for more git surgery first. **Revoke the credentials instead** — a leaked secret
+that no longer authenticates is trivia, and revocation is the only step that also covers every copy
+you do not control (a fork, a clone, a CI cache, a screenshot). Here that was two: the Google API key
+was deleted in its GCP project, and the committed dev JWT was tested against the running backend and
+answers `403`, because the deployed `JWT_SECRET` is not the `docker-compose` dev default the token was
+signed against.
+
+Only if the history itself must be gone:
+
+| Option | Cost |
+|:---|:---|
+| **Delete and recreate the repo** | The only self-service way to drop `refs/pull/*`. Loses every PR, issue, star, watcher and redirect, plus the Actions secrets and deploy keys, which must be re-added |
+| **Ask GitHub Support to purge** | Keeps everything; runs on their schedule, not yours |
+| **Accept it** | Only defensible once nothing in that history is live |
+
+**How to check before you trust a squash.** The commit count is not the test. This is:
+
+```bash
+git ls-remote origin 'refs/pull/*' | wc -l    # 0 = actually gone
+```
+
+**The general rule.** *Rewriting history removes what is reachable, not what is stored.* Refs you did
+not create — PR heads, and unreachable objects GitHub keeps until it garbage-collects — outlive a
+force-push. A history rewrite is a **prerequisite** for going public, never the proof that going
+public is now safe; the proof is that every credential it held is dead.
+
+*First hit: 2026-09-09, going public.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
 <p align="center">
   <a href="../README.md">Docs Home</a> ·
   <a href="../setup/README.md">Setup</a> ·

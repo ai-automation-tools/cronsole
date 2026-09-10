@@ -331,6 +331,21 @@ const devPack: RegistryTemplate[] = [
       { key: 'composeFile', label: 'Compose file path', type: 'path', default: '', required: true, help: 'Absolute path to the docker-compose.yml. up -d is idempotent — running containers are left alone.' }
     ],
     compatibleTargets: ['windows', 'macos']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'dev-brew-update',
+    name: 'Homebrew Update & Upgrade',
+    description: 'Refresh Homebrew’s package index and upgrade every outdated formula and cask on a schedule.',
+    runtime: 'bash',
+    os: 'macos',
+    category: 'dev-workflow',
+    tags: ['dev', 'macos', 'homebrew', 'package-manager'],
+    icon: 'Package',
+    trigger: sched('0 5 * * 1'),
+    commandTemplate: '/bin/bash -c "brew update && brew upgrade"',
+    parameters: [],
+    compatibleTargets: ['macos']
   }
 ];
 
@@ -1000,6 +1015,24 @@ const extendedPack: RegistryTemplate[] = [
     commandTemplate: 'powercfg /batteryreport /output "{{outFile}}"',
     parameters: [
       { key: 'outFile', label: 'Report output path', type: 'path', default: 'C:\\reports\\battery-report.html', required: true, help: 'Where to write the battery report (.html).' }
+    ],
+    compatibleTargets: ['windows']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'ntf-slack-webhook',
+    name: 'Slack Webhook Message',
+    description: 'Post a scheduled message to a Slack channel through an Incoming Webhook URL.',
+    runtime: 'powershell',
+    os: 'windows',
+    category: 'notification',
+    tags: ['notification', 'windows', 'slack', 'webhook'],
+    icon: 'MessageSquare',
+    trigger: sched('0 9 * * *'),
+    commandTemplate: 'powershell.exe -NoProfile -Command "Invoke-RestMethod -Uri \'{{webhookUrl}}\' -Method Post -ContentType \'application/json\' -Body (@{ text = \'{{message}}\' } | ConvertTo-Json)"',
+    parameters: [
+      { key: 'webhookUrl', label: 'Slack webhook URL', type: 'url', default: '', required: true, help: 'Create one from Slack: Apps -> Incoming Webhooks -> Add New Webhook, then copy the URL for the channel.' },
+      { key: 'message', label: 'Message', type: 'text', default: 'Cronsole scheduled heartbeat', required: true, help: 'The text to post. Avoid single quotes (they close the PowerShell string).' }
     ],
     compatibleTargets: ['windows']
   },
@@ -1973,6 +2006,120 @@ const nativeScriptCheckPack: RegistryTemplate[] = [
         ''
       ].join('\n')
     },
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-script-docker-restart-unhealthy',
+    name: 'Restart Unhealthy Docker Containers (Cronsole)',
+    description:
+      'Restart every Docker container currently reporting an unhealthy health status on the machine hosting Cronsole, so a container stuck failing its healthcheck recovers before you notice it yourself.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'system',
+    tags: ['cronsole-native', 'script', 'docker', 'system'],
+    icon: 'RefreshCw',
+    trigger: sched('*/15 * * * *'),
+    action: {
+      kind: 'script',
+      interpreter: 'node',
+      body: [
+        '// Runs on the machine hosting the Cronsole backend, and needs the docker CLI',
+        '// on that machine’s PATH with permission to talk to the Docker daemon.',
+        'const { execSync } = require("child_process");',
+        '',
+        'let unhealthy = [];',
+        'try {',
+        '  unhealthy = execSync("docker ps --filter health=unhealthy -q", { encoding: "utf8" })',
+        '    .split("\\n")',
+        '    .map((line) => line.trim())',
+        '    .filter(Boolean);',
+        '} catch (err) {',
+        '  console.error("Could not list containers: " + err.message);',
+        '  process.exitCode = 1;',
+        '}',
+        '',
+        'if (unhealthy.length === 0) {',
+        '  console.log("No unhealthy containers.");',
+        '} else {',
+        '  for (const id of unhealthy) {',
+        '    try {',
+        '      execSync("docker restart " + id);',
+        '      console.log("Restarted " + id);',
+        '    } catch (err) {',
+        '      console.error("Failed to restart " + id + ": " + err.message);',
+        '      process.exitCode = 1;',
+        '    }',
+        '  }',
+        '}',
+        ''
+      ].join('\n')
+    },
+    compatibleTargets: ['cronsole-native']
+  },
+  {
+    schemaVersion: '1.0',
+    id: 'native-script-http-response-time',
+    name: 'Log HTTP Response Time (Cronsole)',
+    description:
+      'Time how long a URL takes to respond and fail the run when it is slower than your threshold, so a degraded endpoint shows up as a trend rather than only as a hard outage.',
+    runtime: 'node',
+    os: 'cross-platform',
+    category: 'monitoring',
+    tags: ['cronsole-native', 'script', 'monitoring', 'http', 'latency'],
+    icon: 'Activity',
+    trigger: sched('*/10 * * * *'),
+    action: {
+      kind: 'script',
+      interpreter: 'node',
+      body: [
+        '// Runs on the machine hosting the Cronsole backend. Anything printed here',
+        '// lands in the task’s run history; a non-zero exit records a failed run.',
+        'const http = require("http");',
+        'const https = require("https");',
+        '',
+        'const url = "{{url}}";',
+        'const maxMs = Number("{{maxMs}}");',
+        'const client = url.startsWith("https:") ? https : http;',
+        'const startedAt = Date.now();',
+        '',
+        'const req = client.get(url, (res) => {',
+        '  res.on("data", () => {});',
+        '  res.on("end", () => {',
+        '    const elapsedMs = Date.now() - startedAt;',
+        '    console.log(url + " responded " + res.statusCode + " in " + elapsedMs + "ms");',
+        '    if (elapsedMs > maxMs) {',
+        '      console.error("Response took " + elapsedMs + "ms, over the " + maxMs + "ms limit.");',
+        '      process.exitCode = 1;',
+        '    }',
+        '  });',
+        '});',
+        '',
+        'req.on("error", (err) => {',
+        '  console.error("Request to " + url + " failed: " + err.message);',
+        '  process.exitCode = 1;',
+        '});',
+        '',
+        'req.setTimeout(15000, () => {',
+        '  req.destroy(new Error("request timed out"));',
+        '});',
+        ''
+      ].join('\n')
+    },
+    parameters: [
+      {
+        ...P.url,
+        help: 'The endpoint to time with an HTTP GET.'
+      },
+      {
+        key: 'maxMs',
+        label: 'Fail above (ms)',
+        type: 'number',
+        default: '2000',
+        required: true,
+        help: 'Record the run as failed when the response takes longer than this many milliseconds.'
+      }
+    ],
     compatibleTargets: ['cronsole-native']
   }
 ];

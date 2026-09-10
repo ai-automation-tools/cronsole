@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "id": "ntf-slack-webhook",
+  "name": "Slack Webhook Message",
+  "description": "Post a scheduled message to a Slack channel through an Incoming Webhook URL.",
+  "runtime": "powershell",
+  "os": "windows",
+  "category": "notification",
+  "tags": [
+    "notification",
+    "windows",
+    "slack",
+    "webhook"
+  ],
+  "icon": "MessageSquare",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "0 9 * * *"
+  },
+  "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-RestMethod -Uri '{{webhookUrl}}' -Method Post -ContentType 'application/json' -Body (@{ text = '{{message}}' } | ConvertTo-Json)\"",
+  "parameters": [
+    {
+      "key": "webhookUrl",
+      "label": "Slack webhook URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "Create one from Slack: Apps -> Incoming Webhooks -> Add New Webhook, then copy the URL for the channel."
+    },
+    {
+      "key": "message",
+      "label": "Message",
+      "type": "text",
+      "default": "Cronsole scheduled heartbeat",
+      "required": true,
+      "help": "The text to post. Avoid single quotes (they close the PowerShell string)."
+    }
+  ],
+  "compatibleTargets": [
+    "windows"
+  ]
+}

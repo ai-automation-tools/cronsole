@@ -87,6 +87,7 @@ export const bundledPacks: BundledPack[] = [
       'dev-dotnet-build',
       'dev-docker-prune',
       'dev-docker-compose-up',
+      'dev-brew-update',
       'tpl_github_pr_triage',
       'tpl_starter_git_sync'
     ]
@@ -177,7 +178,9 @@ export const bundledPacks: BundledPack[] = [
       'native-check-port-open',
       'native-script-pending-reboot',
       'native-ffmpeg-transcode',
-      'native-image-resize'
+      'native-image-resize',
+      'native-script-docker-restart-unhealthy',
+      'native-script-http-response-time'
     ]
   },
   {
@@ -244,6 +247,7 @@ export const bundledPacks: BundledPack[] = [
       'data-rclone-sync',
       'data-scp-upload',
       'ntf-discord-heartbeat',
+      'ntf-slack-webhook',
       'ntf-log-heartbeat',
       'ntf-windows-broadcast-message',
       'ntf-email-alert',

@@ -36,7 +36,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(light/dark contrast done 2026-08-24; Dracula/Nord/Solarized/Tokyo Night themes done 2026-09-04/05)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
-| **Go-public — repo** | 🟡 mostly done | publish-time settings, a stranger-facing README pass |
+| **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF and the stale-claims sweep |
 | **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
@@ -1034,10 +1034,24 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       ([#89](troubleshooting/README.md#89-you-squash-the-repo-to-a-fresh-public-root-and-the-old-history-is-still-downloadable)).
       That is acceptable **only because both credentials are revoked**, which was always the step that
       mattered. Dropping those refs would mean deleting and recreating the repo; not worth 231 PRs.
-- [~] **Repo hygiene for outsiders** — done *(2026-07-13)*. **Left:** branch protection on `main`
-      (a GitHub setting; do it at publish).
-- [~] **Community scaffolding** — `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates and the
-      CI badge shipped *(2026-07-13)*. **Left:** enable Discussions at publish.
+- [x] **Repo hygiene for outsiders** — done *(2026-07-13)*. Branch protection on `main` **verified
+      live 2026-09-10**: no force-push, no deletion, zero required reviews (the zero is deliberate —
+      requiring approvals would break `pr-sweep`'s auto-merge of routine PRs), `enforce_admins`
+      false to keep an escape hatch. Nothing left here.
+- [x] **Community scaffolding** — `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates and the
+      CI badge shipped *(2026-07-13)*. **Discussions verified enabled 2026-09-10** — the checklist
+      had carried it as an open "do it at publish" item after it was already on.
+- [x] **Dependency alerts** — **closed 2026-09-10.** Enabling Dependabot during the org hardening
+      pass surfaced **47 open alerts (20 high, 26 moderate, 1 low)** across all four npm workspaces,
+      which nothing had reported before because nothing was watching. Cleared **44 of 47**:
+      `frontend`, `mcp-server` and `agent/test-server` are clean, `backend` holds 3.
+      The three that remain are one upstream issue with **no forward fix** — `deepmerge-ts <8.0.0`
+      ([GHSA-ggr8-5vv4-36mx](https://github.com/advisories/GHSA-ggr8-5vv4-36mx)) reached only
+      through `@prisma/config`, which still pins `deepmerge-ts 7.1.5` at `@latest`. npm's proposed
+      remediation is `prisma@6.12.0`, a **downgrade** from the installed 6.19.3, so taking it would
+      trade a dev-only advisory for real CLI and schema risk. `prisma` is a **devDependency**; the
+      runtime `@prisma/client` is not in the chain, so nothing here ships in the running backend.
+      Revisit when `@prisma/config` picks up `deepmerge-ts 8`.
 - [~] **Final README/docs pass for a stranger audience** — the CLAUDE.md cloud-hosting row is fixed
       *(2026-07-31)*, four false README claims were corrected *(2026-08-17)*, and the **quick start
       now actually starts the stack** *(2026-09-09)*: it said `docker compose up --build` brought up

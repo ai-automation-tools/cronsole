@@ -46,12 +46,12 @@
 ---
 
 
-## 💡 Why it exists
+## 💡 What it does
 
-No existing tool unifies AI-assistant schedulers with your operating system's scheduler.
-Desktop utilities are Windows-only or abandoned; heavyweight orchestrators (Airflow, n8n,
-Jenkins) are built for data engineers. Cronsole's angle is cross-domain unification,
-**mobile-first triggering**, and AI-native task creation.
+Your scheduled jobs are scattered across Windows Task Scheduler, AI assistant routines, GitHub
+Actions, and cron lines you half remember writing. Cronsole pulls them all into one dashboard —
+see every job, run it, pause it, edit its schedule — without moving a single one off the
+platform it already runs on.
 
 ## 🔌 What it connects to
 
@@ -64,67 +64,6 @@ Jenkins) are built for data engineers. Cronsole's angle is cross-domain unificat
 | **🌿 GitHub Actions** | Scheduled workflows in the repositories you watch, read through a PAT. **Read-only by design** — Cronsole shows their crons and real run outcomes, and changes nothing. | 👁️ Observer |
 | **▲ Vercel Cron** | Cron jobs declared by the projects you watch. **Read-only by design**, and Vercel publishes no run history, so their health stays honestly unknown. | 👁️ Observer |
 | **💬 ChatGPT · Grok · Jules · Open Claw · Hermes** | Quick links straight to their native scheduling screens — none of them exposes a public scheduled-task API to build on. Add your own, too. | 🔗 Quick links |
-
-## 🔍 How It Works
-
-Cronsole has three pieces. A small **agent** runs on your Windows machine and opens an
-outbound connection to the **backend** (it never accepts incoming connections). The agent
-pushes your Task Scheduler list up to the backend, which stores it and keeps the **web
-dashboard** in sync. When you click **Run Now**, the dashboard tells the backend, and the
-backend relays the command back down to the agent — which runs the task locally. Schedules
-are normalized to standard cron internally and translated to each platform's native format,
-so what you see is consistent no matter where a task actually lives.
-
-## 📊 Features
-
-| Capability | What it gives you |
-|:---|:---|
-| **Unified dashboard** | Every synced task in one view, with platform and status badges, across grid / list / kanban / schedule / calendar layouts. Each card says **when the task runs** in plain words — *"Daily at 8:00 AM PDT"*, read in your own timezone — so you don't have to open a task to find out, and the **calendar** puts a month or a week of actual firings on a grid. |
-| **Favorites & collections** | Star the handful of tasks you actually watch — **Favorites** is a row on the source rail, so it *composes* with whatever view is lit (Failures + Favorites is your failing starred tasks) rather than replacing it. A **collection** goes further: it stores *the tasks themselves*, not a filter, so you can name a set containing two Claude routines and two Windows tasks that share no property any filter could match. Neither ever narrows the dashboard behind your back — a bare URL opens on everything. |
-| **Trigger from anywhere** | Hit **Run Now** on any Windows task from your desk or phone — the request relays down to the agent on your machine. Cronsole is local-first, so reaching it from a phone is an opt-in step: [**Remote Access**](docs/user-guides/guides/Remote_Access_Guide.md) ships a single-origin reverse proxy you put behind Tailscale or a Cloudflare Tunnel, keeping the dashboard off the public internet. |
-| **Live sync** | The local agent keeps Cronsole in step with Windows Task Scheduler automatically, and self-heals if the connection drops. |
-| **Cronsole-native tasks** | Jobs Cronsole runs itself, no OS scheduler involved: call an **HTTP** endpoint, run an **existing program**, run a **script you write here** (PowerShell · pwsh · Bash · sh · Python · Node — the body is stored in Cronsole, so it needs nothing on disk), or run a **check** that asserts an endpoint, port, file freshness or disk space is what you expect. A check's failure is a fact about your system rather than a bug in a script, which is what makes it worth alerting on. |
-| **Template library** | 90+ ready-to-use script starters and use-case patterns, in 9 downloadable packs — including the **Developer Pack** and AI CLI packs for Claude Code + Codex; fill in the blanks and Cronsole creates a real scheduled task. Backed by a versioned, hosted [template registry](docs/reports/templates/Registry_Schema_v1.md) so the catalog updates independently of the app. **Grow it without a reseed**: export/import templates as JSON, or **Save as template** straight from a real task. |
-| **AI-native control (MCP)** | Drive Cronsole from Claude, Codex, or Cursor in plain language — list, run, and create tasks through the [MCP server](docs/user-guides/guides/MCP_Server_Guide.md), a thin wrapper over the same API the dashboard uses. |
-| **Honest platform status** | A health strip on the dashboard says whether each platform is reachable, how long ago your task list was **really** synced, and what the last command Cronsole sent did — including when it failed. The **Platforms** tab goes further: every capability reads *verified* (it has worked on this machine, with the timestamp), *declared* (never tried here) or *unsupported*. Nothing claims a capability it hasn't demonstrated. |
-| **Diagnose it in the app** | When something looks wrong, **Diagnose** on the dashboard checks Cronsole itself — the agent connection, the database, the scheduler, the template catalog, token expiry — and shows **the evidence behind each verdict**, not just a colour. *"Agent offline"* is one sentence covering four different situations; this tells you which, down to when a request last timed out and which one. Read-only: it diagnoses, it never silently "fixes" things. |
-| **Run history** | Per-task history (status, time, duration, log snippet); failed runs are flagged right on the dashboard. |
-| **Search & organize** | Free-text search plus local categories to keep a big task list navigable. Windows' own `\Microsoft\` tasks — which outnumber yours roughly 3:1 on a real machine — are hidden by default, and the filter tells you how many it's holding back. |
-| **Back up & restore** | Save every scheduled task on the machine as native Task Scheduler XML — including the ones you never imported, which are the ones nothing else is holding — then put them back. Restore **shows you a plan first**: what it would create, replace, skip, or refuse, checked against what is really on the machine, before anything is written. |
-| **Import & recover a task** | Recreate a Cronsole-native task from a `.json` you exported — on another machine, or on this one after deleting it. Cronsole archives a native task's definition **before** deleting it and refuses the delete if it cannot, so a deleted task can be rebuilt from the Tools tab. What you get back is a **new** task on the same schedule, not the old one revived — its run history stays with the archive. |
-| **Remove without destroying** | **Remove from Cronsole** takes a task off your dashboard and leaves it running on the machine; **Delete from Windows** is the separate, clearly-marked verb that actually destroys the scheduled task. Undoing an over-broad import never costs you an automation. |
-| **Dark & light themes** | Dark by default, with light and system-follow modes persisted per device. |
-
-
-## 📍 Status — what actually works
-
-Cronsole is **pre-1.0** and honest about it. Per-source capability is in
-[What it connects to](#-what-it-connects-to) above — that table is the same declaration the app's own
-**Platforms** tab renders (`backend/src/services/platformCapabilities.ts`), so if it and the app ever
-disagree, the app is right and the table is the bug. What that table does *not* answer is the two
-questions a new reader actually has:
-
-### Will it run on my machine?
-
-| | |
-|:---|:---|
-| **Windows 10 / 11** | ✅ Fully supported — the agent talks to Task Scheduler directly |
-| **macOS / Linux** | 🟡 Partial. The backend, database and dashboard run anywhere Docker does, and every source that is reached over HTTP works normally. What is missing is the **agent**: nothing yet drives launchd, cron or systemd timers. One POSIX agent covering all three is the next major piece of work |
-| **Phone / tablet** | ✅ The dashboard is mobile-first. Reaching it from another device is [opt-in remote access](docs/user-guides/guides/Remote_Access_Guide.md), never a public URL |
-
-### What isn't there yet
-
-Listed because finding out later is worse than reading it now:
-
-| | |
-|:---|:---|
-| **No installer** | Clone the repo and run Docker Compose. An MSI needs a code-signing certificate first, or Windows SmartScreen warns every person who runs it |
-| **Single user** | One owner account, created on first run. No password reset, no refresh tokens, no roles — and, by design, no open registration |
-| **Local-first, no hosted version** | There is no cloud Cronsole to sign up for, and that is a decision rather than a gap. Your data stays on your machine |
-| **No release channel yet** | Pre-1.0: fixes land on `main`, and there are no back-ported release branches |
-
-Full detail, dated and prioritized, in the [**Roadmap**](docs/ROADMAP.md).
-
 
 ## 🎨 Screenshots
 
@@ -231,6 +170,8 @@ Full documentation lives in **[`docs/`](docs/README.md)**. The main sections:
 | Section | What's inside |
 |:---|:---|
 | [**📚 Documentation home**](docs/README.md) | The map to every guide, reference, and design doc. |
+| [**📊 Features**](docs/FEATURES.md) | Everything Cronsole does today, and what each feature actually gives you. |
+| [**📍 Status**](docs/STATUS.md) | What's supported on which platform, what's pre-1.0, and what isn't built yet. |
 | [**⬇️ Installation**](docs/install/README.md) | Install Cronsole on Windows or macOS, or clone the repo. |
 | [**⚙️ Setup & Configuration**](docs/setup/README.md) | Environment variables, Docker vs. manual, agent pairing. |
 | [**🖥️ User Guides**](docs/user-guides/README.md) | Day-to-day guides for using Cronsole once it's running. |

@@ -37,6 +37,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **The README got shorter, and Features and Status moved into their own docs** (2026-09-11).
+  *Why it exists, and how it works* is now **What it does** — four lines saying the one thing a
+  reader needs first (your jobs are scattered across several schedulers; Cronsole puts one dashboard
+  over all of them and moves none of them). The competitor comparison and the agent↔backend
+  walkthrough are in [`docs/`](README.md), where someone who wants them will look. The **Features**
+  and **Status** sections moved out to [`docs/FEATURES.md`](FEATURES.md) and
+  [`docs/STATUS.md`](STATUS.md), reachable from the README's **Documentation** table alongside every
+  other doc rather than as sections of their own. **What it connects to stays put** — the per-source
+  table is the first thing most readers need, and it is the same declaration the app's Platforms tab
+  renders. Net: 319 lines down to 260, with nothing dropped.
+
 - **Two Cronsole skills that live outside this repo are now discoverable from it** (2026-09-11).
   `cronsole-windows-jobs` and `cronsole-claude-routines` sit in the org's skill library at
   [`ai-automation-tools/agent-skills` › `Skills/Projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole),

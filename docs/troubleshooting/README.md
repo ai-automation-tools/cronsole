@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 90 | **A fresh clone's Docker quick start dies on boot** — `docker compose --profile docker up --build` pulls images, builds both containers, and the backend exits with `The table public.User does not exist in the current database` (Prisma `P2021`). Everything the README told you to do, you did | **Nothing applied the migrations.** The Dockerfile runs `prisma generate` — which builds the *client* from `schema.prisma` and touches no database — and neither it nor the compose `command:` ever ran `prisma migrate deploy`. The README's *manual* path said `npx prisma migrate dev` and so worked; the Docker path, the one marked as the fastest, never created a table. It only reproduced on a genuinely empty database, which no existing dev machine has. Fixed 2026-09-11: `predev`/`prestart` hooks in `backend/package.json` run `prisma migrate deploy`, so every path applies migrations before the first query | [→](#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist) |
 | 88 | A **sidebar source you hid earlier the same day is back**, with no error and no toast — toggling it off again visibly works, every time you watch it happen | **A local edit made while a preferences read was already in flight got silently overwritten by that read's stale answer.** `hydrate()` trusted whatever the GET returned even when `current` had moved on since the read started, so a toggle applied before the round trip finished lost to the fact the round trip actually answered. Fixed 2026-09-07: `hydrate()` now checks whether `current` changed while it was awaiting the read, and pushes the newer local edit instead of adopting the stale one | [→](#88-a-sidebar-source-you-hid-earlier-the-same-day-is-back-with-nothing-that-says-why) |
 | 86 | **`Stop-ScheduledTask` on a `\Cronsole-Stack\` task returns success and stops nothing** — the process it started keeps running, and `Start-ScheduledTask` does not bring it back either | **The task is not the process.** Every launcher task runs `wscript.exe` → `run-hidden.vbs`, which is fire-and-forget (`WScript.Shell.Run(cmd, 0, False)`), so the instance exits in under a second while what it launched runs on unparented. The task reads `Ready` while the agent holds a pid. Restarting is a property of the **script**, not the task: use `CronsoleRestart` (`cronsole.ps1 restart`), and never read a task's exit code as a statement about the stack | [→](#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing) |
 | 87 | **Applying a template answers `500` over a message that names its own fix** — e.g. *"No saved MCP server called X. Saved servers: resend."* | The `refusedBeforeCalling` split shipped on `POST /api/tasks` and **not** on `POST /api/templates/:id/apply`, so a refusal the connector reached *without contacting the platform* arrived in the register of "the platform is down". A `500` tells the caller to retry, and retrying an identical bad request never helps. Both routes now read `result.refusedBeforeCalling` beside `verbDeclaredUnsupported`. **The general lesson: when a connector gains a new answer, grep every route that calls `createTask`, not the one the ticket names** | [→](#87-applying-a-template-answers-500-over-a-message-that-names-its-own-fix) |
@@ -6019,6 +6020,64 @@ force-push. A history rewrite is a **prerequisite** for going public, never the 
 public is now safe; the proof is that every credential it held is dead.
 
 *First hit: 2026-09-09, going public.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 90. A fresh clone's Docker quick start dies with "The table public.User does not exist"
+
+**Symptom.** You follow the README's fastest path on a machine that has never run Cronsole:
+
+```bash
+git clone https://github.com/ai-automation-tools/cronsole.git && cd cronsole
+docker compose --profile docker up --build
+```
+
+Postgres and Redis come up healthy. Both containers build. The backend then exits:
+
+```
+PrismaClientKnownRequestError:
+Invalid `prisma.user.upsert()` invocation in src/index.ts:90
+The table `public.User` does not exist in the current database.
+  code: 'P2021'
+```
+
+Nothing was skipped and nothing is misconfigured — the database is simply empty.
+
+**Cause.** **Nothing ever applied the migrations.** `backend/Dockerfile` runs `npx prisma generate`,
+which reads `schema.prisma` and writes the **client** — it does not connect to a database and does
+not create a table. The compose `command:` is `npm run dev`, which boots straight into
+`src/index.ts`, whose first act is a `user.upsert` seed. 28 migrations sat unapplied in
+`prisma/migrations/`.
+
+The README's **manual** path had `npx prisma migrate dev  # create the schema` spelled out, so it
+worked. The Docker path — the one carrying the *"fastest path"* tip — never had an equivalent.
+
+**Why it survived this long.** It is invisible from any machine that has ever run Cronsole. The
+compose volume `taskhub_postgres_data` persists across `down`, rebuilds and image changes, so every
+developer's database was migrated months ago by a `migrate dev` they ran once and forgot. Reproducing
+it requires a database that has genuinely never been migrated:
+
+```bash
+docker exec taskhub-db-1 psql -U taskhub -d taskhub -c 'CREATE DATABASE freshclone_test;'
+cd backend && DATABASE_URL="postgresql://taskhub:password@127.0.0.1:5432/freshclone_test" npm run dev
+```
+
+**Fix.** `backend/package.json` gained `predev` and `prestart` hooks, both `prisma migrate deploy`.
+npm runs a `pre<script>` automatically, so every entry point — the compose `command: npm run dev`,
+the Dockerfile's `CMD npm start`, and a host developer's `npm run dev` — applies migrations before
+the first query. `migrate deploy` only applies committed migrations and never generates one, so it is
+safe to run on every boot, and says `No pending migrations to apply.` when there is nothing to do.
+
+**The general rule.** *A quick start is only verified on a machine that has never run the thing.*
+This is [#81](#81-a-brand-new-source-returns-internal-server-error-the-moment-you-open-it)'s
+unapplied-migration failure arriving through the one door where **the repo cannot see it either** —
+`schema.prisma`, the generated client and all 1,192 backend tests were green, because every one of
+them ran against a database somebody had already migrated by hand. The test suite cannot catch a
+setup step; only a clean machine can.
+
+*First hit: 2026-09-11, verifying the source-only distribution decision.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

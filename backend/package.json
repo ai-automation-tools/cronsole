@@ -4,8 +4,10 @@
   "description": "Cronsole backend — Express + Prisma API, agent WebSocket channel, and native scheduler.",
   "main": "dist/index.js",
   "scripts": {
+    "predev": "prisma migrate deploy",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "prestart": "prisma migrate deploy",
     "start": "node dist/index.js",
     "seed": "tsx src/seed.ts",
     "db:check": "tsx scripts/check-db.ts",

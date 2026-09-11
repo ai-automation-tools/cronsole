@@ -44,6 +44,31 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   `hydrate()` now snapshots the local state before awaiting the read and pushes the newer local
   edit instead of adopting a now-stale remote one when they disagree.
 
+### Fixed
+
+- **A fresh clone's Docker quick start died on boot, and had for as long as it existed**
+  (2026-09-11, troubleshooting
+  [#90](troubleshooting/README.md#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
+  `docker compose --profile docker up --build` built both containers and the backend exited with
+  `The table public.User does not exist` — **nothing ever applied the migrations.** The Dockerfile
+  runs `prisma generate`, which writes the *client* and touches no database; the compose command
+  booted straight into a seed that queries on line 90. 28 migrations sat unapplied. The README's
+  *manual* path spelled out `npx prisma migrate dev` and so worked; the Docker path, the one marked
+  **the fastest**, never created a table.
+
+  `predev` and `prestart` hooks in `backend/package.json` now run `prisma migrate deploy`, so every
+  entry point — compose, the Dockerfile `CMD`, and a host `npm run dev` — migrates before the first
+  query. Verified against a genuinely empty database: 28 applied, catalog seeded, server up, and
+  `No pending migrations to apply.` on the second boot.
+
+  **It was invisible from every machine that had ever run Cronsole**, because the compose volume
+  outlives `down` and rebuilds — so all 1,192 backend tests were green against databases migrated by
+  hand months earlier. A test suite cannot catch a setup step.
+
+- **`setup-agent-startup.ps1` now says what to install when the .NET SDK is missing**, instead of
+  failing on a bare *"dotnet is not recognized"*. It is the first thing a stranger runs now that
+  Cronsole ships as source, and the error named neither what was missing nor where to get it.
+
 ### Changed
 
 - **Cronsole ships as source: installers and code signing are cancelled** (2026-09-11, ROADMAP

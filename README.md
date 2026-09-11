@@ -108,7 +108,7 @@ platform it already runs on.
 
    Database migrations apply themselves on boot, so there is no schema step. *(Verified
    2026-09-11 from a clean clone on a machine that had never run Cronsole — which is the only
-   way this can be checked, and how [#90](docs/troubleshooting/README.md#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)
+   way this can be checked, and how [#90](docs/troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)
    was found.)*
 
    > [!IMPORTANT]

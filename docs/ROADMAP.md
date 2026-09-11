@@ -1072,7 +1072,7 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       creation, every authenticated read, a task create and a run. **It did not work**, and had never
       worked: nothing applied the migrations, so the backend exited on `The table public.User does
       not exist`
-      ([#90](troubleshooting/README.md#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
+      ([#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
       The *manual* path spelled the migrate step out and so worked; the Docker path — the one marked
       **fastest** — never created a table. Fixed with `predev`/`prestart` hooks and re-verified end to
       end. **That is the whole argument for this item**: 1,192 green backend tests could not see it,

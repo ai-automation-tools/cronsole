@@ -47,7 +47,7 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
   root brings up Postgres, Redis, the backend, and the frontend with sane defaults. Best for
   getting running fast. **Migrations apply themselves** on every boot (`predev`/`prestart` run
   `prisma migrate deploy`), so a fresh clone needs no schema step
-  ([#90](../troubleshooting/README.md#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
+  ([#90](../troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
 - **Manual** — run each service yourself when you're developing or debugging a single
   layer. See below.
 

@@ -48,7 +48,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 - **A fresh clone's Docker quick start died on boot, and had for as long as it existed**
   (2026-09-11, troubleshooting
-  [#90](troubleshooting/README.md#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
+  [#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
   `docker compose --profile docker up --build` built both containers and the backend exited with
   `The table public.User does not exist` — **nothing ever applied the migrations.** The Dockerfile
   runs `prisma generate`, which writes the *client* and touches no database; the compose command

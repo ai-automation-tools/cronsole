@@ -1,6 +1,6 @@
 {
   "registryVersion": "1.0",
-  "updatedAt": "2026-09-03T14:19:38.044Z",
+  "updatedAt": "2026-09-10T14:11:54.843Z",
   "templates": [
     {
       "id": "tpl_daily_database_backup",
@@ -254,6 +254,25 @@
       ],
       "path": "templates/dev-docker-compose-up.json",
       "sha256": "b6b3b45c2625b4da4c56f59a7cadf21703645a66fe8ad00ad9befa1774ddc03e"
+    },
+    {
+      "id": "dev-brew-update",
+      "name": "Homebrew Update & Upgrade",
+      "description": "Refresh Homebrew’s package index and upgrade every outdated formula and cask on a schedule.",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "macos",
+        "homebrew",
+        "package-manager"
+      ],
+      "runtime": "bash",
+      "os": "macos",
+      "compatibleTargets": [
+        "macos"
+      ],
+      "path": "templates/dev-brew-update.json",
+      "sha256": "06314d0e0cff868102658fb30f0335b0905c345dfe72cbcf31e5989a484fa96c"
     },
     {
       "id": "ai-claude-headless-run",
@@ -926,6 +945,25 @@
       ],
       "path": "templates/sys-battery-report.json",
       "sha256": "ab4c0c8cd7f9e60f15209ee314fd016d5d4744cb3cc3b076457d580f2a903e9e"
+    },
+    {
+      "id": "ntf-slack-webhook",
+      "name": "Slack Webhook Message",
+      "description": "Post a scheduled message to a Slack channel through an Incoming Webhook URL.",
+      "category": "notification",
+      "tags": [
+        "notification",
+        "windows",
+        "slack",
+        "webhook"
+      ],
+      "runtime": "powershell",
+      "os": "windows",
+      "compatibleTargets": [
+        "windows"
+      ],
+      "path": "templates/ntf-slack-webhook.json",
+      "sha256": "1fd1ed8fb5b5ec48858d7949679788c5e07ba78f7248062328e72da905ade9ac"
     },
     {
       "id": "mon-disk-report",
@@ -1626,6 +1664,45 @@
       "sha256": "f718f606c472f4c5b55b3df40c263b1fd0d1b25935dc9de7438bac80c82cbe65"
     },
     {
+      "id": "native-script-docker-restart-unhealthy",
+      "name": "Restart Unhealthy Docker Containers (Cronsole)",
+      "description": "Restart every Docker container currently reporting an unhealthy health status on the machine hosting Cronsole, so a container stuck failing its healthcheck recovers before you notice it yourself.",
+      "category": "system",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "docker",
+        "system"
+      ],
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-docker-restart-unhealthy.json",
+      "sha256": "36713ddb6f5706e3266c284b270cf13215977b6644bea16a450f9042614bbe89"
+    },
+    {
+      "id": "native-script-http-response-time",
+      "name": "Log HTTP Response Time (Cronsole)",
+      "description": "Time how long a URL takes to respond and fail the run when it is slower than your threshold, so a degraded endpoint shows up as a trend rather than only as a hard outage.",
+      "category": "monitoring",
+      "tags": [
+        "cronsole-native",
+        "script",
+        "monitoring",
+        "http",
+        "latency"
+      ],
+      "runtime": "node",
+      "os": "cross-platform",
+      "compatibleTargets": [
+        "cronsole-native"
+      ],
+      "path": "templates/native-script-http-response-time.json",
+      "sha256": "2fab753f4bfba3c5f644685f764cc84663fc3a6d1346c68675c747e6df0a2bce"
+    },
+    {
       "id": "claude-routine-issue-triage",
       "name": "Routine: Issue Triage",
       "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
@@ -1849,11 +1926,12 @@
         "dev-dotnet-build",
         "dev-docker-prune",
         "dev-docker-compose-up",
+        "dev-brew-update",
         "tpl_github_pr_triage",
         "tpl_starter_git_sync"
       ],
       "path": "packs/developer.json",
-      "sha256": "8ac7965bfde93aa10403aa486a6be0eaacd9ccbfc2ce16772789ac7911e70a55"
+      "sha256": "13fec847ebe895816940680661363151949dc55235a8e0ce73c82d3847bfc6ca"
     },
     {
       "id": "ai-agents",
@@ -1933,10 +2011,12 @@
         "native-check-port-open",
         "native-script-pending-reboot",
         "native-ffmpeg-transcode",
-        "native-image-resize"
+        "native-image-resize",
+        "native-script-docker-restart-unhealthy",
+        "native-script-http-response-time"
       ],
       "path": "packs/cronsole-native.json",
-      "sha256": "b30447e6b1250aec0dd322436ce3264d10b9d78c41e589372ddccdc1e0698857"
+      "sha256": "5ec71f21f53508a6a4ae7cc9ccd5f390352bcb51198a0690918326e66e7fb199"
     },
     {
       "id": "claude-routines",
@@ -1981,6 +2061,7 @@
         "data-rclone-sync",
         "data-scp-upload",
         "ntf-discord-heartbeat",
+        "ntf-slack-webhook",
         "ntf-log-heartbeat",
         "ntf-windows-broadcast-message",
         "ntf-email-alert",
@@ -1988,7 +2069,7 @@
         "sys-certbot-renew"
       ],
       "path": "packs/system-utilities.json",
-      "sha256": "88dda23dae0e7e7a24d4638fb952b95d7eebbd869d5e09878fd4514e172a06ec"
+      "sha256": "daed9c35ceb94e16b78f174d07e9eb9bce0607f68fcfb5d163203c9698aa683c"
     }
   ]
 }

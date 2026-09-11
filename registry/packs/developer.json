@@ -368,6 +368,31 @@
     },
     {
       "schemaVersion": "1.0",
+      "id": "dev-brew-update",
+      "name": "Homebrew Update & Upgrade",
+      "description": "Refresh Homebrew’s package index and upgrade every outdated formula and cask on a schedule.",
+      "runtime": "bash",
+      "os": "macos",
+      "category": "dev-workflow",
+      "tags": [
+        "dev",
+        "macos",
+        "homebrew",
+        "package-manager"
+      ],
+      "icon": "Package",
+      "trigger": {
+        "kind": "schedule",
+        "cron": "0 5 * * 1"
+      },
+      "commandTemplate": "/bin/bash -c \"brew update && brew upgrade\"",
+      "parameters": [],
+      "compatibleTargets": [
+        "macos"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
       "id": "tpl_github_pr_triage",
       "name": "GitHub PR Triage",
       "description": "Triage new pull requests in a repo and label them by content.",

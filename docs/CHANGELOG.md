@@ -46,6 +46,34 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Cronsole ships as source: installers and code signing are cancelled** (2026-09-11, ROADMAP
+  *Open decisions › Distribution*). Clone the repo or run the Docker stack; the agent is built on
+  the machine that runs it. The signed WiX MSI, the whole-stack `.exe`, the Authenticode
+  certificate and the update channel are **cancelled, not deferred**.
+
+  It removes the problem rather than postponing it: **SmartScreen keys off Mark-of-the-Web**, the
+  tag Windows attaches to *downloaded* files. A locally-built binary carries none, so the wall that
+  made a certificate a hard prerequisite never appears. The certificate was never protecting anyone
+  from Cronsole — it was protecting them from a binary they could not inspect, and the answer to
+  that is now *inspect it*.
+
+  **The rule that replaces it: no prebuilt binary in a GitHub Release, ever.** One convenient
+  upload reinstates the whole requirement, and nothing in CI enforces it.
+
+  **The cost is real and is now stated as a choice rather than a gap**: installing needs git,
+  Docker (or Node + PostgreSQL + the .NET SDK), and an Administrator PowerShell prompt. That is a
+  developer audience, and [`STATUS.md`](STATUS.md) says so in those words — *"no installer yet"*
+  read as unfinished and invited someone to finish it.
+
+  **Two items dissolved with it.** The open decision *bundled Postgres vs. SQLite* blocked "the
+  whole-stack installer and only that", so the question stopped being asked rather than getting an
+  answer — `Template.tags String[]` stays Postgres-only and the integration suite stays unforked.
+  And of the whole-stack installer's four jobs, three only reproduced what Docker Compose already
+  does; the fourth (`vite build` served same-origin by Express) survives on its own merits with the
+  proxy work. What gets *more* important is the **trust page** — it was the smallest line of the old
+  item and is now the whole of it, because "read the source you are running" is only a real answer
+  if something tells you what to read.
+
 - **The README got shorter, and Features and Status moved into their own docs** (2026-09-11).
   *Why it exists, and how it works* is now **What it does** — four lines saying the one thing a
   reader needs first (your jobs are scattered across several schedulers; Cronsole puts one dashboard

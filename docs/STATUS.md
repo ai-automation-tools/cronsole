@@ -32,7 +32,7 @@ Listed because finding out later is worse than reading it now:
 
 | | |
 |:---|:---|
-| **No installer** | Clone the repo and run Docker Compose. An MSI needs a code-signing certificate first, or Windows SmartScreen warns every person who runs it |
+| **No installer — by design** | Cronsole ships as **source**: clone the repo, or run the Docker stack. There will be no MSI and no downloadable binary. A signed installer would mean a code-signing certificate and a release channel to defend; for a tool whose whole claim is that it runs on your machine and tells you the truth, *"read the source you are running"* is the stronger answer. **The cost is real:** you need git, Docker (or Node + PostgreSQL + the .NET SDK), and a PowerShell prompt as Administrator. If that is not you, Cronsole is not yet for you |
 | **Single user** | One owner account, created on first run. No password reset, no refresh tokens, no roles — and, by design, no open registration |
 | **Local-first, no hosted version** | There is no cloud Cronsole to sign up for, and that is a decision rather than a gap. Your data stays on your machine |
 | **No release channel yet** | Pre-1.0: fixes land on `main`, and there are no back-ported release branches |

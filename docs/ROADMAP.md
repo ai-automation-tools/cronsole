@@ -34,10 +34,10 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P0 — Security** | 🟢 **closed** *(2026-08-28)* | nothing open |
 | **P1 — Correctness & honesty** | 🟢 closed, two standing items | the E2E suite in CI · the recurring status-honesty review |
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(light/dark contrast done 2026-08-24; Dracula/Nord/Solarized/Tokyo Night themes done 2026-09-04/05)* |
-| **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
+| **P3 — Expansion** | 🟡 underway | POSIX agent · repair verbs · remote-access polish *(installers **cancelled** 2026-09-11 — Cronsole ships as source)* |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF and the stale-claims sweep |
-| **Go-public — application** | 🔴 barely started | versioning *(scheme landed 2026-09-11; no tag cut yet)* · ops · code signing · legal |
+| **Go-public — application** | 🟠 narrowed | versioning *(scheme landed 2026-09-11; no tag cut yet)* · ops · legal · a trust page. **Code signing and installers are cancelled** — Cronsole ships as source, which removed the longest-lead item on the list |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
 the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
@@ -950,15 +950,19 @@ Shipped P3 work is in [Part II](#completed--p3-expansion).
         decision that those tasks are **not tracked** in the dashboard — disabling `CronsoleAgent`
         from the dashboard is also what breaks the dashboard's ability to re-enable it.
 
-- [ ] **Installer packages (agent only)** — signed WiX MSI replacing the PowerShell setup script;
-      macOS `.pkg`/Homebrew once the launchd agent exists.
+- [x] ~~**Installer packages (agent only)**~~ — **cancelled 2026-09-11.** The PowerShell setup
+      script is not a placeholder for an MSI; it **is** the install. `setup-agent-startup.ps1` runs
+      from a clone the user already has, builds on the machine that will run it, and registers the
+      task — which is what the MSI was going to do, minus a certificate.
 
-- [ ] **Ship the whole application as a Windows installer (`.exe`)** — four jobs, not a packaging
-      step: (1) Postgres bundled vs. SQLite *(open decision below; lean bundle)*, (2) drop Redis,
-      (3) `vite build` served same-origin by Express, (4) bundle the Node + .NET runtimes. Secrets
-      must be generated **per machine at install time**, and uninstall must sweep Task Scheduler.
-      Signing is a hard prerequisite (SmartScreen), not polish. ~1 week to installable, ~1 more to
-      trustworthy.
+- [x] ~~**Ship the whole application as a Windows installer (`.exe`)**~~ — **cancelled 2026-09-11.**
+      Three of its four jobs existed only to reproduce what Docker Compose already does: bundling
+      Postgres, dropping Redis, and shipping the Node runtime. The fourth — `vite build` served
+      same-origin by Express — is worth doing on its own merits and is **not** cancelled; it lives
+      with the [proxy work](#-p3--expansion), where single-origin is already the rule.
+
+      The strongest argument for it was that a stranger should not need Docker. That is real, and it
+      is the cost being accepted: see *Distribution* under [Open decisions](#open-decisions).
 
 - [ ] **Split the files that have become fault lines** *(re-counted 2026-08-12; every one grew, and
       one was missing from the list)*: `DashboardScreen.tsx` (1,251), `routes/tasks.ts` (1,182),
@@ -1112,10 +1116,30 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 - [ ] **Production operations**: error tracking, structured logs, uptime monitoring + status page,
       automated Postgres backups with a **tested restore**, broader API rate limiting, staging +
       deploy pipeline. *(Auth rate limiting shipped 2026-07-16.)*
-- [ ] **Agent distribution & trust**: signed installer, a code-signing certificate to clear
-      SmartScreen, versioned releases with an update channel, and a documented "what the agent can
-      do / how to remove it" trust page. **The certificate is a hard prerequisite for the
-      whole-stack installer.**
+- [~] **Agent distribution & trust** — **signing and installers dropped 2026-09-11; the trust page
+      is what survives, and it matters more now.**
+
+      **Cronsole ships as source.** Clone the repo, or run the Docker stack; the agent is built on
+      the machine that runs it. The signed MSI, the code-signing certificate, the update channel and
+      the whole-stack `.exe` are **cancelled, not deferred** — see *Distribution* under
+      [Open decisions](#open-decisions) for the argument.
+
+      Why this actually removes the problem rather than postponing it: **SmartScreen keys off
+      Mark-of-the-Web**, the tag Windows attaches to *downloaded* files. A binary the user compiled
+      locally carries none, so the wall that made the certificate a hard prerequisite never appears.
+      Authenticode was never protecting the user from Cronsole — it was protecting them from a
+      binary they could not inspect, and the answer to that is now *inspect it*.
+
+      **The rule that replaces it: no prebuilt binary in a GitHub Release, ever.** The moment an
+      `.exe` or `.msi` is attached to a release, it is downloaded, it carries MOTW, and the
+      certificate is a hard prerequisite again. This is the one way the decision gets quietly undone,
+      and nothing enforces it.
+
+      **Left:** the trust page — *what the agent can do, what it cannot, and how to remove it*. It
+      was the smallest line of the old item and is now the whole thing, because "read the source" is
+      only a real answer if something tells you what to read. It must name the elevation, the
+      outbound-only socket, the absence of any file-write verb, and the `\Cronsole-Stack\` tasks an
+      uninstall has to sweep by hand.
 - [ ] **Legal minimum**: privacy policy, terms of service, account deletion + data export that
       actually purges tasks and logs, cookie handling on the public site.
 - [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
@@ -1128,11 +1152,33 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 
 ## Open decisions
 
-- [ ] **Installed-app database: bundled Postgres vs. SQLite** *(opened 2026-07-28)* — blocks the
-      whole-stack installer and only that. Bundled Postgres costs ~250 MB and a service lifecycle
-      but needs **no schema or test changes**; SQLite gives a single-file install but
-      `Template.tags String[]` is Postgres-only, forcing a migration and forking the integration
-      suite. **Lean: bundle Postgres for v1.**
+- [x] **Installed-app database: bundled Postgres vs. SQLite** *(opened 2026-07-28, **dissolved
+      2026-09-11**)* — it "blocked the whole-stack installer and only that", and there is no
+      whole-stack installer. Docker Compose already brings Postgres, and a clone install points at
+      one the user runs. Nothing chose SQLite; **the question stopped being asked**, which is a
+      different and better outcome than answering it. `Template.tags String[]` stays Postgres-only
+      and the integration suite stays unforked.
+
+- [ ] **Distribution: source-only, and what it costs** *(decided 2026-09-11 — recorded here because
+      the cost is real and someone will reopen it)*. Cronsole ships as a **clone or a Docker stack**.
+      No signed installer, no certificate, no prebuilt binary.
+
+      **What it buys:** the certificate disappears (weeks of identity verification and a renewal
+      treadmill), SmartScreen never appears because locally-built binaries carry no
+      Mark-of-the-Web, the update channel becomes `git pull`, and there is no signed artifact whose
+      provenance has to be defended. For a **local-first, single-user** tool whose whole claim is
+      that it runs on your machine and reports the truth, *"read the source you are running"* is a
+      stronger answer than a signature — and it is the answer this project can actually keep.
+
+      **What it costs, stated plainly:** the audience is now people who have git, Docker (or Node +
+      Postgres + the .NET SDK), and will run PowerShell as Administrator. That is a developer
+      audience. A non-technical user cannot install Cronsole, and **that is a choice, not a gap** —
+      [`STATUS.md`](STATUS.md) must say so in those words, because "no installer yet" reads as
+      unfinished and invites someone to finish it.
+
+      **Reopen it if** a real non-developer asks for it, or the project grows a second maintainer
+      who wants to distribute binaries. Reopening means the certificate comes back — there is no
+      half-measure, because the MOTW rule above has no exceptions.
 - [ ] **Agent transport** — WebSocket only, or hybrid with long-polling for restricted networks?
 - [ ] **Template registry — static vs. dynamic at launch** — a static JSON registry is leading;
       earn a DB-backed API + admin/submission UI later. *(Format is already decided: target-agnostic

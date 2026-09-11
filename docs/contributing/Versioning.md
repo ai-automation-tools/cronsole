@@ -102,9 +102,22 @@ git push origin app/v0.9.1
 **Ship the agent and backend together whenever the signed-command shape moved.** They are one
 change wearing two version numbers.
 
+## A release ships no binaries
+
+**Cronsole is distributed as source** — a clone or the Docker stack, with the agent built on the
+machine that runs it ([decided 2026-09-11](../ROADMAP.md#open-decisions)). So a tag is a *marker in
+history*, not a package: it says which commits went together, and users arrive at it with `git
+pull`.
+
+**Never attach an `.exe` or `.msi` to a release.** A downloaded binary carries Mark-of-the-Web,
+which is what summons SmartScreen, which is what made a code-signing certificate a hard
+prerequisite — the whole cost this decision removed. A locally-built binary carries none. Nothing in
+CI enforces this; it is one convenient upload away from being undone.
+
+Checksums and signatures are for artifacts, and there are no artifacts. What replaces them is the
+commit the user checked out, which they can read.
+
 ## What is not built yet
 
-Signed installers, an update channel, and release notes generated from commits are all open on the
-[roadmap](../ROADMAP.md#-go-public-checklist) under *Agent distribution & trust*. **The code-signing
-certificate is a hard prerequisite for the whole-stack installer** and has weeks of identity
-verification in front of it — start it before it blocks.
+Release notes generated from real commits, and the first tags themselves. Both are on the
+[roadmap](../ROADMAP.md#-go-public-checklist).

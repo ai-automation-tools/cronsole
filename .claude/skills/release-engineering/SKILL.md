@@ -1,142 +1,121 @@
 ---
 name: release-engineering
-description: 'Ship Cronsole to strangers — semantic versioning across four independently-versioned components, WiX MSI installer packaging, Windows Authenticode code signing, macOS notarization, agent auto-update and trust, changelogs, and GitHub releases. Use when cutting a release, tagging a version, building or signing an installer, distributing the agent, or working the go-public checklist.'
+description: 'Cut a Cronsole release — semantic versioning across four independently-versioned components on three release trains, prefixed tags, the agent wire protocol, changelog discipline, and the source-only distribution rule. Use when cutting a release, tagging a version, bumping a version, distributing the agent, or working the go-public checklist. Also read it before attaching any artifact to a GitHub release.'
 ---
 
 # Release Engineering
 
-Cronsole is **local-first**: users run the frontend, backend, and a native agent on their own
-machine. That makes releasing a *distribution* problem, not a deploy problem — you are
-asking a stranger to run an **unattended, elevated, scheduled process** they did not build.
+Cronsole is **local-first and ships as source**: a clone or the Docker stack, with the agent built
+on the machine that runs it. So releasing is neither a deploy nor a packaging problem — a release is
+a **marker in history** saying which commits went together, and users arrive at it with `git pull`.
 
-Covers four open roadmap items: **Installer packages**, **Agent distribution & trust**,
-**Versioning & releases**, and **Legal minimum** (`docs/ROADMAP.md` › P3 + Go-public).
+Full scheme: [`docs/contributing/Versioning.md`](../../../docs/contributing/Versioning.md).
 
 ## The one thing to understand
 
-**Trust is the product.** A code-signing certificate is not a compliance checkbox — it is
-the difference between "install this" and a SmartScreen wall that says the publisher is
-unknown. Cronsole’s whole value is that state it reports is *true* and actions it takes
-*actually happen*; a user cannot verify that from the outside, so the signature is the only
-claim they can check.
+**A release ships no binaries, and that is load-bearing.**
 
-**An unsigned agent asking for elevation is indistinguishable from malware.** Treat it that
-way when weighing whether signing is worth the cost.
+The moment an `.exe` or `.msi` is attached to a GitHub release, it is *downloaded*. A downloaded
+file carries **Mark-of-the-Web**, MOTW summons **SmartScreen**, and clearing SmartScreen requires an
+**Authenticode code-signing certificate** — weeks of identity verification, a renewal treadmill, and
+a signed artifact whose provenance has to be defended forever. A binary the user compiled locally
+carries no MOTW and summons nothing.
 
-## Quick start — cutting a release
+That is why signing and installers were **cancelled 2026-09-11**, not deferred
+([ROADMAP › Open decisions](../../../docs/ROADMAP.md#open-decisions)). The cancellation holds only
+as long as nobody uploads a convenient binary. **Nothing in CI enforces this.** It is one upload
+away from being undone, and undoing it costs the certificate.
 
-1. **Decide the version** per the component matrix below. Confirm which components changed.
-2. **Update the changelog** from the actual commits, not from memory.
-3. **Build and test everything** (`/doctor` first if anything looks stale).
-4. **Build + sign the installer**; verify the signature on a *clean* machine, not the build box.
-5. **Tag and release**, attaching the installer and its checksum.
-6. **Update `docs/ROADMAP.md`** (dated) and the troubleshooting log if the release surfaced a trap.
+If someone asks for an installer: the answer is the trust page and better clone docs, or reopening
+the decision in full. There is no half-measure.
 
-## Versioning — four components, four lifecycles
+## Versioning — four components, three release trains
 
-The repo ships things that version **independently**, and conflating them is the trap:
-
-| Component | Versioned by | Breaks when |
+| Component | Version lives in | Tag |
 |:---|:---|:---|
-| **Backend + frontend** | App version | API contract changes |
-| **Agent** (`agent/`) | Its own version, **and the wire protocol** | The protocol or the signed-command shape changes |
-| **MCP server** (`mcp-server/`) | Its own `package.json` | A tool is removed/renamed or its params change |
-| **Template registry** | **Schema version** (`Registry v1`) + content | The schema changes; content updates are *not* releases |
+| **App** — backend + frontend | `backend/package.json`, mirrored in `frontend/package.json` | `app/v0.9.0` |
+| **Agent** | `Cronsole.Agent.csproj` › `<Version>` | `agent/v0.9.0` |
+| **MCP server** | `mcp-server/package.json` | `mcp/v0.9.0` |
+| **Template registry** | `registryVersion` in the artifact | **none** |
 
-Rules that follow from that:
+- **Backend and frontend are one version.** One deployable, one commit, no user runs a mismatched
+  pair. Two numbers would always be equal — a second definition free to drift.
+- **The registry is not on a release train.** Content ships by merging to `main`, which publishes
+  itself. `registryVersion` is a *schema* version and has never moved. Re-coupling it undoes the
+  property it exists to have.
+- **Tags are prefixed.** Three trains share one repo, so a bare `v1.2.0` cannot say which moved.
+  There is no `v*` tag and there should never be one.
 
-- **The registry is not on the app's release cycle.** That is the entire point of decoupling
-  it — content updates ship without redeploying the app. Do not tie them together again.
-- **The agent's wire protocol is a contract with software you do not control** — an old agent
-  on a user's machine talks to your new backend. A `SignableCommand` change is **breaking**:
-  HMAC canonicalization must match byte-for-byte, so a mismatch is not a degraded feature,
-  it is every command rejected.
-- **The MCP server is a public tool surface.** Renaming a tool breaks prompts and configs you
-  cannot see.
+## The protocol version is not the agent version
 
-> **Semver honestly.** If an old agent cannot talk to the new backend, that is **major** —
-> regardless of how small the diff looked.
+`AgentService.ProtocolVersion` and `backend/src/ws/protocol.ts` describe **the wire contract**, not
+the build. They move independently: five agent releases can change nothing about the wire, while a
+three-line change to the `SignableCommand` shape is **breaking** — HMAC canonicalization must match
+byte-for-byte, so a mismatch is not a degraded feature, it is *every command rejected*.
 
-## Windows: MSI + Authenticode
+> **Semver honestly.** If an old agent cannot talk to the new backend, that is **major** for both,
+> regardless of how small the diff looked. Ship them together.
 
-WiX builds the MSI (`agent/installer/`). What actually matters:
+It is currently **reported, not enforced** — one protocol version exists, so a mismatch cannot
+occur. **The day it becomes `2`, build the refusal first**, before the feature that needed the new
+shape: an agent announcing `1` gets a sentence naming the republish. An honest refusal beats a
+connection that behaves subtly wrong.
 
-- **The agent installs as an elevated scheduled task** (RunLevel Highest). The installer is
-  asking for a lot; the UAC dialog naming a verified publisher is what earns it.
-- **Sign the `.exe` *and* the `.msi`.** Signing only the installer leaves the binary
-  unverifiable after extraction.
-- **Timestamp the signature** (`/tr`). Without a timestamp the signature dies with the
-  certificate; with one it stays valid after expiry.
-- **EV vs OV**: an OV certificate still accrues SmartScreen reputation from zero — expect
-  warnings on early downloads. EV gets instant reputation. That reputation gap is a real
-  launch consideration, not a formality.
-- **Verify on a clean machine.** Your build box trusts things a stranger's does not.
+## Cutting a release
 
-```powershell
-signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a artifact.msi
-signtool verify /pa /v artifact.msi
+```bash
+git tag -a app/v0.9.1 -m "app 0.9.1"
+git push origin app/v0.9.1
 ```
 
-## macOS: notarization (when the launchd agent lands)
-
-Different model, stricter: **sign → notarize → staple**, or Gatekeeper refuses.
-
-- Requires a **Developer ID Application** certificate and a **hardened runtime**.
-- **Notarization is Apple scanning your binary**, not a signature — it is a network round
-  trip that can fail on entitlements after signing succeeded.
-- **Staple the ticket** so it verifies offline. Unstapled binaries fail for users without
-  network at first launch.
-- A launchd agent needs its plist scoped correctly — `LaunchAgents` (per-user) vs
-  `LaunchDaemons` (root). Match the Windows model: the agent is a **client**, dials out, and
-  never binds a port.
-
-## Agent distribution & trust
-
-The agent auto-updating is the highest-risk feature Cronsole could ship: an elevated process
-that replaces its own binary is exactly what an attacker wants to compromise.
-
-- **Verify the signature before swapping the binary**, not after.
-- **The update channel must be authenticated** — HTTPS with pinned expectations, not "fetch
-  a URL and run it."
-- **Never auto-update across a breaking protocol change** without the user knowing.
-- **Publish checksums** alongside releases and make them easy to check.
-- The agent **never hot-reloads** — an update means stopping an elevated process and
-  replacing a locked exe. Plan the restart, do not hide it.
-
-## Legal minimum (before strangers install it)
-
-- **LICENSE** — pick it deliberately; it constrains contribution and reuse.
-- **Privacy statement** — Cronsole is local-first and that is a *selling point*. Say plainly
-  what leaves the machine (registry fetches, webhooks the user configured) and what does
-  not.
-- **Third-party notices** — the bundled dependency licenses.
-- **Security contact** — where to report a vulnerability.
+1. **Decide which components changed.** A backend-only fix is not an agent release.
+2. **Bump the manifest** (and `frontend/package.json` if it was the app).
+3. **Changelog from real commits** — `git log app/v0.9.0..HEAD` — not from memory.
+4. **Run every suite** (`/doctor` first if anything looks stale).
+5. **Tag and push.** No artifacts attached — see above.
+6. **Update `docs/ROADMAP.md`** (dated), and troubleshooting if the release surfaced a trap.
 
 ## Release checklist
 
-- [ ] Version decided per component; breaking protocol changes called **major**
+- [ ] Version decided per component; a wire change called **major** on both
 - [ ] Changelog written from real commits
 - [ ] `cd backend && npm test && npm run test:integration`
 - [ ] `cd frontend && npm run lint && npm test`
 - [ ] `cd agent && dotnet test`
 - [ ] `cd mcp-server && npm run build` (the host runs `dist/`, not `src/`)
 - [ ] Registry drift test passes; registry published if the catalog moved
-- [ ] Manual runbooks worked (`docs/testing/manual-testing/`) — they cover what no suite can:
-      real COM, agent resilience, security at rest
-- [ ] Installer built **and signed**, signature verified on a **clean** machine
-- [ ] Checksums published
-- [ ] Agent + backend shipped **together** if the signed-command shape moved
+- [ ] Manual runbooks worked (`docs/testing/manual-testing/`) — real COM, agent resilience,
+      security at rest, which no suite covers
+- [ ] Agent + backend tagged **together** if the signed-command shape moved
+- [ ] **No binary attached to the release**
 - [ ] `docs/ROADMAP.md` updated (dated)
+
+## Trust, without a signature
+
+Source distribution moves the trust burden from a certificate to the docs, and the docs are now the
+whole of it. The agent runs **elevated**, so the open *trust page* item must name:
+
+- what it can do — enumerate, create, run and edit Task Scheduler entries
+- what it **cannot** — no file-write verb, deliberately, because that would be an arbitrary-file-write
+  primitive reachable from the backend
+- that it **dials out** and never accepts an incoming connection
+- how to remove it, including the `\Cronsole-Stack\` tasks an uninstall must sweep by hand
+
+"Read the source you are running" is only a real answer if something tells the reader what to read.
+
+## Legal minimum
+
+- **LICENSE** — Apache-2.0, already in place
+- **Privacy statement** — local-first is a *selling point*; say plainly what leaves the machine
+  (registry fetches, webhooks the user configured) and what does not
+- **Third-party notices** — bundled dependency licenses
+- **Security contact** — `SECURITY.md`, already in place
 
 ## Working rules
 
-1. **Never ship an unsigned elevated binary to strangers.** It is indistinguishable from
-   malware, and asking users to click past the warning trains them to click past warnings.
-2. **Prefer the honest refusal.** A version check that blocks a mismatched agent with a
-   clear message beats one that connects and behaves subtly wrong.
-3. **Verify on a machine that is not yours.** Every trust check on your box is
-   pre-contaminated.
-4. **`context7` before writing** against WiX, `signtool`, `notarytool`, or GitHub Actions
-   release tooling — this area changes and stale invocations fail confusingly.
-5. **Secrets never in code.** Signing certs and notarization credentials live in the CI
-   secret store, never in the repo.
+1. **Never attach a binary to a release.** It reinstates the certificate requirement silently.
+2. **Prefer the honest refusal** — a version check that blocks a mismatched agent with a clear
+   message beats one that connects and behaves subtly wrong.
+3. **`context7` before writing** against GitHub Actions release tooling; it changes and stale
+   invocations fail confusingly.
+4. **Secrets never in code**, and there are no signing secrets to hold any more.

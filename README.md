@@ -106,6 +106,11 @@ platform it already runs on.
    #   → backend   http://localhost:3000   (GET /api/health to verify)
    ```
 
+   Database migrations apply themselves on boot, so there is no schema step. *(Verified
+   2026-09-11 from a clean clone on a machine that had never run Cronsole — which is the only
+   way this can be checked, and how [#90](docs/troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)
+   was found.)*
+
    > [!IMPORTANT]
    > The `--profile docker` is not optional. Backend and frontend are opt-in profiles, so a
    > plain `docker compose up` starts **Postgres and Redis only** and nothing answers on
@@ -133,8 +138,7 @@ cp .env.example .env        # then set DATABASE_URL + secrets (JWT_SECRET,
                             # ENCRYPTION_KEY, AGENT_PAIRING_SECRET) — the backend
                             # fail-fasts without them; see docs/setup/README.md
 npm install
-npx prisma migrate dev      # create the schema
-npm start                   # http://localhost:3000
+npm start                   # http://localhost:3000 — `prestart` migrates first
 
 # Frontend — in a second terminal
 cd frontend

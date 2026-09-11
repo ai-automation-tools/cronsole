@@ -10,6 +10,16 @@
 # `taskhub_postgres_data` holds the one thing here that cannot be rebuilt from the repo.
 # Renaming it buys nothing a user ever sees and risks everything. Docker identity and
 # product branding are separate namespaces; only one of them is allowed to be pretty.
+#
+# CONSEQUENCE, because it surprises people: the name is a property of this FILE, not of
+# the folder, so EVERY clone on a machine is the same Compose project. A second checkout
+# does not get a second install -- it adopts the first one's containers, volume and ports.
+# That is correct for the normal case (one clone) and is what protects the volume above.
+# To run a genuinely separate stack (testing a fresh clone, say), pass an explicit
+# project name AND shift the ports, or the two collide: `docker compose -p cronsole_test`
+# with a `docker-compose.override.yml` whose ports use the `!override` tag -- a plain
+# override APPENDS to a port list rather than replacing it, so both bindings are attempted
+# and the second stack fails on "port is already allocated". Verified 2026-09-11.
 name: taskhub
 
 services:

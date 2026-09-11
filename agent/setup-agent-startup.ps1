@@ -18,6 +18,22 @@ $PublishDir = Join-Path $ScriptDir "publish"
 $RepoRoot   = Split-Path -Parent $ScriptDir
 $ControlPs1 = Join-Path $RepoRoot "scripts\cronsole.ps1"
 
+# Cronsole ships as source, so this script is the install -- and it is the first
+# thing a stranger runs. `dotnet publish` against a machine with no SDK fails with
+# a bare "not recognized", which names neither what is missing nor where to get it.
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    Write-Error @"
+The .NET SDK is not installed, or is not on PATH.
+
+The agent is built on the machine that runs it, so the SDK is required -- there is
+no prebuilt binary to download by design (docs/STATUS.md).
+
+  Install .NET 10 SDK:  https://dotnet.microsoft.com/download/dotnet/10.0
+  Then open a NEW terminal (PATH is read at launch) and run this script again.
+"@
+    Exit 1
+}
+
 Write-Host "1. Building Cronsole C# Agent in Release mode..." -ForegroundColor Cyan
 
 # Stop any running agent first -- publish fails if Cronsole.Agent.exe is locked.

@@ -14,6 +14,29 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Backup and restore, with the restore actually tested** (2026-09-11):
+  [`Backup_Restore_Guide.md`](user-guides/guides/Backup_Restore_Guide.md). One `pg_dump` command,
+  how to schedule it as a Cronsole native `SCRIPT` job, and the restore — run end to end against a
+  live stack rather than written from memory: PostgreSQL 16.14, 404 tasks and 143 execution logs
+  across 17 tables, a 130 KB dump, `pg_restore` exit 0, all 17 tables matching on real counts.
+
+  **Two findings came out of running it.** A **backup without `ENCRYPTION_KEY` is half a backup**:
+  stored credentials are AES-256-GCM ciphertext, so restoring onto a machine with a different key
+  *succeeds*, every count matches, and every platform connection is permanently unreadable — so the
+  key belongs in the backup plan, and pointedly **not** beside the dump, since it is the only thing
+  making that ciphertext safe to keep. And **the obvious way to verify a restore is wrong in both
+  directions**: `pg_stat_user_tables.n_live_tup` is an estimate, and used here it reported a false
+  mismatch (0 users, 18 logs against the restored copy's 1 and 143) on a restore that was perfect.
+  The guide generates real `count(*)` queries instead, and says why.
+
+  The guide also states the scope up front, because it cuts both ways: the volume holds Cronsole's
+  *view* and not the tasks themselves, so losing it loses the dashboard rather than the jobs — with
+  the pre-delete archive as the exception, being the only copy of a task that is already gone.
+
+- **The trust page is reachable from the app** (2026-09-11): the Windows Task Scheduler `?` topic
+  now links *What the agent can do on your machine* alongside the Agent Setup Guide. That is the
+  control where a user is looking at the elevated agent, so it is where the question gets asked.
+
 - **Two pages for the person deciding whether to run this at all** (2026-09-11):
   [`docs/TRUST.md`](TRUST.md) and [`docs/PRIVACY.md`](PRIVACY.md). Cronsole runs a **background
   process with administrator rights** and ships as source rather than as a signed installer, which

@@ -37,7 +37,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P3 — Expansion** | 🟡 underway | POSIX agent · repair verbs · remote-access polish *(installers **cancelled** 2026-09-11 — Cronsole ships as source)* |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF and the stale-claims sweep |
-| **Go-public — application** | 🟠 narrowed | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0`. **Ops and legal were narrowed 2026-09-11**, and the [trust](TRUST.md) and [privacy](PRIVACY.md) pages shipped the same day — leaving **tested Postgres backups** as the only open item with any weight. **Code signing, installers and error tracking are cancelled** — Cronsole ships as source and phones home to nobody, which removed the longest-lead item on the list |
+| **Go-public — application** | 🟢 cleared | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0`. **Ops and legal were narrowed 2026-09-11**, and everything that survived the narrowing shipped the same day: the [trust](TRUST.md) and [privacy](PRIVACY.md) pages, and a [backup routine whose restore was actually run](user-guides/guides/Backup_Restore_Guide.md). **What is left is polish** — structured logs, a GIF, the stale-claims sweep, install links. **Code signing, installers and error tracking are cancelled** — Cronsole ships as source and phones home to nobody, which removed the longest-lead item on the list |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
 the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
@@ -1156,14 +1156,30 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       diagnostics screen, which report on the machine the user is standing at. A status page would
       describe the availability of a service nobody connects to.
 
-      **Left, and all three are real:**
-      - **Postgres backups with a tested restore** — the survivor, and the only item here that can
-        lose data. It belongs to the user's own volume, so it ships as a documented routine (a
-        Cronsole native job, fittingly) rather than as infrastructure, and **the restore test is the
-        deliverable** — an untested backup is a belief. State the scope where it is documented,
-        because it cuts both ways: the volume holds Cronsole's *view* — tracked rows, collections,
-        favorites, run history, archives, task secrets — and **not the tasks themselves**, which live
-        in Windows Task Scheduler and on each platform. Losing it loses the dashboard, not the jobs.
+      **Postgres backups with a tested restore — done 2026-09-11**
+      ([`Backup_Restore_Guide.md`](user-guides/guides/Backup_Restore_Guide.md)). It ships as a
+      documented routine rather than infrastructure, because the volume is the user's, and it can be
+      scheduled as a Cronsole native `SCRIPT` job — with the caveat stated, since a native job runs
+      where the *backend* runs and on the Dockerized stack that is a container with no Docker socket.
+      The guide opens with the scope, because it cuts both ways: the volume holds Cronsole's *view*
+      and **not the tasks themselves**, so losing it loses the dashboard rather than the jobs — with
+      the pre-delete archive called out as the exception, being the only copy of a task that is gone.
+
+      **The restore was run, not described.** Against the live stack: PostgreSQL 16.14, 404 tasks and
+      143 execution logs across 17 tables, a 130 KB dump, `pg_restore` exit 0, all 17 tables matching
+      on real counts, scratch database dropped and the live stack verified intact.
+
+      **It found two things worth publishing.** First, **a backup without `ENCRYPTION_KEY` is half a
+      backup** — stored credentials are AES-256-GCM ciphertext, so a restore onto a machine with a
+      different key *succeeds*, every count matches, and every platform connection is permanently
+      unreadable; the key therefore belongs in the backup plan and **not** beside the dump, since it
+      is the only thing making that ciphertext safe to keep. Second, **the obvious way to verify a
+      restore is wrong in both directions**: `pg_stat_user_tables.n_live_tup` is an estimate, and run
+      that way this very test reported a false mismatch (0 users and 18 logs against the restored
+      copy's 1 and 143) on a restore that was perfect. A check that can be wrong in both directions
+      is not one, so the guide generates real `count(*)` queries.
+
+      **Left:**
       - **Structured logs**, narrowed to their real audience: the user debugging their own install,
         and pasting the result into an issue.
       - **Broader API rate limiting**, small — the only caller is the user and their MCP session, so

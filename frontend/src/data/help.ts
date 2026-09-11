@@ -230,7 +230,10 @@ const sourceWindows: HelpTopic = {
     }
   ],
   doc: { label: 'Sources Guide › Windows Task Scheduler', url: sourcesGuide('windows-task-scheduler') },
-  more: [{ label: 'Windows Agent Setup Guide', url: docLink(`${GUIDES}/Agent_Setup_Guide.md`) }]
+  more: [
+    { label: 'Windows Agent Setup Guide', url: docLink(`${GUIDES}/Agent_Setup_Guide.md`) },
+    { label: 'What the agent can do on your machine', url: docLink('docs/TRUST.md') }
+  ]
 };
 
 const sourceNativeHttp: HelpTopic = {

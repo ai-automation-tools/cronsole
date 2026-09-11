@@ -20,6 +20,7 @@ import sourceClaude from '../../../../docs/user-guides/sources/Claude_Code_Routi
 import sourceGemini from '../../../../docs/user-guides/sources/Gemini_API_Triggers.md?raw';
 import sourceGitHub from '../../../../docs/user-guides/sources/GitHub_Actions.md?raw';
 import sourceVercel from '../../../../docs/user-guides/sources/Vercel_Cron.md?raw';
+import trustPage from '../../../../docs/TRUST.md?raw';
 
 import { describe, it, expect } from 'vitest';
 import { DOCS_BASE, addingASourceDoc, sourceDoc, sourceDocsIndex } from '../docs';
@@ -61,7 +62,8 @@ const DOC_SOURCES: Record<string, string> = {
   'docs/user-guides/sources/Claude_Code_Routines.md': sourceClaude,
   'docs/user-guides/sources/Gemini_API_Triggers.md': sourceGemini,
   'docs/user-guides/sources/GitHub_Actions.md': sourceGitHub,
-  'docs/user-guides/sources/Vercel_Cron.md': sourceVercel
+  'docs/user-guides/sources/Vercel_Cron.md': sourceVercel,
+  'docs/TRUST.md': trustPage
 };
 
 /**

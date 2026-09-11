@@ -37,7 +37,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P3 — Expansion** | 🟡 underway | POSIX agent · repair verbs · remote-access polish *(installers **cancelled** 2026-09-11 — Cronsole ships as source)* |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF and the stale-claims sweep |
-| **Go-public — application** | 🟠 narrowed | versioning *(scheme landed 2026-09-11; no tag cut yet)* · ops · legal · a trust page. **Code signing and installers are cancelled** — Cronsole ships as source, which removed the longest-lead item on the list |
+| **Go-public — application** | 🟠 narrowed | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0` · ops · legal · a trust page. **Code signing and installers are cancelled** — Cronsole ships as source, which removed the longest-lead item on the list |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
 the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
@@ -1125,8 +1125,17 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       hardcoded `agentVersion = "1.0.0"`, so it was identical on a build from today and one from
       June. `AgentManager` captured it and diagnostics *deliberately refused to render it* (the
       comment said "render it the day the agent stamps a real build id"); it now stamps one, read
-      from the assembly so there is no second string to drift. **Left:** tagged releases actually
-      cut, and release notes generated from real commits.
+      from the assembly so there is no second string to drift.
+
+      **The first tags were cut 2026-09-11** — `app/v0.9.0`, `agent/v0.9.0`, `mcp/v0.9.0`, all on
+      `main` at `7a60562`, with GitHub releases carrying **zero assets** each, per the source-only
+      rule. The repo had no tag before this and `docs/CHANGELOG.md` had no version heading, so
+      `[Unreleased]` became `[0.9.0]` with a fresh empty one above it. The checklist ran first:
+      backend 1192 + 267 integration, frontend 1166 + lint, agent 164, mcp-server 211 — ~2,800
+      tests — plus all five hygiene scripts and the registry drift check.
+
+      **Left:** release notes generated from real commits rather than written by hand. That is the
+      whole of this item now.
 - [ ] **Production operations**: error tracking, structured logs, uptime monitoring + status page,
       automated Postgres backups with a **tested restore**, broader API rate limiting, staging +
       deploy pipeline. *(Auth rate limiting shipped 2026-07-16.)*

@@ -12,7 +12,13 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
-*Nothing yet.*
+### Added
+
+- **The first three tags exist** (2026-09-11): `app/v0.9.0`, `agent/v0.9.0`, `mcp/v0.9.0`, all on
+  `main` at `7a60562`, each with a GitHub release carrying **zero assets** — a release ships no
+  binaries, because an attached `.exe` would carry Mark-of-the-Web and reinstate the code-signing
+  certificate this project decided not to take on. The template registry is deliberately not tagged;
+  it publishes on merge and is not on a release train.
 
 ---
 

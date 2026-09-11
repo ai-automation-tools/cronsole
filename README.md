@@ -21,9 +21,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/michaelschecht/cronsole/issues">Report Bug</a>
+  <a href="https://github.com/ai-automation-tools/cronsole/issues">Report Bug</a>
   ·
-  <a href="https://github.com/michaelschecht/cronsole/issues">Request Feature</a>
+  <a href="https://github.com/ai-automation-tools/cronsole/issues">Request Feature</a>
 </p>
 
 <p align="center">
@@ -155,7 +155,7 @@ Full detail, dated and prioritized, in the [**Roadmap**](docs/ROADMAP.md).
 1. Clone the repo:
 
    ```bash
-   git clone https://github.com/michaelschecht/cronsole.git
+   git clone https://github.com/ai-automation-tools/cronsole.git
    cd cronsole
    ```
 
@@ -275,6 +275,12 @@ Run **once per clone**, then restart your CLI — it activates automatically on 
 The script links [`skills/cronsole/`](skills/cronsole/SKILL.md) into `.claude/skills/`, so the
 agent reads the tracked source directly and **no second copy exists to drift**. The skill
 routes to [`docs/`](docs/README.md) rather than restating it, for the same reason.
+
+Two more Cronsole skills live in the org's skill library —
+[**`agent-skills` › `Skills/Projects/cronsole/`**](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole).
+They cover the other half: not how to work on Cronsole, but **how to design the jobs it
+schedules** — the archetypes a Windows Task Scheduler job turns out to be, and the prompt contract
+a scheduled agent routine needs. Install them over this clone with that repo's installer.
 
 > [!NOTE]
 > **Skill vs. MCP server** — easy to conflate. The [**skill**](skills/README.md) teaches an

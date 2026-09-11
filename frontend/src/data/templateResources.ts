@@ -16,7 +16,7 @@ export interface ResourceSection {
   links: ResourceLink[];
 }
 
-const REPO = 'https://github.com/michaelschecht/cronsole/blob/main';
+const REPO = 'https://github.com/ai-automation-tools/cronsole/blob/main';
 
 export const TEMPLATE_RESOURCES: ResourceSection[] = [
   {
@@ -85,8 +85,8 @@ export const TEMPLATE_RESOURCES: ResourceSection[] = [
     title: 'Template repositories',
     links: [
       {
-        label: 'michaelschecht/cronsole',
-        url: 'https://github.com/michaelschecht/cronsole',
+        label: 'ai-automation-tools/cronsole',
+        url: 'https://github.com/ai-automation-tools/cronsole',
         description: 'This project — seed catalog lives in backend/src/seed.ts.'
       },
       {

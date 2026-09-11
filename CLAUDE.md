@@ -4,7 +4,7 @@
 > Task Scheduler, Cronsole-native jobs, and Claude Code routines. Overrides any parent-workspace
 > or user-scope `CLAUDE.md` where they conflict.
 
-**Repo:** [`github.com/michaelschecht/cronsole`](https://github.com/michaelschecht/cronsole) ·
+**Repo:** [`github.com/ai-automation-tools/cronsole`](https://github.com/ai-automation-tools/cronsole) ·
 **Working branch:** `mike_desktop` · **Deploy branch:** `main`
 **Local path:** wherever you cloned it — **move it only via
 [`scripts/startup-task/Migrate-RepoFolder.ps1`](scripts/startup-task/Migrate-RepoFolder.ps1)**. Three
@@ -111,6 +111,12 @@ versioning, go-public) · `claude-api` / `agent-tool-builder` (MCP work) · `git
 Only `cronsole`, `release-engineering`, and `api-architect` are in this repo. The rest moved to
 **user scope** (`~/.claude/skills/`, `~/.claude/commands/`) on 2026-08-23 and are available in every
 repo — don't re-add copies here.
+Two more are an **overlay installed from outside** and may or may not be present on a given clone:
+`cronsole-windows-jobs` and `cronsole-claude-routines`, in
+[`ai-automation-tools/agent-skills` › `Skills/Projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole).
+They cover **designing the jobs Cronsole schedules** — which is not what the `cronsole` skill covers,
+and not a place to move any of its content to. Don't vendor copies into `skills/`; that repo is
+canonical and a second copy would drift silently.
 **Commands:** **`/doctor`** (stale processes, agent connectivity, `CRONSOLE_TOKEN`) ·
 **`/sync-surfaces`** (the §11a drift check, mechanized — run before committing anything non-trivial).
 

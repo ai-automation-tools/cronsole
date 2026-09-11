@@ -14,6 +14,41 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **Two pages for the person deciding whether to run this at all** (2026-09-11):
+  [`docs/TRUST.md`](TRUST.md) and [`docs/PRIVACY.md`](PRIVACY.md). Cronsole runs a **background
+  process with administrator rights** and ships as source rather than as a signed installer, which
+  makes *"read the source"* the answer to why you should trust it — an answer that only works if
+  something tells you what to read.
+
+  **Trust** states the elevation and why it is genuinely required (unelevated, the agent could not
+  see 86 of 371 tasks on a real machine, with every layer reporting success), then lists what the
+  agent can do as the **complete** verb list rather than a summary, so a reader can check the
+  interface and know there is no sixteenth verb. It says the uncomfortable part plainly — a task
+  Cronsole registers runs a program, so the honest description of its power is *anything you can
+  schedule by hand, Cronsole can schedule for you* — and then what is enforced against that: no
+  file-write verb, never binds a port, `\Microsoft\` refused in two places independently, every
+  state-changing command HMAC-signed with a replay guard, and no self-update.
+
+  **Its removal section carries the finding that earns the page: `docker compose down -v` removes
+  Cronsole's database, not the tasks Cronsole created.** Those are ordinary Windows tasks and keep
+  running — correct behavior, the product's own premise turned to face its uninstall, and nothing
+  else would have told you. The sequence notes that sweeping `\Cronsole-Stack\` needs elevation
+  (those tasks carry an administrator ACE) and deliberately does not automate deleting your own
+  scheduled jobs.
+
+  **Privacy** opens by saying why it is not a policy — a policy documents a service that collects
+  your data, and there is no service — then makes one claim: **a default install initiates no
+  outbound connection of its own.** Three checkable facts back it (no telemetry SDK in any of the
+  four workspaces, `TEMPLATE_REGISTRY_URL` commented out so the catalog is compiled in, a dashboard
+  that loads no CDN, font or remote script), followed by the per-source table of who is contacted
+  **once you connect them** — naming Gemini as the one platform that ends up holding a credential
+  of yours, and Claude as the one read at call time and never stored. It closes with the commands
+  to verify each claim, because the point of shipping as source is that a reader can settle this
+  rather than believe it.
+
+  Linked from `README.md`, `docs/README.md` and `SECURITY.md` — the last with a note steering a
+  non-researcher to these two instead.
+
 - **The first three tags exist** (2026-09-11): `app/v0.9.0`, `agent/v0.9.0`, `mcp/v0.9.0`, all on
   `main` at `7a60562`, each with a GitHub release carrying **zero assets** — a release ships no
   binaries, because an attached `.exe` would carry Mark-of-the-Web and reinstate the code-signing

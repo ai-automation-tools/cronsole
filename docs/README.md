@@ -55,6 +55,8 @@ New to Cronsole? Follow this path in order:
 |:---|:---|
 | [**📊 FEATURES.md**](FEATURES.md) | What Cronsole does once your tasks are in it, capability by capability. |
 | [**📍 STATUS.md**](STATUS.md) | What works today, which platforms it runs on, and what isn't built yet. |
+| [**🛡️ TRUST.md**](TRUST.md) | What the elevated agent can and cannot do, stated as the complete verb list rather than a summary — plus a removal sequence, including the part `docker compose down -v` does not do. |
+| [**🔒 PRIVACY.md**](PRIVACY.md) | Which outbound connections exist, when, and to where. A default install initiates none; this is how to check that. |
 | [**🗺️ ROADMAP.md**](ROADMAP.md) | The living plan — what's shipped and what's next (P0 → P3), plus open decisions. |
 | [**🧠 DESIGN_NOTES.md**](DESIGN_NOTES.md) | The reasoning archive — the long-form arguments, failures and wrong turns behind every invariant listed in [`CLAUDE.md`](../CLAUDE.md) § 5. Read it before arguing with a rule, or removing one. |
 

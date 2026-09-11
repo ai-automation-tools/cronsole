@@ -21,6 +21,13 @@ disclosure, and avoid accessing or modifying data that isn't yours while testing
 ## Scope
 
 Cronsole runs **entirely on your own machine** (local-first) — there is no hosted service.
+
+> **Not a researcher?** This page is written for vulnerability reports. If you are deciding
+> whether to run Cronsole at all, the two pages written for you are
+> [**what it can do on your machine**](docs/TRUST.md) — the elevated agent's complete verb list,
+> what is enforced against it, and how to remove it — and
+> [**what leaves your machine**](docs/PRIVACY.md).
+
 The most security-relevant surfaces are:
 
 - **The Windows agent** — registers/runs/deletes Task Scheduler entries; commands are

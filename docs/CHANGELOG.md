@@ -12,6 +12,22 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+*Nothing yet.*
+
+---
+
+## [0.9.0] — 2026-09-11
+
+**The first tagged release**, so everything below it is what 0.9.0 contains — this file had no
+version heading before today and the repo had no tags. Three trains were tagged together at the one
+moment they align: `app/v0.9.0`, `agent/v0.9.0`, `mcp/v0.9.0`
+([scheme](contributing/Versioning.md)). The template registry is **not** tagged, deliberately.
+
+`0.9.0` rather than `1.0.0` because Cronsole is [pre-1.0](STATUS.md) and says so: `1.0.0` would mean
+a wire protocol we have committed to supporting, and there is one agent build in the world.
+Cronsole ships as **source** — a clone or the Docker stack — so this tag is a marker in history,
+not a package, and **no binary is attached to it**.
+
 ### Added
 
 - **Four extended-tier catalog templates** (2026-09-10): `ntf-slack-webhook` (Slack Incoming

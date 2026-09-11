@@ -53,6 +53,8 @@ New to Cronsole? Follow this path in order:
 
 | Doc | What's inside |
 |:---|:---|
+| [**📊 FEATURES.md**](FEATURES.md) | What Cronsole does once your tasks are in it, capability by capability. |
+| [**📍 STATUS.md**](STATUS.md) | What works today, which platforms it runs on, and what isn't built yet. |
 | [**🗺️ ROADMAP.md**](ROADMAP.md) | The living plan — what's shipped and what's next (P0 → P3), plus open decisions. |
 | [**🧠 DESIGN_NOTES.md**](DESIGN_NOTES.md) | The reasoning archive — the long-form arguments, failures and wrong turns behind every invariant listed in [`CLAUDE.md`](../CLAUDE.md) § 5. Read it before arguing with a rule, or removing one. |
 

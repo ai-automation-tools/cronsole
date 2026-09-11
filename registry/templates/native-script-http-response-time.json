@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-http-response-time",
+  "name": "Log HTTP Response Time (Cronsole)",
+  "description": "Time how long a URL takes to respond and fail the run when it is slower than your threshold, so a degraded endpoint shows up as a trend rather than only as a hard outage.",
+  "runtime": "node",
+  "os": "cross-platform",
+  "category": "monitoring",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "monitoring",
+    "http",
+    "latency"
+  ],
+  "icon": "Activity",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/10 * * * *"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "node",
+    "body": "// Runs on the machine hosting the Cronsole backend. Anything printed here\n// lands in the task’s run history; a non-zero exit records a failed run.\nconst http = require(\"http\");\nconst https = require(\"https\");\n\nconst url = \"{{url}}\";\nconst maxMs = Number(\"{{maxMs}}\");\nconst client = url.startsWith(\"https:\") ? https : http;\nconst startedAt = Date.now();\n\nconst req = client.get(url, (res) => {\n  res.on(\"data\", () => {});\n  res.on(\"end\", () => {\n    const elapsedMs = Date.now() - startedAt;\n    console.log(url + \" responded \" + res.statusCode + \" in \" + elapsedMs + \"ms\");\n    if (elapsedMs > maxMs) {\n      console.error(\"Response took \" + elapsedMs + \"ms, over the \" + maxMs + \"ms limit.\");\n      process.exitCode = 1;\n    }\n  });\n});\n\nreq.on(\"error\", (err) => {\n  console.error(\"Request to \" + url + \" failed: \" + err.message);\n  process.exitCode = 1;\n});\n\nreq.setTimeout(15000, () => {\n  req.destroy(new Error(\"request timed out\"));\n});\n"
+  },
+  "parameters": [
+    {
+      "key": "url",
+      "label": "URL",
+      "type": "url",
+      "default": "",
+      "required": true,
+      "help": "The endpoint to time with an HTTP GET."
+    },
+    {
+      "key": "maxMs",
+      "label": "Fail above (ms)",
+      "type": "number",
+      "default": "2000",
+      "required": true,
+      "help": "Record the run as failed when the response takes longer than this many milliseconds."
+    }
+  ],
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

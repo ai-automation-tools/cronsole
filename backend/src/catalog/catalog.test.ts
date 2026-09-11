@@ -34,12 +34,12 @@ describe('bundled catalog snapshot', () => {
     }
   });
 
-  it('has the expected shape: 93 templates (4 patterns + 9 dev + 7 ai + 20 starters + 28 extended + 8 native + 8 native scripts&checks + 6 claude routines + 3 gemini triggers)', () => {
-    expect(bundledCatalog).toHaveLength(93);
+  it('has the expected shape: 97 templates (4 patterns + 10 dev + 7 ai + 20 starters + 29 extended + 8 native + 10 native scripts&checks + 6 claude routines + 3 gemini triggers)', () => {
+    expect(bundledCatalog).toHaveLength(97);
     expect(bundledCatalog.filter((t) => t.isStarter)).toHaveLength(24);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(9);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('dev-'))).toHaveLength(10);
     expect(bundledCatalog.filter((t) => t.id.startsWith('ai-'))).toHaveLength(7);
-    expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(16);
+    expect(bundledCatalog.filter((t) => t.id.startsWith('native-'))).toHaveLength(18);
     expect(bundledCatalog.filter((t) => t.id.startsWith('claude-routine-'))).toHaveLength(6);
     expect(bundledCatalog.filter((t) => t.id.startsWith('gemini-'))).toHaveLength(3);
   });
@@ -105,7 +105,7 @@ describe('bundled catalog snapshot', () => {
     // first template in the catalog that is guaranteed to work on a fresh
     // install rather than merely applicable to one.
     expect(core).toHaveLength(10);
-    expect(extended).toHaveLength(83);
+    expect(extended).toHaveLength(87);
     expect(core.length).toBeLessThan(bundledCatalog.length); // registry > default
     // Extended Pack templates use the ext-namespace prefixes and are never core.
     for (const t of bundledCatalog.filter((x) => /^(bkp|cln|sys|mon|data|ntf)-/.test(x.id))) {
@@ -270,10 +270,10 @@ describe('normalizeTemplate -> Prisma shape', () => {
 });
 
 describe('BundledCatalogSource', () => {
-  it('lists all 93 normalized templates', async () => {
+  it('lists all 97 normalized templates', async () => {
     const src = new BundledCatalogSource();
     const list = await src.list();
-    expect(list).toHaveLength(93);
+    expect(list).toHaveLength(97);
     expect(src.name).toBe('bundled');
   });
 });

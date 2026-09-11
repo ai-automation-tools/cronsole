@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "id": "native-script-docker-restart-unhealthy",
+  "name": "Restart Unhealthy Docker Containers (Cronsole)",
+  "description": "Restart every Docker container currently reporting an unhealthy health status on the machine hosting Cronsole, so a container stuck failing its healthcheck recovers before you notice it yourself.",
+  "runtime": "node",
+  "os": "cross-platform",
+  "category": "system",
+  "tags": [
+    "cronsole-native",
+    "script",
+    "docker",
+    "system"
+  ],
+  "icon": "RefreshCw",
+  "trigger": {
+    "kind": "schedule",
+    "cron": "*/15 * * * *"
+  },
+  "action": {
+    "kind": "script",
+    "interpreter": "node",
+    "body": "// Runs on the machine hosting the Cronsole backend, and needs the docker CLI\n// on that machine’s PATH with permission to talk to the Docker daemon.\nconst { execSync } = require(\"child_process\");\n\nlet unhealthy = [];\ntry {\n  unhealthy = execSync(\"docker ps --filter health=unhealthy -q\", { encoding: \"utf8\" })\n    .split(\"\\n\")\n    .map((line) => line.trim())\n    .filter(Boolean);\n} catch (err) {\n  console.error(\"Could not list containers: \" + err.message);\n  process.exitCode = 1;\n}\n\nif (unhealthy.length === 0) {\n  console.log(\"No unhealthy containers.\");\n} else {\n  for (const id of unhealthy) {\n    try {\n      execSync(\"docker restart \" + id);\n      console.log(\"Restarted \" + id);\n    } catch (err) {\n      console.error(\"Failed to restart \" + id + \": \" + err.message);\n      process.exitCode = 1;\n    }\n  }\n}\n"
+  },
+  "compatibleTargets": [
+    "cronsole-native"
+  ]
+}

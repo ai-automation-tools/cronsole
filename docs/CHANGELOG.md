@@ -12,6 +12,15 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Added
+
+- **Four extended-tier catalog templates** (2026-09-10): `ntf-slack-webhook` (Slack Incoming
+  Webhook message, joins System & Utilities), `dev-brew-update` (Homebrew update & upgrade on
+  macOS, joins Developer Pack), `native-script-docker-restart-unhealthy` (restarts Docker
+  containers reporting an unhealthy healthcheck, joins Cronsole Native), and
+  `native-script-http-response-time` (times an HTTP GET and fails the run past a threshold, joins
+  Cronsole Native). None are `core`.
+
 ### Fixed
 
 - **The README's quick start started nothing** (2026-09-09). Step 2 said `docker compose up --build`

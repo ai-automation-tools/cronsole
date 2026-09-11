@@ -37,7 +37,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P3 — Expansion** | 🟡 underway | POSIX agent · installers · repair verbs · remote-access polish |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF and the stale-claims sweep |
-| **Go-public — application** | 🔴 not started | versioning · ops · code signing · legal |
+| **Go-public — application** | 🔴 barely started | versioning *(scheme landed 2026-09-11; no tag cut yet)* · ops · code signing · legal |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
 the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
@@ -1086,9 +1086,29 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 
 ### Application goes public
 
-- [ ] **Versioning & releases** ← *next*: semver across the four independently-versioned
-      components, tagged releases, changelog discipline, so advertised versions are reproducible.
-      Also unblocks the deliberately-skipped `version` fields in the package manifests.
+- [~] **Versioning & releases** — **the scheme landed 2026-09-11**
+      ([`docs/contributing/Versioning.md`](contributing/Versioning.md)). Four components, three
+      release trains, prefixed tags (`app/v…`, `agent/v…`, `mcp/v…`); the registry is **not** on a
+      release train, which is the whole point of decoupling it. Everything is `0.9.0` — pre-1.0, and
+      the manifests said `1.0.0`/`0.0.0` while zero tags existed, so nothing was advertised and
+      nothing goes backwards.
+
+      The decision that matters is **the agent's wire protocol versions separately from the agent**,
+      because it is the one contract with software we do not control: a user's agent from June talks
+      to today's backend. `PROTOCOL_VERSION` is now stamped at both ends and reported in
+      `agent:hello`.
+
+      It is **reported, not enforced**, deliberately — there is exactly one protocol version in
+      existence, so a mismatch cannot occur yet and refusal machinery would be guarding nothing.
+      The honest refusal is the *first* thing to build the day `SignableCommand` moves; until then a
+      version nothing can disagree with is a fact, not a gate.
+
+      **Two already-logged items closed with it**, both waiting on the same missing fact — the agent
+      hardcoded `agentVersion = "1.0.0"`, so it was identical on a build from today and one from
+      June. `AgentManager` captured it and diagnostics *deliberately refused to render it* (the
+      comment said "render it the day the agent stamps a real build id"); it now stamps one, read
+      from the assembly so there is no second string to drift. **Left:** tagged releases actually
+      cut, and release notes generated from real commits.
 - [ ] **Production operations**: error tracking, structured logs, uptime monitoring + status page,
       automated Postgres backups with a **tested restore**, broader API rate limiting, staging +
       deploy pipeline. *(Auth rate limiting shipped 2026-07-16.)*

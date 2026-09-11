@@ -10,6 +10,19 @@ import authRoutes from './routes/auth.js';
 import { authenticateToken } from './auth/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { corsOptions } from './config/origins.js';
+import { createRequire } from 'node:module';
+
+/**
+ * The app version — backend and frontend ship as one deployable, so there is one
+ * number for the pair (docs/contributing/Versioning.md).
+ *
+ * Read from package.json at runtime rather than imported, because `rootDir` is
+ * `./src` and a JSON import would land the manifest inside `dist/`. The relative
+ * path resolves to `backend/package.json` from both `src/` under tsx and `dist/`
+ * under node, which is the only reason this is safe.
+ */
+const APP_VERSION: string =
+  createRequire(import.meta.url)('../package.json').version ?? 'unknown';
 
 /**
  * Build the Express app: middleware, routes, and the single error boundary.
@@ -72,7 +85,12 @@ export function createApp(): Express {
   app.use(express.json());
 
   app.get('/api/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', timestamp: new Date() });
+    // `version` is the app's (backend + frontend ship as one), read from the
+    // manifest so there is no second string to drift. Unauthenticated on
+    // purpose: it is the same number the repo publishes, and a caller who
+    // cannot reach the version cannot tell a wrong build from an unreachable
+    // one — which is the whole question this endpoint exists to answer.
+    res.json({ status: 'ok', version: APP_VERSION, timestamp: new Date() });
   });
   app.use('/api/auth', authRoutes);
   app.use('/api/tasks', authenticateToken, taskRoutes);

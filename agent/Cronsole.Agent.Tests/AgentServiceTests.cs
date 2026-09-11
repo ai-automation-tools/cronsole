@@ -1243,5 +1243,32 @@ namespace Cronsole.Agent.Tests
                 s => s.CreateTask(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentExecAction>(), It.IsAny<TriggerSpec?>()),
                 Times.Never);
         }
+
+        [Fact]
+        public void AgentVersion_resolves_from_the_assembly_rather_than_falling_back()
+        {
+            // The whole point of reading the version off the assembly is that
+            // Cronsole.Agent.csproj is the only place it is written. If the
+            // reflection ever stops resolving, this silently returns "unknown"
+            // and the diagnostics panel goes back to saying nothing useful —
+            // which is the exact failure the hardcoded "1.0.0" string was.
+            var version = AgentService.AgentVersion;
+
+            version.Should().NotBe("unknown");
+            version.Should().MatchRegex(@"^\d+\.\d+\.\d+");
+            // Build metadata is stripped: "0.9.0+abc123" is not a version a user
+            // can match against a release.
+            version.Should().NotContain("+");
+        }
+
+        [Fact]
+        public void ProtocolVersion_is_the_wire_contract_and_not_the_build()
+        {
+            // These are deliberately independent — see docs/contributing/Versioning.md.
+            // Bumping this constant means every published agent stops matching,
+            // so it should only ever move alongside a SignableCommand change and
+            // a backend that refuses the old value.
+            AgentService.ProtocolVersion.Should().Be(1);
+        }
     }
 }

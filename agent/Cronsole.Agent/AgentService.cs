@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -20,6 +21,38 @@ namespace Cronsole.Agent
 
             SetupSocketEvents();
         }
+
+        /// <summary>
+        /// The wire contract this agent speaks — **not** its build version.
+        ///
+        /// The two move independently on purpose: the agent can ship five
+        /// releases that change nothing about the wire, while a three-line
+        /// change to the SignableCommand shape is breaking, because HMAC
+        /// canonicalization has to match byte-for-byte and a mismatch is not a
+        /// degraded feature — it is every command rejected.
+        ///
+        /// The backend records this and renders it; it refuses nothing, because
+        /// there is exactly one protocol version in existence and a mismatch
+        /// cannot occur yet. The day this becomes 2, the refusal is the first
+        /// thing to build. See docs/contributing/Versioning.md.
+        /// </summary>
+        public const int ProtocolVersion = 1;
+
+        /// <summary>
+        /// The agent's own version, read off the assembly so the number written
+        /// in Cronsole.Agent.csproj is the only one that exists. The string this
+        /// replaced was hardcoded "1.0.0" and so reported a build from today and
+        /// one published in June identically.
+        /// </summary>
+        public static string AgentVersion =>
+            typeof(AgentService).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion
+                // Strip the "+<commit sha>" the SDK appends when the repo is a
+                // git checkout — it is build metadata, not part of the version.
+                .Split('+')[0]
+            ?? typeof(AgentService).Assembly.GetName().Version?.ToString(3)
+            ?? "unknown";
 
         // Windows' own error for running a task that is switched off. The COM
         // layer's text ("The task is disabled.") is already honest, so this is
@@ -192,7 +225,8 @@ namespace Cronsole.Agent
                 // Announce ourselves
                 await _socket.EmitAsync("agent:hello", new[] { new {
                     machineName = Environment.MachineName,
-                    agentVersion = "1.0.0",
+                    agentVersion = AgentVersion,
+                    protocolVersion = ProtocolVersion,
                     osVersion = Environment.OSVersion.ToString()
                 }});
             };

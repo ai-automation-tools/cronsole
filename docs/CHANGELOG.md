@@ -254,6 +254,27 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **A versioning scheme, and the agent finally says which build it is** (2026-09-11, ROADMAP
+  *Go-public › Versioning & releases*). Four components version on three release trains with
+  prefixed tags (`app/v…`, `agent/v…`, `mcp/v…`); the template registry stays off the trains
+  entirely, which is the whole reason it was decoupled. Everything starts at **0.9.0** — the
+  manifests read `1.0.0` and `0.0.0` while **zero tags existed**, so no version had ever been
+  advertised and nothing goes backwards. The scheme is in
+  [`docs/contributing/Versioning.md`](contributing/Versioning.md).
+
+  The agent used to hardcode `agentVersion = "1.0.0"`, which reported a build from today and one
+  published in June identically. It now reads its version off its own assembly, so
+  `Cronsole.Agent.csproj` is the only place the number is written — and **Diagnostics prints it**,
+  closing a deliberate omission whose comment had said to render it "the day the agent stamps a real
+  build id". A missing version is not blank and not a guess: it reads *"predates version stamping,
+  republish to find out"*, because an agent that cannot name its build is older than any number it
+  could have printed. `GET /api/health` reports the app version the same way.
+
+  **The wire protocol versions separately from the agent**, since it is the one contract with
+  software nobody controls — a user's agent from June talks to today's backend. It is **reported,
+  not enforced**: exactly one protocol version exists, so a mismatch cannot occur and a gate would
+  be guarding nothing. The refusal is the first thing to build the day `SignableCommand` moves.
+
 - **A monthly schedule now registers as a real Windows monthly trigger instead of ~8,760 runs a
   year** (2026-09-08, ROADMAP *Next up*). `scheduler-conversion.ts` had no monthly pattern, so
   `0 9 1 * *` fell through to the replaced-with-hourly fallback — 12 runs asked for, 8,760

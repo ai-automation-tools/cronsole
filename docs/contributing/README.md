@@ -19,6 +19,7 @@ for the parts of Cronsole built to be extended.
 | Guide | What's inside |
 |:---|:---|
 | [**🔌 Adding a source**](Adding_A_Source.md) | Make Cronsole read scheduled work from a platform it doesn't support yet. Which of the three shapes it is and how to pick, the contract a connector must meet, the ten files to touch in order, which existing connector to copy, and what gets declined. |
+| [**🏷️ Versioning & releases**](Versioning.md) | Which of the four components you just changed, what its version means, and why the agent's wire protocol versions separately from the agent. Prefixed tags, the release steps, and the rule that a wire change is major however small the diff looked. |
 
 ## 🧩 Why there is no plugin folder
 

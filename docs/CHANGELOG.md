@@ -20,6 +20,23 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   certificate this project decided not to take on. The template registry is deliberately not tagged;
   it publishes on merge and is not on a release train.
 
+### Changed
+
+- **Error tracking is cancelled, and a default install phones home to nobody** (2026-09-11). The
+  go-public checklist's *production operations* and *legal minimum* items were both written for a
+  hosted service Cronsole does not run, and were narrowed to what a local-first tool actually owes a
+  stranger. Cancelled: error tracking — shipping stack traces to a third party contradicts the one
+  thing this product claims. Dissolved: uptime monitoring, a status page, staging, a deploy pipeline
+  (nothing to monitor or deploy), and the terms of service (no service, and `LICENSE` already covers
+  the only relationship there is). Verified while deciding it: no telemetry or analytics SDK exists
+  in any of the four workspaces, `TEMPLATE_REGISTRY_URL` is commented out by default so a fresh
+  install reads the compiled-in catalog rather than fetching one, and the public gallery page sets
+  no cookies. What is left is small and real: Postgres backups with a **tested** restore, structured
+  logs for the user's own debugging, a privacy page, and the trust page. Account deletion became
+  *uninstall*, which carries the edge worth publishing — **`docker compose down -v` removes
+  Cronsole's database, not the tasks Cronsole created**; the `\Cronsole` and `\Cronsole-Stack\`
+  tasks survive it, because Cronsole never owned them.
+
 ---
 
 ## [0.9.0] — 2026-09-11

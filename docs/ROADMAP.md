@@ -37,7 +37,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P3 — Expansion** | 🟡 underway | POSIX agent · repair verbs · remote-access polish *(installers **cancelled** 2026-09-11 — Cronsole ships as source)* |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF and the stale-claims sweep |
-| **Go-public — application** | 🟠 narrowed | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0` · ops · legal · a trust page. **Code signing and installers are cancelled** — Cronsole ships as source, which removed the longest-lead item on the list |
+| **Go-public — application** | 🟠 narrowed | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0`. **Ops and legal were narrowed 2026-09-11** and what is left of both is small: tested Postgres backups, a privacy page, a trust page. **Code signing, installers and error tracking are cancelled** — Cronsole ships as source and phones home to nobody, which removed the longest-lead item on the list |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
 the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
@@ -1136,9 +1136,39 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 
       **Left:** release notes generated from real commits rather than written by hand. That is the
       whole of this item now.
-- [ ] **Production operations**: error tracking, structured logs, uptime monitoring + status page,
-      automated Postgres backups with a **tested restore**, broader API rate limiting, staging +
-      deploy pipeline. *(Auth rate limiting shipped 2026-07-16.)*
+- [~] **Operations — for the machine the user runs it on** *(narrowed 2026-09-11)*. The original item
+      named error tracking, uptime monitoring, a status page, staging and a deploy pipeline. Those
+      describe a **hosted service**, and Cronsole does not have one: there is nothing to monitor,
+      nothing to deploy, and no incident anybody but the user can see. Rewritten against the product
+      this actually is, the item is much smaller — and one part of it is cancelled outright.
+
+      **Error tracking is cancelled, not deferred.** Posting a local-first tool's stack traces to a
+      third party contradicts the one thing it claims. A default install today initiates **zero
+      outbound calls of its own** — verified, not assumed: there is no telemetry or analytics SDK
+      anywhere in the four workspaces, and `TEMPLATE_REGISTRY_URL` is commented out in
+      `backend/.env.example`, so the catalog a fresh install reads is the compiled-in snapshot and
+      not a fetch. That property is worth more than aggregate crash data, and this is the same shape
+      as the certificate decision: reopening it means re-answering *what leaves the machine*, in
+      public, having already said it leaves nothing.
+
+      **Uptime monitoring, status page, staging, deploy pipeline: dissolved.** The real question
+      underneath them — *is my install healthy* — is already answered by `/doctor` and the
+      diagnostics screen, which report on the machine the user is standing at. A status page would
+      describe the availability of a service nobody connects to.
+
+      **Left, and all three are real:**
+      - **Postgres backups with a tested restore** — the survivor, and the only item here that can
+        lose data. It belongs to the user's own volume, so it ships as a documented routine (a
+        Cronsole native job, fittingly) rather than as infrastructure, and **the restore test is the
+        deliverable** — an untested backup is a belief. State the scope where it is documented,
+        because it cuts both ways: the volume holds Cronsole's *view* — tracked rows, collections,
+        favorites, run history, archives, task secrets — and **not the tasks themselves**, which live
+        in Windows Task Scheduler and on each platform. Losing it loses the dashboard, not the jobs.
+      - **Structured logs**, narrowed to their real audience: the user debugging their own install,
+        and pasting the result into an issue.
+      - **Broader API rate limiting**, small — the only caller is the user and their MCP session, so
+        the case is defence-in-depth *behind* Cloudflare Access on the opt-in remote path, not
+        protection from a crowd that cannot reach the port. *(Auth rate limiting shipped 2026-07-16.)*
 - [~] **Agent distribution & trust** — **signing and installers dropped 2026-09-11; the trust page
       is what survives, and it matters more now.**
 
@@ -1163,8 +1193,35 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       only a real answer if something tells you what to read. It must name the elevation, the
       outbound-only socket, the absence of any file-write verb, and the `\Cronsole-Stack\` tasks an
       uninstall has to sweep by hand.
-- [ ] **Legal minimum**: privacy policy, terms of service, account deletion + data export that
-      actually purges tasks and logs, cookie handling on the public site.
+- [~] **Legal minimum** *(narrowed 2026-09-11)*. Most of this item described obligations that attach
+      to **operating a service**, and Cronsole operates none. What is actually owed to a stranger is
+      smaller, and part of it already shipped.
+
+      **`LICENSE` is in the repo** — the actual legal relationship, and the only one that exists.
+
+      **Terms of service: dissolved.** A ToS governs a service you run — access, acceptable use,
+      suspension, termination. There is no server, no account held by anyone else, and nothing to
+      terminate. The LICENSE already covers use and reuse; a ToS layered on top would set terms for a
+      relationship that does not exist.
+
+      **Account deletion and data export: reframed as *uninstall*, and folded into the trust page
+      above.** No account exists anywhere but the user's own Postgres, so "delete my account" is
+      really "remove Cronsole" — and that has an edge worth stating plainly, because nothing else
+      will say it: **`docker compose down -v` removes Cronsole's database, not the tasks Cronsole
+      created.** The `\Cronsole` tasks and the `\Cronsole-Stack\` launcher tasks survive it, by
+      design — Cronsole never owned them, which is the product's whole premise pointed back at its
+      own uninstall. Per-task export already exists in both formats (`native` and `template`).
+
+      **Cookie handling: nothing to handle.** The one public page sets **no cookies** and loads no
+      third-party analytics — verified: a single `localStorage` key for the theme toggle, and
+      outbound links to GitHub.
+
+      **Left:** the **privacy page** — one honest page, not a policy. It names what leaves the machine
+      (a platform API the user connected, a webhook they wrote, the hosted registry if they opt in),
+      says that a default install initiates nothing on its own, and tells the reader **how to check
+      that** rather than asking them to take it. It is the same act as the trust page above — stating
+      what this software does on your machine — so the two should be written together and probably
+      sit beside each other.
 - [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
       password reset (needs email infra), open registration as a *designed* invite/approval flow,
       JWT refresh tokens, per-user agent pairing, account management and roles.

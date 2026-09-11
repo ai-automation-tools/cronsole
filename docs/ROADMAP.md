@@ -37,7 +37,7 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P3 — Expansion** | 🟡 underway | POSIX agent · repair verbs · remote-access polish *(installers **cancelled** 2026-09-11 — Cronsole ships as source)* |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
 | **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF and the stale-claims sweep |
-| **Go-public — application** | 🟠 narrowed | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0`. **Ops and legal were narrowed 2026-09-11** and what is left of both is small: tested Postgres backups, a privacy page, a trust page. **Code signing, installers and error tracking are cancelled** — Cronsole ships as source and phones home to nobody, which removed the longest-lead item on the list |
+| **Go-public — application** | 🟢 cleared | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0`. **Ops and legal were narrowed 2026-09-11**, and everything that survived the narrowing shipped the same day: the [trust](TRUST.md) and [privacy](PRIVACY.md) pages, and a [backup routine whose restore was actually run](user-guides/guides/Backup_Restore_Guide.md). **What is left is polish** — structured logs, a GIF, the stale-claims sweep, install links. **Code signing, installers and error tracking are cancelled** — Cronsole ships as source and phones home to nobody, which removed the longest-lead item on the list |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
 the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
@@ -1156,20 +1156,36 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       diagnostics screen, which report on the machine the user is standing at. A status page would
       describe the availability of a service nobody connects to.
 
-      **Left, and all three are real:**
-      - **Postgres backups with a tested restore** — the survivor, and the only item here that can
-        lose data. It belongs to the user's own volume, so it ships as a documented routine (a
-        Cronsole native job, fittingly) rather than as infrastructure, and **the restore test is the
-        deliverable** — an untested backup is a belief. State the scope where it is documented,
-        because it cuts both ways: the volume holds Cronsole's *view* — tracked rows, collections,
-        favorites, run history, archives, task secrets — and **not the tasks themselves**, which live
-        in Windows Task Scheduler and on each platform. Losing it loses the dashboard, not the jobs.
+      **Postgres backups with a tested restore — done 2026-09-11**
+      ([`Backup_Restore_Guide.md`](user-guides/guides/Backup_Restore_Guide.md)). It ships as a
+      documented routine rather than infrastructure, because the volume is the user's, and it can be
+      scheduled as a Cronsole native `SCRIPT` job — with the caveat stated, since a native job runs
+      where the *backend* runs and on the Dockerized stack that is a container with no Docker socket.
+      The guide opens with the scope, because it cuts both ways: the volume holds Cronsole's *view*
+      and **not the tasks themselves**, so losing it loses the dashboard rather than the jobs — with
+      the pre-delete archive called out as the exception, being the only copy of a task that is gone.
+
+      **The restore was run, not described.** Against the live stack: PostgreSQL 16.14, 404 tasks and
+      143 execution logs across 17 tables, a 130 KB dump, `pg_restore` exit 0, all 17 tables matching
+      on real counts, scratch database dropped and the live stack verified intact.
+
+      **It found two things worth publishing.** First, **a backup without `ENCRYPTION_KEY` is half a
+      backup** — stored credentials are AES-256-GCM ciphertext, so a restore onto a machine with a
+      different key *succeeds*, every count matches, and every platform connection is permanently
+      unreadable; the key therefore belongs in the backup plan and **not** beside the dump, since it
+      is the only thing making that ciphertext safe to keep. Second, **the obvious way to verify a
+      restore is wrong in both directions**: `pg_stat_user_tables.n_live_tup` is an estimate, and run
+      that way this very test reported a false mismatch (0 users and 18 logs against the restored
+      copy's 1 and 143) on a restore that was perfect. A check that can be wrong in both directions
+      is not one, so the guide generates real `count(*)` queries.
+
+      **Left:**
       - **Structured logs**, narrowed to their real audience: the user debugging their own install,
         and pasting the result into an issue.
       - **Broader API rate limiting**, small — the only caller is the user and their MCP session, so
         the case is defence-in-depth *behind* Cloudflare Access on the opt-in remote path, not
         protection from a crowd that cannot reach the port. *(Auth rate limiting shipped 2026-07-16.)*
-- [~] **Agent distribution & trust** — **signing and installers dropped 2026-09-11; the trust page
+- [x] **Agent distribution & trust** — **signing and installers dropped 2026-09-11; the trust page
       is what survives, and it matters more now.**
 
       **Cronsole ships as source.** Clone the repo, or run the Docker stack; the agent is built on
@@ -1188,12 +1204,26 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       certificate is a hard prerequisite again. This is the one way the decision gets quietly undone,
       and nothing enforces it.
 
-      **Left:** the trust page — *what the agent can do, what it cannot, and how to remove it*. It
-      was the smallest line of the old item and is now the whole thing, because "read the source" is
-      only a real answer if something tells you what to read. It must name the elevation, the
-      outbound-only socket, the absence of any file-write verb, and the `\Cronsole-Stack\` tasks an
-      uninstall has to sweep by hand.
-- [~] **Legal minimum** *(narrowed 2026-09-11)*. Most of this item described obligations that attach
+      **The trust page shipped 2026-09-11** — [`docs/TRUST.md`](TRUST.md). It was the smallest line
+      of the old item and became the whole of it, because "read the source" is only a real answer if
+      something tells you what to read. It names the elevation **and why it is genuinely required**
+      (#74's 86 invisible tasks), lists the agent's capabilities as the **complete** verb list rather
+      than a summary — the point being that a reader can check the interface and know there is no
+      sixteenth verb — and states the uncomfortable half out loud: a task Cronsole registers runs a
+      program, so the honest description of its power is *anything you can schedule by hand, Cronsole
+      can schedule for you*. Then what is enforced against that (no file-write verb, never binds a
+      port, `\Microsoft\` refused twice, signed commands with a replay guard, no self-update), the
+      full inventory of what runs after an install, and the removal sequence.
+
+      **The removal section is the part that earns the page.** `docker compose down -v` removes
+      Cronsole's database and **not the tasks Cronsole created** — they are ordinary Windows tasks
+      and keep running. That is correct behavior, it is the product's own premise turned to face its
+      uninstall, and nobody would guess it. The sequence also notes the `\Cronsole-Stack\` sweep
+      needs elevation (those tasks carry an administrator ACE), and deliberately does **not**
+      automate deleting the user's own scheduled jobs.
+
+      This item is now **closed**.
+- [x] **Legal minimum** *(narrowed and closed 2026-09-11)*. Most of this item described obligations that attach
       to **operating a service**, and Cronsole operates none. What is actually owed to a stranger is
       smaller, and part of it already shipped.
 
@@ -1216,12 +1246,19 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       third-party analytics — verified: a single `localStorage` key for the theme toggle, and
       outbound links to GitHub.
 
-      **Left:** the **privacy page** — one honest page, not a policy. It names what leaves the machine
-      (a platform API the user connected, a webhook they wrote, the hosted registry if they opt in),
-      says that a default install initiates nothing on its own, and tells the reader **how to check
-      that** rather than asking them to take it. It is the same act as the trust page above — stating
-      what this software does on your machine — so the two should be written together and probably
-      sit beside each other.
+      **The privacy page shipped 2026-09-11** — [`docs/PRIVACY.md`](PRIVACY.md), written in the same
+      sitting as the trust page because they are the same act. It opens by saying why it is *not* a
+      policy (a policy documents a service that collects your data; there is no service), then states
+      the claim that matters — **a default install initiates no outbound connection of its own** —
+      and backs it with three checkable facts: no telemetry SDK in any of the four workspaces,
+      `TEMPLATE_REGISTRY_URL` commented out so the catalog is compiled in, and a dashboard that loads
+      no CDN, font or remote script. Then the per-source table of who gets contacted **when you
+      connect them**, naming Gemini as the one platform that ends up holding a credential of yours
+      and Claude as the one read at call time and never stored. It ends with the commands to verify
+      each claim, because the whole value of shipping as source is that a reader can settle this
+      rather than believe it.
+
+      This item is now **closed**.
 - [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
       password reset (needs email infra), open registration as a *designed* invite/approval flow,
       JWT refresh tokens, per-user agent pairing, account management and roles.

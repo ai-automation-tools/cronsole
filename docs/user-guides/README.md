@@ -23,6 +23,7 @@ Windows agent. If you haven't set Cronsole up yet, start with
 | [**🔌 Source Guides**](sources/README.md) | One document per source, in depth: connecting it, what each capability actually does, and the failures worth knowing about first. Read these once you've chosen. |
 | [**🤖 Windows Agent Setup Guide**](guides/Agent_Setup_Guide.md) | Installing, registering, running, verifying, and troubleshooting the local .NET agent. |
 | [**🧩 MCP Server Guide**](guides/MCP_Server_Guide.md) | Wiring the MCP server into Claude / Codex / Cursor to list, run, and create tasks in natural language. |
+| [**💾 Backup & Restore**](guides/Backup_Restore_Guide.md) | Backing up Cronsole's database, scheduling it as a Cronsole job, restoring it — and testing the restore, which is the part that makes the backup real. Includes the trap: a dump without `ENCRYPTION_KEY` restores cleanly and leaves every stored credential unreadable. |
 | [**🌐 Remote Access Guide**](guides/Remote_Access_Guide.md) <sub>· advanced · optional</sub> | Reach your own local Cronsole from your phone or another device — a single-origin reverse proxy behind **Tailscale** (private, no domain needed) or a **Cloudflare Tunnel + Access** (public HTTPS hostname, gated). Tooling ships in the repo; Cronsole stays local-first, and this is opt-in. |
 
 ## 🔗 Related

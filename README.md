@@ -276,6 +276,12 @@ The script links [`skills/cronsole/`](skills/cronsole/SKILL.md) into `.claude/sk
 agent reads the tracked source directly and **no second copy exists to drift**. The skill
 routes to [`docs/`](docs/README.md) rather than restating it, for the same reason.
 
+Two more Cronsole skills live in the org's skill library —
+[**`agent-skills` › `Skills/Projects/cronsole/`**](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole).
+They cover the other half: not how to work on Cronsole, but **how to design the jobs it
+schedules** — the archetypes a Windows Task Scheduler job turns out to be, and the prompt contract
+a scheduled agent routine needs. Install them over this clone with that repo's installer.
+
 > [!NOTE]
 > **Skill vs. MCP server** — easy to conflate. The [**skill**](skills/README.md) teaches an
 > agent to *work on* Cronsole's codebase. The [**MCP server**](docs/user-guides/guides/MCP_Server_Guide.md)

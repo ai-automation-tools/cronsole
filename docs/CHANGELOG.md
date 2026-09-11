@@ -37,6 +37,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Changed
 
+- **Two Cronsole skills that live outside this repo are now discoverable from it** (2026-09-11).
+  `cronsole-windows-jobs` and `cronsole-claude-routines` sit in the org's skill library at
+  [`ai-automation-tools/agent-skills` › `Skills/Projects/cronsole/`](https://github.com/ai-automation-tools/agent-skills/tree/main/Skills/Projects/cronsole),
+  and nothing in this repo said so — a reader had no way to learn they existed. `skills/README.md`
+  now carries a section for them with the install command, the root README points at the folder, and
+  `CLAUDE.md` §8 names them so an agent knows they may or may not be present on a given clone.
+  **They are an overlay, not a copy**: they cover *designing the jobs Cronsole schedules*, which is
+  the half the `cronsole` skill deliberately leaves alone, and the skills repo stays canonical —
+  vendoring a copy into `skills/` would be a second definition free to drift silently.
+
 - **The repo moved to the `ai-automation-tools` organization** (2026-09-09). It is now
   `ai-automation-tools/cronsole`; the old path redirects. Every bare `michaelschecht/cronsole`
   reference was repointed across 14 files — issue templates, `DOCS_BASE` (the in-app `?` deep-links),

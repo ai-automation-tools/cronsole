@@ -17,7 +17,7 @@ its stack is built on.
 
 | Repository | What it is |
 |:---|:---|
-| [**michaelschecht/cronsole**](https://github.com/michaelschecht/cronsole) | This project. |
+| [**ai-automation-tools/cronsole**](https://github.com/ai-automation-tools/cronsole) | This project. |
 | [**TaskScheduler (.NET wrapper)**](https://github.com/dahall/TaskScheduler) | `Microsoft.Win32.TaskScheduler` — the library the Windows agent uses to read Task Scheduler. |
 | [**Prisma ORM**](https://github.com/prisma/prisma) | The ORM backing the Postgres data layer. |
 | [**Socket.IO**](https://github.com/socketio/socket.io) | Real-time transport between backend and agent. |

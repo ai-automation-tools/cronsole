@@ -18,7 +18,7 @@
  */
 
 /** Repo root on the deploy branch. */
-export const DOCS_BASE = 'https://github.com/michaelschecht/cronsole/blob/main';
+export const DOCS_BASE = 'https://github.com/ai-automation-tools/cronsole/blob/main';
 
 /** Where the user guides live, relative to the repo root. */
 export const GUIDES = 'docs/user-guides/guides';

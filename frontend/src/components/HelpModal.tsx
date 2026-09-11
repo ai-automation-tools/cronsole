@@ -196,7 +196,7 @@ export const HelpModal = ({ onClose, topic }: HelpModalProps) => {
               </a>
 
               <a 
-                href="https://github.com/michaelschecht/cronsole"
+                href="https://github.com/ai-automation-tools/cronsole"
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="p-3 bg-background border border-border hover:border-primary/50 rounded-2xl flex items-center justify-between group transition-colors"

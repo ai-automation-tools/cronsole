@@ -4,7 +4,7 @@
 > Task Scheduler, Cronsole-native jobs, and Claude Code routines. Overrides any parent-workspace
 > or user-scope `CLAUDE.md` where they conflict.
 
-**Repo:** [`github.com/michaelschecht/cronsole`](https://github.com/michaelschecht/cronsole) ·
+**Repo:** [`github.com/ai-automation-tools/cronsole`](https://github.com/ai-automation-tools/cronsole) ·
 **Working branch:** `mike_desktop` · **Deploy branch:** `main`
 **Local path:** wherever you cloned it — **move it only via
 [`scripts/startup-task/Migrate-RepoFolder.ps1`](scripts/startup-task/Migrate-RepoFolder.ps1)**. Three

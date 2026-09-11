@@ -495,7 +495,7 @@
         <span class="nav-link" data-nav="#/browse">Browse</span>
         <span class="nav-link" data-nav="#/collections">Collections</span>
         <span class="nav-link" id="nav-import">Import guide</span>
-        <a class="nav-link" href="https://github.com/michaelschecht/cronsole" target="_blank" rel="noopener">Get Cronsole</a>
+        <a class="nav-link" href="https://github.com/ai-automation-tools/cronsole" target="_blank" rel="noopener">Get Cronsole</a>
       </div>
       <div class="nav-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -519,13 +519,13 @@
         <span>Cronsole Template Registry · content-addressed · served via GitHub Pages</span>
       </div>
       <div class="fr">
-        <a href="https://github.com/michaelschecht/cronsole" target="_blank" rel="noopener">Cronsole on GitHub</a>
+        <a href="https://github.com/ai-automation-tools/cronsole" target="_blank" rel="noopener">Cronsole on GitHub</a>
         <!-- No raw-artifact link here. The registry JSON and its apex path are plumbing: this
              page is the only public face of the catalog, and the host it happens to be served
              from is not something a visitor should have to know. The page still READS the JSON
              (REGISTRY_BASE below) - that is a machine read, and the URL is frozen for it.
              "Request a template" points at the registry mirror only because the app repo is
-             still private; move it to michaelschecht/cronsole/issues when that flips. -->
+             still private; move it to ai-automation-tools/cronsole/issues when that flips. -->
         <a href="https://github.com/michaelschecht/cronsole-registry/issues" target="_blank" rel="noopener">Request a template</a>
       </div>
     </div>
@@ -557,13 +557,13 @@
     var ASSET_BASE = "./";           // set to REGISTRY_BASE if the local index is absent
 
     var LINKS = {
-      appRepo: "https://github.com/michaelschecht/cronsole",
-      quickStart: "https://github.com/michaelschecht/cronsole#-quick-start",
+      appRepo: "https://github.com/ai-automation-tools/cronsole",
+      quickStart: "https://github.com/ai-automation-tools/cronsole#-quick-start",
       registryRepo: "https://github.com/michaelschecht/cronsole-registry",
       registryIssues: "https://github.com/michaelschecht/cronsole-registry/issues"
     };
 
-    var QUICKSTART = "git clone https://github.com/michaelschecht/cronsole.git\ncd cronsole\ndocker compose up -d";
+    var QUICKSTART = "git clone https://github.com/ai-automation-tools/cronsole.git\ncd cronsole\ndocker compose up -d";
 
     // ---------- label maps ----------
     var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };
@@ -942,7 +942,7 @@
           '<h2 style="margin-top:8px">Built in the open</h2>' +
           '<p>The app, the registry that feeds it, and this gallery.</p></div></div>' +
           '<div class="coll-grid">' +
-            repoCard("App · Source", "Cronsole app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/michaelschecht/cronsole") +
+            repoCard("App · Source", "Cronsole app", "React dashboard, Node/Postgres backend, the .NET Windows agent, and the MCP server. Apache-2.0.", LINKS.appRepo, "github.com/ai-automation-tools/cronsole") +
             repoCard("Data · Registry", "Template registry", "The public, versioned catalog — index.json plus one file per template, content-addressed with sha256. Propose new templates here.", LINKS.registryRepo, "github.com/michaelschecht/cronsole-registry") +
             repoCard("Feedback", "Request a template", "Missing an automation you\'d use? Open an issue and describe it — the catalog grows from real requests.", LINKS.registryIssues, "Open an issue") +
           '</div></section>' +

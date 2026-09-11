@@ -752,7 +752,7 @@ at runtime — deliberately. A connector holds credentials, issues commands to y
 decides what a sync is allowed to retire, which is not a thing to load off disk unreviewed.
 
 So **adding a source means a pull request** to
-[the repository](https://github.com/michaelschecht/cronsole), and the honest version of that
+[the repository](https://github.com/ai-automation-tools/cronsole), and the honest version of that
 sentence is: open one, and you will get an answer about whether it fits. Some proposals do not, and
 the reasons are written down rather than delivered in a reply to your PR.
 

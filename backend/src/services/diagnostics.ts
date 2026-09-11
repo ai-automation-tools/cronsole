@@ -270,10 +270,23 @@ async function checkWindowsAgent(ctx: CheckContext): Promise<DiagnosticCheck | n
   if (liveness?.identity?.osVersion) {
     facts.push({ label: 'Agent OS', value: liveness.identity.osVersion });
   }
+  if (liveness?.identity) {
+    // Agents published before 2026-09-11 hardcoded "1.0.0" and sent no protocol
+    // version at all, which is why this was withheld for so long. The absence is
+    // now the informative case: it says the build predates the stamp, so it is
+    // older than any number it could have printed.
+    const { agentVersion, protocolVersion } = liveness.identity;
+    facts.push({
+      label: 'Agent version',
+      value: agentVersion
+        ? `${agentVersion}${protocolVersion ? ` (wire v${protocolVersion})` : ''}`
+        : 'not reported — predates version stamping, republish to find out'
+    });
+  }
   if (liveness) {
-    // The honest staleness fact. The agent hardcodes its version string, so it
-    // cannot say whether the running build is current; when it connected can,
-    // because a republish restarts the process (troubleshooting #7).
+    // The staleness fact about the running *process*, which the version does not
+    // answer: a republish restarts it, so this is how old the build in memory is
+    // rather than which build it is (troubleshooting #7).
     facts.push({ label: 'Connected since', value: stamp(liveness.connectedAt, ctx.now) });
     facts.push({ label: 'Last inbound event', value: stamp(liveness.lastResponseAt, ctx.now) });
     facts.push({

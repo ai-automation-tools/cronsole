@@ -7,17 +7,23 @@ import { Socket } from 'socket.io';
  * the backend could not name the machine its own agent was running on, which is
  * the first question anyone asks when a task fires somewhere unexpected.
  *
- * `agentVersion` is captured because the agent sends it, and is deliberately
- * **not rendered** by the diagnostics report: the agent hardcodes the string
- * `"1.0.0"`, so it is identical on a build from today and one published in June.
- * Showing it beside "Agent" would read as a freshness claim while carrying no
- * information at all — the confident lie in miniature. Render it the day the
- * agent stamps a real build id; until then `connectedAt` is the honest fact
- * about how old the running process is (troubleshooting #7).
+ * `agentVersion` used to be captured and deliberately **not rendered**: the
+ * agent hardcoded the string `"1.0.0"`, so it was identical on a build from
+ * today and one published in June, and showing it beside "Agent" would have read
+ * as a freshness claim carrying no information — the confident lie in miniature.
+ * That comment said to render it the day the agent stamped a real build id;
+ * since 2026-09-11 it does, read off its own assembly, so diagnostics prints it.
+ * `connectedAt` remains the fact about how old the running *process* is, which
+ * is a different question (troubleshooting #7).
+ *
+ * `protocolVersion` is the wire contract, and it moves independently of the
+ * build — see `docs/contributing/Versioning.md`. Nothing refuses on it yet
+ * because only one value has ever existed.
  */
 export interface AgentIdentity {
   machineName?: string;
   agentVersion?: string;
+  protocolVersion?: number;
   osVersion?: string;
   /** When the hello arrived — distinct from `connectedAt` only in odd cases. */
   at: Date;
@@ -101,6 +107,10 @@ class AgentManager {
     record.identity = {
       machineName: str(raw.machineName),
       agentVersion: str(raw.agentVersion),
+      // Absent from every agent published before 2026-09-11, and that absence is
+      // the useful reading: an agent that does not say which wire it speaks
+      // predates the field, which is older than any version it could name.
+      protocolVersion: typeof raw.protocolVersion === 'number' ? raw.protocolVersion : undefined,
       osVersion: str(raw.osVersion),
       at: new Date()
     };

@@ -231,20 +231,41 @@ describe('the Windows agent check', () => {
     expect(facts['Last inbound event']).toMatch(/30m ago/);
   });
 
-  it('does not render the agent\'s self-reported version', async () => {
+  it('renders the agent version and the wire version it reported', async () => {
     withAgent(HealthState.HEALTHY, undefined, {
       connectedAt: minutesAgo(10),
       lastResponseAt: minutesAgo(1),
-      identity: { machineName: 'MIKE-DESKTOP', agentVersion: '1.0.0', at: minutesAgo(10) }
+      identity: {
+        machineName: 'MIKE-DESKTOP',
+        agentVersion: '0.9.0',
+        protocolVersion: 1,
+        at: minutesAgo(10)
+      }
     });
 
     const check = byId((await buildDiagnosticsReport('u1', NOW)).checks, 'windows-agent')!;
+    const facts = Object.fromEntries(check.facts.map(f => [f.label, f.value]));
 
-    // The agent hardcodes "1.0.0", so it is identical on a build from today and
-    // one published in June. Shown beside "Agent" it reads as a freshness claim
-    // while carrying no information — so `connectedAt` is the staleness fact and
-    // the version stays off the screen until the agent stamps a real build id.
-    expect(check.facts.some(f => f.value.includes('1.0.0'))).toBe(false);
+    // Withheld until 2026-09-11 because the agent hardcoded "1.0.0" and so
+    // reported a build from today and one from June identically. It now stamps
+    // the assembly version, which is the condition the old comment named.
+    expect(facts['Agent version']).toBe('0.9.0 (wire v1)');
+  });
+
+  it('reads a missing agent version as a build older than the stamp', async () => {
+    withAgent(HealthState.HEALTHY, undefined, {
+      connectedAt: minutesAgo(10),
+      lastResponseAt: minutesAgo(1),
+      identity: { machineName: 'MIKE-DESKTOP', at: minutesAgo(10) }
+    });
+
+    const check = byId((await buildDiagnosticsReport('u1', NOW)).checks, 'windows-agent')!;
+    const facts = Object.fromEntries(check.facts.map(f => [f.label, f.value]));
+
+    // Absence is the informative case, and must not render as a blank or a
+    // guess: an agent that cannot name its build predates the field entirely.
+    expect(facts['Agent version']).toMatch(/predates version stamping/);
+    expect(facts['Agent version']).toMatch(/republish/);
   });
 
   it('explains an UNKNOWN verdict in terms of the evidence\'s age', async () => {

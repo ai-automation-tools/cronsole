@@ -43,11 +43,18 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 
 ## 🐳 Docker vs. manual
 
-- **Docker Compose (recommended)** — `docker compose up --build` from the repo root brings
-  up Postgres, Redis, the backend, and the frontend with sane defaults. Best for getting
-  running fast.
+- **Docker Compose (recommended)** — `docker compose --profile docker up --build` from the repo
+  root brings up Postgres, Redis, the backend, and the frontend with sane defaults. Best for
+  getting running fast. **Migrations apply themselves** on every boot (`predev`/`prestart` run
+  `prisma migrate deploy`), so a fresh clone needs no schema step
+  ([#90](../troubleshooting/README.md#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
 - **Manual** — run each service yourself when you're developing or debugging a single
   layer. See below.
+
+> [!IMPORTANT]
+> **`--profile docker` is not optional.** Backend and frontend sit behind an opt-in profile, so a
+> plain `docker compose up` starts **Postgres and Redis only** and nothing answers on `:7373`.
+> Omit the profile only when you intend to run the backend and frontend as host processes.
 
 > [!IMPORTANT]
 > `docker-compose.yml` bakes in **DEV-ONLY default secrets** (`JWT_SECRET`,
@@ -65,8 +72,9 @@ authenticate the dashboard, and connect the agent. If you haven't installed yet,
 # Backend — needs a PostgreSQL 16 instance + DATABASE_URL in backend/.env
 cd backend
 npm install
-npx prisma migrate dev      # create the schema
-npm start                   # http://localhost:3000
+npm start                   # http://localhost:3000 — `prestart` applies migrations first
+                            # (use `npx prisma migrate dev` only to AUTHOR a new migration
+                            #  from a schema.prisma change; `deploy` never generates one)
 
 # Frontend — second terminal
 cd frontend

@@ -33,6 +33,7 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
 | 90 | **A fresh clone's Docker quick start dies on boot** — `docker compose --profile docker up --build` pulls images, builds both containers, and the backend exits with `The table public.User does not exist in the current database` (Prisma `P2021`). Everything the README told you to do, you did | **Nothing applied the migrations.** The Dockerfile runs `prisma generate` — which builds the *client* from `schema.prisma` and touches no database — and neither it nor the compose `command:` ever ran `prisma migrate deploy`. The README's *manual* path said `npx prisma migrate dev` and so worked; the Docker path, the one marked as the fastest, never created a table. It only reproduced on a genuinely empty database, which no existing dev machine has. Fixed 2026-09-11: `predev`/`prestart` hooks in `backend/package.json` run `prisma migrate deploy`, so every path applies migrations before the first query | [→](#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist) |
 | 88 | A **sidebar source you hid earlier the same day is back**, with no error and no toast — toggling it off again visibly works, every time you watch it happen | **A local edit made while a preferences read was already in flight got silently overwritten by that read's stale answer.** `hydrate()` trusted whatever the GET returned even when `current` had moved on since the read started, so a toggle applied before the round trip finished lost to the fact the round trip actually answered. Fixed 2026-09-07: `hydrate()` now checks whether `current` changed while it was awaiting the read, and pushes the newer local edit instead of adopting the stale one | [→](#88-a-sidebar-source-you-hid-earlier-the-same-day-is-back-with-nothing-that-says-why) |
 | 86 | **`Stop-ScheduledTask` on a `\Cronsole-Stack\` task returns success and stops nothing** — the process it started keeps running, and `Start-ScheduledTask` does not bring it back either | **The task is not the process.** Every launcher task runs `wscript.exe` → `run-hidden.vbs`, which is fire-and-forget (`WScript.Shell.Run(cmd, 0, False)`), so the instance exits in under a second while what it launched runs on unparented. The task reads `Ready` while the agent holds a pid. Restarting is a property of the **script**, not the task: use `CronsoleRestart` (`cronsole.ps1 restart`), and never read a task's exit code as a statement about the stack | [→](#86-stop-scheduledtask-on-a-launcher-task-reports-success-and-stops-nothing) |
@@ -6078,6 +6079,62 @@ them ran against a database somebody had already migrated by hand. The test suit
 setup step; only a clean machine can.
 
 *First hit: 2026-09-11, verifying the source-only distribution decision.*
+
+<p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
+
+---
+
+## 91. A second clone of the repo shares the first one's database and ports
+
+**Symptom.** You clone Cronsole a second time — to test a fresh install, or to try a branch without
+disturbing your working copy — and `docker compose --profile docker up` either quietly attaches to
+the database your *first* checkout has been using, or dies with:
+
+```
+Bind for 127.0.0.1:5432 failed: port is already allocated
+```
+
+You add a `docker-compose.override.yml` moving every port, and it fails **on the same port anyway**.
+
+**Cause.** Two separate things, and they stack.
+
+1. **The Compose project name is pinned in the file** — `name: taskhub`, the first line of
+   `docker-compose.yml`. Compose normally derives the project from the *directory*, and this
+   deliberately overrides that, because a renamed checkout would otherwise mount a brand-new empty
+   `cronsole_postgres_data` and boot an empty Postgres — indistinguishable from data loss at the
+   moment you see it. The cost of that protection is that **every clone on the machine is the same
+   project**: same containers, same volume, same published ports. A second checkout adopts the first
+   install rather than creating one.
+
+2. **A Compose override appends to list fields; it does not replace them.** `ports:` in an override
+   file is *merged* with the base, so a shifted port is added **beside** the original and both
+   bindings are attempted. The collision is with the binding you thought you had removed.
+
+**Fix.** Name the project explicitly and tag every port list with `!override`:
+
+```yaml
+# docker-compose.override.yml
+services:
+  db:       { ports: !override ["127.0.0.1:15432:5432"] }
+  redis:    { ports: !override ["127.0.0.1:16379:6379"] }
+  backend:  { ports: !override ["127.0.0.1:13000:3000"] }
+  frontend: { ports: !override ["127.0.0.1:17373:7373"] }
+```
+
+```bash
+docker compose -p cronsole_test --profile docker up --build -d   # own volume, own ports
+docker compose -p cronsole_test --profile docker down -v         # -v drops ONLY this volume
+```
+
+Confirm the merge before starting anything — `docker compose -p cronsole_test config` prints the
+ports it will actually publish, which is the cheap way to catch an append.
+
+**The general rule.** *A protection that pins an identity makes every copy the same thing.* The
+pinned project name is right and should stay; what it costs is that "just clone it again" is not an
+isolated install, and nothing says so at the moment you try. This only bites someone running two
+checkouts at once — which, notably, includes anyone verifying that a fresh clone works.
+
+*First hit: 2026-09-11, clean-room testing the Docker quick start.*
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 

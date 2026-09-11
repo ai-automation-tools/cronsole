@@ -65,9 +65,24 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   outlives `down` and rebuilds — so all 1,192 backend tests were green against databases migrated by
   hand months earlier. A test suite cannot catch a setup step.
 
+  **Re-verified end to end from a clean clone** (2026-09-11): a real `git clone` into a throwaway
+  directory, both images built from scratch, 28 migrations applied inside the container, catalog
+  seeded, owner account created, every authenticated read `200`, a task created and run with its
+  `ExecutionLog` row landing. That run also produced
+  [#91](troubleshooting/README.md#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports):
+  **a second clone is not a second install**, because the Compose project name is pinned in the file
+  rather than derived from the folder — and a `ports:` override *appends* instead of replacing, so
+  the obvious workaround collides on the port it looked like it had moved.
+
 - **`setup-agent-startup.ps1` now says what to install when the .NET SDK is missing**, instead of
   failing on a bare *"dotnet is not recognized"*. It is the first thing a stranger runs now that
   Cronsole ships as source, and the error named neither what was missing nor where to get it.
+
+- **`docs/setup/README.md` still told readers a plain `docker compose up` starts the whole stack**
+  (2026-09-11). It does not — backend and frontend sit behind the `docker` profile, so that command
+  brings up Postgres and Redis and nothing answers on `:7373`. The README was corrected for exactly
+  this on 2026-09-09 and this file was missed, which is the difference between fixing a claim and
+  sweeping for it.
 
 ### Changed
 

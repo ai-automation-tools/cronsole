@@ -1067,7 +1067,21 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       posture. It deliberately **does not** restate per-source capability — the *What it connects to*
       table already does that, from the same declaration the Platforms tab renders. The stale
       `72 templates / 8 packs` claim was corrected to `90+ / 9` in the same pass (real count: 93).
-      **Left:** a GIF, and the wider stale-claims sweep.
+      **The quick start was verified from a clean clone on 2026-09-11** — a real `git clone` into a
+      throwaway directory, `docker compose --profile docker up --build`, then the owner-account
+      creation, every authenticated read, a task create and a run. **It did not work**, and had never
+      worked: nothing applied the migrations, so the backend exited on `The table public.User does
+      not exist`
+      ([#90](troubleshooting/README.md#90-a-fresh-clone-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)).
+      The *manual* path spelled the migrate step out and so worked; the Docker path — the one marked
+      **fastest** — never created a table. Fixed with `predev`/`prestart` hooks and re-verified end to
+      end. **That is the whole argument for this item**: 1,192 green backend tests could not see it,
+      because every one of them ran against a database somebody had already migrated by hand. A
+      suite cannot catch a setup step, and the docs pass is the only thing that looks.
+
+      **Left:** a GIF, and the wider stale-claims sweep — `docs/setup/README.md` was carrying the same
+      missing-`--profile docker` claim the README had already been corrected for, which is what a
+      *sweep* means rather than fixing the file you happen to be in.
 
 - [x] **Flip the six "this repo is private" claims** *(noted 2026-08-24, done 2026-09-09)*. Each
       was true at the time and became false the moment the repo flipped, and **none of them would

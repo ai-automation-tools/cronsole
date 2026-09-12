@@ -33,6 +33,8 @@ to hit again — **add it here** while it's fresh (template at the bottom).
 
 | # | Symptom | Likely cause | Jump |
 |:--|:---|:---|:--|
+| 93 | **A restored backup succeeds and every platform connection is unreadable** — `pg_restore` exits 0, every row count matches, your tasks are all there, and every source is broken | **The credentials in the dump are ciphertext and the key is not in the dump.** `PlatformConnection.config` and `TaskSecret` are AES-256-GCM encrypted with `ENCRYPTION_KEY`, which lives in `.env`. A restore onto a stack with a different key genuinely succeeds and leaves every value permanently unreadable, discovered one failing sync at a time | [→](#93-a-restore-succeeds-and-every-platform-connection-is-unreadable) |
+| 92 | **A restore verification says the data does not match, and the restore was perfect** — the *restored* copy reports more rows than the original it came from | **The check is reading an estimate, not a count.** `pg_stat_user_tables.n_live_tup` is a planner input maintained by autovacuum: stale (often zero) on a database not analysed recently, accurate on a freshly-restored one. It can be wrong in **both** directions, so it can also report a match over a restore that dropped rows. Generate real `count(*)` queries | [→](#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect) |
 | 91 | **A second clone of the repo is not a second install** — `docker compose up` from a fresh checkout adopts the first one's database, or fails with `port is already allocated`. Shifting the ports in a `docker-compose.override.yml` does not help | **The Compose project name is pinned in the file, not derived from the folder** (`name: taskhub`, deliberately — it is what stops a renamed checkout orphaning the Postgres volume). Every clone on the machine is therefore the *same* project. And a plain override **appends** to `ports:` rather than replacing it, so both bindings are attempted and the old one still collides. Use `docker compose -p <name>` **and** the `!override` tag on every port list | [→](#91-a-second-clone-of-the-repo-shares-the-first-ones-database-and-ports) |
 | 90 | **A fresh clone's Docker quick start dies on boot** — `docker compose --profile docker up --build` pulls images, builds both containers, and the backend exits with `The table public.User does not exist in the current database` (Prisma `P2021`). Everything the README told you to do, you did | **Nothing applied the migrations.** The Dockerfile runs `prisma generate` — which builds the *client* from `schema.prisma` and touches no database — and neither it nor the compose `command:` ever ran `prisma migrate deploy`. The README's *manual* path said `npx prisma migrate dev` and so worked; the Docker path, the one marked as the fastest, never created a table. It only reproduced on a genuinely empty database, which no existing dev machine has. Fixed 2026-09-11: `predev`/`prestart` hooks in `backend/package.json` run `prisma migrate deploy`, so every path applies migrations before the first query | [→](#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist) |
 | 88 | A **sidebar source you hid earlier the same day is back**, with no error and no toast — toggling it off again visibly works, every time you watch it happen | **A local edit made while a preferences read was already in flight got silently overwritten by that read's stale answer.** `hydrate()` trusted whatever the GET returned even when `current` had moved on since the read started, so a toggle applied before the round trip finished lost to the fact the round trip actually answered. Fixed 2026-09-07: `hydrate()` now checks whether `current` changed while it was awaiting the read, and pushes the newer local edit instead of adopting the stale one | [→](#88-a-sidebar-source-you-hid-earlier-the-same-day-is-back-with-nothing-that-says-why) |
@@ -6138,6 +6140,99 @@ checkouts at once — which, notably, includes anyone verifying that a fresh clo
 
 <p align="right">(<a href="#troubleshooting-top">back to top</a>)</p>
 
+---
+
+## 92. A restored database reports different row counts, and the restore was perfect
+
+**Symptom.** You test a backup properly — dump the live database, restore it into a scratch one
+beside it, compare the two — and the comparison says they disagree:
+
+```
+< User|0                 > User|1
+< DeletedTaskArchive|0    > DeletedTaskArchive|27
+< ExecutionLog|18         > ExecutionLog|143
+```
+
+The *restored* copy has more rows than the original it came from, which is impossible. `pg_restore`
+exited 0 and printed nothing.
+
+**Cause.** The comparison is reading an estimate, not a count. The convenient one-query version of
+this check is:
+
+```sql
+SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY relname;   -- WRONG
+```
+
+`n_live_tup` is maintained by PostgreSQL's **statistics collector** and updated by `VACUUM` /
+`ANALYZE` and autovacuum. It is a planner input, deliberately cheap and deliberately approximate. On
+a database that has not been analysed recently it reads low — often **zero** — while a
+freshly-restored one has accurate statistics as a side effect of its own bulk inserts. So the
+numbers you are comparing are "a stale guess" against "a fresh guess", and the restore is not
+involved in the difference at all.
+
+**Fix.** Count the rows. Generate one `count(*)` per table rather than typing them:
+
+```bash
+Q="SELECT string_agg(format('SELECT %L AS t, count(*) AS n FROM %I', tablename, tablename),
+    ' UNION ALL ' ORDER BY tablename) FROM pg_tables WHERE schemaname='public'"
+SQL=$(docker compose exec -T db psql -U taskhub -d taskhub -At -c "$Q")
+docker compose exec -T db psql -U taskhub -d taskhub      -At -F'|' -c "$SQL ORDER BY 1" > orig.txt
+docker compose exec -T db psql -U taskhub -d restore_test -At -F'|' -c "$SQL ORDER BY 1" > rest.txt
+diff orig.txt rest.txt && echo "every table matches"
+```
+
+**Why this one is worth an entry rather than a shrug.** A false *mismatch* is the harmless
+direction — it is loud, and it sends you to look. The same error runs the other way: a table that
+has been heavily analysed on the live side and estimates correctly, against a restore that silently
+dropped rows, reports **a match**. A verification step that can be wrong in both directions is not a
+verification step, and this one is the default because it is the shortest thing to type.
+
+Found while writing [`Backup_Restore_Guide.md`](../user-guides/guides/Backup_Restore_Guide.md) on
+2026-09-11 — the restore under test was byte-perfect across all 17 tables.
+
+---
+
+## 93. A restore succeeds and every platform connection is unreadable
+
+**Symptom.** You restore a Cronsole backup onto a different machine, or onto a rebuilt stack.
+`pg_restore` exits 0, every table's row count matches, the dashboard loads, your tasks are all
+there — and every connected source is broken. Syncs fail, credentials do not work, and nothing in
+the restore said anything was wrong.
+
+**Cause.** The credentials in that dump are ciphertext, and the key is not in the dump.
+
+`PlatformConnection.config` (API keys, tokens, pairing secrets) and `TaskSecret` values are
+**AES-256-GCM encrypted at the application layer** before they are stored, so a dump carries them as
+`iv:ciphertext`:
+
+```
+GITHUB_ACTIONS|"26cf31517be5c46621f95a215580442e:22050013cd92569d0d81d26cd0…
+```
+
+They are decrypted with **`ENCRYPTION_KEY`** from the backend's environment — which lives in your
+`.env`, not in the database. Restore onto a stack whose `ENCRYPTION_KEY` differs and every one of
+those values decrypts to nothing. The restore genuinely succeeded; the rows are all present and
+intact. They are simply unreadable, and will stay that way.
+
+This fails *quietly* in the worst way: nothing in the restore path checks a key, and you discover it
+one source at a time as each sync fails.
+
+**Fix.** Treat the key as part of the backup.
+
+- **Record `ENCRYPTION_KEY` somewhere that survives the disk you are protecting against** — a
+  password manager, not a file next to the dump.
+- **Do not store it with the dump.** The key is the only thing that makes that ciphertext safe to
+  keep; storing them together turns an encrypted backup into a plaintext one.
+- **If the key is already gone**, nothing else is lost and there is no recovery of the values:
+  reconnect each platform on the Sources tab and re-enter each job secret. Tasks, history,
+  collections, favorites and archives all restored fine — they were never encrypted.
+
+The same reasoning applies to `JWT_SECRET` (every existing session token stops verifying — harmless,
+you log in again) and `AGENT_PAIRING_SECRET` (the agent's handshake fails until its
+`CRONSOLE_PAIRING_SECRET` matches again).
+
+Documented 2026-09-11 with
+[`Backup_Restore_Guide.md`](../user-guides/guides/Backup_Restore_Guide.md).
 ---
 
 <p align="center">

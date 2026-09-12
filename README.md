@@ -198,6 +198,7 @@ And the key guides, one click away:
 | [**🧩 MCP Server**](docs/user-guides/guides/MCP_Server_Guide.md) | Wiring Cronsole into Claude / Codex / Cursor to manage tasks in natural language. |
 | [**🌐 Remote Access**](docs/user-guides/guides/Remote_Access_Guide.md) <sub>· optional</sub> | Reaching your own instance from your phone — one HTTPS origin behind Tailscale or a Cloudflare Tunnel, with nothing on the public internet. |
 | [**💬 Prompts to start with**](docs/prompts/mcp-server/README.md) | What to actually say once the MCP server is connected, grouped by what you're trying to do. |
+| [**💾 Backup & Restore**](docs/user-guides/guides/Backup_Restore_Guide.md) | Backing up the database, scheduling it as a Cronsole job, and testing the restore — which is the part that makes it real. |
 | [**🔥 Smoke Test**](docs/testing/manual-testing/runbooks/Smoke_Test.md) | Verifying your stack is actually alive and the agent is talking — in about 10 minutes. |
 
 ## 🧠 The Cronsole Skill

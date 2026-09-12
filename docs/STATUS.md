@@ -36,6 +36,8 @@ Listed because finding out later is worse than reading it now:
 | **Single user** | One owner account, created on first run. No password reset, no refresh tokens, no roles — and, by design, no open registration |
 | **Local-first, no hosted version** | There is no cloud Cronsole to sign up for, and that is a decision rather than a gap. Your data stays on your machine |
 | **No release channel yet** | Pre-1.0: fixes land on `main`, and there are no back-ported release branches |
+| **Backups are yours to run** | Nothing backs up the database for you. It holds Cronsole's *view* — tracked rows, collections, run history, and the pre-delete archives that are the **only** copy of a task you removed — so losing it loses the dashboard rather than your jobs, which keep running on their own platforms. One `pg_dump` covers it, and it can be scheduled as a Cronsole job: [**Backup & Restore**](user-guides/guides/Backup_Restore_Guide.md) |
+| **Removing Cronsole does not remove your tasks** | `docker compose down -v` deletes Cronsole's database. The scheduled tasks it created keep running — they are ordinary Windows tasks and Cronsole never owned them. The full sweep is in [**Trust**](TRUST.md#6-how-to-remove-it-completely) |
 
 Full detail, dated and prioritized, is in the [**Roadmap**](ROADMAP.md). What *is* built is in
 [**Features**](FEATURES.md).

@@ -249,6 +249,18 @@ export interface ConnectorHealth {
    * itself. A field only a mistake can fill should not exist.
    */
   lastContactAt?: Date;
+  /**
+   * Is the connector's reader running with a full view of the platform?
+   *
+   * A sibling fact, not a fourth `HealthState` — connected, answering and
+   * having a complete view are three different things, and folding this into
+   * `state`/`reason` is how an unelevated Windows agent's narrowed enumeration
+   * read as "the platform no longer has these tasks" instead of "the reader
+   * cannot see everything" (troubleshooting #74). `undefined` means unknown
+   * (an agent published before this field existed says nothing, which must
+   * not be read as "yes") — only `WindowsAgentConnector` ever fills it today.
+   */
+  elevated?: boolean;
 }
 
 export interface TaskInfo {

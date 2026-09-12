@@ -341,6 +341,13 @@ const ConnectionsSection = ({ timezone }: { timezone: Settings['timezone'] }) =>
                     </span>
                   </div>
                   {conn.reason && <div className="text-xs text-subtle-foreground mt-0.5 truncate">{conn.reason}</div>}
+                  {/* A fact about the reader, not a verdict about the tasks — rendered
+                      beside health rather than inside it (troubleshooting #74). */}
+                  {conn.elevated === false && (
+                    <div className="text-xs text-warning-text mt-0.5 truncate">
+                      Agent running unelevated — some task folders are not visible
+                    </div>
+                  )}
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="text-[10px] uppercase font-bold tracking-wider text-subtle-foreground">Last sync</div>

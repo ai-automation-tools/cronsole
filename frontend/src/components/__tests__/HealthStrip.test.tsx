@@ -80,4 +80,25 @@ describe('HealthStrip', () => {
 
     expect(screen.getByText(/All 2 platforms online/i)).toBeInTheDocument();
   });
+
+  it('says the agent is unelevated as a fact beside health, not as a health problem (#74)', () => {
+    // elevated: false is not a health problem — it is a fact about the
+    // reader's field of view, so a HEALTHY-but-unelevated agent must still
+    // read as "online", with the sentence rendered alongside rather than
+    // replacing it.
+    connections = [
+      { ...conn('WINDOWS_TASK_SCHEDULER', 'HEALTHY'), elevated: false },
+    ];
+
+    render(<HealthStrip />);
+
+    expect(screen.getByText(/Windows online/i)).toBeInTheDocument();
+    expect(screen.getByText(/running unelevated/i)).toBeInTheDocument();
+  });
+
+  it('says nothing about elevation once the agent confirms it, or when it has not said', () => {
+    connections = [{ ...conn('WINDOWS_TASK_SCHEDULER', 'HEALTHY'), elevated: true }];
+    render(<HealthStrip />);
+    expect(screen.queryByText(/unelevated/i)).not.toBeInTheDocument();
+  });
 });

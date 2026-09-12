@@ -1,6 +1,6 @@
 import type { Socket } from 'socket.io';
 import { PlatformType, HealthState } from '@prisma/client';
-import { PlatformConnector, TaskInfo, ConnectorHealth, CreateTaskOptions, UpdateActionsInput, UpdateScheduleOptions, PlatformFolder, ImportTaskResult, PlatformRun, PlatformRunOutput, PlatformRunsResult, PlatformRunOutputResult } from './platform.interface.js';
+import { PlatformConnector, TaskInfo, ConnectorHealth, SyncOutcome, CreateTaskOptions, UpdateActionsInput, UpdateScheduleOptions, PlatformFolder, ImportTaskResult, PlatformRun, PlatformRunOutput, PlatformRunsResult, PlatformRunOutputResult } from './platform.interface.js';
 import { agentManager } from '../ws/AgentManager.js';
 import { emitSignedCommand } from '../ws/agentAuth.js';
 import { toStructuredAction } from '../utils/commandParser.js';
@@ -155,7 +155,7 @@ function parseNextRun(value: unknown): Date | null {
 export class WindowsAgentConnector implements PlatformConnector {
   platform = PlatformType.WINDOWS_TASK_SCHEDULER;
 
-  async syncTasks(config: any): Promise<TaskInfo[]> {
+  async syncTasks(config: any): Promise<TaskInfo[] | SyncOutcome> {
     const userId = config.userId;
     const socket = agentManager.getSocket(userId);
     console.log(`[WindowsAgentConnector] syncTasks called with userId: ${userId}, socket exists: ${!!socket}`);
@@ -164,7 +164,7 @@ export class WindowsAgentConnector implements PlatformConnector {
       throw new Error('Agent offline');
     }
 
-    return agentRequest<TaskInfo[]>(
+    const tasks = await agentRequest<TaskInfo[]>(
       socket, userId, 'task:list', 'task:full_list',
       () => socket.emit('task:list'),
       (payload, settle) => {
@@ -183,6 +183,26 @@ export class WindowsAgentConnector implements PlatformConnector {
       },
       settle => settle.reject(new Error('Agent sync timeout'))
     );
+
+    // Only a positive report gates reconciliation (troubleshooting #74) — an
+    // agent that has never said whether it is elevated predates the field and
+    // gets the pre-existing behavior, the same reading `protocolVersion`'s
+    // absence gets. Flipping every un-republished agent's sync to `partial` the
+    // day this ships would stop MISSING from ever clearing on a fleet that has
+    // not yet updated, which is a bigger change than "bound it by what the
+    // agent can see."
+    if (agentManager.getLiveness(userId)?.identity?.elevated === false) {
+      return {
+        tasks,
+        partial: true,
+        warnings: [
+          'Agent is running unelevated — some task folders (e.g. \\Microsoft\\Windows\\...) ' +
+            'are not visible, so a task absent from this list was not necessarily removed. ' +
+            'Restart the agent elevated (\\Cronsole-Stack\\CronsoleRestart) and sync again.'
+        ]
+      };
+    }
+    return tasks;
   }
 
   async runTask(externalId: string, config: any): Promise<{ success: boolean; platformRunId?: string; message?: string }> {
@@ -603,6 +623,10 @@ export class WindowsAgentConnector implements PlatformConnector {
     const liveness = agentManager.getLiveness(userId);
     const lastContactAt = liveness?.lastResponseAt;
     const failedAt = liveness?.lastFailureAt;
+    // A sibling fact, not folded into `state` — connected, answering and
+    // having a complete view of the machine are three different things
+    // (troubleshooting #74).
+    const elevated = liveness?.identity?.elevated;
 
     if (failedAt && (!lastContactAt || failedAt > lastContactAt)) {
       const verb = liveness?.lastFailureVerb ?? 'last request';
@@ -612,7 +636,8 @@ export class WindowsAgentConnector implements PlatformConnector {
         return {
           state: HealthState.DEGRADED,
           reason: `Agent connected but not responding (${verb} timed out)`,
-          lastContactAt
+          lastContactAt,
+          elevated
         };
       }
 
@@ -624,11 +649,12 @@ export class WindowsAgentConnector implements PlatformConnector {
         // No "unverified" prefix: the state's own label already says that, and
         // a reason that restates its label spends the one line it gets.
         reason: `${verb} timed out, and nothing has been asked of the agent since`,
-        lastContactAt
+        lastContactAt,
+        elevated
       };
     }
 
-    return { state: HealthState.HEALTHY, lastContactAt };
+    return { state: HealthState.HEALTHY, lastContactAt, elevated };
   }
 
   async createTask(name: string, schedule: string, command: string, config: any, options?: CreateTaskOptions): Promise<{ success: boolean; externalId?: string; message?: string; foldersCreated: string[] }> {

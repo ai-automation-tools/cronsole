@@ -19,12 +19,19 @@ import { Socket } from 'socket.io';
  * `protocolVersion` is the wire contract, and it moves independently of the
  * build — see `docs/contributing/Versioning.md`. Nothing refuses on it yet
  * because only one value has ever existed.
+ *
+ * `elevated` is `undefined` for exactly the same reason `protocolVersion` is:
+ * an agent published before this field existed says nothing, and that absence
+ * must read as "unknown" rather than as either boolean — see
+ * troubleshooting #74, where a confidently-wrong answer here is what let 86
+ * real tasks get reported as deleted.
  */
 export interface AgentIdentity {
   machineName?: string;
   agentVersion?: string;
   protocolVersion?: number;
   osVersion?: string;
+  elevated?: boolean;
   /** When the hello arrived — distinct from `connectedAt` only in odd cases. */
   at: Date;
 }
@@ -112,6 +119,7 @@ class AgentManager {
       // predates the field, which is older than any version it could name.
       protocolVersion: typeof raw.protocolVersion === 'number' ? raw.protocolVersion : undefined,
       osVersion: str(raw.osVersion),
+      elevated: typeof raw.elevated === 'boolean' ? raw.elevated : undefined,
       at: new Date()
     };
   }

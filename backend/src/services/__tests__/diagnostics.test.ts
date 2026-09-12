@@ -268,6 +268,46 @@ describe('the Windows agent check', () => {
     expect(facts['Agent version']).toMatch(/republish/);
   });
 
+  it('reports elevation as a fact, naming the hidden folders when it is false (#74)', async () => {
+    withAgent(HealthState.HEALTHY, undefined, {
+      connectedAt: minutesAgo(10),
+      lastResponseAt: minutesAgo(1),
+      identity: { machineName: 'MIKE-DESKTOP', agentVersion: '0.9.0', elevated: false, at: minutesAgo(10) }
+    });
+
+    const check = byId((await buildDiagnosticsReport('u1', NOW)).checks, 'windows-agent')!;
+    const facts = Object.fromEntries(check.facts.map(f => [f.label, f.value]));
+
+    expect(facts['Elevated']).toMatch(/^no/);
+    expect(facts['Elevated']).toMatch(/not visible/);
+  });
+
+  it('reports elevated: true as a plain yes', async () => {
+    withAgent(HealthState.HEALTHY, undefined, {
+      connectedAt: minutesAgo(10),
+      lastResponseAt: minutesAgo(1),
+      identity: { machineName: 'MIKE-DESKTOP', agentVersion: '0.9.0', elevated: true, at: minutesAgo(10) }
+    });
+
+    const check = byId((await buildDiagnosticsReport('u1', NOW)).checks, 'windows-agent')!;
+    const facts = Object.fromEntries(check.facts.map(f => [f.label, f.value]));
+
+    expect(facts['Elevated']).toBe('yes');
+  });
+
+  it('reads a missing elevated flag as predating the field, not as "no"', async () => {
+    withAgent(HealthState.HEALTHY, undefined, {
+      connectedAt: minutesAgo(10),
+      lastResponseAt: minutesAgo(1),
+      identity: { machineName: 'MIKE-DESKTOP', agentVersion: '0.9.0', at: minutesAgo(10) }
+    });
+
+    const check = byId((await buildDiagnosticsReport('u1', NOW)).checks, 'windows-agent')!;
+    const facts = Object.fromEntries(check.facts.map(f => [f.label, f.value]));
+
+    expect(facts['Elevated']).toMatch(/predates elevation reporting/);
+  });
+
   it('explains an UNKNOWN verdict in terms of the evidence\'s age', async () => {
     withAgent(HealthState.UNKNOWN, 'task:list timed out, and nothing has been asked of the agent since', {
       connectedAt: minutesAgo(600),

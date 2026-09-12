@@ -36,8 +36,8 @@ the CHANGELOG's *Roadmap narrative archive* appendices.)
 | **P2 — Product value** | 🟡 rolling | periodic sync · IA redesign pass 2 · trust indicators · polish *(light/dark contrast done 2026-08-24; Dracula/Nord/Solarized/Tokyo Night themes done 2026-09-04/05)* |
 | **P3 — Expansion** | 🟡 underway | POSIX agent · repair verbs · remote-access polish *(installers **cancelled** 2026-09-11 — Cronsole ships as source)* |
 | **Sources** | 🟡 6 of ~9 built | Gemini usability *(A–C done, D–E open)* · POSIX agent (the big one) · Supabase observer |
-| **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF and the stale-claims sweep |
-| **Go-public — application** | 🟢 cleared | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0`. **Ops and legal were narrowed 2026-09-11**, and everything that survived the narrowing shipped the same day: the [trust](TRUST.md) and [privacy](PRIVACY.md) pages, and a [backup routine whose restore was actually run](user-guides/guides/Backup_Restore_Guide.md). **What is left is polish** — structured logs, a GIF, the stale-claims sweep, install links. **Code signing, installers and error tracking are cancelled** — Cronsole ships as source and phones home to nobody, which removed the longest-lead item on the list |
+| **Go-public — repo** | 🟢 cleared | every gate closed 2026-09-10 — branch protection, Discussions and dependency alerts all verified live. Optional polish only: a GIF (the stale-claims sweep ran 2026-09-11) |
+| **Go-public — application** | 🟢 cleared | ~~versioning~~ **done 2026-09-11** — scheme, and the first three tags cut at `0.9.0`. **Ops and legal were narrowed 2026-09-11**, and everything that survived the narrowing shipped the same day: the [trust](TRUST.md) and [privacy](PRIVACY.md) pages, and a [backup routine whose restore was actually run](user-guides/guides/Backup_Restore_Guide.md). **What is left is polish** — structured logs, a GIF, richer marketing copy. **Code signing, installers and error tracking are cancelled** — Cronsole ships as source and phones home to nobody, which removed the longest-lead item on the list |
 
 **Leading the queue as of 2026-09-08:** the [2026-08-13 follow-ups](#follow-ups-2026-08-13) —
 the last block in *Next up* with anything open in it, now that **the Monthly trigger shipped
@@ -1079,9 +1079,22 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       because every one of them ran against a database somebody had already migrated by hand. A
       suite cannot catch a setup step, and the docs pass is the only thing that looks.
 
-      **Left:** a GIF, and the wider stale-claims sweep — `docs/setup/README.md` was carrying the same
-      missing-`--profile docker` claim the README had already been corrected for, which is what a
-      *sweep* means rather than fixing the file you happen to be in.
+      **The stale-claims sweep ran 2026-09-11, and it was worth running.** The
+      missing-`--profile docker` claim the README was corrected for on 2026-09-09 was still live in
+      **five** other places, including both install guides and — worst — the **public gallery page's
+      copy-paste quick start**, which is the first command a stranger runs and which would have left
+      them at an empty `:7373` exactly as [#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)
+      describes. Also fixed: `CONTRIBUTING.md`, the CLI reference's claim that a bare `up` brings up
+      backend and frontend, and an integration-test row asserting the same.
+
+      **Stale counts were removed rather than corrected** — 66 templates (really 97), 8 packs
+      (really 9), 40 templates in two more places, 36 MCP tools (really 38). Writing today's number
+      recreates the same debt next week, and the repo had already reached that conclusion twice
+      (`functional-testing/README.md`, `skills/cronsole/references/workflows.md` both say so), so
+      these now point at `registry/index.json` and `grep -c 'server.registerTool'` the way
+      `CLAUDE.md` instructs. Two stale lines in `DESIGN_NOTES.md` were corrected too.
+
+      **Left:** a GIF.
 
 - [x] **Flip the six "this repo is private" claims** *(noted 2026-08-24, done 2026-09-09)*. Each
       was true at the time and became false the moment the repo flipped, and **none of them would
@@ -1269,8 +1282,19 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
 - [ ] **Multi-user / hosted account system** *(deferred — not a local-first launch requirement)*:
       password reset (needs email infra), open registration as a *designed* invite/approval flow,
       JWT refresh tokens, per-user agent pairing, account management and roles.
-- [~] **Launch surface** — one public page shipped *(2026-07-28, consolidated from two)*. **Left:**
-      real install/download links once the app repo is public, and richer marketing content.
+- [~] **Launch surface** — one public page shipped *(2026-07-28, consolidated from two)*.
+
+      **Install links are live and correct as of 2026-09-11.** The repo is public, so the page's
+      *Get Cronsole* panel links it directly and the copy-paste quick start is a real `git clone`.
+      There are no *download* links and there never will be — a released binary is the one thing
+      that reinstates the code-signing certificate, so the install link **is** the clone.
+
+      That quick start was **wrong until the sweep found it**: it read `docker compose up -d`, which
+      starts Postgres and Redis only. The front door was handing every visitor the exact failure of
+      [#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist).
+      It now matches the README verbatim and carries a comment saying it must.
+
+      **Left:** richer marketing content, and a GIF.
 
 ---
 

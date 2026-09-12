@@ -60,8 +60,13 @@ Unless told otherwise, branch from the current working branch and keep `main` st
 ### Docker Compose
 
 ```bash
-docker compose up --build
+docker compose --profile docker up --build
 ```
+
+> [!IMPORTANT]
+> The `--profile docker` is not optional. Backend and frontend sit behind
+> `profiles: ["docker"]`, so a plain `docker compose up` starts **Postgres and Redis only**
+> and nothing ever answers on `:7373`.
 
 Services:
 

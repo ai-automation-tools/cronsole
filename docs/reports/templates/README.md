@@ -5,14 +5,14 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/templates-40-2ea44f?style=for-the-badge" alt="40 templates">
-  <img src="https://img.shields.io/badge/starters-20-8B5CF6?style=for-the-badge" alt="20 script starters">
-  <img src="https://img.shields.io/badge/patterns-20-0EA5E9?style=for-the-badge" alt="20 use-case patterns">
+  <a href="https://cronsole.mikesailab.com"><img src="https://img.shields.io/badge/catalog-browse_the_gallery-2ea44f?style=for-the-badge" alt="Browse the catalog"></a>
+  <img src="https://img.shields.io/badge/tiers-core_+_extended-8B5CF6?style=for-the-badge" alt="Core and extended tiers">
+  <img src="https://img.shields.io/badge/schema-Registry_v1-0EA5E9?style=for-the-badge" alt="Registry v1">
 </p>
 
 ---
 
-Cronsole ships a **two-tier template catalog** (40 templates). Pick a template, fill in its
+Cronsole ships a **two-tier template catalog**. Pick a template, fill in its
 `{{placeholder}}` parameters in the Apply modal, and Cronsole creates a real scheduled task —
 converting the cron to the platform's native trigger for you.
 

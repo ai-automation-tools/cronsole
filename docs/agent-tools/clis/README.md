@@ -19,7 +19,7 @@ versions are covered in [**⬇️ Installation**](../../install/README.md).
 |:---|:---|
 | [**Claude Code**](https://claude.com/claude-code) | The AI development agent — runs skills, subagents, and MCP servers per [`CLAUDE.md`](../../../CLAUDE.md). |
 | [**Codex CLI**](https://developers.openai.com/codex) | OpenAI coding agent CLI. Cronsole templates use `codex --ask-for-approval never exec` for unattended scheduled runs with explicit sandboxing and captured output. |
-| [**docker / docker compose**](https://docs.docker.com/) | Bring up the dev stack (`docker compose up --build`): Postgres + Redis + backend + frontend. |
+| [**docker / docker compose**](https://docs.docker.com/) | Bring up the dev stack (`docker compose --profile docker up --build`): Postgres + Redis + backend + frontend. Without the profile you get Postgres and Redis only — backend and frontend are opt-in. |
 | [**npm**](https://docs.npmjs.com/cli) | Install deps and run scripts for the frontend and backend (`npm install`, `npm run dev`, `npm start`). |
 | [**npx prisma**](https://www.prisma.io/docs/orm/tools/prisma-cli) | Database schema and migrations (`npx prisma migrate dev`, `prisma studio`). |
 | [**dotnet**](https://learn.microsoft.com/en-us/dotnet/core/tools/) | Build and run the .NET 10 Windows agent (`dotnet run`, `dotnet publish`). |

@@ -128,8 +128,11 @@ cronsole/
 │   ├── publish/               # `dotnet publish` output — the exe Windows actually launches.
 │   │                          #   NOT cleaned between publishes; one of the 3 things that run stale.
 │   └── setup-agent-startup.ps1
-│                              # NOTE: there is no installer/ yet — the WiX MSI is an open
-│                              #   P3 roadmap item ("Installer packages"), not shipped code.
+│                              # NOTE: there is no installer/ and there will not be. The WiX MSI
+│                              #   was CANCELLED 2026-09-11 -- Cronsole ships as source, which is
+│                              #   what removes the code-signing certificate rather than deferring
+│                              #   it (SmartScreen keys off Mark-of-the-Web, and a locally built
+│                              #   binary carries none). See docs/TRUST.md.
 ├── mcp-server/                # Cronsole's own MCP server (shipped) — thin stdio wrapper over the
 │   │                          #   REST API; owns NO logic. Runs dist/, so an unbuilt change is
 │   │                          #   invisible. Lets an agent USE a running Cronsole. See §8.
@@ -186,7 +189,7 @@ Invoke via `Skill` tool when the work matches.
 
 ### DevOps & Infra
 - **`senior-devops`** — Docker, ECS/Render, CI/CD pipelines, monitoring, secret management.
-- **`release-engineering`** — shipping to strangers: versioning across the four independently-versioned components (app / agent+protocol / MCP server / registry schema), WiX MSI, Authenticode signing, macOS notarization, agent auto-update & trust, the legal minimum. Covers four open roadmap items `senior-devops` doesn't: **Installer packages**, **Agent distribution & trust**, **Versioning & releases**, **Legal minimum**.
+- **`release-engineering`** — shipping to strangers: versioning across the four independently-versioned components (app / agent+protocol / MCP server / registry schema), tagged releases, and the **source-only distribution rule**. *Rewritten 2026-09-11:* it used to cover WiX MSI, Authenticode signing, macOS notarization and agent auto-update, and all four are **cancelled** — the certificate is not deferred, it is gone, and the rule that keeps it gone is **no prebuilt binary in a GitHub release, ever**. Of the four roadmap items it once tracked, *Installer packages* is cancelled and *Agent distribution & trust*, *Versioning & releases* and *Legal minimum* are closed.
 
 ### Diagnosis & consistency (custom commands)
 - **`/doctor`** — run this **before debugging your own code** when live behavior contradicts the source. Checks the **three things that run stale** (Dockerized backend, published agent, `mcp-server/dist/`), agent connectivity, and `CRONSOLE_TOKEN` expansion. Most "impossible" behavior is one of those. *(There is a **conditional fourth**: `frontend/dist/`, but only while the opt-in remote-access `proxy` profile is running — see §9 › Remote access and [#53](../docs/troubleshooting/README.md#53-the-proxied-dashboard-is-stale-while-the-dev-server-is-current). It is not on the standing list because on a normal stack nothing serves it.)*

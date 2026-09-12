@@ -26,7 +26,7 @@ an assistant that has the matching surface available.
 
 | Folder | You're talking to… | Reach for it when… |
 |:---|:---|:---|
-| [**🧩 mcp-server/**](mcp-server/README.md) | An assistant wired to the **Cronsole MCP server** (36 tools) | You want to **list, create, run and manage real tasks** in plain English — the way most people use Cronsole day to day. |
+| [**🧩 mcp-server/**](mcp-server/README.md) | An assistant wired to the **Cronsole MCP server** | You want to **list, create, run and manage real tasks** in plain English — the way most people use Cronsole day to day. |
 | [**🧠 skills/**](skills/README.md) | An assistant loaded with the **`cronsole` Agent Skill** | You're **working on Cronsole's codebase** — adding a template, touching the agent protocol, debugging a trap. |
 | [**🌐 rest-api/**](rest-api/README.md) | An assistant driving the **REST API** with curl or a script | You have **no MCP host**, or you need a **REST-only operation**: import/export, bulk actions, analytics, pairing. |
 
@@ -49,7 +49,7 @@ an assistant that has the matching surface available.
 | [**Schedule a prompt on Google's agent**](mcp-server/gemini-triggers.md) | Gemini triggers — hosted, sandboxed, and immutable once created |
 | [**Watch schedules I manage elsewhere**](mcp-server/observers.md) | GitHub Actions and Vercel Cron — read-only, on the same dashboard |
 | [**See why a scheduled job failed**](mcp-server/inspect-and-audit.md#the-other-half-runs-the-platform-recorded-itself) | The platform's own run history — where the runs actually are |
-| [**Use a recipe instead of writing a command**](mcp-server/templates.md) | Templates — 66 in the catalog, 8 packs |
+| [**Use a recipe instead of writing a command**](mcp-server/templates.md) | Templates — the two-tier catalog, grouped into packs |
 | [**Find out what's failing**](mcp-server/inspect-and-audit.md) | Inspect & audit — health, run history, idle reports |
 | [**Change a task I already have**](mcp-server/manage-tasks.md) | Manage — run now, park, reschedule, repoint, rename |
 | [**Get something off my dashboard**](mcp-server/cleanup-and-removal.md) | Cleanup — untrack, disconnect, delete, and which is which |

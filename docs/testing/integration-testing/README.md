@@ -127,7 +127,7 @@ The only seam that touches real COM. Windows-only, and the hardest to fake.
 | I6.2 | **API client contract** | Frontend request/response shapes match what the backend actually returns | ✅ `api.test.ts` |
 | I6.3 | **CORS / origins** | `ALLOWED_ORIGINS` admits the dev frontend and refuses others — for the **REST API and** the socket, from one definition | ✅ `src/config/__tests__/origins.test.ts` (asserts response *headers*, not status codes) + manual [Security Checks §10](../manual-testing/runbooks/Security_Checks.md) |
 | I6.4 | **MCP → REST** | Every MCP tool drives the real API under `CRONSOLE_TOKEN`. **The count is deliberately not written here** — it said `15` while the surface was `33`, which is a number nobody re-reads pretending to be a check. Get it from `grep -c 'server.registerTool' mcp-server/src/tools.ts` and work the [MCP Tools runbook](../manual-testing/runbooks/MCP_Tools.md), which enumerates by name | ⬜ Manual — the standing gap: `mcp-server`'s own suite stubs the HTTP client, so it can prove what the wrapper does, never that the wrapper and the API still *agree* |
-| I6.5 | **Docker Compose stack** | `docker compose up` yields a working stack from a clean checkout, secrets aligned ([troubleshooting #2](../../troubleshooting/README.md#2-403-invalid-or-expired-token-or-agent-rejected)) | ⬜ Manual |
+| I6.5 | **Docker Compose stack** | `docker compose --profile docker up --build` yields a working stack from a clean checkout (the profile is required — a bare `up` starts Postgres and Redis only), migrations applied on boot, secrets aligned ([troubleshooting #2](../../troubleshooting/README.md#2-403-invalid-or-expired-token-or-agent-rejected)) | ⬜ Manual |
 
 ## 🏃 Running these
 

@@ -78,6 +78,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   certificate this project decided not to take on. The template registry is deliberately not tagged;
   it publishes on merge and is not on a release train.
 
+- **The stale-claims sweep, and it caught the front door** (2026-09-11). The
+  missing-`--profile docker` quick start the README was corrected for on 2026-09-09 was still live
+  in five more places — both install guides, `CONTRIBUTING.md`, the CLI reference, an
+  integration-test row, and **the public gallery page's copy-paste block**, which is the first
+  command a stranger runs. Backend and frontend sit behind `profiles: ["docker"]`, so every one of
+  those would have left a new user at an empty `:7373`, which is
+  [#90](troubleshooting/README.md#90-a-fresh-clones-docker-quick-start-dies-with-the-table-publicuser-does-not-exist)
+  all over again. The gallery copy now carries a comment saying it must match the README verbatim
+  and why, since it is the one copy nobody re-reads.
+
+  **Stale counts were deleted rather than updated** — 66 templates (really 97), 8 packs (really 9),
+  40 templates twice more, 36 MCP tools (really 38). Writing today's number just schedules the next
+  correction, and the repo had already reached that conclusion twice; these now point at
+  `registry/index.json` and `grep -c 'server.registerTool'`, as `CLAUDE.md` instructs.
+
 - **Two troubleshooting entries from testing the restore** (2026-09-11):
   [#92](troubleshooting/README.md#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect)
   — a restore verification reports a mismatch and the restore was perfect, because
@@ -100,10 +115,11 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   notices — now recorded as dissolved under source-only distribution, with the reason, because
   silently dropping it and correctly dissolving it look identical later.
 
-  `docs/DESIGN_NOTES.md` holds two genuinely stale lines (an "open" WiX MSI, and the
-  `release-engineering` skill's old four-item scope). **Deliberately left alone**: that file is a
-  frozen archive of the pre-condensation text as of 2026-08-17 and says so at the top, so editing it
-  is the same mistake as rewriting a dated changelog entry.
+  `docs/DESIGN_NOTES.md` held two genuinely stale lines (an "open" WiX MSI, and the
+  `release-engineering` skill's old four-item scope) and **both are now corrected**. They were
+  initially left alone on the reasoning that the file is a frozen archive — which was wrong: its
+  header makes updating it *optional*, not forbidden, and that is a different rule from the
+  changelog's, where rewriting a dated entry is the one thing you must never do.
 
 - **`STATUS.md` states two things people find out too late** (2026-09-11): that **backups are
   yours to run** — nothing backs the database up for you, and it holds the pre-delete archives

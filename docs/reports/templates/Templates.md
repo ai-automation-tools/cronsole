@@ -6,7 +6,7 @@
 >
 > **Status:** Catalog drafted + schema migrated + starters seeded (2026-06-10); Apply modal + library UI shipped.
 > The catalog now lives behind the Registry v1 source (`backend/src/catalog/` + hosted
-> `cronsole-registry`) with 40 templates: 20 Tier A starters + 20 use-case patterns
+> `cronsole-registry`) in two tiers: Tier A script starters and Tier B use-case patterns
 > (Developer Pack, Claude Code AI pack, and Codex AI pack included). The **Apply modal** (§7 step 3) shipped, backed by
 > `GET /api/templates` + `POST /api/templates/:id/apply`; since 2026-07-10 the modal sends **raw
 > parameter values** and the **backend owns `{{placeholder}}` substitution per-token** (§5).
@@ -295,7 +295,8 @@ a Windows Task Scheduler trigger on apply, and rendered back to cron for display
    Also added `MACOS_LAUNCHD` to `PlatformType` for the future macOS agent. 4 patterns backfilled.
 2. ~~**Seed the Tier A starters**~~ ✅ *Done* — `seed.ts` now materializes templates from
    `backend/src/catalog/`, backed by a bundled fallback snapshot and the hosted static registry
-   (40 templates today).
+   (read `registry/index.json` for the current set — a number written here goes stale on the
+   next catalog change).
 3. ~~**Wire the dead "Apply Template" button**~~ ✅ *Done* — `ApplyTemplateModal` in
    `Dashboard.tsx` renders `parameters`, lets the user pick the target platform + confirm the
    cron schedule, live-substitutes `{{placeholders}}` into a previewed command (preview only),

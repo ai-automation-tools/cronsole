@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/surface-MCP_server-8B5CF6?style=for-the-badge" alt="MCP server">
-  <img src="https://img.shields.io/badge/tools-36-2ea44f?style=for-the-badge" alt="36 tools">
+  <img src="https://img.shields.io/badge/tools-the_whole_REST_surface-2ea44f?style=for-the-badge" alt="Tools">
   <a href="../README.md"><img src="https://img.shields.io/badge/↩-prompt_library-6B7280?style=for-the-badge" alt="Prompt library"></a>
 </p>
 
@@ -81,7 +81,14 @@ and tell me the steps it took rather than just its status.
 
 ## 🧰 The toolbox
 
-36 tools are always present; `delete_task` appears only when the operator enabled it, for 37.
+**The tool count that used to open this section is deliberately gone.** It said *36*, and the
+surface had moved on without the sentence moving with it — the same way an earlier *14* survived
+the surface reaching 29. A number in prose obligates nobody. Read it mechanically instead:
+`grep -c 'server.registerTool' mcp-server/src/tools.ts`, or just call `tools/list`.
+
+What is stable is the shape: every tool below is always present, and `delete_task` is the one
+gated verb — **absent** from `tools/list` unless the operator set `CRONSOLE_MCP_ALLOW_DESTRUCTIVE`,
+rather than present and refusing.
 
 | Tier | Tools |
 |:---|:---|

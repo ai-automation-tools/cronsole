@@ -31,10 +31,17 @@ syncs your Windows Task Scheduler into Cronsole and lets you trigger tasks remot
 From the repo root:
 
 ```bash
-docker compose up --build
+docker compose --profile docker up --build
 #   → frontend  http://localhost:7373
 #   → backend   http://localhost:3000   (GET /api/health to verify)
 ```
+
+> [!IMPORTANT]
+> The `--profile docker` is not optional. Backend and frontend sit behind
+> `profiles: ["docker"]`, so a plain `docker compose up` starts **Postgres and Redis only**
+> and nothing ever answers on `:7373`.
+
+Database migrations apply themselves on boot, so there is no schema step.
 
 ## 2. Install and start the Windows agent
 

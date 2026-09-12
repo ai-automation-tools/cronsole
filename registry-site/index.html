@@ -563,7 +563,15 @@
       registryIssues: "https://github.com/michaelschecht/cronsole-registry/issues"
     };
 
-    var QUICKSTART = "git clone https://github.com/ai-automation-tools/cronsole.git\ncd cronsole\ndocker compose up -d";
+    // MUST match the README's quick start verbatim -- one definition, because this page is the
+    // FRONT DOOR and a stranger copies this block before reading anything else.
+    //
+    // `--profile docker` is not optional and was missing here until 2026-09-11: backend and
+    // frontend sit behind `profiles: ["docker"]`, so a plain `docker compose up` starts Postgres
+    // and Redis ONLY and nothing ever answers on :7373. The README was corrected for exactly this
+    // on 2026-09-09 (troubleshooting #90) and this copy was missed -- which is the whole argument
+    // for sweeping every surface that repeats a claim rather than fixing the file you are in.
+    var QUICKSTART = "git clone https://github.com/ai-automation-tools/cronsole.git\ncd cronsole\ndocker compose --profile docker up --build";
 
     // ---------- label maps ----------
     var CAT = { "ai-agent": "AI Agent", backup: "Backup", cleanup: "Cleanup", "dev-workflow": "Dev Workflow", monitoring: "Monitoring", system: "System", notification: "Notification", data: "Data", other: "Other" };

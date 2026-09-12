@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/catalog-66_templates-2ea44f?style=for-the-badge" alt="66 templates">
-  <img src="https://img.shields.io/badge/packs-8-8B5CF6?style=for-the-badge" alt="8 packs">
+  <a href="https://cronsole.mikesailab.com"><img src="https://img.shields.io/badge/catalog-browse_the_gallery-2ea44f?style=for-the-badge" alt="Browse the catalog"></a>
+  <img src="https://img.shields.io/badge/tiers-core_+_extended-8B5CF6?style=for-the-badge" alt="Core and extended tiers">
 </p>
 
 ---

@@ -1246,6 +1246,13 @@ cover the repo and product going public, not standing up a multi-tenant cloud se
       third-party analytics — verified: a single `localStorage` key for the theme toggle, and
       outbound links to GitHub.
 
+      **Third-party notices: dissolved under source-only distribution** *(added 2026-09-11, found by
+      sweeping the `release-engineering` skill against reality)*. A NOTICE file exists because you
+      **redistribute** someone else's code inside your artifact. Cronsole ships no artifact —
+      dependencies are fetched from npm and NuGet by the user's own tooling, from manifests they can
+      read. `LICENSE` is Apache-2.0 and in place. **This returns the day a binary ships**, alongside
+      the certificate and for the same underlying reason.
+
       **The privacy page shipped 2026-09-11** — [`docs/PRIVACY.md`](PRIVACY.md), written in the same
       sitting as the trust page because they are the same act. It opens by saying why it is *not* a
       policy (a policy documents a service that collects your data; there is no service), then states

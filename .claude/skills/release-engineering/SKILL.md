@@ -93,23 +93,41 @@ git push origin app/v0.9.1
 ## Trust, without a signature
 
 Source distribution moves the trust burden from a certificate to the docs, and the docs are now the
-whole of it. The agent runs **elevated**, so the open *trust page* item must name:
+whole of it. **Both pages shipped 2026-09-11** — [`docs/TRUST.md`](../../../docs/TRUST.md) and
+[`docs/PRIVACY.md`](../../../docs/PRIVACY.md). Read them before writing anything new here; the job
+now is keeping them true, not producing them.
 
-- what it can do — enumerate, create, run and edit Task Scheduler entries
-- what it **cannot** — no file-write verb, deliberately, because that would be an arbitrary-file-write
-  primitive reachable from the backend
-- that it **dials out** and never accepts an incoming connection
-- how to remove it, including the `\Cronsole-Stack\` tasks an uninstall must sweep by hand
+What TRUST.md commits to, so a change that falsifies one of these needs the page updated in the same
+change:
+
+- **what it can do** — the **complete** verb list (ten in `ITaskScheduler` plus the history reader).
+  The page's value is that a reader can check the interface and know nothing is omitted, so adding a
+  verb without adding a row is the one edit that breaks it
+- **what it cannot** — no file-write verb, never binds a port, `\Microsoft\` refused in two places,
+  signed commands with a replay guard, no self-update
+- **that a task it registers runs a program**, stated plainly rather than softened
+- **how to remove it**, including that `docker compose down -v` does *not* remove the tasks Cronsole
+  created, and the `\Cronsole-Stack\` sweep needing elevation
 
 "Read the source you are running" is only a real answer if something tells the reader what to read.
 
 ## Legal minimum
 
-- **LICENSE** — Apache-2.0, already in place
-- **Privacy statement** — local-first is a *selling point*; say plainly what leaves the machine
-  (registry fetches, webhooks the user configured) and what does not
-- **Third-party notices** — bundled dependency licenses
-- **Security contact** — `SECURITY.md`, already in place
+**Closed 2026-09-11.** What survived the narrowing shipped; the rest dissolved, and the reasons
+matter because someone will reopen them.
+
+- **LICENSE** — Apache-2.0, in place
+- **Privacy statement** — [`docs/PRIVACY.md`](../../../docs/PRIVACY.md). Its claim is that a default
+  install initiates **no outbound connection of its own**, so anything that adds one — a version
+  check, a catalog fetch made default, a font — falsifies a published page
+- **Security contact** — `SECURITY.md`, in place
+- **Terms of service — dissolved.** A ToS governs a service you operate. There is none, and the
+  LICENSE already covers the only relationship that exists
+- **Third-party notices — dissolved under source-only distribution.** A NOTICE file exists because
+  you *redistribute* someone's code inside your artifact. Cronsole ships no artifact: dependencies
+  are fetched from npm and NuGet by the user's own tooling, from manifests they can read. **This
+  comes back the day a binary ships**, alongside the certificate, for the same underlying reason —
+  see the MOTW rule above
 
 ## Working rules
 

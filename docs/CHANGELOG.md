@@ -78,7 +78,38 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   certificate this project decided not to take on. The template registry is deliberately not tagged;
   it publishes on merge and is not on a release train.
 
+- **Two troubleshooting entries from testing the restore** (2026-09-11):
+  [#92](troubleshooting/README.md#92-a-restored-database-reports-different-row-counts-and-the-restore-was-perfect)
+  — a restore verification reports a mismatch and the restore was perfect, because
+  `pg_stat_user_tables.n_live_tup` is a planner estimate rather than a count and is wrong in
+  **both** directions; and
+  [#93](troubleshooting/README.md#93-a-restore-succeeds-and-every-platform-connection-is-unreadable)
+  — a restore succeeds and every platform connection is unreadable, because the credentials in a
+  dump are ciphertext and `ENCRYPTION_KEY` is not in the dump. #92 also joins the traps table in
+  [`SKILL.md`](../skills/cronsole/SKILL.md); #93 stays in the troubleshooting log alone, because it
+  is a real symptom a user will hit rather than something that cost time in the repo.
+
 ### Changed
+
+- **The `release-engineering` skill was swept against reality** (2026-09-11). It still described
+  the trust page and the privacy statement as **open items to produce**, three days after both
+  shipped — the exact drift a mirror surface produces, since nothing about a skill breaks when it
+  goes stale. It now points at both pages and says what `TRUST.md` commits to, so a change that
+  falsifies one of those claims (adding an agent verb, say) has to update the page in the same
+  change. The sweep also turned up a **fifth legal item the roadmap never carried** — third-party
+  notices — now recorded as dissolved under source-only distribution, with the reason, because
+  silently dropping it and correctly dissolving it look identical later.
+
+  `docs/DESIGN_NOTES.md` holds two genuinely stale lines (an "open" WiX MSI, and the
+  `release-engineering` skill's old four-item scope). **Deliberately left alone**: that file is a
+  frozen archive of the pre-condensation text as of 2026-08-17 and says so at the top, so editing it
+  is the same mistake as rewriting a dated changelog entry.
+
+- **`STATUS.md` states two things people find out too late** (2026-09-11): that **backups are
+  yours to run** — nothing backs the database up for you, and it holds the pre-delete archives
+  that are the only copy of a task you removed — and that **removing Cronsole does not remove your
+  tasks**. Both belong on that page specifically, whose stated purpose is the things where finding
+  out later is worse than reading it now.
 
 - **Error tracking is cancelled, and a default install phones home to nobody** (2026-09-11). The
   go-public checklist's *production operations* and *legal minimum* items were both written for a

@@ -1024,11 +1024,16 @@ work, none of it a gate on anybody using Cronsole.
 - [ ] **Release notes generated from real commits** rather than written by hand. Low value until
       releases are frequent; the [versioning scheme](contributing/Versioning.md) and the first three
       tags are already in place.
-- [~] **Move the front door to `ai-automation-tools.dev`** — the org's own domain, and
-      [D4](https://github.com/ai-automation-tools) of the org migration. **Built 2026-09-13, waiting
-      on DNS.** `ai-automation-tools/cronsole-site` and `ai-automation-tools/cronsole-demo` exist,
-      hold their `CNAME`s and have Pages enabled; both need one CNAME record each pointing at
-      `ai-automation-tools.github.io`.
+- [x] **Move the front door to `ai-automation-tools.dev`** — the org's own domain, and D4 of the org
+      migration. **Live 2026-09-13**: [`cronsole.ai-automation-tools.dev`](https://cronsole.ai-automation-tools.dev)
+      and [`cronsole-demo.ai-automation-tools.dev`](https://cronsole-demo.ai-automation-tools.dev),
+      both HTTPS-enforced, both publishing from the app repo on merge.
+
+      **The front door's custom domain silently did not stick the first time.** A toggle of the Pages
+      `cname` reported success and left it `null`, so the site served without its domain while
+      holding the *apex* certificate — visible only in the API, since the demo beside it was already
+      answering `200`. Re-applied and verified rather than assumed. The same class of thing as every
+      other published-surface bug here: the success report was not the success.
 
       **The registry path does not move and never will** — `mikesailab.com/cronsole-registry/` is
       read at runtime by installed copies, GitHub does not redirect renamed Pages paths, and moving
@@ -1044,10 +1049,14 @@ work, none of it a gate on anybody using Cronsole.
       deliberately *not* repointed yet: the new host does not resolve until DNS lands, and a link to
       an NXDOMAIN is worse than a stale link to a host that still works.
 
-      **Two org-policy blockers**, both one setting: deploy keys are disabled org-wide, so neither
-      publish job can authenticate to its target yet. Both jobs therefore **skip with a notice**
-      rather than failing, unlike the established ones — a job that reddens every unrelated merge
+      **Deploy keys were disabled org-wide**, which blocked both publish jobs; the policy was turned
+      on and both now authenticate. They still **skip with a notice** when their secret is absent
+      rather than failing, unlike the two established jobs — a job that reddens every unrelated merge
       teaches people to ignore a red X.
+
+      **`check-frontdoor-published.mjs` checks three hosts now.** The old `cronsole.mikesailab.com`
+      stays in the list on purpose: it keeps *serving* rather than redirecting, because GitHub Pages
+      cannot issue a 308, so it can go stale exactly like the others and nobody would notice.
 
 - [ ] **Multi-user / hosted account system** *(deferred — explicitly not a local-first launch
       requirement)*: password reset (needs email infra), open registration as a *designed*

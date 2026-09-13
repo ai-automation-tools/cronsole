@@ -25,6 +25,7 @@
 import type { AxiosAdapter, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { api, setAuthToken } from '../api';
 import fixtures from './fixtures.json';
+import templates from './templates.json';
 
 const DEMO_REFUSAL =
   'This is a read-only demo — nothing is connected, so there is nothing to change. ' +
@@ -41,7 +42,14 @@ const ROUTES: { method: string; pattern: RegExp; body: unknown }[] = [
   { method: 'GET', pattern: /^\/tasks\/missing$/, body: [] },
   { method: 'GET', pattern: /^\/tasks\/folders$/, body: [] },
   { method: 'GET', pattern: /^\/auth\/tokens$/, body: [] },
-  { method: 'GET', pattern: /^\/templates$/, body: { templates: [], packs: [] } },
+  // `/templates` returns a FLAT ARRAY, not { templates, packs }. The first version
+  // of this stub returned the object and the Templates tab rendered nothing, which
+  // is the whole reason a demo has to be opened rather than merely built.
+  //
+  // These are the REAL 97 templates, normalised from registry/ through the backend's
+  // own normalizeTemplate() rather than a second copy of that mapping -- a demo that
+  // showed a catalog the product disagreed with would be worse than an empty one.
+  { method: 'GET', pattern: /^\/templates$/, body: templates },
   { method: 'GET', pattern: /^\/tools\/history$/, body: { entries: [], total: 0 } },
   { method: 'GET', pattern: /^\/tools\/downloads$/, body: [] },
   { method: 'GET', pattern: /^\/tasks\/[^/]+\/executions$/, body: [] },

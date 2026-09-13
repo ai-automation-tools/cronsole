@@ -14,6 +14,40 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ### Added
 
+- **A click-through demo** (2026-09-13) — the real dashboard, served from fixtures with no
+  backend: [`cronsole-demo.ai-automation-tools.dev`](https://cronsole-demo.ai-automation-tools.dev).
+
+  `vite build --mode demo` swaps the axios adapter for one that answers every request from
+  fixtures compiled into the bundle (`frontend/src/demo/`). No database, no agent, no credential,
+  and no network call off the page. **Writes refuse with `409`, and the status code is the
+  interesting part**: `api.ts`'s response interceptor treats 401/403 on a non-auth route as a dead
+  session and clears the token, so refusing with 403 would have logged a visitor out of a demo
+  that has no login. 409 says "this conflicts with the state of the resource", which is exactly
+  true of a read-only demo, and leaves the session alone.
+
+  **The fixtures are in the demo bundle and out of every other one**, which was verified in both
+  directions before shipping rather than assumed — a production build contains zero fixture
+  strings and no demo chunk. `publish-demo.yml` asserts it on every run, because a fold that
+  quietly stops folding is the single most common bug shape in this repo.
+
+  Task content is invented. **Platform descriptors are the real ones** — labels, capability
+  support, which verbs each source refuses — because they are product metadata identical on every
+  install, and a demo that misrepresented what a connector can do would be worse than no demo.
+
+  This closes the outstanding *GIF* item by replacing it: a visitor can filter, switch views and
+  open the calendar, which no recording does.
+
+- **The front door has a home on the org's own domain** (2026-09-13):
+  `ai-automation-tools/cronsole-site` and `ai-automation-tools/cronsole-demo`, both with Pages
+  enabled and their `CNAME` committed. **Waiting on two DNS records**; the old
+  `cronsole.mikesailab.com` keeps serving the same page, because GitHub Pages cannot issue a 308
+  and so the `edge-spectrum` redirect precedent does not transfer.
+
+  **The registry path is untouched and stays that way.** `mikesailab.com/cronsole-registry/` is
+  read at runtime by installed copies and GitHub does not redirect renamed Pages paths. The
+  human-facing host moving while the machine-read path stays frozen is precisely what the
+  two-link rule was built for; this is the first time it has paid out.
+
 - **Cronsole is public** (2026-09-13) —
   [github.com/ai-automation-tools/cronsole](https://github.com/ai-automation-tools/cronsole).
 

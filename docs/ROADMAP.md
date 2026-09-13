@@ -998,9 +998,25 @@ The go-public checklist is **done** — [the repo went public on 2026-09-13](#co
 and the whole of it, item by item, is preserved in Part II. What follows is what outlived it: real
 work, none of it a gate on anybody using Cronsole.
 
-- [ ] **A GIF, and richer copy for the front door.** The single most-requested thing a stranger
-      wants from a dashboard project is to see it move, and a README screenshot does not. Nothing
-      blocks on it; it is the highest-leverage cosmetic item left.
+- [x] **A click-through demo** *(2026-09-13)* —
+      [`cronsole-demo.ai-automation-tools.dev`](https://cronsole-demo.ai-automation-tools.dev).
+      This replaced the GIF item rather than deferring it: a visitor can open the real dashboard and
+      **use** it — filter, switch views, open the calendar, read the rail — which no recording does.
+
+      It is the real bundle, not a mock-up. `vite build --mode demo` swaps the axios adapter for one
+      answering from fixtures compiled in (`frontend/src/demo/`), so there is no backend, no database,
+      no agent and no credential anywhere on that page. **Writes refuse with `409`, deliberately not
+      `403`** — the response interceptor treats 401/403 on a non-auth route as a dead session and
+      would have logged the visitor out of a demo that has no login.
+
+      **The fixtures are in the demo bundle and must stay out of every other one.** That is a fold on
+      `import.meta.env.MODE`, verified both ways before shipping and asserted in `publish-demo.yml`,
+      because a fold that silently stops folding is this repo's most frequent bug shape. Task content
+      is invented; **platform descriptors are the real ones**, since they are product metadata
+      identical on every install and a demo that misrepresented capability support would be worse than
+      no demo.
+
+- [ ] **Richer copy for the front door.** What is left of the old GIF item.
 - [ ] **Structured logs**, narrowed to their real audience: the user debugging their own install
       and pasting the result into an issue. *(The rest of the old "production operations" item was
       cancelled or dissolved — see [Operations](#completed--go-public) in Part II for why an
@@ -1008,6 +1024,31 @@ work, none of it a gate on anybody using Cronsole.
 - [ ] **Release notes generated from real commits** rather than written by hand. Low value until
       releases are frequent; the [versioning scheme](contributing/Versioning.md) and the first three
       tags are already in place.
+- [~] **Move the front door to `ai-automation-tools.dev`** — the org's own domain, and
+      [D4](https://github.com/ai-automation-tools) of the org migration. **Built 2026-09-13, waiting
+      on DNS.** `ai-automation-tools/cronsole-site` and `ai-automation-tools/cronsole-demo` exist,
+      hold their `CNAME`s and have Pages enabled; both need one CNAME record each pointing at
+      `ai-automation-tools.github.io`.
+
+      **The registry path does not move and never will** — `mikesailab.com/cronsole-registry/` is
+      read at runtime by installed copies, GitHub does not redirect renamed Pages paths, and moving
+      it is a silent outage on somebody else's machine. That the *human* host can move while the
+      *machine* path is frozen is exactly what the two-link rule was built for, and this is the first
+      time it has paid out.
+
+      **The old host stays live.** GitHub Pages cannot issue a 308, so the `edge-spectrum` precedent
+      (a path-preserving redirect on Vercel) does not transfer — `cronsole.mikesailab.com` keeps
+      serving the same page rather than redirecting to the new one.
+
+      **Left:** the DNS records, then repointing the 13 published references in one sweep. They are
+      deliberately *not* repointed yet: the new host does not resolve until DNS lands, and a link to
+      an NXDOMAIN is worse than a stale link to a host that still works.
+
+      **Two org-policy blockers**, both one setting: deploy keys are disabled org-wide, so neither
+      publish job can authenticate to its target yet. Both jobs therefore **skip with a notice**
+      rather than failing, unlike the established ones — a job that reddens every unrelated merge
+      teaches people to ignore a red X.
+
 - [ ] **Multi-user / hosted account system** *(deferred — explicitly not a local-first launch
       requirement)*: password reset (needs email infra), open registration as a *designed*
       invite/approval flow, JWT refresh tokens, per-user agent pairing, account management and

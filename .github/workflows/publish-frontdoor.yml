@@ -1,12 +1,17 @@
 # Mirror the gallery page to Cronsole's public front door, on the merge that
 # changes it.
 #
-# The same registry-site/index.html is served from two hosts with different
-# jobs: mikesailab.com/cronsole-registry (beside the registry JSON it reads) and
-# cronsole.mikesailab.com (the front door). publish-registry.yml handles the
-# first. This handles the second, and the pair exists so "one page, two hosts"
-# cannot quietly become one page, one host and one stale copy -- which is what
-# happened whenever someone ran one publish script and not the other.
+# The same registry-site/index.html is served from THREE hosts with different
+# jobs: mikesailab.com/cronsole-registry (beside the registry JSON it reads),
+# cronsole.mikesailab.com (the old front door, kept alive so no published link
+# breaks) and cronsole.ai-automation-tools.dev (the front door, on the org's own
+# domain since 2026-09-13). publish-registry.yml handles the first; the two jobs
+# below handle the other two.
+#
+# The set exists so "one page, N hosts" cannot quietly become one page, one host
+# and N-1 stale copies -- which is what happened whenever someone ran one publish
+# script and not the other. The stale half is always whichever one you did not
+# happen to open, so every host gets a job and every host gets a drift check.
 #
 # The page is built to work at both addresses: it tries ./index.json first and
 # falls back to the canonical registry origin when it is not co-located (GitHub
@@ -95,6 +100,79 @@ jobs:
           git add -A
           if git diff --cached --quiet; then
             echo 'Front door already up to date -- nothing to publish.'
+            exit 0
+          fi
+          git commit -q -m "Publish front door (cronsole@${GITHUB_SHA:0:7})"
+          git push -q origin HEAD:main
+          echo "Published. GitHub Pages will rebuild shortly (https://$(cat CNAME))."
+
+  publish-org:
+    name: Mirror the gallery page to the org front door
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cronsole (source of truth)
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      # Unlike the job above, this one SKIPS rather than fails when its secret is
+      # missing. The org disables deploy keys by policy, so SITE_ORG_DEPLOY_KEY
+      # cannot exist until that is changed -- and a job that reddens every
+      # unrelated merge until then teaches people to ignore a red X. The job above
+      # keeps hard-failing because its target is load-bearing today.
+      - name: Is the deploy key configured yet?
+        id: gate
+        env:
+          DEPLOY_KEY: ${{ secrets.SITE_ORG_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo 'ready=no' >> "$GITHUB_OUTPUT"
+            echo "::notice::SITE_ORG_DEPLOY_KEY is not set, so cronsole.ai-automation-tools.dev was NOT updated. Enable deploy keys for the org, add a write key to ai-automation-tools/cronsole-site, and store the private half here."
+          else
+            echo 'ready=yes' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout the org front door (publish target)
+        if: steps.gate.outputs.ready == 'yes'
+        uses: actions/checkout@v4
+        with:
+          repository: ai-automation-tools/cronsole-site
+          ssh-key: ${{ secrets.SITE_ORG_DEPLOY_KEY }}
+          path: target
+
+      - name: Check the custom domain is still configured
+        if: steps.gate.outputs.ready == 'yes'
+        run: |
+          set -euo pipefail
+          if [ ! -f target/CNAME ]; then
+            echo "::error::No CNAME in ai-automation-tools/cronsole-site -- cronsole.ai-automation-tools.dev will not serve this."
+            exit 1
+          fi
+          echo "Custom domain: $(cat target/CNAME)"
+
+      - name: Mirror the gallery page
+        if: steps.gate.outputs.ready == 'yes'
+        run: |
+          set -euo pipefail
+          test -f source/registry-site/index.html || {
+            echo "::error::registry-site/index.html is missing -- the front door would 404"
+            exit 1
+          }
+          find source/registry-site -maxdepth 1 -type f \
+            ! -name 'README.md' ! -name 'CNAME' \
+            -exec cp {} target/ \;
+
+      - name: Commit and push if changed
+        if: steps.gate.outputs.ready == 'yes'
+        working-directory: target
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Org front door already up to date -- nothing to publish.'
             exit 0
           fi
           git commit -q -m "Publish front door (cronsole@${GITHUB_SHA:0:7})"

@@ -66,8 +66,15 @@ jobs:
         working-directory: source/frontend
         run: |
           set -euo pipefail
-          npm ci
-          npm run build:demo -- --outDir dist-demo
+          # `npm install`, not `npm ci`, matching ci.yml: the committed lockfile
+          # omits platform-specific optional deps (@emnapi/*), so `npm ci` refuses
+          # on Linux with EUSAGE while every developer machine installs fine.
+          npm install
+          # vite directly rather than `npm run build:demo -- --outDir ...`: npm
+          # appends passed-through args to the END of a chained script, so the
+          # --outDir would have landed on check:bundle instead of on vite.
+          npx tsc -b
+          npx vite build --mode demo --outDir dist-demo
           test -f dist-demo/index.html || {
             echo "::error::demo build produced no index.html"
             exit 1
@@ -86,7 +93,7 @@ jobs:
             echo "::error::demo bundle does not contain its fixtures -- the demo would be empty"
             exit 1
           }
-          npm run build
+          npm run build   # also runs check:bundle over dist/
           if grep -rq 'TLS certificate expiry check' dist/ ; then
             echo "::error::demo fixtures LEAKED into the production bundle -- the import.meta.env.MODE fold is broken"
             exit 1

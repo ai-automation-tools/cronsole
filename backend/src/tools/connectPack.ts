@@ -30,7 +30,7 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 // updated in place, so the stamp is the only way it can say how old it is.
 // 1.1 (2026-07-28): untrack_task added to the surface (15 tools).
 // 1.2 (2026-07-31): TaskHub became Cronsole; CONNECT_PACK_HOME moved to
-//   cronsole.mikesailab.com. A v1.1 copy in someone's hand still points at the old
+//   cronsole.ai-automation-tools.dev. A v1.1 copy in someone's hand still points at the old
 //   domain — which redirects today, so it degrades to a slow link rather than a dead
 //   one — but "where to find a newer copy" changing IS a content change, and this
 //   stamp is the only way that copy can tell its reader it predates the move.
@@ -108,7 +108,7 @@ import { CONNECT_PACK_FILES } from './connectPackBundled.js';
 export const CONNECT_PACK_VERSION = '1.11';
 
 /** Where a reader should look for a newer copy than the one in their hand. */
-export const CONNECT_PACK_HOME = 'https://cronsole.mikesailab.com';
+export const CONNECT_PACK_HOME = 'https://cronsole.ai-automation-tools.dev';
 
 export interface ConnectPackDownload {
   id: string;

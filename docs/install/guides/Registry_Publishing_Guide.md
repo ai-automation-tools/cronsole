@@ -40,11 +40,12 @@ erased by the next publish. Everything else in that repo — `README.md`, `.noje
 
 ## The second surface: the gallery page
 
-`registry-site/index.html` is **one page served from two hosts**:
+`registry-site/index.html` is **one page served from three hosts**:
 
 | Host | Why it exists |
 |:---|:---|
-| `https://cronsole.mikesailab.com/` | The front door — Cronsole's public landing page. |
+| `https://cronsole.ai-automation-tools.dev/` | The front door, on the org's own domain since 2026-09-13. |
+| `https://cronsole.mikesailab.com/` | The **old** front door. Still served, not redirected — GitHub Pages cannot issue a 308, so every published link to it has to keep working the slow way. |
 | `https://mikesailab.com/cronsole-registry/` | The same page, sitting beside the registry JSON it reads. |
 
 The page is built to work at both: it tries `./index.json` first and falls back to the canonical
@@ -76,8 +77,17 @@ Both publish workflows push to a *different* repository than the one they run in
 
 | Secret on `cronsole` | Deploy key on | Used by |
 |:---|:---|:---|
-| `REGISTRY_DEPLOY_KEY` | `cronsole-registry` | Publish registry |
-| `SITE_DEPLOY_KEY` | `cronsole-site` | Publish front door |
+| `REGISTRY_DEPLOY_KEY` | `michaelschecht/cronsole-registry` | Publish registry |
+| `SITE_DEPLOY_KEY` | `michaelschecht/cronsole-site` | Publish front door (old host) |
+| `SITE_ORG_DEPLOY_KEY` | `ai-automation-tools/cronsole-site` | Publish front door (new host) |
+| `DEMO_DEPLOY_KEY` | `ai-automation-tools/cronsole-demo` | Publish demo |
+
+> [!NOTE]
+> **Deploy keys are disabled by default on the org**, which is why the first two targets are
+> personal repos and why the org ones needed that policy turned on (*Organization settings →
+> Repository → Deploy keys*). The two org-target jobs **skip with a notice** when their secret is
+> absent rather than failing, unlike the two established jobs — a job that reddens every unrelated
+> merge teaches people to ignore a red X.
 
 Use a **deploy key**, not a personal access token. A deploy key is scoped to exactly one repository,
 so a leak reaches that repo and nothing else; a PAT carries your whole account. Two keys rather than

@@ -1,0 +1,4832 @@
+[
+  {
+    "id": "dev-dotnet-build",
+    "name": ".NET Build",
+    "description": "Build a .NET project or solution with the dotnet CLI on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "30 4 * * *",
+    "command": "dotnet build \"{{projectPath}}\" {{args}}",
+    "commandTemplate": "dotnet build \"{{projectPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "projectPath",
+        "label": "Project / solution path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the .csproj or .sln."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "dotnet",
+      "build",
+      "ci"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "Package",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_applescript",
+    "name": "AppleScript",
+    "description": "Run an AppleScript file via osascript.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 18 * * *",
+    "command": "osascript \"{{scriptPath}}\"",
+    "commandTemplate": "osascript \"{{scriptPath}}\"",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "macos",
+      "applescript"
+    ],
+    "scriptType": "APPLESCRIPT",
+    "os": "MACOS",
+    "category": "OTHER",
+    "icon": "Apple",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "bkp-registry-export",
+    "name": "Backup a Registry Key",
+    "description": "Export a Windows Registry key to a .reg file on a schedule — a lightweight way to snapshot configuration before it drifts or before a risky change.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 2 * * 0",
+    "command": "reg export \"{{keyPath}}\" \"{{outFile}}\" /y",
+    "commandTemplate": "reg export \"{{keyPath}}\" \"{{outFile}}\" /y",
+    "parameters": [
+      {
+        "key": "keyPath",
+        "label": "Registry key path",
+        "type": "text",
+        "default": "HKLM\\SOFTWARE\\MyApp",
+        "required": true,
+        "help": "Full registry path to export, e.g. HKLM\\SOFTWARE\\MyApp."
+      },
+      {
+        "key": "outFile",
+        "label": "Output .reg path",
+        "type": "path",
+        "default": "C:\\backups\\registry-backup.reg",
+        "required": true,
+        "help": "Where to write the exported key. /y overwrites an existing file."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "backup",
+      "windows",
+      "registry"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "BACKUP",
+    "icon": "Save",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "bkp-folder-zip",
+    "name": "Backup Folder to Zip",
+    "description": "Compress a folder into a .zip archive on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 2 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Compress-Archive -Path '{{sourcePath}}' -DestinationPath '{{destZip}}' -Force\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Compress-Archive -Path '{{sourcePath}}' -DestinationPath '{{destZip}}' -Force\"",
+    "parameters": [
+      {
+        "key": "sourcePath",
+        "label": "Folder to back up",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Folder (or glob) to compress. Avoid single quotes in the path."
+      },
+      {
+        "key": "destZip",
+        "label": "Destination .zip",
+        "type": "path",
+        "default": "C:\\backups\\backup.zip",
+        "required": true,
+        "help": "Where to write the archive. -Force overwrites an existing file."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "backup",
+      "windows",
+      "archive",
+      "zip"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "BACKUP",
+    "icon": "Archive",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-check-backup-fresh",
+    "name": "Backup Freshness Check (Cronsole)",
+    "description": "Fail if a backup file has not been written recently — the dead-man switch for a job that stopped silently. A missing file fails too.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "check fileFresh {{filePath}}",
+    "commandTemplate": "check fileFresh {{filePath}}",
+    "parameters": [
+      {
+        "key": "filePath",
+        "label": "File to watch",
+        "type": "string",
+        "required": true,
+        "help": "Path as seen by the machine running the Cronsole backend — the container on a Dockerized stack, not your desktop. A path that is only valid on your PC will report the file as missing."
+      },
+      {
+        "key": "maxAgeMinutes",
+        "label": "Fail if older than (minutes)",
+        "type": "number",
+        "default": "1440",
+        "required": true,
+        "help": "Default is 24 hours, which suits a nightly backup. Leave headroom for the job to finish."
+      }
+    ],
+    "nativeJob": {
+      "jobType": "CHECK",
+      "probe": {
+        "kind": "fileFresh",
+        "path": "{{filePath}}",
+        "maxAgeMinutes": "{{maxAgeMinutes}}"
+      }
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "check",
+      "backup",
+      "monitoring"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "BACKUP",
+    "icon": "ShieldCheck",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_batch_script",
+    "name": "Batch / CMD Script",
+    "description": "Run a .bat or .cmd batch file via cmd.exe.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 0 * * *",
+    "command": "cmd.exe /c \"{{scriptPath}}\"",
+    "commandTemplate": "cmd.exe /c \"{{scriptPath}}\"",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "batch",
+      "script"
+    ],
+    "scriptType": "BATCH",
+    "os": "WINDOWS",
+    "category": "OTHER",
+    "icon": "SquareTerminal",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ntf-windows-broadcast-message",
+    "name": "Broadcast a Desktop Message (Windows)",
+    "description": "Pop up a message on every signed-in session using msg.exe — a local alert that needs no webhook, external service, or account to set up.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 8 * * 1-5",
+    "command": "msg * \"{{message}}\"",
+    "commandTemplate": "msg * \"{{message}}\"",
+    "parameters": [
+      {
+        "key": "message",
+        "label": "Message",
+        "type": "text",
+        "default": "Scheduled reminder from Cronsole",
+        "required": true,
+        "help": "The text shown in the popup on every signed-in session."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "notification",
+      "windows",
+      "alert",
+      "local"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "NOTIFICATION",
+    "icon": "MessageCircleWarning",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_chatgpt_link",
+    "name": "ChatGPT Automation (link)",
+    "description": "Quick-link to create a ChatGPT automation (no public API — opens native UI).",
+    "sourcePlatform": "CHATGPT",
+    "targetPlatforms": [
+      "CHATGPT"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "{{prompt}}",
+    "commandTemplate": "{{prompt}}",
+    "parameters": [
+      {
+        "key": "prompt",
+        "label": "Prompt",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The natural-language instruction for the agent."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "chatgpt"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "AI_AGENT",
+    "icon": "MessageSquare",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ai-claude-autofix-commit",
+    "name": "Claude Code Auto-Fix & Commit",
+    "description": "Higher-trust: let Claude Code edit a repo and commit on a schedule. Still fenced by `--permission-mode dontAsk` — only the edit/git tools you list are pre-approved. Scope `--allowedTools` narrowly and review the log/commits.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 3 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools '{{allowedTools}}' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools '{{allowedTools}}' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      },
+      {
+        "key": "prompt",
+        "label": "Prompt",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The task Claude performs, e.g. \"Fix lint errors and commit\". Avoid single quotes."
+      },
+      {
+        "key": "allowedTools",
+        "label": "Allowed tools",
+        "type": "text",
+        "default": "Read,Edit,Write,Grep,Glob,Bash(git add *),Bash(git commit *),Bash(git status *),Bash(git diff *)",
+        "required": true,
+        "help": "Edit + scoped git tools pre-approved for the run. Keep Bash scoped (e.g. Bash(git commit *)), never a bare Bash. dontAsk auto-denies anything not listed."
+      },
+      {
+        "key": "maxTurns",
+        "label": "Max turns",
+        "type": "text",
+        "default": "10",
+        "required": true,
+        "help": "Abort the run after this many agentic turns."
+      },
+      {
+        "key": "model",
+        "label": "Model",
+        "type": "select",
+        "default": "sonnet",
+        "required": true,
+        "options": [
+          "sonnet",
+          "opus",
+          "haiku"
+        ],
+        "help": "Claude model alias to run."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\claude-autofix.log",
+        "required": true,
+        "help": "Where the run output is captured for review."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "llm",
+      "cli",
+      "agents",
+      "claude-code",
+      "git"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "AI_AGENT",
+    "icon": "GitPullRequestArrow",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ai-claude-headless-run",
+    "name": "Claude Code Headless Run",
+    "description": "Run the Claude Code CLI unattended against a repo on a schedule with a fixed prompt. Non-interactive (`-p`), fenced by `--permission-mode dontAsk`, scoped to the tools you list, output captured to a log.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 7 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools '{{allowedTools}}' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools '{{allowedTools}}' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      },
+      {
+        "key": "prompt",
+        "label": "Prompt",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The instruction Claude runs each time. Avoid single quotes (they close the PowerShell string)."
+      },
+      {
+        "key": "allowedTools",
+        "label": "Allowed tools",
+        "type": "text",
+        "default": "Read,Grep,Glob",
+        "required": true,
+        "help": "Comma-separated Claude Code tool allowlist, e.g. Read,Grep,Glob or Bash(git log *),Edit. dontAsk still auto-denies anything not listed. See the Claude Code --allowedTools docs for the exact syntax."
+      },
+      {
+        "key": "maxTurns",
+        "label": "Max turns",
+        "type": "text",
+        "default": "5",
+        "required": true,
+        "help": "Abort the run after this many agentic turns (bounds runtime and cost)."
+      },
+      {
+        "key": "model",
+        "label": "Model",
+        "type": "select",
+        "default": "sonnet",
+        "required": true,
+        "options": [
+          "sonnet",
+          "opus",
+          "haiku"
+        ],
+        "help": "Claude model alias to run."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\claude-run.log",
+        "required": true,
+        "help": "Where the run output (Claude's printed result + any errors) is captured."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "llm",
+      "cli",
+      "agents",
+      "claude-code"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "AI_AGENT",
+    "icon": "Bot",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ai-claude-log-cleanup",
+    "name": "Claude Code Log Cleanup",
+    "description": "Housekeeping companion for the scheduled Claude runs: delete run logs/digests older than a cutoff so they do not pile up. Read-nothing, deletes only matching files in one folder.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 2 * * 0",
+    "command": "powershell.exe -NoProfile -Command \"Get-ChildItem -Path '{{logDir}}' -Filter '{{filter}}' -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-{{days}}) } | Remove-Item -Force\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Get-ChildItem -Path '{{logDir}}' -Filter '{{filter}}' -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-{{days}}) } | Remove-Item -Force\"",
+    "parameters": [
+      {
+        "key": "logDir",
+        "label": "Log folder",
+        "type": "path",
+        "default": "C:\\logs",
+        "required": true,
+        "help": "Folder holding the Claude run logs to prune."
+      },
+      {
+        "key": "filter",
+        "label": "File filter",
+        "type": "text",
+        "default": "claude-*.log",
+        "required": true,
+        "help": "Which files to consider, e.g. claude-*.log or *.md."
+      },
+      {
+        "key": "days",
+        "label": "Keep for (days)",
+        "type": "text",
+        "default": "14",
+        "required": true,
+        "help": "Delete matching files older than this many days."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "cli",
+      "agents",
+      "cleanup",
+      "logs"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "CLEANUP",
+    "icon": "Trash2",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ai-claude-repo-digest",
+    "name": "Claude Code Repo Digest",
+    "description": "A read-only Claude Code run that summarizes a repository into a Markdown digest on a schedule (e.g. weekly). Tools are locked to read/search only; the printed digest is written to a report file.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 7 * * 1",
+    "command": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools 'Read,Grep,Glob' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{reportPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Set-Location '{{repoPath}}'; claude -p '{{prompt}}' --allowedTools 'Read,Grep,Glob' --permission-mode dontAsk --max-turns {{maxTurns}} --model {{model}} --bare *> '{{reportPath}}'\"",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      },
+      {
+        "key": "prompt",
+        "label": "Digest prompt",
+        "type": "text",
+        "default": "Summarize the notable changes, open TODOs, and anything that looks risky in this repository into a concise Markdown digest.",
+        "required": true,
+        "help": "What to summarize. Read-only tools only — avoid single quotes."
+      },
+      {
+        "key": "maxTurns",
+        "label": "Max turns",
+        "type": "text",
+        "default": "8",
+        "required": true,
+        "help": "Abort the run after this many agentic turns."
+      },
+      {
+        "key": "model",
+        "label": "Model",
+        "type": "select",
+        "default": "sonnet",
+        "required": true,
+        "options": [
+          "sonnet",
+          "opus",
+          "haiku"
+        ],
+        "help": "Claude model alias to run."
+      },
+      {
+        "key": "reportPath",
+        "label": "Report file path",
+        "type": "path",
+        "default": "C:\\reports\\repo-digest.md",
+        "required": true,
+        "help": "Where the Markdown digest is written."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "llm",
+      "cli",
+      "agents",
+      "claude-code",
+      "report"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "AI_AGENT",
+    "icon": "ScrollText",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_claude_routine",
+    "name": "Claude Code Routine",
+    "description": "Run a natural-language Claude Code routine on a schedule.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE"
+    ],
+    "scheduleExpression": "0 7 * * *",
+    "command": "{{prompt}}",
+    "commandTemplate": "{{prompt}}",
+    "parameters": [
+      {
+        "key": "prompt",
+        "label": "Prompt",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The natural-language instruction for the agent."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "claude-code"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "AI_AGENT",
+    "icon": "Sparkles",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ai-codex-autofix-workspace",
+    "name": "Codex Auto-Fix Workspace",
+    "description": "Higher-trust: let Codex edit a repository on a schedule. Runs non-interactively with no approval prompts but stays inside the workspace-write sandbox; review the diff and logs before pushing.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 3 * * *",
+    "command": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox workspace-write --ephemeral --color never -C '{{repoPath}}' -o '{{summaryPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox workspace-write --ephemeral --color never -C '{{repoPath}}' -o '{{summaryPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      },
+      {
+        "key": "prompt",
+        "label": "Prompt",
+        "type": "text",
+        "default": "Fix straightforward lint, formatting, or test failures in this repository. Keep changes small and summarize every file changed.",
+        "required": true,
+        "help": "The task Codex performs. It may edit files inside the repo. Avoid single quotes."
+      },
+      {
+        "key": "summaryPath",
+        "label": "Summary file path",
+        "type": "path",
+        "default": "C:\\reports\\codex-autofix-summary.md",
+        "required": true,
+        "help": "Where Codex writes the final summary."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\codex-autofix.log",
+        "required": true,
+        "help": "Where the full run stream is captured for review."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "llm",
+      "cli",
+      "agents",
+      "codex",
+      "git"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "AI_AGENT",
+    "icon": "GitPullRequestArrow",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ai-codex-headless-run",
+    "name": "Codex Headless Run",
+    "description": "Run Codex CLI non-interactively against a repo on a schedule with a fixed prompt. Uses `codex exec`, no approval prompts, an explicit sandbox, an ephemeral session, and captured output.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 7 * * *",
+    "command": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox {{sandbox}} --ephemeral --color never -C '{{repoPath}}' -o '{{outputPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox {{sandbox}} --ephemeral --color never -C '{{repoPath}}' -o '{{outputPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      },
+      {
+        "key": "prompt",
+        "label": "Prompt",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The instruction Codex runs each time. Avoid single quotes (they close the PowerShell string)."
+      },
+      {
+        "key": "sandbox",
+        "label": "Sandbox",
+        "type": "select",
+        "default": "read-only",
+        "required": true,
+        "options": [
+          "read-only",
+          "workspace-write"
+        ],
+        "help": "Least privilege for the run. read-only is safest; workspace-write allows Codex to edit files inside the repo."
+      },
+      {
+        "key": "outputPath",
+        "label": "Final output path",
+        "type": "path",
+        "default": "C:\\reports\\codex-output.md",
+        "required": true,
+        "help": "Where Codex writes the final agent message via --output-last-message."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\codex-run.log",
+        "required": true,
+        "help": "Where the full non-interactive run stream is captured for review."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "llm",
+      "cli",
+      "agents",
+      "codex"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "AI_AGENT",
+    "icon": "Bot",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ai-codex-repo-digest",
+    "name": "Codex Repo Digest",
+    "description": "A read-only Codex run that summarizes a repository into a Markdown digest on a schedule. The final digest and full run stream are captured separately.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 7 * * 1",
+    "command": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox read-only --ephemeral --color never -C '{{repoPath}}' -o '{{reportPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"codex --ask-for-approval never exec --sandbox read-only --ephemeral --color never -C '{{repoPath}}' -o '{{reportPath}}' '{{prompt}}' *> '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      },
+      {
+        "key": "prompt",
+        "label": "Digest prompt",
+        "type": "text",
+        "default": "Summarize the notable changes, open TODOs, and anything that looks risky in this repository into a concise Markdown digest.",
+        "required": true,
+        "help": "What to summarize. This template runs Codex in a read-only sandbox. Avoid single quotes."
+      },
+      {
+        "key": "reportPath",
+        "label": "Report file path",
+        "type": "path",
+        "default": "C:\\reports\\codex-repo-digest.md",
+        "required": true,
+        "help": "Where the Markdown digest is written."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\codex-repo-digest.log",
+        "required": true,
+        "help": "Where the full run stream is captured for review."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "llm",
+      "cli",
+      "agents",
+      "codex",
+      "report"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "AI_AGENT",
+    "icon": "ScrollText",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "bkp-system-restore-point",
+    "name": "Create a System Restore Point",
+    "description": "Create a Windows system restore point on a schedule, so there is a rollback point from before the week’s driver and application changes. This snapshots system state, not your files — pair it with a file backup rather than replacing one.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 3 * * 1",
+    "command": "powershell.exe -NoProfile -Command \"Checkpoint-Computer -Description '{{description}}' -RestorePointType MODIFY_SETTINGS\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Checkpoint-Computer -Description '{{description}}' -RestorePointType MODIFY_SETTINGS\"",
+    "parameters": [
+      {
+        "key": "description",
+        "label": "Restore point description",
+        "type": "text",
+        "default": "Cronsole scheduled restore point",
+        "required": true,
+        "help": "The label shown in System Restore. Avoid single quotes (they close the PowerShell string)."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "backup",
+      "windows",
+      "restore",
+      "system"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "BACKUP",
+    "icon": "History",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_daily_database_backup",
+    "name": "Daily Database Backup",
+    "description": "Back up a PostgreSQL database on a schedule with pg_dump.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 3 * * *",
+    "command": "cmd.exe /c \"pg_dump -U {{dbUser}} {{dbName}} > {{backupPath}}\"",
+    "commandTemplate": "cmd.exe /c \"pg_dump -U {{dbUser}} {{dbName}} > {{backupPath}}\"",
+    "parameters": [
+      {
+        "key": "dbUser",
+        "label": "Database user",
+        "type": "text",
+        "default": "postgres",
+        "required": true,
+        "help": "The PostgreSQL role to connect as."
+      },
+      {
+        "key": "dbName",
+        "label": "Database name",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The database to back up."
+      },
+      {
+        "key": "backupPath",
+        "label": "Backup file path",
+        "type": "path",
+        "default": "C:\\backups\\db.sql",
+        "required": true,
+        "help": "Where to write the .sql dump."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "backup",
+      "database",
+      "postgres"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "BACKUP",
+    "icon": "Database",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "cln-old-files",
+    "name": "Delete Files Older Than N Days",
+    "description": "Prune files in a folder that are older than a cutoff, to reclaim disk.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 4 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Get-ChildItem -Path '{{targetDir}}' -Recurse -File | Where-Object LastWriteTime -lt (Get-Date).AddDays(-{{days}}) | Remove-Item -Force\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Get-ChildItem -Path '{{targetDir}}' -Recurse -File | Where-Object LastWriteTime -lt (Get-Date).AddDays(-{{days}}) | Remove-Item -Force\"",
+    "parameters": [
+      {
+        "key": "targetDir",
+        "label": "Folder to prune",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Directory whose old files are deleted (recursively)."
+      },
+      {
+        "key": "days",
+        "label": "Older than (days)",
+        "type": "text",
+        "default": "30",
+        "required": true,
+        "help": "Delete files last modified more than this many days ago."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cleanup",
+      "windows",
+      "disk",
+      "logs"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "CLEANUP",
+    "icon": "CalendarX",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-npm-outdated-check",
+    "name": "Dependency Update Check (npm)",
+    "description": "Write an npm outdated report for a project on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 7 * * 1",
+    "command": "cmd.exe /c \"cd /d {{projectPath}} && npm outdated > {{reportPath}} 2>&1\"",
+    "commandTemplate": "cmd.exe /c \"cd /d {{projectPath}} && npm outdated > {{reportPath}} 2>&1\"",
+    "parameters": [
+      {
+        "key": "projectPath",
+        "label": "Project path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Folder containing package.json (avoid spaces in the path)."
+      },
+      {
+        "key": "reportPath",
+        "label": "Report file path",
+        "type": "path",
+        "default": "C:\\reports\\npm-outdated.txt",
+        "required": true,
+        "help": "Where to write the outdated report. Note: npm outdated exits non-zero when updates exist, so the run shows as failed exactly when there is something to update."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "node",
+      "npm",
+      "dependencies"
+    ],
+    "scriptType": "NODE",
+    "os": "WINDOWS",
+    "category": "DEV_WORKFLOW",
+    "icon": "PackageSearch",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ntf-discord-heartbeat",
+    "name": "Discord Webhook Message",
+    "description": "Post a scheduled message to a Discord channel via a webhook.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Invoke-RestMethod -Uri '{{webhookUrl}}' -Method Post -ContentType 'application/json' -Body (@{ content = '{{message}}' } | ConvertTo-Json)\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-RestMethod -Uri '{{webhookUrl}}' -Method Post -ContentType 'application/json' -Body (@{ content = '{{message}}' } | ConvertTo-Json)\"",
+    "parameters": [
+      {
+        "key": "webhookUrl",
+        "label": "Discord webhook URL",
+        "type": "url",
+        "default": "",
+        "required": true,
+        "help": "Channel → Integrations → Webhooks → Copy URL."
+      },
+      {
+        "key": "message",
+        "label": "Message",
+        "type": "text",
+        "default": "Cronsole scheduled heartbeat",
+        "required": true,
+        "help": "The text to post. Avoid single quotes (they close the PowerShell string)."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "notification",
+      "windows",
+      "discord",
+      "webhook"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "NOTIFICATION",
+    "icon": "Bell",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-check-disk-space",
+    "name": "Disk Space Check (Cronsole)",
+    "description": "Fail when free space on a volume drops below your floor, so you hear about it before something else fails for a reason that looks unrelated.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 */6 * * *",
+    "command": "check diskFree {{volumePath}}",
+    "commandTemplate": "check diskFree {{volumePath}}",
+    "parameters": [
+      {
+        "key": "volumePath",
+        "label": "Path on the volume",
+        "type": "string",
+        "default": "C:\\",
+        "required": true,
+        "help": "Any path on the volume to measure, as seen by the machine running the Cronsole backend."
+      },
+      {
+        "key": "minFreeBytes",
+        "label": "Minimum free space (bytes)",
+        "type": "number",
+        "default": "10737418240",
+        "required": true,
+        "help": "Default is 10 GB. In bytes, because that is what the check stores — 1 GB is 1073741824."
+      }
+    ],
+    "nativeJob": {
+      "jobType": "CHECK",
+      "probe": {
+        "kind": "diskFree",
+        "path": "{{volumePath}}",
+        "minFreeBytes": "{{minFreeBytes}}"
+      }
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "check",
+      "monitoring",
+      "disk"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "HardDrive",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-docker-prune",
+    "name": "Docker Cleanup (prune)",
+    "description": "Reclaim disk space by pruning unused Docker containers, networks, and images.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 1 * * 0",
+    "command": "docker system prune -f {{args}}",
+    "commandTemplate": "docker system prune -f {{args}}",
+    "parameters": [
+      {
+        "key": "args",
+        "label": "Extra prune flags",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional extra flags, e.g. --volumes or -a (removes ALL unused images)."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "docker",
+      "cleanup",
+      "disk"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "CLEANUP",
+    "icon": "Trash2",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-docker-compose-up",
+    "name": "Docker Compose Self-Heal",
+    "description": "Re-run docker compose up on an interval so a dev stack restarts itself if it stops (the pattern Cronsole uses for its own stack).",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "*/10 * * * *",
+    "command": "docker compose -f \"{{composeFile}}\" up -d",
+    "commandTemplate": "docker compose -f \"{{composeFile}}\" up -d",
+    "parameters": [
+      {
+        "key": "composeFile",
+        "label": "Compose file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the docker-compose.yml. up -d is idempotent — running containers are left alone."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "docker",
+      "self-heal",
+      "monitoring"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "RefreshCw",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "cln-recycle-bin",
+    "name": "Empty Recycle Bin",
+    "description": "Empty the Windows Recycle Bin on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 5 * * 0",
+    "command": "powershell.exe -NoProfile -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Clear-RecycleBin -Force -ErrorAction SilentlyContinue\"",
+    "parameters": [],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cleanup",
+      "windows",
+      "disk"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "CLEANUP",
+    "icon": "Trash2",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-check-endpoint-healthy",
+    "name": "Endpoint Health Check (Cronsole)",
+    "description": "Call a URL and require the response to actually say it is healthy — not just return 200. A failure here is a fact about your system, so it is worth alerting on.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "*/5 * * * *",
+    "command": "check http {{url}}",
+    "commandTemplate": "check http {{url}}",
+    "parameters": [
+      {
+        "key": "url",
+        "label": "URL",
+        "type": "url",
+        "default": "",
+        "required": true,
+        "help": "The health endpoint to call, e.g. https://example.com/healthz."
+      },
+      {
+        "key": "expectText",
+        "label": "Response must contain",
+        "type": "string",
+        "default": "ok",
+        "required": true,
+        "help": "Text that must appear in the response body. This is what makes it a health check rather than a ping — a 200 without this fails."
+      }
+    ],
+    "nativeJob": {
+      "jobType": "CHECK",
+      "probe": {
+        "kind": "http",
+        "url": "{{url}}",
+        "method": "GET",
+        "expectStatus": {
+          "min": 200,
+          "max": 299
+        },
+        "expectBodyContains": "{{expectText}}"
+      }
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "check",
+      "monitoring",
+      "uptime"
+    ],
+    "scriptType": "HTTP",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "Activity",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "data-export-eventlog",
+    "name": "Export Windows Event Log",
+    "description": "Archive a Windows event log (System, Application, …) to an .evtx file.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 0 * * 0",
+    "command": "wevtutil epl \"{{logName}}\" \"{{outFile}}\" /ow:true",
+    "commandTemplate": "wevtutil epl \"{{logName}}\" \"{{outFile}}\" /ow:true",
+    "parameters": [
+      {
+        "key": "logName",
+        "label": "Event log",
+        "type": "text",
+        "default": "System",
+        "required": true,
+        "help": "Log channel to export (System, Application, Security, …)."
+      },
+      {
+        "key": "outFile",
+        "label": "Output .evtx path",
+        "type": "path",
+        "default": "C:\\logs\\System.evtx",
+        "required": true,
+        "help": "Where to write the exported log. /ow:true overwrites."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "data",
+      "windows",
+      "eventlog",
+      "archive"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "DATA_SYNC",
+    "icon": "FileArchive",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "sys-flush-dns",
+    "name": "Flush DNS Cache",
+    "description": "Clear the Windows DNS resolver cache.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 6 * * *",
+    "command": "ipconfig /flushdns",
+    "commandTemplate": "ipconfig /flushdns",
+    "parameters": [],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "system",
+      "windows",
+      "network",
+      "dns"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "SYSTEM",
+    "icon": "Network",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "sys-battery-report",
+    "name": "Generate Battery Report",
+    "description": "Write a laptop battery health report to an HTML file.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 8 * * 1",
+    "command": "powercfg /batteryreport /output \"{{outFile}}\"",
+    "commandTemplate": "powercfg /batteryreport /output \"{{outFile}}\"",
+    "parameters": [
+      {
+        "key": "outFile",
+        "label": "Report output path",
+        "type": "path",
+        "default": "C:\\reports\\battery-report.html",
+        "required": true,
+        "help": "Where to write the battery report (.html)."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "system",
+      "windows",
+      "power",
+      "report"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "SYSTEM",
+    "icon": "BatteryCharging",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-git-autocommit-push",
+    "name": "Git Auto-Commit & Push",
+    "description": "Snapshot a working repository on a schedule: stage everything, commit, and push.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 18 * * 1-5",
+    "command": "powershell.exe -NoProfile -Command \"git -C '{{repoPath}}' add -A; git -C '{{repoPath}}' commit -m '{{message}}'; git -C '{{repoPath}}' push\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"git -C '{{repoPath}}' add -A; git -C '{{repoPath}}' commit -m '{{message}}'; git -C '{{repoPath}}' push\"",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      },
+      {
+        "key": "message",
+        "label": "Commit message",
+        "type": "text",
+        "default": "chore: scheduled auto-commit",
+        "required": true,
+        "help": "Message used for each scheduled commit. Avoid single quotes."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "git",
+      "backup"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "DEV_WORKFLOW",
+    "icon": "GitCommitHorizontal",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-git-fetch-prune",
+    "name": "Git Fetch & Prune",
+    "description": "Keep a local repository fresh: fetch all remotes and prune deleted remote branches.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 6 * * *",
+    "command": "git -C \"{{repoPath}}\" fetch --all --prune",
+    "commandTemplate": "git -C \"{{repoPath}}\" fetch --all --prune",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "git",
+      "sync",
+      "hygiene"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "GitBranch",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_git_sync",
+    "name": "Git Pull / Repo Sync",
+    "description": "Pull the latest commits for a local git repository on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 */6 * * *",
+    "command": "git -C \"{{repoPath}}\" pull",
+    "commandTemplate": "git -C \"{{repoPath}}\" pull",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "git",
+      "dev",
+      "sync"
+    ],
+    "scriptType": "BASH",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "GitBranch",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-git-maintenance",
+    "name": "Git Repo Maintenance",
+    "description": "Run git maintenance (gc, commit-graph, prefetch) to keep a large repository fast.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 2 * * 0",
+    "command": "git -C \"{{repoPath}}\" maintenance run",
+    "commandTemplate": "git -C \"{{repoPath}}\" maintenance run",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the local git repository."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "git",
+      "hygiene"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "Wrench",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_github_pr_triage",
+    "name": "GitHub PR Triage",
+    "description": "Triage new pull requests in a repo and label them by content.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE"
+    ],
+    "scheduleExpression": "*/30 * * * *",
+    "command": "Triage new pull requests in {{repo}} and label them by content and priority.",
+    "commandTemplate": "Triage new pull requests in {{repo}} and label them by content and priority.",
+    "parameters": [
+      {
+        "key": "repo",
+        "label": "Repository",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The owner/name of the GitHub repo to triage."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "github",
+      "dev"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "GitPullRequest",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ntf-log-heartbeat",
+    "name": "Heartbeat to Log File",
+    "description": "Append a timestamped line to a log — a simple \"am I still scheduled?\" check.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "*/10 * * * *",
+    "command": "powershell.exe -NoProfile -Command \"Add-Content -Path '{{logPath}}' -Value (Get-Date)\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Add-Content -Path '{{logPath}}' -Value (Get-Date)\"",
+    "parameters": [
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\heartbeat.log",
+        "required": true,
+        "help": "Where to append the heartbeat timestamp."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "notification",
+      "windows",
+      "heartbeat",
+      "logs"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "NOTIFICATION",
+    "icon": "FileClock",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-brew-update",
+    "name": "Homebrew Update & Upgrade",
+    "description": "Refresh Homebrew’s package index and upgrade every outdated formula and cask on a schedule.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 5 * * 1",
+    "command": "/bin/bash -c \"brew update && brew upgrade\"",
+    "commandTemplate": "/bin/bash -c \"brew update && brew upgrade\"",
+    "parameters": [],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "macos",
+      "homebrew",
+      "package-manager"
+    ],
+    "scriptType": "BASH",
+    "os": "MACOS",
+    "category": "DEV_WORKFLOW",
+    "icon": "Package",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_shell_inline_macos",
+    "name": "Inline Shell Command (macOS)",
+    "description": "Run an inline shell command via zsh.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 * * * *",
+    "command": "/bin/zsh -c \"{{command}}\"",
+    "commandTemplate": "/bin/zsh -c \"{{command}}\"",
+    "parameters": [
+      {
+        "key": "command",
+        "label": "Command",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The command/code to run inline."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "macos",
+      "shell"
+    ],
+    "scriptType": "ZSH",
+    "os": "MACOS",
+    "category": "OTHER",
+    "icon": "Terminal",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-git-pull",
+    "name": "Keep a Repo Fresh (Cronsole)",
+    "description": "Pull the latest commits into a local repository on the Cronsole host — the agent-free version of Git Sync.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 */6 * * *",
+    "command": "git -C \"{{repoPath}}\" pull --ff-only",
+    "commandTemplate": "git -C \"{{repoPath}}\" pull --ff-only",
+    "parameters": [
+      {
+        "key": "repoPath",
+        "label": "Repository path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the repository on the machine running the Cronsole backend. `--ff-only` refuses rather than creating a merge nobody reviewed."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "git",
+      "sync"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "GitBranch",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "mon-disk-report",
+    "name": "Log Disk Usage",
+    "description": "Append free/used disk space for every drive to a log file.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 * * * *",
+    "command": "powershell.exe -NoProfile -Command \"Get-PSDrive -PSProvider FileSystem | Select-Object Name, Used, Free | Out-File -Append '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Get-PSDrive -PSProvider FileSystem | Select-Object Name, Used, Free | Out-File -Append '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\disk.log",
+        "required": true,
+        "help": "Where to append the disk snapshot."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "monitoring",
+      "windows",
+      "disk",
+      "report"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "MONITORING",
+    "icon": "HardDrive",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-script-http-response-time",
+    "name": "Log HTTP Response Time (Cronsole)",
+    "description": "Time how long a URL takes to respond and fail the run when it is slower than your threshold, so a degraded endpoint shows up as a trend rather than only as a hard outage.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "*/10 * * * *",
+    "command": "node script (31 lines)",
+    "commandTemplate": "node script (31 lines)",
+    "parameters": [
+      {
+        "key": "url",
+        "label": "URL",
+        "type": "url",
+        "default": "",
+        "required": true,
+        "help": "The endpoint to time with an HTTP GET."
+      },
+      {
+        "key": "maxMs",
+        "label": "Fail above (ms)",
+        "type": "number",
+        "default": "2000",
+        "required": true,
+        "help": "Record the run as failed when the response takes longer than this many milliseconds."
+      }
+    ],
+    "nativeJob": {
+      "jobType": "SCRIPT",
+      "interpreter": "node",
+      "body": "// Runs on the machine hosting the Cronsole backend. Anything printed here\n// lands in the task’s run history; a non-zero exit records a failed run.\nconst http = require(\"http\");\nconst https = require(\"https\");\n\nconst url = \"{{url}}\";\nconst maxMs = Number(\"{{maxMs}}\");\nconst client = url.startsWith(\"https:\") ? https : http;\nconst startedAt = Date.now();\n\nconst req = client.get(url, (res) => {\n  res.on(\"data\", () => {});\n  res.on(\"end\", () => {\n    const elapsedMs = Date.now() - startedAt;\n    console.log(url + \" responded \" + res.statusCode + \" in \" + elapsedMs + \"ms\");\n    if (elapsedMs > maxMs) {\n      console.error(\"Response took \" + elapsedMs + \"ms, over the \" + maxMs + \"ms limit.\");\n      process.exitCode = 1;\n    }\n  });\n});\n\nreq.on(\"error\", (err) => {\n  console.error(\"Request to \" + url + \" failed: \" + err.message);\n  process.exitCode = 1;\n});\n\nreq.setTimeout(15000, () => {\n  req.destroy(new Error(\"request timed out\"));\n});\n"
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "monitoring",
+      "http",
+      "latency"
+    ],
+    "scriptType": "NODE",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "Activity",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "mon-service-health",
+    "name": "Log Service Status",
+    "description": "Record whether a Windows service is running, on an interval.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "*/30 * * * *",
+    "command": "powershell.exe -NoProfile -Command \"Get-Service -Name '{{serviceName}}' | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Get-Service -Name '{{serviceName}}' | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "serviceName",
+        "label": "Service name",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The service short name to check."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\service.log",
+        "required": true,
+        "help": "Where to append the status."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "monitoring",
+      "windows",
+      "service",
+      "health"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "MONITORING",
+    "icon": "HeartPulse",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "mon-top-processes",
+    "name": "Log Top Processes by CPU",
+    "description": "Append the highest CPU-consuming processes to a log file on an interval, so a machine that suddenly runs hot has a paper trail of what was busy.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 * * * *",
+    "command": "powershell.exe -NoProfile -Command \"Get-Process | Sort-Object CPU -Descending | Select-Object -First {{topN}} Name, CPU, WorkingSet | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Get-Process | Sort-Object CPU -Descending | Select-Object -First {{topN}} Name, CPU, WorkingSet | Format-Table -AutoSize | Out-File -Append '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "topN",
+        "label": "Number of processes",
+        "type": "text",
+        "default": "10",
+        "required": true,
+        "help": "How many top CPU-consuming processes to record."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\top-processes.log",
+        "required": true,
+        "help": "Where to append the process snapshot."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "monitoring",
+      "windows",
+      "cpu",
+      "processes"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "MONITORING",
+    "icon": "Cpu",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "bkp-robocopy-mirror",
+    "name": "Mirror Folder (robocopy)",
+    "description": "Mirror a directory to a backup location with robocopy /MIR.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 1 * * *",
+    "command": "robocopy \"{{sourceDir}}\" \"{{destDir}}\" /MIR /R:2 /W:5",
+    "commandTemplate": "robocopy \"{{sourceDir}}\" \"{{destDir}}\" /MIR /R:2 /W:5",
+    "parameters": [
+      {
+        "key": "sourceDir",
+        "label": "Source folder",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "The directory to mirror from."
+      },
+      {
+        "key": "destDir",
+        "label": "Destination folder",
+        "type": "path",
+        "default": "C:\\backups\\mirror",
+        "required": true,
+        "help": "The backup directory. /MIR makes it match the source exactly (deletes extras)."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "backup",
+      "windows",
+      "robocopy",
+      "sync"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "BACKUP",
+    "icon": "FolderSync",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-http-heartbeat",
+    "name": "Monitor Heartbeat (Cronsole)",
+    "description": "Ping a dead-man’s-switch URL (Healthchecks.io, Better Stack, Cronitor) on a schedule so an outside monitor notices when Cronsole itself stops.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 * * * *",
+    "command": "{{url}}",
+    "commandTemplate": "{{url}}",
+    "parameters": [
+      {
+        "key": "url",
+        "label": "URL",
+        "type": "url",
+        "default": "",
+        "required": true,
+        "help": "The heartbeat URL your monitor gave you. It alerts when the ping stops — which is the one failure a scheduler cannot report about itself."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "http",
+      "monitoring",
+      "heartbeat"
+    ],
+    "scriptType": "HTTP",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "HeartPulse",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_morning_news_digest",
+    "name": "Morning News Digest",
+    "description": "Summarize top stories from your news sources into a daily digest.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE",
+      "CHATGPT"
+    ],
+    "scheduleExpression": "0 7 * * *",
+    "command": "Summarize the top stories from {{feeds}} into a {{length}} digest.",
+    "commandTemplate": "Summarize the top stories from {{feeds}} into a {{length}} digest.",
+    "parameters": [
+      {
+        "key": "feeds",
+        "label": "News sources / feeds",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "Comma-separated RSS feeds or topics to summarize."
+      },
+      {
+        "key": "length",
+        "label": "Digest length",
+        "type": "select",
+        "default": "short",
+        "required": true,
+        "options": [
+          "short",
+          "detailed"
+        ],
+        "help": "How long the summary should be."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "digest",
+      "news"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "AI_AGENT",
+    "icon": "Newspaper",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-npm-nightly-build",
+    "name": "Nightly Build (npm)",
+    "description": "Run an npm script (build, lint, …) for a project every night and capture the log.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 4 * * *",
+    "command": "cmd.exe /c \"cd /d {{projectPath}} && npm run {{script}} > {{logPath}} 2>&1\"",
+    "commandTemplate": "cmd.exe /c \"cd /d {{projectPath}} && npm run {{script}} > {{logPath}} 2>&1\"",
+    "parameters": [
+      {
+        "key": "projectPath",
+        "label": "Project path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Folder containing package.json (avoid spaces in the path)."
+      },
+      {
+        "key": "script",
+        "label": "npm script",
+        "type": "text",
+        "default": "build",
+        "required": true,
+        "help": "The package.json script to run, e.g. build or lint."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\nightly-build.log",
+        "required": true,
+        "help": "Where to write the build output."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "node",
+      "npm",
+      "build",
+      "ci"
+    ],
+    "scriptType": "NODE",
+    "os": "WINDOWS",
+    "category": "DEV_WORKFLOW",
+    "icon": "Hammer",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-node-script",
+    "name": "Node Script (Cronsole)",
+    "description": "Run a Node.js script on the Cronsole host on a schedule.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 6 * * *",
+    "command": "node \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the .js/.mjs file on the machine running the Cronsole backend."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "node"
+    ],
+    "scriptType": "NODE",
+    "os": "CROSS_PLATFORM",
+    "category": "OTHER",
+    "icon": "FileCode",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_node_cross",
+    "name": "Node.js Script (cross-platform)",
+    "description": "Run a Node.js script on Windows or macOS.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 8 * * *",
+    "command": "node \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "node",
+      "script"
+    ],
+    "scriptType": "NODE",
+    "os": "CROSS_PLATFORM",
+    "category": "OTHER",
+    "icon": "Hexagon",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_node_macos",
+    "name": "Node.js Script (macOS)",
+    "description": "Run a Node.js script with node on macOS.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "*/30 * * * *",
+    "command": "node \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "macos",
+      "node",
+      "script"
+    ],
+    "scriptType": "NODE",
+    "os": "MACOS",
+    "category": "OTHER",
+    "icon": "Hexagon",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_node_windows",
+    "name": "Node.js Script (Windows)",
+    "description": "Run a Node.js script with node on Windows.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "*/30 * * * *",
+    "command": "node \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "node \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "node",
+      "script"
+    ],
+    "scriptType": "NODE",
+    "os": "WINDOWS",
+    "category": "OTHER",
+    "icon": "Hexagon",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-script-pending-reboot",
+    "name": "Pending Reboot Check (Cronsole)",
+    "description": "Fail the run when Windows has installed updates that need a restart to finish — the gap between kicking off an update scan and actually knowing a reboot is owed.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "powershell script (14 lines)",
+    "commandTemplate": "powershell script (14 lines)",
+    "parameters": [],
+    "nativeJob": {
+      "jobType": "SCRIPT",
+      "interpreter": "powershell",
+      "body": "# Runs on the machine hosting the Cronsole backend, which must be a Windows host.\n# A non-zero exit records a failed run, which is what makes this an alert rather than a status log.\n\n$pending = $false\nif (Test-Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending\") { $pending = $true }\nif (Test-Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired\") { $pending = $true }\n\nif ($pending) {\n  Write-Output \"A reboot is pending.\"\n  exit 1\n} else {\n  Write-Output \"No reboot pending.\"\n}\n"
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "system",
+      "windows",
+      "updates"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "SYSTEM",
+    "icon": "AlertTriangle",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "mon-ping-host",
+    "name": "Ping Host & Log",
+    "description": "Check whether a host is reachable and append the result to a log.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "*/15 * * * *",
+    "command": "powershell.exe -NoProfile -Command \"Test-Connection -ComputerName '{{host}}' -Count 2 | Out-File -Append '{{logPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Test-Connection -ComputerName '{{host}}' -Count 2 | Out-File -Append '{{logPath}}'\"",
+    "parameters": [
+      {
+        "key": "host",
+        "label": "Host / IP",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The hostname or IP to ping."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\ping.log",
+        "required": true,
+        "help": "Where to append the ping result."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "monitoring",
+      "windows",
+      "network",
+      "uptime"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "MONITORING",
+    "icon": "Activity",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-check-port-open",
+    "name": "Port Reachable Check (Cronsole)",
+    "description": "Confirm something still accepts connections on a host and port — a database, a broker, an internal service with no HTTP endpoint to call.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "*/10 * * * *",
+    "command": "check tcp {{host}}:{{port}}",
+    "commandTemplate": "check tcp {{host}}:{{port}}",
+    "parameters": [
+      {
+        "key": "host",
+        "label": "Host",
+        "type": "string",
+        "required": true,
+        "help": "Resolved from the machine running the Cronsole backend, so an internal name has to be reachable from there."
+      },
+      {
+        "key": "port",
+        "label": "Port",
+        "type": "number",
+        "default": "5432",
+        "required": true,
+        "help": "The check succeeds if a TCP connection is accepted within 15 seconds. It does not log in or send anything."
+      }
+    ],
+    "nativeJob": {
+      "jobType": "CHECK",
+      "probe": {
+        "kind": "tcp",
+        "host": "{{host}}",
+        "port": "{{port}}"
+      }
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "check",
+      "monitoring",
+      "network"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "PlugZap",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "sys-postgres-vacuum",
+    "name": "Postgres Vacuum & Analyze",
+    "description": "Run VACUUM ANALYZE against a PostgreSQL database on a schedule to reclaim bloat and keep the query planner’s statistics current — routine maintenance, not a backup.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 4 * * 0",
+    "command": "psql -U {{dbUser}} -d {{dbName}} -c \"VACUUM ANALYZE;\"",
+    "commandTemplate": "psql -U {{dbUser}} -d {{dbName}} -c \"VACUUM ANALYZE;\"",
+    "parameters": [
+      {
+        "key": "dbUser",
+        "label": "Database user",
+        "type": "text",
+        "default": "postgres",
+        "required": true,
+        "help": "The PostgreSQL role to connect as."
+      },
+      {
+        "key": "dbName",
+        "label": "Database name",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The database to vacuum."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "system",
+      "database",
+      "postgres",
+      "maintenance"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "SYSTEM",
+    "icon": "Database",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-script-powershell-disk-report",
+    "name": "PowerShell Disk Report (Cronsole)",
+    "description": "Print free space for every fixed drive on the Cronsole host, so the numbers land in the run history and you can read them back over time.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 8 * * *",
+    "command": "powershell script (11 lines)",
+    "commandTemplate": "powershell script (11 lines)",
+    "parameters": [],
+    "nativeJob": {
+      "jobType": "SCRIPT",
+      "interpreter": "powershell",
+      "body": "# Needs PowerShell on the machine running the Cronsole backend.\n# That is your desktop for a normal install, and the CONTAINER on a\n# Dockerized stack — where these drives are the container’s, not yours.\n\nGet-CimInstance Win32_LogicalDisk -Filter \"DriveType=3\" |\n  ForEach-Object {\n    $freeGb  = [math]::Round($_.FreeSpace / 1GB, 1)\n    $totalGb = [math]::Round($_.Size / 1GB, 1)\n    \"{0} {1} GB free of {2} GB\" -f $_.DeviceID, $freeGb, $totalGb\n  }\n"
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "powershell",
+      "monitoring",
+      "disk"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "MONITORING",
+    "icon": "HardDrive",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_powershell_inline",
+    "name": "PowerShell Inline Command",
+    "description": "Run an inline PowerShell command without a script file.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 * * * *",
+    "command": "powershell.exe -NoProfile -Command \"{{command}}\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"{{command}}\"",
+    "parameters": [
+      {
+        "key": "command",
+        "label": "Command",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The command/code to run inline."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "powershell"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "OTHER",
+    "icon": "Terminal",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_powershell_script",
+    "name": "PowerShell Script",
+    "description": "Run a .ps1 PowerShell script file on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{{scriptPath}}\"",
+    "commandTemplate": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{{scriptPath}}\"",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "script",
+      "powershell"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "OTHER",
+    "icon": "Terminal",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-python-script",
+    "name": "Python Script (Cronsole)",
+    "description": "Run a Python script on the Cronsole host on a schedule.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 6 * * *",
+    "command": "python \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "python \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the .py file on the machine running the Cronsole backend. `python` must be on that machine’s PATH."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "python"
+    ],
+    "scriptType": "PYTHON",
+    "os": "CROSS_PLATFORM",
+    "category": "OTHER",
+    "icon": "FileTerminal",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_python_cross",
+    "name": "Python Script (cross-platform)",
+    "description": "Run a Python script on Windows or macOS (interpreter resolved at apply-time).",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 8 * * *",
+    "command": "python \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "python \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "python",
+      "script"
+    ],
+    "scriptType": "PYTHON",
+    "os": "CROSS_PLATFORM",
+    "category": "OTHER",
+    "icon": "FileCode",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_python_macos",
+    "name": "Python Script (macOS)",
+    "description": "Run a Python script with python3 on macOS.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 8 * * *",
+    "command": "python3 \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "python3 \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "macos",
+      "python",
+      "script"
+    ],
+    "scriptType": "PYTHON",
+    "os": "MACOS",
+    "category": "OTHER",
+    "icon": "FileCode",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_python_windows",
+    "name": "Python Script (Windows)",
+    "description": "Run a Python script with the Windows python interpreter.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 8 * * *",
+    "command": "python \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "python \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "python",
+      "script"
+    ],
+    "scriptType": "PYTHON",
+    "os": "WINDOWS",
+    "category": "OTHER",
+    "icon": "FileCode",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "sys-certbot-renew",
+    "name": "Renew SSL Certificates (Certbot)",
+    "description": "Run certbot renew on a schedule so Let’s Encrypt certificates renew themselves before they expire. This renews — pair it with an expiry check for the alert half.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 3 * * *",
+    "command": "certbot renew --quiet",
+    "commandTemplate": "certbot renew --quiet",
+    "parameters": [],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "system",
+      "macos",
+      "ssl",
+      "certbot",
+      "renewal"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "MACOS",
+    "category": "SYSTEM",
+    "icon": "ShieldCheck",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "mon-failed-scheduled-tasks",
+    "name": "Report Failed Scheduled Tasks",
+    "description": "Append every Windows scheduled task whose last run reported a non-zero result to a report file, so a task that has been failing quietly for a week shows up somewhere you read. Supply the file to append the report to.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 13 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Get-ScheduledTask | Get-ScheduledTaskInfo | Where-Object LastTaskResult -ne 0 | Format-Table TaskName, LastRunTime, LastTaskResult | Out-File -Append '{{reportPath}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Get-ScheduledTask | Get-ScheduledTaskInfo | Where-Object LastTaskResult -ne 0 | Format-Table TaskName, LastRunTime, LastTaskResult | Out-File -Append '{{reportPath}}'\"",
+    "parameters": [
+      {
+        "key": "reportPath",
+        "label": "Report file path",
+        "type": "path",
+        "default": "C:\\reports\\failed-tasks.txt",
+        "required": true,
+        "help": "Where to append the list of failing tasks. Reading every task needs the run to be elevated on most machines."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "monitoring",
+      "windows",
+      "scheduler",
+      "report"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "MONITORING",
+    "icon": "CalendarClock",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-image-resize",
+    "name": "Resize Images in a Folder (ImageMagick)",
+    "description": "Batch-resize every image matching a pattern to a maximum width using ImageMagick, on the machine hosting Cronsole — a way to keep a photo drop folder from filling disk with full-resolution originals.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 3 * * *",
+    "command": "magick mogrify -path \"{{outputDir}}\" -resize {{maxWidth}} \"{{inputPattern}}\"",
+    "commandTemplate": "magick mogrify -path \"{{outputDir}}\" -resize {{maxWidth}} \"{{inputPattern}}\"",
+    "parameters": [
+      {
+        "key": "inputPattern",
+        "label": "Input file pattern",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "Files to resize, as a path or wildcard such as C:\\photos\\*.jpg, resolved on the machine running the Cronsole backend. ImageMagick must already be installed there."
+      },
+      {
+        "key": "outputDir",
+        "label": "Output folder",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Where the resized copies are written. Use a different folder than the input — mogrify overwrites files in place otherwise."
+      },
+      {
+        "key": "maxWidth",
+        "label": "Max width (pixels)",
+        "type": "text",
+        "default": "1920",
+        "required": true,
+        "help": "Images wider than this are scaled down proportionally; images already narrower are left unchanged."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "media",
+      "images",
+      "imagemagick"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "MEDIA",
+    "icon": "ImageDown",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "sys-restart-service",
+    "name": "Restart a Windows Service",
+    "description": "Restart a Windows service on a schedule (e.g. to recover a flaky one).",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 3 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Restart-Service -Name '{{serviceName}}' -Force\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Restart-Service -Name '{{serviceName}}' -Force\"",
+    "parameters": [
+      {
+        "key": "serviceName",
+        "label": "Service name",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The service short name (Get-Service to list). Runs elevated for most services."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "system",
+      "windows",
+      "service"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "SYSTEM",
+    "icon": "RefreshCw",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-script-docker-restart-unhealthy",
+    "name": "Restart Unhealthy Docker Containers (Cronsole)",
+    "description": "Restart every Docker container currently reporting an unhealthy health status on the machine hosting Cronsole, so a container stuck failing its healthcheck recovers before you notice it yourself.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "*/15 * * * *",
+    "command": "node script (29 lines)",
+    "commandTemplate": "node script (29 lines)",
+    "parameters": [],
+    "nativeJob": {
+      "jobType": "SCRIPT",
+      "interpreter": "node",
+      "body": "// Runs on the machine hosting the Cronsole backend, and needs the docker CLI\n// on that machine’s PATH with permission to talk to the Docker daemon.\nconst { execSync } = require(\"child_process\");\n\nlet unhealthy = [];\ntry {\n  unhealthy = execSync(\"docker ps --filter health=unhealthy -q\", { encoding: \"utf8\" })\n    .split(\"\\n\")\n    .map((line) => line.trim())\n    .filter(Boolean);\n} catch (err) {\n  console.error(\"Could not list containers: \" + err.message);\n  process.exitCode = 1;\n}\n\nif (unhealthy.length === 0) {\n  console.log(\"No unhealthy containers.\");\n} else {\n  for (const id of unhealthy) {\n    try {\n      execSync(\"docker restart \" + id);\n      console.log(\"Restarted \" + id);\n    } catch (err) {\n      console.error(\"Failed to restart \" + id + \": \" + err.message);\n      process.exitCode = 1;\n    }\n  }\n}\n"
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "docker",
+      "system"
+    ],
+    "scriptType": "NODE",
+    "os": "CROSS_PLATFORM",
+    "category": "SYSTEM",
+    "icon": "RefreshCw",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "claude-routine-ci-failure-digest",
+    "name": "Routine: CI Failure Digest",
+    "description": "A weekday routine that reads the last day of failing CI runs, groups them by root cause, and separates real breakage from flakes.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE"
+    ],
+    "scheduleExpression": "0 13 * * 1-5",
+    "command": "Look at the CI runs for {{repo}} over the last 24 hours. Group the failures by likely root cause, separate genuine breakage from flaky tests, and name the commit each one most likely came from. Keep it to the shortest summary that is still actionable.",
+    "commandTemplate": "Look at the CI runs for {{repo}} over the last 24 hours. Group the failures by likely root cause, separate genuine breakage from flaky tests, and name the commit each one most likely came from. Keep it to the shortest summary that is still actionable.",
+    "parameters": [
+      {
+        "key": "repo",
+        "label": "Repository",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The repository whose CI runs to read."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "claude-code",
+      "routine",
+      "ci",
+      "tests"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "Siren",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "claude-routine-dependency-review",
+    "name": "Routine: Dependency Review",
+    "description": "A weekly routine that checks outdated and vulnerable dependencies, and reports which upgrades are safe to take rather than upgrading anything itself.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE"
+    ],
+    "scheduleExpression": "0 15 * * 1",
+    "command": "Check the dependencies of {{repo}} for outdated and vulnerable packages. Group them into safe patch upgrades, minor upgrades worth taking, and major upgrades with breaking changes. For each group say what would have to be tested. Report only — do not modify the lockfile.",
+    "commandTemplate": "Check the dependencies of {{repo}} for outdated and vulnerable packages. Group them into safe patch upgrades, minor upgrades worth taking, and major upgrades with breaking changes. For each group say what would have to be tested. Report only — do not modify the lockfile.",
+    "parameters": [
+      {
+        "key": "repo",
+        "label": "Repository",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The repository to review. Attach it to the routine so the checkout is available."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "claude-code",
+      "routine",
+      "dependencies",
+      "security"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "ShieldCheck",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "claude-routine-docs-drift",
+    "name": "Routine: Docs Drift Check",
+    "description": "A weekly routine that compares the documentation against the code it describes and lists what has quietly stopped being true.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE"
+    ],
+    "scheduleExpression": "0 16 * * 5",
+    "command": "Compare the documentation under {{docsPath}} in {{repo}} against the code it describes. List every claim that is no longer true, with the file and line that contradicts it, worst first. Ignore wording and style — only report statements a reader would act on and be wrong.",
+    "commandTemplate": "Compare the documentation under {{docsPath}} in {{repo}} against the code it describes. List every claim that is no longer true, with the file and line that contradicts it, worst first. Ignore wording and style — only report statements a reader would act on and be wrong.",
+    "parameters": [
+      {
+        "key": "repo",
+        "label": "Repository",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The repository to check."
+      },
+      {
+        "key": "docsPath",
+        "label": "Docs path",
+        "type": "text",
+        "default": "docs/",
+        "required": true,
+        "help": "Repo-relative folder holding the documentation."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "claude-code",
+      "routine",
+      "docs"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "BookOpenCheck",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "claude-routine-issue-triage",
+    "name": "Routine: Issue Triage",
+    "description": "A Claude Code routine that reads new issues each morning, labels them by area and severity, and flags anything that looks like a regression.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE"
+    ],
+    "scheduleExpression": "0 14 * * 1-5",
+    "command": "Review issues opened in {{repo}} since your last run. For each one: summarize it in a sentence, label it by area and severity, and say whether it looks like a regression of recent work. Post the triage as a comment on each issue. Do not change code.",
+    "commandTemplate": "Review issues opened in {{repo}} since your last run. For each one: summarize it in a sentence, label it by area and severity, and say whether it looks like a regression of recent work. Post the triage as a comment on each issue. Do not change code.",
+    "parameters": [
+      {
+        "key": "repo",
+        "label": "Repository",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The owner/name of the repo to triage. Attach the same repository to the routine so it has a checkout."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "claude-code",
+      "routine",
+      "github",
+      "triage"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "ListChecks",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "claude-routine-release-notes",
+    "name": "Routine: Release Notes Draft",
+    "description": "A weekly routine that turns everything merged since a release tag into a draft set of release notes written for the people who use the software, rather than the people who wrote it.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE"
+    ],
+    "scheduleExpression": "0 16 * * 4",
+    "command": "Read the pull requests and commits merged into {{repo}} since the tag {{sinceTag}}. Draft release notes grouped into new features, fixes, and breaking changes, each entry one sentence describing what changed for someone using the software, with the pull request or commit it came from. Leave out refactors and internal chores that change nothing a user can observe. Write the draft only — do not tag a release, edit the changelog, or push anything.",
+    "commandTemplate": "Read the pull requests and commits merged into {{repo}} since the tag {{sinceTag}}. Draft release notes grouped into new features, fixes, and breaking changes, each entry one sentence describing what changed for someone using the software, with the pull request or commit it came from. Leave out refactors and internal chores that change nothing a user can observe. Write the draft only — do not tag a release, edit the changelog, or push anything.",
+    "parameters": [
+      {
+        "key": "repo",
+        "label": "Repository",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The owner/name of the repository to read. Attach the same repository to the routine so it has a checkout."
+      },
+      {
+        "key": "sinceTag",
+        "label": "Since tag",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The release tag the notes start after, e.g. v1.4.0. Everything merged after it is considered."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "claude-code",
+      "routine",
+      "release",
+      "changelog"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "Tag",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "claude-routine-standup-digest",
+    "name": "Routine: Standup Digest",
+    "description": "A weekday-morning routine that summarizes what actually landed yesterday — merged work, open reviews, and anything that stalled.",
+    "sourcePlatform": "CLAUDE_CODE",
+    "targetPlatforms": [
+      "CLAUDE_CODE"
+    ],
+    "scheduleExpression": "0 15 * * 1-5",
+    "command": "Summarize activity in {{repo}} since yesterday morning: what merged, what is waiting on review, and what has been open long enough to be stuck. Write it as a short standup update in plain sentences, no bullet lists longer than five items.",
+    "commandTemplate": "Summarize activity in {{repo}} since yesterday morning: what merged, what is waiting on review, and what has been open long enough to be stuck. Write it as a short standup update in plain sentences, no bullet lists longer than five items.",
+    "parameters": [
+      {
+        "key": "repo",
+        "label": "Repository",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The repository to summarize."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "ai",
+      "claude-code",
+      "routine",
+      "digest",
+      "report"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "AI_AGENT",
+    "icon": "Newspaper",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "sys-defender-scan",
+    "name": "Run a Microsoft Defender Scan",
+    "description": "Start a Microsoft Defender antivirus scan on a schedule and let the run history record whether it completed. Choose a quick scan for a routine weekly sweep or a full scan when you can spare the machine for an hour.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 5 * * 6",
+    "command": "powershell.exe -NoProfile -Command \"Start-MpScan -ScanType {{scanType}}\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Start-MpScan -ScanType {{scanType}}\"",
+    "parameters": [
+      {
+        "key": "scanType",
+        "label": "Scan type",
+        "type": "select",
+        "default": "QuickScan",
+        "required": true,
+        "options": [
+          "QuickScan",
+          "FullScan"
+        ],
+        "help": "QuickScan checks the places malware usually starts and finishes in minutes; FullScan reads every file and can run for hours."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "system",
+      "windows",
+      "security",
+      "antivirus"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "SYSTEM",
+    "icon": "ShieldCheck",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-run-program",
+    "name": "Run a Program (Cronsole)",
+    "description": "Run any executable with arguments on the machine hosting Cronsole — no agent, no Task Scheduler entry. Cronsole schedules and runs it itself.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 7 * * *",
+    "command": "\"{{exePath}}\" {{args}}",
+    "commandTemplate": "\"{{exePath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "exePath",
+        "label": "Executable path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the program, as seen by the machine running the Cronsole backend. On a Dockerized stack that is the container, not your desktop."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "executable"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "OTHER",
+    "icon": "PlayCircle",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_run_exe",
+    "name": "Run a Program / .exe",
+    "description": "Launch an executable or binary directly on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 7 * * 1",
+    "command": "\"{{exePath}}\" {{args}}",
+    "commandTemplate": "\"{{exePath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "exePath",
+        "label": "Executable path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the .exe / binary."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "executable"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "OTHER",
+    "icon": "AppWindow",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "mon-log-error-scan",
+    "name": "Scan a Log for Errors",
+    "description": "Search a log file for a pattern and fail the run when it matches, so a job that writes its problems to a file instead of alerting you still turns into something you can see. Supply the log to read and the text or regular expression that counts as trouble.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "*/20 * * * *",
+    "command": "powershell.exe -NoProfile -Command \"if (Select-String -Path '{{logPath}}' -Pattern '{{pattern}}' -Quiet) { exit 1 }\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"if (Select-String -Path '{{logPath}}' -Pattern '{{pattern}}' -Quiet) { exit 1 }\"",
+    "parameters": [
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "The file to search. A wildcard such as C:\\logs\\*.log reads every matching file."
+      },
+      {
+        "key": "pattern",
+        "label": "Pattern that means trouble",
+        "type": "text",
+        "default": "ERROR",
+        "required": true,
+        "help": "Text or a regular expression. A match exits non-zero, which Cronsole records as a failed run. Avoid single quotes (they close the PowerShell string)."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "monitoring",
+      "windows",
+      "logs",
+      "alert"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "MONITORING",
+    "icon": "FileSearch",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "sys-scheduled-reboot",
+    "name": "Scheduled Reboot (Windows)",
+    "description": "Restart the machine on a schedule after a warning delay — useful for applying pending updates during a maintenance window. Signs out every session, so schedule it only when no one is expected to be active.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 4 * * 0",
+    "command": "shutdown /r /t {{delaySeconds}} /c \"{{comment}}\"",
+    "commandTemplate": "shutdown /r /t {{delaySeconds}} /c \"{{comment}}\"",
+    "parameters": [
+      {
+        "key": "delaySeconds",
+        "label": "Warning delay (seconds)",
+        "type": "text",
+        "default": "60",
+        "required": true,
+        "help": "How long signed-in users see the restart warning before it happens."
+      },
+      {
+        "key": "comment",
+        "label": "Restart message",
+        "type": "text",
+        "default": "Scheduled maintenance restart",
+        "required": true,
+        "help": "Text shown in the shutdown warning dialog. Avoid quote characters."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "system",
+      "windows",
+      "reboot",
+      "maintenance"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "SYSTEM",
+    "icon": "Power",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "dev-npm-test-run",
+    "name": "Scheduled Test Run (npm)",
+    "description": "Run a project test suite on a schedule and capture the log; a red run means failing tests.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 5 * * *",
+    "command": "cmd.exe /c \"cd /d {{projectPath}} && npm test > {{logPath}} 2>&1\"",
+    "commandTemplate": "cmd.exe /c \"cd /d {{projectPath}} && npm test > {{logPath}} 2>&1\"",
+    "parameters": [
+      {
+        "key": "projectPath",
+        "label": "Project path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Folder containing package.json (avoid spaces in the path)."
+      },
+      {
+        "key": "logPath",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\test-run.log",
+        "required": true,
+        "help": "Where to write the test output."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "dev",
+      "node",
+      "npm",
+      "test",
+      "ci"
+    ],
+    "scriptType": "NODE",
+    "os": "WINDOWS",
+    "category": "DEV_WORKFLOW",
+    "icon": "FlaskConical",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ntf-email-alert",
+    "name": "Send an Email Alert (SMTP)",
+    "description": "Send a scheduled email through an SMTP relay using PowerShell — an alert channel for anyone who wants a message in their inbox rather than a chat webhook.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 8 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Send-MailMessage -SmtpServer '{{smtpServer}}' -From '{{fromAddress}}' -To '{{toAddress}}' -Subject '{{subject}}' -Body '{{body}}'\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Send-MailMessage -SmtpServer '{{smtpServer}}' -From '{{fromAddress}}' -To '{{toAddress}}' -Subject '{{subject}}' -Body '{{body}}'\"",
+    "parameters": [
+      {
+        "key": "smtpServer",
+        "label": "SMTP server",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "Hostname or IP of an SMTP relay that accepts mail from this machine without authentication, such as an internal relay or your mail provider’s relay endpoint."
+      },
+      {
+        "key": "fromAddress",
+        "label": "From address",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The address the alert appears to come from."
+      },
+      {
+        "key": "toAddress",
+        "label": "To address",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "Where to send the alert."
+      },
+      {
+        "key": "subject",
+        "label": "Subject",
+        "type": "text",
+        "default": "Cronsole scheduled alert",
+        "required": true,
+        "help": "The email subject line. Avoid single quotes (they close the PowerShell string)."
+      },
+      {
+        "key": "body",
+        "label": "Body",
+        "type": "text",
+        "default": "Scheduled alert from Cronsole.",
+        "required": true,
+        "help": "The email body text. Avoid single quotes (they close the PowerShell string)."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "notification",
+      "windows",
+      "email",
+      "smtp"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "NOTIFICATION",
+    "icon": "Mail",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ntf-sms-twilio-alert",
+    "name": "Send an SMS Alert (Twilio)",
+    "description": "Send a scheduled text message through the Twilio API — an alert channel for anyone who wants a message on their phone rather than a chat webhook or an email.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 8 * * *",
+    "command": "curl -fsS -X POST \"https://api.twilio.com/2010-04-01/Accounts/{{accountSid}}/Messages.json\" -u \"{{accountSid}}:{{authToken}}\" --data-urlencode \"To={{toNumber}}\" --data-urlencode \"From={{fromNumber}}\" --data-urlencode \"Body={{message}}\"",
+    "commandTemplate": "curl -fsS -X POST \"https://api.twilio.com/2010-04-01/Accounts/{{accountSid}}/Messages.json\" -u \"{{accountSid}}:{{authToken}}\" --data-urlencode \"To={{toNumber}}\" --data-urlencode \"From={{fromNumber}}\" --data-urlencode \"Body={{message}}\"",
+    "parameters": [
+      {
+        "key": "accountSid",
+        "label": "Twilio Account SID",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "Found on the Twilio Console dashboard."
+      },
+      {
+        "key": "authToken",
+        "label": "Twilio Auth Token",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "Found on the Twilio Console dashboard. Treat it like a password."
+      },
+      {
+        "key": "fromNumber",
+        "label": "From number",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "A Twilio phone number on your account, in E.164 format (e.g. +15551234567)."
+      },
+      {
+        "key": "toNumber",
+        "label": "To number",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The phone number to text, in E.164 format."
+      },
+      {
+        "key": "message",
+        "label": "Message",
+        "type": "text",
+        "default": "Cronsole scheduled alert",
+        "required": true,
+        "help": "The SMS body. Keep it short — long messages are billed as multiple segments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "notification",
+      "sms",
+      "twilio",
+      "alert"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "NOTIFICATION",
+    "icon": "Smartphone",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_bash_script",
+    "name": "Shell Script (bash)",
+    "description": "Run a shell script with bash on macOS or Linux.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "/bin/bash \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "/bin/bash \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "macos",
+      "shell",
+      "bash"
+    ],
+    "scriptType": "BASH",
+    "os": "MACOS",
+    "category": "OTHER",
+    "icon": "Terminal",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_zsh_script",
+    "name": "Shell Script (zsh)",
+    "description": "Run a shell script with zsh, the macOS default shell.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "/bin/zsh \"{{scriptPath}}\" {{args}}",
+    "commandTemplate": "/bin/zsh \"{{scriptPath}}\" {{args}}",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      },
+      {
+        "key": "args",
+        "label": "Arguments",
+        "type": "text",
+        "default": "",
+        "required": false,
+        "help": "Optional command-line arguments."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "macos",
+      "shell",
+      "zsh"
+    ],
+    "scriptType": "ZSH",
+    "os": "MACOS",
+    "category": "OTHER",
+    "icon": "Terminal",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "ntf-slack-webhook",
+    "name": "Slack Webhook Message",
+    "description": "Post a scheduled message to a Slack channel through an Incoming Webhook URL.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "powershell.exe -NoProfile -Command \"Invoke-RestMethod -Uri '{{webhookUrl}}' -Method Post -ContentType 'application/json' -Body (@{ text = '{{message}}' } | ConvertTo-Json)\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-RestMethod -Uri '{{webhookUrl}}' -Method Post -ContentType 'application/json' -Body (@{ text = '{{message}}' } | ConvertTo-Json)\"",
+    "parameters": [
+      {
+        "key": "webhookUrl",
+        "label": "Slack webhook URL",
+        "type": "url",
+        "default": "",
+        "required": true,
+        "help": "Create one from Slack: Apps -> Incoming Webhooks -> Add New Webhook, then copy the URL for the channel."
+      },
+      {
+        "key": "message",
+        "label": "Message",
+        "type": "text",
+        "default": "Cronsole scheduled heartbeat",
+        "required": true,
+        "help": "The text to post. Avoid single quotes (they close the PowerShell string)."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "notification",
+      "windows",
+      "slack",
+      "webhook"
+    ],
+    "scriptType": "POWERSHELL",
+    "os": "WINDOWS",
+    "category": "NOTIFICATION",
+    "icon": "MessageSquare",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-script-ssl-cert-expiry",
+    "name": "SSL Certificate Expiry Check (Cronsole)",
+    "description": "Connect to a host over TLS and fail the run when its certificate expires within your warning window. Cronsole has no certificate probe yet, so this uses a Node script and the built-in tls module rather than a check job.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 9 * * *",
+    "command": "node script (36 lines)",
+    "commandTemplate": "node script (36 lines)",
+    "parameters": [
+      {
+        "key": "host",
+        "label": "Host",
+        "type": "string",
+        "required": true,
+        "help": "Hostname to connect to, resolved from the machine running the Cronsole backend."
+      },
+      {
+        "key": "port",
+        "label": "Port",
+        "type": "number",
+        "default": "443",
+        "required": true,
+        "help": "TLS port to connect to."
+      },
+      {
+        "key": "warnDays",
+        "label": "Warn within (days)",
+        "type": "number",
+        "default": "14",
+        "required": true,
+        "help": "Fail the run when fewer than this many days remain before the certificate expires."
+      }
+    ],
+    "nativeJob": {
+      "jobType": "SCRIPT",
+      "interpreter": "node",
+      "body": "// Runs on the machine hosting the Cronsole backend, using the built-in tls module.\n// A non-zero exit records a failed run, same as a check that fails.\nconst tls = require(\"tls\");\n\nconst host = \"{{host}}\";\nconst port = Number(\"{{port}}\");\nconst warnDays = Number(\"{{warnDays}}\");\n\nconst socket = tls.connect({ host, port, servername: host, timeout: 10000 }, () => {\n  const cert = socket.getPeerCertificate();\n  socket.end();\n  if (!cert || !cert.valid_to) {\n    console.error(\"No certificate returned by \" + host + \":\" + port);\n    process.exitCode = 1;\n    return;\n  }\n  const expiresAt = new Date(cert.valid_to);\n  const daysLeft = Math.floor((expiresAt.getTime() - Date.now()) / 86400000);\n  console.log(\"Certificate for \" + host + \" expires \" + expiresAt.toISOString() + \" (\" + daysLeft + \" days left).\");\n  if (daysLeft < warnDays) {\n    console.error(\"Fewer than \" + warnDays + \" days remain.\");\n    process.exitCode = 1;\n  }\n});\n\nsocket.on(\"error\", (err) => {\n  console.error(\"TLS connection to \" + host + \":\" + port + \" failed: \" + err.message);\n  process.exitCode = 1;\n});\n\nsocket.on(\"timeout\", () => {\n  console.error(\"TLS connection to \" + host + \":\" + port + \" timed out.\");\n  socket.destroy();\n  process.exitCode = 1;\n});\n"
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "monitoring",
+      "ssl",
+      "tls",
+      "certificate"
+    ],
+    "scriptType": "NODE",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "ShieldAlert",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "data-rclone-sync",
+    "name": "Sync Folder to Cloud (rclone)",
+    "description": "Sync a local folder to a configured rclone remote (S3, Drive, B2, …).",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 23 * * *",
+    "command": "rclone sync \"{{source}}\" \"{{dest}}\" --log-file \"{{logFile}}\"",
+    "commandTemplate": "rclone sync \"{{source}}\" \"{{dest}}\" --log-file \"{{logFile}}\"",
+    "parameters": [
+      {
+        "key": "source",
+        "label": "Local source",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "Local path to sync from. Requires rclone installed + a configured remote."
+      },
+      {
+        "key": "dest",
+        "label": "Remote destination",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "rclone remote target, e.g. mydrive:backups/photos."
+      },
+      {
+        "key": "logFile",
+        "label": "Log file path",
+        "type": "path",
+        "default": "C:\\logs\\rclone.log",
+        "required": true,
+        "help": "Where rclone writes its run log."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "data",
+      "sync",
+      "cloud",
+      "rclone",
+      "backup"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "DATA_SYNC",
+    "icon": "CloudUpload",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-ffmpeg-transcode",
+    "name": "Transcode Video (ffmpeg)",
+    "description": "Re-encode a video file to H.264 with ffmpeg on the machine hosting Cronsole, useful for shrinking recordings dropped into a watch folder before they pile up on disk.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 2 * * *",
+    "command": "ffmpeg -y -i \"{{inputFile}}\" -c:v libx264 -crf {{quality}} \"{{outputFile}}\"",
+    "commandTemplate": "ffmpeg -y -i \"{{inputFile}}\" -c:v libx264 -crf {{quality}} \"{{outputFile}}\"",
+    "parameters": [
+      {
+        "key": "inputFile",
+        "label": "Source video path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the source video file, as seen by the machine running the Cronsole backend. ffmpeg must already be on that machine’s PATH."
+      },
+      {
+        "key": "outputFile",
+        "label": "Output video path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Where to write the transcoded file. Must be a different path than the source — ffmpeg cannot write over the file it is reading."
+      },
+      {
+        "key": "quality",
+        "label": "CRF quality",
+        "type": "text",
+        "default": "23",
+        "required": true,
+        "help": "The x264 CRF value. Lower means higher quality and a larger file; 18 to 28 is the usual range."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "media",
+      "video",
+      "ffmpeg"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "MEDIA",
+    "icon": "Film",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "sys-update-scan",
+    "name": "Trigger Windows Update Scan",
+    "description": "Kick off a Windows Update detection scan on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 7 * * *",
+    "command": "usoclient StartScan",
+    "commandTemplate": "usoclient StartScan",
+    "parameters": [],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "system",
+      "windows",
+      "updates"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "WINDOWS",
+    "category": "SYSTEM",
+    "icon": "DownloadCloud",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "gemini-daily-email-digest",
+    "name": "Trigger: Daily Digest by Email",
+    "description": "A Gemini trigger that researches a topic every morning and emails the digest through one of your saved MCP servers -- the credential stays on the connection and is never retyped.",
+    "sourcePlatform": "GEMINI_TRIGGERS",
+    "targetPlatforms": [
+      "GEMINI_TRIGGERS"
+    ],
+    "scheduleExpression": "0 11 * * 1-5",
+    "command": "Research {{topic}} and write a digest of what changed in the last 24 hours. Keep it to the {{length}} form: the developments that matter, one sentence each, with the source link. Then email it to {{recipient}} with the subject \"{{topic}} digest\" using the email tool available to you. Do not ask which stories to include or which address to use, both are given above. If the research or the send fails, say so explicitly in your final message and name the step that failed rather than summarizing what you would have sent.",
+    "commandTemplate": "Research {{topic}} and write a digest of what changed in the last 24 hours. Keep it to the {{length}} form: the developments that matter, one sentence each, with the source link. Then email it to {{recipient}} with the subject \"{{topic}} digest\" using the email tool available to you. Do not ask which stories to include or which address to use, both are given above. If the research or the send fails, say so explicitly in your final message and name the step that failed rather than summarizing what you would have sent.",
+    "parameters": [
+      {
+        "key": "topic",
+        "label": "Topic",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "What to research each morning, e.g. Postgres release notes and CVEs."
+      },
+      {
+        "key": "length",
+        "label": "Digest length",
+        "type": "select",
+        "default": "short",
+        "required": true,
+        "options": [
+          "short",
+          "detailed"
+        ],
+        "help": "How much detail to include."
+      },
+      {
+        "key": "recipient",
+        "label": "Send to",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The address the digest is emailed to."
+      },
+      {
+        "key": "mailServer",
+        "label": "Email MCP server",
+        "type": "text",
+        "default": "resend",
+        "required": true,
+        "help": "The name of a saved MCP server on your Gemini connection that can send mail. Save one on the Sources tab first -- the token lives there, not in this template."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": [
+      {
+        "type": "google_search"
+      },
+      {
+        "type": "url_context"
+      },
+      {
+        "type": "mcp_server",
+        "preset": "{{mailServer}}"
+      }
+    ],
+    "tags": [
+      "ai",
+      "gemini",
+      "trigger",
+      "digest",
+      "email"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "AI_AGENT",
+    "icon": "Mail",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "gemini-page-watch",
+    "name": "Trigger: Page Watch",
+    "description": "A Gemini trigger that reads one page every day and reports only what changed since yesterday -- a pricing page, a status page, a changelog.",
+    "sourcePlatform": "GEMINI_TRIGGERS",
+    "targetPlatforms": [
+      "GEMINI_TRIGGERS"
+    ],
+    "scheduleExpression": "0 13 * * *",
+    "command": "Read {{pageUrl}} and describe what changed since your previous run, paying attention to {{watchFor}}. Report the changes only. If nothing relevant changed, say no change in one line rather than restating the page, and quote the old and new wording for anything that did change. If the page could not be loaded, say so explicitly: an unreachable page is not the same as an unchanged one.",
+    "commandTemplate": "Read {{pageUrl}} and describe what changed since your previous run, paying attention to {{watchFor}}. Report the changes only. If nothing relevant changed, say no change in one line rather than restating the page, and quote the old and new wording for anything that did change. If the page could not be loaded, say so explicitly: an unreachable page is not the same as an unchanged one.",
+    "parameters": [
+      {
+        "key": "pageUrl",
+        "label": "Page URL",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The page to watch, e.g. a pricing, status or changelog page."
+      },
+      {
+        "key": "watchFor",
+        "label": "Watch for",
+        "type": "text",
+        "default": "prices, plan limits and anything marked new or deprecated",
+        "required": true,
+        "help": "What on the page matters, so an unrelated edit is not reported as news."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": [
+      {
+        "type": "url_context"
+      }
+    ],
+    "tags": [
+      "ai",
+      "gemini",
+      "trigger",
+      "monitoring",
+      "watch"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "Eye",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "gemini-weekly-repo-report",
+    "name": "Trigger: Weekly Repo Report",
+    "description": "A Gemini trigger that reads a public repository once a week and reports what shipped, what stalled, and what a user of the project would notice.",
+    "sourcePlatform": "GEMINI_TRIGGERS",
+    "targetPlatforms": [
+      "GEMINI_TRIGGERS"
+    ],
+    "scheduleExpression": "0 15 * * 1",
+    "command": "Read {{repoUrl}} and report on the last seven days: what merged, what is still open and has stopped moving, and any release or breaking change a user of the project would notice. Write it as short plain sentences grouped under those three headings, each entry with the pull request or issue it came from. Judge staleness by the dates on the page rather than asking what counts as stalled. If the repository cannot be read, say that explicitly instead of reporting an empty week.",
+    "commandTemplate": "Read {{repoUrl}} and report on the last seven days: what merged, what is still open and has stopped moving, and any release or breaking change a user of the project would notice. Write it as short plain sentences grouped under those three headings, each entry with the pull request or issue it came from. Judge staleness by the dates on the page rather than asking what counts as stalled. If the repository cannot be read, say that explicitly instead of reporting an empty week.",
+    "parameters": [
+      {
+        "key": "repoUrl",
+        "label": "Repository URL",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "The public repository to read, e.g. https://github.com/owner/name."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": [
+      {
+        "type": "url_context"
+      },
+      {
+        "type": "google_search"
+      }
+    ],
+    "tags": [
+      "ai",
+      "gemini",
+      "trigger",
+      "report",
+      "github"
+    ],
+    "scriptType": "AI_PROMPT",
+    "os": "CROSS_PLATFORM",
+    "category": "DEV_WORKFLOW",
+    "icon": "GitBranch",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "data-scp-upload",
+    "name": "Upload File via SCP",
+    "description": "Copy a local file to a remote server over SSH with scp, useful for shipping a report or backup off-box on a schedule.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER",
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "0 22 * * *",
+    "command": "scp \"{{localFile}}\" \"{{remoteTarget}}\"",
+    "commandTemplate": "scp \"{{localFile}}\" \"{{remoteTarget}}\"",
+    "parameters": [
+      {
+        "key": "localFile",
+        "label": "Local file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the file to upload."
+      },
+      {
+        "key": "remoteTarget",
+        "label": "Remote destination",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "help": "SSH destination in user@host:/path form, e.g. deploy@example.com:/backups/. Key-based authentication must already work for this user with no password prompt."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "data",
+      "sync",
+      "ssh",
+      "scp",
+      "upload"
+    ],
+    "scriptType": "EXECUTABLE",
+    "os": "CROSS_PLATFORM",
+    "category": "DATA_SYNC",
+    "icon": "UploadCloud",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-http-uptime-check",
+    "name": "Uptime Check (Cronsole)",
+    "description": "Call a URL every few minutes and record whether it answered. Runs in Cronsole itself — no agent, and it works on a machine with no Task Scheduler.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "*/5 * * * *",
+    "command": "{{url}}",
+    "commandTemplate": "{{url}}",
+    "parameters": [
+      {
+        "key": "url",
+        "label": "URL",
+        "type": "url",
+        "default": "",
+        "required": true,
+        "help": "The endpoint to GET. A non-2xx response is recorded as a failed run, which is what makes this a check rather than a ping."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "http",
+      "monitoring",
+      "uptime"
+    ],
+    "scriptType": "HTTP",
+    "os": "CROSS_PLATFORM",
+    "category": "MONITORING",
+    "icon": "Activity",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_vbscript",
+    "name": "VBScript (legacy)",
+    "description": "Run a legacy .vbs script via cscript.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 6 * * *",
+    "command": "cscript //nologo \"{{scriptPath}}\"",
+    "commandTemplate": "cscript //nologo \"{{scriptPath}}\"",
+    "parameters": [
+      {
+        "key": "scriptPath",
+        "label": "Script file path",
+        "type": "path",
+        "default": "",
+        "required": true,
+        "help": "Absolute path to the script on the target machine."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "vbscript",
+      "legacy"
+    ],
+    "scriptType": "VBSCRIPT",
+    "os": "WINDOWS",
+    "category": "OTHER",
+    "icon": "FileCode",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_webhook_macos",
+    "name": "Webhook / HTTP Ping (macOS)",
+    "description": "Call a URL on a schedule using curl.",
+    "sourcePlatform": "MACOS_LAUNCHD",
+    "targetPlatforms": [
+      "MACOS_LAUNCHD"
+    ],
+    "scheduleExpression": "*/15 * * * *",
+    "command": "curl -fsS -X {{method}} \"{{url}}\"",
+    "commandTemplate": "curl -fsS -X {{method}} \"{{url}}\"",
+    "parameters": [
+      {
+        "key": "method",
+        "label": "HTTP method",
+        "type": "select",
+        "default": "GET",
+        "required": true,
+        "options": [
+          "GET",
+          "POST"
+        ],
+        "help": "HTTP verb for the request."
+      },
+      {
+        "key": "url",
+        "label": "URL",
+        "type": "url",
+        "default": "",
+        "required": true,
+        "help": "The endpoint to call."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "macos",
+      "http",
+      "monitoring",
+      "webhook"
+    ],
+    "scriptType": "HTTP",
+    "os": "MACOS",
+    "category": "MONITORING",
+    "icon": "Globe",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_starter_webhook_windows",
+    "name": "Webhook / HTTP Ping (Windows)",
+    "description": "Call a URL on a schedule using Invoke-WebRequest.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "*/15 * * * *",
+    "command": "powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri '{{url}}' -Method {{method}} -UseBasicParsing\"",
+    "commandTemplate": "powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri '{{url}}' -Method {{method}} -UseBasicParsing\"",
+    "parameters": [
+      {
+        "key": "url",
+        "label": "URL",
+        "type": "url",
+        "default": "",
+        "required": true,
+        "help": "The endpoint to call."
+      },
+      {
+        "key": "method",
+        "label": "HTTP method",
+        "type": "select",
+        "default": "GET",
+        "required": true,
+        "options": [
+          "GET",
+          "POST"
+        ],
+        "help": "HTTP verb for the request."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "http",
+      "monitoring",
+      "webhook"
+    ],
+    "scriptType": "HTTP",
+    "os": "WINDOWS",
+    "category": "MONITORING",
+    "icon": "Globe",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "tpl_weekly_system_cleanup",
+    "name": "Weekly System Cleanup",
+    "description": "Delete temporary files on a schedule to reclaim disk space.",
+    "sourcePlatform": "WINDOWS_TASK_SCHEDULER",
+    "targetPlatforms": [
+      "WINDOWS_TASK_SCHEDULER"
+    ],
+    "scheduleExpression": "0 0 * * 0",
+    "command": "cmd.exe /c \"del /q /s {{targetPath}}\"",
+    "commandTemplate": "cmd.exe /c \"del /q /s {{targetPath}}\"",
+    "parameters": [
+      {
+        "key": "targetPath",
+        "label": "Path to clean",
+        "type": "path",
+        "default": "%temp%\\*",
+        "required": true,
+        "help": "Files/glob to delete, e.g. %temp%\\*."
+      }
+    ],
+    "nativeJob": {},
+    "agentTools": {},
+    "tags": [
+      "windows",
+      "cleanup",
+      "disk"
+    ],
+    "scriptType": "BATCH",
+    "os": "WINDOWS",
+    "category": "CLEANUP",
+    "icon": "Trash2",
+    "isStarter": false,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  },
+  {
+    "id": "native-script-starter",
+    "name": "Write a Script (Cronsole)",
+    "description": "A starting point for a scheduled script you write in Cronsole itself. Nothing needs to exist on disk — the body is stored with the task and runs under the interpreter you pick.",
+    "sourcePlatform": "TASKHUB_NATIVE",
+    "targetPlatforms": [
+      "TASKHUB_NATIVE"
+    ],
+    "scheduleExpression": "0 7 * * *",
+    "command": "node script (10 lines)",
+    "commandTemplate": "node script (10 lines)",
+    "parameters": [],
+    "nativeJob": {
+      "jobType": "SCRIPT",
+      "interpreter": "node",
+      "body": "// Runs on the machine hosting the Cronsole backend.\n// Anything printed here lands in the task's run history.\n// A non-zero exit is recorded as a failed run.\n\nconst startedAt = new Date();\nconsole.log(`Ran at ${startedAt.toISOString()}`);\n\n// Replace this with the work.\n// process.exit(1) to record a failure.\n"
+    },
+    "agentTools": {},
+    "tags": [
+      "cronsole-native",
+      "script",
+      "starter"
+    ],
+    "scriptType": "NODE",
+    "os": "CROSS_PLATFORM",
+    "category": "OTHER",
+    "icon": "FileCode",
+    "isStarter": true,
+    "userId": "demo-user",
+    "managed": true,
+    "isPublic": true,
+    "upvotes": 0,
+    "isFavorite": false,
+    "createdAt": "2026-09-13T09:00:00.000Z",
+    "updatedAt": "2026-09-13T09:00:00.000Z"
+  }
+]

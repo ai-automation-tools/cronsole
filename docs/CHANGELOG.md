@@ -12,6 +12,25 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ## [Unreleased]
 
+### Fixed
+
+- **The demo's Templates tab showed nothing** (2026-09-13). `/api/templates` returns a **flat
+  array**; the first fixture stub returned `{ templates: [], packs: [] }`, so the tab rendered an
+  empty catalog. It now serves the real **97 templates**, normalised out of `registry/` through the
+  backend's own `normalizeTemplate()` rather than a second copy of that mapping — a demo showing a
+  catalog the product disagreed with would be worse than an empty one.
+
+  **And deep links 404'd.** The app uses `BrowserRouter`, so `/templates` is a client-side route
+  with no file behind it: a static host asked for that path directly — a shared link, a bookmark, or
+  a refresh on any tab but the first — never booted the app. Demo builds now emit `404.html` as a
+  byte copy of `index.html`, which is what GitHub Pages serves for an unknown path. Production
+  builds deliberately do **not** get one; `dist/`'s only consumer is the reverse proxy, which has
+  its own fallback in the Caddyfile.
+
+  Both were found by **opening the built demo**, and the second only by opening it at `/templates`
+  rather than clicking through from the root — which is the path every visitor arriving from a
+  shared link takes.
+
 ### Added
 
 - **A click-through demo** (2026-09-13) — the real dashboard, served from fixtures with no

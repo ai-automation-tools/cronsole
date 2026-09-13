@@ -360,12 +360,13 @@ Load these on demand — don't read them all up front:
     working tree, so a stale branch replaces the public catalog with an older one and still prints
     *"Published."* ([#68](../../docs/troubleshooting/README.md#68-the-hosted-registry-goes-backwards-after-a-successful-publish)).
     **The front door is automated too, as of the same day**: `registry-site/index.html` is one page
-    on two hosts (`cronsole.mikesailab.com` and `mikesailab.com/cronsole-registry/`), and merging to
+    on three hosts (`cronsole.ai-automation-tools.dev`, the old `cronsole.mikesailab.com` kept alive, and
+    `mikesailab.com/cronsole-registry/`), and merging to
     `main` publishes it to both (`publish-frontdoor.yml` + `publish-registry.yml`), with
     **Front door drift** comparing served sha256 at both daily. The stale half is always whichever
     host you did not happen to open, which is why it is checked rather than eyeballed.
     **Two hosts means every link has a choice, and the choice is fixed** *(2026-09-09)*: a
-    **human-facing link goes to `cronsole.mikesailab.com`**, and `mikesailab.com/cronsole-registry/`
+    **human-facing link goes to `cronsole.ai-automation-tools.dev`**, and `mikesailab.com/cronsole-registry/`
     appears only where **code** fetches it — `TEMPLATE_REGISTRY_URL` and the gallery's own
     `REGISTRY_BASE` fallback. Never point a user at the registry host or at the mirror repo: it holds
     no source, and it is a worse copy of the page they were already on. Same reason
